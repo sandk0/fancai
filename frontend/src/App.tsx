@@ -15,6 +15,7 @@ import Layout from '@/components/Layout/Layout';
 import AuthGuard from '@/components/Auth/AuthGuard';
 import { OfflineBanner } from '@/components/UI/OfflineBanner';
 import { PWAUpdatePrompt } from '@/components/UI/PWAUpdatePrompt';
+import { ChunkLoadErrorBoundary } from '@/components/ErrorBoundary/ChunkLoadErrorBoundary';
 
 // Core pages (eagerly loaded - small and frequently accessed)
 import HomePage from '@/pages/HomePage';
@@ -85,9 +86,11 @@ function App() {
               path="/book/:bookId/read"
               element={
                 <AuthGuard>
-                  <Suspense fallback={<PageLoadingFallback />}>
-                    <BookReaderPage />
-                  </Suspense>
+                  <ChunkLoadErrorBoundary>
+                    <Suspense fallback={<PageLoadingFallback />}>
+                      <BookReaderPage />
+                    </Suspense>
+                  </ChunkLoadErrorBoundary>
                 </AuthGuard>
               }
             />
@@ -98,24 +101,26 @@ function App() {
               element={
                 <AuthGuard>
                   <Layout>
-                    <Suspense fallback={<PageLoadingFallback />}>
-                      <Routes>
-                        <Route path="/" element={<HomePage />} />
-                        <Route path="/library" element={<LibraryPage />} />
-                        <Route path="/book/:bookId" element={<BookPage />} />
-                        <Route path="/book/:bookId/images" element={<BookImagesPage />} />
-                        <Route path="/images" element={<ImagesGalleryPage />} />
-                        <Route path="/stats" element={<StatsPage />} />
-                        <Route
-                          path="/book/:bookId/chapter/:chapterNumber"
-                          element={<ChapterPage />}
-                        />
-                        <Route path="/profile" element={<ProfilePage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
-                        <Route path="/admin" element={<AdminDashboard />} />
-                        <Route path="*" element={<NotFoundPage />} />
-                      </Routes>
-                    </Suspense>
+                    <ChunkLoadErrorBoundary>
+                      <Suspense fallback={<PageLoadingFallback />}>
+                        <Routes>
+                          <Route path="/" element={<HomePage />} />
+                          <Route path="/library" element={<LibraryPage />} />
+                          <Route path="/book/:bookId" element={<BookPage />} />
+                          <Route path="/book/:bookId/images" element={<BookImagesPage />} />
+                          <Route path="/images" element={<ImagesGalleryPage />} />
+                          <Route path="/stats" element={<StatsPage />} />
+                          <Route
+                            path="/book/:bookId/chapter/:chapterNumber"
+                            element={<ChapterPage />}
+                          />
+                          <Route path="/profile" element={<ProfilePage />} />
+                          <Route path="/settings" element={<SettingsPage />} />
+                          <Route path="/admin" element={<AdminDashboard />} />
+                          <Route path="*" element={<NotFoundPage />} />
+                        </Routes>
+                      </Suspense>
+                    </ChunkLoadErrorBoundary>
                   </Layout>
                 </AuthGuard>
               }
