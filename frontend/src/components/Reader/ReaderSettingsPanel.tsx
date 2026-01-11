@@ -336,7 +336,7 @@ interface NavigationModeButtonProps {
 }
 
 const NavigationModeButton: React.FC<NavigationModeButtonProps> = ({
-  mode,
+  mode: _mode,
   icon: Icon,
   label,
   description,

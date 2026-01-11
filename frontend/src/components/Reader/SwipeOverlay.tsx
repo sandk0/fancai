@@ -16,7 +16,6 @@
 import React, { memo, useMemo } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
-import { SWIPE_CONFIG } from '@/hooks/epub/useSwipeNavigation';
 import SwipeIndicator from './SwipeIndicator';
 
 interface SwipeOverlayProps {
@@ -59,7 +58,7 @@ const SPRING_CONFIG = {
 export const SwipeOverlay: React.FC<SwipeOverlayProps> = memo(({
   swipeState,
   viewportWidth,
-  onAnimationComplete,
+  onAnimationComplete: _onAnimationComplete,
   headerHeight = 70,
 }) => {
   // Calculate progress as percentage of viewport

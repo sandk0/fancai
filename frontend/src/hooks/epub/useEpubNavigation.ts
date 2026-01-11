@@ -150,16 +150,6 @@ export const useEpubNavigation = (
     }
   }, [rendition]);
 
-  /**
-   * Legacy alias for iOS direct scroll
-   * @deprecated Use directScroll instead
-   */
-  const iosDirectScroll = useCallback((direction: 'next' | 'prev'): boolean => {
-    // Call async version but don't wait (for backwards compatibility)
-    directScroll(direction, false);
-    return true;
-  }, [directScroll]);
-
   const nextPage = useCallback(async () => {
     if (!rendition) return;
 

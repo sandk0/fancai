@@ -151,7 +151,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Navigation mode from store (swipe or tap)
-  const { navigationMode, updateNavigationMode } = useReaderStore();
+  const { navigationMode } = useReaderStore();
 
   // Determine effective navigation mode (iOS always uses swipe)
   const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
@@ -245,7 +245,22 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // Hook 6: Page navigation
   const { nextPage, prevPage } = useEpubNavigation(rendition);
 
-  // Hook 6b: Swipe navigation for mobile (iOS always uses swipe)
+  // Hook 7: Image modal management with IndexedDB caching
+  const {
+    selectedImage,
+    isOpen: isModalOpen,
+    openModal,
+    closeModal,
+    updateImage,
+    isGenerating: _isGeneratingImage, // Available for future use
+    generationStatus,
+    generationError,
+    descriptionPreview,
+    cancelGeneration,
+    isCached: _isCached, // For future UI indicator
+  } = useImageModal({ bookId: book.id });
+
+  // Hook 7b: Swipe navigation for mobile (iOS always uses swipe)
   const { swipeState, touchHandlers: swipeTouchHandlers } = useSwipeNavigation({
     rendition,
     enabled: renditionReady && effectiveNavigationMode === 'swipe' && !isModalOpen,
@@ -263,21 +278,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       // Can track swipe analytics here
     },
   });
-
-  // Hook 7: Image modal management with IndexedDB caching
-  const {
-    selectedImage,
-    isOpen: isModalOpen,
-    openModal,
-    closeModal,
-    updateImage,
-    isGenerating: _isGeneratingImage, // Available for future use
-    generationStatus,
-    generationError,
-    descriptionPreview,
-    cancelGeneration,
-    isCached: _isCached, // For future UI indicator
-  } = useImageModal({ bookId: book.id });
 
   // Hook 8: Keyboard navigation (disabled when modal is open)
   // Pass rendition to also listen on iframe document for keyboard events
