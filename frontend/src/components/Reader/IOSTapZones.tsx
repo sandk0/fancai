@@ -65,6 +65,8 @@ interface IOSTapZonesProps {
   onDescriptionClick?: (descriptionId: string) => void;
   enabled?: boolean;
   headerHeight?: number;
+  /** Whether navigation tap zones should be rendered (false = swipe mode, only center zone) */
+  navigationEnabled?: boolean;
 }
 
 /**
@@ -77,6 +79,7 @@ export const IOSTapZones = memo(function IOSTapZones({
   onDescriptionClick: _onDescriptionClick, // Kept for backwards compatibility, not used with postMessage approach
   enabled = true,
   headerHeight = 70,
+  navigationEnabled = true, // When false (swipe mode), only center zone is rendered
 }: IOSTapZonesProps) {
   // Only render on iOS
   if (!isIOS()) {
@@ -422,46 +425,55 @@ export const IOSTapZones = memo(function IOSTapZones({
 
   return (
     <>
-      {/* Left tap zone - very narrow edge */}
-      <div
-        data-testid="ios-tap-zone-left"
-        style={{
-          ...baseStyle,
-          left: 'env(safe-area-inset-left)',
-          width: `${ZONE_WIDTH_PERCENT}%`,
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={(e) => handleTouchEnd(e, 'prev')}
-        onClick={(e) => handleClick(e, 'prev')}
-        aria-label="Previous page"
-        role="button"
-        tabIndex={-1}
-      />
+      {/* Left tap zone - only when navigation is enabled (tap mode) */}
+      {navigationEnabled && (
+        <div
+          data-testid="ios-tap-zone-left"
+          style={{
+            ...baseStyle,
+            left: 'env(safe-area-inset-left)',
+            width: `${ZONE_WIDTH_PERCENT}%`,
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={(e) => handleTouchEnd(e, 'prev')}
+          onClick={(e) => handleClick(e, 'prev')}
+          aria-label="Previous page"
+          role="button"
+          tabIndex={-1}
+        />
+      )}
 
-      {/* Right tap zone - very narrow edge */}
-      <div
-        data-testid="ios-tap-zone-right"
-        style={{
-          ...baseStyle,
-          right: 'env(safe-area-inset-right)',
-          width: `${ZONE_WIDTH_PERCENT}%`,
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={(e) => handleTouchEnd(e, 'next')}
-        onClick={(e) => handleClick(e, 'next')}
-        aria-label="Next page"
-        role="button"
-        tabIndex={-1}
-      />
+      {/* Right tap zone - only when navigation is enabled (tap mode) */}
+      {navigationEnabled && (
+        <div
+          data-testid="ios-tap-zone-right"
+          style={{
+            ...baseStyle,
+            right: 'env(safe-area-inset-right)',
+            width: `${ZONE_WIDTH_PERCENT}%`,
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={(e) => handleTouchEnd(e, 'next')}
+          onClick={(e) => handleClick(e, 'next')}
+          aria-label="Next page"
+          role="button"
+          tabIndex={-1}
+        />
+      )}
 
       {/* Center tap zone - for description clicks via bidirectional postMessage */}
       {/* Always rendered - sends tap coordinates to iframe, iframe finds description */}
+      {/* When navigation is disabled (swipe mode), covers entire width except safe areas */}
       <div
         data-testid="ios-tap-zone-center"
         style={{
           ...baseStyle,
-          left: `calc(${ZONE_WIDTH_PERCENT}% + env(safe-area-inset-left))`,
-          right: `calc(${ZONE_WIDTH_PERCENT}% + env(safe-area-inset-right))`,
+          left: navigationEnabled
+            ? `calc(${ZONE_WIDTH_PERCENT}% + env(safe-area-inset-left))`
+            : 'env(safe-area-inset-left)',
+          right: navigationEnabled
+            ? `calc(${ZONE_WIDTH_PERCENT}% + env(safe-area-inset-right))`
+            : 'env(safe-area-inset-right)',
         }}
         onTouchStart={handleCenterTouchStart}
         onTouchEnd={handleCenterTouchEnd}
@@ -492,24 +504,26 @@ export const IOSTapZones = memo(function IOSTapZones({
         </div>
       )}
 
-      {/* Debug indicator - always shown on iOS for now */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 80,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(0, 128, 0, 0.8)',
-          color: 'white',
-          padding: '6px 12px',
-          borderRadius: 4,
-          fontSize: 11,
-          zIndex: 9999,
-          pointerEvents: 'none',
-        }}
-      >
-        iOS {ZONE_WIDTH_PERCENT}%+Center {isStandalone() ? '[PWA]' : '[Safari]'}
-      </div>
+      {/* Debug indicator - only shown in development */}
+      {import.meta.env.DEV && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: navigationEnabled ? 'rgba(0, 128, 0, 0.8)' : 'rgba(59, 130, 246, 0.8)',
+            color: 'white',
+            padding: '6px 12px',
+            borderRadius: 4,
+            fontSize: 11,
+            zIndex: 9999,
+            pointerEvents: 'none',
+          }}
+        >
+          iOS {navigationEnabled ? `${ZONE_WIDTH_PERCENT}%+Tap` : 'Swipe+Center'} {isStandalone() ? '[PWA]' : '[Safari]'}
+        </div>
+      )}
     </>
   );
 });

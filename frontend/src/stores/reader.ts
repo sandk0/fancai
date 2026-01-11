@@ -14,6 +14,9 @@ export interface ReadingProgress {
 // Reader theme type including 'night' and 'outdoor' modes
 export type ReaderTheme = 'light' | 'dark' | 'sepia' | 'night' | 'outdoor';
 
+// Navigation mode type
+export type NavigationMode = 'swipe' | 'tap';
+
 interface ReaderState {
   // Settings
   fontSize: number;
@@ -24,6 +27,7 @@ interface ReaderState {
   textColor: string;
   maxWidth: number;
   margin: number;
+  navigationMode: NavigationMode; // 'swipe' or 'tap' - iOS always uses 'swipe'
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
@@ -37,6 +41,7 @@ interface ReaderState {
   updateTheme: (theme: ReaderTheme) => void;
   updateMaxWidth: (width: number) => void;
   updateMargin: (margin: number) => void;
+  updateNavigationMode: (mode: NavigationMode) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
   addBookmark: (bookId: string, chapter: number, page: number, text: string) => void;
   removeBookmark: (bookId: string, index: number) => void;
@@ -83,6 +88,7 @@ export const useReaderStore = create<ReaderState>()(
       textColor: '#1f2937',
       maxWidth: 800,
       margin: 40,
+      navigationMode: 'swipe', // Default to swipe (modern UX)
       
       // Initial state
       readingProgress: {},
@@ -117,6 +123,10 @@ export const useReaderStore = create<ReaderState>()(
 
       updateMargin: (margin: number) => {
         set({ margin: Math.max(0, Math.min(100, margin)) });
+      },
+
+      updateNavigationMode: (mode: NavigationMode) => {
+        set({ navigationMode: mode });
       },
 
       // Reading progress actions
@@ -217,6 +227,7 @@ export const useReaderStore = create<ReaderState>()(
           textColor: '#1f2937',
           maxWidth: 800,
           margin: 40,
+          navigationMode: 'swipe',
         });
       },
 
@@ -233,6 +244,7 @@ export const useReaderStore = create<ReaderState>()(
           textColor: '#1f2937',
           maxWidth: 800,
           margin: 40,
+          navigationMode: 'swipe',
           // Clear all user data
           readingProgress: {},
           bookmarks: {},
@@ -262,6 +274,7 @@ export const useReaderStore = create<ReaderState>()(
         textColor: state.textColor,
         maxWidth: state.maxWidth,
         margin: state.margin,
+        navigationMode: state.navigationMode,
         readingProgress: state.readingProgress,
         bookmarks: state.bookmarks,
         highlights: state.highlights,

@@ -14,7 +14,8 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { m, AnimatePresence, PanInfo, useDragControls } from 'framer-motion';
-import { X, Type, Sun, Moon, Maximize2, RotateCcw, Minus, Plus, GripHorizontal, Smartphone } from 'lucide-react';
+import { X, Type, Sun, Moon, Maximize2, RotateCcw, Minus, Plus, GripHorizontal, Smartphone, Hand, MousePointerClick } from 'lucide-react';
+import type { NavigationMode } from '@/stores/reader';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Z_INDEX } from '@/lib/zIndex';
 import type { ReaderTheme } from '@/stores/reader';
@@ -44,6 +45,12 @@ interface ReaderSettingsPanelProps {
   wakeLockActive?: boolean;
   /** Callback when wake lock setting is toggled */
   onWakeLockChange?: (enabled: boolean) => void;
+  /** Current navigation mode */
+  navigationMode?: NavigationMode;
+  /** Callback when navigation mode changes */
+  onNavigationModeChange?: (mode: NavigationMode) => void;
+  /** Whether device is iOS (navigation mode toggle hidden on iOS) */
+  isIOS?: boolean;
 }
 
 // Theme configurations with visual preview
@@ -67,6 +74,12 @@ const widthPresets = [
   { value: 600, label: 'Narrow' },
   { value: 800, label: 'Medium' },
   { value: 1000, label: 'Wide' },
+];
+
+// Navigation mode options
+const navigationModeOptions: { value: NavigationMode; icon: typeof Hand }[] = [
+  { value: 'swipe', icon: Hand },
+  { value: 'tap', icon: MousePointerClick },
 ];
 
 // Custom hook for detecting mobile
@@ -312,6 +325,41 @@ const WidthPresetButton: React.FC<WidthPresetButtonProps> = ({ preset, isActive,
   </button>
 );
 
+// Navigation mode button
+interface NavigationModeButtonProps {
+  mode: NavigationMode;
+  icon: typeof Hand;
+  label: string;
+  description: string;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+const NavigationModeButton: React.FC<NavigationModeButtonProps> = ({
+  mode,
+  icon: Icon,
+  label,
+  description,
+  isActive,
+  onClick,
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl
+                border-2 transition-all touch-target min-h-[100px]
+                ${isActive
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-muted-foreground/30'
+                }`}
+    aria-label={label}
+    aria-pressed={isActive}
+  >
+    <Icon className={`w-8 h-8 mb-2 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+    <span className="text-sm font-medium text-foreground">{label}</span>
+    <span className="text-xs text-muted-foreground mt-1 text-center">{description}</span>
+  </button>
+);
+
 // Main component
 export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.memo(({
   isOpen,
@@ -333,6 +381,9 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
   wakeLockSupported,
   wakeLockActive,
   onWakeLockChange,
+  navigationMode = 'swipe',
+  onNavigationModeChange,
+  isIOS = false,
 }) => {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -487,6 +538,28 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
             />
           </div>
         </section>
+
+        {/* Navigation Section - only shown on Android (iOS always uses swipe) */}
+        {!isIOS && onNavigationModeChange && (
+          <section>
+            <SectionHeader icon={<Hand className="w-5 h-5" />} title={t('readerSettings.navigation') || 'Navigation'} />
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                {navigationModeOptions.map((option) => (
+                  <NavigationModeButton
+                    key={option.value}
+                    mode={option.value}
+                    icon={option.icon}
+                    label={t(`readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`) || option.value}
+                    description={t(`readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}Desc`) || ''}
+                    isActive={navigationMode === option.value}
+                    onClick={() => onNavigationModeChange(option.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Wake Lock Section - only shown if browser supports it */}
         {wakeLockSupported && onWakeLockChange && (

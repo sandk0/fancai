@@ -56,6 +56,9 @@ import {
   useToc,
   useTouchNavigation,
 } from '@/hooks/epub';
+import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
+import { isIOS, isAndroid } from '@/hooks/epub/useEpubNavigation';
+import { useReaderStore } from '@/stores/reader';
 
 // Import reading session hook
 import { useReadingSession } from '@/hooks/useReadingSession';
@@ -71,6 +74,7 @@ import { ExtractionIndicator } from './ExtractionIndicator';
 import { ProgressSaveIndicator } from './ProgressSaveIndicator';
 import { PositionConflictDialog } from './PositionConflictDialog';
 import { IOSTapZones } from './IOSTapZones';
+import { SwipeOverlay } from './SwipeOverlay';
 import { notify } from '@/stores/ui';
 
 // Wake Lock hook
@@ -145,6 +149,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // State for settings dropdown
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Navigation mode from store (swipe or tap)
+  const { navigationMode, updateNavigationMode } = useReaderStore();
+
+  // Determine effective navigation mode (iOS always uses swipe)
+  const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
+  const isMobileDevice = isIOS() || isAndroid();
 
   // State for position conflict dialog (sync between devices)
   const [positionConflict, setPositionConflict] = useState<PositionConflict | null>(null);
@@ -233,6 +244,25 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Hook 6: Page navigation
   const { nextPage, prevPage } = useEpubNavigation(rendition);
+
+  // Hook 6b: Swipe navigation for mobile (iOS always uses swipe)
+  const { swipeState, touchHandlers: swipeTouchHandlers } = useSwipeNavigation({
+    rendition,
+    enabled: renditionReady && effectiveNavigationMode === 'swipe' && !isModalOpen,
+    onNavigate: async (direction) => {
+      if (direction === 'next') {
+        await nextPage();
+      } else {
+        await prevPage();
+      }
+    },
+    onSwipeStart: () => {
+      // Can add haptic feedback here in the future
+    },
+    onSwipeEnd: (_navigated) => {
+      // Can track swipe analytics here
+    },
+  });
 
   // Hook 7: Image modal management with IndexedDB caching
   const {
@@ -771,6 +801,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
       {/* EPUB Viewer - Maximum reading space, with safe-area support */}
       {/* Header always visible - padding accounts for 70px header height */}
+      {/* Swipe touch handlers attached for swipe navigation mode */}
       <div
         ref={viewerRef}
         id="epub-viewer"
@@ -781,25 +812,41 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
           paddingBottom: 'env(safe-area-inset-bottom)',
+          touchAction: effectiveNavigationMode === 'swipe' ? 'pan-y pinch-zoom' : 'auto',
         }}
+        {...(effectiveNavigationMode === 'swipe' ? swipeTouchHandlers : {})}
       />
 
-      {/* iOS-specific tap navigation zones (overlay solution for iOS PWA) */}
-      <IOSTapZones
-        onPrevPage={prevPage}
-        onNextPage={nextPage}
-        onDescriptionClick={async (descriptionId: string) => {
-          // Find description by ID
-          const desc = descriptions.find(d => d.id === descriptionId);
-          if (desc) {
-            // Find associated image
-            const img = images.find(i => i.description?.id === descriptionId);
-            await openModal(desc, img);
-          }
-        }}
-        enabled={!isLoading && !isGenerating && !error}
-        headerHeight={70}
-      />
+      {/* Swipe Navigation Overlay - Shows visual feedback during swipe gestures */}
+      {effectiveNavigationMode === 'swipe' && isMobileDevice && (
+        <SwipeOverlay
+          swipeState={swipeState}
+          viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 375}
+          headerHeight={70}
+        />
+      )}
+
+      {/* Tap navigation zones - only shown on iOS when NOT using swipe, or for center zone description clicks */}
+      {/* On iOS with swipe mode, IOSTapZones only handles center zone for description clicks */}
+      {/* On Android/Desktop with tap mode, useTouchNavigation handles navigation */}
+      {isIOS() && (
+        <IOSTapZones
+          onPrevPage={prevPage}
+          onNextPage={nextPage}
+          onDescriptionClick={async (descriptionId: string) => {
+            // Find description by ID
+            const desc = descriptions.find(d => d.id === descriptionId);
+            if (desc) {
+              // Find associated image
+              const img = images.find(i => i.description?.id === descriptionId);
+              await openModal(desc, img);
+            }
+          }}
+          enabled={!isLoading && !isGenerating && !error}
+          headerHeight={70}
+          navigationEnabled={effectiveNavigationMode === 'tap'}
+        />
+      )}
 
       {/* Loading Overlay */}
       {(isLoading || isGenerating || isRestoringPosition) && (

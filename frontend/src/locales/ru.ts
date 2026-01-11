@@ -559,6 +559,29 @@ export const ru = {
     resetToDefaults: 'Сбросить настройки',
     settingsReset: 'Настройки сброшены',
     settingsResetDesc: 'Настройки читалки восстановлены по умолчанию',
+
+    // Navigation settings
+    navigation: 'Навигация',
+    navigationMode: 'Режим навигации',
+    navigationModeSwipe: 'Свайп',
+    navigationModeTap: 'Тап',
+    navigationModeSwipeDesc: 'Листайте пальцем влево/вправо',
+    navigationModeTapDesc: 'Нажимайте по краям экрана',
+    navigationModeNote: 'На iOS используется только свайп',
+
+    // Display settings
+    display: 'Дисплей',
+    keepScreenOn: 'Не выключать экран',
+    screenWillStayOn: 'Экран не будет гаснуть',
+    activatesWhileReading: 'Активируется при чтении',
+    screenWillTurnOff: 'Экран будет гаснуть',
+
+    // Theme
+    theme: 'Тема',
+    typography: 'Типографика',
+    layout: 'Макет',
+    textWidth: 'Ширина текста',
+    margins: 'Отступы',
   },
 } as const;
 

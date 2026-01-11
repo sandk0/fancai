@@ -2,6 +2,7 @@
  * useEpubNavigation - Custom hook for EPUB page navigation
  *
  * Provides simple next/prev page navigation with keyboard support.
+ * Includes smooth scroll animation for better UX.
  *
  * @param rendition - epub.js Rendition instance
  * @returns Navigation functions
@@ -14,7 +15,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { Rendition } from '@/types/epub';
 
 // Detect iOS device
-const isIOS = (): boolean => {
+export const isIOS = (): boolean => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return false;
   }
@@ -22,6 +23,50 @@ const isIOS = (): boolean => {
   const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
   const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
   return isIOSDevice || isIPadOS;
+};
+
+// Detect Android device
+export const isAndroid = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  return /Android/i.test(navigator.userAgent);
+};
+
+/**
+ * Wait for scroll to complete
+ * Uses requestAnimationFrame polling to detect when scroll position stabilizes
+ */
+const waitForScrollEnd = (element: HTMLElement, target: number, timeout = 500): Promise<void> => {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    let lastPosition = element.scrollLeft;
+    let stableCount = 0;
+
+    const checkScroll = () => {
+      const currentPosition = element.scrollLeft;
+      const isAtTarget = Math.abs(currentPosition - target) < 2;
+      const isStable = Math.abs(currentPosition - lastPosition) < 1;
+
+      // Resolve if at target or position is stable for 3 frames
+      if (isAtTarget || (isStable && stableCount > 3)) {
+        resolve();
+        return;
+      }
+
+      // Timeout after specified duration
+      if (Date.now() - startTime > timeout) {
+        resolve();
+        return;
+      }
+
+      lastPosition = currentPosition;
+      stableCount = isStable ? stableCount + 1 : 0;
+      requestAnimationFrame(checkScroll);
+    };
+
+    requestAnimationFrame(checkScroll);
+  });
 };
 
 interface UseEpubNavigationReturn {
@@ -38,11 +83,16 @@ export const useEpubNavigation = (
   const debugInfoRef = useRef<string | null>(null);
 
   /**
-   * iOS FIX: Direct scroll navigation bypassing epub.js
+   * iOS/Mobile FIX: Direct scroll navigation bypassing epub.js
    * epub.js navigation is broken on iOS PWA - scrolls multiple pages
    * We directly manipulate the scroll position instead
+   *
+   * Now with smooth scrolling for better UX
    */
-  const iosDirectScroll = useCallback((direction: 'next' | 'prev'): boolean => {
+  const directScroll = useCallback(async (
+    direction: 'next' | 'prev',
+    smooth = true
+  ): Promise<boolean> => {
     if (!rendition) return false;
 
     try {
@@ -66,7 +116,7 @@ export const useEpubNavigation = (
       }
 
       // Check if we can scroll (not at boundary)
-      if (direction === 'next' && currentScroll >= maxScroll) {
+      if (direction === 'next' && currentScroll >= maxScroll - 1) {
         // At end - let epub.js handle chapter change
         debugInfoRef.current = `END S:${Math.round(currentScroll)}`;
         return false;
@@ -77,23 +127,45 @@ export const useEpubNavigation = (
         return false;
       }
 
-      // Perform direct scroll
-      stage.scrollLeft = newScroll;
-      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} W:${viewportWidth}`;
+      // Perform scroll (smooth or instant)
+      if (smooth) {
+        // Use CSS smooth scroll
+        stage.scrollTo({
+          left: newScroll,
+          behavior: 'smooth',
+        });
+        // Wait for scroll to complete
+        await waitForScrollEnd(stage, newScroll);
+      } else {
+        // Instant scroll
+        stage.scrollLeft = newScroll;
+      }
+
+      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} W:${viewportWidth}${smooth ? ' smooth' : ''}`;
 
       return true;
     } catch (err) {
-      console.warn('[useEpubNavigation] iOS direct scroll error:', err);
+      console.warn('[useEpubNavigation] Direct scroll error:', err);
       return false;
     }
   }, [rendition]);
 
+  /**
+   * Legacy alias for iOS direct scroll
+   * @deprecated Use directScroll instead
+   */
+  const iosDirectScroll = useCallback((direction: 'next' | 'prev'): boolean => {
+    // Call async version but don't wait (for backwards compatibility)
+    directScroll(direction, false);
+    return true;
+  }, [directScroll]);
+
   const nextPage = useCallback(async () => {
     if (!rendition) return;
 
-    // On iOS, try direct scroll first
-    if (isIOS()) {
-      const scrolled = iosDirectScroll('next');
+    // On mobile (iOS/Android), try direct scroll with smooth animation first
+    if (isIOS() || isAndroid()) {
+      const scrolled = await directScroll('next', true);
       if (scrolled) return; // Direct scroll worked
       // Fall through to epub.js for chapter changes
     }
@@ -105,14 +177,14 @@ export const useEpubNavigation = (
         console.warn('[useEpubNavigation] Could not go to next page:', err);
       }
     }
-  }, [rendition, iosDirectScroll]);
+  }, [rendition, directScroll]);
 
   const prevPage = useCallback(async () => {
     if (!rendition) return;
 
-    // On iOS, try direct scroll first
-    if (isIOS()) {
-      const scrolled = iosDirectScroll('prev');
+    // On mobile (iOS/Android), try direct scroll with smooth animation first
+    if (isIOS() || isAndroid()) {
+      const scrolled = await directScroll('prev', true);
       if (scrolled) return; // Direct scroll worked
       // Fall through to epub.js for chapter changes
     }
@@ -124,7 +196,7 @@ export const useEpubNavigation = (
         console.warn('[useEpubNavigation] Could not go to prev page:', err);
       }
     }
-  }, [rendition, iosDirectScroll]);
+  }, [rendition, directScroll]);
 
   // Note: epub.js doesn't provide easy way to check if we can go next/prev
   // We return true for now, and let epub.js handle boundaries
