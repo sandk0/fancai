@@ -35,6 +35,10 @@ const NAV_DEBOUNCE_MS = 500;
 // 8% = roughly 30px on iPhone, enough for a finger tap on the edge
 const ZONE_WIDTH_PERCENT = 8;
 
+// Swipe detection config for iOS
+const SWIPE_MIN_DISTANCE = 30; // px - minimum horizontal movement for swipe
+const SWIPE_MAX_VERTICAL_RATIO = 2.0; // if deltaY/deltaX > this, it's vertical scroll
+
 // Detect iOS device (iPhone, iPad, iPod)
 const isIOS = (): boolean => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -284,7 +288,7 @@ export const IOSTapZones = memo(function IOSTapZones({
   }, [enabled]);
 
   /**
-   * Handle center zone touch end - send coordinates to iframe via postMessage
+   * Handle center zone touch end - detect swipes OR send coordinates to iframe via postMessage
    *
    * iOS PWA FIX (January 2026):
    * On iOS PWA, iframe.contentDocument is null due to security restrictions.
@@ -292,13 +296,23 @@ export const IOSTapZones = memo(function IOSTapZones({
    * via postMessage. The script inside the iframe (injected by useContentHooks)
    * will do elementFromPoint and send the descriptionId back via postMessage.
    *
-   * Flow:
+   * SWIPE MODE FIX (January 2026):
+   * When navigationEnabled is false (swipe mode), we also detect swipe gestures here.
+   * The center zone overlay intercepts all touches before they reach the iframe,
+   * so we must handle swipes in this component for iOS.
+   *
+   * Flow for taps:
    * 1. User taps in center zone
    * 2. We calculate coordinates relative to iframe
    * 3. We send postMessage to iframe with coordinates: { type: 'TAP_COORDINATES', x, y }
    * 4. Script in iframe does elementFromPoint, finds description
    * 5. Script sends postMessage back: { type: 'DESCRIPTION_CLICK', descriptionId }
    * 6. useDescriptionHighlighting receives message and triggers callback
+   *
+   * Flow for swipes (when navigationEnabled is false):
+   * 1. User swipes horizontally
+   * 2. We detect the swipe direction
+   * 3. We call onPrevPage or onNextPage
    */
   const handleCenterTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
@@ -313,11 +327,70 @@ export const IOSTapZones = memo(function IOSTapZones({
 
     const startX = touchStartRef.current.x;
     const startY = touchStartRef.current.y;
-    const deltaX = Math.abs(touch.clientX - startX);
+    const rawDeltaX = touch.clientX - startX; // Keep sign for direction
+    const deltaX = Math.abs(rawDeltaX);
     const deltaY = Math.abs(touch.clientY - startY);
     const duration = Date.now() - touchStartRef.current.time;
 
     touchStartRef.current = null;
+
+    // SWIPE DETECTION (only in swipe mode - when navigationEnabled is false)
+    if (!navigationEnabled) {
+      // Check if it's a horizontal swipe (not vertical scroll)
+      const isVerticalScroll = deltaY > 10 && deltaY / deltaX > SWIPE_MAX_VERTICAL_RATIO;
+      const isSwipe = deltaX >= SWIPE_MIN_DISTANCE && !isVerticalScroll;
+
+      if (isSwipe) {
+        // Swipe detected - navigate!
+        const swipeDirection = rawDeltaX > 0 ? 'prev' : 'next';
+
+        if (import.meta.env.DEV) {
+          console.log('[IOSTapZones] Swipe detected!', { deltaX, direction: swipeDirection });
+        }
+
+        // Navigation lock check
+        if (isNavigatingRef.current) {
+          setDebugTapInfo('SWIPE LOCKED');
+          setTimeout(() => setDebugTapInfo(null), 1000);
+          return;
+        }
+
+        // Debounce navigation
+        const now = Date.now();
+        if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) {
+          return;
+        }
+        lastNavTimeRef.current = now;
+
+        // Set navigation lock
+        isNavigatingRef.current = true;
+        navCountRef.current += 1;
+        const navNum = navCountRef.current;
+
+        setDebugTapInfo(`SWIPE#${navNum}:${swipeDirection}`);
+
+        const doNavigate = async () => {
+          try {
+            if (swipeDirection === 'prev') {
+              await onPrevPage();
+            } else {
+              await onNextPage();
+            }
+          } finally {
+            setTimeout(() => {
+              isNavigatingRef.current = false;
+              setDebugTapInfo(null);
+            }, 300);
+          }
+        };
+
+        requestAnimationFrame(() => {
+          doNavigate();
+        });
+
+        return; // Don't process as tap
+      }
+    }
 
     // Check if it's a tap (not swipe or long press)
     const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
@@ -408,7 +481,7 @@ export const IOSTapZones = memo(function IOSTapZones({
     }
 
     setTimeout(() => setDebugTapInfo(null), 2000);
-  }, [enabled]);
+  }, [enabled, navigationEnabled, onPrevPage, onNextPage]);
 
   // Common styles for tap zones
   const baseStyle: React.CSSProperties = {

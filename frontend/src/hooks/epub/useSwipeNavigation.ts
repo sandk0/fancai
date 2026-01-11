@@ -348,7 +348,6 @@ export const useSwipeNavigation = (
         const deltaX = touch.clientX - localTouchStart.x;
         const duration = Date.now() - localTouchStart.time;
         const velocity = calculateVelocity(touch.clientX, Date.now());
-        const absVelocity = Math.abs(velocity);
         const absDeltaX = Math.abs(deltaX);
 
         log('TouchEnd:', { deltaX, duration, velocity: velocity.toFixed(3), absDeltaX });
