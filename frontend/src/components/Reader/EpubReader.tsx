@@ -283,14 +283,15 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // Pass rendition to also listen on iframe document for keyboard events
   useKeyboardNavigation(nextPage, prevPage, renditionReady && !isModalOpen, rendition);
 
-  // Hook 9: Touch/swipe navigation for mobile
-  // Note: Disabled when modal is open; TOC sidebar is an overlay that doesn't block iframe touch events
+  // Hook 9: Touch/tap navigation for mobile (TAP mode only)
+  // Disabled when: modal is open, or swipe mode is active
+  // In swipe mode, useSwipeNavigation handles navigation instead
   useTouchNavigation({
     rendition,
     viewerRef,
     nextPage,
     prevPage,
-    enabled: renditionReady && !isModalOpen,
+    enabled: renditionReady && !isModalOpen && effectiveNavigationMode === 'tap',
   });
 
   // Hook 10: Theme management
