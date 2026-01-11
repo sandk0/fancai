@@ -18,7 +18,11 @@ import {
   Minus,
   Plus,
   Smartphone,
+  Hand,
+  MousePointerClick,
 } from 'lucide-react';
+import type { NavigationMode } from '@/stores/reader';
+import { isAndroid } from '@/hooks/epub/useEpubNavigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +49,10 @@ interface ReaderControlsProps {
   wakeLockActive?: boolean;
   /** Callback when wake lock setting is toggled */
   onWakeLockChange?: (enabled: boolean) => void;
+  /** Current navigation mode (swipe or tap) */
+  navigationMode?: NavigationMode;
+  /** Callback when navigation mode changes */
+  onNavigationModeChange?: (mode: NavigationMode) => void;
 }
 
 export const ReaderControls: React.FC<ReaderControlsProps> = ({
@@ -60,7 +68,11 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
   wakeLockSupported,
   wakeLockActive,
   onWakeLockChange,
+  navigationMode,
+  onNavigationModeChange,
 }) => {
+  // Show navigation toggle only on Android (iOS always uses swipe)
+  const showNavigationToggle = isAndroid() && onNavigationModeChange;
   return (
     <div className={className}>
       <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
@@ -184,6 +196,47 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                     checked={wakeLockEnabled}
                     onChange={onWakeLockChange}
                   />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Navigation Mode Toggle - only shown on Android */}
+          {showNavigationToggle && (
+            <>
+              <div className="border-t border-border" />
+
+              <div className="px-4 py-3">
+                <label className="text-xs font-medium mb-2 block text-muted-foreground">
+                  Режим навигации
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => onNavigationModeChange?.('swipe')}
+                    className={cn(
+                      "px-3 py-3 rounded-md text-sm font-medium transition-colors flex flex-col items-center justify-center gap-1.5",
+                      navigationMode === 'swipe'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-foreground border border-border hover:bg-muted"
+                    )}
+                  >
+                    <Hand className="h-5 w-5" />
+                    <span>Свайп</span>
+                    <span className="text-xs opacity-70">Листайте пальцем</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigationModeChange?.('tap')}
+                    className={cn(
+                      "px-3 py-3 rounded-md text-sm font-medium transition-colors flex flex-col items-center justify-center gap-1.5",
+                      navigationMode === 'tap'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-foreground border border-border hover:bg-muted"
+                    )}
+                  >
+                    <MousePointerClick className="h-5 w-5" />
+                    <span>Тап</span>
+                    <span className="text-xs opacity-70">Нажимайте по краям</span>
+                  </button>
                 </div>
               </div>
             </>

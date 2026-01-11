@@ -151,7 +151,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Navigation mode from store (swipe or tap)
-  const { navigationMode } = useReaderStore();
+  const { navigationMode, updateNavigationMode } = useReaderStore();
 
   // Determine effective navigation mode (iOS always uses swipe)
   const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
@@ -964,6 +964,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
             wakeLockSupported={isWakeLockSupported}
             wakeLockActive={isWakeLockActive}
             onWakeLockChange={handleWakeLockToggle}
+            navigationMode={navigationMode}
+            onNavigationModeChange={updateNavigationMode}
           />
         </div>
       )}
