@@ -28,17 +28,17 @@ const log = (...args: unknown[]) => {
 
 // Swipe configuration parameters
 export const SWIPE_CONFIG = {
-  // Minimum values for navigation trigger
-  minDistance: 50, // px - minimum horizontal movement
-  minVelocity: 0.2, // px/ms - minimum swipe speed
+  // Minimum values for navigation trigger (lowered for better detection)
+  minDistance: 30, // px - minimum horizontal movement
+  minVelocity: 0.05, // px/ms - minimum swipe speed (very low)
 
   // Maximum values for cancellation
-  maxVerticalRatio: 1.5, // if deltaY/deltaX > this, treat as vertical scroll
-  maxDuration: 500, // ms - maximum time for a swipe gesture
+  maxVerticalRatio: 2.0, // if deltaY/deltaX > this, treat as vertical scroll
+  maxDuration: 1000, // ms - maximum time for a swipe gesture
 
   // Quick swipe thresholds (navigate even with small offset)
-  quickSwipeVelocity: 0.5, // px/ms
-  quickSwipeMinDistance: 30, // px
+  quickSwipeVelocity: 0.3, // px/ms
+  quickSwipeMinDistance: 20, // px
 
   // Edge resistance
   resistance: 0.5, // resistance factor at page boundaries
@@ -362,26 +362,14 @@ export const useSwipeNavigation = (
         let shouldNavigate = false;
         let navDirection: 'next' | 'prev' | null = null;
 
-        // Check quick swipe (high velocity, even with small offset)
-        if (
-          absVelocity >= SWIPE_CONFIG.quickSwipeVelocity &&
-          absDeltaX >= SWIPE_CONFIG.quickSwipeMinDistance &&
-          duration <= SWIPE_CONFIG.maxDuration
-        ) {
-          shouldNavigate = true;
-          navDirection = velocity > 0 ? 'prev' : 'next';
-          log('Quick swipe detected:', navDirection);
-        }
-        // Check normal swipe (meets minimum distance and velocity)
-        else if (
-          absDeltaX >= SWIPE_CONFIG.minDistance &&
-          absVelocity >= SWIPE_CONFIG.minVelocity
-        ) {
+        // SIMPLIFIED: Just check if user swiped enough distance
+        // This is more reliable than velocity-based detection
+        if (absDeltaX >= SWIPE_CONFIG.minDistance) {
           shouldNavigate = true;
           navDirection = deltaX > 0 ? 'prev' : 'next';
-          log('Normal swipe detected:', navDirection);
+          log('Swipe detected! Distance:', absDeltaX, 'Direction:', navDirection);
         } else {
-          log('Swipe too short or slow:', { absDeltaX, absVelocity, duration });
+          log('Swipe too short:', { absDeltaX, minRequired: SWIPE_CONFIG.minDistance });
         }
 
         // Set animating phase
@@ -394,11 +382,16 @@ export const useSwipeNavigation = (
           isNavigatingRef.current = true;
 
           try {
-            log('Navigating:', navDirection);
+            log('>>> CALLING onNavigate:', navDirection);
             await onNavigateRef.current(navDirection);
+            log('>>> onNavigate completed successfully');
+          } catch (err) {
+            log('>>> onNavigate ERROR:', err);
           } finally {
             isNavigatingRef.current = false;
           }
+        } else {
+          log('Not navigating - shouldNavigate:', shouldNavigate, 'navDirection:', navDirection);
         }
 
         // Reset state after animation
