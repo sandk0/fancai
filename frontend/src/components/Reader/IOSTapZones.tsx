@@ -555,8 +555,8 @@ export const IOSTapZones = memo(function IOSTapZones({
         tabIndex={-1}
       />
 
-      {/* Debug tap indicator - ALWAYS shown for troubleshooting */}
-      {debugTapInfo && (
+      {/* Debug tap indicator - only shown in development */}
+      {import.meta.env.DEV && debugTapInfo && (
         <div
           style={{
             position: 'fixed',

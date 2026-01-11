@@ -20,8 +20,8 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
 
-// Debug logging - enabled for troubleshooting
-const DEBUG = true;
+// Debug logging - disabled in production
+const DEBUG = false;
 const log = (...args: unknown[]) => {
   if (DEBUG) console.log('[SwipeNav]', ...args);
 };
