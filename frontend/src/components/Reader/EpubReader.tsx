@@ -81,8 +81,6 @@ import { notify } from '@/stores/ui';
 // Wake Lock hook
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useNavigate } from 'react-router-dom';
-import { chapterCache } from '@/services/chapterCache';
-import { imageCache } from '@/services/imageCache';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
 
 // Types for position conflict
@@ -195,6 +193,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // 1. Detecting corrupted rendition state before React re-renders
   // 2. Saving position before app goes to background (pagehide)
   // 3. Triggering reload if rendition becomes corrupted
+  // Hook 1.5: PWA Resume Guard - handles page reload on resume from background
+  // Uses aggressive reload strategy: when PWA resumes, page is immediately reloaded.
+  // This prevents crashes from corrupted epub.js rendition state.
   const {
     isHealthy: isRenditionHealthy,
     isChecking: isCheckingHealth,
@@ -202,38 +203,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   } = useRenditionHealthGuard({
     rendition,
     bookId: book.id,
-    onCorrupted: async () => {
-      console.error('[EpubReader] Health guard detected corruption, performing full page reload');
-
-      // P7 FIX: Clear potentially corrupted IndexedDB cache for this book
-      // This prevents the "Forever Broken Book" state where corrupted cache
-      // persists and causes reload failures
-      try {
-        const currentUserId = getCurrentUserId();
-        if (import.meta.env.DEV) {
-          console.log('[EpubReader] Clearing corrupted cache for book:', book.id);
-        }
-
-        // Clear chapter cache (descriptions) and image cache for this book
-        await Promise.all([
-          chapterCache.clearBook(currentUserId, book.id),
-          imageCache.clearBook(currentUserId, book.id),
-        ]);
-
-        if (import.meta.env.DEV) {
-          console.log('[EpubReader] Cache cleared successfully, proceeding with reload');
-        }
-      } catch (cacheError) {
-        console.error('[EpubReader] Failed to clear cache:', cacheError);
-        // Continue with reload anyway - better to try than to stay broken
-      }
-
-      // CRITICAL: Use full page reload instead of soft reload.
-      // Soft reload (reload?.()) doesn't reset React state properly,
-      // causing isHealthy to stay false and infinite "Восстановление сессии..."
-      // Full page reload ensures complete reset of epub.js and React state.
-      window.location.reload();
-    },
     enabled: renditionReady && !!rendition,
   });
 

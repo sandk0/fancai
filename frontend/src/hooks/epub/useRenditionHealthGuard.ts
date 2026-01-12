@@ -1,5 +1,5 @@
 /**
- * useRenditionHealthGuard - Proactive health check for epub.js rendition during PWA lifecycle
+ * useRenditionHealthGuard - PWA resume guard for epub.js reader
  *
  * This hook solves the PWA resume crash issue where:
  * 1. User opens a book and minimizes the PWA
@@ -7,12 +7,16 @@
  * 3. When returning, epub.js rendition becomes corrupted
  * 4. React re-renders with stale/corrupted rendition causing crashes
  *
- * The solution:
+ * The solution (aggressive reload strategy):
  * 1. Track app visibility state
- * 2. On visibility change, immediately check rendition health BEFORE React re-renders
- * 3. If corrupted, set a flag to show loading state instead of crashing
- * 4. Trigger reload to reinitialize the reader
- * 5. On pagehide, save current position for recovery
+ * 2. On pagehide, save current reading position to localStorage
+ * 3. When app resumes from background, immediately reload the page
+ * 4. On reload, the saved position is restored from localStorage
+ *
+ * Why aggressive reload instead of health checks:
+ * - epub.js rendition can be in a broken state that passes basic health checks
+ * - React state can be stale but look valid
+ * - The only reliable way to recover is a full page reload
  *
  * @module hooks/epub/useRenditionHealthGuard
  */
@@ -22,18 +26,6 @@ import type { Rendition } from '@/types/epub';
 
 /** Enable debug logging only in development */
 const DEBUG = import.meta.env.DEV;
-
-/**
- * Delay before running health check after visibility change.
- * Reduced from 500ms to 100ms for faster detection.
- */
-const HEALTH_CHECK_DELAY = 100;
-
-/**
- * How many consecutive health check failures before triggering reload.
- * Single failure might be transient, so we require 2.
- */
-const FAILURE_THRESHOLD = 1;
 
 export interface RenditionHealthGuardReturn {
   /** Whether the rendition is currently healthy and ready for use */
@@ -55,7 +47,7 @@ export interface UseRenditionHealthGuardOptions {
   rendition: Rendition | null;
   /** Book ID for position persistence */
   bookId: string;
-  /** Callback when health check fails and reload is needed */
+  /** Callback when health check fails and reload is needed (not used with aggressive strategy) */
   onCorrupted?: () => void;
   /** Whether the guard is enabled (disable during initial load) */
   enabled?: boolean;
@@ -64,38 +56,25 @@ export interface UseRenditionHealthGuardOptions {
 /**
  * Hook to guard rendition health during PWA lifecycle events.
  *
- * @example
- * ```tsx
- * const { isHealthy, isChecking, wasResumed } = useRenditionHealthGuard({
- *   rendition,
- *   bookId: book.id,
- *   onCorrupted: () => reload(),
- *   enabled: !!rendition,
- * });
- *
- * // Show loading if checking health or rendition is corrupted
- * if (isChecking || !isHealthy) {
- *   return <LoadingSpinner />;
- * }
- * ```
+ * Uses aggressive reload strategy: when PWA resumes from background,
+ * the page is immediately reloaded to ensure fresh state.
  */
 export function useRenditionHealthGuard({
   rendition,
   bookId,
-  onCorrupted,
   enabled = true,
 }: UseRenditionHealthGuardOptions): RenditionHealthGuardReturn {
-  const [isHealthy, setIsHealthy] = useState(true);
-  const [isChecking, setIsChecking] = useState(false);
+  // These states are kept for API compatibility but are less important
+  // with the aggressive reload strategy
+  const [isHealthy] = useState(true);
+  const [isChecking] = useState(false);
   const [wasResumed, setWasResumed] = useState(false);
   const [lastSavedCfi, setLastSavedCfi] = useState<string | null>(null);
 
-  const failureCountRef = useRef(0);
   const lastVisibilityRef = useRef<'visible' | 'hidden'>(
     typeof document !== 'undefined' ? document.visibilityState : 'visible'
   );
   const renditionRef = useRef<Rendition | null>(null);
-  const healthCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep rendition ref updated
   useEffect(() => {
@@ -103,70 +82,40 @@ export function useRenditionHealthGuard({
   }, [rendition]);
 
   /**
-   * Check if the rendition is healthy and can perform basic operations.
-   * Returns true if healthy, false if corrupted.
+   * Check if the rendition is healthy.
+   * With aggressive reload strategy, this is mainly for API compatibility.
    */
   const checkHealth = useCallback(async (): Promise<boolean> => {
     const currentRendition = renditionRef.current;
-
     if (!currentRendition) {
-      // No rendition yet, consider it "healthy" (not corrupted)
       return true;
     }
 
     try {
-      // Quick health check - try to get current location
       const loc = currentRendition.currentLocation();
-
-      if (!loc) {
-        throw new Error('Rendition returned null location');
+      if (!loc || !loc.start || !loc.end) {
+        return false;
       }
-
-      // Verify location has expected properties
-      if (!loc.start || !loc.end) {
-        throw new Error('Rendition location is incomplete');
-      }
-
-      // Check if we can access the manager (epub.js internal)
       if (!currentRendition.manager) {
-        throw new Error('Rendition manager is null');
+        return false;
       }
-
-      // Reset failure count on success
-      failureCountRef.current = 0;
-
-      if (DEBUG) {
-        console.log('[RenditionHealthGuard] Health check passed');
-      }
-
       return true;
-    } catch (e) {
-      failureCountRef.current++;
-
-      if (DEBUG) {
-        console.error(
-          `[RenditionHealthGuard] Health check failed (${failureCountRef.current}/${FAILURE_THRESHOLD}):`,
-          e
-        );
-      }
-
+    } catch {
       return false;
     }
   }, []);
 
   /**
    * Mark the rendition as healthy.
-   * Call this after successful render to reset state.
+   * With aggressive reload strategy, this is a no-op.
    */
   const markHealthy = useCallback(() => {
-    setIsHealthy(true);
     setWasResumed(false);
-    failureCountRef.current = 0;
   }, []);
 
   /**
    * Save current position before going to background.
-   * This helps recover after JS heap unload.
+   * This is critical for position recovery after page reload.
    */
   const savePositionBeforeHide = useCallback(() => {
     const currentRendition = renditionRef.current;
@@ -195,7 +144,10 @@ export function useRenditionHealthGuard({
 
   /**
    * Handle visibility change events.
-   * This is the core of the health guard.
+   *
+   * AGGRESSIVE RELOAD STRATEGY:
+   * When PWA resumes from background, immediately reload the page.
+   * This is more reliable than trying to detect and recover from corruption.
    */
   const handleVisibilityChange = useCallback(() => {
     const newVisibility = document.visibilityState;
@@ -210,43 +162,22 @@ export function useRenditionHealthGuard({
 
     // App became visible after being hidden
     if (wasHidden && enabled) {
-      setWasResumed(true);
-      setIsChecking(true);
-
       if (DEBUG) {
-        console.log('[RenditionHealthGuard] App resumed, starting health check...');
+        console.log('[RenditionHealthGuard] App resumed from background, reloading page...');
       }
 
-      // Clear any pending health check
-      if (healthCheckTimeoutRef.current) {
-        clearTimeout(healthCheckTimeoutRef.current);
-      }
+      // Mark as resumed (though we're about to reload)
+      setWasResumed(true);
 
-      // Run health check with a small delay to let state stabilize
-      healthCheckTimeoutRef.current = setTimeout(async () => {
-        const isOk = await checkHealth();
-
-        if (!isOk && failureCountRef.current >= FAILURE_THRESHOLD) {
-          if (DEBUG) {
-            console.error('[RenditionHealthGuard] Rendition corrupted, triggering reload');
-          }
-
-          setIsHealthy(false);
-          setIsChecking(false);
-
-          // Notify parent to handle reload
-          onCorrupted?.();
-        } else {
-          setIsHealthy(true);
-          setIsChecking(false);
-
-          if (DEBUG) {
-            console.log('[RenditionHealthGuard] Rendition is healthy after resume');
-          }
-        }
-      }, HEALTH_CHECK_DELAY);
+      // AGGRESSIVE STRATEGY: Always reload when resuming from background.
+      // This is more reliable than trying to detect corruption, because:
+      // 1. epub.js rendition can be in a broken state that passes health checks
+      // 2. React state can be stale but look valid
+      // 3. IndexedDB/Cache might have inconsistent state
+      // The full page reload ensures everything is fresh.
+      window.location.reload();
     }
-  }, [enabled, savePositionBeforeHide, checkHealth, onCorrupted]);
+  }, [enabled, savePositionBeforeHide]);
 
   /**
    * Handle page hide event (before JS heap unload).
@@ -261,17 +192,15 @@ export function useRenditionHealthGuard({
    */
   const handlePageShow = useCallback(
     (event: PageTransitionEvent) => {
-      // If page was restored from bfcache, run health check
+      // If page was restored from bfcache, reload
       if (event.persisted && enabled) {
         if (DEBUG) {
-          console.log('[RenditionHealthGuard] Page restored from bfcache');
+          console.log('[RenditionHealthGuard] Page restored from bfcache, reloading...');
         }
-
-        setWasResumed(true);
-        handleVisibilityChange();
+        window.location.reload();
       }
     },
-    [enabled, handleVisibilityChange]
+    [enabled]
   );
 
   /**
@@ -308,10 +237,6 @@ export function useRenditionHealthGuard({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
-
-      if (healthCheckTimeoutRef.current) {
-        clearTimeout(healthCheckTimeoutRef.current);
-      }
 
       if (DEBUG) {
         console.log('[RenditionHealthGuard] Cleanup complete');
