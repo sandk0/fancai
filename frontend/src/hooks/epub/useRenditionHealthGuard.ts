@@ -32,9 +32,12 @@ const DEBUG = import.meta.env.DEV;
 /**
  * Minimum time in background before triggering reload.
  * Set to 0 to always reload on any resume.
- * Set higher to skip reload for very brief focus changes.
+ *
+ * IMPORTANT: We set this to 0 because even very brief suspends can corrupt
+ * epub.js rendition on iOS/Android. The 500ms threshold was causing errors
+ * when users flipped pages and immediately minimized/returned.
  */
-const MIN_BACKGROUND_TIME_FOR_RELOAD = 500; // 500ms - skip only instant focus changes
+const MIN_BACKGROUND_TIME_FOR_RELOAD = 0; // Always reload - no threshold
 
 export interface RenditionHealthGuardReturn {
   /** Whether the rendition is currently healthy and ready for use */
