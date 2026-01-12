@@ -57,6 +57,7 @@ import {
   useTouchNavigation,
 } from '@/hooks/epub';
 import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
+import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
 import { isIOS, isAndroid } from '@/hooks/epub/useEpubNavigation';
 import { useReaderStore } from '@/stores/reader';
 
@@ -188,6 +189,57 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       });
     },
   });
+
+  // Hook 1.5: Rendition Health Guard - proactive health check during PWA lifecycle
+  // This prevents crashes when returning from background state by:
+  // 1. Detecting corrupted rendition state before React re-renders
+  // 2. Saving position before app goes to background (pagehide)
+  // 3. Triggering reload if rendition becomes corrupted
+  const {
+    isHealthy: isRenditionHealthy,
+    isChecking: isCheckingHealth,
+    markHealthy,
+  } = useRenditionHealthGuard({
+    rendition,
+    bookId: book.id,
+    onCorrupted: async () => {
+      console.error('[EpubReader] Health guard detected corruption, clearing cache and reloading');
+
+      // P7 FIX: Clear potentially corrupted IndexedDB cache for this book
+      // This prevents the "Forever Broken Book" state where corrupted cache
+      // persists and causes reload failures
+      try {
+        const currentUserId = getCurrentUserId();
+        if (import.meta.env.DEV) {
+          console.log('[EpubReader] Clearing corrupted cache for book:', book.id);
+        }
+
+        // Clear chapter cache (descriptions) and image cache for this book
+        await Promise.all([
+          chapterCache.clearBook(currentUserId, book.id),
+          imageCache.clearBook(currentUserId, book.id),
+        ]);
+
+        if (import.meta.env.DEV) {
+          console.log('[EpubReader] Cache cleared successfully, proceeding with reload');
+        }
+      } catch (cacheError) {
+        console.error('[EpubReader] Failed to clear cache:', cacheError);
+        // Continue with reload anyway - better to try than to stay broken
+      }
+
+      // Trigger reload to recover from corrupted state
+      reload?.();
+    },
+    enabled: renditionReady && !!rendition,
+  });
+
+  // Mark rendition as healthy after successful render
+  useEffect(() => {
+    if (renditionReady && isRenditionHealthy && !isCheckingHealth) {
+      markHealthy();
+    }
+  }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
 
   // Hook 2: Generate or load cached locations
   const { locations, isGenerating } = useLocationGeneration(epubBook, book.id);
@@ -704,79 +756,35 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     }
   }, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, markPositionRestored]);
 
-  // Hook 19: Rendition health check on app resume from background
-  // iOS may unload JavaScript heap after memory pressure or long idle,
-  // causing epub.js objects to become corrupted
-  //
-  // P7 FIX: Also clears corrupted IndexedDB cache before reload to prevent
-  // "Forever Broken Book" state where corrupted cache persists across reloads
+  // Hook 19: (LEGACY - replaced by useRenditionHealthGuard in Hook 1.5)
+  // The new hook handles visibility change, pagehide, and pageshow events
+  // with faster detection (100ms vs 500ms) and proactive state management.
+  // This hook is kept as a safety net for edge cases where Hook 1.5 might miss.
+  // It only runs a secondary check if the new guard passed but rendition is still invalid.
   useEffect(() => {
+    // Secondary safety check - runs 1 second after resume if health guard passed
+    // but component still seems broken (edge case protection)
     const handleVisibility = async () => {
-      if (document.visibilityState === 'visible' && rendition) {
-        // Wait a bit for state to stabilize after resume
+      if (document.visibilityState === 'visible' && rendition && isRenditionHealthy) {
         setTimeout(async () => {
           try {
-            // Quick health check - try to get current location
+            // Quick validation - if this fails, the health guard should have caught it
             const loc = rendition.currentLocation();
-            if (!loc) {
-              throw new Error('Rendition returned null location');
-            }
-
-            // Verify location has expected properties
-            if (!loc.start || !loc.end) {
-              throw new Error('Rendition location is incomplete');
-            }
-
-            if (import.meta.env.DEV) {
-              console.log('[EpubReader] Rendition health check passed');
+            if (!loc || !loc.start || !loc.end) {
+              throw new Error('Secondary check: Rendition still corrupted');
             }
           } catch (e) {
-            console.error('[EpubReader] Rendition corrupted after resume, triggering reload:', e);
-
-            // Save current position before reload if possible
-            try {
-              const currentLoc = rendition.currentLocation();
-              const currentCfi = currentLoc?.start?.cfi;
-              if (currentCfi) {
-                localStorage.setItem(`book_${book.id}_last_cfi`, currentCfi);
-              }
-            } catch {
-              // Ignore errors when trying to save position
-            }
-
-            // P7 FIX: Clear potentially corrupted IndexedDB cache for this book
-            // This prevents the "Forever Broken Book" state where corrupted cache
-            // persists and causes reload failures
-            try {
-              const userId = getCurrentUserId();
-              if (import.meta.env.DEV) {
-                console.log('[EpubReader] P7: Clearing corrupted cache for book:', book.id);
-              }
-
-              // Clear chapter cache (descriptions) and image cache for this book
-              await Promise.all([
-                chapterCache.clearBook(userId, book.id),
-                imageCache.clearBook(userId, book.id),
-              ]);
-
-              if (import.meta.env.DEV) {
-                console.log('[EpubReader] P7: Cache cleared successfully, proceeding with reload');
-              }
-            } catch (cacheError) {
-              console.error('[EpubReader] P7: Failed to clear cache:', cacheError);
-              // Continue with reload anyway - better to try than to stay broken
-            }
-
-            // Trigger reload to recover from corrupted state
-            reload?.();
+            // Health guard should have caught this - log for debugging
+            console.warn('[EpubReader] Secondary health check failed (edge case):', e);
+            // Don't trigger reload here - trust the health guard
           }
-        }, 500); // 500ms delay for stability
+        }, 1000); // 1 second delay - well after health guard has run
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [rendition, book.id, reload]);
+  }, [rendition, isRenditionHealthy]);
 
   // Get background color based on theme - memoized to prevent recalculation
   // Use explicit colors instead of CSS variables to prevent flash during initial render
@@ -902,8 +910,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         />
       )}
 
-      {/* Loading Overlay */}
-      {(isLoading || isGenerating || isRestoringPosition) && (
+      {/* Loading Overlay - includes health check state for PWA resume */}
+      {(isLoading || isGenerating || isRestoringPosition || isCheckingHealth || (!isRenditionHealthy && renditionReady)) && (
         <div
           className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}
           data-testid="loading-overlay"
@@ -914,7 +922,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true"></div>
             <p className={theme === 'light' ? 'text-foreground' : theme === 'sepia' ? 'text-amber-800' : 'text-foreground'} data-testid="loading-text">
-              {isRestoringPosition ? 'Восстановление позиции...' : isGenerating ? 'Подготовка книги...' : 'Загрузка книги...'}
+              {isCheckingHealth || (!isRenditionHealthy && renditionReady)
+                ? 'Восстановление сессии...'
+                : isRestoringPosition
+                  ? 'Восстановление позиции...'
+                  : isGenerating
+                    ? 'Подготовка книги...'
+                    : 'Загрузка книги...'}
             </p>
           </div>
         </div>

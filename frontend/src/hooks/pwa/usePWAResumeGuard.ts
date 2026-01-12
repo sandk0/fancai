@@ -29,10 +29,18 @@ export interface PWAResumeGuardReturn {
 }
 
 /** Grace period in milliseconds to wait for Zustand rehydration after visibility change */
-const RESUME_GRACE_PERIOD = 200;
+const RESUME_GRACE_PERIOD = 300;
 
-/** Minimum idle time (ms) that triggers resume guard behavior */
-const MIN_IDLE_TIME_FOR_GUARD = 5000;
+/**
+ * Minimum idle time (ms) that triggers resume guard behavior.
+ *
+ * IMPORTANT: This was reduced from 5000ms to 1500ms to fix the PWA resume crash.
+ * The issue occurred when users opened a book and quickly minimized (< 5s),
+ * causing the guard to be skipped during the critical initialization phase.
+ *
+ * With 1500ms, even brief suspends during book opening are now protected.
+ */
+const MIN_IDLE_TIME_FOR_GUARD = 1500;
 
 /**
  * Hook to guard against race conditions during PWA resume from background.
