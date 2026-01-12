@@ -188,31 +188,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     },
   });
 
-  // Hook 1.5: Rendition Health Guard - proactive health check during PWA lifecycle
-  // This prevents crashes when returning from background state by:
-  // 1. Detecting corrupted rendition state before React re-renders
-  // 2. Saving position before app goes to background (pagehide)
-  // 3. Triggering reload if rendition becomes corrupted
-  // Hook 1.5: PWA Resume Guard - handles page reload on resume from background
-  // Uses aggressive reload strategy: when PWA resumes, page is immediately reloaded.
-  // This prevents crashes from corrupted epub.js rendition state.
-  const {
-    isHealthy: isRenditionHealthy,
-    isChecking: isCheckingHealth,
-    markHealthy,
-  } = useRenditionHealthGuard({
-    rendition,
-    bookId: book.id,
-    enabled: renditionReady && !!rendition,
-  });
-
-  // Mark rendition as healthy after successful render
-  useEffect(() => {
-    if (renditionReady && isRenditionHealthy && !isCheckingHealth) {
-      markHealthy();
-    }
-  }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
-
   // Hook 2: Generate or load cached locations
   const { locations, isGenerating } = useLocationGeneration(epubBook, book.id);
 
@@ -283,6 +258,35 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     cancelGeneration,
     isCached: _isCached, // For future UI indicator
   } = useImageModal({ bookId: book.id });
+
+  // Hook 7.5: PWA Resume Guard - smart page reload on resume from background
+  // Placed after hooks that define active operations (isGenerating, isExtractingDescriptions, _isGeneratingImage)
+  // Uses smart reload strategy that balances crash prevention with UX:
+  // - Always reloads during initial loading (prevents crashes)
+  // - Skips reload for short suspends (< 30s)
+  // - Extends threshold to 2 min when operations are active (image gen, parsing)
+  // - Reloads for long suspends (ensures fresh state)
+  const hasActiveOperations = isGenerating || isExtractingDescriptions || _isGeneratingImage;
+  const {
+    isHealthy: isRenditionHealthy,
+    isChecking: isCheckingHealth,
+    markHealthy,
+  } = useRenditionHealthGuard({
+    rendition,
+    bookId: book.id,
+    enabled: renditionReady && !!rendition,
+    // Rendition is stable when fully loaded and position restored
+    isStable: renditionReady && !isLoading && !isRestoringPosition,
+    // Track active background operations to extend reload threshold
+    hasActiveOperations,
+  });
+
+  // Mark rendition as healthy after successful render
+  useEffect(() => {
+    if (renditionReady && isRenditionHealthy && !isCheckingHealth) {
+      markHealthy();
+    }
+  }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
 
   // Hook 7b: Swipe navigation for mobile (iOS always uses swipe)
   const { swipeState, touchHandlers: swipeTouchHandlers } = useSwipeNavigation({
