@@ -1,25 +1,24 @@
 /**
- * useRenditionHealthGuard - Smart PWA resume guard for epub.js reader
+ * useRenditionHealthGuard - PWA resume guard for epub.js reader
  *
- * This hook solves the PWA resume crash issue while preserving UX for
- * background operations like image generation and chapter parsing.
+ * This hook solves the PWA resume crash issue by always reloading
+ * the page when returning from background state.
  *
- * Strategy:
- * 1. Track time spent in background
- * 2. Track if rendition is "stable" (fully loaded, content displayed)
- * 3. Track if active operations are in progress (image gen, parsing)
+ * Why always reload:
+ * 1. epub.js rendition is extremely sensitive to JS heap unload
+ * 2. Even short suspends (few seconds) can corrupt the rendition on iOS/Android
+ * 3. Health checks are unreliable - rendition can pass checks but still be broken
+ * 4. The only reliable recovery is a full page reload
  *
- * Decision matrix:
- * - NOT stable (initial loading): ALWAYS reload to prevent crash
- * - Stable + short suspend (< 30s): DON'T reload, try to continue
- * - Stable + active operations + suspend < 2min: DON'T reload (let ops finish)
- * - Stable + long suspend (> 30s or > 2min with ops): RELOAD
+ * About background operations (image generation, parsing):
+ * - These are BACKEND tasks (Celery) - they continue regardless of frontend state
+ * - When page reloads, TanStack Query re-fetches operation statuses
+ * - User sees the operation as still in progress (or completed if it finished)
+ * - No actual work is lost, only temporary visual feedback
  *
- * This ensures:
- * - Crashes are prevented during initial loading
- * - Short tab switches don't interrupt the user
- * - Background operations have time to complete
- * - Long suspends still get cleaned up properly
+ * Position preservation:
+ * - CFI position is saved to localStorage before going to background
+ * - On reload, the position is restored from localStorage
  *
  * @module hooks/epub/useRenditionHealthGuard
  */
@@ -31,16 +30,11 @@ import type { Rendition } from '@/types/epub';
 const DEBUG = import.meta.env.DEV;
 
 /**
- * Time threshold for "short" suspend when NO active operations.
- * Below this, we don't reload (assume state is still valid).
+ * Minimum time in background before triggering reload.
+ * Set to 0 to always reload on any resume.
+ * Set higher to skip reload for very brief focus changes.
  */
-const SHORT_SUSPEND_THRESHOLD = 30_000; // 30 seconds
-
-/**
- * Time threshold when active operations are in progress.
- * Extended to give operations time to complete.
- */
-const ACTIVE_OPS_THRESHOLD = 120_000; // 2 minutes
+const MIN_BACKGROUND_TIME_FOR_RELOAD = 500; // 500ms - skip only instant focus changes
 
 export interface RenditionHealthGuardReturn {
   /** Whether the rendition is currently healthy and ready for use */
@@ -64,34 +58,26 @@ export interface UseRenditionHealthGuardOptions {
   bookId: string;
   /** Whether the guard is enabled (disable during initial load) */
   enabled?: boolean;
-  /**
-   * Whether the rendition is stable (fully loaded, content displayed).
-   * Pass `true` after successful navigation and content display.
-   * When `false`, any resume from background will trigger reload.
-   */
+  /** Not used - kept for API compatibility */
   isStable?: boolean;
-  /**
-   * Whether there are active background operations (image generation, parsing).
-   * When `true`, the reload threshold is extended to give operations time to complete.
-   */
+  /** Not used - kept for API compatibility */
   hasActiveOperations?: boolean;
 }
 
 /**
  * Hook to guard rendition health during PWA lifecycle events.
  *
- * Uses smart reload strategy that balances crash prevention with UX:
- * - Always reloads during unstable/loading phase (prevents crashes)
- * - Skips reload for short suspends (preserves state)
- * - Extends threshold when operations are active (preserves background work)
- * - Reloads for long suspends (ensures fresh state)
+ * Uses reliable reload strategy: when PWA resumes from background,
+ * the page is reloaded to ensure fresh epub.js state.
+ *
+ * This is the only reliable way to handle epub.js + PWA lifecycle,
+ * because epub.js rendition cannot be reliably recovered after
+ * JS heap unload (which happens frequently on iOS/Android).
  */
 export function useRenditionHealthGuard({
   rendition,
   bookId,
   enabled = true,
-  isStable = false,
-  hasActiveOperations = false,
 }: UseRenditionHealthGuardOptions): RenditionHealthGuardReturn {
   const [isHealthy] = useState(true);
   const [isChecking] = useState(false);
@@ -104,26 +90,15 @@ export function useRenditionHealthGuard({
   const renditionRef = useRef<Rendition | null>(null);
   const hideTimeRef = useRef<number>(0);
 
-  // Track stable and active ops state in refs for use in event handlers
-  const isStableRef = useRef(isStable);
-  const hasActiveOperationsRef = useRef(hasActiveOperations);
-
-  // Keep refs updated
+  // Keep rendition ref updated
   useEffect(() => {
     renditionRef.current = rendition;
   }, [rendition]);
 
-  useEffect(() => {
-    isStableRef.current = isStable;
-  }, [isStable]);
-
-  useEffect(() => {
-    hasActiveOperationsRef.current = hasActiveOperations;
-  }, [hasActiveOperations]);
-
   /**
    * Check if the rendition is healthy.
-   * Used for API compatibility and manual checks.
+   * Note: This check is not reliable for detecting all corruption cases.
+   * Kept for API compatibility.
    */
   const checkHealth = useCallback(async (): Promise<boolean> => {
     const currentRendition = renditionRef.current;
@@ -147,7 +122,7 @@ export function useRenditionHealthGuard({
 
   /**
    * Mark the rendition as healthy/stable.
-   * Clears the wasResumed flag after successful recovery.
+   * Clears the wasResumed flag.
    */
   const markHealthy = useCallback(() => {
     setWasResumed(false);
@@ -168,6 +143,8 @@ export function useRenditionHealthGuard({
       if (cfi) {
         setLastSavedCfi(cfi);
         localStorage.setItem(`book_${bookId}_resume_cfi`, cfi);
+        // Also save a timestamp so we know this is fresh
+        localStorage.setItem(`book_${bookId}_resume_time`, Date.now().toString());
 
         if (DEBUG) {
           console.log('[RenditionHealthGuard] Saved position before hide:', cfi.slice(0, 50));
@@ -183,11 +160,9 @@ export function useRenditionHealthGuard({
   /**
    * Handle visibility change events.
    *
-   * SMART RELOAD STRATEGY:
-   * - NOT stable: Always reload (prevents crashes during initial load)
-   * - Stable + short suspend: Don't reload (preserves state)
-   * - Stable + active ops + medium suspend: Don't reload (let ops finish)
-   * - Stable + long suspend: Reload (ensures fresh state)
+   * RELIABLE RELOAD STRATEGY:
+   * Always reload when returning from background (after MIN_BACKGROUND_TIME_FOR_RELOAD).
+   * This is the only reliable way to handle epub.js + PWA lifecycle.
    */
   const handleVisibilityChange = useCallback(() => {
     const newVisibility = document.visibilityState;
@@ -198,71 +173,42 @@ export function useRenditionHealthGuard({
       // App is going to background - save position and record time
       savePositionBeforeHide();
       hideTimeRef.current = Date.now();
+
+      if (DEBUG) {
+        console.log('[RenditionHealthGuard] App going to background, position saved');
+      }
       return;
     }
 
     // App became visible after being hidden
     if (wasHidden && enabled) {
       const timeInBackground = Date.now() - hideTimeRef.current;
-      const stable = isStableRef.current;
-      const hasActiveOps = hasActiveOperationsRef.current;
 
       if (DEBUG) {
-        console.log('[RenditionHealthGuard] Resume check:', {
-          timeInBackground: `${Math.round(timeInBackground / 1000)}s`,
-          stable,
-          hasActiveOps,
-        });
+        console.log('[RenditionHealthGuard] App resumed after', Math.round(timeInBackground / 1000), 'seconds');
       }
 
-      // Case 1: Not stable (initial loading phase) - ALWAYS reload
-      // This prevents the crash that happens when minimizing during book load
-      if (!stable) {
+      // Skip reload for very brief focus changes (< 500ms)
+      // These are usually just quick app switching without actual background
+      if (timeInBackground < MIN_BACKGROUND_TIME_FOR_RELOAD) {
         if (DEBUG) {
-          console.log('[RenditionHealthGuard] Not stable, reloading to prevent crash...');
+          console.log('[RenditionHealthGuard] Very brief suspend, skipping reload');
         }
-        window.location.reload();
         return;
       }
 
-      // Case 2: Stable - check time thresholds
-      const threshold = hasActiveOps ? ACTIVE_OPS_THRESHOLD : SHORT_SUSPEND_THRESHOLD;
+      // Mark as resumed
+      setWasResumed(true);
 
-      if (timeInBackground < threshold) {
-        // Short/medium suspend - try to continue without reload
-        if (DEBUG) {
-          console.log(
-            `[RenditionHealthGuard] Short suspend (${Math.round(timeInBackground / 1000)}s < ${threshold / 1000}s), continuing...`
-          );
-        }
-        setWasResumed(true);
-
-        // Run a health check - if it fails, we might still need to reload
-        checkHealth().then((healthy) => {
-          if (!healthy) {
-            if (DEBUG) {
-              console.log('[RenditionHealthGuard] Health check failed after short suspend, reloading...');
-            }
-            window.location.reload();
-          } else {
-            if (DEBUG) {
-              console.log('[RenditionHealthGuard] Health check passed, continuing normally');
-            }
-            setWasResumed(false);
-          }
-        });
-        return;
-      }
-
-      // Case 3: Long suspend - reload
       if (DEBUG) {
-        console.log(
-          `[RenditionHealthGuard] Long suspend (${Math.round(timeInBackground / 1000)}s >= ${threshold / 1000}s), reloading...`
-        );
+        console.log('[RenditionHealthGuard] Reloading page for fresh epub.js state...');
       }
+
+      // Reload the page to get fresh epub.js state
+      // The position will be restored from localStorage on next load
       window.location.reload();
     }
-  }, [enabled, savePositionBeforeHide, checkHealth]);
+  }, [enabled, savePositionBeforeHide]);
 
   /**
    * Handle page hide event (before JS heap unload).
@@ -277,29 +223,15 @@ export function useRenditionHealthGuard({
    */
   const handlePageShow = useCallback(
     (event: PageTransitionEvent) => {
-      // If page was restored from bfcache, check if we need to reload
+      // If page was restored from bfcache, always reload
       if (event.persisted && enabled) {
-        const stable = isStableRef.current;
-
-        if (!stable) {
-          if (DEBUG) {
-            console.log('[RenditionHealthGuard] bfcache restore while not stable, reloading...');
-          }
-          window.location.reload();
-        } else {
-          // Run health check for bfcache restore
-          checkHealth().then((healthy) => {
-            if (!healthy) {
-              if (DEBUG) {
-                console.log('[RenditionHealthGuard] bfcache health check failed, reloading...');
-              }
-              window.location.reload();
-            }
-          });
+        if (DEBUG) {
+          console.log('[RenditionHealthGuard] Page restored from bfcache, reloading...');
         }
+        window.location.reload();
       }
     },
-    [enabled, checkHealth]
+    [enabled]
   );
 
   /**
@@ -329,10 +261,7 @@ export function useRenditionHealthGuard({
     window.addEventListener('pageshow', handlePageShow);
 
     if (DEBUG) {
-      console.log('[RenditionHealthGuard] Initialized for book:', bookId, {
-        isStable,
-        hasActiveOperations,
-      });
+      console.log('[RenditionHealthGuard] Initialized for book:', bookId);
     }
 
     return () => {
@@ -344,7 +273,7 @@ export function useRenditionHealthGuard({
         console.log('[RenditionHealthGuard] Cleanup complete');
       }
     };
-  }, [enabled, bookId, isStable, hasActiveOperations, handleVisibilityChange, handlePageHide, handlePageShow]);
+  }, [enabled, bookId, handleVisibilityChange, handlePageHide, handlePageShow]);
 
   return {
     isHealthy,
