@@ -203,7 +203,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     rendition,
     bookId: book.id,
     onCorrupted: async () => {
-      console.error('[EpubReader] Health guard detected corruption, clearing cache and reloading');
+      console.error('[EpubReader] Health guard detected corruption, performing full page reload');
 
       // P7 FIX: Clear potentially corrupted IndexedDB cache for this book
       // This prevents the "Forever Broken Book" state where corrupted cache
@@ -228,8 +228,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         // Continue with reload anyway - better to try than to stay broken
       }
 
-      // Trigger reload to recover from corrupted state
-      reload?.();
+      // CRITICAL: Use full page reload instead of soft reload.
+      // Soft reload (reload?.()) doesn't reset React state properly,
+      // causing isHealthy to stay false and infinite "Восстановление сессии..."
+      // Full page reload ensures complete reset of epub.js and React state.
+      window.location.reload();
     },
     enabled: renditionReady && !!rendition,
   });
