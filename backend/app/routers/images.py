@@ -5,8 +5,8 @@ API роуты для генерации изображений в fancai.
 с использованием AI и управления очередью генерации.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Dict, Any, List, Optional
@@ -14,6 +14,11 @@ from uuid import UUID
 from pydantic import BaseModel
 from pathlib import Path
 import os
+
+from ..utils.etag import (
+    check_conditional_request,
+    get_mime_type_from_extension,
+)
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, get_current_admin_user
@@ -44,22 +49,30 @@ GENERATED_IMAGES_DIR = Path("/app/storage/generated_images")
 @router.get("/images/file/{filename}")
 async def get_generated_image_file(
     filename: str,
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ):
     """
-    Serve generated image file with ownership verification.
+    Serve generated image file with ownership verification and HTTP caching.
 
     This endpoint serves image files from the generated_images directory.
     Authentication required - verifies image belongs to a book owned by the user.
 
+    Supports HTTP caching via:
+    - ETag header for conditional requests (If-None-Match)
+    - Last-Modified header for conditional requests (If-Modified-Since)
+    - Cache-Control header for browser caching (immutable, 1 year max-age)
+
     Args:
         filename: The image filename (UUID-based)
+        request: FastAPI request object for accessing headers
         current_user: Current authenticated user
         db: Database session
 
     Returns:
-        FileResponse with the image
+        FileResponse with the image and caching headers, or
+        304 Not Modified if the client has a valid cached copy
 
     Raises:
         HTTPException 400: Invalid filename
@@ -114,12 +127,47 @@ async def get_generated_image_file(
             detail="Access denied: Image does not belong to current user"
         )
 
+    # HTTP Caching: Check conditional request headers
+    if_none_match = request.headers.get("if-none-match")
+    if_modified_since = request.headers.get("if-modified-since")
+
+    should_304, etag, last_modified = check_conditional_request(
+        file_path=file_path,
+        if_none_match=if_none_match,
+        if_modified_since=if_modified_since,
+    )
+
+    # Cache-Control header: images are immutable (content-addressable by filename)
+    # - public: can be cached by CDN/proxies
+    # - max-age=31536000: cache for 1 year
+    # - immutable: content will never change (same filename = same content)
+    cache_control = "public, max-age=31536000, immutable"
+
+    # Return 304 Not Modified if client has valid cached copy
+    if should_304:
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Last-Modified": last_modified,
+                "Cache-Control": cache_control,
+            },
+        )
+
+    # Determine MIME type from file extension
+    media_type = get_mime_type_from_extension(file_path)
+
     # Use content_disposition_type="inline" to display image in browser
     # instead of forcing download (which happens with filename parameter)
     return FileResponse(
         path=str(file_path),
-        media_type="image/png",
-        content_disposition_type="inline"
+        media_type=media_type,
+        content_disposition_type="inline",
+        headers={
+            "ETag": etag,
+            "Last-Modified": last_modified,
+            "Cache-Control": cache_control,
+        },
     )
 
 

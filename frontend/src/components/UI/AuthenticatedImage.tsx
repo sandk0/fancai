@@ -4,11 +4,14 @@
  * Regular <img> tags cannot send Authorization headers, so this component
  * fetches the image with the JWT token and displays it as a blob URL.
  *
+ * Now uses fetchWithTokenRefresh for automatic token refresh on 401 errors,
+ * solving the issue of images failing to load during long reading sessions.
+ *
  * @component
  */
 
 import { useState, useEffect, memo } from 'react';
-import { STORAGE_KEYS } from '@/types/state';
+import { fetchImageWithAuth } from '@/utils/fetchWithTokenRefresh';
 
 interface AuthenticatedImageProps {
   src: string | null;
@@ -54,25 +57,31 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
       setHasError(false);
 
       try {
-        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        const response = await fetch(src, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const blob = await response.blob();
+        // Use fetchImageWithAuth for automatic token refresh on 401 errors
+        const newBlobUrl = await fetchImageWithAuth(src);
 
         if (isMounted) {
-          currentBlobUrl = URL.createObjectURL(blob);
-          setBlobUrl(currentBlobUrl);
-          setIsLoading(false);
-          onLoad?.();
+          if (newBlobUrl) {
+            // Revoke previous URL before setting new one
+            if (currentBlobUrl && currentBlobUrl !== newBlobUrl) {
+              URL.revokeObjectURL(currentBlobUrl);
+            }
+            currentBlobUrl = newBlobUrl;
+            setBlobUrl(currentBlobUrl);
+            setIsLoading(false);
+            onLoad?.();
+          } else {
+            // fetchImageWithAuth returns null on failure
+            throw new Error('Failed to fetch image');
+          }
+        } else {
+          // Component unmounted during fetch - cleanup the new URL
+          if (newBlobUrl) {
+            URL.revokeObjectURL(newBlobUrl);
+          }
         }
       } catch (error) {
-        console.warn('AuthenticatedImage: Failed to load image:', src, error);
+        console.warn('[AuthenticatedImage] Failed to load image:', src, error);
         if (isMounted) {
           setIsLoading(false);
           setHasError(true);
@@ -83,7 +92,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
 
     loadImage();
 
-    // Cleanup: revoke blob URL when component unmounts or src changes
+    // Single cleanup: revoke blob URL when component unmounts or src changes
     return () => {
       isMounted = false;
       if (currentBlobUrl) {
@@ -91,15 +100,6 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
       }
     };
   }, [src, onLoad, onError]);
-
-  // Cleanup previous blob URL when a new one is created
-  useEffect(() => {
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [blobUrl]);
 
   if (isLoading) {
     // Show a loading placeholder or the fallback

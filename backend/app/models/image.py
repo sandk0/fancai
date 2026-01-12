@@ -92,7 +92,7 @@ class GeneratedImage(Base):
 
     # Результат генерации
     image_url = Column(String(2000), nullable=True)  # URL от сервиса
-    local_path = Column(String(1000), nullable=True)  # Локальный путь
+    local_path = Column(String(1000), nullable=True, index=True)  # Локальный путь
     prompt_used = Column(Text, nullable=False)  # Использованный промпт
 
     # Параметры генерации

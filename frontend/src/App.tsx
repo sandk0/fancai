@@ -16,6 +16,7 @@ import AuthGuard from '@/components/Auth/AuthGuard';
 import { OfflineBanner } from '@/components/UI/OfflineBanner';
 import { PWAUpdatePrompt } from '@/components/UI/PWAUpdatePrompt';
 import { ChunkLoadErrorBoundary } from '@/components/ErrorBoundary/ChunkLoadErrorBoundary';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 // Core pages (eagerly loaded - small and frequently accessed)
 import HomePage from '@/pages/HomePage';
@@ -30,7 +31,6 @@ const BookPage = lazy(() => import('@/pages/BookPage'));
 const BookImagesPage = lazy(() => import('@/pages/BookImagesPage'));
 const ImagesGalleryPage = lazy(() => import('@/pages/ImagesGalleryPage'));
 const StatsPage = lazy(() => import('@/pages/StatsPage'));
-const ChapterPage = lazy(() => import('@/pages/ChapterPage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
@@ -75,6 +75,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <LazyMotion features={domAnimation}>
         <Router>
+          <ScrollToTop />
           <div className="App min-h-screen transition-colors bg-background text-foreground">
           <Routes>
             {/* Public routes */}
@@ -110,10 +111,6 @@ function App() {
                           <Route path="/book/:bookId/images" element={<BookImagesPage />} />
                           <Route path="/images" element={<ImagesGalleryPage />} />
                           <Route path="/stats" element={<StatsPage />} />
-                          <Route
-                            path="/book/:bookId/chapter/:chapterNumber"
-                            element={<ChapterPage />}
-                          />
                           <Route path="/profile" element={<ProfilePage />} />
                           <Route path="/settings" element={<SettingsPage />} />
                           <Route path="/admin" element={<AdminDashboard />} />

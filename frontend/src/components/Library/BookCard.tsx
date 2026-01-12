@@ -336,7 +336,7 @@ export const BookCard = memo(function BookCard({
                 />
                 {/* Menu */}
                 <m.div
-                  className="absolute top-12 right-2 z-[100] bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[140px] md:hidden"
+                  className="absolute top-12 right-2 z-[100] bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52 sm:w-56 md:hidden"
                   initial={{ opacity: 0, scale: 0.9, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: -10 }}
@@ -344,10 +344,10 @@ export const BookCard = memo(function BookCard({
                 >
                   {isClickable && (
                     <button
-                      className="w-full flex items-center gap-3 px-4 py-3 text-foreground hover:bg-muted transition-colors min-h-[44px]"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-foreground hover:bg-muted transition-colors min-h-[44px] whitespace-nowrap"
                       onClick={handleReadClick}
                     >
-                      <BookOpen className="w-5 h-5 text-primary" />
+                      <BookOpen className="w-5 h-5 flex-shrink-0 text-primary" />
                       <span className="font-medium">Читать</span>
                     </button>
                   )}
@@ -355,7 +355,7 @@ export const BookCard = memo(function BookCard({
                   {isClickable && (
                     <button
                       className={cn(
-                        'w-full flex items-center gap-3 px-4 py-3 transition-colors min-h-[44px]',
+                        'w-full flex items-center gap-3 px-4 py-3 transition-colors min-h-[44px] whitespace-nowrap',
                         isAvailableOffline
                           ? 'text-green-600 hover:bg-green-500/10'
                           : 'text-foreground hover:bg-muted'
@@ -365,17 +365,17 @@ export const BookCard = memo(function BookCard({
                     >
                       {isDownloading ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" />
                           <span className="font-medium">Загрузка {downloadProgress}%</span>
                         </>
                       ) : isAvailableOffline ? (
                         <>
-                          <CheckCircle2 className="w-5 h-5" />
+                          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
                           <span className="font-medium">Удалить офлайн</span>
                         </>
                       ) : (
                         <>
-                          <Download className="w-5 h-5" />
+                          <Download className="w-5 h-5 flex-shrink-0" />
                           <span className="font-medium">Скачать офлайн</span>
                         </>
                       )}
@@ -383,18 +383,18 @@ export const BookCard = memo(function BookCard({
                   )}
                   {onDelete && (
                     <button
-                      className="w-full flex items-center gap-3 px-4 py-3 text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-destructive hover:bg-destructive/10 transition-colors min-h-[44px] whitespace-nowrap"
                       onClick={handleDeleteClick}
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">Удалить</span>
                     </button>
                   )}
                   <button
-                    className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-muted transition-colors min-h-[44px] border-t border-border"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-muted transition-colors min-h-[44px] border-t border-border whitespace-nowrap"
                     onClick={handleCloseMobileMenu}
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5 flex-shrink-0" />
                     <span>Закрыть</span>
                   </button>
                 </m.div>

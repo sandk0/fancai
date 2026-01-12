@@ -115,6 +115,11 @@ def get_cache_control_header(path: str, method: str = "GET") -> str:
     if any(file_path in path for file_path in FILE_SERVING_PATHS):
         return "public, max-age=31536000, immutable"
 
+    # 3.5. Book covers - Long-term caching with revalidation
+    # Обложки книг редко меняются, кэшируем на 30 дней
+    if "/cover" in path:
+        return "private, max-age=2592000, must-revalidate"
+
     # 4. User-specific endpoints - Private, revalidate
     # Данные персональные, но можно кэшировать в browser с обязательной проверкой
     if any(user_path in path for user_path in USER_SPECIFIC_PATHS):

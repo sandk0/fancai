@@ -21,6 +21,7 @@ import { STORAGE_KEYS } from '@/types/state'
 const DEBUG = import.meta.env.DEV
 
 const MAX_CACHE_SIZE_MB = 100 // Maximum cache size in MB
+const MAX_CACHED_URLS = 100 // Maximum number of Object URLs to keep in memory
 
 interface CacheStats {
   totalImages: number
@@ -87,6 +88,58 @@ class ImageCacheService {
   }
 
   /**
+   * Check if an Object URL is still valid
+   * Object URLs can become invalid if they're too old or have been revoked
+   */
+  private isObjectURLValid(descriptionId: string): boolean {
+    const urlData = this.objectURLs.get(descriptionId)
+    if (!urlData) return false
+
+    // Check if URL starts with blob:
+    if (!urlData.url.startsWith('blob:')) {
+      if (DEBUG) console.log('[ImageCache] Invalid Object URL format for:', descriptionId)
+      return false
+    }
+
+    // Check age of URL
+    const age = Date.now() - urlData.createdAt
+    if (age >= this.MAX_OBJECT_URL_AGE_MS) {
+      if (DEBUG) console.log('[ImageCache] Object URL expired for:', descriptionId, `(age: ${Math.round(age / 1000 / 60)}min)`)
+      return false
+    }
+
+    return true
+  }
+
+  /**
+   * Enforce the maximum number of cached Object URLs
+   * Removes the oldest URLs if limit is exceeded
+   */
+  private enforceURLLimit(): void {
+    if (this.objectURLs.size < MAX_CACHED_URLS) return
+
+    // Find and remove the oldest URL
+    let oldestKey: string | null = null
+    let oldestTime = Infinity
+
+    for (const [key, data] of this.objectURLs.entries()) {
+      if (data.createdAt < oldestTime) {
+        oldestTime = data.createdAt
+        oldestKey = key
+      }
+    }
+
+    if (oldestKey) {
+      const old = this.objectURLs.get(oldestKey)
+      if (old) {
+        URL.revokeObjectURL(old.url)
+        if (DEBUG) console.log('[ImageCache] Evicted oldest URL due to limit:', oldestKey)
+      }
+      this.objectURLs.delete(oldestKey)
+    }
+  }
+
+  /**
    * Get cached image as object URL
    * Returns null if not cached or expired
    *
@@ -98,8 +151,16 @@ class ImageCacheService {
       // Check if we already have an Object URL for this description
       const existing = this.objectURLs.get(descriptionId)
       if (existing) {
-        if (DEBUG) console.log('[ImageCache] Reusing existing Object URL for:', descriptionId)
-        return existing.url
+        // Validate the existing URL
+        if (this.isObjectURLValid(descriptionId)) {
+          if (DEBUG) console.log('[ImageCache] Reusing existing Object URL for:', descriptionId)
+          return existing.url
+        } else {
+          // URL is invalid - remove it and create a new one
+          if (DEBUG) console.log('[ImageCache] Removing invalid Object URL for:', descriptionId)
+          URL.revokeObjectURL(existing.url)
+          this.objectURLs.delete(descriptionId)
+        }
       }
 
       const id = createImageId(userId, descriptionId)
@@ -116,6 +177,9 @@ class ImageCacheService {
         await this.delete(userId, descriptionId)
         return null
       }
+
+      // Enforce URL limit before adding a new one
+      this.enforceURLLimit()
 
       // Create object URL from blob
       const objectUrl = URL.createObjectURL(image.blob)
@@ -505,7 +569,7 @@ class ImageCacheService {
   }
 
   /**
-   * Start automatic cleanup of stale Object URLs every 5 minutes
+   * Start automatic cleanup of stale Object URLs every minute
    */
   startAutoCleanup(): void {
     if (this.cleanupIntervalId !== null) {
@@ -513,12 +577,12 @@ class ImageCacheService {
       return
     }
 
-    // Run cleanup every 5 minutes
+    // Run cleanup every minute for more aggressive memory management
     this.cleanupIntervalId = window.setInterval(() => {
       this.cleanupStaleObjectURLs()
-    }, 5 * 60 * 1000)
+    }, 60 * 1000)
 
-    if (DEBUG) console.log('[ImageCache] Auto-cleanup started (interval: 5 minutes)')
+    if (DEBUG) console.log('[ImageCache] Auto-cleanup started (interval: 1 minute)')
   }
 
   /**

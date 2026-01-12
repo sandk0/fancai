@@ -13,7 +13,7 @@
  * - Responsive design
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Image as ImageIcon,
@@ -25,12 +25,20 @@ import {
   Sparkles,
   ChevronDown,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import { LazyImage } from '@/components/UI/LazyImage';
 import { cn } from '@/lib/utils';
-import type { GeneratedImage } from '@/types/api';
+import type { GeneratedImage, Book } from '@/types/api';
+
+/** Maximum concurrent requests for loading images */
+const CONCURRENCY_LIMIT = 3;
+/** Number of images per page */
+const IMAGES_PER_PAGE = 24;
 
 type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere';
 type SortOption = 'newest' | 'oldest' | 'book';
@@ -40,30 +48,31 @@ interface ImageWithBookInfo extends GeneratedImage {
   book_id: string;
 }
 
-const ImagesGalleryPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBook, setSelectedBook] = useState<string>('all');
-  const [descriptionType, setDescriptionType] = useState<DescriptionType>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<ImageWithBookInfo | null>(null);
+interface LoadingProgress {
+  current: number;
+  total: number;
+  phase: 'idle' | 'loading' | 'complete';
+}
 
-  // Fetch all books
-  const { data: booksData, isLoading: booksLoading } = useQuery({
-    queryKey: ['books'],
-    queryFn: () => booksAPI.getBooks({ skip: 0, limit: 100 }),
-  });
+/**
+ * Load images with concurrency limit to prevent browser connection exhaustion.
+ * Processes books in batches of `concurrency` at a time.
+ */
+async function loadImagesWithLimit(
+  books: Book[],
+  concurrency: number,
+  onProgress: (current: number, total: number) => void
+): Promise<ImageWithBookInfo[]> {
+  const results: ImageWithBookInfo[] = [];
+  const total = books.length;
 
-  // Fetch images for all books
-  const { data: imagesData, isLoading: imagesLoading } = useQuery({
-    queryKey: ['all-images', booksData?.books?.map(b => b.id)],
-    queryFn: async () => {
-      if (!booksData?.books || booksData.books.length === 0) return [];
-
-      const imagePromises = booksData.books.map(async (book) => {
+  for (let i = 0; i < total; i += concurrency) {
+    const batch = books.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map(async (book) => {
         try {
           const response = await imagesAPI.getBookImages(book.id, undefined, 0, 100);
-          return response.images.map(img => ({
+          return response.images.map((img) => ({
             ...img,
             book_title: book.title,
             book_id: book.id,
@@ -72,10 +81,60 @@ const ImagesGalleryPage: React.FC = () => {
           console.error(`Failed to fetch images for book ${book.id}:`, error);
           return [];
         }
-      });
+      })
+    );
+    results.push(...batchResults.flat());
+    onProgress(Math.min(i + concurrency, total), total);
+  }
 
-      const imageArrays = await Promise.all(imagePromises);
-      return imageArrays.flat();
+  return results;
+}
+
+const ImagesGalleryPage: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBook, setSelectedBook] = useState<string>('all');
+  const [descriptionType, setDescriptionType] = useState<DescriptionType>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ImageWithBookInfo | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingProgress, setLoadingProgress] = useState<LoadingProgress>({
+    current: 0,
+    total: 0,
+    phase: 'idle',
+  });
+
+  // Ref to track progress updates without triggering re-renders during loading
+  const progressRef = useRef<LoadingProgress>({ current: 0, total: 0, phase: 'idle' });
+
+  // Progress callback for batch loading
+  const handleProgress = useCallback((current: number, total: number) => {
+    progressRef.current = { current, total, phase: 'loading' };
+    setLoadingProgress({ current, total, phase: 'loading' });
+  }, []);
+
+  // Fetch all books
+  const { data: booksData, isLoading: booksLoading } = useQuery({
+    queryKey: ['books'],
+    queryFn: () => booksAPI.getBooks({ skip: 0, limit: 100 }),
+  });
+
+  // Fetch images for all books with concurrency limit
+  const { data: imagesData, isLoading: imagesLoading } = useQuery({
+    queryKey: ['all-images', booksData?.books?.map((b) => b.id)],
+    queryFn: async () => {
+      if (!booksData?.books || booksData.books.length === 0) return [];
+
+      setLoadingProgress({ current: 0, total: booksData.books.length, phase: 'loading' });
+
+      const images = await loadImagesWithLimit(
+        booksData.books,
+        CONCURRENCY_LIMIT,
+        handleProgress
+      );
+
+      setLoadingProgress((prev) => ({ ...prev, phase: 'complete' }));
+      return images;
     },
     enabled: !!booksData?.books && booksData.books.length > 0,
   });
@@ -113,12 +172,55 @@ const ImagesGalleryPage: React.FC = () => {
       });
   }, [allImages, selectedBook, descriptionType, searchQuery, sortBy]);
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredImages.length / IMAGES_PER_PAGE);
+  const paginatedImages = useMemo(() => {
+    const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
+    return filteredImages.slice(startIndex, startIndex + IMAGES_PER_PAGE);
+  }, [filteredImages, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBook, descriptionType, searchQuery, sortBy]);
+
   const isLoading = booksLoading || imagesLoading;
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedImage(null);
+    };
+    if (selectedImage) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [selectedImage]);
+
   if (isLoading) {
+    const progressPercent = loadingProgress.total > 0
+      ? Math.round((loadingProgress.current / loadingProgress.total) * 100)
+      : 0;
+
     return (
-      <div className="flex items-center justify-center min-h-64">
+      <div className="flex flex-col items-center justify-center min-h-64 gap-4">
         <LoadingSpinner size="lg" text="Загрузка изображений..." />
+        {loadingProgress.total > 0 && (
+          <div className="w-full max-w-sm space-y-2">
+            <p className="text-center text-sm text-muted-foreground">
+              Загрузка книг: {loadingProgress.current} / {loadingProgress.total}
+            </p>
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <p className="text-center text-xs text-muted-foreground/70">
+              {progressPercent}% завершено
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -139,39 +241,39 @@ const ImagesGalleryPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="p-4 rounded-xl border-2 bg-background border-border">
-          <p className="text-sm font-medium mb-1 text-muted-foreground">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="p-3 sm:p-4 rounded-xl border-2 bg-background border-border">
+          <p className="text-xs sm:text-sm font-medium mb-1 text-muted-foreground">
             Всего изображений
           </p>
-          <p className="text-2xl font-bold text-foreground">
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
             {allImages.length}
           </p>
         </div>
 
-        <div className="p-4 rounded-xl border-2 bg-background border-border">
-          <p className="text-sm font-medium mb-1 text-muted-foreground">
+        <div className="p-3 sm:p-4 rounded-xl border-2 bg-background border-border">
+          <p className="text-xs sm:text-sm font-medium mb-1 text-muted-foreground">
             Локации
           </p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
             {allImages.filter((img) => img.description?.type === 'location').length}
           </p>
         </div>
 
-        <div className="p-4 rounded-xl border-2 bg-background border-border">
-          <p className="text-sm font-medium mb-1 text-muted-foreground">
+        <div className="p-3 sm:p-4 rounded-xl border-2 bg-background border-border">
+          <p className="text-xs sm:text-sm font-medium mb-1 text-muted-foreground">
             Персонажи
           </p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+          <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
             {allImages.filter((img) => img.description?.type === 'character').length}
           </p>
         </div>
 
-        <div className="p-4 rounded-xl border-2 bg-background border-border">
-          <p className="text-sm font-medium mb-1 text-muted-foreground">
+        <div className="p-3 sm:p-4 rounded-xl border-2 bg-background border-border">
+          <p className="text-xs sm:text-sm font-medium mb-1 text-muted-foreground">
             Атмосфера
           </p>
-          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+          <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
             {allImages.filter((img) => img.description?.type === 'atmosphere').length}
           </p>
         </div>
@@ -301,40 +403,142 @@ const ImagesGalleryPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredImages.map((image) => (
-            <div
-              key={image.id}
-              onClick={() => setSelectedImage(image)}
-              className="group cursor-pointer rounded-xl overflow-hidden border-2 transition-all hover:-translate-y-1 hover:shadow-xl bg-background border-border"
-            >
-              {/* Image */}
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
-                  src={image.image_url}
-                  alt={image.description?.text || 'Generated image'}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                />
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {paginatedImages.map((image) => (
+              <div
+                key={image.id}
+                onClick={() => setSelectedImage(image)}
+                className="group cursor-pointer rounded-xl overflow-hidden border-2 transition-all hover:-translate-y-1 hover:shadow-xl bg-background border-border"
+              >
+                {/* Image */}
+                <div className="aspect-[4/3] overflow-hidden">
+                  <LazyImage
+                    src={image.image_url}
+                    alt={image.description?.text || 'Generated image'}
+                    className="w-full h-full"
+                    imageClassName="transition-transform group-hover:scale-110"
+                    rootMargin="100px"
+                  />
+                </div>
+
+                {/* Info */}
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-semibold truncate text-foreground">
+                      {image.book_title}
+                    </p>
+                  </div>
+                  <p className="text-sm line-clamp-2 mb-2 text-muted-foreground">
+                    {image.description?.text || image.description?.content}
+                  </p>
+                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-muted text-foreground">
+                    {descriptionTypes.find((t) => t.value === image.description?.type)?.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={cn(
+                  'flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors',
+                  'border-border bg-background',
+                  currentPage === 1
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-muted cursor-pointer'
+                )}
+                aria-label="Предыдущая страница"
+              >
+                <ChevronLeft className="w-5 h-5 text-foreground" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                {/* First page */}
+                {currentPage > 3 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="w-10 h-10 rounded-lg border-2 border-border bg-background hover:bg-muted text-foreground font-medium"
+                    >
+                      1
+                    </button>
+                    {currentPage > 4 && (
+                      <span className="px-2 text-muted-foreground">...</span>
+                    )}
+                  </>
+                )}
+
+                {/* Page numbers around current */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page >= currentPage - 2 &&
+                      page <= currentPage + 2 &&
+                      page >= 1 &&
+                      page <= totalPages
+                  )
+                  .map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        'w-10 h-10 rounded-lg border-2 font-medium transition-colors',
+                        page === currentPage
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border bg-background hover:bg-muted text-foreground'
+                      )}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                {/* Last page */}
+                {currentPage < totalPages - 2 && (
+                  <>
+                    {currentPage < totalPages - 3 && (
+                      <span className="px-2 text-muted-foreground">...</span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="w-10 h-10 rounded-lg border-2 border-border bg-background hover:bg-muted text-foreground font-medium"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
               </div>
 
-              {/* Info */}
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  <p className="text-sm font-semibold truncate text-foreground">
-                    {image.book_title}
-                  </p>
-                </div>
-                <p className="text-sm line-clamp-2 mb-2 text-muted-foreground">
-                  {image.description?.text || image.description?.content}
-                </p>
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-muted text-foreground">
-                  {descriptionTypes.find((t) => t.value === image.description?.type)?.label}
-                </span>
-              </div>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={cn(
+                  'flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors',
+                  'border-border bg-background',
+                  currentPage === totalPages
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-muted cursor-pointer'
+                )}
+                aria-label="Следующая страница"
+              >
+                <ChevronRight className="w-5 h-5 text-foreground" />
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Page info */}
+          {totalPages > 1 && (
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              Страница {currentPage} из {totalPages} ({filteredImages.length} изображений)
+            </p>
+          )}
+        </>
       )}
 
       {/* Image Modal */}
@@ -344,12 +548,12 @@ const ImagesGalleryPage: React.FC = () => {
           onClick={() => setSelectedImage(null)}
         >
           <div
-            className="relative max-w-4xl w-full rounded-xl overflow-hidden bg-background"
+            className="relative max-w-4xl w-full max-h-[90vh] flex flex-col rounded-xl overflow-hidden bg-background"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg z-10 bg-muted"
+              className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg z-10 bg-muted"
             >
               <X className="w-6 h-6 text-foreground" />
             </button>
@@ -357,14 +561,14 @@ const ImagesGalleryPage: React.FC = () => {
             <img
               src={selectedImage.image_url}
               alt={selectedImage.description?.text || 'Generated image'}
-              className="w-full max-h-[70vh] object-contain"
+              className="w-full max-h-[60vh] sm:max-h-[70vh] object-contain flex-shrink-0"
             />
 
-            <div className="p-6">
-              <h3 className="text-2xl font-bold mb-3 text-foreground">
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <h3 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-3 text-foreground">
                 {selectedImage.book_title}
               </h3>
-              <p className="text-lg mb-4 text-muted-foreground">
+              <p className="text-sm sm:text-base mb-3 sm:mb-4 text-muted-foreground line-clamp-3 sm:line-clamp-none">
                 {selectedImage.description?.text || selectedImage.description?.content}
               </p>
               <div className="flex items-center gap-3">

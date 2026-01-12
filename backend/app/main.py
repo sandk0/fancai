@@ -183,7 +183,14 @@ app.add_middleware(
         "X-Requested-With",
         "Cache-Control",
     ],
-    expose_headers=["Content-Disposition", "X-Total-Count", "X-Page-Count"],  # For file downloads & pagination
+    expose_headers=[
+        "Content-Disposition",
+        "X-Total-Count",
+        "X-Page-Count",
+        "ETag",
+        "Last-Modified",
+        "Cache-Control",
+    ],  # For file downloads, pagination & HTTP caching
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
@@ -210,7 +217,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     if origin and origin in settings.cors_origins_list:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Expose-Headers"] = "Content-Disposition, X-Total-Count, X-Page-Count"
+        response.headers["Access-Control-Expose-Headers"] = (
+            "Content-Disposition, X-Total-Count, X-Page-Count, ETag, Last-Modified, Cache-Control"
+        )
 
     return response
 
@@ -233,7 +242,9 @@ async def general_exception_handler(request: Request, exc: Exception):
     if origin and origin in settings.cors_origins_list:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Expose-Headers"] = "Content-Disposition, X-Total-Count, X-Page-Count"
+        response.headers["Access-Control-Expose-Headers"] = (
+            "Content-Disposition, X-Total-Count, X-Page-Count, ETag, Last-Modified, Cache-Control"
+        )
 
     return response
 

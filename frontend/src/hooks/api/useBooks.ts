@@ -138,7 +138,14 @@ export function useBooks(
   const userId = getCurrentUserId();
 
   const query = useQuery({
-    queryKey: bookKeys.list(userId, params),
+    // ВАЖНО: Используем примитивные значения вместо объекта params
+    // для предотвращения ненужных refetch из-за reference equality
+    queryKey: bookKeys.listPaginated(
+      userId,
+      params?.skip ?? 0,
+      params?.limit ?? 10,
+      params?.sort_by
+    ),
     queryFn: () => booksAPI.getBooks(params),
 
     // Offline-first: показываем книги из IndexedDB пока загружаем с сервера
@@ -177,23 +184,35 @@ export function useBooks(
       getOfflineBooksPlaceholder(userId).then((offlineData) => {
         if (offlineData && !query.data) {
           // Устанавливаем offline данные как placeholder
-          queryClient.setQueryData(bookKeys.list(userId, params), offlineData);
+          queryClient.setQueryData(
+            bookKeys.listPaginated(
+              userId,
+              params?.skip ?? 0,
+              params?.limit ?? 10,
+              params?.sort_by
+            ),
+            offlineData
+          );
           console.log('[useBooks] Loaded offline placeholder data:', offlineData.books.length, 'books');
         }
       });
     }
-  }, [userId, params, query.data, query.isFetching, queryClient]);
+  }, [userId, params?.skip, params?.limit, params?.sort_by, query.data, query.isFetching, queryClient]);
 
   // Prefetch следующей страницы после успешной загрузки
   React.useEffect(() => {
     if (query.data) {
-      const nextSkip = (params?.skip || 0) + (params?.limit || 10);
+      const currentSkip = params?.skip ?? 0;
+      const currentLimit = params?.limit ?? 10;
+      const nextSkip = currentSkip + currentLimit;
       if (nextSkip < query.data.total) {
         queryClient.prefetchQuery({
-          queryKey: bookKeys.list(userId, {
-            ...params,
-            skip: nextSkip,
-          }),
+          queryKey: bookKeys.listPaginated(
+            userId,
+            nextSkip,
+            currentLimit,
+            params?.sort_by
+          ),
           queryFn: () =>
             booksAPI.getBooks({
               ...params,
@@ -202,7 +221,7 @@ export function useBooks(
         });
       }
     }
-  }, [query.data, params, queryClient, userId]);
+  }, [query.data, params?.skip, params?.limit, params?.sort_by, queryClient, userId]);
 
   return query;
 }
@@ -241,7 +260,14 @@ export function useBooksInfinite(
   const userId = getCurrentUserId();
 
   return useInfiniteQuery({
-    queryKey: bookKeys.list(userId, params),
+    // ВАЖНО: Для infinite query используем стабильный ключ без skip
+    // (skip управляется через pageParam)
+    queryKey: bookKeys.listPaginated(
+      userId,
+      0, // skip = 0 для базового ключа infinite query
+      params?.limit ?? 10,
+      params?.sort_by
+    ),
     queryFn: ({ pageParam }) =>
       booksAPI.getBooks({
         ...params,

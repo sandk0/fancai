@@ -78,11 +78,15 @@ export function useBookImages(
   const userId = getCurrentUserId();
 
   return useQuery({
-    queryKey: [
-      ...imageKeys.byBook(userId, bookId, chapterNumber),
-      'paginated',
-      pagination,
-    ],
+    // ВАЖНО: Используем примитивные значения вместо объекта pagination
+    // для предотвращения ненужных refetch из-за reference equality
+    queryKey: imageKeys.byBookPaginated(
+      userId,
+      bookId,
+      chapterNumber,
+      pagination?.skip ?? 0,
+      pagination?.limit ?? 50
+    ),
     queryFn: async () => {
       console.log(
         `🖼️ [useBookImages] Fetching images for book ${bookId}, chapter ${chapterNumber || 'all'}`

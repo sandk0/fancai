@@ -44,11 +44,37 @@ export const bookKeys = {
 
   /**
    * Список книг с опциональными параметрами
+   *
+   * @deprecated Используйте listPaginated для стабильных ключей с примитивами
    * @param userId - ID пользователя
    * @param params - Параметры пагинации и сортировки
    */
   list: (userId: string, params?: { skip?: number; limit?: number; sort_by?: string }) =>
     [...bookKeys.all(userId), 'list', params] as const,
+
+  /**
+   * Список книг с пагинацией (стабильный ключ с примитивами)
+   *
+   * ВАЖНО: Использует примитивные значения вместо объекта params
+   * для предотвращения ненужных refetch из-за reference equality.
+   *
+   * @param userId - ID пользователя
+   * @param skip - Смещение для пагинации (default: 0)
+   * @param limit - Лимит записей (default: 10)
+   * @param sortBy - Сортировка (default: undefined)
+   */
+  listPaginated: (
+    userId: string,
+    skip = 0,
+    limit = 10,
+    sortBy?: string
+  ) => [
+    ...bookKeys.all(userId),
+    'list',
+    skip,
+    limit,
+    sortBy ?? 'default',
+  ] as const,
 
   /**
    * Детали конкретной книги
@@ -187,6 +213,31 @@ export const imageKeys = {
       : [...imageKeys.all(userId), 'book', bookId] as const,
 
   /**
+   * Изображения книги с пагинацией (стабильный ключ с примитивами)
+   *
+   * ВАЖНО: Использует примитивные значения вместо объекта pagination
+   * для предотвращения ненужных refetch из-за reference equality.
+   *
+   * @param userId - ID пользователя
+   * @param bookId - ID книги
+   * @param chapterNumber - Опциональный номер главы для фильтрации
+   * @param skip - Смещение для пагинации (default: 0)
+   * @param limit - Лимит записей (default: 50)
+   */
+  byBookPaginated: (
+    userId: string,
+    bookId: string,
+    chapterNumber?: number,
+    skip = 0,
+    limit = 50
+  ) => [
+    ...imageKeys.byBook(userId, bookId, chapterNumber),
+    'paginated',
+    skip,
+    limit,
+  ] as const,
+
+  /**
    * Изображение для конкретного описания
    * @param userId - ID пользователя
    * @param descriptionId - ID описания
@@ -293,7 +344,7 @@ export const queryKeyUtils = {
    * @param userId - ID пользователя
    */
   invalidateAfterUpload: (userId: string) => [
-    bookKeys.list(userId),
+    bookKeys.all(userId), // Инвалидирует все list queries независимо от пагинации
     bookKeys.statistics(userId),
   ],
 
@@ -303,7 +354,7 @@ export const queryKeyUtils = {
    * @param bookId - ID удаленной книги
    */
   invalidateAfterDelete: (userId: string, bookId: string) => [
-    bookKeys.list(userId),
+    bookKeys.all(userId), // Инвалидирует все list queries независимо от пагинации
     bookKeys.detail(userId, bookId),
     bookKeys.statistics(userId),
     chapterKeys.byBook(userId, bookId),

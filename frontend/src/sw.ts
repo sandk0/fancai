@@ -90,6 +90,23 @@ registerRoute(
   })
 )
 
+// --- Book Covers ---
+// StaleWhileRevalidate: Show cached cover immediately, update in background
+// Covers rarely change but should be available offline and load fast
+registerRoute(
+  ({ url, sameOrigin }) => sameOrigin && url.pathname.includes('/cover'),
+  new StaleWhileRevalidate({
+    cacheName: 'book-covers',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      }),
+    ],
+  })
+)
+
 // --- Local Images (app assets) ---
 // CacheFirst: Static assets rarely change
 // Check for same-origin by comparing with registration scope

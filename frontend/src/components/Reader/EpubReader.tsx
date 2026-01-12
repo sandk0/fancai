@@ -795,6 +795,59 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     }
   }, [theme]);
 
+  // Theme color mapping for meta tag and body background
+  const themeColors: Record<string, string> = useMemo(() => ({
+    light: '#ffffff',
+    dark: '#121212',
+    sepia: '#FBF0D9',
+    night: '#000000',
+    outdoor: '#FFFEF5',
+  }), []);
+
+  // Sync theme-color meta tag and body background with reader theme
+  // This ensures iOS Safari's address bar and Home Indicator area match the reader
+  useEffect(() => {
+    const themeColor = themeColors[theme] || themeColors.light;
+
+    // Update body background color to extend behind safe areas
+    document.body.style.backgroundColor = themeColor;
+
+    // Update the reader-specific theme-color meta tag
+    const readerThemeColorMeta = document.getElementById('reader-theme-color') as HTMLMetaElement | null;
+    if (readerThemeColorMeta) {
+      readerThemeColorMeta.setAttribute('content', themeColor);
+    }
+
+    // Also update the general theme-color meta tags for better PWA support
+    const lightThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: light)"]');
+    const darkThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]');
+
+    if (lightThemeMeta) {
+      lightThemeMeta.setAttribute('content', themeColor);
+    }
+    if (darkThemeMeta) {
+      darkThemeMeta.setAttribute('content', themeColor);
+    }
+
+    // Cleanup: restore original colors when leaving reader
+    return () => {
+      document.body.style.backgroundColor = '';
+
+      // Restore original theme colors based on system preference
+      if (readerThemeColorMeta) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        readerThemeColorMeta.setAttribute('content', prefersDark ? '#121212' : '#ffffff');
+      }
+
+      if (lightThemeMeta) {
+        lightThemeMeta.setAttribute('content', '#ffffff');
+      }
+      if (darkThemeMeta) {
+        darkThemeMeta.setAttribute('content', '#121212');
+      }
+    };
+  }, [theme, themeColors]);
+
 
 
   // Main render - viewerRef MUST stay in same DOM location to prevent rendition destruction

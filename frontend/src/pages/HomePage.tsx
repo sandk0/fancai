@@ -28,6 +28,7 @@ import {
   FileText,
   Wand2,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useUIStore } from '@/stores/ui';
@@ -250,6 +251,8 @@ const ContinueReadingCard: React.FC<{ book: Book; isLoading: boolean }> = ({
 
   if (!book) return null;
 
+  const isClickable = !book.is_processing;
+
   return (
     <m.section
       className="mb-8 sm:mb-10"
@@ -262,26 +265,39 @@ const ContinueReadingCard: React.FC<{ book: Book; isLoading: boolean }> = ({
       </h2>
 
       <m.div
-        onClick={() => navigate(`/book/${book.id}`)}
+        onClick={() => isClickable && navigate(`/book/${book.id}`)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             navigate(`/book/${book.id}`);
           }
         }}
         role="button"
-        tabIndex={0}
-        aria-label={`Continue reading ${book.title} by ${book.author}, ${Math.round(book.reading_progress_percent)}% complete`}
+        tabIndex={isClickable ? 0 : -1}
+        aria-label={book.is_processing
+          ? `${book.title} - обработка`
+          : `Continue reading ${book.title} by ${book.author}, ${Math.round(book.reading_progress_percent)}% complete`
+        }
         className={cn(
-          'relative overflow-hidden rounded-xl cursor-pointer',
+          'relative overflow-hidden rounded-xl',
+          isClickable ? 'cursor-pointer' : 'cursor-default',
           'bg-gradient-to-r from-card via-card to-accent/20',
-          'border border-border hover:border-primary/50',
+          'border border-border',
+          isClickable && 'hover:border-primary/50',
           'transition-all duration-300',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
         )}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        whileHover={isClickable ? { scale: 1.01 } : undefined}
+        whileTap={isClickable ? { scale: 0.99 } : undefined}
       >
+        {/* Processing overlay */}
+        {book.is_processing && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl z-10">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+            <span className="text-sm font-medium text-muted-foreground">Обработка...</span>
+          </div>
+        )}
+
         <div className="p-3 sm:p-4 flex gap-3 sm:gap-4">
           {/* Book cover */}
           <div className="flex-shrink-0 w-16 sm:w-20 aspect-[2/3] rounded-lg overflow-hidden">
@@ -425,16 +441,19 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
           {displayBooks.map((book, index) => (
             <m.div
               key={book.id}
-              className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-              onClick={() => navigate(`/book/${book.id}`)}
+              className={cn(
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg relative',
+                book.is_processing ? 'cursor-default' : 'cursor-pointer'
+              )}
+              onClick={() => !book.is_processing && navigate(`/book/${book.id}`)}
               role="button"
-              tabIndex={0}
-              aria-label={`Open ${book.title} by ${book.author}`}
+              tabIndex={book.is_processing ? -1 : 0}
+              aria-label={book.is_processing ? `${book.title} - обработка` : `Open ${book.title} by ${book.author}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <div className="aspect-[2/3] rounded-lg mb-1.5 overflow-hidden border border-border shadow-sm">
+              <div className="aspect-[2/3] rounded-lg mb-1.5 overflow-hidden border border-border shadow-sm relative">
                 {book.has_cover ? (
                   <AuthenticatedImage
                     src={`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/books/${book.id}/cover`}
@@ -449,6 +468,13 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-accent/10 to-secondary">
                     <BookOpen className="w-8 h-8 text-primary/40" />
+                  </div>
+                )}
+                {/* Processing overlay */}
+                {book.is_processing && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary mb-1.5" />
+                    <span className="text-xs font-medium text-muted-foreground">Обработка...</span>
                   </div>
                 )}
               </div>
@@ -486,21 +512,26 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
           {books.map((book, index) => (
             <m.div
               key={book.id}
-              className="flex-shrink-0 w-32 md:w-40 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
-              onClick={() => navigate(`/book/${book.id}`)}
+              className={cn(
+                'flex-shrink-0 w-32 md:w-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl',
+                book.is_processing ? 'cursor-default' : 'cursor-pointer'
+              )}
+              onClick={() => !book.is_processing && navigate(`/book/${book.id}`)}
               role="button"
-              tabIndex={0}
-              aria-label={`Open ${book.title} by ${book.author}`}
+              tabIndex={book.is_processing ? -1 : 0}
+              aria-label={book.is_processing ? `${book.title} - обработка` : `Open ${book.title} by ${book.author}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              whileHover={{ y: -4 }}
+              whileHover={book.is_processing ? undefined : { y: -4 }}
             >
               <div
                 className={cn(
-                  'aspect-[2/3] rounded-xl mb-2 overflow-hidden',
-                  'border border-border hover:border-primary/30',
-                  'transition-all duration-200 shadow-sm hover:shadow-md'
+                  'aspect-[2/3] rounded-xl mb-2 overflow-hidden relative',
+                  'border border-border',
+                  !book.is_processing && 'hover:border-primary/30',
+                  'transition-all duration-200 shadow-sm',
+                  !book.is_processing && 'hover:shadow-md'
                 )}
               >
                 {book.has_cover ? (
@@ -519,10 +550,17 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
                     <BookOpen className="w-10 h-10 text-primary/40" />
                   </div>
                 )}
+                {/* Processing overlay */}
+                {book.is_processing && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl z-10">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                    <span className="text-sm font-medium text-muted-foreground">Обработка...</span>
+                  </div>
+                )}
               </div>
               <h3 className="text-sm font-medium text-foreground truncate">{book.title}</h3>
               <p className="text-xs text-muted-foreground truncate">{book.author}</p>
-              {book.reading_progress_percent > 0 && (
+              {book.reading_progress_percent > 0 && !book.is_processing && (
                 <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary rounded-full"
@@ -666,12 +704,16 @@ const HomePage: React.FC = () => {
     enabled: isAuthenticated,
   });
 
-  // Fetch books for recent activity
+  // Fetch books for recent activity with polling for processing books
   const { data: booksData, isLoading: booksLoading } = useQuery({
     queryKey: ['books', 'homepage'],
     queryFn: () => booksAPI.getBooks({ limit: 20, sort_by: 'accessed_desc' }),
-    staleTime: 0,
+    staleTime: 60000, // 1 minute
     refetchOnMount: 'always',
+    refetchInterval: (query) => {
+      const books = query.state.data?.books || [];
+      return books.some((b) => b.is_processing) ? 5000 : false;
+    },
     enabled: isAuthenticated,
   });
 

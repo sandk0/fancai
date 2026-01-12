@@ -247,11 +247,15 @@ export function useDescriptionsByType(
 ) {
   const userId = getCurrentUserId();
 
+  // Сортируем и объединяем types в строку для стабильного ключа
+  // Это предотвращает refetch при пересоздании массива с теми же значениями
+  const typesKey = [...types].sort().join(',');
+
   return useQuery({
     queryKey: [
       ...descriptionKeys.byChapter(userId, bookId, chapterNumber),
       'filtered',
-      types,
+      typesKey, // Используем строку вместо массива для стабильности
     ],
     queryFn: async () => {
       const response = await booksAPI.getChapterDescriptions(

@@ -5,40 +5,13 @@ import { imagesAPI } from '@/api/images';
 import { useUIStore } from '@/stores/ui';
 import { useTranslation } from '@/hooks/useTranslation';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import { STORAGE_KEYS } from '@/types/state';
+import { fetchImageWithAuth, downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Z_INDEX } from '@/lib/zIndex';
 import type { Description } from '@/types/api';
 
-/**
- * Fetch image with Authorization header and return blob URL
- * This is needed because img tags don't send auth headers,
- * but our API requires authentication for image access.
- */
-const fetchImageAsBlob = async (url: string): Promise<string | null> => {
-  try {
-    // Skip if already a blob URL or data URL
-    if (url.startsWith('blob:') || url.startsWith('data:')) {
-      return url;
-    }
-
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    const response = await fetch(url, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    });
-
-    if (!response.ok) {
-      console.warn('[ImageModal] Failed to fetch image:', response.status);
-      return null;
-    }
-
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-  } catch (err) {
-    console.warn('[ImageModal] Error fetching image:', err);
-    return null;
-  }
-};
+// Note: fetchImageAsBlob functionality moved to fetchImageWithAuth in @/utils/fetchWithTokenRefresh
+// This provides automatic token refresh on 401 errors during long sessions
 
 interface ImageModalProps {
   imageUrl: string;
@@ -87,11 +60,11 @@ export const ImageModal: React.FC<ImageModalProps> = ({
       return;
     }
 
-    // Fetch image with auth headers
+    // Fetch image with auth headers (supports automatic token refresh)
     setIsLoadingImage(true);
     let cancelled = false;
 
-    fetchImageAsBlob(imageUrl).then((blobUrl) => {
+    fetchImageWithAuth(imageUrl).then((blobUrl) => {
       if (cancelled) {
         // Cleanup blob URL if we were cancelled
         if (blobUrl && blobUrl !== imageUrl) {
@@ -130,21 +103,11 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
   const handleDownload = async () => {
     try {
-      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      const response = await fetch(imageUrl, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bookreader-image-${Date.now()}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const filename = `bookreader-image-${Date.now()}.jpg`;
+      await downloadWithAuth(imageUrl, filename);
     } catch (error) {
-      console.error('Download failed:', error);
+      console.error('[ImageModal] Download failed:', error);
+      notify.error(t('images.downloadFailed'), t('images.downloadFailedDesc'));
     }
   };
 

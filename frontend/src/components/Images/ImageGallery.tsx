@@ -7,7 +7,8 @@ import { useUIStore } from '@/stores/ui';
 import { ImageModal } from './ImageModal';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import { STORAGE_KEYS } from '@/types/state';
+import { LazyImage } from '@/components/UI/LazyImage';
+import { downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { cn } from '@/utils/cn';
 import type { GeneratedImage } from '@/types/api';
 
@@ -82,23 +83,11 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   const handleDownload = async (image: GeneratedImage) => {
     try {
-      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      const response = await fetch(image.image_url, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bookreader-${image.id}-${Date.now()}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      const filename = `bookreader-${image.id}-${Date.now()}.jpg`;
+      await downloadWithAuth(image.image_url, filename);
       notify.success('Download Started', 'Image download has begun');
     } catch (error) {
+      console.error('[ImageGallery] Download failed:', error);
       notify.error('Download Failed', 'Failed to download image');
     }
   };
@@ -224,20 +213,21 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               transition={{ delay: index * 0.1 }}
               className="group relative bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
             >
-              <div 
-                className="aspect-square cursor-pointer overflow-hidden"
+              <div
+                className="aspect-square cursor-pointer overflow-hidden relative"
                 onClick={() => handleImageClick(image)}
               >
-                <img
+                <LazyImage
                   src={image.image_url}
                   alt={image.description?.content || 'Generated image'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  className="w-full h-full"
+                  imageClassName="group-hover:scale-105 transition-transform duration-300"
+                  rootMargin="100px"
                 />
-                
+
                 {/* Overlay - hidden on mobile since actions are always visible */}
                 <div className={cn(
-                  "absolute inset-0 transition-colors flex items-center justify-center",
+                  "absolute inset-0 transition-colors flex items-center justify-center pointer-events-none",
                   "bg-black/0 md:group-hover:bg-black/40",
                   "opacity-0 md:group-hover:opacity-100"
                 )}>
@@ -296,15 +286,16 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               transition={{ delay: index * 0.05 }}
               className="flex items-center space-x-4 bg-card rounded-lg p-4 shadow-sm hover:shadow-lg transition-shadow"
             >
-              <div 
+              <div
                 className="w-20 h-20 flex-shrink-0 cursor-pointer rounded-lg overflow-hidden"
                 onClick={() => handleImageClick(image)}
               >
-                <img
+                <LazyImage
                   src={image.image_url}
                   alt={image.description?.content || 'Generated image'}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform"
-                  loading="lazy"
+                  className="w-full h-full"
+                  imageClassName="hover:scale-105 transition-transform"
+                  rootMargin="100px"
                 />
               </div>
               

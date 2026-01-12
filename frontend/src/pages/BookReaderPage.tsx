@@ -41,7 +41,7 @@ const ReaderErrorFallback = ({ bookId }: ReaderErrorFallbackProps) => {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-background">
+    <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
       <div className="text-center max-w-md px-4">
         <div className="text-6xl mb-4">📖</div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
@@ -101,7 +101,7 @@ const BookReaderPage = () => {
   // Show loading spinner while resuming from background
   if (isResuming || !isReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p className="text-muted-foreground">Восстановление сессии...</p>
@@ -112,7 +112,7 @@ const BookReaderPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p className="text-muted-foreground">Загрузка книги...</p>
@@ -123,7 +123,7 @@ const BookReaderPage = () => {
 
   if (error || !bookData) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
         <div className="text-center">
           <p className="text-destructive mb-4">Ошибка загрузки книги</p>
           <button
@@ -139,12 +139,13 @@ const BookReaderPage = () => {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-background"
+      className="fixed inset-0 overflow-hidden bg-background reader-container"
       style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingLeft: 'env(safe-area-inset-left)',
-        paddingRight: 'env(safe-area-inset-right)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        /* Use 100dvh for proper iOS Home Indicator support */
+        height: '100dvh',
+        /* Fallback for browsers that don't support dvh */
+        minHeight: '100vh',
+        /* Safe area padding handled by child components for better theme color coverage */
       }}
     >
       {/* Parsing Status Indicator - shown while Celery is processing */}

@@ -375,7 +375,35 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for iOS Home Indicator */
   /* overflow-x: hidden removed - creates new stacking context and breaks position:fixed on iOS */
+}
+
+/* ===========================================
+   Reader Container - Full viewport with iOS support
+   Uses 100dvh for proper iOS Home Indicator handling
+   =========================================== */
+.reader-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Ensure safe area is covered with correct background color */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .reader-fullscreen {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Reader background extends to cover iOS safe areas */
+.reader-bg-extend {
+  /* Extend background color beyond safe area */
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  margin-bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Use overflow-x: clip where needed - modern alternative that doesn't create stacking context */

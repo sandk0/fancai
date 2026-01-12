@@ -14,8 +14,11 @@
     <link rel="manifest" href="/manifest.json">
 
     <!-- Theme color for PWA (light/dark mode support) -->
-    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+    <!-- Default theme colors - will be dynamically updated by Reader when active -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+    <!-- Reader-specific theme colors (updated dynamically by EpubReader) -->
+    <meta name="theme-color" id="reader-theme-color" content="#ffffff" />
     <meta name="msapplication-TileColor" content="#F59E0B" />
 
     <!-- Apple PWA Meta Tags -->

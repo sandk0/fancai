@@ -117,6 +117,18 @@ const LibraryPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const PULL_THRESHOLD = 80;
 
+  // Block body scroll when filters are open (mobile)
+  useEffect(() => {
+    if (showFilters) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showFilters]);
+
   // Calculate skip for pagination
   const skip = (currentPage - 1) * BOOKS_PER_PAGE;
 
@@ -366,9 +378,9 @@ const LibraryPage: React.FC = () => {
         </div>
 
         {/* Search and Filters Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col gap-3 mb-6">
           {/* Search Input */}
-          <div className="flex-1 relative">
+          <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
               type="text"
@@ -388,15 +400,17 @@ const LibraryPage: React.FC = () => {
             )}
           </div>
 
-          {/* Sort Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
-              aria-haspopup="listbox"
-              aria-expanded={showSortDropdown}
-              aria-label={`Sort by: ${currentSortOption?.label || 'Sort'}`}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[160px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
+          {/* Sort and Filter Controls */}
+          <div className="flex gap-3">
+            {/* Sort Dropdown */}
+            <div className="relative flex-1 sm:flex-initial">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                aria-haspopup="listbox"
+                aria-expanded={showSortDropdown}
+                aria-label={`Sort by: ${currentSortOption?.label || 'Sort'}`}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted transition-colors min-h-[44px] w-full sm:w-auto sm:min-w-[160px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
               {currentSortOption && (
                 <currentSortOption.icon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               )}
@@ -423,7 +437,7 @@ const LibraryPage: React.FC = () => {
                     onClick={() => setShowSortDropdown(false)}
                   />
                   <m.div
-                    className="absolute top-full mt-2 w-48 right-0 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-[100]"
+                    className="absolute top-full mt-2 left-0 right-0 sm:left-auto sm:right-0 sm:w-48 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-[100]"
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -450,30 +464,31 @@ const LibraryPage: React.FC = () => {
                   </m.div>
                 </>
               )}
-            </AnimatePresence>
-          </div>
+              </AnimatePresence>
+            </div>
 
-          {/* Filter Toggle Button */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            aria-expanded={showFilters}
-            aria-label={`Фильтры${activeFiltersCount > 0 ? ` (${activeFiltersCount} активно)` : ''}`}
-            className={cn(
-              'flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors min-h-[44px]',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              showFilters || activeFiltersCount > 0
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card text-foreground border-border hover:bg-muted'
-            )}
-          >
-            <Filter className="w-5 h-5" aria-hidden="true" />
-            <span className="hidden sm:inline">Фильтры</span>
-            {activeFiltersCount > 0 && (
-              <span className="ml-1 px-2 py-0.5 rounded-full bg-primary-foreground/20 text-xs font-semibold" aria-hidden="true">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
+            {/* Filter Toggle Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              aria-expanded={showFilters}
+              aria-label={`Фильтры${activeFiltersCount > 0 ? ` (${activeFiltersCount} активно)` : ''}`}
+              className={cn(
+                'flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors min-h-[44px]',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                showFilters || activeFiltersCount > 0
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-foreground border-border hover:bg-muted'
+              )}
+            >
+              <Filter className="w-5 h-5" aria-hidden="true" />
+              <span className="hidden sm:inline">Фильтры</span>
+              {activeFiltersCount > 0 && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-primary-foreground/20 text-xs font-semibold" aria-hidden="true">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Filters Panel */}
@@ -514,22 +529,22 @@ const LibraryPage: React.FC = () => {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Прогресс чтения
                   </label>
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1" role="group" aria-label="Filter by reading progress">
+                  <div className="grid grid-cols-2 sm:flex gap-2" role="group" aria-label="Filter by reading progress">
                     {PROGRESS_OPTIONS.map((option) => (
                       <button
                         key={option.value}
                         onClick={() => setProgressFilter(option.value)}
                         aria-pressed={progressFilter === option.value}
                         className={cn(
-                          'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] whitespace-nowrap',
+                          'flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
                           'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                           progressFilter === option.value
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-foreground hover:bg-muted/80'
                         )}
                       >
-                        <option.icon className="w-4 h-4" aria-hidden="true" />
-                        <span>{option.label}</span>
+                        <option.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{option.label}</span>
                       </button>
                     ))}
                   </div>
