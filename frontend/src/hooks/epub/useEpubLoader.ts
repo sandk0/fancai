@@ -31,8 +31,11 @@ import type { Book, Rendition } from '@/types/epub';
 import { epubCache } from '@/services/epubCache';
 import { isOnline } from '@/hooks/useOnlineStatus';
 
-/** Enable debug logging only in development */
-const DEBUG = import.meta.env.DEV;
+/**
+ * Enable debug logging - ALWAYS ON for iOS debugging
+ * Remove this after fixing the iOS navigation bug
+ */
+const DEBUG = true; // import.meta.env.DEV;
 
 interface UseEpubLoaderOptions {
   bookUrl: string;
@@ -292,6 +295,107 @@ export const useEpubLoader = ({
             // Enable text selection
             iframe.contentDocument.body.style.userSelect = 'text';
             iframe.contentDocument.body.style.webkitUserSelect = 'text';
+          }
+
+          /**
+           * iOS FIX Phase 2 (January 2026): DISABLE epub.js internal gesture handling
+           *
+           * Problem: epub.js has its own touch/swipe handlers that trigger navigation
+           * independently of our code. This causes multi-page jumps because epub.js
+           * calculates scroll distance incorrectly on iOS.
+           *
+           * Solution: Completely disable epub.js's internal touch handling
+           */
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const manager = (newRendition as any).manager;
+          if (isIOSDevice && manager) {
+            // Log current state for debugging
+            console.log('[useEpubLoader] iOS Phase 2: Manager state:', {
+              hasSnap: typeof manager.snap === 'function',
+              hasGestures: !!manager.gestures,
+              stageScrollWidth: manager.stage?.container?.scrollWidth,
+              stageClientWidth: manager.stage?.container?.clientWidth,
+              layoutDelta: manager.layout?.delta,
+              layoutDivisor: manager.layout?.divisor,
+            });
+
+            // Method 1: Override snap() to prevent epub.js from auto-scrolling
+            if (typeof manager.snap === 'function') {
+              manager.snap = function(...args: unknown[]) {
+                console.warn('[useEpubLoader] iOS: BLOCKED manager.snap() call', args);
+                // Don't call original - we handle navigation ourselves
+                return Promise.resolve();
+              };
+              console.log('[useEpubLoader] iOS: Overrode manager.snap()');
+            }
+
+            // Method 2: Disable gesture handlers if they exist
+            if (manager.gestures) {
+              try {
+                // Some versions of epub.js have gestures.destroy()
+                if (typeof manager.gestures.destroy === 'function') {
+                  manager.gestures.destroy();
+                  console.log('[useEpubLoader] iOS: Destroyed manager.gestures');
+                }
+                // Null out the gestures object
+                manager.gestures = null;
+              } catch (err) {
+                console.warn('[useEpubLoader] iOS: Could not disable gestures:', err);
+              }
+            }
+
+            // Method 3: Override scrollBy to log and potentially block
+            if (manager.stage?.container) {
+              const stage = manager.stage.container;
+              const originalScrollTo = stage.scrollTo?.bind(stage);
+              const originalScrollBy = stage.scrollBy?.bind(stage);
+
+              stage.scrollTo = function(options: ScrollToOptions | number, y?: number) {
+                // If called with object (our code uses this)
+                if (typeof options === 'object') {
+                  console.log('[useEpubLoader] iOS: stage.scrollTo() called:', options);
+                  return originalScrollTo?.(options);
+                }
+                // If called with numbers (might be epub.js internal)
+                console.warn('[useEpubLoader] iOS: stage.scrollTo(x,y) BLOCKED:', options, y);
+                // Allow it for now but log
+                return originalScrollTo?.(options, y);
+              };
+
+              if (originalScrollBy) {
+                stage.scrollBy = function(options: ScrollToOptions | number, y?: number) {
+                  console.warn('[useEpubLoader] iOS: stage.scrollBy() called:', options, y);
+                  // This is likely epub.js internal - BLOCK IT
+                  // return originalScrollBy?.(options, y);
+                  return; // Block scrollBy calls
+                };
+                console.log('[useEpubLoader] iOS: Blocked stage.scrollBy()');
+              }
+            }
+
+            // Method 4: Intercept touch events in the iframe to prevent epub.js from handling
+            if (iframe?.contentDocument) {
+              const doc = iframe.contentDocument;
+              const blockEpubJsTouchHandler = (e: TouchEvent) => {
+                // Log touch events
+                const touch = e.touches[0] || e.changedTouches[0];
+                if (touch) {
+                  console.log(`[useEpubLoader] iOS: iframe ${e.type}:`, {
+                    x: Math.round(touch.clientX),
+                    y: Math.round(touch.clientY),
+                    target: (e.target as HTMLElement)?.tagName,
+                  });
+                }
+                // Stop propagation to prevent epub.js handlers
+                e.stopPropagation();
+              };
+
+              // Capture phase to intercept before epub.js
+              doc.addEventListener('touchstart', blockEpubJsTouchHandler, { capture: true, passive: true });
+              doc.addEventListener('touchmove', blockEpubJsTouchHandler, { capture: true, passive: true });
+              doc.addEventListener('touchend', blockEpubJsTouchHandler, { capture: true, passive: true });
+              console.log('[useEpubLoader] iOS: Added capture-phase touch blockers to iframe');
+            }
           }
 
           // iOS FIX: Force divisor=1 and recalculate delta to prevent multiple page turns

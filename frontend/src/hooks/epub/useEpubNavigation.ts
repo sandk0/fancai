@@ -117,6 +117,21 @@ export const useEpubNavigation = (
       const layout = manager.layout;
       const viewportWidth = stage.clientWidth;
 
+      // iOS DEBUG: Log all layout values
+      if (isIOS()) {
+        console.log('[useEpubNavigation] iOS directScroll START:', {
+          direction,
+          viewportWidth,
+          scrollWidth: stage.scrollWidth,
+          currentScrollLeft: stage.scrollLeft,
+          layoutDelta: layout?.delta,
+          layoutColumnWidth: layout?.columnWidth,
+          layoutDivisor: layout?.divisor,
+          layoutGap: layout?.gap,
+          layoutPageWidth: layout?.pageWidth,
+        });
+      }
+
       // Determine correct scroll unit
       let scrollUnit: number;
       if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
@@ -134,17 +149,26 @@ export const useEpubNavigation = (
       if (isIOS() && layout?.divisor && layout.divisor > 1) {
         // iOS has multiple columns - calculate single column width
         scrollUnit = Math.floor(viewportWidth / layout.divisor);
-        if (import.meta.env.DEV) {
-          console.warn('[useEpubNavigation] iOS: Detected divisor > 1, correcting scrollUnit:', {
-            divisor: layout.divisor,
-            originalDelta: layout.delta,
-            correctedScrollUnit: scrollUnit,
-          });
-        }
+        console.warn('[useEpubNavigation] iOS: Detected divisor > 1, correcting scrollUnit:', {
+          divisor: layout.divisor,
+          originalDelta: layout.delta,
+          correctedScrollUnit: scrollUnit,
+        });
       }
 
       const currentScroll = stage.scrollLeft;
       const maxScroll = stage.scrollWidth - viewportWidth;
+
+      // iOS DEBUG: Log scroll calculation
+      if (isIOS()) {
+        console.log('[useEpubNavigation] iOS scroll calculation:', {
+          scrollUnit,
+          currentScroll,
+          maxScroll,
+          pagesInContent: Math.ceil(stage.scrollWidth / scrollUnit),
+          currentPage: Math.floor(currentScroll / scrollUnit),
+        });
+      }
 
       let newScroll: number;
       if (direction === 'next') {
@@ -179,6 +203,18 @@ export const useEpubNavigation = (
         stage.scrollLeft = newScroll;
       }
 
+      // iOS DEBUG: Log result
+      if (isIOS()) {
+        const finalScroll = stage.scrollLeft;
+        console.log('[useEpubNavigation] iOS directScroll COMPLETE:', {
+          expected: newScroll,
+          actual: finalScroll,
+          delta: finalScroll - currentScroll,
+          pagesScrolled: Math.round((finalScroll - currentScroll) / scrollUnit),
+          success: Math.abs(finalScroll - newScroll) < 5,
+        });
+      }
+
       debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit}${smooth ? ' smooth' : ''}`;
 
       return true;
@@ -191,38 +227,54 @@ export const useEpubNavigation = (
   const nextPage = useCallback(async () => {
     if (!rendition) return;
 
+    // iOS DEBUG
+    if (isIOS()) {
+      console.log('[useEpubNavigation] nextPage() called at', new Date().toISOString());
+    }
+
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('next', true);
-      if (scrolled) return; // Direct scroll worked
+      if (scrolled) {
+        if (isIOS()) console.log('[useEpubNavigation] iOS: directScroll handled navigation');
+        return; // Direct scroll worked
+      }
       // Fall through to epub.js for chapter changes
+      if (isIOS()) console.log('[useEpubNavigation] iOS: Falling through to epub.js next()');
     }
 
     try {
       await rendition.next();
+      if (isIOS()) console.log('[useEpubNavigation] iOS: epub.js next() completed');
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.warn('[useEpubNavigation] Could not go to next page:', err);
-      }
+      console.warn('[useEpubNavigation] Could not go to next page:', err);
     }
   }, [rendition, directScroll]);
 
   const prevPage = useCallback(async () => {
     if (!rendition) return;
 
+    // iOS DEBUG
+    if (isIOS()) {
+      console.log('[useEpubNavigation] prevPage() called at', new Date().toISOString());
+    }
+
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('prev', true);
-      if (scrolled) return; // Direct scroll worked
+      if (scrolled) {
+        if (isIOS()) console.log('[useEpubNavigation] iOS: directScroll handled navigation');
+        return; // Direct scroll worked
+      }
       // Fall through to epub.js for chapter changes
+      if (isIOS()) console.log('[useEpubNavigation] iOS: Falling through to epub.js prev()');
     }
 
     try {
       await rendition.prev();
+      if (isIOS()) console.log('[useEpubNavigation] iOS: epub.js prev() completed');
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.warn('[useEpubNavigation] Could not go to prev page:', err);
-      }
+      console.warn('[useEpubNavigation] Could not go to prev page:', err);
     }
   }, [rendition, directScroll]);
 
