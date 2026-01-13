@@ -87,6 +87,12 @@ export const useEpubNavigation = (
    * epub.js navigation is broken on iOS PWA - scrolls multiple pages
    * We directly manipulate the scroll position instead
    *
+   * CRITICAL FIX (January 2026):
+   * - Use layout.delta instead of viewportWidth for scroll unit
+   * - On iOS, CSS columns may render multiple pages within viewport
+   * - viewportWidth would skip ALL columns, causing multi-page jumps
+   * - layout.delta is the correct single-page scroll distance from epub.js
+   *
    * Now with smooth scrolling for better UX
    */
   const directScroll = useCallback(async (
@@ -104,15 +110,47 @@ export const useEpubNavigation = (
       const stage = manager.stage?.container || manager.container;
       if (!stage) return false;
 
+      // CRITICAL FIX: Use layout.delta instead of viewportWidth
+      // layout.delta = correct scroll unit calculated by epub.js
+      // viewportWidth may contain multiple CSS columns on iOS Safari
+      // Fallback chain: layout.delta → layout.columnWidth → stage.clientWidth
+      const layout = manager.layout;
       const viewportWidth = stage.clientWidth;
+
+      // Determine correct scroll unit
+      let scrollUnit: number;
+      if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
+        // Use epub.js calculated delta (most reliable)
+        scrollUnit = layout.delta;
+      } else if (layout?.columnWidth && layout.columnWidth > 0 && layout.columnWidth <= viewportWidth) {
+        // Fallback to columnWidth
+        scrollUnit = layout.columnWidth + (layout.gap || 0);
+      } else {
+        // Final fallback to viewport width (may cause issues on iOS)
+        scrollUnit = viewportWidth;
+      }
+
+      // iOS Safety: If divisor > 1, force correct scroll unit
+      if (isIOS() && layout?.divisor && layout.divisor > 1) {
+        // iOS has multiple columns - calculate single column width
+        scrollUnit = Math.floor(viewportWidth / layout.divisor);
+        if (import.meta.env.DEV) {
+          console.warn('[useEpubNavigation] iOS: Detected divisor > 1, correcting scrollUnit:', {
+            divisor: layout.divisor,
+            originalDelta: layout.delta,
+            correctedScrollUnit: scrollUnit,
+          });
+        }
+      }
+
       const currentScroll = stage.scrollLeft;
       const maxScroll = stage.scrollWidth - viewportWidth;
 
       let newScroll: number;
       if (direction === 'next') {
-        newScroll = Math.min(currentScroll + viewportWidth, maxScroll);
+        newScroll = Math.min(currentScroll + scrollUnit, maxScroll);
       } else {
-        newScroll = Math.max(currentScroll - viewportWidth, 0);
+        newScroll = Math.max(currentScroll - scrollUnit, 0);
       }
 
       // Check if we can scroll (not at boundary)
@@ -141,7 +179,7 @@ export const useEpubNavigation = (
         stage.scrollLeft = newScroll;
       }
 
-      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} W:${viewportWidth}${smooth ? ' smooth' : ''}`;
+      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit}${smooth ? ' smooth' : ''}`;
 
       return true;
     } catch (err) {

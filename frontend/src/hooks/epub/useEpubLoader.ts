@@ -210,19 +210,63 @@ export const useEpubLoader = ({
         if (isIOSDevice) {
           newRendition.spread('none', 99999);
 
-          // iOS FIX: Listen for layout event and force single-column BEFORE rendering
-          // This ensures epub.js calculates navigation based on single column
+          /**
+           * iOS FIX (January 2026): Complete layout correction
+           *
+           * CRITICAL: Not just setting divisor=1, but also recalculating delta!
+           * epub.js uses layout.delta as the scroll unit for navigation.
+           * If divisor was > 1, delta was calculated for multiple columns.
+           * We must recalculate delta = containerWidth for single column mode.
+           */
+          const fixIOSLayout = (layout: any, source: string) => {
+            if (!layout) return;
+
+            const oldDivisor = layout.divisor;
+            const oldDelta = layout.delta;
+            const oldColumnWidth = layout.columnWidth;
+
+            // Get actual container width
+            const containerWidth = viewerRef.current?.clientWidth || renditionWidth;
+            const width = typeof containerWidth === 'number' ? containerWidth : parseInt(containerWidth as string, 10) || 0;
+
+            // Force single column
+            layout.divisor = 1;
+            layout._spread = 'none';
+            layout.spreadWidth = 0;
+
+            // CRITICAL: Recalculate delta and columnWidth for single column
+            // delta = scroll unit per navigation (should equal container width)
+            // columnWidth = width of single column (should equal container width)
+            if (width > 0) {
+              layout.delta = width;
+              layout.columnWidth = width;
+              layout.pageWidth = width;
+            }
+
+            if (DEBUG || oldDivisor !== 1) {
+              console.warn(`[useEpubLoader] iOS ${source}: Fixed layout`, {
+                divisor: `${oldDivisor} → 1`,
+                delta: `${oldDelta} → ${layout.delta}`,
+                columnWidth: `${oldColumnWidth} → ${layout.columnWidth}`,
+              });
+            }
+          };
+
+          // Listen for layout event - earliest interception point
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           newRendition.on('layout', (layout: any) => {
-            if (layout && layout.divisor !== 1) {
-              console.warn('[useEpubLoader] iOS layout event: Fixing divisor from', layout.divisor, 'to 1');
-              layout.divisor = 1;
-              layout._spread = 'none';
+            fixIOSLayout(layout, 'layout event');
+          });
+
+          // Also listen for displayed event - fires before rendered
+          newRendition.on('displayed', () => {
+            if (newRendition.manager?.layout) {
+              fixIOSLayout(newRendition.manager.layout, 'displayed event');
             }
           });
 
           if (DEBUG) {
-            console.log('[useEpubLoader] iOS: Applied spread("none", 99999) and layout fix');
+            console.log('[useEpubLoader] iOS: Applied spread("none", 99999) and comprehensive layout fix');
           }
         }
 
@@ -239,23 +283,45 @@ export const useEpubLoader = ({
         newRendition.on('rendered', () => {
           const iframe = viewerRef.current?.querySelector('iframe');
           if (iframe?.contentDocument?.body) {
-            // Disable horizontal swipe, allow only vertical scroll
-            iframe.contentDocument.body.style.touchAction = 'pan-y';
+            // iOS FIX (January 2026): Use 'manipulation' instead of 'pan-y'
+            // 'pan-y' blocks stage.scrollTo() from working properly
+            // 'manipulation' allows JS-controlled horizontal scrolling while preventing
+            // double-tap-to-zoom and other browser gestures
+            iframe.contentDocument.body.style.touchAction = 'manipulation';
             iframe.contentDocument.body.style.overscrollBehaviorX = 'none';
             // Enable text selection
             iframe.contentDocument.body.style.userSelect = 'text';
             iframe.contentDocument.body.style.webkitUserSelect = 'text';
           }
 
-          // iOS FIX: Force divisor=1 to prevent multiple page turns
-          // epub.js may calculate wrong divisor based on container width
+          // iOS FIX: Force divisor=1 and recalculate delta to prevent multiple page turns
+          // This is the FINAL safety net after all other fixes
           if (isIOSDevice && newRendition.manager?.layout) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const layout = newRendition.manager.layout as any;
-            if (layout.divisor !== 1) {
-              console.warn('[useEpubLoader] iOS: Fixing divisor from', layout.divisor, 'to 1');
+            if (layout.divisor !== 1 || !layout.delta) {
+              const containerWidth = viewerRef.current?.clientWidth || renditionWidth;
+              const width = typeof containerWidth === 'number' ? containerWidth : parseInt(containerWidth as string, 10) || 0;
+
+              const oldDivisor = layout.divisor;
+              const oldDelta = layout.delta;
+
               layout.divisor = 1;
               layout._spread = 'none';
+              layout.spreadWidth = 0;
+
+              if (width > 0) {
+                layout.delta = width;
+                layout.columnWidth = width;
+                layout.pageWidth = width;
+              }
+
+              if (oldDivisor !== 1) {
+                console.warn('[useEpubLoader] iOS rendered event: Fixed layout', {
+                  divisor: `${oldDivisor} → 1`,
+                  delta: `${oldDelta} → ${layout.delta}`,
+                });
+              }
             }
           }
 
@@ -263,6 +329,7 @@ export const useEpubLoader = ({
           if (DEBUG && newRendition.manager?.layout) {
             console.log('[useEpubLoader] Layout after render:', {
               divisor: newRendition.manager.layout.divisor,
+              delta: newRendition.manager.layout.delta,
               columnWidth: newRendition.manager.layout.columnWidth,
               _spread: newRendition.manager.layout._spread,
             });

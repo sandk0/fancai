@@ -112,6 +112,8 @@ export interface Rendition {
       columnWidth?: number;
       spreadWidth?: number;
       pageWidth?: number;
+      delta?: number;
+      gap?: number;
       _spread?: boolean;
       _minSpreadWidth?: number;
     };

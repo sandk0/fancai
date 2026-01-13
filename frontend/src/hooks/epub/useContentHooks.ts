@@ -131,10 +131,10 @@ export const useContentHooks = (
           cursor: pointer;
         }
 
-        /* iOS Safari Fix (January 2026): Force single-column layout + disable horizontal swipe */
+        /* iOS Safari Fix (January 2026): Force single-column layout */
         /* Only applied on iOS devices via @supports with iOS-specific check */
         /* This prevents double-page turn bug on iOS without affecting Android */
-        /* CRITICAL: touch-action: pan-y disables horizontal swipe that epub.js may catch */
+        /* NOTE: touch-action changed from pan-y to manipulation to allow JS scrolling */
         @supports (-webkit-touch-callout: none) {
           /* -webkit-touch-callout is iOS-only, not supported on Android Chrome */
           html, body {
@@ -142,8 +142,9 @@ export const useContentHooks = (
             -webkit-column-count: 1 !important;
             column-width: auto !important;
             -webkit-column-width: auto !important;
-            /* Disable horizontal swipe - only allow vertical panning */
-            touch-action: pan-y !important;
+            /* Use manipulation instead of pan-y to allow JS-controlled horizontal scrolling */
+            /* pan-y was blocking stage.scrollTo() from working properly */
+            touch-action: manipulation !important;
             overscroll-behavior-x: none !important;
           }
         }
@@ -380,53 +381,15 @@ export const useContentHooks = (
         doc.body.addEventListener('touchstart', handleTouchStart, { passive: true });
         doc.body.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-        /**
-         * iOS PWA FIX (January 2026): Prevent horizontal swipe navigation
-         * epub.js may have built-in swipe handling that causes multiple page turns
-         * We intercept touchmove and prevent horizontal movement from propagating
-         */
-        let swipeStartX = 0;
-        let swipeStartY = 0;
-        let isTracking = false;
-
-        const handleSwipeStart = (e: TouchEvent) => {
-          const touch = e.touches[0];
-          if (touch) {
-            swipeStartX = touch.clientX;
-            swipeStartY = touch.clientY;
-            isTracking = true;
-          }
-        };
-
-        const handleSwipeMove = (e: TouchEvent) => {
-          if (!isTracking) return;
-
-          const touch = e.touches[0];
-          if (!touch) return;
-
-          const deltaX = Math.abs(touch.clientX - swipeStartX);
-          const deltaY = Math.abs(touch.clientY - swipeStartY);
-
-          // If horizontal movement is greater than vertical, this is a horizontal swipe
-          // Prevent it to stop epub.js from navigating
-          if (deltaX > 10 && deltaX > deltaY) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        };
-
-        const handleSwipeEnd = () => {
-          isTracking = false;
-        };
-
-        // Use capture phase to intercept before epub.js handlers
-        doc.addEventListener('touchstart', handleSwipeStart, { capture: true, passive: true });
-        doc.addEventListener('touchmove', handleSwipeMove, { capture: true, passive: false });
-        doc.addEventListener('touchend', handleSwipeEnd, { capture: true, passive: true });
-        doc.addEventListener('touchcancel', handleSwipeEnd, { capture: true, passive: true });
+        // NOTE (January 2026): Removed horizontal swipe prevention code
+        // The previous code was blocking stage.scrollTo() from working properly
+        // Navigation is now handled by:
+        // 1. directScroll() with correct layout.delta scroll unit
+        // 2. IOSTapZones overlay for tap/swipe detection
+        // epub.js internal swipe handlers are controlled by touch-action CSS
 
         if (import.meta.env.DEV) {
-          console.log('[useContentHooks] iOS PWA: Added horizontal swipe prevention');
+          console.log('[useContentHooks] iOS PWA: Touch handlers registered (swipe prevention removed)');
         }
       }
     };
