@@ -76,6 +76,7 @@ import { ProgressSaveIndicator } from './ProgressSaveIndicator';
 import { PositionConflictDialog } from './PositionConflictDialog';
 import { IOSTapZones } from './IOSTapZones';
 import { SwipeOverlay } from './SwipeOverlay';
+import { IOSDebugOverlay } from './IOSDebugOverlay';
 import { notify } from '@/stores/ui';
 
 // Wake Lock hook
@@ -1091,6 +1092,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         isOpen={isTocOpen}
         onClose={() => setIsTocOpen(false)}
       />
+
+      {/* iOS Debug Overlay - DELETE AFTER FIXING BUG */}
+      <IOSDebugOverlay />
 
     </div>
   );

@@ -117,8 +117,18 @@ export const useEpubNavigation = (
       const layout = manager.layout;
       const viewportWidth = stage.clientWidth;
 
-      // iOS DEBUG: Log all layout values
+      // iOS DEBUG: Log all layout values to screen overlay
       if (isIOS()) {
+        const debugFn = (window as any).__iosDebug;
+        if (debugFn) {
+          debugFn({
+            event: `directScroll:${direction}`,
+            layoutDelta: layout?.delta,
+            layoutDivisor: layout?.divisor,
+            viewportWidth,
+            scrollWidth: stage.scrollWidth,
+          });
+        }
         console.log('[useEpubNavigation] iOS directScroll START:', {
           direction,
           viewportWidth,
@@ -159,8 +169,17 @@ export const useEpubNavigation = (
       const currentScroll = stage.scrollLeft;
       const maxScroll = stage.scrollWidth - viewportWidth;
 
-      // iOS DEBUG: Log scroll calculation
+      // iOS DEBUG: Log scroll calculation to overlay
       if (isIOS()) {
+        const debugFn = (window as any).__iosDebug;
+        if (debugFn) {
+          debugFn({
+            event: 'scrollCalc',
+            scrollUnit,
+            scrollBefore: currentScroll,
+            scrollWidth: stage.scrollWidth,
+          });
+        }
         console.log('[useEpubNavigation] iOS scroll calculation:', {
           scrollUnit,
           currentScroll,
@@ -203,14 +222,25 @@ export const useEpubNavigation = (
         stage.scrollLeft = newScroll;
       }
 
-      // iOS DEBUG: Log result
+      // iOS DEBUG: Log result to overlay
       if (isIOS()) {
         const finalScroll = stage.scrollLeft;
+        const pagesScrolled = Math.round((finalScroll - currentScroll) / scrollUnit);
+        const debugFn = (window as any).__iosDebug;
+        if (debugFn) {
+          debugFn({
+            event: 'scrollResult',
+            scrollBefore: currentScroll,
+            scrollAfter: finalScroll,
+            scrollUnit,
+            pagesScrolled,
+          });
+        }
         console.log('[useEpubNavigation] iOS directScroll COMPLETE:', {
           expected: newScroll,
           actual: finalScroll,
           delta: finalScroll - currentScroll,
-          pagesScrolled: Math.round((finalScroll - currentScroll) / scrollUnit),
+          pagesScrolled,
           success: Math.abs(finalScroll - newScroll) < 5,
         });
       }

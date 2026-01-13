@@ -322,6 +322,10 @@ export const useEpubLoader = ({
             // Method 1: Override snap() to prevent epub.js from auto-scrolling
             if (typeof manager.snap === 'function') {
               manager.snap = function(...args: unknown[]) {
+                const debugFn = (window as any).__iosDebug;
+                if (debugFn) {
+                  debugFn({ event: 'BLOCKED:snap', blocked: 'manager.snap()' });
+                }
                 console.warn('[useEpubLoader] iOS: BLOCKED manager.snap() call', args);
                 // Don't call original - we handle navigation ourselves
                 return Promise.resolve();
@@ -364,6 +368,13 @@ export const useEpubLoader = ({
 
               if (originalScrollBy) {
                 stage.scrollBy = function(options: ScrollToOptions | number, y?: number) {
+                  const debugFn = (window as any).__iosDebug;
+                  if (debugFn) {
+                    debugFn({
+                      event: 'BLOCKED:scrollBy',
+                      blocked: `scrollBy(${typeof options === 'object' ? JSON.stringify(options) : options})`,
+                    });
+                  }
                   console.warn('[useEpubLoader] iOS: stage.scrollBy() called:', options, y);
                   // This is likely epub.js internal - BLOCK IT
                   // return originalScrollBy?.(options, y);
