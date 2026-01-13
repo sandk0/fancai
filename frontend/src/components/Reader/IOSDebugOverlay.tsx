@@ -56,24 +56,24 @@ const isIOS = (): boolean => {
 export const IOSDebugOverlay: React.FC = () => {
   const [entries, setEntries] = useState<DebugData[]>([]);
   const [visible, setVisible] = useState(true);
+  const [iosDetected, setIosDetected] = useState<boolean | null>(null);
 
   const updateEntries = useCallback(() => {
     setEntries([...debugLog]);
   }, []);
 
   useEffect(() => {
-    // Only show on iOS
-    if (!isIOS()) return;
+    // Check iOS on mount
+    setIosDetected(isIOS());
 
+    // Always listen for updates (for debugging)
     window.addEventListener('ios-debug-update', updateEntries);
     return () => {
       window.removeEventListener('ios-debug-update', updateEntries);
     };
   }, [updateEntries]);
 
-  // Don't render on non-iOS
-  if (!isIOS()) return null;
-
+  // ALWAYS show overlay for debugging (remove iOS check)
   return (
     <div
       style={{
@@ -94,7 +94,7 @@ export const IOSDebugOverlay: React.FC = () => {
       onClick={() => setVisible(!visible)}
     >
       <div style={{ color: '#ff0', marginBottom: '4px' }}>
-        iOS DEBUG (tap to {visible ? 'hide' : 'show'})
+        DEBUG | iOS:{iosDetected === null ? '?' : iosDetected ? 'YES' : 'NO'} | UA:{typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 30) : 'N/A'}
       </div>
 
       {visible && entries.map((entry, i) => (
