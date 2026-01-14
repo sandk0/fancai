@@ -122,6 +122,7 @@ if (isMobileDevice && viewerRef.current) {  // ← Теперь включает
 | `frontend/src/hooks/epub/useEpubLoader.ts` | Добавлено определение Android, расширено условие для mobile |
 | `frontend/src/components/Reader/IOSTapZones.tsx` | Добавлен `onCenterTap` callback, удалён BroadcastChannel |
 | `frontend/src/components/Reader/EpubReader.tsx` | Добавлен handler для `onCenterTap` |
+| `frontend/src/hooks/epub/useContentHooks.ts` | Удалён неиспользуемый код BroadcastChannel (~200 строк) |
 
 ---
 
@@ -185,8 +186,17 @@ if (isMobileDevice && viewerRef.current) {  // ← Теперь включает
    - iOS Safari browser
    - iOS PWA
    - Android Chrome browser
-3. [ ] Удалить неиспользуемый BroadcastChannel код из `useContentHooks.ts`
+3. [x] ~~Удалить неиспользуемый BroadcastChannel код из `useContentHooks.ts`~~ ✅ Готово
 4. [ ] Удалить debug overlay после подтверждения работоспособности
+
+---
+
+## Коммиты
+
+| Хэш | Описание |
+|-----|----------|
+| `4ca9595` | fix(mobile): Android browser safe-area + iOS description click |
+| `d90542a` | refactor(ios): remove unused BroadcastChannel code from useContentHooks |
 
 ---
 
@@ -196,3 +206,4 @@ if (isMobileDevice && viewerRef.current) {  // ← Теперь включает
 |------|--------|-----------|
 | 2026-01-14 | 1.0 | Первоначальный анализ |
 | 2026-01-14 | 2.0 | Реализованы исправления |
+| 2026-01-14 | 2.1 | Cleanup: удалён неиспользуемый код BroadcastChannel |
