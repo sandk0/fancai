@@ -17,6 +17,27 @@ import { useEffect } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
 import type { ThemeName } from './useEpubThemes';
 
+/**
+ * Measure safe-area-inset-bottom from the parent window.
+ * CSS env() variables may not work inside blob: iframes, so we measure from parent.
+ */
+const getSafeAreaInsetBottom = (): number => {
+  if (typeof window === 'undefined') return 0;
+
+  try {
+    // Create a temporary element to measure the CSS env() value
+    const measureDiv = document.createElement('div');
+    measureDiv.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;';
+    document.body.appendChild(measureDiv);
+    const computed = window.getComputedStyle(measureDiv);
+    const safeAreaBottom = parseFloat(computed.paddingBottom) || 0;
+    document.body.removeChild(measureDiv);
+    return safeAreaBottom;
+  } catch {
+    return 0;
+  }
+};
+
 export const useContentHooks = (
   rendition: Rendition | null,
   theme: ThemeName
@@ -31,6 +52,10 @@ export const useContentHooks = (
     const contentHook = (contents: Contents, _view?: unknown) => {
       const doc = contents.document;
       if (!doc) return;
+
+      // Measure safe-area-inset-bottom from parent window
+      // CSS env() may not cascade into blob: iframes on iOS
+      const safeAreaBottom = getSafeAreaInsetBottom();
 
       // Inject custom CSS for better readability
       const style = doc.createElement('style');
@@ -122,9 +147,11 @@ export const useContentHooks = (
         /* Mobile touch optimizations */
         /* iOS Safari fix: cursor:pointer enables click event delegation */
         /* https://www.quirksmode.org/blog/archives/2010/09/click_event_del.html */
+        /* Safe-area-inset-bottom: measured from parent, added as bottom padding */
+        /* This prevents last lines from being hidden behind iOS/Android nav elements */
         body {
           margin: 0 !important;
-          padding: 0.75em !important;
+          padding: 0.75em 0.75em calc(0.75em + ${safeAreaBottom}px) 0.75em !important;
           -webkit-overflow-scrolling: touch;
           touch-action: manipulation;
           overscroll-behavior: contain;

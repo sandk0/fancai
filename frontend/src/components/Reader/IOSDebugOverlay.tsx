@@ -55,10 +55,27 @@ const isIOS = (): boolean => {
   return isIOSDevice || isIPadOS;
 };
 
+// Measure safe-area-inset-bottom
+const getSafeAreaBottom = (): number => {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;';
+    document.body.appendChild(div);
+    const computed = window.getComputedStyle(div);
+    const value = parseFloat(computed.paddingBottom) || 0;
+    document.body.removeChild(div);
+    return value;
+  } catch {
+    return 0;
+  }
+};
+
 export const IOSDebugOverlay: React.FC = () => {
   const [entries, setEntries] = useState<DebugData[]>([]);
   const [visible, setVisible] = useState(true);
   const [iosDetected, setIosDetected] = useState<boolean | null>(null);
+  const [safeAreaBottom, setSafeAreaBottom] = useState<number>(0);
 
   const updateEntries = useCallback(() => {
     setEntries([...debugLog]);
@@ -67,6 +84,8 @@ export const IOSDebugOverlay: React.FC = () => {
   useEffect(() => {
     // Check iOS on mount
     setIosDetected(isIOS());
+    // Measure safe-area
+    setSafeAreaBottom(getSafeAreaBottom());
 
     // Always listen for updates (for debugging)
     window.addEventListener('ios-debug-update', updateEntries);
@@ -96,7 +115,7 @@ export const IOSDebugOverlay: React.FC = () => {
       onClick={() => setVisible(!visible)}
     >
       <div style={{ color: '#ff0', marginBottom: '4px' }}>
-        DEBUG | iOS:{iosDetected === null ? '?' : iosDetected ? 'YES' : 'NO'} | UA:{typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 30) : 'N/A'}
+        DEBUG | iOS:{iosDetected === null ? '?' : iosDetected ? 'YES' : 'NO'} | SAB:{safeAreaBottom}px | UA:{typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 25) : 'N/A'}
       </div>
 
       {visible && entries.map((entry, i) => (

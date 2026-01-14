@@ -26,6 +26,12 @@
 - ✅ Расширение debug информации с указанием источника измерения
 - ✅ Type check пройден без ошибок
 
+### Phase 5 (2026-01-14)
+- ✅ Исправление safe-area-inset-bottom для мобильных устройств
+- ✅ `getSafeAreaInsetBottom()` - измерение из родительского окна
+- ✅ Применение safe-area к body внутри epub iframe
+- ✅ Обновление debug overlay - показывает SAB значение
+
 ---
 
 ## Ближайшие задачи (Приоритет: Высокий)
@@ -159,7 +165,8 @@ if (direction === 'next' && currentScroll >= maxScroll - 1) {
 
 ## Связанные документы
 
-- `2026-01-14-mobile-navigation-scroll-unit-fix.md` - описание реализации
+- `2026-01-14-mobile-navigation-scroll-unit-fix.md` - описание реализации scroll unit
+- `2026-01-14-safe-area-bottom-fix.md` - исправление safe-area-inset-bottom
 - `ios-navigation-bug-analysis-2026-01-14.md` - анализ исходного бага
 - `swipe-navigation-implementation-2026-01-12.md` - реализация свайпов
 
@@ -170,3 +177,4 @@ if (direction === 'next' && currentScroll >= maxScroll - 1) {
 | Дата | Версия | Изменения |
 |------|--------|-----------|
 | 2026-01-14 | 1.0 | Первоначальный план после внедрения измерения CSS column width |
+| 2026-01-14 | 1.1 | Добавлено исправление safe-area-inset-bottom (Phase 5) |
