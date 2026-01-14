@@ -501,6 +501,38 @@ IndexedDB (offline) / API (online)
 Auto-refetch on focus/interval
 ```
 
+## Serena MCP (Token Optimization)
+
+Serena MCP установлен для оптимизации использования токенов и контекста.
+
+### Установка
+```bash
+./scripts/setup-serena.sh
+```
+
+### Ключевые команды
+```bash
+# Индексация проекта
+uvx --from git+https://github.com/oraios/serena serena project index
+
+# Онбординг (в Claude Code)
+"Выполни онбординг проекта с помощью Serena"
+```
+
+### Конфигурация
+- **Проект:** `.serena/project.yml`
+- **Память:** `.serena/memories/`
+- **Кэш:** `.serena/cache/` (в .gitignore)
+
+### Инструменты Serena
+| Инструмент | Назначение |
+|------------|------------|
+| `find_symbol` | Поиск символа по имени |
+| `get_symbols_overview` | Обзор символов файла |
+| `find_referencing_symbols` | Поиск использований |
+
+> **Документация:** [docs/guides/development/serena-mcp-setup.md](docs/guides/development/serena-mcp-setup.md)
+
 ## Quick Links
 
 | Resource | Path |
@@ -510,6 +542,7 @@ Auto-refetch on focus/interval
 | Deployment | `docs/guides/deployment/` |
 | Testing | `docs/guides/testing/` |
 | Reports | `docs/reports/` |
+| Serena MCP | `docs/guides/development/serena-mcp-setup.md` |
 
 ---
 

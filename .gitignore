@@ -116,6 +116,10 @@ service-account*.json
 .cache/
 .parcel-cache/
 
+# Serena MCP
+.serena/cache/
+.serena/*.pkl
+
 # TypeScript
 *.tsbuildinfo
 

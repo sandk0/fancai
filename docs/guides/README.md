@@ -9,6 +9,7 @@ Learning-oriented tutorials and problem-oriented how-to guides.
 
 ## Development
 - [Development Workflow](development/workflow.md) - Complete development process
+- [Serena MCP Setup](development/serena-mcp-setup.md) - Оптимизация токенов с помощью Serena MCP
 - [PWA Implementation Prompt](development/pwa-implementation-prompt.md) - Progressive Web App implementation guide
 
 ## Deployment
