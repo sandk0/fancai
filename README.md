@@ -13,7 +13,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![License](https://img.shields.io/badge/License-Proprietary-red)](LICENSE)
 
-[Live Demo](https://fancai.ru) · [Documentation](docs/README.md) · [Report Bug](https://github.com/yourusername/bookreader-ai/issues) · [Request Feature](https://github.com/yourusername/bookreader-ai/issues)
+[Live Demo](https://fancai.ru) · [Documentation](docs/README.md) · [Report Bug](https://github.com/sandk0/fancai/issues) · [Request Feature](https://github.com/sandk0/fancai/issues)
 
 ---
 
@@ -54,7 +54,7 @@ fancai is a modern web application for reading fiction with **automatic AI-gener
 | 🛡️ **Resilient APIs** | Exponential backoff retry for all external services |
 | 🔒 **Secure Sessions** | JWT token blacklist for secure logout |
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -78,13 +78,13 @@ fancai is a modern web application for reading fiction with **automatic AI-gener
 [![Google Gemini](https://img.shields.io/badge/Gemini-3.0_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![Google Imagen](https://img.shields.io/badge/Imagen-4.0-EA4335?style=for-the-badge&logo=google&logoColor=white)](https://cloud.google.com/vertex-ai/docs/generative-ai/image/overview)
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
 ## Getting Started
 
-Get BookReader AI running locally in under 5 minutes.
+Get Fancai running locally in under 5 minutes.
 
 ### Prerequisites
 
@@ -96,7 +96,7 @@ Get BookReader AI running locally in under 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bookreader-ai.git
+git clone https://github.com/sandk0/fancai.git
 cd bookreader-ai
 
 # Copy environment template
@@ -132,7 +132,7 @@ CORS_ORIGINS=http://localhost:5173
 
 > **Note:** See [.env.example](.env.example) for all available options.
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -178,7 +178,7 @@ CORS_ORIGINS=http://localhost:5173
 
 > **Total Backend:** 17+ services, 8,400+ lines of code
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -214,7 +214,7 @@ GET  /api/v1/images/{id}                       # Get generated image
 
 > **Full API Documentation:** Available at `/docs` (Swagger UI) when running locally.
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -239,7 +239,7 @@ GET  /api/v1/images/{id}                       # Get generated image
 - **Offline:** IndexedDB caching for chapters and images
 - **Algorithms:** O(n) text highlighting (vs O(n²))
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -255,14 +255,16 @@ GET  /api/v1/images/{id}                       # Get generated image
 - [x] JWT token blacklist (secure logout)
 - [x] Offline sync queue
 - [x] Integration test suite
+- [x] Theme system (Light/Dark/Sepia)
+- [x] iOS Mobile Optimizations (scroll/zoom fixes, safe-area)
 - [ ] Mobile apps (React Native)
 - [ ] Social features (sharing, comments)
 - [ ] Multiple AI model support
 - [ ] Book recommendations
 
-See the [open issues](https://github.com/yourusername/bookreader-ai/issues) for planned features and known issues.
+See the [open issues](https://github.com/sandk0/fancai/issues) for planned features and known issues.
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -306,29 +308,32 @@ npm run type-check                     # TypeScript check
 | Frontend Hooks | 18 | React hooks tests |
 | **Total** | **60+** | Full test suite |
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
 ## Project Structure
 
 ```
-bookreader-ai/
+fancai/
 ├── frontend/                 # React + TypeScript frontend
 │   ├── src/
-│   │   ├── components/       # UI components (48 total)
-│   │   │   ├── Reader/       # EPUB reader (14 components)
+│   │   ├── components/       # UI components (86 total)
+│   │   │   ├── Reader/       # EPUB reader (15 components)
+│   │   │   ├── Settings/     # Settings (8 components)
 │   │   │   ├── Library/      # Book library (6 components)
-│   │   │   └── Admin/        # Admin panel (5 components)
-│   │   ├── hooks/            # React hooks
-│   │   │   ├── api/          # TanStack Query hooks (5 files + tests)
-│   │   │   ├── epub/         # EPUB reader hooks (17 files + tests)
-│   │   │   ├── reader/       # Reader logic (7 files)
-│   │   │   └── useOnlineStatus.ts  # Online/offline detection
-│   │   ├── services/         # API clients + caching + sync queue
-│   │   ├── utils/            # Utilities (retryWithBackoff)
-│   │   └── pages/            # Page components (11 pages)
-│   └── tests/                # Vitest + Playwright tests
+│   │   │   ├── Admin/        # Admin panel (5 components)
+│   │   │   └── UI/           # Shared UI (20+ components)
+│   │   ├── hooks/            # React hooks (56 total)
+│   │   │   ├── api/          # TanStack Query hooks (5 files)
+│   │   │   ├── epub/         # EPUB reader hooks (22 files)
+│   │   │   ├── reader/       # Reader logic (9 files)
+│   │   │   └── [15 top-level hooks]
+│   │   ├── services/         # Caching services (9 files)
+│   │   ├── stores/           # Zustand stores (6 files)
+│   │   ├── utils/            # Utilities (10 files)
+│   │   └── pages/            # Page components (13 pages)
+│   └── tests/                # Vitest tests
 ├── backend/                  # FastAPI + Python backend
 │   ├── app/
 │   │   ├── routers/          # API endpoints (70+ endpoints)
@@ -339,11 +344,11 @@ bookreader-ai/
 │       ├── services/         # Unit tests (35+ files)
 │       └── integration/      # Integration tests (8 files)
 ├── docs/                     # Documentation (Diataxis framework)
-├── docker-compose.yml        # Development stack
+├── docker-compose.lite.yml   # Production stack
 └── scripts/                  # Deployment scripts
 ```
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -364,7 +369,7 @@ Documentation follows the [Diataxis framework](https://diataxis.fr/):
 - [Deployment Guide](docs/guides/deployment/production-deployment.md)
 - [Architecture Overview](docs/explanations/architecture/system-architecture.md)
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -374,7 +379,7 @@ Proprietary software. All rights reserved.
 
 See [LICENSE](LICENSE) for more information.
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
@@ -386,13 +391,13 @@ See [LICENSE](LICENSE) for more information.
 - [Google AI](https://ai.google.dev/) - Gemini and Imagen APIs
 - [Best-README-Template](https://github.com/othneildrew/Best-README-Template) - README inspiration
 
-<p align="right">(<a href="#bookreader-ai">back to top</a>)</p>
+<p align="right">(<a href="#fancai">back to top</a>)</p>
 
 ---
 
 <div align="center">
 
-**[Website](https://fancai.ru)** · **[Documentation](docs/README.md)** · **[Report Bug](https://github.com/yourusername/bookreader-ai/issues)**
+**[Website](https://fancai.ru)** · **[Documentation](docs/README.md)** · **[Report Bug](https://github.com/sandk0/fancai/issues)**
 
 Made with passion for readers everywhere
 

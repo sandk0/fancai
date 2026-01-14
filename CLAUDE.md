@@ -99,18 +99,66 @@ Admin API: `GET/POST/PUT/DELETE /api/v1/admin/feature-flags`
 > **REMOVED December 2025:** `multi_nlp_manager.py`, `nlp/` directory, NLP processors
 
 ### Frontend Components (January 2026)
+
+#### Reader Components (15 files)
 | File | Lines | Purpose |
 |------|-------|---------|
-| `src/components/Reader/EpubReader.tsx` | 573 | epub.js EPUB reader with CFI navigation |
-| `src/styles/globals.css` | ~300 | **NEW:** Theme CSS variables (shadcn/ui) |
+| `src/components/Reader/EpubReader.tsx` | 573 | Главный EPUB-ридер с CFI навигацией |
+| `src/components/Reader/IOSTapZones.tsx` | ~200 | iOS-специфичные зоны касания для навигации |
+| `src/components/Reader/IOSDebugOverlay.tsx` | ~100 | Отладочный оверлей для iOS |
+| `src/components/Reader/PositionConflictDialog.tsx` | 123 | Диалог конфликта позиций чтения |
+| `src/components/Reader/ReaderHeader.tsx` | ~150 | Заголовок ридера с навигацией |
+| `src/components/Reader/ReaderSettingsPanel.tsx` | ~300 | Панель настроек ридера |
+| `src/components/Reader/TocSidebar.tsx` | ~200 | Боковая панель содержания |
+| `src/components/Reader/SwipeIndicator.tsx` | ~80 | Визуальный индикатор свайпа |
+| `src/components/Reader/ProgressIndicator.tsx` | ~100 | Индикатор прогресса чтения |
+| `src/components/Reader/SelectionMenu.tsx` | ~150 | Меню выделения текста |
+| `src/components/Reader/BookInfo.tsx` | ~100 | Информация о книге |
+| `src/components/Reader/ReaderControls.tsx` | ~120 | Элементы управления ридером |
+| `src/components/Reader/ImageGenerationStatus.tsx` | ~80 | Статус генерации изображений |
+| `src/components/Reader/ExtractionIndicator.tsx` | ~60 | Индикатор извлечения описаний |
+| `src/components/Reader/ProgressSaveIndicator.tsx` | ~50 | Индикатор сохранения прогресса |
+
+#### Settings Components (8 files)
+| File | Purpose |
+|------|---------|
+| `src/components/Settings/ReaderSettings.tsx` | Общие настройки ридера |
+| `src/components/Settings/StorageQuotaInfo.tsx` | Информация о квоте хранилища |
+| `src/components/Settings/sections/AccountSettingsSection.tsx` | Настройки аккаунта |
+| `src/components/Settings/sections/ReadingSettingsSection.tsx` | Настройки чтения |
+| `src/components/Settings/sections/PWASettingsSection.tsx` | Настройки PWA |
+| `src/components/Settings/sections/NotificationsSettingsSection.tsx` | Уведомления |
+| `src/components/Settings/sections/PrivacySettingsSection.tsx` | Приватность |
+| `src/components/Settings/sections/AboutSettingsSection.tsx` | О приложении |
+
+#### UI Components (20+ files)
+| File | Purpose |
+|------|---------|
+| `src/components/UI/ThemeSwitcher.tsx` | Переключатель темы |
+| `src/components/UI/OfflineBanner.tsx` | Баннер офлайн-режима |
+| `src/components/UI/PWAUpdatePrompt.tsx` | Промпт обновления PWA |
+| `src/components/UI/IOSInstallInstructions.tsx` | Инструкции установки iOS |
+| `src/components/UI/ParsingOverlay.tsx` | Оверлей парсинга |
+| `src/components/UI/LazyImage.tsx` | Ленивая загрузка изображений |
+| `src/components/UI/AuthenticatedImage.tsx` | Изображение с авторизацией |
+| `src/components/UI/NotificationContainer.tsx` | Контейнер уведомлений |
+| `src/components/UI/ErrorMessage.tsx` | Компонент ошибок |
+| `src/components/UI/LoadingSpinner.tsx` | Спиннер загрузки |
+| `src/components/UI/Modal.tsx`, `Dialog.tsx` | Модальные окна |
+| `src/components/UI/Skeleton.tsx` | Скелетон загрузки |
+
+#### Key Files
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/styles/globals.css` | ~350 | Theme CSS + iOS scroll/zoom fixes |
 | `src/pages/LibraryPage.tsx` | 195 | Book library (refactored from 739) |
 | `src/hooks/epub/useDescriptionHighlighting.ts` | 566 | 9 search strategies for highlighting |
 | `src/utils/retryWithBackoff.ts` | 442 | Exponential backoff for API calls |
 | `src/services/syncQueue.ts` | 312 | Offline sync queue (localStorage) |
-| `src/components/Reader/PositionConflictDialog.tsx` | 123 | Reading position conflict resolution |
 | `src/hooks/useOnlineStatus.ts` | 87 | Online/offline status detection |
-| `src/hooks/useTheme.ts` | ~80 | **NEW:** Theme management hook |
-| `src/hooks/epub/useEpubThemes.ts` | ~60 | **NEW:** EPUB reader theme sync |
+| `src/hooks/useTheme.ts` | ~80 | Theme management hook |
+| `src/hooks/epub/useEpubThemes.ts` | ~60 | EPUB reader theme sync |
+| `src/hooks/epub/useContentHooks.ts` | 217 | epub.js content hooks (styling, iOS fixes) |
 
 ### Frontend Caching Services
 | File | Lines | Purpose |
@@ -255,47 +303,67 @@ Types: feat, fix, docs, style, refactor, test, chore
 fancai-vibe-hackathon/
 ├── frontend/
 │   ├── src/components/
-│   │   ├── Reader/               # EPUB reader components (14 files)
-│   │   │   └── PositionConflictDialog.tsx  # Sync conflict UI
-│   │   ├── Library/              # Modular library components (6 files)
-│   │   ├── Admin/                # Modular admin components (5 files)
-│   │   └── UI/                   # Shared UI components (12 files)
+│   │   ├── Reader/               # EPUB reader (15 files)
+│   │   │   ├── EpubReader.tsx    # Главный компонент ридера
+│   │   │   ├── IOSTapZones.tsx   # iOS navigation zones
+│   │   │   └── ...
+│   │   ├── Settings/             # Настройки (8 files)
+│   │   ├── Library/              # Библиотека (6 files)
+│   │   ├── Admin/                # Админка (5 files)
+│   │   └── UI/                   # Shared UI (20+ files)
 │   ├── src/styles/
-│   │   └── globals.css           # NEW: Theme CSS variables (shadcn/ui)
+│   │   └── globals.css           # Theme CSS + iOS scroll/zoom fixes
 │   ├── src/hooks/
-│   │   ├── api/                  # TanStack Query hooks (5 files + tests)
-│   │   ├── epub/                 # EPUB reader hooks (17 files + tests)
-│   │   │   └── useEpubThemes.ts  # NEW: EPUB theme sync
-│   │   ├── reader/               # Reader business logic (7 files)
-│   │   ├── library/              # Library filters (1 file)
-│   │   ├── useOnlineStatus.ts    # Online/offline detection
-│   │   ├── useTheme.ts           # NEW: Theme management
-│   │   └── __tests__/            # Hook tests
-│   ├── src/services/             # API clients + caching (4 files)
+│   │   ├── api/                  # TanStack Query (5 files)
+│   │   ├── epub/                 # EPUB hooks (22 files)
+│   │   │   ├── useContentHooks.ts    # iOS iframe fixes
+│   │   │   ├── useDescriptionHighlighting.ts
+│   │   │   └── useEpubThemes.ts
+│   │   ├── reader/               # Reader logic (9 files)
+│   │   ├── pwa/                  # PWA hooks
+│   │   ├── library/              # Library filters
+│   │   └── [15 top-level hooks]
+│   ├── src/services/             # Caching services (9 files)
+│   │   ├── chapterCache.ts       # IndexedDB chapter cache
+│   │   ├── imageCache.ts         # IndexedDB image cache
 │   │   └── syncQueue.ts          # Offline sync queue
+│   ├── src/stores/               # Zustand stores (6 files)
 │   ├── src/utils/
-│   │   └── retryWithBackoff.ts   # Exponential backoff
-│   └── src/pages/                # Page components (11 files)
+│   │   ├── retryWithBackoff.ts   # Exponential backoff
+│   │   └── iosSupport.ts         # iOS detection
+│   └── src/pages/                # Page components (13 files)
 ├── backend/
 │   ├── app/core/                 # Config, DB, exceptions
-│   │   └── retry.py              # NEW: Retry decorators (tenacity)
+│   │   └── retry.py              # Retry decorators (tenacity)
 │   ├── app/models/               # SQLAlchemy models (9 files)
 │   ├── app/routers/              # API endpoints
 │   │   ├── admin/                # Admin endpoints (8 modules)
 │   │   └── books/                # Book endpoints (3 modules)
 │   ├── app/services/             # Business logic (17+ services)
-│   │   ├── book/                 # Book CRUD services (4 files)
-│   │   └── token_blacklist.py    # NEW: JWT revocation
+│   │   ├── book/                 # Book CRUD (4 files)
+│   │   └── token_blacklist.py    # JWT revocation
 │   └── tests/
-│       ├── services/             # Service unit tests (15+ files)
-│       └── integration/          # NEW: Integration tests (8 files)
-├── docs/                         # Documentation (Diataxis framework)
-│   ├── guides/                   # How-to guides (22 files)
-│   ├── reference/                # API, DB schemas (21 files)
-│   ├── explanations/             # Architecture (14 files)
-│   └── reports/                  # Session reports (139+ files)
-└── docker-compose.yml            # Development stack
+│       ├── services/             # Unit tests (15+ files)
+│       └── integration/          # Integration tests (8 files)
+├── docs/                         # Documentation (Diataxis)
+│   ├── guides/                   # How-to (38 files)
+│   ├── reference/                # API, DB (27 files)
+│   ├── explanations/             # Architecture (17 files)
+│   ├── operations/               # Deployment (19 files)
+│   ├── development/              # Planning (33 files)
+│   └── reports/                  # Session reports (400+ files)
+└── docker-compose.lite.yml       # Production stack
 ```
+
+### Frontend Statistics (January 2026)
+| Category | Count |
+|----------|-------|
+| Components | 86 files |
+| Hooks | 56 files |
+| Services | 9 files |
+| Stores | 6 files |
+| Pages | 13 files |
+| Utils | 10 files |
 
 ## Performance Requirements
 
@@ -306,13 +374,14 @@ fancai-vibe-hackathon/
 | Page load | <2 seconds |
 | Uptime | >99% |
 
-## Current State (December 2025)
+## Current State (January 2026)
 
 ### Completed Improvement Phases
 1. **P0 Hotfix** - Critical bug fixes and stability improvements
 2. **P1 Security** - JWT token blacklist, secure token revocation
 3. **P2 Stability** - Exponential backoff retry, error handling improvements
 4. **P3 Comprehensive** - Offline sync queue, position conflict resolution, integration tests
+5. **P4 Mobile UX** - iOS navigation fixes, scroll/zoom lock, safe-area support
 
 ### Completed Milestones
 1. **LLM Migration** - Gemini API for description extraction (replacing Multi-NLP)
@@ -323,6 +392,8 @@ fancai-vibe-hackathon/
 6. **Security** - JWT blacklist for token revocation on logout
 7. **Offline-First** - Sync queue for offline operations, online status detection
 8. **Test Coverage** - 43 backend tests (8 integration), 18 frontend tests
+9. **Theme System** - Light/Dark/Sepia themes with EPUB sync
+10. **iOS Mobile Fixes** - Navigation, scroll bounce, pinch-zoom prevention
 
 ### Active Features
 - Description extraction via Gemini Flash
@@ -334,7 +405,12 @@ fancai-vibe-hackathon/
 - JWT token blacklist (secure logout)
 - Offline sync queue (progress, bookmarks, highlights)
 - Position conflict resolution dialog
-- **NEW:** Theme system (Light/Dark/Sepia/System) with EPUB sync
+- Theme system (Light/Dark/Sepia/System) with EPUB sync
+- **iOS Mobile Optimizations:**
+  - `touch-action: pan-x pan-y` - отключение pinch-zoom
+  - `overscroll-behavior: none` - отключение bounce-эффекта
+  - Safari gesture event prevention
+  - Safe-area support for notch devices
 
 ## Frontend Architecture (January 2026)
 
@@ -348,6 +424,71 @@ fancai-vibe-hackathon/
 - **Tailwind Integration** - Semantic classes (`bg-background`, `text-foreground`)
 - **EPUB Sync** - Reader theme synchronized with app theme via `useEpubThemes`
 - **Persistence** - `localStorage` with system preference fallback
+
+### Mobile Optimizations (January 2026)
+
+**iOS Safari Fixes:**
+```css
+/* Отключение bounce-эффекта */
+body.reader-active {
+  overscroll-behavior: none;
+  position: fixed;
+}
+
+/* Отключение pinch-zoom (НЕ manipulation!) */
+.reader-scroll-lock {
+  touch-action: pan-x pan-y;  /* manipulation разрешает zoom! */
+}
+```
+
+**Safari Gesture Prevention:**
+```typescript
+// BookReaderPage.tsx - useReaderBodyLock hook
+document.addEventListener('gesturestart', preventGesture, { passive: false });
+document.addEventListener('gesturechange', preventGesture, { passive: false });
+document.addEventListener('gestureend', preventGesture, { passive: false });
+```
+
+**EPUB iframe styling (useContentHooks.ts):**
+```css
+@supports (-webkit-touch-callout: none) {  /* iOS only */
+  html, body {
+    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: none !important;
+  }
+}
+```
+
+### Hooks Architecture (56 hooks total)
+
+**EPUB Hooks (`/hooks/epub/` - 22 files):**
+| Hook | Purpose |
+|------|---------|
+| `useDescriptionHighlighting` | 9 стратегий поиска для подсветки описаний |
+| `useContentHooks` | Инъекция стилей в iframe (iOS fixes) |
+| `useSwipeGestures` | Обработка свайп-жестов |
+| `useKeyboardNavigation` | Клавиатурная навигация |
+| `useEpubThemes` | Синхронизация темы EPUB с приложением |
+| `useReadingProgress` | Прогресс чтения + CFI |
+| `usePageIndicator` | Индикатор текущей страницы |
+
+**API Hooks (`/hooks/api/` - 5 files):**
+| Hook | Purpose |
+|------|---------|
+| `queryKeys` | Централизованные ключи кэша |
+| `useBooks` | CRUD книг + prefetching |
+| `useChapter` | Главы + IndexedDB offline |
+| `useDescriptions` | Описания + LLM extraction |
+| `useImages` | Генерация изображений |
+
+**Top-level Hooks (15 files):**
+| Hook | Purpose |
+|------|---------|
+| `useTheme` | Управление темой приложения |
+| `useOnlineStatus` | Детекция онлайн/офлайн |
+| `usePWAInstall` | Установка PWA |
+| `useWakeLock` | Wake Lock API для чтения |
+| `useHaptics` | Haptic feedback |
 
 ### Data Flow
 ```

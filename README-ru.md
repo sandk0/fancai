@@ -13,7 +13,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![License](https://img.shields.io/badge/Лицензия-Проприетарная-red)](LICENSE)
 
-[Демо](https://fancai.ru) · [Документация](docs/README.md) · [Сообщить об ошибке](https://github.com/yourusername/bookreader-ai/issues) · [Предложить функцию](https://github.com/yourusername/bookreader-ai/issues)
+[Демо](https://fancai.ru) · [Документация](docs/README.md) · [Сообщить об ошибке](https://github.com/sandk0/fancai/issues) · [Предложить функцию](https://github.com/sandk0/fancai/issues)
 
 ---
 
@@ -51,7 +51,7 @@ fancai — современное веб-приложение для чтени�
 | 📱 **PWA** | Установка как приложение, работа офлайн |
 | 🔐 **Подписки** | Тарифы FREE / PREMIUM / ULTIMATE |
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -75,13 +75,13 @@ fancai — современное веб-приложение для чтени�
 [![Google Gemini](https://img.shields.io/badge/Gemini-3.0_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![Google Imagen](https://img.shields.io/badge/Imagen-4.0-EA4335?style=for-the-badge&logo=google&logoColor=white)](https://cloud.google.com/vertex-ai/docs/generative-ai/image/overview)
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
 ## Быстрый старт
 
-Запустите BookReader AI локально за 5 минут.
+Запустите Fancai локально за 5 минут.
 
 ### Требования
 
@@ -93,7 +93,7 @@ fancai — современное веб-приложение для чтени�
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/yourusername/bookreader-ai.git
+git clone https://github.com/sandk0/fancai.git
 cd bookreader-ai
 
 # Копирование шаблона окружения
@@ -129,7 +129,7 @@ CORS_ORIGINS=http://localhost:5173
 
 > **Примечание:** Полный список опций в [.env.example](.env.example).
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -173,7 +173,7 @@ CORS_ORIGINS=http://localhost:5173
 
 > **Всего backend:** 15+ сервисов, 7 757 строк кода
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -209,7 +209,7 @@ GET  /api/v1/images/{id}                       # Получение изобра
 
 > **Полная документация API:** Доступна по адресу `/docs` (Swagger UI) при локальном запуске.
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -234,7 +234,7 @@ GET  /api/v1/images/{id}                       # Получение изобра
 - **Офлайн:** IndexedDB-кэширование глав и изображений
 - **Алгоритмы:** O(n) подсветка текста (было O(n²))
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -246,14 +246,20 @@ GET  /api/v1/images/{id}                       # Получение изобра
 - [x] Отслеживание прогресса (CFI)
 - [x] Офлайн-поддержка (PWA + IndexedDB)
 - [x] Система подписок
+- [x] Устойчивые API-вызовы (exponential backoff)
+- [x] JWT token blacklist (безопасный logout)
+- [x] Офлайн-очередь синхронизации
+- [x] Интеграционные тесты
+- [x] Система тем (Light/Dark/Sepia)
+- [x] iOS Mobile-оптимизации (scroll/zoom fixes, safe-area)
 - [ ] Мобильные приложения (React Native)
 - [ ] Социальные функции (шеринг, комментарии)
 - [ ] Поддержка нескольких ИИ-моделей
 - [ ] Рекомендации книг
 
-Смотрите [открытые issues](https://github.com/yourusername/bookreader-ai/issues) для планируемых функций и известных проблем.
+Смотрите [открытые issues](https://github.com/sandk0/fancai/issues) для планируемых функций и известных проблем.
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -285,40 +291,46 @@ npm test                      # Запуск тестов
 npm run type-check            # Проверка TypeScript
 ```
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
 ## Структура проекта
 
 ```
-bookreader-ai/
+fancai/
 ├── frontend/                 # React + TypeScript фронтенд
 │   ├── src/
-│   │   ├── components/       # UI-компоненты (47 всего)
-│   │   │   ├── Reader/       # EPUB-ридер (13 компонентов)
+│   │   ├── components/       # UI-компоненты (86 всего)
+│   │   │   ├── Reader/       # EPUB-ридер (15 компонентов)
+│   │   │   ├── Settings/     # Настройки (8 компонентов)
 │   │   │   ├── Library/      # Библиотека книг (6 компонентов)
-│   │   │   └── Admin/        # Админ-панель (5 компонентов)
-│   │   ├── hooks/            # React-хуки
+│   │   │   ├── Admin/        # Админ-панель (5 компонентов)
+│   │   │   └── UI/           # Общие UI (20+ компонентов)
+│   │   ├── hooks/            # React-хуки (56 всего)
 │   │   │   ├── api/          # TanStack Query хуки (5 файлов)
-│   │   │   ├── epub/         # Хуки EPUB-ридера (17 файлов)
-│   │   │   └── reader/       # Логика ридера (7 файлов)
-│   │   ├── services/         # API-клиенты + кэширование
-│   │   └── pages/            # Страницы (11 страниц)
-│   └── tests/                # Тесты Vitest + Playwright
+│   │   │   ├── epub/         # Хуки EPUB-ридера (22 файла)
+│   │   │   ├── reader/       # Логика ридера (9 файлов)
+│   │   │   └── [15 top-level хуков]
+│   │   ├── services/         # Сервисы кэширования (9 файлов)
+│   │   ├── stores/           # Zustand stores (6 файлов)
+│   │   └── pages/            # Страницы (13 страниц)
+│   └── tests/                # Тесты Vitest
 ├── backend/                  # FastAPI + Python бэкенд
 │   ├── app/
 │   │   ├── routers/          # API-эндпоинты (70+ эндпоинтов)
-│   │   ├── services/         # Бизнес-логика (15+ сервисов)
+│   │   ├── services/         # Бизнес-логика (17+ сервисов)
 │   │   ├── models/           # SQLAlchemy-модели (9 моделей)
-│   │   └── core/             # Конфиг, БД, исключения
-│   └── tests/                # Pytest-тесты
+│   │   └── core/             # Конфиг, БД, исключения, retry
+│   └── tests/
+│       ├── services/         # Unit-тесты (35+ файлов)
+│       └── integration/      # Интеграционные тесты (8 файлов)
 ├── docs/                     # Документация (Diataxis)
-├── docker-compose.yml        # Стек разработки
+├── docker-compose.lite.yml   # Production-стек
 └── scripts/                  # Скрипты деплоя
 ```
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -339,7 +351,7 @@ bookreader-ai/
 - [Руководство по деплою](docs/guides/deployment/production-deployment.md)
 - [Обзор архитектуры](docs/explanations/architecture/system-architecture.md)
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -349,7 +361,7 @@ bookreader-ai/
 
 Подробнее в [LICENSE](LICENSE).
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
@@ -361,13 +373,13 @@ bookreader-ai/
 - [Google AI](https://ai.google.dev/) — Gemini и Imagen API
 - [Best-README-Template](https://github.com/othneildrew/Best-README-Template) — вдохновение для README
 
-<p align="right">(<a href="#bookreader-ai">наверх</a>)</p>
+<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
 <div align="center">
 
-**[Сайт](https://fancai.ru)** · **[Документация](docs/README.md)** · **[Сообщить об ошибке](https://github.com/yourusername/bookreader-ai/issues)**
+**[Сайт](https://fancai.ru)** · **[Документация](docs/README.md)** · **[Сообщить об ошибке](https://github.com/sandk0/fancai/issues)**
 
 Создано с любовью к читателям
 

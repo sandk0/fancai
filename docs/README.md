@@ -1,6 +1,8 @@
-# BookReader AI Documentation
+# Fancai Documentation
 
-Welcome to the BookReader AI documentation. This documentation follows the [Diátaxis framework](https://diataxis.fr/) for systematic technical documentation.
+Документация веб-приложения для чтения книг с автоматической генерацией изображений по описаниям. Документация следует фреймворку [Diátaxis](https://diataxis.fr/).
+
+**Продакшен:** https://fancai.ru
 
 ## Quick Navigation
 
@@ -107,30 +109,39 @@ When adding or updating documentation:
 
 ---
 
-**Last Updated:** 2025-12-28
-**Documentation Version:** 3.1 (Post-improvement phases P0-P3)
+**Обновлено:** 2026-01-15
+**Версия документации:** 4.0 (Post-improvement phases P0-P4)
 
-## Recent Changes (December 2025)
+## Последние изменения (Январь 2026)
 
-### Improvement Phases Completed
-| Phase | Focus | Key Changes |
-|-------|-------|-------------|
-| P0 | Hotfix | Critical bug fixes, stability improvements |
-| P1 | Security | JWT token blacklist, secure logout |
+### Завершённые фазы улучшений
+| Фаза | Фокус | Ключевые изменения |
+|------|-------|-------------------|
+| P0 | Hotfix | Критические баг-фиксы, стабильность |
+| P1 | Security | JWT token blacklist, безопасный logout |
 | P2 | Stability | Exponential backoff retry (backend + frontend) |
-| P3 | Comprehensive | Offline sync queue, position conflict dialog, integration tests |
+| P3 | Comprehensive | Offline sync queue, position conflict dialog, интеграционные тесты |
+| P4 | Mobile UX | iOS navigation fixes, scroll/zoom lock, safe-area support |
 
-### New Components Added
-- `backend/app/core/retry.py` - Tenacity-based retry decorators (515 lines)
-- `backend/app/services/token_blacklist.py` - JWT revocation service (156 lines)
-- `frontend/src/utils/retryWithBackoff.ts` - Exponential backoff utility (442 lines)
-- `frontend/src/services/syncQueue.ts` - Offline operation queue (312 lines)
-- `frontend/src/hooks/useOnlineStatus.ts` - Online/offline detection (87 lines)
-- `frontend/src/components/Reader/PositionConflictDialog.tsx` - Sync conflict UI (123 lines)
+### Новые компоненты (Январь 2026)
+- `frontend/src/components/Reader/IOSTapZones.tsx` - iOS-специфичные зоны навигации
+- `frontend/src/hooks/epub/useContentHooks.ts` - iOS iframe fixes
+- `frontend/src/pages/BookReaderPage.tsx` - useReaderBodyLock hook
+- Theme system (Light/Dark/Sepia) с синхронизацией EPUB
 
-### Test Coverage Added
-- 8 new integration tests (`backend/tests/integration/`)
-- Service tests for Gemini extractor, Imagen generator, LangExtract processor
-- Frontend hook tests (`useOnlineStatus`, `useDescriptionHighlighting`, `useBooks`, `useProgressSync`)
+### iOS Mobile Fixes
+- `touch-action: pan-x pan-y` — отключение pinch-zoom
+- `overscroll-behavior: none` — отключение bounce-эффекта Safari
+- Safari gesture event prevention (gesturestart/change/end)
+- Safe-area support для устройств с notch
 
-> **Architecture Note:** Multi-NLP system (SpaCy, Natasha, Stanza, GLiNER) was removed in December 2025. Description extraction now uses Google Gemini API.
+### Статистика Frontend (Январь 2026)
+| Категория | Количество |
+|-----------|------------|
+| Components | 86 файлов |
+| Hooks | 56 файлов |
+| Services | 9 файлов |
+| Stores | 6 файлов |
+| Pages | 13 файлов |
+
+> **Архитектура:** Multi-NLP система удалена в декабре 2025. Извлечение описаний теперь через Google Gemini API.
