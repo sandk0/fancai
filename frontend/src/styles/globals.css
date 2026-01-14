@@ -390,6 +390,39 @@ body {
   height: 100dvh;
 }
 
+/* ===========================================
+   Reader Scroll & Zoom Lock (January 2026)
+   Prevents vertical bounce and pinch-zoom in reader only
+   =========================================== */
+.reader-scroll-lock {
+  /* Prevent iOS Safari rubber-band bounce effect */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+
+  /* Disable pinch-zoom and double-tap-zoom, allow pan and tap */
+  touch-action: manipulation;
+
+  /* Prevent any scroll on the container itself */
+  overflow: hidden;
+
+  /* Fix position to prevent any movement */
+  position: fixed;
+  inset: 0;
+}
+
+/* Apply scroll lock to body when reader is active */
+/* This class will be toggled by BookReaderPage */
+body.reader-active {
+  /* Prevent body scroll when reader is open */
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+
+  /* Prevent iOS Safari bounce on body */
+  overscroll-behavior: none;
+}
+
 /* Ensure safe area is covered with correct background color */
 @supports (padding: env(safe-area-inset-bottom)) {
   .reader-fullscreen {

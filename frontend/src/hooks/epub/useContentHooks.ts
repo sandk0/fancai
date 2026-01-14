@@ -127,7 +127,9 @@ export const useContentHooks = (
           margin: 0 !important;
           padding: 0.75em !important;
           -webkit-overflow-scrolling: touch;
-          touch-action: manipulation;
+          /* pan-x pan-y: allows JS scrolling, explicitly EXCLUDES pinch-zoom */
+          /* Note: manipulation = pan-x pan-y pinch-zoom, which ALLOWS zoom! */
+          touch-action: pan-x pan-y;
           overscroll-behavior: contain;
           cursor: pointer;
         }
@@ -135,7 +137,6 @@ export const useContentHooks = (
         /* iOS Safari Fix (January 2026): Force single-column layout */
         /* Only applied on iOS devices via @supports with iOS-specific check */
         /* This prevents double-page turn bug on iOS without affecting Android */
-        /* NOTE: touch-action changed from pan-y to manipulation to allow JS scrolling */
         @supports (-webkit-touch-callout: none) {
           /* -webkit-touch-callout is iOS-only, not supported on Android Chrome */
           html, body {
@@ -143,9 +144,9 @@ export const useContentHooks = (
             -webkit-column-count: 1 !important;
             column-width: auto !important;
             -webkit-column-width: auto !important;
-            /* Use manipulation instead of pan-y to allow JS-controlled horizontal scrolling */
-            /* pan-y was blocking stage.scrollTo() from working properly */
-            touch-action: manipulation !important;
+            /* pan-x pan-y: allows JS-controlled scrolling (stage.scrollTo), excludes pinch-zoom */
+            /* pan-y alone was blocking horizontal scrolling */
+            touch-action: pan-x pan-y !important;
             overscroll-behavior-x: none !important;
           }
         }
@@ -170,7 +171,7 @@ export const useContentHooks = (
 
         /* Ensure description highlights are tappable on mobile */
         .description-highlight {
-          touch-action: manipulation;
+          touch-action: pan-x pan-y;
           -webkit-touch-callout: none;
           cursor: pointer;
         }

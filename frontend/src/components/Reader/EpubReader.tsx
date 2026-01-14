@@ -851,7 +851,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
           paddingBottom: 'env(safe-area-inset-bottom)',
-          touchAction: effectiveNavigationMode === 'swipe' ? 'pan-y pinch-zoom' : 'auto',
+          // pan-x pan-y: allows panning (harmless on fixed container), explicitly EXCLUDES pinch-zoom
+          // Note: 'manipulation' = 'pan-x pan-y pinch-zoom' which ALLOWS zoom - don't use it!
+          // Vertical bounce prevented by overscroll-behavior: none on container
+          // Safari pinch-zoom additionally blocked by gesture event prevention in BookReaderPage
+          touchAction: 'pan-x pan-y',
         }}
         {...(effectiveNavigationMode === 'swipe' ? swipeTouchHandlers : {})}
       />

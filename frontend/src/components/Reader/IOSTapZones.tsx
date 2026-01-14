@@ -462,7 +462,8 @@ export const IOSTapZones = memo(function IOSTapZones({
     bottom: 'env(safe-area-inset-bottom)',
     zIndex: 5, // Above iframe but below UI elements
     backgroundColor: 'transparent',
-    touchAction: 'manipulation',
+    // pan-x pan-y: explicitly excludes pinch-zoom (manipulation = pan-x pan-y pinch-zoom!)
+    touchAction: 'pan-x pan-y',
     WebkitTapHighlightColor: 'transparent',
     WebkitUserSelect: 'none',
     userSelect: 'none',

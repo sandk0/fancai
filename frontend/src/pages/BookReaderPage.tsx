@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
@@ -8,6 +8,37 @@ import { useParsingStatus } from '@/hooks/api';
 import { usePWAResumeGuard } from '@/hooks/pwa';
 import { useAuthStore } from '@/stores/auth';
 import { resetBookData } from '@/utils/bookDataReset';
+
+/**
+ * Hook to lock body scroll when reader is active
+ * Prevents iOS Safari vertical bounce and body scroll
+ */
+const useReaderBodyLock = () => {
+  useEffect(() => {
+    // Add class to body to enable scroll lock styles
+    document.body.classList.add('reader-active');
+
+    // Prevent iOS Safari gesture events (pinch-zoom)
+    const preventGesture = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Safari-specific gesture events
+    document.addEventListener('gesturestart', preventGesture, { passive: false });
+    document.addEventListener('gesturechange', preventGesture, { passive: false });
+    document.addEventListener('gestureend', preventGesture, { passive: false });
+
+    return () => {
+      // Remove class when leaving reader
+      document.body.classList.remove('reader-active');
+
+      // Remove gesture listeners
+      document.removeEventListener('gesturestart', preventGesture);
+      document.removeEventListener('gesturechange', preventGesture);
+      document.removeEventListener('gestureend', preventGesture);
+    };
+  }, []);
+};
 
 /**
  * Error fallback component for the reader
@@ -75,6 +106,9 @@ const BookReaderPage = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
 
+  // Lock body scroll and prevent gestures when reader is active
+  useReaderBodyLock();
+
   // PWA Resume Guard: handles race condition between Zustand rehydration
   // and TanStack Query refetch when app resumes from background
   const { isResuming, isReady } = usePWAResumeGuard();
@@ -139,7 +173,7 @@ const BookReaderPage = () => {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-background reader-container"
+      className="fixed inset-0 overflow-hidden bg-background reader-container reader-scroll-lock"
       style={{
         /* Use 100dvh for proper iOS Home Indicator support */
         height: '100dvh',
