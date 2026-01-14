@@ -21,6 +21,8 @@ interface DebugData {
   scrollWidth?: number;
   pagesScrolled?: number;
   blocked?: string;
+  /** Source of scroll unit measurement (css-column-width, first-block-width, scroll-ratio, layout-delta, viewport-fallback) */
+  measureSource?: string;
 }
 
 // Global debug log - accessible from anywhere
@@ -111,7 +113,10 @@ export const IOSDebugOverlay: React.FC = () => {
             <div>delta:{entry.layoutDelta} div:{entry.layoutDivisor} vw:{entry.viewportWidth}</div>
           )}
           {entry.scrollUnit !== undefined && (
-            <div>unit:{entry.scrollUnit} sw:{entry.scrollWidth}</div>
+            <div>
+              unit:{entry.scrollUnit} sw:{entry.scrollWidth}
+              {entry.measureSource && <span style={{ color: '#0ff' }}> [{entry.measureSource}]</span>}
+            </div>
           )}
           {entry.scrollBefore !== undefined && (
             <div>

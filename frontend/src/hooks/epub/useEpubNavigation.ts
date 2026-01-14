@@ -4,6 +4,11 @@
  * Provides simple next/prev page navigation with keyboard support.
  * Includes smooth scroll animation for better UX.
  *
+ * CRITICAL FIX (January 2026):
+ * - Measures actual CSS column width from DOM instead of relying on epub.js layout.delta
+ * - Fixes "1 page = 2 screens" bug on mobile where epub.js miscalculates column width
+ * - Uses multi-method measurement with fallback chain for reliability
+ *
  * @param rendition - epub.js Rendition instance
  * @returns Navigation functions
  *
@@ -13,6 +18,15 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { Rendition } from '@/types/epub';
+
+// Layout type for internal use
+interface EpubLayout {
+  delta?: number;
+  columnWidth?: number;
+  gap?: number;
+  divisor?: number;
+  pageWidth?: number;
+}
 
 // Detect iOS device
 export const isIOS = (): boolean => {
@@ -69,6 +83,173 @@ const waitForScrollEnd = (element: HTMLElement, target: number, timeout = 500): 
   });
 };
 
+/**
+ * Measurement result with source for debugging
+ */
+interface MeasuredScrollUnit {
+  unit: number;
+  source: string;
+  debug: {
+    cssColumnWidth?: number;
+    cssColumnGap?: number;
+    firstBlockWidth?: number;
+    scrollWidth?: number;
+    estimatedPages?: number;
+    layoutDelta?: number;
+    viewportWidth: number;
+  };
+}
+
+/**
+ * getMeasuredScrollUnit - Measures actual CSS column width from DOM
+ *
+ * CRITICAL FIX (January 2026):
+ * Instead of relying on epub.js layout.delta (which can be wrong on mobile),
+ * we measure the actual CSS column width directly from the rendered DOM.
+ *
+ * Measurement priority:
+ * 1. CSS computed column-width from iframe body
+ * 2. Width of first block element (p, div, section)
+ * 3. scrollWidth / estimated pages calculation
+ * 4. epub.js layout.delta (if reasonable)
+ * 5. Viewport width (final fallback)
+ *
+ * @param rendition - epub.js Rendition instance
+ * @param viewportWidth - Stage container width
+ * @param layout - epub.js layout object
+ * @returns Measured scroll unit with source and debug info
+ */
+const getMeasuredScrollUnit = (
+  rendition: Rendition,
+  viewportWidth: number,
+  scrollWidth: number,
+  layout: EpubLayout | null
+): MeasuredScrollUnit => {
+  const debug: MeasuredScrollUnit['debug'] = {
+    viewportWidth,
+    scrollWidth,
+    layoutDelta: layout?.delta,
+  };
+
+  try {
+    // Get iframe contents
+    const contents = rendition.getContents();
+    const iframeContent = contents?.[0];
+
+    if (iframeContent?.document?.body) {
+      const body = iframeContent.document.body;
+      const computed = getComputedStyle(body);
+
+      // Method 1: CSS computed column-width
+      // This is the most accurate way to measure actual column width
+      const cssColumnWidth = parseFloat(computed.columnWidth);
+      const cssColumnGap = parseFloat(computed.columnGap) || 0;
+      debug.cssColumnWidth = cssColumnWidth;
+      debug.cssColumnGap = cssColumnGap;
+
+      if (cssColumnWidth > 0 && !isNaN(cssColumnWidth) && cssColumnWidth < viewportWidth) {
+        // CSS column-width is set and valid
+        const unit = cssColumnWidth + cssColumnGap;
+        if (isIOS()) {
+          console.log('[getMeasuredScrollUnit] Method 1 SUCCESS: CSS column-width', {
+            cssColumnWidth,
+            cssColumnGap,
+            unit,
+          });
+        }
+        return { unit, source: 'css-column-width', debug };
+      }
+
+      // Method 2: Measure first block element width
+      // Works when CSS columns render elements at specific widths
+      const firstBlock = body.querySelector('p, div, section, article, h1, h2, h3') as HTMLElement | null;
+      if (firstBlock) {
+        const blockRect = firstBlock.getBoundingClientRect();
+        const blockWidth = blockRect.width;
+        debug.firstBlockWidth = blockWidth;
+
+        // Valid if block is narrower than viewport (indicates column layout)
+        if (blockWidth > 50 && blockWidth < viewportWidth * 0.95) {
+          // Add gap estimate (typically 20-40px)
+          const estimatedGap = cssColumnGap || 20;
+          const unit = blockWidth + estimatedGap;
+          if (isIOS()) {
+            console.log('[getMeasuredScrollUnit] Method 2 SUCCESS: First block width', {
+              blockWidth,
+              estimatedGap,
+              unit,
+            });
+          }
+          return { unit, source: 'first-block-width', debug };
+        }
+      }
+    }
+  } catch (err) {
+    if (isIOS()) {
+      console.warn('[getMeasuredScrollUnit] DOM measurement error:', err);
+    }
+  }
+
+  // Method 3: scrollWidth / estimated pages
+  // If content is wider than viewport, calculate page width from ratio
+  if (scrollWidth > viewportWidth * 1.1) {
+    // Content is multi-page - estimate single page width
+    const ratio = scrollWidth / viewportWidth;
+    const estimatedPages = Math.round(ratio);
+    debug.estimatedPages = estimatedPages;
+
+    if (estimatedPages > 1) {
+      // Calculate single page width
+      const unit = Math.floor(scrollWidth / estimatedPages);
+      if (isIOS()) {
+        console.log('[getMeasuredScrollUnit] Method 3 SUCCESS: scrollWidth/pages', {
+          scrollWidth,
+          viewportWidth,
+          ratio,
+          estimatedPages,
+          unit,
+        });
+      }
+      return { unit, source: 'scroll-ratio', debug };
+    }
+  }
+
+  // Method 4: epub.js layout.delta (if reasonable)
+  // Only use if delta is less than or equal to viewport width
+  if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
+    if (isIOS()) {
+      console.log('[getMeasuredScrollUnit] Method 4 FALLBACK: layout.delta', {
+        layoutDelta: layout.delta,
+        viewportWidth,
+      });
+    }
+    return { unit: layout.delta, source: 'layout-delta', debug };
+  }
+
+  // Method 5: epub.js layout.columnWidth + gap
+  if (layout?.columnWidth && layout.columnWidth > 0 && layout.columnWidth <= viewportWidth) {
+    const unit = layout.columnWidth + (layout.gap || 0);
+    if (isIOS()) {
+      console.log('[getMeasuredScrollUnit] Method 5 FALLBACK: layout.columnWidth', {
+        columnWidth: layout.columnWidth,
+        gap: layout.gap,
+        unit,
+      });
+    }
+    return { unit, source: 'layout-column-width', debug };
+  }
+
+  // Final fallback: viewport width
+  if (isIOS()) {
+    console.warn('[getMeasuredScrollUnit] Method 6 FINAL FALLBACK: viewportWidth', {
+      viewportWidth,
+      layoutDelta: layout?.delta,
+      layoutColumnWidth: layout?.columnWidth,
+    });
+  }
+  return { unit: viewportWidth, source: 'viewport-fallback', debug };
+};
+
 interface UseEpubNavigationReturn {
   nextPage: () => Promise<void>;
   prevPage: () => Promise<void>;
@@ -88,10 +269,10 @@ export const useEpubNavigation = (
    * We directly manipulate the scroll position instead
    *
    * CRITICAL FIX (January 2026):
-   * - Use layout.delta instead of viewportWidth for scroll unit
-   * - On iOS, CSS columns may render multiple pages within viewport
-   * - viewportWidth would skip ALL columns, causing multi-page jumps
-   * - layout.delta is the correct single-page scroll distance from epub.js
+   * - Measures ACTUAL CSS column width from DOM instead of relying on epub.js layout.delta
+   * - Fixes "1 page = 2 screens" bug where epub.js miscalculates column width on mobile
+   * - Uses multi-method measurement with fallback chain for reliability
+   * - Priority: CSS column-width → first block width → scrollWidth/pages → layout.delta → viewport
    *
    * Now with smooth scrolling for better UX
    */
@@ -110,15 +291,19 @@ export const useEpubNavigation = (
       const stage = manager.stage?.container || manager.container;
       if (!stage) return false;
 
-      // CRITICAL FIX: Use layout.delta instead of viewportWidth
-      // layout.delta = correct scroll unit calculated by epub.js
-      // viewportWidth may contain multiple CSS columns on iOS Safari
-      // Fallback chain: layout.delta → layout.columnWidth → stage.clientWidth
-      const layout = manager.layout;
+      const layout = manager.layout as EpubLayout | null;
       const viewportWidth = stage.clientWidth;
+      const scrollWidthTotal = stage.scrollWidth;
 
-      // iOS DEBUG: Log all layout values to screen overlay
+      // CRITICAL FIX (January 2026):
+      // Use measured CSS column width from DOM instead of epub.js layout.delta
+      // This fixes the "1 page = 2 screens" bug on mobile devices
+      const measured = getMeasuredScrollUnit(rendition, viewportWidth, scrollWidthTotal, layout);
+      const scrollUnit = measured.unit;
+
+      // iOS DEBUG: Log all measurement data to screen overlay
       if (isIOS()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const debugFn = (window as any).__iosDebug;
         if (debugFn) {
           debugFn({
@@ -126,65 +311,47 @@ export const useEpubNavigation = (
             layoutDelta: layout?.delta,
             layoutDivisor: layout?.divisor,
             viewportWidth,
-            scrollWidth: stage.scrollWidth,
+            scrollWidth: scrollWidthTotal,
+            scrollUnit,
+            measureSource: measured.source,
           });
         }
         console.log('[useEpubNavigation] iOS directScroll START:', {
           direction,
           viewportWidth,
-          scrollWidth: stage.scrollWidth,
+          scrollWidth: scrollWidthTotal,
           currentScrollLeft: stage.scrollLeft,
+          scrollUnit,
+          measureSource: measured.source,
+          measureDebug: measured.debug,
           layoutDelta: layout?.delta,
           layoutColumnWidth: layout?.columnWidth,
           layoutDivisor: layout?.divisor,
-          layoutGap: layout?.gap,
-          layoutPageWidth: layout?.pageWidth,
-        });
-      }
-
-      // Determine correct scroll unit
-      let scrollUnit: number;
-      if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
-        // Use epub.js calculated delta (most reliable)
-        scrollUnit = layout.delta;
-      } else if (layout?.columnWidth && layout.columnWidth > 0 && layout.columnWidth <= viewportWidth) {
-        // Fallback to columnWidth
-        scrollUnit = layout.columnWidth + (layout.gap || 0);
-      } else {
-        // Final fallback to viewport width (may cause issues on iOS)
-        scrollUnit = viewportWidth;
-      }
-
-      // iOS Safety: If divisor > 1, force correct scroll unit
-      if (isIOS() && layout?.divisor && layout.divisor > 1) {
-        // iOS has multiple columns - calculate single column width
-        scrollUnit = Math.floor(viewportWidth / layout.divisor);
-        console.warn('[useEpubNavigation] iOS: Detected divisor > 1, correcting scrollUnit:', {
-          divisor: layout.divisor,
-          originalDelta: layout.delta,
-          correctedScrollUnit: scrollUnit,
         });
       }
 
       const currentScroll = stage.scrollLeft;
-      const maxScroll = stage.scrollWidth - viewportWidth;
+      const maxScroll = scrollWidthTotal - viewportWidth;
 
       // iOS DEBUG: Log scroll calculation to overlay
       if (isIOS()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const debugFn = (window as any).__iosDebug;
         if (debugFn) {
           debugFn({
             event: 'scrollCalc',
             scrollUnit,
             scrollBefore: currentScroll,
-            scrollWidth: stage.scrollWidth,
+            scrollWidth: scrollWidthTotal,
+            measureSource: measured.source,
           });
         }
         console.log('[useEpubNavigation] iOS scroll calculation:', {
           scrollUnit,
+          measureSource: measured.source,
           currentScroll,
           maxScroll,
-          pagesInContent: Math.ceil(stage.scrollWidth / scrollUnit),
+          pagesInContent: Math.ceil(scrollWidthTotal / scrollUnit),
           currentPage: Math.floor(currentScroll / scrollUnit),
         });
       }
@@ -226,6 +393,7 @@ export const useEpubNavigation = (
       if (isIOS()) {
         const finalScroll = stage.scrollLeft;
         const pagesScrolled = Math.round((finalScroll - currentScroll) / scrollUnit);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const debugFn = (window as any).__iosDebug;
         if (debugFn) {
           debugFn({
@@ -234,6 +402,7 @@ export const useEpubNavigation = (
             scrollAfter: finalScroll,
             scrollUnit,
             pagesScrolled,
+            measureSource: measured.source,
           });
         }
         console.log('[useEpubNavigation] iOS directScroll COMPLETE:', {
@@ -241,11 +410,13 @@ export const useEpubNavigation = (
           actual: finalScroll,
           delta: finalScroll - currentScroll,
           pagesScrolled,
+          measureSource: measured.source,
           success: Math.abs(finalScroll - newScroll) < 5,
         });
       }
 
-      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit}${smooth ? ' smooth' : ''}`;
+      // Include measurement source in debug info for verification
+      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit} [${measured.source}]${smooth ? ' smooth' : ''}`;
 
       return true;
     } catch (err) {
