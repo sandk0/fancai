@@ -71,11 +71,37 @@ const getSafeAreaBottom = (): number => {
   }
 };
 
+// Detect PWA standalone mode
+const isStandaloneMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  if ((navigator as any).standalone === true) return true;
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  return false;
+};
+
+// Get viewport info for debugging
+const getViewportInfo = (): { innerH: number; svh: number; standalone: boolean } => {
+  if (typeof window === 'undefined') return { innerH: 0, svh: 0, standalone: false };
+  const innerH = window.innerHeight;
+  let svh = 0;
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;height:100svh;visibility:hidden;';
+    document.body.appendChild(div);
+    svh = div.offsetHeight;
+    document.body.removeChild(div);
+  } catch {
+    svh = 0;
+  }
+  return { innerH, svh, standalone: isStandaloneMode() };
+};
+
 export const IOSDebugOverlay: React.FC = () => {
   const [entries, setEntries] = useState<DebugData[]>([]);
   const [visible, setVisible] = useState(true);
   const [iosDetected, setIosDetected] = useState<boolean | null>(null);
   const [safeAreaBottom, setSafeAreaBottom] = useState<number>(0);
+  const [viewportInfo, setViewportInfo] = useState<{ innerH: number; svh: number; standalone: boolean }>({ innerH: 0, svh: 0, standalone: false });
 
   const updateEntries = useCallback(() => {
     setEntries([...debugLog]);
@@ -86,6 +112,8 @@ export const IOSDebugOverlay: React.FC = () => {
     setIosDetected(isIOS());
     // Measure safe-area
     setSafeAreaBottom(getSafeAreaBottom());
+    // Get viewport info
+    setViewportInfo(getViewportInfo());
 
     // Always listen for updates (for debugging)
     window.addEventListener('ios-debug-update', updateEntries);
@@ -115,7 +143,10 @@ export const IOSDebugOverlay: React.FC = () => {
       onClick={() => setVisible(!visible)}
     >
       <div style={{ color: '#ff0', marginBottom: '4px' }}>
-        DEBUG | iOS:{iosDetected === null ? '?' : iosDetected ? 'YES' : 'NO'} | SAB:{safeAreaBottom}px | UA:{typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 25) : 'N/A'}
+        DEBUG | iOS:{iosDetected === null ? '?' : iosDetected ? 'YES' : 'NO'} | {viewportInfo.standalone ? 'PWA' : 'Safari'}
+      </div>
+      <div style={{ color: '#0ff', marginBottom: '4px', fontSize: '9px' }}>
+        SAB:{safeAreaBottom}px | innerH:{viewportInfo.innerH} | svh:{viewportInfo.svh} | diff:{viewportInfo.innerH - viewportInfo.svh}
       </div>
 
       {visible && entries.map((entry, i) => (

@@ -37,6 +37,120 @@ import { isOnline } from '@/hooks/useOnlineStatus';
  */
 const DEBUG = true; // import.meta.env.DEV;
 
+/**
+ * Detect if running in PWA standalone mode
+ */
+const isStandaloneMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  // iOS Safari
+  if ((navigator as any).standalone === true) return true;
+  // Other browsers
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  return false;
+};
+
+/**
+ * Measure safe-area-inset-bottom from CSS env() variable
+ * Returns the Home Indicator height on iOS (34px on iPhone X+)
+ * Returns 0 in Safari browser mode (browser handles safe area)
+ */
+const measureSafeAreaBottom = (): number => {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;';
+    document.body.appendChild(div);
+    const computed = window.getComputedStyle(div);
+    const value = parseFloat(computed.paddingBottom) || 0;
+    document.body.removeChild(div);
+    return value;
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Calculate the actual usable viewport height for epub content
+ *
+ * This handles both:
+ * 1. PWA mode: Subtracts safe-area-inset-bottom (Home Indicator)
+ * 2. Safari browser: Uses window.innerHeight which already excludes toolbar
+ *
+ * The key insight is that `window.innerHeight` gives the visual viewport
+ * (actual visible area), while `getBoundingClientRect()` may give the
+ * layout viewport (which can extend behind browser chrome).
+ */
+const getUsableViewportHeight = (containerRect: DOMRect, headerHeight: number = 70): number => {
+  const isStandalone = isStandaloneMode();
+  const safeAreaBottom = measureSafeAreaBottom();
+  const safeAreaTop = (() => {
+    try {
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;top:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none;';
+      document.body.appendChild(div);
+      const computed = window.getComputedStyle(div);
+      const value = parseFloat(computed.paddingTop) || 0;
+      document.body.removeChild(div);
+      return value;
+    } catch {
+      return 0;
+    }
+  })();
+
+  // Method 1: Use window.innerHeight (visual viewport)
+  // This automatically excludes Safari's bottom toolbar in browser mode
+  const visualViewportHeight = window.innerHeight;
+
+  // Method 2: Use CSS svh (small viewport height) if available
+  // svh gives viewport height with all browser UI visible
+  let svhHeight = 0;
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;height:100svh;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(div);
+    svhHeight = div.offsetHeight;
+    document.body.removeChild(div);
+  } catch {
+    svhHeight = 0;
+  }
+
+  // Calculate content height (subtract header and safe areas)
+  // In PWA mode, we need to subtract the safe-area-inset-bottom
+  // In browser mode, innerHeight already accounts for browser chrome
+  let usableHeight: number;
+
+  if (isStandalone) {
+    // PWA standalone mode: use visual viewport minus header and safe areas
+    usableHeight = visualViewportHeight - headerHeight - safeAreaTop - safeAreaBottom;
+  } else {
+    // Browser mode: innerHeight already excludes toolbar
+    // Use svh if available (more accurate), otherwise innerHeight
+    const baseHeight = svhHeight > 0 ? svhHeight : visualViewportHeight;
+    usableHeight = baseHeight - headerHeight - safeAreaTop;
+
+    // Additional safety: if container is smaller than viewport, use container
+    // This handles cases where CSS already applied safe-area padding
+    if (containerRect.height < usableHeight) {
+      usableHeight = containerRect.height;
+    }
+  }
+
+  if (DEBUG) {
+    console.log('[useEpubLoader] getUsableViewportHeight:', {
+      isStandalone,
+      visualViewportHeight,
+      svhHeight,
+      safeAreaTop,
+      safeAreaBottom,
+      headerHeight,
+      containerRectHeight: containerRect.height,
+      calculatedUsableHeight: usableHeight,
+    });
+  }
+
+  return Math.floor(usableHeight);
+};
+
 interface UseEpubLoaderOptions {
   bookUrl: string;
   viewerRef: React.RefObject<HTMLDivElement | null>;
@@ -159,13 +273,19 @@ export const useEpubLoader = ({
           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         // Get container dimensions for iOS
+        // CRITICAL: Use getUsableViewportHeight() to account for:
+        // 1. PWA mode: safe-area-inset-bottom (Home Indicator)
+        // 2. Safari browser: browser toolbar (not a CSS safe-area)
         let renditionWidth: string | number = '100%';
         let renditionHeight: string | number = '100%';
 
         if (isIOSDevice && viewerRef.current) {
           const containerRect = viewerRef.current.getBoundingClientRect();
           let width = Math.floor(containerRect.width);
-          const height = Math.floor(containerRect.height);
+
+          // Use getUsableViewportHeight() instead of containerRect.height
+          // This properly accounts for safe-area and browser chrome
+          const height = getUsableViewportHeight(containerRect, 70); // 70px header height
 
           // Ensure width is EVEN (fixes pixel shifting on iOS)
           if (width % 2 !== 0) {
@@ -179,7 +299,8 @@ export const useEpubLoader = ({
             console.log('[useEpubLoader] iOS: Using explicit pixel dimensions:', {
               width: renditionWidth,
               height: renditionHeight,
-              originalWidth: containerRect.width,
+              originalContainerHeight: containerRect.height,
+              heightDifference: containerRect.height - height,
             });
           }
         }

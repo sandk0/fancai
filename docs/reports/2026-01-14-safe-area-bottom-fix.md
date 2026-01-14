@@ -1,9 +1,10 @@
 # Исправление Safe-Area Bottom для мобильных устройств
 
 **Дата:** 2026-01-14
-**Статус:** Реализовано
-**Тип:** Исправление UX
+**Статус:** Реализовано (v2)
+**Тип:** Критическое исправление UX
 **Затронутые файлы:**
+- `frontend/src/hooks/epub/useEpubLoader.ts`
 - `frontend/src/hooks/epub/useContentHooks.ts`
 - `frontend/src/components/Reader/IOSDebugOverlay.tsx`
 
@@ -11,78 +12,100 @@
 
 ## Проблема
 
-### Симптом
-На мобильных устройствах (iOS, Android) последние 1-2 строки текста скрываются за навигационными элементами системы (Home Indicator на iPhone, навигационная панель на Android).
+### Симптомы
+На мобильных устройствах (iOS, Android) последние 1-2 строки текста скрываются:
+- **PWA режим:** Текст скрыт за Home Indicator (34px на iPhone X+)
+- **Safari браузер:** Текст скрыт за нижней панелью браузера (кнопки назад/вперёд, адресная строка)
 
-### Причина
-EPUB контент рендерится внутри iframe, который создаёт epub.js. Хотя внешний контейнер (`#epub-viewer`) имел `paddingBottom: 'env(safe-area-inset-bottom)'`, CSS `env()` переменные **не передаются** внутрь blob: iframe на iOS.
-
-```typescript
-// EpubReader.tsx - внешний контейнер УЖЕ имел safe-area
-style={{
-  paddingBottom: 'env(safe-area-inset-bottom)',  // НЕ работает для iframe
-}}
+### Первоначальный некорректный подход (v1)
+Попытка добавить `padding-bottom` к `body` внутри epub iframe:
+```css
+body {
+  padding: 0.75em 0.75em calc(0.75em + 34px) 0.75em !important;
+}
 ```
 
-### Архитектура проблемы
+**Почему не сработало:**
+- epub.js использует CSS колонки для пагинации
+- Высота колонок рассчитывается на основе `rendition.height`, а НЕ доступного пространства в body
+- Body padding игнорируется при расчёте высоты колонок
+- Контент переполняется за пределы видимой области
+
+### Ключевое открытие
 ```
 ┌─────────────────────────────────┐
 │  EpubReader.tsx                 │
-│  paddingBottom: env(safe-area)  │  <- Работает для контейнера
+│  paddingBottom: env(safe-area)  │  <- Не влияет на epub.js
 │  ┌───────────────────────────┐  │
-│  │  epub.js iframe (blob:)   │  │
-│  │  body { padding: 0.75em } │  │  <- НЕ учитывает safe-area
+│  │  epub.js iframe           │  │
+│  │  renditionHeight = 100%   │  │  <- Колонки рассчитаны на полную высоту!
+│  │  body { padding: X }      │  │  <- Не влияет на высоту колонок
 │  │  ┌─────────────────────┐  │  │
-│  │  │  Текст книги...     │  │  │
-│  │  │  ...                │  │  │
-│  │  │  Последние строки   │  │  │  <- Скрыты за Home Indicator
+│  │  │  CSS Columns        │  │  │
+│  │  │  height: 100%       │  │  │  <- Переполнение!
 │  │  └─────────────────────┘  │  │
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
 ```
 
+### Дополнительная проблема: Safari браузер
+- `env(safe-area-inset-bottom)` возвращает **0** в Safari браузере
+- Причина: Панель браузера — это browser chrome, а не "safe area" в терминах CSS
+- Нужен альтернативный подход для определения доступной высоты
+
 ---
 
-## Решение
+## Решение (v2)
 
-### Подход
-Измерять `env(safe-area-inset-bottom)` в родительском окне через JavaScript и передавать это значение как фиксированный пиксель в CSS внутри iframe.
+### Подход: Уменьшение высоты rendition
 
-### Реализация
+Вместо добавления padding к body, уменьшаем высоту, передаваемую в epub.js `renderTo()`:
 
-#### 1. Функция измерения safe-area (`useContentHooks.ts`)
 ```typescript
-const getSafeAreaInsetBottom = (): number => {
-  if (typeof window === 'undefined') return 0;
+const newRendition = epubBook.renderTo(viewerRef.current, {
+  width: renditionWidth,
+  height: renditionHeight, // <- Уменьшенная высота!
+  // ...
+});
+```
 
-  try {
-    // Создаём временный элемент для измерения CSS env()
-    const measureDiv = document.createElement('div');
-    measureDiv.style.cssText =
-      'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;';
-    document.body.appendChild(measureDiv);
-    const computed = window.getComputedStyle(measureDiv);
-    const safeAreaBottom = parseFloat(computed.paddingBottom) || 0;
-    document.body.removeChild(measureDiv);
-    return safeAreaBottom;
-  } catch {
-    return 0;
+### Функция `getUsableViewportHeight()`
+
+Новая функция для расчёта реально доступной высоты:
+
+```typescript
+const getUsableViewportHeight = (containerRect: DOMRect, headerHeight: number = 70): number => {
+  const isStandalone = isStandaloneMode();
+  const safeAreaBottom = measureSafeAreaBottom();
+  const safeAreaTop = measureSafeAreaTop();
+  const visualViewportHeight = window.innerHeight;
+
+  // Измеряем 100svh (small viewport height) через CSS
+  let svhHeight = measureSvhHeight();
+
+  if (isStandalone) {
+    // PWA: вычитаем header и safe-areas
+    return visualViewportHeight - headerHeight - safeAreaTop - safeAreaBottom;
+  } else {
+    // Safari: innerHeight УЖЕ исключает toolbar
+    // svh даёт ещё более точное значение
+    const baseHeight = svhHeight > 0 ? svhHeight : visualViewportHeight;
+    return baseHeight - headerHeight - safeAreaTop;
   }
 };
 ```
 
-#### 2. Применение к body iframe
-```typescript
-const safeAreaBottom = getSafeAreaInsetBottom();
+### Логика определения высоты
 
-style.textContent = `
-  body {
-    margin: 0 !important;
-    padding: 0.75em 0.75em calc(0.75em + ${safeAreaBottom}px) 0.75em !important;
-    /* ... остальные стили ... */
-  }
-`;
-```
+| Режим | Источник высоты | Вычитаемые элементы |
+|-------|----------------|---------------------|
+| **PWA** | `window.innerHeight` | header (70px) + safeAreaTop + safeAreaBottom (34px) |
+| **Safari** | `100svh` или `innerHeight` | header (70px) + safeAreaTop |
+
+**Ключевое различие:**
+- `window.innerHeight` в PWA = полный экран (включает Home Indicator)
+- `window.innerHeight` в Safari = видимый viewport (уже исключает toolbar)
+- `100svh` (small viewport height) = минимальная высота с видимым browser chrome
 
 ---
 
@@ -91,35 +114,19 @@ style.textContent = `
 ```
 ┌─────────────────────────────────┐
 │  EpubReader.tsx                 │
-│  paddingBottom: env(safe-area)  │
 │  ┌───────────────────────────┐  │
-│  │  epub.js iframe (blob:)   │  │
-│  │  body {                   │  │
-│  │    padding-bottom:        │  │
-│  │    calc(0.75em + 34px)    │  │  <- safe-area из parent
-│  │  }                        │  │
+│  │  epub.js iframe           │  │
+│  │  renditionHeight =        │  │
+│  │    innerH - header - SAB  │  │  <- Уменьшенная высота
 │  │  ┌─────────────────────┐  │  │
-│  │  │  Текст книги...     │  │  │
-│  │  │  ...                │  │  │
-│  │  │  Последние строки   │  │  │
-│  │  │  [пустое место]     │  │  │  <- 34px safe-area padding
+│  │  │  CSS Columns        │  │  │
+│  │  │  height: adjusted   │  │  │  <- Колонки вмещаются!
 │  │  └─────────────────────┘  │  │
+│  │  [свободное место]       │  │  <- Не используется
 │  └───────────────────────────┘  │
+│  [Safe Area / Home Indicator]   │
 └─────────────────────────────────┘
-          Home Indicator
 ```
-
----
-
-## Изменения в коде
-
-### `useContentHooks.ts`
-1. **Добавлена функция** `getSafeAreaInsetBottom()` - измеряет safe-area-inset-bottom из родительского окна
-2. **Обновлено** body padding - теперь включает safe-area-inset-bottom как фиксированное значение в пикселях
-
-### `IOSDebugOverlay.tsx`
-1. **Добавлено** отображение safe-area-inset-bottom (`SAB:Xpx`) в заголовке overlay
-2. **Добавлена функция** `getSafeAreaBottom()` для измерения
 
 ---
 
@@ -127,54 +134,71 @@ style.textContent = `
 
 ### Формат заголовка overlay
 ```
-DEBUG | iOS:YES | SAB:34px | UA:Mozilla/5.0 (iPhone...
+DEBUG | iOS:YES | PWA
+SAB:34px | innerH:844 | svh:780 | diff:64
 ```
 
 - `iOS:YES/NO` - обнаружено ли iOS устройство
-- `SAB:34px` - измеренное значение safe-area-inset-bottom
-- `UA:...` - начало User-Agent
+- `PWA/Safari` - режим запуска
+- `SAB:34px` - safe-area-inset-bottom
+- `innerH:844` - window.innerHeight
+- `svh:780` - 100svh (small viewport height)
+- `diff:64` - разница (высота browser chrome)
 
-### Типичные значения safe-area-inset-bottom
-| Устройство | Значение |
-|------------|----------|
-| iPhone X/XS/11/12/13/14/15 | 34px |
-| iPhone без Home Indicator | 0px |
-| iPad | 20px |
-| Android (зависит от устройства) | 0-48px |
-| Desktop | 0px |
+### Типичные значения
+
+| Устройство | Режим | SAB | innerH | svh | diff |
+|------------|-------|-----|--------|-----|------|
+| iPhone 15 | PWA | 34px | 844 | 844 | 0 |
+| iPhone 15 | Safari | 0px | ~750 | ~780 | ~30 |
+| iPhone SE | Safari | 0px | ~667 | ~667 | 0 |
+
+---
+
+## Изменения в коде
+
+### `useEpubLoader.ts`
+1. **Добавлена функция** `isStandaloneMode()` - определяет PWA vs браузер
+2. **Добавлена функция** `measureSafeAreaBottom()` - измеряет safe-area
+3. **Добавлена функция** `getUsableViewportHeight()` - рассчитывает доступную высоту
+4. **Обновлено** создание rendition - использует уменьшенную высоту
+
+### `useContentHooks.ts`
+1. **Удалено** измерение и применение safe-area к body padding
+2. **Обновлен комментарий** - указывает что safe-area обрабатывается в useEpubLoader
+
+### `IOSDebugOverlay.tsx`
+1. **Добавлена функция** `isStandaloneMode()` - определяет режим запуска
+2. **Добавлена функция** `getViewportInfo()` - измеряет viewport параметры
+3. **Обновлен заголовок** - показывает режим (PWA/Safari) и viewport info
 
 ---
 
 ## Тестирование
 
 ### Сценарии
-1. **iOS Safari** - проверить что последние строки видны
-2. **iOS PWA** - standalone mode с Home Indicator
-3. **Android Chrome** - с навигационной панелью
-4. **Desktop** - регрессионный тест (safe-area = 0)
+1. **iOS Safari** - проверить innerH vs svh разницу
+2. **iOS PWA** - проверить SAB вычитание
+3. **Android Chrome** - проверить работу без safe-area
+4. **Desktop** - регрессионный тест
 
 ### Критерии успеха
-- [ ] SAB в debug overlay показывает корректное значение (>0 на iOS)
 - [ ] Последние строки текста видны полностью
-- [ ] Нет обрезания контента внизу экрана
+- [ ] В debug overlay корректные значения режима и viewport
+- [ ] Нет пропуска контента при свайпе
 - [ ] На desktop поведение не изменилось
 
 ---
 
-## Требования
+## Связанные ресурсы
 
-### Prerequisite: viewport-fit=cover
-Для работы `env(safe-area-inset-bottom)` требуется:
-```html
-<meta name="viewport" content="..., viewport-fit=cover" />
-```
+### Документация
+- [Handling iOS Safari toolbar for full height web content](https://www.sabhya.dev/handling-ios-safari-toolbar-for-full-height-web-content)
+- [Fixing iOS Safari's Menu Bar Overlap with CSS Viewport Units](https://opus.ing/posts/fixing-ios-safaris-menu-bar-overlap-css-viewport-units)
+- [CSS env() - MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/env)
+- [Safe Areas with CSS Environmental Variables - Frontend Masters](https://frontendmasters.com/courses/pwas-v2/safe-areas-with-css-environmental-variables/)
 
-**Статус:** Уже реализовано в `frontend/index.html` (строка 5)
-
----
-
-## Связанные документы
-
+### Связанные отчёты
 - `2026-01-14-mobile-navigation-scroll-unit-fix.md` - исправление scroll unit
 - `2026-01-14-mobile-navigation-improvement-plan.md` - план доработок
 - `ios-navigation-bug-analysis-2026-01-14.md` - анализ навигации
@@ -184,11 +208,12 @@ DEBUG | iOS:YES | SAB:34px | UA:Mozilla/5.0 (iPhone...
 ## Коммит
 
 ```
-fix(ios): add safe-area-inset-bottom padding for mobile devices
+fix(ios): reduce rendition height for safe-area and Safari toolbar
 
-- Add getSafeAreaInsetBottom() to measure safe-area from parent window
-- Apply measured value as fixed pixel padding in epub iframe body
-- Fix last 2 lines hidden behind iOS Home Indicator / Android nav bar
-- Update debug overlay to show SAB value
-- CSS env() variables don't cascade into blob: iframes, hence JS measurement
+- Add getUsableViewportHeight() to calculate actual usable viewport
+- PWA mode: subtract safe-area-inset-bottom from rendition height
+- Safari browser: use svh/innerHeight (already excludes toolbar)
+- Remove body padding approach (doesn't affect epub.js columns)
+- Update debug overlay to show PWA/Safari mode and viewport info
+- env(safe-area-inset-bottom) is 0 in Safari browser (by design)
 ```

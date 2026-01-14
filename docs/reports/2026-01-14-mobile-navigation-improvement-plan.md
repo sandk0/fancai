@@ -26,11 +26,14 @@
 - ✅ Расширение debug информации с указанием источника измерения
 - ✅ Type check пройден без ошибок
 
-### Phase 5 (2026-01-14)
-- ✅ Исправление safe-area-inset-bottom для мобильных устройств
-- ✅ `getSafeAreaInsetBottom()` - измерение из родительского окна
-- ✅ Применение safe-area к body внутри epub iframe
-- ✅ Обновление debug overlay - показывает SAB значение
+### Phase 5 (2026-01-14) - UPDATED
+- ❌ Первый подход (body padding) не работал - epub.js игнорирует body padding
+- ✅ Правильный подход: уменьшение `renditionHeight` вместо body padding
+- ✅ `getUsableViewportHeight()` - расчёт доступной высоты с учётом:
+  - PWA: вычитание safe-area-inset-bottom (34px)
+  - Safari: использование svh/innerHeight (toolbar уже исключён)
+- ✅ `isStandaloneMode()` - определение PWA vs браузер
+- ✅ Обновление debug overlay - показывает режим (PWA/Safari) и viewport info
 
 ---
 
