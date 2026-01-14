@@ -881,6 +881,48 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
               await openModal(desc, img);
             }
           }}
+          onCenterTap={async (x: number, y: number) => {
+            // NEW (January 2026): Find description at coordinates via rendition.getContents()
+            // This replaces the broken BroadcastChannel/postMessage approach
+            // which doesn't work with blob: URL iframes on iOS Safari
+            if (!rendition) return;
+
+            try {
+              const contents = rendition.getContents();
+              if (!contents || contents.length === 0) return;
+
+              const iframe = contents[0];
+              const doc = iframe.document;
+              if (!doc) return;
+
+              // Find element at the tap coordinates
+              const elementAtPoint = doc.elementFromPoint(x, y);
+              if (!elementAtPoint) return;
+
+              // Walk up the DOM tree to find description-highlight
+              let target: HTMLElement | null = elementAtPoint as HTMLElement;
+              let descriptionId: string | null = null;
+
+              while (target && target !== doc.body) {
+                if (target.classList?.contains('description-highlight')) {
+                  descriptionId = target.getAttribute('data-description-id');
+                  break;
+                }
+                target = target.parentElement;
+              }
+
+              if (descriptionId) {
+                // Found description - open modal
+                const desc = descriptions.find(d => d.id === descriptionId);
+                if (desc) {
+                  const img = images.find(i => i.description?.id === descriptionId);
+                  await openModal(desc, img);
+                }
+              }
+            } catch (err) {
+              console.error('[EpubReader] Error finding description at coordinates:', err);
+            }
+          }}
           enabled={!isLoading && !isGenerating && !error}
           headerHeight={70}
           navigationEnabled={effectiveNavigationMode === 'tap'}

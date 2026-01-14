@@ -23,8 +23,8 @@ import { useCallback, useRef, memo, useState, useEffect } from 'react';
 
 const TAP_MAX_DURATION = 350; // ms
 
-// BroadcastChannel for cross-iframe communication (works with blob: URLs)
-const TAP_CHANNEL_NAME = 'ios-tap-coordinates';
+// Note: BroadcastChannel removed - it doesn't work with blob: URL iframes on iOS Safari
+// due to storage partitioning. Using callback approach instead.
 const TAP_MAX_MOVEMENT = 20; // px
 
 // Debounce time for navigation (increased for real iOS devices)
@@ -67,6 +67,12 @@ interface IOSTapZonesProps {
   onPrevPage: () => void;
   onNextPage: () => void;
   onDescriptionClick?: (descriptionId: string) => void;
+  /**
+   * Callback for center zone taps with coordinates relative to iframe
+   * Used to find descriptions via rendition.getContents() in parent component
+   * This replaces the broken BroadcastChannel/postMessage approach
+   */
+  onCenterTap?: (x: number, y: number) => void;
   enabled?: boolean;
   headerHeight?: number;
   /** Whether navigation tap zones should be rendered (false = swipe mode, only center zone) */
@@ -80,7 +86,8 @@ interface IOSTapZonesProps {
 export const IOSTapZones = memo(function IOSTapZones({
   onPrevPage,
   onNextPage,
-  onDescriptionClick: _onDescriptionClick, // Kept for backwards compatibility, not used with postMessage approach
+  onDescriptionClick: _onDescriptionClick, // Kept for backwards compatibility
+  onCenterTap, // New: callback with coordinates for description detection via rendition.getContents()
   enabled = true,
   headerHeight = 70,
   navigationEnabled = true, // When false (swipe mode), only center zone is rendered
@@ -416,7 +423,6 @@ export const IOSTapZones = memo(function IOSTapZones({
     // CRITICAL FIX (January 2026): Use iframe rect, NOT viewer rect!
     // After safe-area fix, iframe height is reduced (via renditionHeight),
     // but viewer container may have different dimensions.
-    // elementFromPoint() inside iframe needs coordinates relative to IFRAME, not viewer.
     const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
 
     if (!iframe) {
@@ -434,58 +440,20 @@ export const IOSTapZones = memo(function IOSTapZones({
     const viewportX = touch.clientX - iframeRect.left;
     const viewportY = touch.clientY - iframeRect.top;
 
-    // Try multiple methods to send coordinates to iframe
-    const coordinateData = {
-      type: 'TAP_COORDINATES',
-      x: viewportX,
-      y: viewportY,
-      timestamp: Date.now(), // For debugging
-    };
-
-    let methodUsed = '';
-
-    // Method 1: BroadcastChannel (works with blob: iframes on same origin)
-    // This is the most reliable method for iOS PWA
-    try {
-      const channel = new BroadcastChannel(TAP_CHANNEL_NAME);
-      channel.postMessage(coordinateData);
-      channel.close();
-      methodUsed = 'BC';
-    } catch (_e) {
-      // BroadcastChannel not supported
-    }
-
-    // Method 2: iframe.contentWindow.postMessage (backup)
-    try {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(coordinateData, '*');
-        if (!methodUsed) methodUsed = 'M1';
-        else methodUsed += '+M1';
-      }
-    } catch (_e) {
-      // Method 2 failed
-    }
-
-    // Method 3: window.frames collection (backup)
-    try {
-      const frames = window.frames;
-      if (frames.length > 0) {
-        frames[0].postMessage(coordinateData, '*');
-        if (!methodUsed) methodUsed = 'M2';
-        else methodUsed += '+M2';
-      }
-    } catch (_e) {
-      // Method 3 failed
-    }
-
-    if (methodUsed) {
-      setDebugTapInfo(`${methodUsed}:${Math.round(viewportX)},${Math.round(viewportY)}`);
+    // NEW APPROACH (January 2026): Use callback instead of postMessage
+    // BroadcastChannel and postMessage do NOT work reliably with blob: URL iframes
+    // on iOS Safari due to storage partitioning and security restrictions.
+    // Instead, we pass coordinates to parent component which uses
+    // rendition.getContents()[0].document.elementFromPoint() - this works!
+    if (onCenterTap) {
+      setDebugTapInfo(`TAP:${Math.round(viewportX)},${Math.round(viewportY)}`);
+      onCenterTap(viewportX, viewportY);
+      setTimeout(() => setDebugTapInfo(null), 2000);
     } else {
-      setDebugTapInfo('FAIL: No method worked');
+      setDebugTapInfo('NO_HANDLER');
+      setTimeout(() => setDebugTapInfo(null), 2000);
     }
-
-    setTimeout(() => setDebugTapInfo(null), 2000);
-  }, [enabled, navigationEnabled, onPrevPage, onNextPage]);
+  }, [enabled, navigationEnabled, onPrevPage, onNextPage, onCenterTap]);
 
   // Common styles for tap zones
   const baseStyle: React.CSSProperties = {

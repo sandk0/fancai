@@ -352,14 +352,20 @@ export const useEpubLoader = ({
         const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-        // Get container dimensions for iOS
+        // Android device detection (January 2026)
+        const isAndroidDevice = /Android/i.test(navigator.userAgent);
+
+        // Combined mobile check - both iOS and Android need explicit pixel dimensions
+        const isMobileDevice = isIOSDevice || isAndroidDevice;
+
+        // Get container dimensions for mobile devices
         // CRITICAL: Use getUsableViewportHeight() to account for:
-        // 1. PWA mode: safe-area-inset-bottom (Home Indicator)
-        // 2. Safari browser: browser toolbar (not a CSS safe-area)
+        // 1. PWA mode: safe-area-inset-bottom (Home Indicator on iOS, gesture bar on Android)
+        // 2. Browser mode: browser toolbar/chrome (address bar, navigation buttons)
         let renditionWidth: string | number = '100%';
         let renditionHeight: string | number = '100%';
 
-        if (isIOSDevice && viewerRef.current) {
+        if (isMobileDevice && viewerRef.current) {
           // CRITICAL FIX (January 2026): Wait for browser layout to stabilize
           // On iOS Safari, measuring immediately can give inconsistent results
           // due to address bar animations and layout shifts
@@ -382,7 +388,8 @@ export const useEpubLoader = ({
           renditionHeight = height;
 
           if (DEBUG) {
-            console.log('[useEpubLoader] iOS: Using explicit pixel dimensions:', {
+            console.log('[useEpubLoader] Mobile: Using explicit pixel dimensions:', {
+              device: isIOSDevice ? 'iOS' : 'Android',
               width: renditionWidth,
               height: renditionHeight,
               originalContainerHeight: containerRect.height,
