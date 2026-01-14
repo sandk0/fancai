@@ -412,23 +412,27 @@ export const IOSTapZones = memo(function IOSTapZones({
     }
     lastDescClickTimeRef.current = now;
 
-    // Find the epub-viewer container (not iframe - iframe has scroll offset)
-    const viewer = document.querySelector('#epub-viewer') as HTMLElement | null;
+    // Find the iframe for coordinate calculation
+    // CRITICAL FIX (January 2026): Use iframe rect, NOT viewer rect!
+    // After safe-area fix, iframe height is reduced (via renditionHeight),
+    // but viewer container may have different dimensions.
+    // elementFromPoint() inside iframe needs coordinates relative to IFRAME, not viewer.
     const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
 
-    if (!viewer || !iframe) {
-      setDebugTapInfo('ERROR: No viewer/iframe');
+    if (!iframe) {
+      setDebugTapInfo('ERROR: No iframe');
       setTimeout(() => setDebugTapInfo(null), 2000);
       return;
     }
 
-    // Use viewer container rect (stable position, not affected by epub.js pagination)
-    const viewerRect = viewer.getBoundingClientRect();
+    // Use iframe rect for coordinate calculation
+    // This ensures coordinates match the iframe's coordinate system for elementFromPoint()
+    const iframeRect = iframe.getBoundingClientRect();
 
-    // Calculate coordinates relative to viewer's visible area
-    // These are the coordinates we need for elementFromPoint inside iframe
-    const viewportX = touch.clientX - viewerRect.left;
-    const viewportY = touch.clientY - viewerRect.top;
+    // Calculate coordinates relative to iframe's visible area
+    // These are the exact coordinates needed for elementFromPoint inside iframe
+    const viewportX = touch.clientX - iframeRect.left;
+    const viewportY = touch.clientY - iframeRect.top;
 
     // Try multiple methods to send coordinates to iframe
     const coordinateData = {

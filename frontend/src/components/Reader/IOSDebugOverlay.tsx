@@ -80,8 +80,8 @@ const isStandaloneMode = (): boolean => {
 };
 
 // Get viewport info for debugging
-const getViewportInfo = (): { innerH: number; svh: number; standalone: boolean } => {
-  if (typeof window === 'undefined') return { innerH: 0, svh: 0, standalone: false };
+const getViewportInfo = (): { innerH: number; svh: number; standalone: boolean; cachedH: number | null } => {
+  if (typeof window === 'undefined') return { innerH: 0, svh: 0, standalone: false, cachedH: null };
   const innerH = window.innerHeight;
   let svh = 0;
   try {
@@ -93,7 +93,24 @@ const getViewportInfo = (): { innerH: number; svh: number; standalone: boolean }
   } catch {
     svh = 0;
   }
-  return { innerH, svh, standalone: isStandaloneMode() };
+
+  // Check for cached height (from useEpubLoader)
+  let cachedH: number | null = null;
+  try {
+    const cached = localStorage.getItem('epub-rendition-height-cache');
+    if (cached) {
+      const entry = JSON.parse(cached);
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const currentOrientation = isLandscape ? 'landscape' : 'portrait';
+      if (entry.orientation === currentOrientation && Date.now() - entry.timestamp < 30 * 60 * 1000) {
+        cachedH = entry.height;
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return { innerH, svh, standalone: isStandaloneMode(), cachedH };
 };
 
 export const IOSDebugOverlay: React.FC = () => {
@@ -101,7 +118,7 @@ export const IOSDebugOverlay: React.FC = () => {
   const [visible, setVisible] = useState(true);
   const [iosDetected, setIosDetected] = useState<boolean | null>(null);
   const [safeAreaBottom, setSafeAreaBottom] = useState<number>(0);
-  const [viewportInfo, setViewportInfo] = useState<{ innerH: number; svh: number; standalone: boolean }>({ innerH: 0, svh: 0, standalone: false });
+  const [viewportInfo, setViewportInfo] = useState<{ innerH: number; svh: number; standalone: boolean; cachedH: number | null }>({ innerH: 0, svh: 0, standalone: false, cachedH: null });
 
   const updateEntries = useCallback(() => {
     setEntries([...debugLog]);
@@ -147,6 +164,7 @@ export const IOSDebugOverlay: React.FC = () => {
       </div>
       <div style={{ color: '#0ff', marginBottom: '4px', fontSize: '9px' }}>
         SAB:{safeAreaBottom}px | innerH:{viewportInfo.innerH} | svh:{viewportInfo.svh} | diff:{viewportInfo.innerH - viewportInfo.svh}
+        {viewportInfo.cachedH !== null && <span style={{ color: '#0f0' }}> | H:{viewportInfo.cachedH}(cached)</span>}
       </div>
 
       {visible && entries.map((entry, i) => (

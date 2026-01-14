@@ -70,6 +70,72 @@ const measureSafeAreaBottom = (): number => {
 };
 
 /**
+ * Cache key for storing rendition height per book (ensures consistency within session)
+ * CRITICAL FIX (January 2026): Prevent 1-2 page offset on reload
+ *
+ * Problem: Height measurements can vary between page loads due to:
+ * - Safari address bar state (expanded/collapsed)
+ * - Timing of measurement (before/after layout stabilization)
+ * - CSS layout not yet complete when measuring
+ *
+ * Solution: Cache the measured height per orientation for the session.
+ * This ensures the same height is used on reload, preventing page boundary shifts.
+ */
+const HEIGHT_CACHE_KEY = 'epub-rendition-height-cache';
+const HEIGHT_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+interface HeightCacheEntry {
+  height: number;
+  orientation: 'portrait' | 'landscape';
+  timestamp: number;
+}
+
+const getOrientationKey = (): 'portrait' | 'landscape' => {
+  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+};
+
+const getCachedHeight = (): number | null => {
+  try {
+    const cached = localStorage.getItem(HEIGHT_CACHE_KEY);
+    if (!cached) return null;
+
+    const entry: HeightCacheEntry = JSON.parse(cached);
+    const currentOrientation = getOrientationKey();
+
+    // Check if cache is valid (same orientation and not expired)
+    if (
+      entry.orientation === currentOrientation &&
+      Date.now() - entry.timestamp < HEIGHT_CACHE_TTL &&
+      entry.height > 0
+    ) {
+      if (DEBUG) {
+        console.log('[useEpubLoader] Using cached height:', entry.height);
+      }
+      return entry.height;
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return null;
+};
+
+const cacheHeight = (height: number): void => {
+  try {
+    const entry: HeightCacheEntry = {
+      height,
+      orientation: getOrientationKey(),
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(HEIGHT_CACHE_KEY, JSON.stringify(entry));
+    if (DEBUG) {
+      console.log('[useEpubLoader] Cached height:', height);
+    }
+  } catch {
+    // Ignore cache errors
+  }
+};
+
+/**
  * Calculate the actual usable viewport height for epub content
  *
  * This handles both:
@@ -79,8 +145,16 @@ const measureSafeAreaBottom = (): number => {
  * The key insight is that `window.innerHeight` gives the visual viewport
  * (actual visible area), while `getBoundingClientRect()` may give the
  * layout viewport (which can extend behind browser chrome).
+ *
+ * CRITICAL FIX (January 2026): Uses height caching to prevent page offset on reload.
+ * The cached height ensures consistent page boundaries between save and restore.
  */
 const getUsableViewportHeight = (containerRect: DOMRect, headerHeight: number = 70): number => {
+  // Check cache first for consistent height across reloads
+  const cachedHeight = getCachedHeight();
+  if (cachedHeight !== null) {
+    return cachedHeight;
+  }
   const isStandalone = isStandaloneMode();
   const safeAreaBottom = measureSafeAreaBottom();
   const safeAreaTop = (() => {
@@ -148,7 +222,13 @@ const getUsableViewportHeight = (containerRect: DOMRect, headerHeight: number = 
     });
   }
 
-  return Math.floor(usableHeight);
+  const finalHeight = Math.floor(usableHeight);
+
+  // Cache the calculated height for consistent page boundaries on reload
+  // This prevents 1-2 page offset when reopening the book
+  cacheHeight(finalHeight);
+
+  return finalHeight;
 };
 
 interface UseEpubLoaderOptions {
@@ -280,11 +360,17 @@ export const useEpubLoader = ({
         let renditionHeight: string | number = '100%';
 
         if (isIOSDevice && viewerRef.current) {
+          // CRITICAL FIX (January 2026): Wait for browser layout to stabilize
+          // On iOS Safari, measuring immediately can give inconsistent results
+          // due to address bar animations and layout shifts
+          await new Promise(resolve => setTimeout(resolve, 50));
+
           const containerRect = viewerRef.current.getBoundingClientRect();
           let width = Math.floor(containerRect.width);
 
           // Use getUsableViewportHeight() instead of containerRect.height
           // This properly accounts for safe-area and browser chrome
+          // Note: Height is cached to ensure consistency on reload (prevents 1-2 page offset)
           const height = getUsableViewportHeight(containerRect, 70); // 70px header height
 
           // Ensure width is EVEN (fixes pixel shifting on iOS)
