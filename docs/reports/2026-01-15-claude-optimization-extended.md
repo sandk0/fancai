@@ -2,7 +2,7 @@
 
 **Дата:** 2026-01-15
 **Проект:** fancai
-**Версия:** 2.1 (с анализом текущей конфигурации)
+**Версия:** 2.2 (с анализом агентов и оркестрации)
 **Claude Code:** v2.1.7
 
 ---
@@ -11,13 +11,14 @@
 
 1. [Новые открытия (Январь 2026)](#новые-открытия-январь-2026)
 2. [Критические обновления](#критические-обновления)
-3. [**Анализ текущей конфигурации fancai**](#анализ-текущей-конфигурации-fancai) ⚠️ НОВОЕ
-4. [Обязательные плагины](#обязательные-плагины)
-5. [Продвинутые техники оптимизации](#продвинутые-техники-оптимизации)
-6. [Архитектура Skills и Hooks](#архитектура-skills-и-hooks)
-7. [Оптимальная структура проекта](#оптимальная-структура-проекта)
-8. [План подготовки fancai](#план-подготовки-fancai) — обновлён
-9. [Пошаговая реализация](#пошаговая-реализация) — обновлена
+3. [**Анализ текущей конфигурации fancai**](#анализ-текущей-конфигурации-fancai) ⚠️ ВАЖНО
+4. [**Анализ агентов и оркестрации**](#анализ-агентов-и-оркестрации-январь-2026) ⚠️ НОВОЕ
+5. [Обязательные плагины](#обязательные-плагины)
+6. [Продвинутые техники оптимизации](#продвинутые-техники-оптимизации)
+7. [Архитектура Skills и Hooks](#архитектура-skills-и-hooks)
+8. [Оптимальная структура проекта](#оптимальная-структура-проекта)
+9. [План подготовки fancai](#план-подготовки-fancai) — обновлён
+10. [Пошаговая реализация](#пошаговая-реализация) — обновлена
 
 ---
 
@@ -230,6 +231,318 @@ claude mcp remove github
 | Доступно для работы | ~98K | ~155-165K |
 
 **Экономия: ~57-67K токенов (+60-70% доступного контекста)**
+
+---
+
+## Анализ агентов и оркестрации (Январь 2026)
+
+### Топ фреймворков для мульти-агентной оркестрации
+
+| Фреймворк | Агентов | Особенности | Применимость для fancai |
+|-----------|---------|-------------|-------------------------|
+| **wshobson/agents** | 99 | 67 плагинов, ~300 токенов/плагин, прогрессивная загрузка | ✅ Высокая |
+| **Superpowers** | 20+ skills | TDD, debugging, planning, subagent-driven | ✅ Высокая |
+| **Claude Flow v2.7** | swarm | SQLite persistence, enterprise-grade | ⚠️ Средняя (overkill) |
+| **CC Mirror** | orchestrator | Background execution, dependency graphs | ⚠️ Средняя |
+| **VoltAgent** | 100+ | 10 категорий субагентов | ✅ Высокая |
+
+### Официальные встроенные субагенты Claude Code
+
+| Субагент | Версия | Назначение | Когда использовать |
+|----------|--------|------------|-------------------|
+| **Plan** | v2.0.28 | Планирование с возможностью возобновления | Перед началом реализации |
+| **Explore** | v2.0.17 | Haiku-powered поиск по кодовой базе | Исследование без модификации |
+| **general-purpose** | built-in | Сложные многошаговые задачи | Исследование + модификация |
+
+### Сравнение claude-code-workflows vs wshobson/agents
+
+| Критерий | claude-code-workflows | wshobson/agents |
+|----------|----------------------|-----------------|
+| **Плагинов** | 11 установлено | 67 доступно |
+| **Агентов на плагин** | ~17 | ~1.5 (single-purpose) |
+| **Токенов на плагин** | ~4-5K | ~300 |
+| **Загрузка** | Всё сразу | Прогрессивная (3 уровня) |
+| **Гранулярность** | Крупные bundles | Атомарные плагины |
+
+**Вывод:** wshobson/agents экономит ~90% токенов при той же функциональности.
+
+### Прогрессивная загрузка wshobson/agents
+
+```
+Уровень 1: Metadata (~50 токенов)
+    └── Имя и критерии активации — загружается ВСЕГДА
+
+Уровень 2: Instructions (~150 токенов)
+    └── Основные инструкции — при АКТИВАЦИИ агента
+
+Уровень 3: Resources (~100+ токенов)
+    └── Примеры и шаблоны — ON-DEMAND
+```
+
+### Лучшие агенты для стека fancai
+
+#### Frontend (React 19 + TypeScript 5.7)
+
+| Агент | Источник | Назначение | Рекомендация |
+|-------|----------|------------|--------------|
+| `typescript-pro` | wshobson/agents | TypeScript advanced types, generics | ✅ Заменяет js/ts workflow |
+| `react-specialist` | VoltAgent | React 18+ patterns, hooks | ✅ Добавить |
+| `frontend-developer` | wshobson/agents | UI/UX, responsive layouts | ⚠️ Опционально |
+
+#### Backend (FastAPI + Python 3.11)
+
+| Агент | Источник | Назначение | Рекомендация |
+|-------|----------|------------|--------------|
+| `fastapi-pro` | wshobson/agents | Async APIs, SQLAlchemy 2.0 | ✅ Заменяет python workflow |
+| `python-pro` | wshobson/agents | Python 3.12+ patterns | ✅ Заменяет python workflow |
+| `backend-architect` | wshobson/agents | REST/GraphQL API design | ⚠️ Опционально |
+
+#### AI/LLM (Gemini + Imagen)
+
+| Агент | Источник | Назначение | Рекомендация |
+|-------|----------|------------|--------------|
+| `ai-engineer` | wshobson/agents | RAG, agents, LLM apps | ✅ Заменяет llm workflow |
+| `prompt-engineer` | wshobson/agents | Prompt optimization | ✅ Важно для Gemini |
+| `llm-architect` | VoltAgent | LLM system design | ⚠️ Опционально |
+
+#### Testing & Quality
+
+| Агент | Источник | Назначение | Рекомендация |
+|-------|----------|------------|--------------|
+| `test-automator` | wshobson/agents | AI-powered testing | ✅ Заменяет unit-testing |
+| `debugger` | wshobson/agents | Error investigation | ✅ Важно |
+| **Superpowers TDD** | obra/superpowers | Red-Green-Refactor | ✅ ОБЯЗАТЕЛЬНО |
+
+### Рекомендуемая конфигурация агентов для fancai
+
+#### Вариант A: Минимальный (5 агентов)
+
+```bash
+# Заменяем 5 плагинов claude-code-workflows на 5 атомарных агентов
+/plugin uninstall python-development@claude-code-workflows
+/plugin uninstall javascript-typescript@claude-code-workflows
+/plugin uninstall backend-development@claude-code-workflows
+/plugin uninstall unit-testing@claude-code-workflows
+/plugin uninstall llm-application-dev@claude-code-workflows
+
+# Устанавливаем wshobson/agents (атомарные)
+/plugin marketplace add wshobson/agents
+/plugin install python-development@wshobson/agents      # ~300 токенов
+/plugin install javascript-typescript@wshobson/agents   # ~300 токенов
+/plugin install unit-testing@wshobson/agents            # ~300 токенов
+/plugin install llm-application-dev@wshobson/agents     # ~300 токенов
+
+# Добавляем Superpowers
+/plugin install superpowers@superpowers-marketplace
+```
+
+**Экономия:** ~18K токенов (с 22K до 4K) при сохранении функциональности.
+
+#### Вариант B: Оптимальный (8 агентов + Superpowers)
+
+```bash
+# wshobson/agents — атомарные агенты
+/plugin install fastapi-pro@wshobson/agents        # FastAPI специфика
+/plugin install typescript-pro@wshobson/agents     # TypeScript advanced
+/plugin install ai-engineer@wshobson/agents        # LLM/RAG
+/plugin install prompt-engineer@wshobson/agents    # Промпты для Gemini
+/plugin install test-automator@wshobson/agents     # Тестирование
+/plugin install debugger@wshobson/agents           # Отладка
+
+# Superpowers — обязательно
+/plugin install superpowers@superpowers-marketplace
+
+# LSP — для real-time type info
+/plugin install vtsls@claude-code-lsps
+/plugin install pyright@claude-code-lsps
+```
+
+**Потребление:** ~3K токенов агенты + ~2K Superpowers + ~1K LSP = ~6K токенов.
+
+### Кастомные субагенты для fancai
+
+Рекомендуется создать специализированные субагенты для уникальной функциональности проекта:
+
+#### 1. epub-reader-agent (EPUB специфика)
+
+```yaml
+# .claude/agents/epub-reader.md
+---
+name: epub-reader
+description: Use for epub.js integration, CFI navigation, and reader component development. Expert in epub.js 0.3.93.
+tools:
+  - Read
+  - Edit
+  - Write
+  - Grep
+  - Glob
+---
+
+# EPUB Reader Specialist
+
+## Expertise
+- epub.js 0.3.93 API and CFI navigation
+- React integration with epub.js rendition
+- Description highlighting strategies (9 approaches)
+- iOS Safari compatibility fixes
+
+## Key Files
+- frontend/src/components/Reader/EpubReader.tsx
+- frontend/src/hooks/epub/useDescriptionHighlighting.ts
+- frontend/src/hooks/epub/useContentHooks.ts
+
+## Conventions
+- Use CFI for position tracking
+- TanStack Query for chapter caching
+- IndexedDB via chapterCache.ts
+```
+
+#### 2. gemini-imagen-agent (AI интеграция)
+
+```yaml
+# .claude/agents/gemini-imagen.md
+---
+name: gemini-imagen
+description: Use for Gemini 3.0 Flash extraction and Imagen 4 image generation. Expert in Google AI APIs.
+tools:
+  - Read
+  - Edit
+  - Write
+  - Bash
+  - Grep
+---
+
+# Gemini & Imagen Specialist
+
+## Expertise
+- Google Gemini 3.0 Flash API for description extraction
+- Google Imagen 4 GA for image generation
+- Retry patterns with exponential backoff
+- Cost optimization (~$0.02/book)
+
+## Key Files
+- backend/app/services/gemini_extractor.py
+- backend/app/services/imagen_generator.py
+- backend/app/core/retry.py
+
+## API Costs
+- Gemini 3.0 Flash: $0.50/1M input, $3/1M output
+- Imagen 4: $0.04/image
+```
+
+#### 3. fancai-fullstack-agent (оркестратор)
+
+```yaml
+# .claude/agents/fancai-orchestrator.md
+---
+name: fancai-orchestrator
+description: Use for coordinating frontend/backend changes across fancai stack. Manages cross-cutting concerns.
+tools:
+  - Task
+  - Read
+  - Grep
+  - Glob
+---
+
+# fancai Full-Stack Orchestrator
+
+## Role
+Coordinate complex changes spanning frontend (React/TS) and backend (FastAPI/Python).
+
+## Delegation Rules
+- Frontend-only: delegate to typescript-pro or react specialist
+- Backend-only: delegate to fastapi-pro or python-pro
+- AI features: delegate to gemini-imagen agent
+- EPUB features: delegate to epub-reader agent
+- Testing: delegate to test-automator + Superpowers TDD
+
+## Cross-Cutting Concerns
+- API contract changes (OpenAPI sync)
+- Database migrations (Alembic)
+- Cache invalidation (TanStack Query + Redis)
+```
+
+### Паттерны оркестрации агентов
+
+#### Паттерн 1: Three-Stage Pipeline (Рекомендуется)
+
+```
+pm-spec → architect-review → implementer-tester
+    │            │                   │
+    └────────────┴───────────────────┘
+         Human-in-the-loop checkpoints
+```
+
+**Для fancai:**
+```
+Feature Request
+    │
+    ▼
+[Plan Subagent] — анализ требований, clarifying questions
+    │
+    ▼
+[fancai-orchestrator] — архитектурное решение, ADR
+    │
+    ▼
+[Специализированный агент] — реализация (epub/gemini/ts/fastapi)
+    │
+    ▼
+[Superpowers TDD] — тестирование, verification
+    │
+    ▼
+[Code Review] — финальная проверка
+```
+
+#### Паттерн 2: Parallel Specialization
+
+```
+                    ┌─ [typescript-pro] ── Frontend
+User Request ─────► │
+                    ├─ [fastapi-pro] ───── Backend
+    [Orchestrator]  │
+                    └─ [ai-engineer] ────── AI Layer
+                              │
+                              ▼
+                    [Aggregation & Integration]
+```
+
+**Когда использовать:** Независимые изменения в разных слоях.
+
+#### Паттерн 3: Human-in-the-Loop (HITL)
+
+```bash
+# Hook печатает команду, человек подтверждает
+[Agent] → "Предлагаю: git push origin feature/xyz"
+[Human] → Копирует и выполняет (или отклоняет)
+```
+
+**Важно для fancai:** Защита от нежелательных изменений в production.
+
+### Лучшие практики оркестрации (Январь 2026)
+
+| Практика | Описание | Важность |
+|----------|----------|----------|
+| **Single Responsibility** | Один агент = одна чёткая задача | 🔴 Критическая |
+| **Tool Isolation** | Явное указание tools для каждого агента | 🔴 Критическая |
+| **Isolated Context** | Субагенты не загрязняют основной контекст | 🔴 Критическая |
+| **Hook-Based Orchestration** | SubagentStop + Stop events | 🟡 Высокая |
+| **Queue-Based State** | Состояние в файлах, не в контексте | 🟡 Высокая |
+| **HITL Checkpoints** | Человек подтверждает критические действия | 🟡 Высокая |
+| **Progressive Disclosure** | Загрузка ресурсов on-demand | 🟢 Средняя |
+
+### Сравнение: Текущие 5 плагинов vs Рекомендуемые
+
+| Критерий | Текущие (claude-code-workflows) | Рекомендуемые (wshobson + Superpowers) |
+|----------|--------------------------------|---------------------------------------|
+| **Плагинов** | 5 | 6-8 |
+| **Токенов** | ~22K | ~6K |
+| **Агентов** | ~85 (много неиспользуемых) | 6-8 (все релевантные) |
+| **TDD** | ❌ Нет | ✅ Superpowers |
+| **Debugging** | ⚠️ Базовый | ✅ Systematic |
+| **Специфика fancai** | ❌ Нет | ✅ Кастомные агенты |
+| **Прогрессивная загрузка** | ❌ Нет | ✅ Да |
+
+**Итого: Экономия ~16K токенов + улучшение качества**
 
 ---
 
@@ -576,14 +889,92 @@ claude mcp remove github
 | Создать tech-stack skill | Архитектура fancai |
 | Создать db-schema skill | PostgreSQL patterns |
 
-### Фаза 3: Установка плагинов (День 2)
+### Фаза 3: Миграция агентов (День 2) ⚠️ ОБНОВЛЕНО
 
-| Плагин | Команда |
-|--------|---------|
-| LSP (TypeScript) | `/plugin install vtsls@claude-code-lsps` |
-| LSP (Python) | `/plugin install pyright@claude-code-lsps` |
-| Superpowers | `/plugin install superpowers` |
-| commit-commands | `/plugin install commit-commands` |
+**Шаг 1: Удаление оставшихся claude-code-workflows**
+
+```bash
+# В Claude Code выполнить:
+/plugin uninstall python-development@claude-code-workflows
+/plugin uninstall javascript-typescript@claude-code-workflows
+/plugin uninstall backend-development@claude-code-workflows
+/plugin uninstall unit-testing@claude-code-workflows
+/plugin uninstall llm-application-dev@claude-code-workflows
+```
+
+**Шаг 2: Установка wshobson/agents (атомарные)**
+
+```bash
+# Добавить marketplace
+/plugin marketplace add wshobson/agents
+
+# Установить атомарные агенты (~300 токенов каждый)
+/plugin install fastapi-pro@wshobson/agents
+/plugin install typescript-pro@wshobson/agents
+/plugin install ai-engineer@wshobson/agents
+/plugin install prompt-engineer@wshobson/agents
+/plugin install test-automator@wshobson/agents
+/plugin install debugger@wshobson/agents
+```
+
+**Шаг 3: Установка LSP и Superpowers**
+
+| Плагин | Команда | Токенов |
+|--------|---------|---------|
+| LSP (TypeScript) | `/plugin install vtsls@claude-code-lsps` | ~300 |
+| LSP (Python) | `/plugin install pyright@claude-code-lsps` | ~300 |
+| Superpowers | `/plugin install superpowers@superpowers-marketplace` | ~2K |
+
+**Шаг 4: Создание кастомных субагентов для fancai**
+
+```bash
+# Создать директорию агентов
+mkdir -p .claude/agents
+
+# epub-reader agent
+cat > .claude/agents/epub-reader.md << 'EOF'
+---
+name: epub-reader
+description: Use for epub.js integration, CFI navigation, reader components
+tools: [Read, Edit, Write, Grep, Glob]
+---
+# EPUB Reader Specialist
+Expert in epub.js 0.3.93, CFI navigation, iOS Safari fixes.
+Key files: EpubReader.tsx, useDescriptionHighlighting.ts
+EOF
+
+# gemini-imagen agent
+cat > .claude/agents/gemini-imagen.md << 'EOF'
+---
+name: gemini-imagen
+description: Use for Gemini extraction and Imagen generation
+tools: [Read, Edit, Write, Bash, Grep]
+---
+# Gemini & Imagen Specialist
+Expert in Google AI APIs, retry patterns, cost optimization.
+Key files: gemini_extractor.py, imagen_generator.py
+EOF
+
+# fancai-orchestrator agent
+cat > .claude/agents/fancai-orchestrator.md << 'EOF'
+---
+name: fancai-orchestrator
+description: Use for coordinating frontend/backend changes
+tools: [Task, Read, Grep, Glob]
+---
+# fancai Full-Stack Orchestrator
+Delegates to specialized agents based on task type.
+EOF
+```
+
+**Ожидаемый результат миграции:**
+
+| Метрика | До (claude-code-workflows) | После (wshobson + custom) |
+|---------|---------------------------|---------------------------|
+| Токенов на агенты | ~22K | ~4K |
+| Количество агентов | ~85 | 9 (6 + 3 custom) |
+| TDD | ❌ | ✅ Superpowers |
+| Специфика fancai | ❌ | ✅ 3 кастомных агента |
 
 ### Фаза 4: Настройка MCP серверов (День 2-3)
 
@@ -901,8 +1292,36 @@ EOF
 
 **После очистки должно остаться:**
 - MCP: 1-2 (context7, опционально playwright)
-- Плагины workflows: 5 (python, js/ts, backend, testing, llm)
+- Плагины workflows: 0 (все удалены, заменяются на wshobson/agents)
 - Плагины official: 3-4 (context7, typescript-lsp, pyright-lsp)
+
+### Миграция агентов (Фаза 3) ⚠️ НОВОЕ
+
+**Удаление оставшихся claude-code-workflows:**
+- [ ] `python-development` удалён
+- [ ] `javascript-typescript` удалён
+- [ ] `backend-development` удалён
+- [ ] `unit-testing` удалён
+- [ ] `llm-application-dev` удалён
+
+**Установка wshobson/agents (атомарные):**
+- [ ] Marketplace добавлен (`/plugin marketplace add wshobson/agents`)
+- [ ] `fastapi-pro` установлен
+- [ ] `typescript-pro` установлен
+- [ ] `ai-engineer` установлен
+- [ ] `prompt-engineer` установлен
+- [ ] `test-automator` установлен
+- [ ] `debugger` установлен
+
+**Кастомные субагенты fancai:**
+- [ ] `.claude/agents/epub-reader.md` создан
+- [ ] `.claude/agents/gemini-imagen.md` создан
+- [ ] `.claude/agents/fancai-orchestrator.md` создан
+
+**После миграции:**
+- Атомарные агенты: 6 (wshobson/agents)
+- Кастомные агенты: 3 (fancai-specific)
+- Токенов на агенты: ~4K (было ~22K)
 
 ### Структура проекта
 
@@ -977,9 +1396,17 @@ EOF
 - [Claude Code Workflows](https://github.com/shinpr/claude-code-workflows)
 - [Claude Plugins Official](https://github.com/anthropics/claude-plugins)
 
+### Агенты и оркестрация (Январь 2026)
+- [wshobson/agents](https://github.com/wshobson/agents) — 99 агентов, 67 плагинов
+- [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) — 100+ субагентов
+- [Claude Flow v2.7](https://github.com/ruvnet/claude-flow) — Enterprise orchestration
+- [Best Practices for Claude Code Subagents](https://www.pubnub.com/blog/best-practices-for-claude-code-sub-agents/)
+- [Claude Code Frameworks & Sub-Agents Guide](https://www.medianeth.dev/blog/claude-code-frameworks-subagents-2025)
+- [ClaudeLog - Sub-agents Documentation](https://claudelog.com/mechanics/sub-agents/)
+
 ---
 
 **Создано:** 2026-01-15
 **Обновлено:** 2026-01-15
 **Автор:** Claude Code (Opus 4.5)
-**Версия:** 2.1
+**Версия:** 2.2
