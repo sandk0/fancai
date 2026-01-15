@@ -2,7 +2,7 @@
 
 **Дата:** 2026-01-15
 **Проект:** fancai
-**Версия:** 2.2 (с анализом агентов и оркестрации)
+**Версия:** 2.3 (с анализом интеграции и зависимостей)
 **Claude Code:** v2.1.7
 
 ---
@@ -12,13 +12,14 @@
 1. [Новые открытия (Январь 2026)](#новые-открытия-январь-2026)
 2. [Критические обновления](#критические-обновления)
 3. [**Анализ текущей конфигурации fancai**](#анализ-текущей-конфигурации-fancai) ⚠️ ВАЖНО
-4. [**Анализ агентов и оркестрации**](#анализ-агентов-и-оркестрации-январь-2026) ⚠️ НОВОЕ
-5. [Обязательные плагины](#обязательные-плагины)
-6. [Продвинутые техники оптимизации](#продвинутые-техники-оптимизации)
-7. [Архитектура Skills и Hooks](#архитектура-skills-и-hooks)
-8. [Оптимальная структура проекта](#оптимальная-структура-проекта)
-9. [План подготовки fancai](#план-подготовки-fancai) — обновлён
-10. [Пошаговая реализация](#пошаговая-реализация) — обновлена
+4. [**Анализ агентов и оркестрации**](#анализ-агентов-и-оркестрации-январь-2026)
+5. [**Интеграция решений: Зависимости и ограничения**](#интеграция-решений-зависимости-и-ограничения--критично) ⚠️ КРИТИЧНО
+6. [Обязательные плагины](#обязательные-плагины)
+7. [Продвинутые техники оптимизации](#продвинутые-техники-оптимизации)
+8. [Архитектура Skills и Hooks](#архитектура-skills-и-hooks)
+9. [Оптимальная структура проекта](#оптимальная-структура-проекта)
+10. [План подготовки fancai](#план-подготовки-fancai) — обновлён
+11. [Пошаговая реализация](#пошаговая-реализация) — обновлена
 
 ---
 
@@ -543,6 +544,268 @@ User Request ─────► │
 | **Прогрессивная загрузка** | ❌ Нет | ✅ Да |
 
 **Итого: Экономия ~16K токенов + улучшение качества**
+
+---
+
+## Интеграция решений: Зависимости и ограничения ⚠️ КРИТИЧНО
+
+### Архитектура слоёв Claude Code
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      PLUGINS (packages)                      │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐│
+│  │Commands │  │ Skills  │  │  Hooks  │  │    Subagents    ││
+│  └────┬────┘  └────┬────┘  └────┬────┘  └────────┬────────┘│
+└───────┼────────────┼────────────┼────────────────┼──────────┘
+        │            │            │                │
+        ▼            ▼            ▼                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CLAUDE CODE CORE                          │
+│    Read, Write, Edit, Bash, Glob, Grep, Task, WebFetch...   │
+└───────────────────────────────┬─────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      MCP SERVERS                             │
+│   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐   │
+│   │ Context7│  │ Serena  │  │Playwright│  │Chrome DevTls│   │
+│   └─────────┘  └─────────┘  └─────────┘  └─────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Критические ограничения интеграции
+
+| Ограничение | Влияние | Решение |
+|-------------|---------|---------|
+| **Background субагенты НЕ имеют доступа к MCP** | epub-reader, gemini-imagen не смогут использовать Context7/Serena в background | Запускать синхронно или использовать только core tools |
+| **MCP серверы не наследуют core tools** | MCP не может вызывать Read/Write/Bash | Только для внешних API (документация, поиск) |
+| **Skills и Hooks могут конфликтовать** | Оба реагируют на события | Hooks для enforcement, Skills для expertise |
+| **MCP потребляет больше контекста чем Skills** | Context7 ~5K vs Skill ~500 токенов | Использовать MCP для внешних запросов, Skills для внутренней логики |
+
+### Матрица совместимости решений
+
+| Решение A | Решение B | Совместимость | Примечания |
+|-----------|-----------|---------------|------------|
+| wshobson/agents | Superpowers | ✅ **Полная** | Namespace разделение, без конфликтов |
+| wshobson/agents | LSP plugins | ✅ **Полная** | Дополняют друг друга |
+| Superpowers | LSP plugins | ✅ **Полная** | TDD + type info |
+| Субагенты (sync) | MCP серверы | ✅ **Полная** | Наследуют доступ к MCP |
+| Субагенты (background) | MCP серверы | ❌ **НЕТ** | Известный баг Claude Code |
+| Serena MCP | Context7 MCP | ⚠️ **Частичная** | Оба для поиска, выбрать один |
+| Serena MCP | wshobson/agents | ✅ **Полная** | Serena для кода, agents для workflow |
+| Skills (custom) | Hooks | ⚠️ **Требует внимания** | Разделить: hooks=enforcement, skills=expertise |
+
+### Порядок интеграции (с зависимостями)
+
+```
+Фаза 0: Очистка
+    │   └── Удалить нерабочие MCP и избыточные плагины
+    │
+    ▼
+Фаза 1: CLAUDE.md + Структура
+    │   └── Зависимость: нет
+    │
+    ▼
+Фаза 2: Commands (.claude/commands/)
+    │   └── Зависимость: CLAUDE.md должен существовать
+    │
+    ▼
+Фаза 3: Hooks (.claude/settings.json)
+    │   └── Зависимость: Commands для hook triggers
+    │
+    ▼
+Фаза 4: Skills (.claude/skills/)
+    │   └── Зависимость: Hooks настроены (чтобы избежать конфликтов)
+    │
+    ▼
+Фаза 5: Субагенты (.claude/agents/)
+    │   └── Зависимость: Skills готовы (для delegation)
+    │   └── ⚠️ ВАЖНО: Не использовать background для MCP-зависимых задач
+    │
+    ▼
+Фаза 6: MCP серверы
+    │   └── Зависимость: Субагенты настроены
+    │   └── ⚠️ ВАЖНО: Держать 2-3 MCP максимум
+    │
+    ▼
+Фаза 7: Плагины (wshobson/agents, Superpowers, LSP)
+        └── Зависимость: Всё остальное готово
+        └── ⚠️ ВАЖНО: Устанавливать по одному, проверять /context
+```
+
+### Исправленные кастомные субагенты для fancai
+
+**Проблема:** Ранее предложенные субагенты не учитывали ограничение background + MCP.
+
+**Решение:** Указать явно режим выполнения и MCP tools.
+
+#### epub-reader (исправленный)
+
+```yaml
+# .claude/agents/epub-reader.md
+---
+name: epub-reader
+description: Use for epub.js integration, CFI navigation, reader components. Expert in epub.js 0.3.93.
+tools:
+  - Read
+  - Edit
+  - Write
+  - Grep
+  - Glob
+  - mcp__context7  # Явно указываем MCP для документации epub.js
+model: claude-sonnet-4-20250514
+# НЕ использовать run_in_background: true — потеряем доступ к MCP!
+---
+
+# EPUB Reader Specialist
+
+## Expertise
+- epub.js 0.3.93 API and CFI navigation
+- React integration with epub.js rendition
+- Description highlighting (9 strategies)
+- iOS Safari compatibility
+
+## Key Files
+- frontend/src/components/Reader/EpubReader.tsx
+- frontend/src/hooks/epub/useDescriptionHighlighting.ts
+- frontend/src/hooks/epub/useContentHooks.ts
+
+## MCP Usage
+- Use mcp__context7 for epub.js documentation lookup
+- Fallback to WebFetch if MCP unavailable
+```
+
+#### gemini-imagen (исправленный)
+
+```yaml
+# .claude/agents/gemini-imagen.md
+---
+name: gemini-imagen
+description: Use for Gemini 3.0 Flash extraction and Imagen 4 generation. Expert in Google AI APIs.
+tools:
+  - Read
+  - Edit
+  - Write
+  - Bash
+  - Grep
+  - mcp__context7  # Для документации Google AI
+# НЕ добавляем Serena — для AI кода достаточно Grep/Read
+---
+
+# Gemini & Imagen Specialist
+
+## Expertise
+- Google Gemini 3.0 Flash API
+- Google Imagen 4 GA (imagen-4.0-generate-001)
+- Retry with exponential backoff (tenacity)
+- Cost optimization
+
+## Key Files
+- backend/app/services/gemini_extractor.py (661 lines)
+- backend/app/services/imagen_generator.py (644 lines)
+- backend/app/core/retry.py (515 lines)
+
+## API Costs
+- Gemini 3.0 Flash: $0.50/1M input, $3/1M output
+- Imagen 4: $0.04/image
+- Target: ~$0.02/book
+```
+
+#### fancai-orchestrator (исправленный)
+
+```yaml
+# .claude/agents/fancai-orchestrator.md
+---
+name: fancai-orchestrator
+description: Coordinate frontend/backend changes. Delegates to specialized agents.
+tools:
+  - Task
+  - Read
+  - Grep
+  - Glob
+  # НЕ включаем MCP — оркестратор только делегирует
+---
+
+# fancai Full-Stack Orchestrator
+
+## Role
+Route tasks to specialized agents. Never implement directly.
+
+## Delegation Matrix
+| Task Type | Delegate To | Run Mode |
+|-----------|-------------|----------|
+| EPUB/Reader | epub-reader | sync (needs MCP) |
+| AI/Generation | gemini-imagen | sync (needs MCP) |
+| Frontend TS | typescript-pro | background OK |
+| Backend Python | fastapi-pro | background OK |
+| Testing | test-automator + Superpowers | sync (TDD flow) |
+| Debugging | debugger | sync (interactive) |
+
+## Cross-Cutting
+- API contracts: coordinate frontend + backend
+- Migrations: Alembic commands via Bash
+- Cache: TanStack Query + Redis invalidation
+```
+
+### Конфликты Superpowers vs wshobson/agents
+
+| Функция | Superpowers | wshobson/agents | Рекомендация |
+|---------|-------------|-----------------|--------------|
+| TDD | ✅ test-driven-development skill | ❌ Нет | **Superpowers** |
+| Debugging | ✅ systematic-debugging skill | ✅ debugger agent | **Оба** (разные подходы) |
+| Planning | ✅ writing-plans skill | ✅ planner agent | **Superpowers** (более структурирован) |
+| Code Review | ✅ requesting-code-review | ✅ code-reviewer agent | **wshobson** (более детальный) |
+| Git Workflow | ✅ git-worktrees skill | ❌ Нет | **Superpowers** |
+
+**Вывод:** Использовать Superpowers для workflow (TDD, planning, git), wshobson/agents для специализации (fastapi, typescript, ai).
+
+### Финальная конфигурация для fancai
+
+#### MCP серверы (2 из 4)
+
+| MCP | Статус | Использование |
+|-----|--------|---------------|
+| `context7` | ✅ Оставить | Документация библиотек (epub.js, React, FastAPI) |
+| `playwright` | ⏸️ Отключить | Включать только для E2E тестов |
+| `chrome-devtools` | ❌ Удалить | Редко используется |
+| `github` | ❌ Удалить | Не работает |
+
+#### Плагины (9 вместо 16)
+
+| Плагин | Источник | Назначение |
+|--------|----------|------------|
+| `fastapi-pro` | wshobson/agents | FastAPI backend |
+| `typescript-pro` | wshobson/agents | TypeScript frontend |
+| `ai-engineer` | wshobson/agents | LLM/RAG |
+| `prompt-engineer` | wshobson/agents | Gemini prompts |
+| `test-automator` | wshobson/agents | Testing |
+| `debugger` | wshobson/agents | Debugging |
+| `superpowers` | obra/superpowers | TDD, planning, git |
+| `vtsls` | claude-code-lsps | TypeScript LSP |
+| `pyright-lsp` | claude-code-lsps | Python LSP |
+
+#### Кастомные субагенты (3)
+
+| Субагент | Режим | MCP доступ |
+|----------|-------|------------|
+| `epub-reader` | sync | ✅ context7 |
+| `gemini-imagen` | sync | ✅ context7 |
+| `fancai-orchestrator` | sync | ❌ только делегирует |
+
+### Итоговое потребление токенов
+
+| Компонент | До оптимизации | После оптимизации |
+|-----------|----------------|-------------------|
+| MCP серверы | ~35K (4 шт) | ~5K (1-2 шт) |
+| Плагины workflows | ~50K (11 шт) | ~3K (6 атомарных) |
+| Superpowers | — | ~2K |
+| LSP | ~2K | ~1K |
+| CLAUDE.md | ~2K | ~0.5K |
+| Кастомные субагенты | — | ~0.5K |
+| **ИТОГО** | **~102K (51%)** | **~12K (6%)** |
+
+**Экономия: ~90K токенов (+45% доступного контекста)**
 
 ---
 
@@ -1404,9 +1667,15 @@ EOF
 - [Claude Code Frameworks & Sub-Agents Guide](https://www.medianeth.dev/blog/claude-code-frameworks-subagents-2025)
 - [ClaudeLog - Sub-agents Documentation](https://claudelog.com/mechanics/sub-agents/)
 
+### Интеграция и совместимость
+- [Understanding Claude Code Full Stack](https://alexop.dev/posts/understanding-claude-code-full-stack/) — MCP, Skills, Subagents, Hooks
+- [Enhancing Claude Code with MCP and Subagents](https://dev.to/oikon/enhancing-claude-code-with-mcp-servers-and-subagents-29dd)
+- [Background Subagents MCP Limitation (Issue #13254)](https://github.com/anthropics/claude-code/issues/13254)
+- [MCP Tools for Subagents Only (Issue #6915)](https://github.com/anthropics/claude-code/issues/6915)
+
 ---
 
 **Создано:** 2026-01-15
 **Обновлено:** 2026-01-15
 **Автор:** Claude Code (Opus 4.5)
-**Версия:** 2.2
+**Версия:** 2.3
