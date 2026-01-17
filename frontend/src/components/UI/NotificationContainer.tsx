@@ -226,11 +226,11 @@ const Toast: React.FC<ToastProps> = ({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold leading-tight">
+          <h4 className="text-sm font-semibold leading-tight truncate">
             {notification.title}
           </h4>
           {notification.message && (
-            <p className="mt-1 text-sm opacity-80 leading-relaxed">
+            <p className="mt-1 text-sm opacity-80 leading-relaxed line-clamp-2 break-words">
               {notification.message}
             </p>
           )}

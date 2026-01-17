@@ -31,7 +31,7 @@ import {
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import { LazyImage } from '@/components/UI/LazyImage';
+import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import { cn } from '@/lib/utils';
 import type { GeneratedImage, Book } from '@/types/api';
 
@@ -412,13 +412,16 @@ const ImagesGalleryPage: React.FC = () => {
                 className="group cursor-pointer rounded-xl overflow-hidden border-2 transition-all hover:-translate-y-1 hover:shadow-xl bg-background border-border"
               >
                 {/* Image */}
-                <div className="aspect-[4/3] overflow-hidden">
-                  <LazyImage
+                <div className="aspect-[4/3] overflow-hidden bg-muted">
+                  <AuthenticatedImage
                     src={image.image_url}
                     alt={image.description?.text || 'Generated image'}
-                    className="w-full h-full"
-                    imageClassName="transition-transform group-hover:scale-110"
-                    rootMargin="100px"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    }
                   />
                 </div>
 
@@ -558,10 +561,15 @@ const ImagesGalleryPage: React.FC = () => {
               <X className="w-6 h-6 text-foreground" />
             </button>
 
-            <img
+            <AuthenticatedImage
               src={selectedImage.image_url}
               alt={selectedImage.description?.text || 'Generated image'}
               className="w-full max-h-[60vh] sm:max-h-[70vh] object-contain flex-shrink-0"
+              fallback={
+                <div className="w-full h-[40vh] flex items-center justify-center bg-muted">
+                  <ImageIcon className="w-16 h-16 text-muted-foreground" />
+                </div>
+              }
             />
 
             <div className="p-4 sm:p-6 overflow-y-auto">

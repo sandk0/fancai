@@ -501,7 +501,7 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
       </div>
 
       {/* Desktop: Horizontal scroll */}
-      <div className="hidden sm:block relative">
+      <div className="hidden sm:block relative overflow-hidden">
         <div
           ref={scrollRef}
           className={cn(

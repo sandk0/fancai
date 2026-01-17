@@ -63,6 +63,9 @@ export function LazyImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // Check for empty or invalid src
+  const isValidSrc = src && src.trim().length > 0 && src !== '/';
+
   const handleLoad = useCallback(() => {
     setIsLoaded(true);
     onLoad?.();
@@ -80,7 +83,7 @@ export function LazyImage({
       onClick={onClick}
     >
       {/* Skeleton placeholder - shows while not loaded and no error */}
-      {!isLoaded && !hasError && (
+      {!isLoaded && !hasError && isValidSrc && (
         <div
           className={cn(
             'absolute inset-0 bg-muted animate-pulse',
@@ -90,8 +93,8 @@ export function LazyImage({
         />
       )}
 
-      {/* Actual image - only render when visible in viewport */}
-      {isVisible && !hasError && (
+      {/* Actual image - only render when visible in viewport and src is valid */}
+      {isVisible && !hasError && isValidSrc && (
         <img
           src={src}
           alt={alt}
@@ -114,6 +117,20 @@ export function LazyImage({
           <ImageOff className="w-8 h-8 text-muted-foreground mb-2" />
           <span className="text-muted-foreground text-sm text-center px-2">
             Ошибка загрузки
+          </span>
+        </div>
+      )}
+
+      {/* No image placeholder - when src is empty or invalid */}
+      {!isValidSrc && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-muted"
+          role="img"
+          aria-label="Нет изображения"
+        >
+          <ImageOff className="w-8 h-8 text-muted-foreground mb-2" />
+          <span className="text-muted-foreground text-sm text-center px-2">
+            Нет изображения
           </span>
         </div>
       )}
