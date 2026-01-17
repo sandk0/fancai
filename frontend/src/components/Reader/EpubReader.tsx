@@ -76,7 +76,7 @@ import { ProgressSaveIndicator } from './ProgressSaveIndicator';
 import { PositionConflictDialog } from './PositionConflictDialog';
 import { IOSTapZones } from './IOSTapZones';
 import { SwipeOverlay } from './SwipeOverlay';
-import { IOSDebugOverlay } from './IOSDebugOverlay';
+// import { IOSDebugOverlay } from './IOSDebugOverlay'; // DISABLED FOR PRODUCTION
 import { notify } from '@/stores/ui';
 
 // Wake Lock hook
@@ -1013,8 +1013,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
                   ${theme === 'light'
                     ? 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
                     : theme === 'sepia'
-                    ? 'bg-amber-200 hover:bg-amber-300 text-amber-900 focus:ring-amber-400'
-                    : 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
+                      ? 'bg-amber-200 hover:bg-amber-300 text-amber-900 focus:ring-amber-400'
+                      : 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
                   }`}
               >
                 В библиотеку
@@ -1139,8 +1139,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         onClose={() => setIsTocOpen(false)}
       />
 
-      {/* iOS Debug Overlay - DELETE AFTER FIXING BUG */}
+      {/* iOS Debug Overlay - DISABLED FOR PRODUCTION
       <IOSDebugOverlay />
+      */}
 
     </div>
   );

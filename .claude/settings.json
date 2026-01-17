@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(git:*)",
+      "Bash(docker:*)",
+      "Bash(alembic:*)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(dd *)"
+    ]
+  },
+  "mcpServers": {
+    "playwright": { "disabled": true }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/format/format_hook.sh $CLAUDE_FILE_PATH"
+          }
+        ]
+      }
+    ]
+  }
+}
