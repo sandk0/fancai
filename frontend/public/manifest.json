@@ -11,65 +11,26 @@
   "background_color": "#ffffff",
   "lang": "en",
   "scope": "/",
-  "categories": ["books", "entertainment", "education", "productivity"],
-
+  "categories": [
+    "books",
+    "entertainment",
+    "education",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "/icons/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-192x192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-192x192-maskable.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-512x512-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
-
   "shortcuts": [
     {
       "name": "My Library",
@@ -78,7 +39,7 @@
       "url": "/library",
       "icons": [
         {
-          "src": "/icons/icon-192x192.png",
+          "src": "/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -91,26 +52,27 @@
       "url": "/library?action=upload",
       "icons": [
         {
-          "src": "/icons/icon-192x192.png",
+          "src": "/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
       ]
     }
   ],
-
   "prefer_related_applications": false,
-
   "file_handlers": [
     {
       "action": "/upload",
       "accept": {
-        "application/epub+zip": [".epub"],
-        "application/x-fictionbook+xml": [".fb2"]
+        "application/epub+zip": [
+          ".epub"
+        ],
+        "application/x-fictionbook+xml": [
+          ".fb2"
+        ]
       }
     }
   ],
-
   "share_target": {
     "action": "/upload",
     "method": "POST",
@@ -119,12 +81,14 @@
       "files": [
         {
           "name": "book",
-          "accept": ["application/epub+zip", "application/x-fictionbook+xml"]
+          "accept": [
+            "application/epub+zip",
+            "application/x-fictionbook+xml"
+          ]
         }
       ]
     }
   },
-
   "launch_handler": {
     "client_mode": "focus-existing"
   }
