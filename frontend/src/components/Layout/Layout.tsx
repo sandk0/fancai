@@ -38,10 +38,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Main Content */}
         {/* Mobile: pb-20 for bottom nav + pb-safe for home indicator */}
         {/* Desktop (md+): No bottom padding needed (no bottom nav) */}
+        {/* CRITICAL: min-w-0 prevents flex items from overflowing (default min-width: auto) */}
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-h-screen pt-4 pb-20 md:pb-0 px-safe mb-safe md:mb-0 outline-none"
+          className="flex-1 min-w-0 overflow-x-hidden min-h-screen pt-4 pb-20 md:pb-0 px-safe mb-safe md:mb-0 outline-none"
         >
           {children}
         </main>
