@@ -501,7 +501,7 @@ const RecentBooksSection: React.FC<{ books: Book[]; isLoading: boolean }> = ({
       </div>
 
       {/* Desktop: Horizontal scroll */}
-      <div className="hidden sm:block relative overflow-hidden">
+      <div className="hidden sm:block relative overflow-hidden w-full">
         <div
           ref={scrollRef}
           className={cn(
@@ -661,7 +661,7 @@ const StatisticsSection: React.FC<{
         </h2>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 w-full">
         {statItems.map((item, index) => (
           <m.div
             key={item.label}

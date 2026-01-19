@@ -1047,3 +1047,38 @@ button, a, [role="button"] {
 .mobile-scroll-x > * {
   scroll-snap-align: start;
 }
+
+/* ===========================================
+   Safe Container Utilities (January 2026)
+   Prevents horizontal overflow on all devices
+   =========================================== */
+
+.container-safe {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Fluid container with automatic max-width and safe-area padding */
+.fluid-container {
+  width: 100%;
+  max-width: 80rem; /* 1280px = max-w-7xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@media (min-width: 640px) {
+  .fluid-container {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+@media (min-width: 1024px) {
+  .fluid-container {
+    padding-left: max(2rem, env(safe-area-inset-left));
+    padding-right: max(2rem, env(safe-area-inset-right));
+  }
+}
+

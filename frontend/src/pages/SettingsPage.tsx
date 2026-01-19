@@ -121,7 +121,7 @@ const SettingsPage: React.FC = () => {
   const currentTab = tabs.find((tab) => tab.id === activeTab);
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-6 w-full max-w-full box-border">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-6 w-full box-border overflow-hidden">
       {/* Header */}
       <div className="mb-3 sm:mb-4 md:mb-6">
         <h1 className="fluid-h2 font-bold mb-1 text-foreground break-words">
