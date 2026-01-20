@@ -204,6 +204,12 @@ export function useRenditionHealthGuard({
 
     // App became visible after being hidden
     if (wasHidden && enabled) {
+      // Safety check: ignore if we never recorded a hide time (e.g. cold start)
+      if (hideTimeRef.current === 0) {
+        if (DEBUG) console.log('[RenditionHealthGuard] Cold resume detected, skipping reload');
+        return;
+      }
+
       const timeInBackground = Date.now() - hideTimeRef.current;
 
       if (DEBUG) {
