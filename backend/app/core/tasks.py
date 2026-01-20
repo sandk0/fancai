@@ -292,15 +292,15 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         progress=book.parsing_progress,
                     )
 
-                    except Exception as e:
-                        logger.error(
-                            "Error parsing chapter",
-                            chapter_number=chapter.chapter_number,
-                            error=str(e),
-                            exc_info=True,
-                        )
-                        # Продолжаем с следующей главой
-                        continue
+                except Exception as e:
+                    logger.error(
+                        "Error parsing chapter",
+                        chapter_number=chapter.chapter_number,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                    # Продолжаем с следующей главой
+                    continue
 
         # 4. Generate Master References for all collected entities
         # This is done once after all chapters are processed to ensure global consistency
