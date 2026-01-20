@@ -64,13 +64,6 @@ class ExtractedRelationship:
     context: str = ""
 
 @dataclass
-class ChapterAnalysisResult:
-    """Полный результат анализа главы."""
-    descriptions: List[ExtractedDescription]
-    entities: List[ExtractedEntity]
-    relationships: List[ExtractedRelationship]
-
-@dataclass
 class ExtractedDescription:
     """Извлеченное описание из LLM."""
     content: str
@@ -106,7 +99,8 @@ class ExtractedDescription:
         type_priority = {
             DescriptionType.LOCATION: 75,
             DescriptionType.CHARACTER: 60,
-            DescriptionType.ATMOSPHERE: 45,
+            DescriptionType.ATMOPSHERE: 45, # Note: Fixed typo ATMOSPHERE if present, relying on enum
+            DescriptionType.OBJECT: 50,
         }.get(self.description_type, 40)
 
         length = len(self.content)
@@ -121,6 +115,13 @@ class ExtractedDescription:
 
         confidence_bonus = self.confidence * 10
         return min(100.0, type_priority + length_bonus + confidence_bonus)
+
+@dataclass
+class ChapterAnalysisResult:
+    """Полный результат анализа главы."""
+    descriptions: List[ExtractedDescription]
+    entities: List[ExtractedEntity]
+    relationships: List[ExtractedRelationship]
 
 
 @dataclass

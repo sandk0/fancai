@@ -1,0 +1,599 @@
+2026-01-20 19:27:11,483 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:27:11,483 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:11,487 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:27:11,488 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:11,490 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:27:11,490 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:11,497 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:11,565 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:11,566 INFO sqlalchemy.engine.Engine [generated in 0.00146s] ()
+2026-01-20 19:27:11,579 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:27:11,580 INFO sqlalchemy.engine.Engine [generated in 0.00065s] ()
+2026-01-20 19:27:11,593 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:11,593 INFO sqlalchemy.engine.Engine [generated in 0.00089s] ()
+2026-01-20 19:27:11,598 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:27:11,599 INFO sqlalchemy.engine.Engine [generated in 0.00101s] (datetime.datetime(2026, 1, 19, 19, 27, 11, 597165, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:56212 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:27:11,604 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:42266 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:27:21,463 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:21,466 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:21,466 INFO sqlalchemy.engine.Engine [cached since 9.901s ago] ()
+2026-01-20 19:27:21,470 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:27:21,470 INFO sqlalchemy.engine.Engine [cached since 9.891s ago] ()
+2026-01-20 19:27:21,472 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:21,472 INFO sqlalchemy.engine.Engine [cached since 9.88s ago] ()
+2026-01-20 19:27:21,474 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:27:21,475 INFO sqlalchemy.engine.Engine [cached since 9.877s ago] (datetime.datetime(2026, 1, 19, 19, 27, 21, 474002, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:43146 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:27:21,479 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:24,741 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:24,744 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.email = $1::VARCHAR
+2026-01-20 19:27:24,744 INFO sqlalchemy.engine.Engine [generated in 0.00037s] ('sandk008@gmail.com',)
+2026-01-20 19:27:25,127 INFO sqlalchemy.engine.Engine UPDATE users SET updated_at=now(), last_login=$1::TIMESTAMP WITH TIME ZONE WHERE users.id = $2::UUID
+2026-01-20 19:27:25,128 INFO sqlalchemy.engine.Engine [generated in 0.00103s] (datetime.datetime(2026, 1, 20, 19, 27, 25, 124213, tzinfo=datetime.timezone.utc), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:27:25,131 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:27:25,136 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:25,138 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:25,138 INFO sqlalchemy.engine.Engine [generated in 0.00029s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:37150 - "POST /api/v1/auth/login HTTP/1.0" 200 OK
+2026-01-20 19:27:25,149 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:25,311 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:25,313 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:25,313 INFO sqlalchemy.engine.Engine [generated in 0.00035s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:25,333 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.user_id = $1::UUID ORDER BY books.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-01-20 19:27:25,333 INFO sqlalchemy.engine.Engine [generated in 0.00166s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), 24, 0)
+2026-01-20 19:27:25,345 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID)
+2026-01-20 19:27:25,345 INFO sqlalchemy.engine.Engine [generated in 0.00048s] (UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:27:25,949 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID)
+2026-01-20 19:27:25,950 INFO sqlalchemy.engine.Engine [generated in 0.00075s] (UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:27:25,973 INFO sqlalchemy.engine.Engine SELECT count(books.id) AS count_1 
+FROM books 
+WHERE books.user_id = $1::UUID
+2026-01-20 19:27:25,975 INFO sqlalchemy.engine.Engine [generated in 0.00189s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:37156 - "GET /api/v1/books/?skip=0&limit=24&sort_by=created_desc HTTP/1.0" 200 OK
+2026-01-20 19:27:25,992 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:31,390 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:31,391 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:31,391 INFO sqlalchemy.engine.Engine [cached since 19.83s ago] ()
+2026-01-20 19:27:31,393 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:27:31,393 INFO sqlalchemy.engine.Engine [cached since 19.81s ago] ()
+2026-01-20 19:27:31,395 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:31,395 INFO sqlalchemy.engine.Engine [cached since 19.8s ago] ()
+2026-01-20 19:27:31,397 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:27:31,397 INFO sqlalchemy.engine.Engine [cached since 19.8s ago] (datetime.datetime(2026, 1, 19, 19, 27, 31, 396967, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:44308 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:27:31,403 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:37,190 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:37,191 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:37,193 INFO sqlalchemy.engine.Engine [cached since 11.88s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:38,451 INFO sqlalchemy.engine.Engine INSERT INTO books (id, user_id, title, author, genre, language, file_path, file_format, file_size, cover_image, description, book_metadata, total_pages, estimated_reading_time, is_parsed, is_processing, parsing_progress, parsing_error, descriptions_extracted, descriptions_processing_error, last_accessed) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::INTEGER, $10::VARCHAR, $11::VARCHAR, $12::JSONB, $13::INTEGER, $14::INTEGER, $15::BOOLEAN, $16::BOOLEAN, $17::INTEGER, $18::VARCHAR, $19::BOOLEAN, $20::VARCHAR, $21::TIMESTAMP WITH TIME ZONE) RETURNING books.created_at, books.updated_at
+2026-01-20 19:27:38,452 INFO sqlalchemy.engine.Engine [generated in 0.00113s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), 'Ученик убийцы', 'Робин Хобб', 'other', 'ru', '/app/storage/books/16aa9366-e506-4cc7-978d-59a323446740.epub', 'epub', 633479, None, 'В стране под названием Шесть Герцогств живет мальчик. Он — внебрачный сын наследного принца, хотя у него нет даже имени. Мальчика замышляют убить во  ... (517 characters truncated) ... всякую человечность. Мальчик становится одновременно разведчиком и исполнителем деликатных поручений, всезнающим и играющим роль простого подростка… ', '{"isbn": "", "publisher": "", "publish_date": "", "has_cover": true}', 550, 687, False, True, 0, None, False, None, None)
+2026-01-20 19:27:38,470 INFO sqlalchemy.engine.Engine UPDATE books SET cover_image=$1::VARCHAR, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:27:38,471 INFO sqlalchemy.engine.Engine [generated in 0.00044s] ('uploads/covers/57bbbe08-c010-45cf-bf23-05522e8643e4.jpg', UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:27:38,480 INFO sqlalchemy.engine.Engine INSERT INTO reading_progress (id, user_id, book_id, current_chapter, current_page, current_position, reading_location_cfi, scroll_offset_percent, reading_time_minutes, reading_speed_wpm) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::INTEGER, $5::INTEGER, $6::INTEGER, $7::VARCHAR, $8::FLOAT, $9::INTEGER, $10::FLOAT) RETURNING reading_progress.created_at, reading_progress.updated_at, reading_progress.last_read_at
+2026-01-20 19:27:38,480 INFO sqlalchemy.engine.Engine [generated in 0.00055s] (UUID('24a4c275-7e1d-495e-bc20-5d6f86042d32'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 1, 1, 0, None, 0.0, 0, 0.0)
+2026-01-20 19:27:38,495 INFO sqlalchemy.engine.Engine INSERT INTO chapters (id, book_id, chapter_number, title, content, html_content, word_count, estimated_reading_time, is_description_parsed, descriptions_found, parsing_progress, is_service_page, parsed_at) VALUES ($1::UUID, $2::UUID, $3::INTEGER, $4: ... 5433 characters truncated ... EAN, $351::TIMESTAMP WITH TIME ZONE) RETURNING chapters.created_at, chapters.updated_at, chapters.id
+2026-01-20 19:27:38,495 INFO sqlalchemy.engine.Engine [generated in 0.00154s (insertmanyvalues) 1/1 (ordered)] (UUID('343f78ff-2ae2-4a54-8841-34b318ff70c2'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 1, 'ПРЕДЫСТОРИЯ История Шести Герцогств — это прежде всего история правящей семьи Видящих.Повествование ', 'ПРЕДЫСТОРИЯ История Шести Герцогств — это прежде всего история правящей семьи Видящих.Повествование о нем следовало бы начать с времен стародавних, з ... (35246 characters truncated) ... Шести Герцогств неизгладимый след. Я вырос без отца и матери при дворе, где меня считали причиной всех бед. И я действительно стал причиной всех бед.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (38054 characters truncated) ... ед. Я вырос без отца и матери при дворе, где меня считали причиной всех бед. И я действительно стал причиной всех бед.</p></span>\n</body>\n</html>\n', 5748, 28, False, 0, 0, None, None, UUID('72026de7-c172-4cf3-b31a-fed6837f2c19'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 2, 'НОВИЧОК Существует множество преданий о Завоевателе, первом короле-островитянине. Он провозгласил Ба', 'НОВИЧОК Существует множество преданий о Завоевателе, первом короле-островитянине. Он провозгласил Баккип Первым Герцогством и основал королевский род ... (44242 characters truncated) ...  Если ты не знаешь, то я знаю! — взревел он, и теперь я в полной мере ощутил, какую ярость подавлял он все это время и как много он выпил в эту ночь.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (47076 characters truncated) ... — взревел он, и теперь я в полной мере ощутил, какую ярость подавлял он все это время и как много он выпил в эту ночь.</p></span>\n</body>\n</html>\n', 7089, 35, False, 0, 0, None, None, UUID('9788ca6d-5d7b-42f0-b53a-d35506aa1ace'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 3, '— Щенок уйдет, а ты останешься. Ты останешься здесь на моем попечении, где я могу не спускать с тебя', '— Щенок уйдет, а ты останешься. Ты останешься здесь на моем попечении, где я могу не спускать с тебя глаз. Раз Чивэл не хочет, чтобы я ехал к нему, э ... (4430 characters truncated) ... ирателем, который следил за моей изоляцией с фанатичным упорством. Невероятное одиночество было посеяно именно тогда и пустило во мне глубокие корни.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (4970 characters truncated) ... й изоляцией с фанатичным упорством. Невероятное одиночество было посеяно именно тогда и пустило во мне глубокие корни.</p></span>\n</body>\n</html>\n', 820, 4, False, 0, 0, None, None, UUID('88f19b28-db39-4dce-8dcf-0c78e6916c9d'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 4, 'ДОГОВОР Настоящие истоки Скилла, вероятно, всегда будут покрыты тайной. Конечно, склонность к нему о', 'ДОГОВОР Настоящие истоки Скилла, вероятно, всегда будут покрыты тайной. Конечно, склонность к нему особенно сильно проявляется в королевской семье, х ... (38795 characters truncated) ... нокой комнатой, ни жилищем Баррича. О покое, который, возможно, я знал когда-то, но теперь не мог вспомнить. И таким образом я погрузился в забвение.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (42104 characters truncated) ... ича. О покое, который, возможно, я знал когда-то, но теперь не мог вспомнить. И таким образом я погрузился в забвение.</p></span>\n</body>\n</html>\n', 6344, 31, False, 0, 0 ... 251 parameters truncated ... 24, 'Баррич тоже был тут, и я увидел его в первый раз за много дней. Вероятно, он встал до рассвета, чтоб', 'Баррич тоже был тут, и я увидел его в первый раз за много дней. Вероятно, он встал до рассвета, чтобы придать такой блеск своим подопечным. Каждое ко ... (16459 characters truncated) ... аясь тщательно обдумать мое положение и составить план, но был таким уставшим и все еще больным, что заснул, как только моя голова коснулась подушки.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (18359 characters truncated) ... ожение и составить план, но был таким уставшим и все еще больным, что заснул, как только моя голова коснулась подушки.</p></span>\n</body>\n</html>\n', 2733, 13, False, 0, 0, None, None, UUID('6ac2d84a-aae2-41c5-9cfe-98ee908fa1b8'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 25, 'ДИЛЕММЫ Во сне шут стоял у моей кровати. Он смотрел на меня и качал головой.— Почему я не могу говор', 'ДИЛЕММЫ Во сне шут стоял у моей кровати. Он смотрел на меня и качал головой.— Почему я не могу говорить ясно? Потому что ты все это запутываешь. Я ви ... (32555 characters truncated) ... валось очень много времени, чтобы обдумать это. Но в конце концов он помог мне встать, и, держась за его рукав, я выбрался из конюшен и вышел в ночь.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (36884 characters truncated) ... бы обдумать это. Но в конце концов он помог мне встать, и, держась за его рукав, я выбрался из конюшен и вышел в ночь.</p></span>\n</body>\n</html>\n', 5466, 27, False, 0, 0, None, None, UUID('687ee832-b46e-4323-9dbb-066887bc58b5'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 26, 'СВАДЬБА Искусство дипломатии — это везение, благодаря которому вы, узнаете больше секретов противник', 'СВАДЬБА Искусство дипломатии — это везение, благодаря которому вы, узнаете больше секретов противника, чем он ваших. Всегда действуй с позиции силы — ... (28999 characters truncated) ...  ей, чтобы построить между ними большее доверие. Она покачнулась, но устояла. Август потерял сознание. Контакт исчез.И потом Верити обратился ко мне.', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (32537 characters truncated) ... Она покачнулась, но устояла. Август потерял сознание. Контакт исчез.</p><p class="p1">И потом Верити обратился ко мне.</p></span>\n</body>\n</html>\n', 4795, 23, False, 0, 0, None, None, UUID('7b516731-0b48-4669-952e-c85257bb1e2a'), UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), 27, 'ПОСЛЕДСТВИЯ Назад, назад, Фитц. Это слишком, ты умрешь. Назад, отпусти! И, как медведь, он отпихнул ', 'ПОСЛЕДСТВИЯ Назад, назад, Фитц. Это слишком, ты умрешь. Назад, отпусти! И, как медведь, он отпихнул меня, и я рухнул назад, в свое недвижное, ослепше ... (15199 characters truncated) ...  имбиря, и мяту, чтобы сделать мне чай. Я думаю, не попрошу ли я его однажды принести три листика этой травы чьюрда. Где-то друг тихо говорит: «Нет».', '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" epu ... (16153 characters truncated) ... мне чай. Я думаю, не попрошу ли я его однажды принести три листика этой травы чьюрда. Где-то друг тихо говорит: «Нет».</p></span>\n</body>\n</html>\n', 2475, 12, False, 0, 0, None, None)
+2026-01-20 19:27:38,819 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:27:38,839 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:38,849 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:27:38,852 INFO sqlalchemy.engine.Engine [generated in 0.00545s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:38,858 INFO sqlalchemy.engine.Engine UPDATE books SET is_parsed=$1::BOOLEAN, is_processing=$2::BOOLEAN, parsing_progress=$3::INTEGER, updated_at=now() WHERE books.id = $4::UUID
+2026-01-20 19:27:38,858 INFO sqlalchemy.engine.Engine [generated in 0.00027s] (True, False, 100, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:27:38,878 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:27:38,903 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:38,909 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:27:38,909 INFO sqlalchemy.engine.Engine [cached since 0.06219s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+INFO:     172.18.0.1:35312 - "POST /api/v1/books/upload HTTP/1.0" 200 OK
+2026-01-20 19:27:38,926 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:39,091 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:39,092 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:39,092 INFO sqlalchemy.engine.Engine [cached since 13.78s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:39,096 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.user_id = $1::UUID ORDER BY books.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-01-20 19:27:39,096 INFO sqlalchemy.engine.Engine [cached since 13.76s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), 24, 0)
+2026-01-20 19:27:39,099 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID, $9::UUID)
+2026-01-20 19:27:39,099 INFO sqlalchemy.engine.Engine [cached since 13.75s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:27:39,368 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID, $9::UUID)
+2026-01-20 19:27:39,369 INFO sqlalchemy.engine.Engine [cached since 13.42s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:27:39,384 INFO sqlalchemy.engine.Engine SELECT count(books.id) AS count_1 
+FROM books 
+WHERE books.user_id = $1::UUID
+2026-01-20 19:27:39,384 INFO sqlalchemy.engine.Engine [cached since 13.41s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:35314 - "GET /api/v1/books/?skip=0&limit=24&sort_by=created_desc HTTP/1.0" 200 OK
+2026-01-20 19:27:39,436 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:39,672 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:39,672 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:39,672 INFO sqlalchemy.engine.Engine [cached since 14.36s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:39,680 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID AND books.user_id = $2::UUID
+2026-01-20 19:27:39,681 INFO sqlalchemy.engine.Engine [generated in 0.00047s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:27:39,687 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID)
+2026-01-20 19:27:39,687 INFO sqlalchemy.engine.Engine [cached since 14.34s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:39,781 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID)
+2026-01-20 19:27:39,781 INFO sqlalchemy.engine.Engine [cached since 13.83s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+INFO:     172.18.0.1:35318 - "GET /api/v1/books/57bbbe08-c010-45cf-bf23-05522e8643e4/cover HTTP/1.0" 200 OK
+2026-01-20 19:27:39,793 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:41,395 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:41,396 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:41,396 INFO sqlalchemy.engine.Engine [cached since 29.83s ago] ()
+2026-01-20 19:27:41,401 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:27:41,403 INFO sqlalchemy.engine.Engine [cached since 29.82s ago] ()
+2026-01-20 19:27:41,409 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:41,409 INFO sqlalchemy.engine.Engine [cached since 29.82s ago] ()
+2026-01-20 19:27:41,411 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:27:41,411 INFO sqlalchemy.engine.Engine [cached since 29.81s ago] (datetime.datetime(2026, 1, 19, 19, 27, 41, 410803, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:45584 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:27:41,418 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:43,799 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:43,800 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:43,800 INFO sqlalchemy.engine.Engine [cached since 18.49s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:43,804 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID AND books.user_id = $2::UUID
+2026-01-20 19:27:43,804 INFO sqlalchemy.engine.Engine [cached since 4.124s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:27:43,811 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID)
+2026-01-20 19:27:43,811 INFO sqlalchemy.engine.Engine [cached since 18.47s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:43,898 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID)
+2026-01-20 19:27:43,899 INFO sqlalchemy.engine.Engine [cached since 17.95s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+[PARSING-STATUS] Request for book_id=57bbbe08-c010-45cf-bf23-05522e8643e4, user=sandk008@gmail.com
+2026-01-20 19:27:43,901 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:43,902 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:43,902 INFO sqlalchemy.engine.Engine [cached since 18.59s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:52706 - "GET /api/v1/books/57bbbe08-c010-45cf-bf23-05522e8643e4/parsing-status HTTP/1.0" 200 OK
+2026-01-20 19:27:43,903 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:43,911 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID AND books.user_id = $2::UUID
+2026-01-20 19:27:43,912 INFO sqlalchemy.engine.Engine [cached since 4.231s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:27:43,921 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID)
+2026-01-20 19:27:43,921 INFO sqlalchemy.engine.Engine [cached since 18.58s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:43,988 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID)
+2026-01-20 19:27:43,988 INFO sqlalchemy.engine.Engine [cached since 18.04s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:44,001 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, parsing_progress=$2::INTEGER, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:27:44,007 INFO sqlalchemy.engine.Engine [generated in 0.00538s] (True, 0, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:27:44,023 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     172.18.0.1:52690 - "POST /api/v1/books/57bbbe08-c010-45cf-bf23-05522e8643e4/process-descriptions HTTP/1.0" 200 OK
+2026-01-20 19:27:44,330 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:44,336 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:27:44,336 INFO sqlalchemy.engine.Engine [cached since 19.02s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:52710 - "GET /api/v1/books/?skip=0&limit=24&sort_by=created_desc HTTP/1.0" 200 OK
+2026-01-20 19:27:44,355 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:48144 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:27:51,395 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:51,396 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:51,396 INFO sqlalchemy.engine.Engine [cached since 39.83s ago] ()
+2026-01-20 19:27:51,402 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:27:51,402 INFO sqlalchemy.engine.Engine [cached since 39.82s ago] ()
+2026-01-20 19:27:51,411 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:27:51,411 INFO sqlalchemy.engine.Engine [cached since 39.82s ago] ()
+2026-01-20 19:27:51,416 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:27:51,416 INFO sqlalchemy.engine.Engine [cached since 39.82s ago] (datetime.datetime(2026, 1, 19, 19, 27, 51, 415303, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:54050 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:27:51,428 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:01,412 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:01,415 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:01,431 INFO sqlalchemy.engine.Engine [cached since 49.87s ago] ()
+2026-01-20 19:28:01,448 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:01,449 INFO sqlalchemy.engine.Engine [cached since 49.87s ago] ()
+2026-01-20 19:28:01,466 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:01,466 INFO sqlalchemy.engine.Engine [cached since 49.87s ago] ()
+2026-01-20 19:28:01,495 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:01,495 INFO sqlalchemy.engine.Engine [cached since 49.9s ago] (datetime.datetime(2026, 1, 19, 19, 28, 1, 493166, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:57886 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:01,518 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:11,393 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:11,394 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:11,394 INFO sqlalchemy.engine.Engine [cached since 59.83s ago] ()
+2026-01-20 19:28:11,399 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:11,399 INFO sqlalchemy.engine.Engine [cached since 59.82s ago] ()
+2026-01-20 19:28:11,403 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:11,405 INFO sqlalchemy.engine.Engine [cached since 59.81s ago] ()
+2026-01-20 19:28:11,408 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:11,408 INFO sqlalchemy.engine.Engine [cached since 59.81s ago] (datetime.datetime(2026, 1, 19, 19, 28, 11, 408051, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:54016 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:11,414 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:51518 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:28:16,406 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:16,415 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:16,415 INFO sqlalchemy.engine.Engine [cached since 51.1s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:51294 - "GET /api/v1/auth/me HTTP/1.0" 200 OK
+2026-01-20 19:28:16,420 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:16,463 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:16,465 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:16,465 INFO sqlalchemy.engine.Engine [cached since 51.15s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:51298 - "GET /api/v1/auth/me HTTP/1.0" 200 OK
+2026-01-20 19:28:16,472 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:16,568 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:16,569 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:16,569 INFO sqlalchemy.engine.Engine [cached since 51.26s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:28:16,575 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.user_id = $1::UUID ORDER BY books.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-01-20 19:28:16,575 INFO sqlalchemy.engine.Engine [cached since 51.24s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), 24, 0)
+2026-01-20 19:28:16,580 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID, $9::UUID)
+2026-01-20 19:28:16,582 INFO sqlalchemy.engine.Engine [cached since 51.24s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:28:17,094 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::UUID, $6::UUID, $7::UUID, $8::UUID, $9::UUID)
+2026-01-20 19:28:17,094 INFO sqlalchemy.engine.Engine [cached since 51.15s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'), UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'), UUID('21684139-5ab0-456a-b24f-2e70f349b040'), UUID('97a0c89f-cadf-4915-a9f4-749edc18505f'), UUID('0f8e490e-d13a-41fa-900d-65a60f6f5ce2'), UUID('d8f24ad7-ef5d-4aef-b738-e31dddc86282'), UUID('9f62ebce-c3f0-48de-8694-f798f38ec088'), UUID('fe3944bc-55cc-4f3e-aaf4-2b08546bc1a7'))
+2026-01-20 19:28:17,105 INFO sqlalchemy.engine.Engine SELECT count(books.id) AS count_1 
+FROM books 
+WHERE books.user_id = $1::UUID
+2026-01-20 19:28:17,105 INFO sqlalchemy.engine.Engine [cached since 51.13s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:51306 - "GET /api/v1/books/?skip=0&limit=24&sort_by=created_desc HTTP/1.0" 200 OK
+2026-01-20 19:28:17,132 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:19,365 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:19,377 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:19,378 INFO sqlalchemy.engine.Engine [cached since 54.07s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:28:19,406 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID AND books.user_id = $2::UUID
+2026-01-20 19:28:19,406 INFO sqlalchemy.engine.Engine [cached since 39.73s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:28:19,419 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID)
+2026-01-20 19:28:19,421 INFO sqlalchemy.engine.Engine [cached since 54.08s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:28:19,421 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:19,422 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:19,422 INFO sqlalchemy.engine.Engine [cached since 54.11s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:28:19,429 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID AND books.user_id = $2::UUID
+2026-01-20 19:28:19,429 INFO sqlalchemy.engine.Engine [cached since 39.75s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'), UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'))
+2026-01-20 19:28:19,437 INFO sqlalchemy.engine.Engine SELECT chapters.book_id AS chapters_book_id, chapters.id AS chapters_id, chapters.chapter_number AS chapters_chapter_number, chapters.title AS chapters_title, chapters.content AS chapters_content, chapters.html_content AS chapters_html_content, chapters.word_count AS chapters_word_count, chapters.estimated_reading_time AS chapters_estimated_reading_time, chapters.is_description_parsed AS chapters_is_description_parsed, chapters.descriptions_found AS chapters_descriptions_found, chapters.parsing_progress AS chapters_parsing_progress, chapters.is_service_page AS chapters_is_service_page, chapters.created_at AS chapters_created_at, chapters.updated_at AS chapters_updated_at, chapters.parsed_at AS chapters_parsed_at 
+FROM chapters 
+WHERE chapters.book_id IN ($1::UUID)
+2026-01-20 19:28:19,441 INFO sqlalchemy.engine.Engine [cached since 54.1s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:28:19,624 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID)
+2026-01-20 19:28:19,625 INFO sqlalchemy.engine.Engine [cached since 53.68s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:28:19,629 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, parsing_progress=$2::INTEGER, descriptions_extracted=$3::BOOLEAN, updated_at=now() WHERE books.id = $4::UUID
+2026-01-20 19:28:19,629 INFO sqlalchemy.engine.Engine [generated in 0.00037s] (True, 0, False, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:28:19,633 INFO sqlalchemy.engine.Engine SELECT reading_progress.book_id AS reading_progress_book_id, reading_progress.id AS reading_progress_id, reading_progress.user_id AS reading_progress_user_id, reading_progress.current_chapter AS reading_progress_current_chapter, reading_progress.current_page AS reading_progress_current_page, reading_progress.current_position AS reading_progress_current_position, reading_progress.reading_location_cfi AS reading_progress_reading_location_cfi, reading_progress.scroll_offset_percent AS reading_progress_scroll_offset_percent, reading_progress.reading_time_minutes AS reading_progress_reading_time_minutes, reading_progress.reading_speed_wpm AS reading_progress_reading_speed_wpm, reading_progress.created_at AS reading_progress_created_at, reading_progress.updated_at AS reading_progress_updated_at, reading_progress.last_read_at AS reading_progress_last_read_at 
+FROM reading_progress 
+WHERE reading_progress.book_id IN ($1::UUID)
+2026-01-20 19:28:19,633 INFO sqlalchemy.engine.Engine [cached since 53.68s ago] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+[PARSING-STATUS] Request for book_id=57bbbe08-c010-45cf-bf23-05522e8643e4, user=sandk008@gmail.com
+2026-01-20 19:28:19,636 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     172.18.0.1:51326 - "GET /api/v1/books/57bbbe08-c010-45cf-bf23-05522e8643e4/parsing-status HTTP/1.0" 200 OK
+2026-01-20 19:28:19,637 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     172.18.0.1:51314 - "POST /api/v1/books/57bbbe08-c010-45cf-bf23-05522e8643e4/process-descriptions HTTP/1.0" 200 OK
+2026-01-20 19:28:19,815 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:19,815 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.is_active, users.is_verified, users.is_admin, users.created_at, users.updated_at, users.last_login, users.longest_streak_days, users.timezone 
+FROM users 
+WHERE users.id = $1::UUID
+2026-01-20 19:28:19,815 INFO sqlalchemy.engine.Engine [cached since 54.5s ago] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+INFO:     172.18.0.1:51338 - "GET /api/v1/books/?skip=0&limit=24&sort_by=created_desc HTTP/1.0" 200 OK
+2026-01-20 19:28:19,828 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:21,390 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:21,391 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:21,391 INFO sqlalchemy.engine.Engine [cached since 69.83s ago] ()
+2026-01-20 19:28:21,393 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:21,393 INFO sqlalchemy.engine.Engine [cached since 69.81s ago] ()
+2026-01-20 19:28:21,394 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:21,394 INFO sqlalchemy.engine.Engine [cached since 69.8s ago] ()
+2026-01-20 19:28:21,397 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:21,397 INFO sqlalchemy.engine.Engine [cached since 69.8s ago] (datetime.datetime(2026, 1, 19, 19, 28, 21, 396771, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:46446 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:21,401 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:31,406 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:31,407 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:31,407 INFO sqlalchemy.engine.Engine [cached since 79.84s ago] ()
+2026-01-20 19:28:31,420 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:31,425 INFO sqlalchemy.engine.Engine [cached since 79.85s ago] ()
+2026-01-20 19:28:31,430 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:31,430 INFO sqlalchemy.engine.Engine [cached since 79.84s ago] ()
+2026-01-20 19:28:31,435 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:31,445 INFO sqlalchemy.engine.Engine [cached since 79.85s ago] (datetime.datetime(2026, 1, 19, 19, 28, 31, 434958, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:45892 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:31,456 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:41,392 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:41,393 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:41,393 INFO sqlalchemy.engine.Engine [cached since 89.83s ago] ()
+2026-01-20 19:28:41,395 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:41,395 INFO sqlalchemy.engine.Engine [cached since 89.82s ago] ()
+2026-01-20 19:28:41,397 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:41,397 INFO sqlalchemy.engine.Engine [cached since 89.8s ago] ()
+2026-01-20 19:28:41,402 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:41,402 INFO sqlalchemy.engine.Engine [cached since 89.8s ago] (datetime.datetime(2026, 1, 19, 19, 28, 41, 401217, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:35220 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:41,408 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:43626 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:28:51,393 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:51,393 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:51,394 INFO sqlalchemy.engine.Engine [cached since 99.83s ago] ()
+2026-01-20 19:28:51,396 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:28:51,396 INFO sqlalchemy.engine.Engine [cached since 99.82s ago] ()
+2026-01-20 19:28:51,398 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:28:51,398 INFO sqlalchemy.engine.Engine [cached since 99.81s ago] ()
+2026-01-20 19:28:51,400 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:28:51,400 INFO sqlalchemy.engine.Engine [cached since 99.8s ago] (datetime.datetime(2026, 1, 19, 19, 28, 51, 400049, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:50220 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:28:51,406 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:29:01,400 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:01,403 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:01,403 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] ()
+2026-01-20 19:29:01,408 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:01,409 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] ()
+2026-01-20 19:29:01,414 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:01,414 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] ()
+2026-01-20 19:29:01,416 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:01,416 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 1, 415686, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:52640 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:01,424 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:29:11,394 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:11,395 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:11,395 INFO sqlalchemy.engine.Engine [cached since 119.8s ago] ()
+2026-01-20 19:29:11,397 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:11,397 INFO sqlalchemy.engine.Engine [cached since 119.8s ago] ()
+2026-01-20 19:29:11,398 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:11,399 INFO sqlalchemy.engine.Engine [cached since 119.8s ago] ()
+2026-01-20 19:29:11,402 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:11,402 INFO sqlalchemy.engine.Engine [cached since 119.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 11, 400854, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:52578 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:11,414 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:35252 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:29:21,393 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:21,394 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:21,395 INFO sqlalchemy.engine.Engine [cached since 129.8s ago] ()
+2026-01-20 19:29:21,398 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:21,398 INFO sqlalchemy.engine.Engine [cached since 129.8s ago] ()
+2026-01-20 19:29:21,401 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:21,401 INFO sqlalchemy.engine.Engine [cached since 129.8s ago] ()
+2026-01-20 19:29:21,406 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:21,407 INFO sqlalchemy.engine.Engine [cached since 129.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 21, 403064, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:55078 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:21,416 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:29:31,398 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:31,398 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:31,399 INFO sqlalchemy.engine.Engine [cached since 139.8s ago] ()
+2026-01-20 19:29:31,403 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:31,403 INFO sqlalchemy.engine.Engine [cached since 139.8s ago] ()
+2026-01-20 19:29:31,407 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:31,407 INFO sqlalchemy.engine.Engine [cached since 139.8s ago] ()
+2026-01-20 19:29:31,412 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:31,412 INFO sqlalchemy.engine.Engine [cached since 139.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 31, 410920, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:42972 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:31,417 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:29:41,395 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:41,397 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:41,397 INFO sqlalchemy.engine.Engine [cached since 149.8s ago] ()
+2026-01-20 19:29:41,400 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:41,401 INFO sqlalchemy.engine.Engine [cached since 149.8s ago] ()
+2026-01-20 19:29:41,402 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:41,403 INFO sqlalchemy.engine.Engine [cached since 149.8s ago] ()
+2026-01-20 19:29:41,404 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:41,404 INFO sqlalchemy.engine.Engine [cached since 149.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 41, 403878, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:60636 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:41,407 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:33478 - "GET /health HTTP/1.1" 200 OK
+2026-01-20 19:29:51,390 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:29:51,390 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:51,390 INFO sqlalchemy.engine.Engine [cached since 159.8s ago] ()
+2026-01-20 19:29:51,393 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:29:51,393 INFO sqlalchemy.engine.Engine [cached since 159.8s ago] ()
+2026-01-20 19:29:51,396 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:29:51,396 INFO sqlalchemy.engine.Engine [cached since 159.8s ago] ()
+2026-01-20 19:29:51,398 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:29:51,398 INFO sqlalchemy.engine.Engine [cached since 159.8s ago] (datetime.datetime(2026, 1, 19, 19, 29, 51, 397637, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:54414 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:29:51,403 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:30:01,406 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:30:01,407 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:30:01,407 INFO sqlalchemy.engine.Engine [cached since 169.8s ago] ()
+2026-01-20 19:30:01,410 INFO sqlalchemy.engine.Engine SELECT reading_sessions.device_type, count(reading_sessions.id) AS count 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true GROUP BY reading_sessions.device_type
+2026-01-20 19:30:01,412 INFO sqlalchemy.engine.Engine [cached since 169.8s ago] ()
+2026-01-20 19:30:01,420 INFO sqlalchemy.engine.Engine SELECT count(distinct(reading_sessions.user_id)) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true
+2026-01-20 19:30:01,425 INFO sqlalchemy.engine.Engine [cached since 169.8s ago] ()
+2026-01-20 19:30:01,436 INFO sqlalchemy.engine.Engine SELECT count(reading_sessions.id) AS count_1 
+FROM reading_sessions 
+WHERE reading_sessions.is_active = true AND reading_sessions.started_at < $1::TIMESTAMP WITH TIME ZONE
+2026-01-20 19:30:01,436 INFO sqlalchemy.engine.Engine [cached since 169.8s ago] (datetime.datetime(2026, 1, 19, 19, 30, 1, 432108, tzinfo=datetime.timezone.utc),)
+INFO:     172.18.0.12:47614 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+2026-01-20 19:30:01,450 INFO sqlalchemy.engine.Engine ROLLBACK
