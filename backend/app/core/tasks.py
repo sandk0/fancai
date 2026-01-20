@@ -81,7 +81,42 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
             error=str(e),
             exc_info=True,
         )
+        # Ensure we update the book state in DB so it doesn't get stuck processing
+        try:
+            _run_async_task(_handle_book_processing_error_async(UUID(book_id_str), str(e)))
+        except Exception as db_e:
+            logger.error(
+                "Failed to update book error state", 
+                book_id=book_id_str, 
+                error=str(db_e)
+            )
+            
         return {"book_id": book_id_str, "status": "failed", "error": str(e)}
+
+
+async def _handle_book_processing_error_async(book_id: UUID, error_msg: str):
+    """
+    Updates book state on processing failure.
+    Sets is_processing=False and descriptions_processing_error.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            book_result = await db.execute(select(Book).where(Book.id == book_id))
+            book = book_result.scalar_one_or_none()
+            
+            if book:
+                book.is_processing = False
+                book.descriptions_processing_error = error_msg
+                await db.commit()
+                
+                # Invalidate cache
+                from app.core.cache import cache_manager
+                pattern = f"user:{book.user_id}:books:*"
+                await cache_manager.delete_pattern(pattern)
+                
+    except Exception as e:
+        logger.error("Error in _handle_book_processing_error_async", error=str(e))
+
 
 
 async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
