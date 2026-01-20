@@ -243,7 +243,7 @@ export function useReadingSession({
         startMutation.mutate({ bookId, position: currentPosition });
       }
     }
-     
+
   }, [
     enabled,
     bookId,
@@ -338,10 +338,14 @@ export function useReadingSession({
    * Effect 4: End session on unmount
    * Uses refs to access current values without adding dependencies
    */
-  useEffect(() => {
-    // Store mutation ref to access in cleanup
-    const currentEndMutation = endMutation;
+  /**
+   * Effect 4: End session on unmount
+   * Uses refs to access current values without adding dependencies
+   */
+  // Destructure mutate to get a stable function reference
+  const { mutate: endSessionMutate } = endMutation;
 
+  useEffect(() => {
     return () => {
       // End session on component unmount
       if (sessionIdRef.current && !isEndingRef.current) {
@@ -351,7 +355,7 @@ export function useReadingSession({
         const position = positionRef.current;
 
         // Try to end session gracefully
-        currentEndMutation.mutate(
+        endSessionMutate(
           { sessionId, position },
           {
             onError: () => {
@@ -381,7 +385,7 @@ export function useReadingSession({
         clearInterval(intervalRef.current);
       }
     };
-  }, [endMutation]);
+  }, [endSessionMutate]);
 
   /**
    * Effect 5: beforeunload handler for graceful page close

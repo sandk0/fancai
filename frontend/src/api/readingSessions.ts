@@ -125,7 +125,7 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.post<any>(
+      const response = await apiClient.put<any>(
         `/reading-sessions/${sessionId}/end`,
         data
       );
