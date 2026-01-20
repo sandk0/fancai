@@ -36,11 +36,11 @@ class DescriptionType(enum.Enum):
     - ACTION: 30% (низший приоритет)
     """
 
-    LOCATION = "location"  # Локации (интерьеры, экстерьеры, природа)
-    CHARACTER = "character"  # Персонажи (внешность, одежда, эмоции)
-    ATMOSPHERE = "atmosphere"  # Атмосфера (время суток, погода, настроение)
-    OBJECT = "object"  # Объекты (оружие, артефакты, транспорт)
-    ACTION = "action"  # Действия/сцены (битвы, церемонии, события)
+    LOCATION = "LOCATION"  # Локации (интерьеры, экстерьеры, природа)
+    CHARACTER = "CHARACTER"  # Персонажи (внешность, одежда, эмоции)
+    ATMOSPHERE = "ATMOSPHERE"  # Атмосфера (время суток, погода, настроение)
+    OBJECT = "OBJECT"  # Объекты (оружие, артефакты, транспорт)
+    ACTION = "ACTION"  # Действия/сцены (битвы, церемонии, события)
 
 
 class Description(Base):

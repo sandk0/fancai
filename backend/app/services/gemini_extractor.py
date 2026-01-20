@@ -88,7 +88,7 @@ class ExtractedDescription:
         
         return {
             "content": self.content,
-            "type": self.description_type.value,
+            "type": self.description_type.value.upper(),
             "confidence_score": self.confidence,
             "priority_score": self._calculate_priority(),
             "source": "gemini_direct",

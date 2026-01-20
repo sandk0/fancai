@@ -22,7 +22,7 @@ from app.models.book import Book
 from app.models.chapter import Chapter
 from app.services.image_generator import image_generator_service
 from app.services.push_notification_service import push_notification_service
-from app.services.gemini_extractor import get_gemini_extractor, DescriptionType
+from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
 
 
@@ -139,6 +139,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Initialize services
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
+        
+        # Import DescriptionType for DB mapping
+        from app.models.description import DescriptionType
 
         # Проверяем доступность LLM
         llm_available = gemini_extractor.is_available()
