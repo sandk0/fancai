@@ -107,6 +107,10 @@ class Book(Base):
     is_processing = Column(Boolean, default=True, nullable=False)  # True while Celery task is running
     parsing_progress = Column(Integer, default=0, nullable=False)  # 0-100%
     parsing_error = Column(Text, nullable=True)
+    
+    # Статус обработки описаний (ручной запуск)
+    descriptions_extracted = Column(Boolean, default=False, nullable=False)  # Описания извлечены?
+    descriptions_processing_error = Column(Text, nullable=True)  # Ошибка обработки описаний
 
     # Временные метки
     created_at = Column(

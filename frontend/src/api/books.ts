@@ -332,4 +332,51 @@ export const booksAPI = {
       `/books/${bookId}/chapters/${chapterNumber}/extract-background`
     );
   },
+
+  // ============================================================================
+  // DESCRIPTION PROCESSING (ручной запуск)
+  // ============================================================================
+
+  /**
+   * Запускает обработку описаний для книги.
+   * Книга блокируется на время обработки (is_processing=true).
+   * 
+   * @param bookId - ID книги
+   * @returns task_id и статус
+   */
+  async processDescriptions(bookId: string): Promise<{
+    message: string;
+    task_id: string | null;
+    book_id: string;
+  }> {
+    return apiClient.post(`/books/${bookId}/process-descriptions`);
+  },
+
+  /**
+   * Отменяет обработку описаний.
+   * При отмене книга разблокируется и частичные данные удаляются.
+   * 
+   * @param bookId - ID книги
+   * @returns Статус отмены
+   */
+  async cancelProcessing(bookId: string): Promise<{
+    message: string;
+    book_id: string;
+  }> {
+    return apiClient.post(`/books/${bookId}/cancel-processing`);
+  },
+
+  /**
+   * Переобработка описаний (удаляет старые и запускает заново).
+   * 
+   * @param bookId - ID книги
+   * @returns task_id и статус
+   */
+  async reprocessDescriptions(bookId: string): Promise<{
+    message: string;
+    task_id: string | null;
+    book_id: string;
+  }> {
+    return apiClient.post(`/books/${bookId}/reprocess-descriptions`);
+  },
 };

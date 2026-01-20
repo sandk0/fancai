@@ -37,11 +37,11 @@ import { useAuthStore } from '@/stores/auth';
 // Conditional logging - only in development mode
 const devLog = import.meta.env.DEV
   ? (...args: unknown[]) => console.log('[useChapterManagement]', ...args)
-  : () => {};
+  : () => { };
 
 const devWarn = import.meta.env.DEV
   ? (...args: unknown[]) => console.warn('[useChapterManagement]', ...args)
-  : () => {};
+  : () => { };
 
 interface UseChapterManagementOptions {
   book: Book | null;
@@ -536,15 +536,11 @@ export const useChapterManagement = ({
         // Extraction happens on-demand when user navigates to the chapter.
       }
 
-      // Fire-and-forget: Trigger background extraction for next chapter
-      // This prepares descriptions asynchronously without blocking the UI
-      const nextChapterNumber = currentChapter + 1;
-      if (nextChapterNumber > 0) {
-        devLog(`Info: Triggering background extraction for chapter ${nextChapterNumber}`);
-        booksAPI.triggerBackgroundExtraction(bookId, nextChapterNumber)
-          .then(res => devLog(`Info: Background extraction: ${res.status}`))
-          .catch(err => devWarn('Warning: Background extraction failed:', err));
-      }
+      // REMOVED: Auto-extraction disabled (2026-01-20)
+      // Description extraction is now triggered manually via "Process Book" button
+      // to give users control over when/if to process descriptions
+      // const nextChapterNumber = currentChapter + 1;
+      // booksAPI.triggerBackgroundExtraction(...)
 
     } catch (error) {
       devWarn('Warning: Batch prefetch failed, falling back to individual calls:', error);

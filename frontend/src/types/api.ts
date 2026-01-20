@@ -89,6 +89,9 @@ export interface Book {
   has_cover: boolean;
   is_parsed: boolean;
   is_processing?: boolean;
+  // Статус обработки описаний (ручной запуск)
+  descriptions_extracted?: boolean;  // Описания успешно извлечены?
+  descriptions_processing_error?: string | null;  // Ошибка обработки
   created_at: string;
   last_accessed?: string;
 }

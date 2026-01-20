@@ -31,6 +31,10 @@ import {
   CheckCircle2,
   Loader2,
   CloudOff,
+  Sparkles,
+  RefreshCw,
+  Circle,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ParsingOverlay } from '@/components/UI/ParsingOverlay';
@@ -38,12 +42,14 @@ import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import type { Book as BookType } from '@/types/api';
 import { useEpubOffline } from '@/hooks/useEpubOffline';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useBookProcessing } from '@/hooks/useBookProcessing';
 
 interface BookCardProps {
   book: BookType;
   onClick: () => void;
   onParsingComplete?: () => void;
   onDelete?: (bookId: string) => void;
+  onProcessStart?: (bookId: string) => void;  // NEW: triggered when user clicks process button
 }
 
 /**
@@ -54,6 +60,7 @@ export const BookCard = memo(function BookCard({
   onClick,
   onParsingComplete,
   onDelete,
+  onProcessStart,
 }: BookCardProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -61,6 +68,14 @@ export const BookCard = memo(function BookCard({
 
   // Haptic feedback for mobile interactions
   const haptics = useHaptics();
+
+  // Description processing state
+  const {
+    processingState,
+    startProcessing,
+    cancelProcessing,
+    isStarting,
+  } = useBookProcessing(book);
 
   // Offline book management
   const {
@@ -190,11 +205,118 @@ export const BookCard = memo(function BookCard({
             }
           />
 
+          {/* === CENTER ACTION BUTTON for Description Processing === */}
+          <AnimatePresence>
+            {/* NOT PROCESSED - show sparkles button always */}
+            {processingState === 'not_processed' && !book.is_processing && (
+              <m.div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <m.button
+                  className={cn(
+                    "pointer-events-auto",
+                    "p-3.5 rounded-full shadow-xl backdrop-blur-md",
+                    "bg-[var(--color-accent-500)]/95 text-white",
+                    "hover:bg-[var(--color-accent-600)] hover:scale-110",
+                    "active:scale-95",
+                    "min-w-[52px] min-h-[52px]",
+                    "transition-all duration-200",
+                    "ring-2 ring-white/20"
+                  )}
+                  whileHover={{ scale: 1.1, boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.tap();
+                    startProcessing();
+                    onProcessStart?.(book.id);
+                  }}
+                  disabled={isStarting}
+                  aria-label="Обработать описания"
+                >
+                  {isStarting ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-6 h-6" />
+                  )}
+                </m.button>
+              </m.div>
+            )}
+
+            {/* PROCESSED - show reprocess button only on hover */}
+            {processingState === 'processed' && isHovered && !book.is_processing && (
+              <m.div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <m.button
+                  className={cn(
+                    "pointer-events-auto",
+                    "p-3 rounded-full shadow-lg backdrop-blur-md",
+                    "bg-muted/90 text-muted-foreground",
+                    "hover:bg-[var(--color-warning)]/90 hover:text-white",
+                    "min-w-[48px] min-h-[48px]",
+                    "transition-all duration-200"
+                  )}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.tap();
+                    startProcessing();  // Will trigger reprocess since already processed
+                    onProcessStart?.(book.id);
+                  }}
+                  disabled={isStarting}
+                  aria-label="Переобработать описания"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                </m.button>
+              </m.div>
+            )}
+
+            {/* ERROR - show retry button always */}
+            {processingState === 'error' && !book.is_processing && (
+              <m.div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <m.button
+                  className={cn(
+                    "pointer-events-auto",
+                    "p-3.5 rounded-full shadow-xl backdrop-blur-md",
+                    "bg-destructive/90 text-white",
+                    "hover:bg-destructive hover:scale-110",
+                    "min-w-[52px] min-h-[52px]"
+                  )}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptics.tap();
+                    startProcessing();
+                    onProcessStart?.(book.id);
+                  }}
+                  disabled={isStarting}
+                  aria-label="Повторить обработку"
+                >
+                  <AlertTriangle className="w-6 h-6" />
+                </m.button>
+              </m.div>
+            )}
+          </AnimatePresence>
+
           {/* Parsing Overlay */}
           {book.is_processing && onParsingComplete && (
             <ParsingOverlay
               bookId={book.id}
               onParsingComplete={onParsingComplete}
+              onCancel={cancelProcessing}
               forceBlock={false}
             />
           )}
@@ -403,16 +525,45 @@ export const BookCard = memo(function BookCard({
           </AnimatePresence>
         </div>
 
-        {/* Book Info */}
+        {/* Book Info with Status Badge */}
         <div className="mt-3 px-1">
-          {/* Title - 2 lines max */}
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground mb-1">
-            {book.title}
-          </h3>
-          {/* Author - 1 line max */}
-          <p className="text-xs text-muted-foreground line-clamp-1">
-            {book.author}
-          </p>
+          <div className="flex items-start gap-2">
+            {/* Title and Author */}
+            <div className="flex-1 min-w-0">
+              {/* Title - 2 lines max */}
+              <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground mb-1">
+                {book.title}
+              </h3>
+              {/* Author - 1 line max */}
+              <p className="text-xs text-muted-foreground line-clamp-1">
+                {book.author}
+              </p>
+            </div>
+
+            {/* Status Badge */}
+            <div className="flex-shrink-0 mt-0.5">
+              {processingState === 'processed' && (
+                <span title="Описания обработаны">
+                  <CheckCircle2 className="w-4 h-4 text-[var(--color-success)]" />
+                </span>
+              )}
+              {processingState === 'not_processed' && (
+                <span title="Описания не обработаны">
+                  <Circle className="w-4 h-4 text-muted-foreground" />
+                </span>
+              )}
+              {processingState === 'processing' && (
+                <span title="Обработка...">
+                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                </span>
+              )}
+              {processingState === 'error' && (
+                <span title="Ошибка обработки">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </m.div>

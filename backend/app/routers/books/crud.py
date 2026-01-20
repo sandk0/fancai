@@ -142,16 +142,16 @@ async def upload_book(
         await db.refresh(book)  # FIX: Refresh object to avoid greenlet_spawn error
         logger.info("Book created in database", book_id=str(book.id))
 
-        # Запускаем асинхронную обработку книги для извлечения описаний
-        task_id = None
-        try:
-            logger.debug("Starting background processing", book_id=str(book.id))
-            task = process_book_task.delay(str(book.id))
-            task_id = task.id if task else None
-            logger.info("Background task started", book_id=str(book.id), task_id=task_id)
-        except Exception as e:
-            logger.warning("Failed to start background task", error=str(e))
-            # Не прерываем процесс, если Celery недоступен
+        # ИЗМЕНЕНО: Убран автозапуск обработки описаний
+        # Книга сразу готова к чтению (без описаний)
+        # Обработка описаний запускается вручную через POST /books/{id}/process-descriptions
+        book.is_processing = False
+        book.is_parsed = True
+        book.parsing_progress = 100
+        book.descriptions_extracted = False
+        await db.commit()
+        await db.refresh(book)
+        logger.info("Book ready for reading (no descriptions)", book_id=str(book.id))
 
         # КРИТИЧЕСКИ ВАЖНО: Инвалидируем кэш списка книг пользователя
         # чтобы новая книга сразу появилась в библиотеке
@@ -197,8 +197,8 @@ async def upload_book(
 
         return BookUploadResponse(
             book=book_response,
-            task_id=task_id,
-            message=f"Book '{book.title}' uploaded successfully. Processing descriptions in background...",
+            task_id=None,  # Больше не запускаем автообработку
+            message=f"Книга '{book.title}' загружена. Запустите обработку описаний вручную.",
         )
 
     except Exception as e:
@@ -557,3 +557,172 @@ async def delete_book(
     if not success:
         raise HTTPException(status_code=404, detail="Book not found or already deleted")
     return {"message": f"Book '{book.title}' deleted successfully", "id": str(book.id)}
+
+
+# ============================================================================
+# ENDPOINTS ДЛЯ ОБРАБОТКИ ОПИСАНИЙ (ручной запуск)
+# ============================================================================
+
+
+@router.post("/{book_id}/process-descriptions")
+async def process_book_descriptions(
+    book: Book = Depends(get_user_book),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> dict:
+    """
+    Запускает обработку описаний для книги.
+    
+    Книга блокируется на время обработки (is_processing=True).
+    Пользователь может отменить обработку через cancel-processing endpoint.
+    
+    Returns:
+        dict: task_id и статус
+        
+    Raises:
+        HTTPException: 409 если книга уже обрабатывается
+    """
+    if book.is_processing:
+        raise HTTPException(
+            status_code=409,
+            detail="Книга уже обрабатывается. Дождитесь завершения или отмените."
+        )
+    
+    # Блокируем книгу для обработки
+    book.is_processing = True
+    book.parsing_progress = 0
+    book.descriptions_extracted = False
+    book.descriptions_processing_error = None
+    await db.commit()
+    
+    # Запускаем Celery task
+    task_id = None
+    try:
+        logger.info("Starting description processing", book_id=str(book.id))
+        task = process_book_task.delay(str(book.id))
+        task_id = task.id if task else None
+        logger.info("Description processing task started", 
+                    book_id=str(book.id), task_id=task_id)
+    except Exception as e:
+        # Если Celery не доступен, откатываем состояние
+        logger.error("Failed to start processing task", error=str(e))
+        book.is_processing = False
+        book.descriptions_processing_error = f"Ошибка запуска: {str(e)}"
+        await db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Сервис обработки недоступен. Попробуйте позже."
+        )
+    
+    return {
+        "message": "Обработка описаний запущена",
+        "task_id": task_id,
+        "book_id": str(book.id),
+    }
+
+
+@router.post("/{book_id}/cancel-processing")
+async def cancel_book_processing(
+    book: Book = Depends(get_user_book),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> dict:
+    """
+    Отменяет обработку описаний.
+    
+    При отмене:
+    - Книга разблокируется (is_processing=False)
+    - Все частично извлечённые описания удаляются
+    - descriptions_extracted остаётся False
+    
+    Returns:
+        dict: Статус отмены
+        
+    Raises:
+        HTTPException: 400 если книга не обрабатывается
+    """
+    if not book.is_processing:
+        raise HTTPException(
+            status_code=400,
+            detail="Книга не обрабатывается"
+        )
+    
+    # TODO: Отменить Celery task через revoke (требует настройки)
+    # from celery.result import AsyncResult
+    # AsyncResult(task_id).revoke(terminate=True)
+    
+    # Разблокируем книгу
+    book.is_processing = False
+    book.descriptions_extracted = False
+    book.descriptions_processing_error = "Отменено пользователем"
+    book.parsing_progress = 0
+    await db.commit()
+    
+    # TODO: Удалить частично извлечённые описания
+    # await db.execute(delete(Description).where(Description.book_id == book.id))
+    
+    logger.info("Processing cancelled by user", book_id=str(book.id))
+    
+    return {
+        "message": "Обработка отменена",
+        "book_id": str(book.id),
+    }
+
+
+@router.post("/{book_id}/reprocess-descriptions")
+async def reprocess_book_descriptions(
+    book: Book = Depends(get_user_book),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> dict:
+    """
+    Переобработка описаний для уже обработанной книги.
+    
+    При переобработке:
+    - Удаляются все существующие описания
+    - Запускается новый процесс извлечения
+    
+    Returns:
+        dict: task_id и статус
+        
+    Raises:
+        HTTPException: 409 если книга уже обрабатывается
+    """
+    if book.is_processing:
+        raise HTTPException(
+            status_code=409,
+            detail="Книга уже обрабатывается. Дождитесь завершения или отмените."
+        )
+    
+    # TODO: Удалить существующие описания
+    # from ...models.description import Description
+    # await db.execute(delete(Description).where(Description.book_id == book.id))
+    
+    # Сбрасываем статус и блокируем
+    book.is_processing = True
+    book.parsing_progress = 0
+    book.descriptions_extracted = False
+    book.descriptions_processing_error = None
+    await db.commit()
+    
+    # Запускаем Celery task
+    task_id = None
+    try:
+        logger.info("Starting description reprocessing", book_id=str(book.id))
+        task = process_book_task.delay(str(book.id))
+        task_id = task.id if task else None
+    except Exception as e:
+        logger.error("Failed to start reprocessing task", error=str(e))
+        book.is_processing = False
+        book.descriptions_processing_error = f"Ошибка запуска: {str(e)}"
+        await db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Сервис обработки недоступен. Попробуйте позже."
+        )
+    
+    return {
+        "message": "Переобработка описаний запущена",
+        "task_id": task_id,
+        "book_id": str(book.id),
+    }

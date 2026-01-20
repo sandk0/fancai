@@ -118,19 +118,20 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
         logger.info("Found chapters", book_id=str(book_id), chapters_count=len(chapters))
 
-        # Парсим первые 5 глав с помощью LLM (increased from 2 for better UX)
-        # UPDATED (2025-12-25): Expanded pre-parsing for faster initial experience
+        # ИЗМЕНЕНО: Обрабатываем ВСЕ главы книги (ранее было только 5)
+        # Теперь обработка запускается вручную, поэтому обрабатываем полностью
         chapters_parsed = 0
         total_descriptions = 0
-        CHAPTERS_TO_PREPARSE = 5
+        total_chapters = len(chapters)
 
         if llm_available and chapters:
-            for chapter in chapters[:CHAPTERS_TO_PREPARSE]:
+            for idx, chapter in enumerate(chapters):
                 try:
                     logger.debug(
                         "Parsing chapter",
                         chapter_number=chapter.chapter_number,
                         chapter_title=chapter.title,
+                        progress=f"{idx+1}/{total_chapters}",
                     )
 
                     # Пропускаем служебные страницы
@@ -171,6 +172,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         )
                         chapter.is_description_parsed = True
                         chapter.parsed_at = datetime.now(timezone.utc)
+                        chapters_parsed += 1
+                        # Обновляем прогресс после каждой главы
+                        book.parsing_progress = int((chapters_parsed / total_chapters) * 100)
+                        await db.commit()
                         continue
 
                     # Извлекаем описания через LLM
@@ -215,9 +220,16 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     chapter.parsed_at = datetime.now(timezone.utc)
                     chapters_parsed += 1
 
-                    # Обновляем прогресс книги (но НЕ коммитим ещё)
-                    book.parsing_progress = int((chapters_parsed / CHAPTERS_TO_PREPARSE) * 100)
-                    # P2.2: Removed per-chapter commit, will batch commit below
+                    # Обновляем прогресс книги и коммитим каждую главу
+                    # (для real-time отображения прогресса в UI)
+                    book.parsing_progress = int((chapters_parsed / total_chapters) * 100)
+                    await db.commit()
+                    
+                    logger.debug(
+                        "Chapter processed",
+                        chapter_number=chapter.chapter_number,
+                        progress=book.parsing_progress,
+                    )
 
                 except Exception as e:
                     logger.error(
@@ -229,15 +241,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     # Продолжаем с следующей главой
                     continue
 
-            # P2.2: BATCH COMMIT after all chapters processed (was: commit per chapter)
-            # Saves ~200ms (5 chapters * 40ms per commit)
-            await db.commit()
-            logger.info("Batch committed chapters", chapters_parsed=chapters_parsed)
-
-        # Помечаем книгу как готовую
+        # Помечаем книгу как готовую с извлечёнными описаниями
         book.is_processing = False
         book.is_parsed = True
         book.parsing_progress = 100
+        book.descriptions_extracted = True  # НОВОЕ: флаг успешного извлечения
+        book.descriptions_processing_error = None  # Сбрасываем ошибку
         await db.commit()
 
         # Инвалидируем кэш
@@ -257,8 +266,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             "chapters_preparsed": chapters_parsed,
             "descriptions_extracted": total_descriptions,
             "llm_available": llm_available,
-            "extraction_mode": "preparse_first_chapters",
-            "message": f"Book ready. Pre-parsed {chapters_parsed} chapters with {total_descriptions} descriptions."
+            "extraction_mode": "full_book",  # ИЗМЕНЕНО с preparse_first_chapters
+            "message": f"Book fully processed. {chapters_parsed} chapters with {total_descriptions} descriptions."
         }
 
         logger.info(
