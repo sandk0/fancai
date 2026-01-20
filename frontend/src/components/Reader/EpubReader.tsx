@@ -622,546 +622,501 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       isMounted = false;
     };
   }, [rendition, renditionReady, book.id, hasRestoredForCurrentBook, markPositionRestored, goToCFI, skipNextRelocated, setInitialProgress]);
-  if (savedProgress.current_position > 0 && locations) {
-    // Try to restore by percentage
-    try {
-      const fallbackCfi = locations.cfiFromPercentage(savedProgress.current_position / 100);
-      if (fallbackCfi) {
-        await rendition.display(fallbackCfi);
-        setInitialProgress(fallbackCfi, savedProgress.current_position);
-      } else {
-        throw new Error('Could not generate CFI from percentage');
-      }
-    } catch (_fallbackError) {
-      await rendition.display();
-    }
-  } else {
-    // No percentage or locations - show first page
-    await rendition.display();
-  }
-}
-        } else {
-  // No saved progress or no CFI - show first page
-  console.log('[EpubReader] ⚠️ No CFI found, showing first page. savedProgress:', savedProgress ? 'exists but no CFI' : 'null');
-  await rendition.display();
-}
 
-        // Note: markPositionRestored() was called before async started to prevent race condition
-      } catch (err) {
-  console.error('[EpubReader] Error initializing position:', err);
-  // On any error, try to show first page
-  try {
-    await rendition.display();
-  } catch (displayErr) {
-    console.error('[EpubReader] Could not even display first page:', displayErr);
-  }
-} finally {
-  if (isMounted && !positionConflict) {
-    setIsRestoringPosition(false);
-  }
-}
+
+  /**
+   * Handle image regeneration
+   */
+  const handleImageRegenerated = useCallback((newImageUrl: string) => {
+    updateImage(newImageUrl);
+  }, [updateImage]);
+
+  /**
+   * Handle position conflict resolution - use server position
+   */
+  const handleUseServerPosition = useCallback(async () => {
+    if (!rendition || !positionConflict) return;
+
+    try {
+      skipNextRelocated(); // Skip auto-save on restored position
+
+      if (positionConflict.serverPosition.cfi) {
+        await goToCFI(positionConflict.serverPosition.cfi);
+        setInitialProgress(positionConflict.serverPosition.cfi, positionConflict.serverPosition.progress);
+      } else if (locations && positionConflict.serverPosition.progress > 0) {
+        // Fallback to percentage if no CFI
+        const fallbackCfi = locations.cfiFromPercentage(positionConflict.serverPosition.progress / 100);
+        if (fallbackCfi) {
+          await rendition.display(fallbackCfi);
+          setInitialProgress(fallbackCfi, positionConflict.serverPosition.progress);
+        }
+      }
+
+      // Update local backup to match server
+      const localBackupKey = `book_${book.id}_progress_backup`;
+      localStorage.setItem(localBackupKey, JSON.stringify({
+        reading_location_cfi: positionConflict.serverPosition.cfi,
+        current_position: positionConflict.serverPosition.progress,
+        savedAt: Date.now(),
+      }));
+
+      markPositionRestored();
+      setPositionConflict(null);
+      setIsRestoringPosition(false);
+
+      notify.success('Позиция восстановлена', `Продолжаем с ${Math.round(positionConflict.serverPosition.progress)}%`);
+    } catch (err) {
+      console.error('[EpubReader] Error navigating to server position:', err);
+      notify.error('Ошибка', 'Не удалось перейти к сохраненной позиции');
+      setPositionConflict(null);
+      setIsRestoringPosition(false);
+    }
+  }, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, book.id, markPositionRestored]);
+
+  /**
+   * Handle position conflict resolution - use local position
+   */
+  const handleUseLocalPosition = useCallback(async () => {
+    if (!rendition || !positionConflict) return;
+
+    try {
+      skipNextRelocated(); // Skip auto-save on restored position
+
+      if (positionConflict.localPosition.cfi) {
+        await goToCFI(positionConflict.localPosition.cfi);
+        setInitialProgress(positionConflict.localPosition.cfi, positionConflict.localPosition.progress);
+      } else if (locations && positionConflict.localPosition.progress > 0) {
+        // Fallback to percentage if no CFI
+        const fallbackCfi = locations.cfiFromPercentage(positionConflict.localPosition.progress / 100);
+        if (fallbackCfi) {
+          await rendition.display(fallbackCfi);
+          setInitialProgress(fallbackCfi, positionConflict.localPosition.progress);
+        }
+      }
+
+      markPositionRestored();
+      setPositionConflict(null);
+      setIsRestoringPosition(false);
+
+      notify.success('Позиция восстановлена', `Продолжаем с ${Math.round(positionConflict.localPosition.progress)}%`);
+    } catch (err) {
+      console.error('[EpubReader] Error navigating to local position:', err);
+      notify.error('Ошибка', 'Не удалось перейти к локальной позиции');
+      setPositionConflict(null);
+      setIsRestoringPosition(false);
+    }
+  }, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, markPositionRestored]);
+
+  // Hook 19: (LEGACY - replaced by useRenditionHealthGuard in Hook 1.5)
+  // The new hook handles visibility change, pagehide, and pageshow events
+  // with faster detection (100ms vs 500ms) and proactive state management.
+  // This hook is kept as a safety net for edge cases where Hook 1.5 might miss.
+  // It only runs a secondary check if the new guard passed but rendition is still invalid.
+  useEffect(() => {
+    // Secondary safety check - runs 1 second after resume if health guard passed
+    // but component still seems broken (edge case protection)
+    const handleVisibility = async () => {
+      if (document.visibilityState === 'visible' && rendition && isRenditionHealthy) {
+        setTimeout(async () => {
+          try {
+            // Quick validation - if this fails, the health guard should have caught it
+            const loc = rendition.currentLocation();
+            if (!loc || !loc.start || !loc.end) {
+              throw new Error('Secondary check: Rendition still corrupted');
+            }
+          } catch (e) {
+            // Health guard should have caught this - log for debugging
+            console.warn('[EpubReader] Secondary health check failed (edge case):', e);
+            // Don't trigger reload here - trust the health guard
+          }
+        }, 1000); // 1 second delay - well after health guard has run
+      }
     };
 
-initializePosition();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [rendition, isRenditionHealthy]);
 
-return () => {
-  isMounted = false;
-};
-  }, [rendition, renditionReady, book.id, locations, goToCFI, skipNextRelocated, setInitialProgress, positionConflict, hasRestoredForCurrentBook, markPositionRestored]);
-
-/**
- * Handle image regeneration
- */
-const handleImageRegenerated = useCallback((newImageUrl: string) => {
-  updateImage(newImageUrl);
-}, [updateImage]);
-
-/**
- * Handle position conflict resolution - use server position
- */
-const handleUseServerPosition = useCallback(async () => {
-  if (!rendition || !positionConflict) return;
-
-  try {
-    skipNextRelocated(); // Skip auto-save on restored position
-
-    if (positionConflict.serverPosition.cfi) {
-      await goToCFI(positionConflict.serverPosition.cfi);
-      setInitialProgress(positionConflict.serverPosition.cfi, positionConflict.serverPosition.progress);
-    } else if (locations && positionConflict.serverPosition.progress > 0) {
-      // Fallback to percentage if no CFI
-      const fallbackCfi = locations.cfiFromPercentage(positionConflict.serverPosition.progress / 100);
-      if (fallbackCfi) {
-        await rendition.display(fallbackCfi);
-        setInitialProgress(fallbackCfi, positionConflict.serverPosition.progress);
-      }
+  // Get background color based on theme - memoized to prevent recalculation
+  // Use explicit colors instead of CSS variables to prevent flash during initial render
+  const backgroundColor = useMemo(() => {
+    switch (theme) {
+      case 'light':
+        return 'bg-white';
+      case 'sepia':
+        return 'bg-[#FBF0D9]';
+      case 'dark':
+        return 'bg-[#121212]';
+      case 'night':
+        return 'bg-black';
+      default:
+        return 'bg-[#121212]';
     }
+  }, [theme]);
 
-    // Update local backup to match server
-    const localBackupKey = `book_${book.id}_progress_backup`;
-    localStorage.setItem(localBackupKey, JSON.stringify({
-      reading_location_cfi: positionConflict.serverPosition.cfi,
-      current_position: positionConflict.serverPosition.progress,
-      savedAt: Date.now(),
-    }));
+  // Theme color mapping for meta tag and body background
+  const themeColors: Record<string, string> = useMemo(() => ({
+    light: '#ffffff',
+    dark: '#121212',
+    sepia: '#FBF0D9',
+    night: '#000000',
+    outdoor: '#FFFEF5',
+  }), []);
 
-    markPositionRestored();
-    setPositionConflict(null);
-    setIsRestoringPosition(false);
+  // Sync theme-color meta tag and body background with reader theme
+  // This ensures iOS Safari's address bar and Home Indicator area match the reader
+  useEffect(() => {
+    const themeColor = themeColors[theme] || themeColors.light;
 
-    notify.success('Позиция восстановлена', `Продолжаем с ${Math.round(positionConflict.serverPosition.progress)}%`);
-  } catch (err) {
-    console.error('[EpubReader] Error navigating to server position:', err);
-    notify.error('Ошибка', 'Не удалось перейти к сохраненной позиции');
-    setPositionConflict(null);
-    setIsRestoringPosition(false);
-  }
-}, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, book.id, markPositionRestored]);
+    // Update body background color to extend behind safe areas
+    document.body.style.backgroundColor = themeColor;
 
-/**
- * Handle position conflict resolution - use local position
- */
-const handleUseLocalPosition = useCallback(async () => {
-  if (!rendition || !positionConflict) return;
-
-  try {
-    skipNextRelocated(); // Skip auto-save on restored position
-
-    if (positionConflict.localPosition.cfi) {
-      await goToCFI(positionConflict.localPosition.cfi);
-      setInitialProgress(positionConflict.localPosition.cfi, positionConflict.localPosition.progress);
-    } else if (locations && positionConflict.localPosition.progress > 0) {
-      // Fallback to percentage if no CFI
-      const fallbackCfi = locations.cfiFromPercentage(positionConflict.localPosition.progress / 100);
-      if (fallbackCfi) {
-        await rendition.display(fallbackCfi);
-        setInitialProgress(fallbackCfi, positionConflict.localPosition.progress);
-      }
-    }
-
-    markPositionRestored();
-    setPositionConflict(null);
-    setIsRestoringPosition(false);
-
-    notify.success('Позиция восстановлена', `Продолжаем с ${Math.round(positionConflict.localPosition.progress)}%`);
-  } catch (err) {
-    console.error('[EpubReader] Error navigating to local position:', err);
-    notify.error('Ошибка', 'Не удалось перейти к локальной позиции');
-    setPositionConflict(null);
-    setIsRestoringPosition(false);
-  }
-}, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, markPositionRestored]);
-
-// Hook 19: (LEGACY - replaced by useRenditionHealthGuard in Hook 1.5)
-// The new hook handles visibility change, pagehide, and pageshow events
-// with faster detection (100ms vs 500ms) and proactive state management.
-// This hook is kept as a safety net for edge cases where Hook 1.5 might miss.
-// It only runs a secondary check if the new guard passed but rendition is still invalid.
-useEffect(() => {
-  // Secondary safety check - runs 1 second after resume if health guard passed
-  // but component still seems broken (edge case protection)
-  const handleVisibility = async () => {
-    if (document.visibilityState === 'visible' && rendition && isRenditionHealthy) {
-      setTimeout(async () => {
-        try {
-          // Quick validation - if this fails, the health guard should have caught it
-          const loc = rendition.currentLocation();
-          if (!loc || !loc.start || !loc.end) {
-            throw new Error('Secondary check: Rendition still corrupted');
-          }
-        } catch (e) {
-          // Health guard should have caught this - log for debugging
-          console.warn('[EpubReader] Secondary health check failed (edge case):', e);
-          // Don't trigger reload here - trust the health guard
-        }
-      }, 1000); // 1 second delay - well after health guard has run
-    }
-  };
-
-  document.addEventListener('visibilitychange', handleVisibility);
-  return () => document.removeEventListener('visibilitychange', handleVisibility);
-}, [rendition, isRenditionHealthy]);
-
-// Get background color based on theme - memoized to prevent recalculation
-// Use explicit colors instead of CSS variables to prevent flash during initial render
-const backgroundColor = useMemo(() => {
-  switch (theme) {
-    case 'light':
-      return 'bg-white';
-    case 'sepia':
-      return 'bg-[#FBF0D9]';
-    case 'dark':
-      return 'bg-[#121212]';
-    case 'night':
-      return 'bg-black';
-    default:
-      return 'bg-[#121212]';
-  }
-}, [theme]);
-
-// Theme color mapping for meta tag and body background
-const themeColors: Record<string, string> = useMemo(() => ({
-  light: '#ffffff',
-  dark: '#121212',
-  sepia: '#FBF0D9',
-  night: '#000000',
-  outdoor: '#FFFEF5',
-}), []);
-
-// Sync theme-color meta tag and body background with reader theme
-// This ensures iOS Safari's address bar and Home Indicator area match the reader
-useEffect(() => {
-  const themeColor = themeColors[theme] || themeColors.light;
-
-  // Update body background color to extend behind safe areas
-  document.body.style.backgroundColor = themeColor;
-
-  // Update the reader-specific theme-color meta tag
-  const readerThemeColorMeta = document.getElementById('reader-theme-color') as HTMLMetaElement | null;
-  if (readerThemeColorMeta) {
-    readerThemeColorMeta.setAttribute('content', themeColor);
-  }
-
-  // Also update the general theme-color meta tags for better PWA support
-  const lightThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: light)"]');
-  const darkThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]');
-
-  if (lightThemeMeta) {
-    lightThemeMeta.setAttribute('content', themeColor);
-  }
-  if (darkThemeMeta) {
-    darkThemeMeta.setAttribute('content', themeColor);
-  }
-
-  // Cleanup: restore original colors when leaving reader
-  return () => {
-    document.body.style.backgroundColor = '';
-
-    // Restore original theme colors based on system preference
+    // Update the reader-specific theme-color meta tag
+    const readerThemeColorMeta = document.getElementById('reader-theme-color') as HTMLMetaElement | null;
     if (readerThemeColorMeta) {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      readerThemeColorMeta.setAttribute('content', prefersDark ? '#121212' : '#ffffff');
+      readerThemeColorMeta.setAttribute('content', themeColor);
     }
+
+    // Also update the general theme-color meta tags for better PWA support
+    const lightThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: light)"]');
+    const darkThemeMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]');
 
     if (lightThemeMeta) {
-      lightThemeMeta.setAttribute('content', '#ffffff');
+      lightThemeMeta.setAttribute('content', themeColor);
     }
     if (darkThemeMeta) {
-      darkThemeMeta.setAttribute('content', '#121212');
+      darkThemeMeta.setAttribute('content', themeColor);
     }
-  };
-}, [theme, themeColors]);
+
+    // Cleanup: restore original colors when leaving reader
+    return () => {
+      document.body.style.backgroundColor = '';
+
+      // Restore original theme colors based on system preference
+      if (readerThemeColorMeta) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        readerThemeColorMeta.setAttribute('content', prefersDark ? '#121212' : '#ffffff');
+      }
+
+      if (lightThemeMeta) {
+        lightThemeMeta.setAttribute('content', '#ffffff');
+      }
+      if (darkThemeMeta) {
+        darkThemeMeta.setAttribute('content', '#121212');
+      }
+    };
+  }, [theme, themeColors]);
 
 
 
-// Main render - viewerRef MUST stay in same DOM location to prevent rendition destruction
-return (
-  <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
-    {/* EPUB Viewer - Maximum reading space, with safe-area support */}
-    {/* Header always visible - padding accounts for 70px header height */}
-    {/* Swipe touch handlers attached for swipe navigation mode */}
-    <div
-      ref={viewerRef}
-      id="epub-viewer"
-      tabIndex={-1}
-      className={`h-full w-full ${backgroundColor} outline-none`}
-      style={{
-        paddingTop: 'calc(70px + env(safe-area-inset-top))',
-        paddingLeft: 'env(safe-area-inset-left)',
-        paddingRight: 'env(safe-area-inset-right)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        // pan-x pan-y: allows panning (harmless on fixed container), explicitly EXCLUDES pinch-zoom
-        // Note: 'manipulation' = 'pan-x pan-y pinch-zoom' which ALLOWS zoom - don't use it!
-        // Vertical bounce prevented by overscroll-behavior: none on container
-        // Safari pinch-zoom additionally blocked by gesture event prevention in BookReaderPage
-        touchAction: 'pan-x pan-y',
-      }}
-      {...(effectiveNavigationMode === 'swipe' ? swipeTouchHandlers : {})}
-    />
-
-    {/* Swipe Navigation Overlay - Shows visual feedback during swipe gestures */}
-    {effectiveNavigationMode === 'swipe' && isMobileDevice && (
-      <SwipeOverlay
-        swipeState={swipeState}
-        viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 375}
-        headerHeight={70}
-      />
-    )}
-
-    {/* Tap navigation zones - only shown on iOS when NOT using swipe, or for center zone description clicks */}
-    {/* On iOS with swipe mode, IOSTapZones only handles center zone for description clicks */}
-    {/* On Android/Desktop with tap mode, useTouchNavigation handles navigation */}
-    {isIOS() && (
-      <IOSTapZones
-        onPrevPage={prevPage}
-        onNextPage={nextPage}
-        onDescriptionClick={async (descriptionId: string) => {
-          // Find description by ID
-          const desc = descriptions.find(d => d.id === descriptionId);
-          if (desc) {
-            // Find associated image
-            const img = images.find(i => i.description?.id === descriptionId);
-            await openModal(desc, img);
-          }
-        }}
-        onCenterTap={async (x: number, y: number) => {
-          // NEW (January 2026): Find description at coordinates via rendition.getContents()
-          // This replaces the broken BroadcastChannel/postMessage approach
-          // which doesn't work with blob: URL iframes on iOS Safari
-          if (!rendition) return;
-
-          try {
-            const contents = rendition.getContents();
-            if (!contents || contents.length === 0) return;
-
-            const iframe = contents[0];
-            const doc = iframe.document;
-            if (!doc) return;
-
-            // Find element at the tap coordinates
-            const elementAtPoint = doc.elementFromPoint(x, y);
-            if (!elementAtPoint) return;
-
-            // Walk up the DOM tree to find description-highlight
-            let target: HTMLElement | null = elementAtPoint as HTMLElement;
-            let descriptionId: string | null = null;
-
-            while (target && target !== doc.body) {
-              if (target.classList?.contains('description-highlight')) {
-                descriptionId = target.getAttribute('data-description-id');
-                break;
-              }
-              target = target.parentElement;
-            }
-
-            if (descriptionId) {
-              // Found description - open modal
-              const desc = descriptions.find(d => d.id === descriptionId);
-              if (desc) {
-                const img = images.find(i => i.description?.id === descriptionId);
-                await openModal(desc, img);
-              }
-            }
-          } catch (err) {
-            console.error('[EpubReader] Error finding description at coordinates:', err);
-          }
-        }}
-        enabled={!isLoading && !isGenerating && !error}
-        headerHeight={70}
-        navigationEnabled={effectiveNavigationMode === 'tap'}
-      />
-    )}
-
-    {/* Loading Overlay - includes health check state for PWA resume */}
-    {(isLoading || isGenerating || isRestoringPosition || isCheckingHealth || (!isRenditionHealthy && renditionReady)) && (
+  // Main render - viewerRef MUST stay in same DOM location to prevent rendition destruction
+  return (
+    <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
+      {/* EPUB Viewer - Maximum reading space, with safe-area support */}
+      {/* Header always visible - padding accounts for 70px header height */}
+      {/* Swipe touch handlers attached for swipe navigation mode */}
       <div
-        className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}
-        data-testid="loading-overlay"
-        aria-busy="true"
-        aria-live="assertive"
-        role="status"
-      >
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true"></div>
-          <p className={theme === 'light' ? 'text-foreground' : theme === 'sepia' ? 'text-amber-800' : 'text-foreground'} data-testid="loading-text">
-            {isCheckingHealth || (!isRenditionHealthy && renditionReady)
-              ? 'Восстановление сессии...'
-              : isRestoringPosition
-                ? 'Восстановление позиции...'
-                : isGenerating
-                  ? 'Подготовка книги...'
-                  : 'Загрузка книги...'}
-          </p>
-        </div>
-      </div>
-    )}
-
-    {/* Error Overlay */}
-    {error && (
-      <div className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}>
-        <div className="text-center max-w-md mx-4">
-          {/* Error Icon */}
-          <div className="mb-6">
-            <svg
-              className="w-16 h-16 mx-auto text-red-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-
-          {/* Error Title */}
-          <h3 className={`text-xl font-semibold mb-3 ${theme === 'light' ? 'text-foreground' : theme === 'sepia' ? 'text-amber-900' : 'text-foreground'}`}>
-            Не удалось загрузить книгу
-          </h3>
-
-          {/* Human-readable Error Message */}
-          <p className={`mb-6 ${theme === 'light' ? 'text-muted-foreground' : theme === 'sepia' ? 'text-amber-700' : 'text-muted-foreground'}`}>
-            {getHumanReadableError(error)}
-          </p>
-
-          {/* Technical Error (collapsed by default, for debugging) */}
-          <details className={`mb-6 text-left ${theme === 'light' ? 'text-muted-foreground' : theme === 'sepia' ? 'text-amber-600' : 'text-muted-foreground'}`}>
-            <summary className="cursor-pointer text-sm hover:text-blue-500 transition-colors">
-              Техническая информация
-            </summary>
-            <pre className={`mt-2 p-3 rounded text-xs overflow-x-auto ${theme === 'light' ? 'bg-muted' : theme === 'sepia' ? 'bg-amber-100' : 'bg-muted'}`}>
-              {error}
-            </pre>
-          </details>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={reload}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Попробовать снова
-            </button>
-            <button
-              onClick={() => navigate('/library')}
-              className={`px-6 py-2.5 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2
-                  ${theme === 'light'
-                  ? 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
-                  : theme === 'sepia'
-                    ? 'bg-amber-200 hover:bg-amber-300 text-amber-900 focus:ring-amber-400'
-                    : 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
-                }`}
-            >
-              В библиотеку
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Modern Reader Header - Theme-aware with all controls and progress */}
-    {/* Always visible - tap zones removed */}
-    {renditionReady && !isLoading && !isGenerating && !isRestoringPosition && metadata && (
-      <ReaderHeader
-        title={metadata.title}
-        author={metadata.creator}
-        progress={progress}
-        currentPage={currentPage ?? undefined}
-        totalPages={totalPages ?? undefined}
-        onBack={() => navigate(-1)}
-        onTocToggle={() => setIsTocOpen(!isTocOpen)}
-        onInfoOpen={() => setIsBookInfoOpen(true)}
-        onSettingsOpen={() => setIsSettingsOpen(true)}
+        ref={viewerRef}
+        id="epub-viewer"
+        tabIndex={-1}
+        className={`h-full w-full ${backgroundColor} outline-none`}
+        style={{
+          paddingTop: 'calc(70px + env(safe-area-inset-top))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          // pan-x pan-y: allows panning (harmless on fixed container), explicitly EXCLUDES pinch-zoom
+          // Note: 'manipulation' = 'pan-x pan-y pinch-zoom' which ALLOWS zoom - don't use it!
+          // Vertical bounce prevented by overscroll-behavior: none on container
+          // Safari pinch-zoom additionally blocked by gesture event prevention in BookReaderPage
+          touchAction: 'pan-x pan-y',
+        }}
+        {...(effectiveNavigationMode === 'swipe' ? swipeTouchHandlers : {})}
       />
-    )}
 
-    {/* Settings Dropdown (hidden, triggered by header button) */}
-    {renditionReady && !isLoading && !isGenerating && !isRestoringPosition && (
-      <div className="fixed top-16 right-4 z-[100]">
-        <ReaderControls
-          theme={theme}
-          fontSize={fontSize}
-          onThemeChange={setTheme}
-          onFontSizeIncrease={increaseFontSize}
-          onFontSizeDecrease={decreaseFontSize}
-          isOpen={isSettingsOpen}
-          onOpenChange={setIsSettingsOpen}
-          wakeLockEnabled={wakeLockEnabled}
-          wakeLockSupported={isWakeLockSupported}
-          wakeLockActive={isWakeLockActive}
-          onWakeLockChange={handleWakeLockToggle}
-          navigationMode={navigationMode}
-          onNavigationModeChange={updateNavigationMode}
+      {/* Swipe Navigation Overlay - Shows visual feedback during swipe gestures */}
+      {effectiveNavigationMode === 'swipe' && isMobileDevice && (
+        <SwipeOverlay
+          swipeState={swipeState}
+          viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 375}
+          headerHeight={70}
         />
-      </div>
-    )}
+      )}
 
-    {/* Description Extraction Indicator - Prominent floating card */}
-    <ExtractionIndicator
-      isExtracting={isExtractingDescriptions}
-      onCancel={cancelExtraction}
-    />
+      {/* Tap navigation zones - only shown on iOS when NOT using swipe, or for center zone description clicks */}
+      {/* On iOS with swipe mode, IOSTapZones only handles center zone for description clicks */}
+      {/* On Android/Desktop with tap mode, useTouchNavigation handles navigation */}
+      {isIOS() && (
+        <IOSTapZones
+          onPrevPage={prevPage}
+          onNextPage={nextPage}
+          onDescriptionClick={async (descriptionId: string) => {
+            // Find description by ID
+            const desc = descriptions.find(d => d.id === descriptionId);
+            if (desc) {
+              // Find associated image
+              const img = images.find(i => i.description?.id === descriptionId);
+              await openModal(desc, img);
+            }
+          }}
+          onCenterTap={async (x: number, y: number) => {
+            // NEW (January 2026): Find description at coordinates via rendition.getContents()
+            // This replaces the broken BroadcastChannel/postMessage approach
+            // which doesn't work with blob: URL iframes on iOS Safari
+            if (!rendition) return;
 
-    {/* Image Generation Status */}
-    <ImageGenerationStatus
-      status={generationStatus}
-      descriptionPreview={descriptionPreview}
-      error={generationError}
-      onCancel={cancelGeneration}
-    />
+            try {
+              const contents = rendition.getContents();
+              if (!contents || contents.length === 0) return;
 
-    {/* Progress Save Indicator */}
-    <ProgressSaveIndicator
-      lastSaved={lastSaved}
-      isSaving={isSaving}
-    />
+              const iframe = contents[0];
+              const doc = iframe.document;
+              if (!doc) return;
 
-    {/* Position Conflict Dialog - Multi-device sync */}
-    {positionConflict && (
-      <PositionConflictDialog
-        isOpen={!!positionConflict}
-        serverPosition={positionConflict.serverPosition}
-        localPosition={positionConflict.localPosition}
-        onUseServer={handleUseServerPosition}
-        onUseLocal={handleUseLocalPosition}
+              // Find element at the tap coordinates
+              const elementAtPoint = doc.elementFromPoint(x, y);
+              if (!elementAtPoint) return;
+
+              // Walk up the DOM tree to find description-highlight
+              let target: HTMLElement | null = elementAtPoint as HTMLElement;
+              let descriptionId: string | null = null;
+
+              while (target && target !== doc.body) {
+                if (target.classList?.contains('description-highlight')) {
+                  descriptionId = target.getAttribute('data-description-id');
+                  break;
+                }
+                target = target.parentElement;
+              }
+
+              if (descriptionId) {
+                // Found description - open modal
+                const desc = descriptions.find(d => d.id === descriptionId);
+                if (desc) {
+                  const img = images.find(i => i.description?.id === descriptionId);
+                  await openModal(desc, img);
+                }
+              }
+            } catch (err) {
+              console.error('[EpubReader] Error finding description at coordinates:', err);
+            }
+          }}
+          enabled={!isLoading && !isGenerating && !error}
+          headerHeight={70}
+          navigationEnabled={effectiveNavigationMode === 'tap'}
+        />
+      )}
+
+      {/* Loading Overlay - includes health check state for PWA resume */}
+      {(isLoading || isGenerating || isRestoringPosition || isCheckingHealth || (!isRenditionHealthy && renditionReady)) && (
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}
+          data-testid="loading-overlay"
+          aria-busy="true"
+          aria-live="assertive"
+          role="status"
+        >
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" aria-hidden="true"></div>
+            <p className={theme === 'light' ? 'text-foreground' : theme === 'sepia' ? 'text-amber-800' : 'text-foreground'} data-testid="loading-text">
+              {isCheckingHealth || (!isRenditionHealthy && renditionReady)
+                ? 'Восстановление сессии...'
+                : isRestoringPosition
+                  ? 'Восстановление позиции...'
+                  : isGenerating
+                    ? 'Подготовка книги...'
+                    : 'Загрузка книги...'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {error && (
+        <div className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}>
+          <div className="text-center max-w-md mx-4">
+            {/* Error Icon */}
+            <div className="mb-6">
+              <svg
+                className="w-16 h-16 mx-auto text-red-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+
+            {/* Error Title */}
+            <h3 className={`text-xl font-semibold mb-3 ${theme === 'light' ? 'text-foreground' : theme === 'sepia' ? 'text-amber-900' : 'text-foreground'}`}>
+              Не удалось загрузить книгу
+            </h3>
+
+            {/* Human-readable Error Message */}
+            <p className={`mb-6 ${theme === 'light' ? 'text-muted-foreground' : theme === 'sepia' ? 'text-amber-700' : 'text-muted-foreground'}`}>
+              {getHumanReadableError(error)}
+            </p>
+
+            {/* Technical Error (collapsed by default, for debugging) */}
+            <details className={`mb-6 text-left ${theme === 'light' ? 'text-muted-foreground' : theme === 'sepia' ? 'text-amber-600' : 'text-muted-foreground'}`}>
+              <summary className="cursor-pointer text-sm hover:text-blue-500 transition-colors">
+                Техническая информация
+              </summary>
+              <pre className={`mt-2 p-3 rounded text-xs overflow-x-auto ${theme === 'light' ? 'bg-muted' : theme === 'sepia' ? 'bg-amber-100' : 'bg-muted'}`}>
+                {error}
+              </pre>
+            </details>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={reload}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Попробовать снова
+              </button>
+              <button
+                onClick={() => navigate('/library')}
+                className={`px-6 py-2.5 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${theme === 'light'
+                    ? 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
+                    : theme === 'sepia'
+                      ? 'bg-amber-200 hover:bg-amber-300 text-amber-900 focus:ring-amber-400'
+                      : 'bg-secondary hover:bg-secondary/80 text-foreground focus:ring-border'
+                  }`}
+              >
+                В библиотеку
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Reader Header - Theme-aware with all controls and progress */}
+      {/* Always visible - tap zones removed */}
+      {renditionReady && !isLoading && !isGenerating && !isRestoringPosition && metadata && (
+        <ReaderHeader
+          title={metadata.title}
+          author={metadata.creator}
+          progress={progress}
+          currentPage={currentPage ?? undefined}
+          totalPages={totalPages ?? undefined}
+          onBack={() => navigate(-1)}
+          onTocToggle={() => setIsTocOpen(!isTocOpen)}
+          onInfoOpen={() => setIsBookInfoOpen(true)}
+          onSettingsOpen={() => setIsSettingsOpen(true)}
+        />
+      )}
+
+      {/* Settings Dropdown (hidden, triggered by header button) */}
+      {renditionReady && !isLoading && !isGenerating && !isRestoringPosition && (
+        <div className="fixed top-16 right-4 z-[100]">
+          <ReaderControls
+            theme={theme}
+            fontSize={fontSize}
+            onThemeChange={setTheme}
+            onFontSizeIncrease={increaseFontSize}
+            onFontSizeDecrease={decreaseFontSize}
+            isOpen={isSettingsOpen}
+            onOpenChange={setIsSettingsOpen}
+            wakeLockEnabled={wakeLockEnabled}
+            wakeLockSupported={isWakeLockSupported}
+            wakeLockActive={isWakeLockActive}
+            onWakeLockChange={handleWakeLockToggle}
+            navigationMode={navigationMode}
+            onNavigationModeChange={updateNavigationMode}
+          />
+        </div>
+      )}
+
+      {/* Description Extraction Indicator - Prominent floating card */}
+      <ExtractionIndicator
+        isExtracting={isExtractingDescriptions}
+        onCancel={cancelExtraction}
       />
-    )}
 
-    {/* Image Modal */}
-    {isModalOpen && selectedImage && (
-      <ImageModal
-        imageUrl={selectedImage.image_url}
-        title={selectedImage.description?.type || 'Generated Image'}
-        description={selectedImage.description?.text || selectedImage.description?.content || ''}
-        imageId={selectedImage.id}
-        descriptionData={selectedImage.description ? {
-          id: selectedImage.description.id,
-          type: selectedImage.description.type,
-          content: selectedImage.description.text || selectedImage.description.content,
-          confidence_score: 0,
-          priority_score: selectedImage.description.priority_score,
-          entities_mentioned: []
-        } : undefined}
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        onImageRegenerated={handleImageRegenerated}
+      {/* Image Generation Status */}
+      <ImageGenerationStatus
+        status={generationStatus}
+        descriptionPreview={descriptionPreview}
+        error={generationError}
+        onCancel={cancelGeneration}
       />
-    )}
 
-
-    {/* Book Info Modal */}
-    {isBookInfoOpen && metadata && (
-      <BookInfo
-        metadata={metadata}
-        isOpen={isBookInfoOpen}
-        onClose={() => setIsBookInfoOpen(false)}
+      {/* Progress Save Indicator */}
+      <ProgressSaveIndicator
+        lastSaved={lastSaved}
+        isSaving={isSaving}
       />
-    )}
 
-    {/* Selection Menu */}
-    <SelectionMenu
-      selection={selection}
-      onCopy={handleCopy}
-      onClose={clearSelection}
-    />
+      {/* Position Conflict Dialog - Multi-device sync */}
+      {positionConflict && (
+        <PositionConflictDialog
+          isOpen={!!positionConflict}
+          serverPosition={positionConflict.serverPosition}
+          localPosition={positionConflict.localPosition}
+          onUseServer={handleUseServerPosition}
+          onUseLocal={handleUseLocalPosition}
+        />
+      )}
 
-    {/* TOC Sidebar */}
-    <TocSidebar
-      toc={toc}
-      currentHref={currentHref}
-      onChapterClick={handleTocChapterClick}
-      isOpen={isTocOpen}
-      onClose={() => setIsTocOpen(false)}
-    />
+      {/* Image Modal */}
+      {isModalOpen && selectedImage && (
+        <ImageModal
+          imageUrl={selectedImage.image_url}
+          title={selectedImage.description?.type || 'Generated Image'}
+          description={selectedImage.description?.text || selectedImage.description?.content || ''}
+          imageId={selectedImage.id}
+          descriptionData={selectedImage.description ? {
+            id: selectedImage.description.id,
+            type: selectedImage.description.type,
+            content: selectedImage.description.text || selectedImage.description.content,
+            confidence_score: 0,
+            priority_score: selectedImage.description.priority_score,
+            entities_mentioned: []
+          } : undefined}
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onImageRegenerated={handleImageRegenerated}
+        />
+      )}
 
-    {/* iOS Debug Overlay - DISABLED FOR PRODUCTION
+
+      {/* Book Info Modal */}
+      {isBookInfoOpen && metadata && (
+        <BookInfo
+          metadata={metadata}
+          isOpen={isBookInfoOpen}
+          onClose={() => setIsBookInfoOpen(false)}
+        />
+      )}
+
+      {/* Selection Menu */}
+      <SelectionMenu
+        selection={selection}
+        onCopy={handleCopy}
+        onClose={clearSelection}
+      />
+
+      {/* TOC Sidebar */}
+      <TocSidebar
+        toc={toc}
+        currentHref={currentHref}
+        onChapterClick={handleTocChapterClick}
+        isOpen={isTocOpen}
+        onClose={() => setIsTocOpen(false)}
+      />
+
+      {/* iOS Debug Overlay - DISABLED FOR PRODUCTION
       <IOSDebugOverlay />
       */}
 
-  </div>
-);
+    </div>
+  );
 };
