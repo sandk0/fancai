@@ -393,47 +393,47 @@ class GeminiDirectExtractor:
 
 ФОРМАТ ОТВЕТА (JSON):
 ```json
-{
+{{
   "entities": [
-    {
+    {{
       "name": "Имя или Название",
       "type": "character",
       "visual_summary": "Высокий старик с длинной седой бородой, в синей остроконечной шляпе и серой мантии. Добрые голубые глаза.",
       "aliases": ["Гэндальф", "Митрандир"],
       "confidence": 0.95
-    },
-    {
+    }},
+    {{
       "name": "Шир",
       "type": "location",
       "visual_summary": "Уютная деревня с зелеными холмами и круглыми дверями нор. Солнечный летний день, цветущие сады.",
       "aliases": ["Хоббитон"],
       "confidence": 0.9
-    }
+    }}
   ],
   "relationships": [
-    {
+    {{
       "source": "Имя1",
       "target": "Имя2",
       "type": "FRIEND",
       "weight": 0.8,
       "context": "Давно знают друг друга, часто беседуют."
-    },
-    {
+    }},
+    {{
       "source": "Имя1",
       "target": "НазваниеЛокации",
       "type": "LOCATED_IN",
       "weight": 1.0
-    }
+    }}
   ],
   "descriptions": [  // BACKWARD COMPATIBILITY: Старый формат для генерации сцен
-    {
+    {{
       "content": "Полное предложение с описанием из текста...",
       "type": "location",
       "confidence": 0.9,
       "entities": ["Имя1", "НазваниеЛокации"]
-    }
+    }}
   ]
-}
+}}
 ```
 
 ТЕКСТ ДЛЯ АНАЛИЗА:

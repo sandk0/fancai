@@ -1,0 +1,763 @@
+2026-01-20 16:51:49,174 INFO sqlalchemy.engine.Engine [cached since 71.2s ago] (15, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:51:49,180 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:51:49,181 INFO sqlalchemy.engine.Engine [cached since 71.2s ago] (True, 8, False, datetime.datetime(2026, 1, 20, 16, 51, 49, 168675, tzinfo=datetime.timezone.utc), UUID('48582568-f709-489c-9f66-9f53e732bcd4'))
+2026-01-20 16:51:49,183 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1677 characters truncated ... :BOOLEAN, $120::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:51:49,183 INFO sqlalchemy.engine.Engine [cached since 71.19s ago (insertmanyvalues) 1/1 (ordered)] (UUID('2175f369-a7c9-4633-8de0-3d5440c4bfe5'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'LOCATION', 'Хольт остановился перед внушительным домом с вывеской над дверью. Рисунок на ней, довольно искусный, изображал сирену с пышной грудью. Надпись гласил ... (73 characters truncated) ... . Очень энергично. Массивная дверь отворилась, и на пороге возник здоровенный детина с челюстью, что твой каравай. Он долго мерил ведьмаков взглядом.', None, 0.9, 0, 51, True, 84.0, '', None, None, False, False, UUID('d8110e17-622a-4fcf-9668-0ae9302f1ceb'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'LOCATION', 'В жизни не думал, что существует столько ремёсел и такое множество товаров выставляется на продажу. И что находится столько желающих их купить. Ремни ... (39 characters truncated) ... лазурованные и простые, меховые шапки, полушубки, постолы, вышитые платки, медные сковороды, грабли, вилы, топорища — и крендели, крендели, крендели.', None, 0.88, 1, 48, True, 83.8, '', None, None, False, False, UUID('384ec429-4601-43e9-8b98-9bd8ebac7c49'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'LOCATION', 'Впереди показались выбеленные известью колоннады храма, под которыми ютилась целая армия нищих — мужчин и женщин. Храм давно пустовал и был заброшен, но нищие всё сидели. И по привычке протягивали руки за подаянием. Хольт предусмотрительно увёл Геральта на другую сторону улицы.', None, 0.85, 2, 41, True, 83.5, '', None, None, False, False, UUID('36a9c49b-3a7a-4a74-b39d-a0c33becfd7a'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'LOCATION', 'Безоружные, они вошли в прихожую, освещённую несколькими лампами. Геральт с трудом перевёл дух — воздух был густо напоён ароматом духов и благовоний. На стене висела ещё одна нарисованная русалка. Такая же грудастая. Только без надписи.', None ... 20 parameters truncated ... '', None, None, False, False, UUID('81bd1ae1-4b91-4305-b1de-90eac067931d'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'CHARACTER', 'Со стороны ближнего колодца донеслись голоса. Пронзительный женский визг и пропитой мужской баритон. Геральт тут же рванул туда. Прежде чем Хольт усп ... (48 characters truncated) ... . Здоровенный мужик с брюхом, вываливающимся из-за пояса штанов, лупил палкой съёжившуюся у его ног женщину. Женщина визжала, а мужик продолжал бить.', None, 0.88, 5, 50, True, 68.8, '', None, None, False, False, UUID('b711bb7a-0847-471f-ac01-409a66934f86'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'ATMOSPHERE', 'Чем ближе к рынку, тем становилось многолюднее. Для Геральта это было внове. Он не привык к толпе, чувствовал себя неуютно. Раздражал шум. Начинало н ... (61 characters truncated) ... дымом, горелым жиром, гнилыми фруктами, навозом и чёрт знает, чем ещё. На рынке пришлось протискиваться между рядами лотков сквозь толпу покупателей.', None, 0.92, 6, 53, True, 54.2, '', None, None, False, False, UUID('0659a405-4863-45fd-920f-932dfe68b260'), UUID('48582568-f709-489c-9f66-9f53e732bcd4'), 'ATMOSPHERE', 'Кошек на окраине городка было видимо-невидимо — они неохотно уступали дорогу, отходя, оборачивались и шипели. Дети с плачем и воем разбегались по дом ... (140 characters truncated) ... ов ни малейшего внимания. Будто всадники в чёрных плащах с мечами за спиной появлялись здесь так часто, что давно уже перестали вызывать любопытство.', None, 0.9, 7, 67, True, 54.0, '', None, None, False, False)
+2026-01-20 16:51:49,190 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:53:57,313 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:53:57,313 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:53:57,313 INFO sqlalchemy.engine.Engine [cached since 199.3s ago] (20, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:53:57,316 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 16:53:57,316 INFO sqlalchemy.engine.Engine [generated in 0.00029s] (True, False, datetime.datetime(2026, 1, 20, 16, 53, 57, 310920, tzinfo=datetime.timezone.utc), UUID('715f3b66-3eb9-4858-8bb6-66b05fbf6fe7'))
+2026-01-20 16:53:57,318 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:56:06,670 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:56:06,671 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:56:06,673 INFO sqlalchemy.engine.Engine [cached since 328.7s ago] (25, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:56:06,677 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 16:56:06,677 INFO sqlalchemy.engine.Engine [cached since 129.4s ago] (True, False, datetime.datetime(2026, 1, 20, 16, 56, 6, 666351, tzinfo=datetime.timezone.utc), UUID('0cb459d5-dce0-4ecc-bc0e-daa36f7d1b3b'))
+2026-01-20 16:56:06,678 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:57:01,640 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:57:01,642 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:57:01,642 INFO sqlalchemy.engine.Engine [cached since 383.7s ago] (30, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:57:01,645 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:57:01,646 INFO sqlalchemy.engine.Engine [cached since 383.7s ago] (True, 6, False, datetime.datetime(2026, 1, 20, 16, 57, 1, 634694, tzinfo=datetime.timezone.utc), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'))
+2026-01-20 16:57:01,648 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1236 characters truncated ... ::BOOLEAN, $90::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:57:01,648 INFO sqlalchemy.engine.Engine [cached since 383.7s ago (insertmanyvalues) 1/1 (ordered)] (UUID('da8473dd-b8e4-451d-877a-76e82f6fc0b4'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'LOCATION', 'Деревня — добрых три десятка дымов — раскинулась в излучине речки с пологими берегами, заросшими аиром. Неподалёку сверкала на солнце гладь небольшог ... (64 characters truncated) ... ы и вековых деревьев. Разбитый тракт вёл прямиком в деревню, на площадь. Но доступ преграждало одинокое подворье, отстоящее примерно на полёт стрелы.', None, 0.95, 0, 55, True, 84.5, '', None, None, False, False, UUID('d71e14cc-332c-46cb-88dd-5eb073ee104f'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'LOCATION', 'От кузницы до опушки бора было четверть стадия. На полпути стояло нечто, что, видимо, ещё осенью было возом с сеном, а теперь превратилось в заросшую ... (135 characters truncated) ... всё остальное. Три колеса, четвёртое было сломано. Нетрудно догадаться, что повреждённый воз бросили в панике, распрягли лошадь и бежали со всех ног.', None, 0.85, 1, 65, True, 83.5, '', None, None, False, False, UUID('feb4861a-112b-482c-8057-844bb8b07fe0'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'CHARACTER', 'Зоррил — Геральт теперь понял, что это был именно зоррил — припал к земле, затряс головой, разбрызгивая кровь. Он больше смахивал на ящера, чем на бо ... (190 characters truncated) ... рь тоже пользовалась по-кошачьи — для равновесия в прыжках. Тварь изогнулась в прыжке словно лента, бросилась в новую атаку, ещё не коснувшись земли.', None, 0.95, 2, 80, True, 69.5, '', None, None, False, False, UUID('8027b61e-93c0-4e7d-ab0c-016b7c324ca4'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'CHARACTER', 'Низушек в кожаном фартуке стоял у наковальни, колотя молотом по подкове, зажатой в клещах. Внутри, в отблесках пламени, подросток лет пятнадцати кача ... (89 characters truncated) ... ся из-под открытого навеса. Там мерцал огонь. Время от времени вырывался пар. Перемазанный сажей, в мерцающих отблесках жара, он походил на чертёнка.', None, 0.9, 3, 54, True, 69.0, '', None, None, False, False, UUID('2b1cd7ea-762f-44a8-8891-0a52c6d33077'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'CHARACTER', 'Хоть волос белый, а мордашка молоденькая. И щетина жиденькая. Ведьмачий меч, выкованный из метеоритной стали, имел общую длину сорок с половиной дюйм ... (92 characters truncated) ... ибо на дюйм короче, либо на дюйм длиннее. Ведьмачий меч весил тридцать семь унций. Обычные мечи, даже те, что короче, как правило, были куда тяжелее.', None, 0.9, 4, 61, True, 69.0, '', None, None, False, False, UUID('531763a9-2040-4cbc-9cfc-c4a8e426fa11'), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'), 'ATMOSPHERE', 'Закат был цвета копчёного лосося. Лес был весенний, редкий, залитый лунным светом. И по-весеннему устланный ковром прелой листвы и прошлогоднего сухо ... (150 characters truncated) ... большую шкатулку. Внутри, в мягких отделениях, тесно стояли флаконы из тёмного стекла. Их крышки выстроились ровными рядами, словно солдаты на плацу.', None, 0.9, 5, 63, True, 54.0, '', None, None, False, False)
+2026-01-20 16:57:01,652 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:57:30,148 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:57:30,150 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:57:30,150 INFO sqlalchemy.engine.Engine [cached since 412.2s ago] (35, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:57:30,160 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:57:30,161 INFO sqlalchemy.engine.Engine [cached since 412.2s ago] (True, 7, False, datetime.datetime(2026, 1, 20, 16, 57, 30, 134030, tzinfo=datetime.timezone.utc), UUID('86b78cbd-563d-4512-968e-0c660f490810'))
+2026-01-20 16:57:30,167 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1452 characters truncated ... :BOOLEAN, $105::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:57:30,167 INFO sqlalchemy.engine.Engine [cached since 412.2s ago (insertmanyvalues) 1/1 (ordered)] (UUID('e81f2f53-7887-4b72-8a39-c9a877151fbc'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'LOCATION', 'Покоившееся на носилках существо имело румяную после запекания кожу, усеянную бугорками от выщипанного оперения, а также крылышки, ножки, шею и гузку ... (145 characters truncated) ... льная мачта, была длиной примерно в сажень и заканчивалась головой — черепом — размером с арбуз, вооружённым массивным клювом длиной не меньше локтя.', None, 0.95, 0, 64, True, 84.5, '', None, None, False, False, UUID('8b53870d-e32d-4ecf-b82c-0eda77447b45'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'LOCATION', 'Геральт пришпорил коня и двинулся шагом к мельнице — зданию, частично скрытому среди густых, уже красиво зазеленевших ив. Мельничное колесо вращалось ... (169 characters truncated) ... вших за помолом. Две телеги, запряжённые першеронами, стояли также возле мельничной протоки и мельничного пруда, широко разлившегося среди ив и ольх.', None, 0.93, 1, 66, True, 84.3, '', None, None, False, False, UUID('cda8e383-6a0f-4d60-8b0e-b0d9ec7a1b73'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'LOCATION', 'Со стороны бурной речки, плещущейся на камнях, доносились бабьи крики и стук вальков. На берегу трудилось около двадцати прачек. Одни яростно колотил ... (143 characters truncated) ... и в корзины. Все до единой голосили, перекрикивая друг друга. Вдобавок в прибрежных зарослях носились дети, видимо, отпрыски прачек. Дети тоже орали.', None, 0.9, 2, 62, True, 84.0, '', None, None, False, False, UUID('0026851e-c34a-4037-9a18-aa14fe2b3ac5'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'CHARACTER', 'Птица напоминала страуса, но с огромной головой и гигантским клювом. И ростом была все пятнадцать футов, не меньше. Ни один страус не достигал таких  ... (120 characters truncated) ... ица огромными прыжками вылетела на плотину, настигла убегающих людей. Одного клюнула в голову и повалила, другого пнула, ранив когтем трёхпалой ноги.', None ... 5 parameters truncated ... '', None, None, False, False, UUID('fbb76763-0282-4c3f-9c67-26eebebdd81d'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'CHARACTER', 'В зал вошёл, гордо выпрямившись, главный королевский повар, praefectus culinae. За ним, словно солдаты на параде, промаршировали четверо пузатых помо ... (98 characters truncated) ...  бердыши. Следом появились четверо поварят, сгибавшихся под тяжестью огромных деревянных носилок. На носилках, в венке из печёных яблок, покоилось...', None, 0.92, 4, 52, True, 69.2, '', None, None, False, False, UUID('f1bae330-43e2-4cd9-b075-59b9b327d3a4'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'CHARACTER', 'Четверо крестьян в соломенных шляпах, по пояс в воде, тыкали дно пруда шестами. Шесты затем поднимали, и ведьмак заметил, что к каждой паре крепилась ... (181 characters truncated) ... ал к возу. И правда, там уже стояло с десяток ивовых корзин, в которых, шурша среди крапивных листьев, лениво шевелились многочисленные ракообразные.', None, 0.88, 5, 70, True, 68.8, '', None, None, False, False, UUID('4bc74771-6ad0-43cf-a310-8363ce195e23'), UUID('86b78cbd-563d-4512-968e-0c660f490810'), 'ATMOSPHERE', 'Грохоча копытами, въехал на мост над лесной речкой, берега которой утопали в крапиве. И вдруг перестал быть один. За два дня и две ночи он встретил н ... (54 characters truncated) ... еперь вдруг оказался окружён десятком людей. Хуже того — люди были на конях и при оружии. И совсем скверно — они плотно обступили его со всех сторон.', None, 0.85, 6, 64, True, 53.5, '', None, None, False, False)
+2026-01-20 16:57:30,174 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:57:59,440 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:57:59,441 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:57:59,441 INFO sqlalchemy.engine.Engine [cached since 441.5s ago] (40, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:57:59,443 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:57:59,443 INFO sqlalchemy.engine.Engine [cached since 441.5s ago] (True, 5, False, datetime.datetime(2026, 1, 20, 16, 57, 59, 438565, tzinfo=datetime.timezone.utc), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'))
+2026-01-20 16:57:59,446 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1026 characters truncated ... ::BOOLEAN, $75::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:57:59,446 INFO sqlalchemy.engine.Engine [cached since 441.5s ago (insertmanyvalues) 1/1 (ordered)] (UUID('57f67b89-ab40-41a5-9b6d-4091d5b9f4df'), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'), 'LOCATION', 'Обнесённый стеной храм богини Мелитэле стоял неподалёку от городка Франктхаль, раскинувшегося в долине того же названия. Долина была на редкость живо ... (107 characters truncated) ...  росли белоствольные берёзы, буки и дубы. На южном склоне таился и исток ручья, что ниспадал каскадами вниз, а после змеился меандрами по дну долины.', None, 0.95, 0, 60, True, 84.5, '', None, None, False, False, UUID('257760ff-5a36-4d7c-94bb-c1c8ef726afd'), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'), 'LOCATION', 'Храм богини Мелитэле, один из немногих уцелевших, размещался в старом эльфийском дворце под названием Эльсборг — примерно в полулиге от городка Франк ... (4 characters truncated) ... ь, в излучине ручья, среди огромных плакучих ив. Обычно в округе было безлюдно, поэтому Геральт слегка удивился, заметив у ворот храма группку людей.', None, 0.9, 1, 44, True, 84.0, '', None, None, False, False, UUID('2a173aa1-cd2f-4391-b571-e21bfe2843c1'), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'), 'CHARACTER', 'Ассумпта из Ривии, верховная жрица храма, сидела за заваленным пергаментами столом. Геральт в последний раз видел её восемь лет назад. С тех пор она  ... (51 characters truncated) ...  и послушница. Жрицы улыбнулись ему. Обеих он знал. Флавия преподавала историю. Айлид — Старшую Речь. Послушницу он не знал. Она была слишком молода.', None, 0.85, 2, 56, True, 68.5, '', None, None, False, False, UUID('48779f25-3946-41f5-8e68-7b68d3575e98'), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'), 'CHARACTER', 'Зоэ, Фервида и Ипполита, девушки из «Лорелеи», маялись от безделья. Было будничное утро. Каждая коротала время, как могла и как нравилось. Зоэ вязала ... (23 characters truncated) ... ервида читала учебник по выращиванию комнатных трав. Ипполита глазела в окно, наблюдая за ласточками, кружившими вокруг башни ратуши городка Спинхэм.', None, 0.85, 3, 46, True, 68.5, '', None, None, False, False, UUID('b4531c01-705c-4bc4-a12d-7a6ab737e4be'), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'), 'ATMOSPHERE', 'Под навесом, открытым всем ветрам, несколько послушниц в масках и длинных перчатках трудились над изготовлением мыла, смешивая в чанах щёлочь, соду,  ... (104 characters truncated) ... лами Каэдвена. Сам он, когда учился в храме, был вынужден пользоваться такими мылами. В Каэр Морхене в ходу было исключительно серое мыло без запаха.', None, 0.85, 4, 60, True, 53.5, '', None, None, False, False)
+2026-01-20 16:57:59,449 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:58:24,587 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:58:24,588 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:58:24,589 INFO sqlalchemy.engine.Engine [cached since 466.6s ago] (45, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:58:24,591 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:58:24,591 INFO sqlalchemy.engine.Engine [cached since 466.6s ago] (True, 8, False, datetime.datetime(2026, 1, 20, 16, 58, 24, 581450, tzinfo=datetime.timezone.utc), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'))
+2026-01-20 16:58:24,596 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1677 characters truncated ... :BOOLEAN, $120::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:58:24,597 INFO sqlalchemy.engine.Engine [cached since 466.6s ago (insertmanyvalues) 1/1 (ordered)] (UUID('bd3aeaa6-1312-49cc-858d-d5d9b1a383f1'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'LOCATION', 'Хижина стояла на самом краю — беднейшем краю — городка, среди ольх над ручьём. Если это и был дом красильщицы, то «раньше» – явно бросалось в глаза.  ... (175 characters truncated) ... легла на лицо — видно, нечасто тут бывали гости в последнее время. Повсюду стояли горшки, котелки и прочая утварь красильного ремесла. Пахло уксусом.', None, 0.95, 0, 77, True, 84.5, '', None, None, False, False, UUID('d1b2a247-a9fb-418e-a141-2a5a6f6c93c8'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'LOCATION', 'В комнате было темно, смрад гнили душил, разъедал глаза. Слышался тихий плач детей, монотонные причитания женщины. Медальон Геральта сильно задрожал. ... (21 characters truncated) ... а колыбель, стоявшую на пути. Внутри лежало тельце младенца. Всё покрытое чёрным шершавым налётом, какой-то уже засохшей слизью. Словно чёрная кукла.', None, 0.9, 1, 45, True, 84.0, '', None, None, False, False, UUID('08ef9671-bd37-4714-90f4-4fbbbdb046b2'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'CHARACTER', 'Он упёрся ногой в полозья качалки, остановил её. Крепко схватил женщину за плечо, впился пальцами. Приставил остриё меча к середине груди. На уровне  ... (233 characters truncated) ... плетёная спинка кресла тоже не оказала сопротивления. Он вдавил меч ещё сильнее, до упора, пока всё лезвие не вышло через спину, до самой крестовины.', None, 0.9, 2, 79, True, 74.0, '', None, None, False, False, UUID('575c4e10-ded0-4e75-81bb-1885d8aa54c5'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'CHARACTER', 'Первое, что увидел Геральт, въехав в городок через ворота с воротным механизмом, был висельник. Точнее, молодая светловолосая девушка в изодранной од ... (80 characters truncated) ... тру. Проезжая мимо, он различал детали — распухшее лицо, неестественно вытянутую шею, кровоподтёки на бёдрах, почерневшие от запёкшейся крови ступни.', None ... 20 parameters truncated ... '', None, None, False, False, UUID('49b30b6d-f7dd-4fe6-a93f-dabb11174bdb'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'CHARACTER', 'Ведьмак уже издали чуял мерзкий, тошнотворный запах гнили, поэтому его не удивил вид лекаря в сенях. Профессию безошибочно выдавал кожаный капюшон с  ... (111 characters truncated) ... о из-за птичьей маски. Поняв это, вышел на галерею, поманив Геральта за собой. На галерее стянул капюшон, вытер вспотевшее лицо. Он был совсем молод.', None, 0.9, 5, 59, True, 69.0, '', None, None, False, False, UUID('d8dfe6eb-6dfe-4c6f-810a-05d1c4e916d7'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'CHARACTER', 'Из группки людей у подворотни вышел статный седобородый господин. Пуговицы на его кафтане были размером с дукат. И тоже золотые. Вернее, позолоченные. В подворотне толпилось человек десять, они испуганно шарахались от приближающегося ведьмака, отводили глаза.', None, 0.8, 6, 35, True, 68.0, '', None, None, False, False, UUID('6e5ad76b-402f-425a-8b89-dd569f1fe3a4'), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'), 'ATMOSPHERE', 'Городок казался вымершим, на улочках ни души, даже ни одна собака не выскочила из-за забора, не облаяла копыта коня. Закрытые ставни и ворота дышали враждебностью. Предвещали дурное, что уже случилось здесь. И ещё более страшное, чему только предстояло произойти.', None, 0.85, 7, 39, True, 53.5, '', None, None, False, False)
+2026-01-20 16:58:24,600 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:58:44,272 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:58:44,276 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:58:44,276 INFO sqlalchemy.engine.Engine [cached since 486.3s ago] (50, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:58:44,288 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:58:44,288 INFO sqlalchemy.engine.Engine [cached since 486.3s ago] (True, 5, False, datetime.datetime(2026, 1, 20, 16, 58, 44, 263939, tzinfo=datetime.timezone.utc), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'))
+2026-01-20 16:58:44,306 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1026 characters truncated ... ::BOOLEAN, $75::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:58:44,306 INFO sqlalchemy.engine.Engine [cached since 486.3s ago (insertmanyvalues) 1/1 (ordered)] (UUID('8e63ca36-7bf2-406a-a364-df8ef7aaf5d0'), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'), 'LOCATION', 'Деревня, как он сразу заметил, была заброшена. И очень давно. Соломенные крыши изб провалились, выбитые окна зияли чёрными дырами, сорванные створки  ... (166 characters truncated) ... ак. Не было даже следа того, кому он мог бы понадобиться. Песчаная дорога, что любопытно, была испещрена многочисленными – и свежими – следами копыт.', None, 0.95, 0, 70, True, 84.5, '', None, None, False, False, UUID('c59887b8-9760-406c-b18f-7397df754961'), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'), 'LOCATION', 'В сарае было светло – потому что крыша представляла собой, по сути, одну большую дыру. Остатки кровли свисали с конька и стропил, грозя вот-вот обруш ... (91 characters truncated) ...  в сарае господин, казалось, вовсе не беспокоился о возможном обрушении. Он сидел на бревне разрушенного закрома и лениво ковырял в зубах соломинкой.', None, 0.9, 1, 58, True, 84.0, '', None, None, False, False, UUID('5160a8a9-e33b-45f7-9324-e8f8bb0209e0'), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'), 'CHARACTER', 'У колодца стояла высокая светловолосая женщина в мужском камзоле из лосиной кожи и высоких сапогах. Она как раз переливала вытащенное из колодца ведр ... (172 characters truncated) ... рубашке. С расшитой серебряной нитью перевязи свисал длинный кордик. Жестом затянутой в перчатку руки женщина указала на прислонённые к колодцу мечи.', None, 0.95, 2, 67, True, 69.5, '', None, None, False, False, UUID('b70aaef5-00b2-4fb0-b67a-90c87ec00dcb'), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'), 'CHARACTER', 'Эстеван Трилло да Кунья был худощав, даже тощ. Чёрные волосы зачёсаны назад и заплетены в косу, чёрные усы и чёрная остроконечная бородка. Одет тоже  ... (90 characters truncated) ... эмалевую пластинку. На ней, на жёлтом фоне, красовался чёрный вставший на дыбы единорог. Эстеван Трилло да Кунья тоже помолчал. И перестал улыбаться.', None, 0.92, 3, 60, True, 69.2, '', None, None, False, False, UUID('fc4a54c6-2c04-4357-b676-92b3eb5642e1'), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'), 'ATMOSPHERE', 'Когда стемнело, Геральт сидел с ней в избе старосты. За кривым и грубо обструганным столом. При свече, которую она достала из собственных тюков. В де ... (153 characters truncated) ...  Подбежала к носку сапога Элены Фиахры де Мерсо. Потом пробежала по нему. И исчезла в темноте. Пламя свечи заколебалось, фитиль стрельнул и закоптил.', None, 0.9, 4, 73, True, 54.0, '', None, None, False, False)
+2026-01-20 16:58:44,310 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:58:44,784 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:58:44,785 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:58:44,785 INFO sqlalchemy.engine.Engine [cached since 486.8s ago] (55, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:58:44,787 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 16:58:44,787 INFO sqlalchemy.engine.Engine [cached since 287.5s ago] (True, False, datetime.datetime(2026, 1, 20, 16, 58, 44, 783059, tzinfo=datetime.timezone.utc), UUID('9a8aacc5-6b49-4242-96c2-6a45469a5c4a'))
+2026-01-20 16:58:44,790 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 16:59:04,620 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 16:59:04,621 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 16:59:04,622 INFO sqlalchemy.engine.Engine [cached since 506.6s ago] (60, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 16:59:04,626 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 16:59:04,627 INFO sqlalchemy.engine.Engine [cached since 506.6s ago] (True, 5, False, datetime.datetime(2026, 1, 20, 16, 59, 4, 612206, tzinfo=datetime.timezone.utc), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'))
+2026-01-20 16:59:04,630 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1026 characters truncated ... ::BOOLEAN, $75::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 16:59:04,631 INFO sqlalchemy.engine.Engine [cached since 506.6s ago (insertmanyvalues) 1/1 (ordered)] (UUID('88f1cd3e-03e6-4eec-8fc5-6daf481954c3'), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'), 'LOCATION', 'Зима, хоть и суровая, сдалась на удивление легко и почти без борьбы. Задули тёплые ветры, снега начали быстро таять. Уже в середине февраля, месяца,  ... (339 characters truncated) ...  они с энтузиазмом приступили к брачным играм. Вскоре все воды загустели от икры. Наконец, подавая верный знак весны, над полями зазвенели жаворонки.', None, 0.95, 0, 92, True, 89.5, '', None, None, False, False, UUID('112e9ed7-14c1-4d1b-a007-d1310ed574f5'), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'), 'LOCATION', 'Вынужденное бездействие, наконец, обратило внимание Геральта на небольшой альков и спрятанные в нём книжные полки. Библиотека у Хольта, надо признать ... (502 characters truncated) ... con Novigradense. Хватало и трактатов о магии с гримуарами: Силы стихий Паоло Джамбаттисты, Невидимый мир Яна Беккера, Ард Аэркейн и Dhu Dwimmermorc.', None, 0.94, 1, 110, True, 89.4, '', None, None, False, False, UUID('92ce8840-b179-424f-b1b5-a008e6dfad1e'), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'), 'LOCATION', 'Через два дня после Мидинваэрне задул морозный, обжигающий кожу ветер. Назавтра небо потемнело, а в воздухе замелькали снежинки. К следующему дню всё ... (161 characters truncated) ... е шапки. Сомневаться не приходилось — настала каэдвенская зима, и в пейзаже ничего не должно было измениться как минимум до марта, если не до апреля.', None, 0.95, 2, 69, True, 84.5, '', None, None, False, False, UUID('16f9a128-da1a-48e1-a99e-1c774e033c1f'), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'), 'CHARACTER', 'Одетые в стёганые кафтаны и защитные кожаные шапки, вооружённые трёхфутовыми дубовыми палками, оба ведьмака часами отрабатывали выпады, парирования и ... (409 characters truncated) ... тренировались в амбаре, а когда ветер стихал, и теплело, выходили во двор. И упражнялись часами. В одних рубахах, от которых пар валил как из котлов.', None, 0.92, 3, 106, True, 74.2, '', None, None, False, False, UUID('25a2fd0a-8105-43ab-9104-25559374c72c'), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'), 'ATMOSPHERE', 'Там пылал огромный костёр, а на расставленных вокруг скамьях сидела вся челядь поместья, к которой, видимо, присоединились родственники, свойственник ... (307 characters truncated) ... ол экономка вскоре водрузила жбан вина и дымящийся котелок, в котором, как выяснилось, томились рёбрышки молодого кабана в пропитанной жиром капусте.', None, 0.88, 4, 88, True, 58.8, '', None, None, False, False)
+2026-01-20 16:59:04,636 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:01:10,029 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:01:10,030 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:01:10,030 INFO sqlalchemy.engine.Engine [cached since 632.1s ago] (65, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:01:10,036 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:01:10,036 INFO sqlalchemy.engine.Engine [cached since 632.1s ago] (True, 8, False, datetime.datetime(2026, 1, 20, 17, 1, 10, 27159, tzinfo=datetime.timezone.utc), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'))
+2026-01-20 17:01:10,038 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1677 characters truncated ... :BOOLEAN, $120::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:01:10,038 INFO sqlalchemy.engine.Engine [cached since 632s ago (insertmanyvalues) 1/1 (ordered)] (UUID('9f349a12-6a48-4a84-8ee1-a71c1b0954cb'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'LOCATION', 'Стоящий на острове Зеевальк форт Торнхолл был окружён двойным частоколом. Первый щетинился на самом берегу острова и теперь, при половодье после таян ... (307 characters truncated) ... сь огромное одиночное деревянное многоэтажное здание, тоже больше похожее на укреплённый блокгауз, чем на дом — как и башни, с бойницами вместо окон.', None, 0.95, 0, 87, True, 89.5, '', None, None, False, False, UUID('5c071f19-4ff9-4978-b18b-c7b05ca61be5'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'LOCATION', 'Внизу серебром сверкала гладь озера. Чернел на ней остров, довольно далеко от берега. К самому берегу жался окружённый частоколом городок. Огороженна ... (4 characters truncated) ... ревянными помостами пристань была забита рыбацкими лодками, на сваях сушились сети, дымили коптильни. Над всем этим с криками кружили чайки и крачки.', None, 0.85, 1, 43, True, 83.5, '', None, None, False, False, UUID('ba8709a3-51bf-4f7a-87ca-1d44677e1196'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'LOCATION', 'Парусный куттер «Нихиль Нови» внезапно взял курс прямо на них. Вскоре он приблизился к шаланде настолько, что они смогли лучше его рассмотреть. На нё ... (54 characters truncated) ... четырёхугольный сзади. Когда он подошёл ещё ближе, они различили на палубе несколько человек. До них донеслись песни, смех и выкрики. Явно нетрезвые.', None, 0.85, 2, 55, True, 83.5, '', None, None, False, False, UUID('b89dc24d-020a-422c-8cf3-88cad770c3ae'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'LOCATION', 'Целью путешествия, как выяснилось, был Зеевальк — остров на Длинном озере, виднеющийся вдалеке на водной глади тёмным, окутанным туманом силуэтом. А  ... (61 characters truncated) ... ельная лодка, гружёная внушительным количеством ящиков, сундуков, бочек и мешков. В грузе, как оказалось, были ещё четыре овцы и чёрный кот в клетке.', None ... 20 parameters truncated ... '', None, None, False, False, UUID('8b360a5a-ffce-43ee-94dc-7625355e2e55'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'CHARACTER', 'У стены комнаты возник светящийся овал. В нём сперва замаячил неясный силуэт, а через мгновение оттуда появилась невысокая женщина в мужской одежде.  ... (132 characters truncated) ...  ней не было и в помине. Однако её пухлое румяное лицо излучало симпатию, какую-то сразу ощутимую сердечность, из-за которой Геральт не опустил глаз.', None, 0.9, 5, 63, True, 69.0, '', None, None, False, False, UUID('b491b689-1bd9-4d88-b3d2-cec5bd6c4758'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'CHARACTER', 'Чудище, рассказывали они наперебой, маленькое, но вредное. Морда жабья и глаза выпученные. Квакает как лягушка. Приходит с озера, на своих жабьих лапах грязь и тину таскает — только успевай убирать. Гадит где попало. В углу нассал. Продукты жрёт. Рассыпал по всей кухне крупу и муку. Разбил чайник.', None, 0.8, 6, 47, True, 68.0, '', None, None, False, False, UUID('a32d3cb8-5114-4542-bd7a-5811657ab858'), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'), 'ATMOSPHERE', 'Рядом на помосте несколько женщин чистили рыбу. Подле них вертелся чёрный кот — тот самый, что прибыл на Зеевальк вместе с Геральтом и целительницей. ... (31 characters truncated) ... ья чешуя, потроха и плавательные пузыри. Солнце красиво садилось над озером, отражаясь в его глади. Где-то вдали кто-то кричал, должно быть, журавли.', None, 0.85, 7, 51, True, 53.5, '', None, None, False, False)
+2026-01-20 17:01:10,042 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:01:40,033 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:01:40,034 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:01:40,034 INFO sqlalchemy.engine.Engine [cached since 662.1s ago] (70, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:01:40,037 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:01:40,037 INFO sqlalchemy.engine.Engine [cached since 662.1s ago] (True, 6, False, datetime.datetime(2026, 1, 20, 17, 1, 40, 20844, tzinfo=datetime.timezone.utc), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'))
+2026-01-20 17:01:40,042 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1236 characters truncated ... ::BOOLEAN, $90::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:01:40,044 INFO sqlalchemy.engine.Engine [cached since 662.1s ago (insertmanyvalues) 1/1 (ordered)] (UUID('4128a15e-9cd4-44fb-988e-86d76b7fd110'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'LOCATION', 'С приходом ночи Торнхолл погружался в кромешную тьму. Из соображений безопасности — всё здесь было деревянным — тщательно гасили огни, включая факелы ... (245 characters truncated) ... лагаясь на неприступность острова. Ясно было, что остров и форт давным-давно никто всерьёз не тревожил, отчего стража обленилась и погрязла в рутине.', None, 0.9, 0, 79, True, 89.0, '', None, None, False, False, UUID('ad8713c2-2bfc-47fd-84cf-c6f2fae8e059'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'LOCATION', 'Фредерик восседал в своём большом кресле, на спинке которого красовался герб маркграфства — две серебряные рыбы, обращённые спинами друг к другу. Из- ... (123 characters truncated) ... было перевязано. Рядом с креслом стоял столик, на нём Геральт заметил бинты, пузырьки и никелированный шприц. Явно медицинская утварь Врай Наттеравн.', None, 0.9, 1, 59, True, 84.0, '', None, None, False, False, UUID('eff5dfde-19bb-45e2-a0d0-fa32904eb2f5'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'CHARACTER', 'В огромном кресле, спинка которого почти подпирала потолок, восседал Фредерик Вайкинен — граф, сын маркграфа Озёрной Мархии. У графа были длинные све ... (150 characters truncated) ...  тощая голая грудь, крест-накрест перетянутая бинтами через оба плеча и подмышки. Ноги юноши тоже были обнажены, левое колено также обвивала повязка.', None, 0.95, 2, 64, True, 69.5, '', None, None, False, False, UUID('27741b0b-f61a-423e-9d57-e0864326193f'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'CHARACTER', 'Диего Марс подошёл, посветил связанному фонарём в лицо. Тот сощурился. Гладко выбритый — что объясняло запах пряного рома, которым пользовались после ... (167 characters truncated) ... осветил связанному фонарём в лицо. Тот сощурился. Гладко выбритый — что объясняло запах пряного рома, которым пользовались после бритья модные денди.', None, 0.8, 3, 66, True, 68.0, '', None, None, False, False, UUID('95fc30cc-851b-4147-a689-e88698a4989e'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'ATMOSPHERE', 'На стене тонкой, едва различимой линией был начертан углём контур. В форме двери. И сомнений не было — именно этот контур и был магическим. Контур на ... (93 characters truncated) ... товсюду вспыхнули качающиеся огни фонарей, заплясали тени, коридор наполнился людьми. Фонарей и факелов прибывало, в коридоре стало не протолкнуться.', None, 0.85, 4, 59, True, 53.5, '', None, None, False, False, UUID('c26ed324-9ed2-477a-965f-f0f148a9b53a'), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'), 'ATMOSPHERE', 'Ночь была тёмной — новолуние, небо затянуто тучами. Геральту это было только на руку. Он осторожно выбрался из своей каморки, стараясь не скрипнуть д ... (49 characters truncated) ... р, на помосты. И едва не столкнулся с водяным. Существо съёжилось, переминаясь с лапы на лапу. Вытаращило на Геральта глазища и разинуло жабью пасть.', None, 0.85, 5, 55, True, 53.5, '', None, None, False, False)
+2026-01-20 17:01:40,063 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:02:05,876 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:02:05,877 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:02:05,877 INFO sqlalchemy.engine.Engine [cached since 687.9s ago] (75, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:02:05,879 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:02:05,879 INFO sqlalchemy.engine.Engine [cached since 687.9s ago] (True, 8, False, datetime.datetime(2026, 1, 20, 17, 2, 5, 872540, tzinfo=datetime.timezone.utc), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'))
+2026-01-20 17:02:05,886 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1677 characters truncated ... :BOOLEAN, $120::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:02:05,886 INFO sqlalchemy.engine.Engine [cached since 687.9s ago (insertmanyvalues) 1/1 (ordered)] (UUID('9a07f3fe-11c3-40aa-9638-1b2eb8ca048a'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'LOCATION', 'Ворон, вопреки своему обычаю летать высоко в небе, прыгал по земле. Только когда Геральт приблизился, птица каркнула и взмыла вверх. Уселась на верху ... (357 characters truncated) ...  с седла, внимательно осмотрелся. И его подозрения подтвердились. На песке виднелся отпечаток ступни. Большой ступни. Широкой. Длиной в полтора фута.', None, 0.92, 0, 91, True, 89.2, '', None, None, False, False, UUID('effe94ac-7744-4312-af88-63e6a4f318c0'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'LOCATION', 'Долина между холмами утопала в бело-розовом цвету. Цвели деревья — яблони, десятки, если не сотни яблонь, высаженных ровными рядами, стройно, будто в ... (91 characters truncated) ...  деревянным зданиям. Над дорогой возвышались своеобразные ворота — два столба с перекладиной. На перекладине была выжжена надпись: HORTUS DELICIARUM.', None, 0.95, 1, 55, True, 84.5, '', None, None, False, False, UUID('a352118f-b2d2-42aa-b7a2-59b15db661a0'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'CHARACTER', 'Мужчина был одет в модный пурпурный дублет, богато расшитый, спереди отделанный металлической нитью и застёгнутый на серебряные пряжки. Из-под высоко ... (112 characters truncated) ... ронутые сединой, брови густые и сросшиеся в одну линию у переносицы. Радужки его глаз напоминали полированный металл — блестящие и словно зеркальные.', None, 0.98, 2, 56, True, 69.8, '', None, None, False, False, UUID('b1b7798f-927d-4614-ad63-048a1d1ef4d4'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'CHARACTER', 'Он уже сидел в седле, но не успел отъехать, как во двор въехали трое всадников. Все трое вооружены до зубов, на боевых жеребцах. Двое мужчин в кожаны ... (157 characters truncated) ... е губы и зелёные глаза с на редкость мерзким выражением. В расщелинах стен Каэр Морхена гнездились хищные ящерицы. Женщина лицом очень их напоминала.', None ... 20 parameters truncated ... '', None, None, False, False, UUID('8488eaff-eaa2-4b2b-a012-f350600d44f5'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'CHARACTER', 'Лесные шраты, гуманоидные монстры из семейства гоблиноподобных, были опасными тварями. Во-первых, они обычно передвигались ордами. Во-вторых, полагал ... (113 characters truncated) ...  находили или мастерили сами. И умели этим оружием пользоваться. В-третьих, они вечно были голодны и нападали на всё съедобное. В том числе на людей.', None, 0.85, 5, 60, True, 68.5, '', None, None, False, False, UUID('dcbc3b21-5392-46d7-8154-0e7dc8d61f10'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'ATMOSPHERE', 'Ночью шёл дождь, а утром всё затянуло густым, липким туманом. Раскинутые на траве белые паутины сверкали от росы, словно бриллиантовые ожерелья. Но п ... (86 characters truncated) ... лубине леса застучал дятел. Геральт доехал до развилки, остановил коня. Как почти год назад, подумал он. Перекрёсток. Дороги на юг, на запад и север.', None, 0.95, 6, 57, True, 54.5, '', None, None, False, False, UUID('71d04437-c1af-46fb-985e-5ff2f383dcb3'), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'), 'ATMOSPHERE', 'Четыре лохматых шрата копошились над поверженной лошадью. Они распороли ей брюхо и пожирали заживо. Лошадь отчаянно ржала и мотала головой. На ветке  ... (72 characters truncated) ... нь, что было сил трубя в жестяной рожок. Два шрата пытались до него дотянуться, один вскарабкался на плечи другого и старался зацепить парня когтями.', None, 0.9, 7, 53, True, 54.0, '', None, None, False, False)
+2026-01-20 17:02:05,902 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:04:15,348 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:04:15,349 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:04:15,349 INFO sqlalchemy.engine.Engine [cached since 817.4s ago] (80, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:04:15,352 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 17:04:15,352 INFO sqlalchemy.engine.Engine [cached since 618s ago] (True, False, datetime.datetime(2026, 1, 20, 17, 4, 15, 345267, tzinfo=datetime.timezone.utc), UUID('1021f91a-4ca2-4305-8d2a-5d8bdbb56cc6'))
+2026-01-20 17:04:15,355 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:04:39,875 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:04:39,875 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:04:39,875 INFO sqlalchemy.engine.Engine [cached since 841.9s ago] (85, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:04:39,881 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:04:39,881 INFO sqlalchemy.engine.Engine [cached since 841.9s ago] (True, 7, False, datetime.datetime(2026, 1, 20, 17, 4, 39, 843956, tzinfo=datetime.timezone.utc), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'))
+2026-01-20 17:04:39,885 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1452 characters truncated ... :BOOLEAN, $105::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:04:39,886 INFO sqlalchemy.engine.Engine [cached since 841.9s ago (insertmanyvalues) 1/1 (ordered)] (UUID('1731c56e-b214-45c2-8acf-c5b994888623'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'LOCATION', 'Приближающиеся к тюрьме Стурефорс сначала, уже издали, видели Aedificium carceris — огромное здание, возвышающийся над низменностью каменный блок. Че ... (309 characters truncated) ... ли — проезжающих заставляли поспешно миновать каменоломню грозные окрики и ещё более грозные взгляды надзирающих за заключёнными конных арбалетчиков.', None, 0.95, 0, 81, True, 89.5, '', None, None, False, False, UUID('b93e696b-2a56-48b3-bea2-cddce1136f93'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'LOCATION', 'В отличие от обычных городских эшафотов, этот во дворе тюрьмы Стурефорс был крошечным. Разумеется, помосты для городских казней должны были быть боль ... (347 characters truncated) ... лпе, заполняющей площадь. Эшафот в Стурефорс был совсем низким, немногочисленные зрители могли наблюдать за казнью сверху, с окружающей двор галереи.', None, 0.95, 1, 91, True, 89.5, '', None, None, False, False, UUID('9dab8d9a-b99e-49ce-af87-427ce25e3fb2'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'LOCATION', 'От кордегардии дорога вела прямо к Aedificium, между двумя частоколами, настолько высокими, что даже с высоты седла нельзя было разглядеть, что наход ... (395 characters truncated) ... железный крюк, назначение которого нетрудно было угадать. Не понравилось и то, что стул, на который ему велели сесть, был намертво прикреплён к полу.', None, 0.9, 2, 98, True, 89.0, '', None, None, False, False, UUID('6ec21114-0598-459f-aa65-51620f0d0ce4'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'CHARACTER', 'На галерее, заметил Геральт, было около дюжины зрителей. Выделялся седобородый старец в богатом одеянии, окружённый более молодыми и куда более привл ... (383 characters truncated) ...  бригандину и увешанный оружием пояс, а был одет в серую простую одежду слуги или камердинера. Но Геральт всё равно узнал его. По искривлённому носу.', None ... 5 parameters truncated ... '', None, None, False, False, UUID('6a3ca5cc-b348-45ef-b32d-7d10d0eca5d4'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'CHARACTER', 'На эшафоте, прислонившись к столбу, ждал палач в кожаной маске. Хольта вывели во двор четверо стражников. Старый ведьмак шёл спокойно, лицо его тоже  ... (279 characters truncated) ... ля связывания. Палач закрепил на его шее железное кольцо, соединённое с винтовым стержнем. Положил руки на рукоятки выступающего из-за столба ворота.', None, 0.85, 4, 88, True, 73.5, '', None, None, False, False, UUID('c943ca44-d1be-402e-973d-846d2d9dcff9'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'CHARACTER', 'Престон Хольт выглядел неважно. Белые волосы неряшливой чёлкой падали на лоб и глаза. Нездоровая бледность, впалые щёки и неестественно выпирающие скулы довершали картину. К тому же на левой щеке и вокруг глаза виднелся след огромного, но уже старого, пожелтевшего синяка.', None, 0.95, 5, 40, True, 69.5, '', None, None, False, False, UUID('2644b63a-193e-436a-8f04-6640f6e8dbcc'), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'), 'CHARACTER', 'Сидевший за столом Эстеван Трилло да Кунья, королевский префект стражи, долго и пристально смотрел на Геральта, щуря глаза и слегка прикусывая губы.  ... (120 characters truncated) ... и по стоявшим перед ним песочным часам. Песок в них полностью пересыпался, но префект не переворачивал их. Очевидно, его не заботило течение времени.', None, 0.85, 6, 62, True, 68.5, '', None, None, False, False)
+2026-01-20 17:04:39,895 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:06:48,731 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:06:48,732 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:06:48,732 INFO sqlalchemy.engine.Engine [cached since 970.8s ago] (90, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:06:48,737 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 17:06:48,738 INFO sqlalchemy.engine.Engine [cached since 771.4s ago] (True, False, datetime.datetime(2026, 1, 20, 17, 6, 48, 726378, tzinfo=datetime.timezone.utc), UUID('c84fe32e-7fba-47e2-996e-033ce6171b72'))
+2026-01-20 17:06:48,740 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:07:13,062 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:07:13,063 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:07:13,064 INFO sqlalchemy.engine.Engine [cached since 995.1s ago] (95, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:07:13,069 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:07:13,069 INFO sqlalchemy.engine.Engine [cached since 995.1s ago] (True, 2, False, datetime.datetime(2026, 1, 20, 17, 7, 13, 56021, tzinfo=datetime.timezone.utc), UUID('0cd655ca-0c6d-4b0a-b0ac-59ec7ee5ad57'))
+2026-01-20 17:07:13,081 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 396 characters truncated ... ::BOOLEAN, $30::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:07:13,081 INFO sqlalchemy.engine.Engine [cached since 995.1s ago (insertmanyvalues) 1/1 (ordered)] (UUID('ac5c9d1e-5961-4dd5-8583-2ad21b57ab6d'), UUID('0cd655ca-0c6d-4b0a-b0ac-59ec7ee5ad57'), 'ATMOSPHERE', 'Из того утра он помнил немногое. Кто-то громко стонал, захлёбываясь стоном. Прошло время, прежде чем он понял, что стонет он сам. Вокруг было движени ... (391 characters truncated) ... овение. Вокруг был колеблющийся свет. И голоса. Голоса неясные, искажённые гулом, эхом как из-под воды — или над водой, словно это он был на глубине.', None, 0.9, 0, 106, True, 59.0, '', None, None, False, False, UUID('073286da-7e47-406c-8bca-a37ece7dc9cf'), UUID('0cd655ca-0c6d-4b0a-b0ac-59ec7ee5ad57'), 'ATMOSPHERE', 'Он приходил в себя в темноте и неподвижности. С мучительно пересохшим и распухшим горлом. И просыпался в боли. Боль пронзала его словно остриё, разди ... (235 characters truncated) ... оро умрёт. Или если не скоро, то уже завтра. Потом возвращалась боль, и он жаждал, чтобы так и случилось. Чтобы боль прекратилась, хоть через смерть.', None, 0.8, 1, 87, True, 58.0, '', None, None, False, False)
+2026-01-20 17:07:13,095 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:08:39,912 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:08:39,913 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 17:08:39,913 INFO sqlalchemy.engine.Engine [cached since 1082s ago] (100, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:08:39,918 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, descriptions_found=$2::INTEGER, is_service_page=$3::BOOLEAN, updated_at=now(), parsed_at=$4::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $5::UUID
+2026-01-20 17:08:39,918 INFO sqlalchemy.engine.Engine [cached since 1082s ago] (True, 6, False, datetime.datetime(2026, 1, 20, 17, 8, 39, 908152, tzinfo=datetime.timezone.utc), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'))
+2026-01-20 17:08:39,923 INFO sqlalchemy.engine.Engine INSERT INTO descriptions (id, chapter_id, type, content, context, confidence_score, position_in_chapter, word_count, is_suitable_for_generation, priority_score, entities_mentioned, emotional_tone, complexity_level, image_generated, generation_request ... 1236 characters truncated ... ::BOOLEAN, $90::BOOLEAN) RETURNING descriptions.created_at, descriptions.updated_at, descriptions.id
+2026-01-20 17:08:39,923 INFO sqlalchemy.engine.Engine [cached since 1082s ago (insertmanyvalues) 1/1 (ordered)] (UUID('be174147-9345-4530-aef4-968a74c18d77'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'LOCATION', 'В воздухе пахло снегом. Март на дворе, снега тают, а холод не отступает. Подтаявший снег капал с веток. По аллее между голыми деревьями он направился ... (72 characters truncated) ... оматы ромашки, розмарина, ландыша и других душистых ингредиентов, которые ведьмак не мог распознать. За работой послушницы весело болтали и смеялись.', None, 0.85, 0, 54, True, 83.5, '', None, None, False, False, UUID('0b6287be-f71c-47e0-89f7-ac06c2250cf8'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'CHARACTER', 'Он плотнее закутался в толстый плащ — поначалу единственную мужскую одежду, что нашлась в храме. Плащ неизвестного происхождения отыскался в дальнем  ... (76 characters truncated) ...  на телеге с углём, а потом ещё столько же — подстилкой в собачьей конуре. Но его удалось отчистить, сидел он неплохо и от холода защищал достаточно.', None, 0.95, 1, 58, True, 69.5, '', None, None, False, False, UUID('dbd16f53-5286-461f-9939-119ff0b3dfbd'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'CHARACTER', 'От его собственной одежды не уцелело практически ничего. Почти всё, включая красивую куртку с серебряными накладками и кожаные штиблеты, пришлось раз ... (149 characters truncated) ... цы собрали ему какую-то обувь и одежду, закупившись в городке. Некоторые из них умели обращаться с иглой и подогнали то, что не подходило по размеру.', None, 0.92, 2, 68, True, 69.2, '', None, None, False, False, UUID('bc7f95c9-52be-4eeb-9bea-ae1f4836412e'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'CHARACTER', 'Когда он подошёл к конюшне, Плотва, как обычно, приветствовала его громким фырканьем. Геральт погладил кобылу по шее, чувствуя, как под кожей подраги ... (191 characters truncated) ... то недоуздка. Ведьмак, прикованный тогда к постели, узнал об этом гораздо позже, когда Плотва уже стояла в храмовой конюшне и уплетала храмовой овёс.', None, 0.9, 3, 76, True, 69.0, '', None, None, False, False, UUID('8a20bddd-bb74-4c71-8801-a5b68c34c9cc'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'CHARACTER', 'Не хотел он помнить и пробуждения с пересохшими, как пергамент, губами, деревянным языком и слюной, густой, как столярный клей. Не хотел вспоминать м ... (119 characters truncated) ... становительных упражнений. Он просто не мог без отвращения смотреть на ложе, где провёл тринадцать недель — самых омерзительных недель в своей жизни.', None, 0.88, 4, 64, True, 68.8, '', None, None, False, False, UUID('b53a71e9-32f0-4b91-9284-9cdeab061e99'), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'), 'CHARACTER', 'Лицо жрицы Неннеке, как обычно, было строгим — такое выражение больше подошло бы кому-то намного старше её неполных тридцати лет. Впрочем, у Геральта было достаточно времени к этому привыкнуть. Жрица пронзила его взглядом. Неннеке, как всегда, точно угадывала. Она открывала ворота.', None, 0.8, 5, 41, True, 68.0, '', None, None, False, False)
+2026-01-20 17:08:39,930 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:08:39,936 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:08:39,938 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 17:08:39,938 INFO sqlalchemy.engine.Engine [generated in 0.00030s] (False, True, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 17:08:39,947 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 17:08:39,979 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 17:08:39,983 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 17:08:39,983 INFO sqlalchemy.engine.Engine [generated in 0.00047s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 17:08:40,118 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 18:14:57,866 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 18:14:57,866 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 18:14:57,870 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 18:14:57,871 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 18:14:57,884 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 18:14:57,884 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 18:14:57,898 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 18:14:57,903 INFO sqlalchemy.engine.Engine INSERT INTO generated_images (id, description_id, chapter_id, user_id, service_used, status, image_url, local_path, prompt_used, generation_time_seconds, file_size, image_width, image_height, file_format, quality_score, is_moderated, moderation_notes, view_count, download_count, error_message, retry_count, generated_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::UUID, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::FLOAT, $11::INTEGER, $12::INTEGER, $13::INTEGER, $14::VARCHAR, $15::FLOAT, $16::BOOLEAN, $17::VARCHAR, $18::INTEGER, $19::INTEGER, $20::VARCHAR, $21::INTEGER, $22::TIMESTAMP WITH TIME ZONE) RETURNING generated_images.created_at, generated_images.updated_at
+2026-01-20 18:14:57,903 INFO sqlalchemy.engine.Engine [generated in 0.00070s] (UUID('425a2c31-10a7-456c-b90d-3011b228701e'), UUID('57f67b89-ab40-41a5-9b6d-4091d5b9f4df'), None, UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'), 'imagen', 'completed', '/api/v1/images/file/imagen_20260120_181457_1f873c08.png', '/app/storage/generated_images/imagen_20260120_181457_1f873c08.png', 'Detailed book illustration of, Walled stone temple, sacred sanctuary, situated in a picturesque arc-shaped valley between steep slopes. Northern slop ... (411 characters truncated) ... lustration style, atmospheric lighting, rich vibrant colors, detailed environment, professional artwork, high quality, suitable for book illustration', 10.676075220108032, None, None, None, None, None, False, None, 0, 0, None, 0, None)
+2026-01-20 18:14:57,922 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 18:14:57,929 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 18:14:57,933 INFO sqlalchemy.engine.Engine SELECT generated_images.id, generated_images.description_id, generated_images.chapter_id, generated_images.user_id, generated_images.service_used, generated_images.status, generated_images.image_url, generated_images.local_path, generated_images.prompt_used, generated_images.generation_parameters, generated_images.generation_time_seconds, generated_images.file_size, generated_images.image_width, generated_images.image_height, generated_images.file_format, generated_images.quality_score, generated_images.is_moderated, generated_images.moderation_result, generated_images.moderation_notes, generated_images.view_count, generated_images.download_count, generated_images.error_message, generated_images.retry_count, generated_images.created_at, generated_images.updated_at, generated_images.generated_at 
+FROM generated_images 
+WHERE generated_images.id = $1::UUID
+2026-01-20 18:14:57,934 INFO sqlalchemy.engine.Engine [generated in 0.00034s] (UUID('425a2c31-10a7-456c-b90d-3011b228701e'),)
+2026-01-20 18:14:57,942 INFO sqlalchemy.engine.Engine SELECT descriptions.id, descriptions.chapter_id, descriptions.type, descriptions.content, descriptions.context, descriptions.confidence_score, descriptions.position_in_chapter, descriptions.word_count, descriptions.is_suitable_for_generation, descriptions.priority_score, descriptions.entities_mentioned, descriptions.emotional_tone, descriptions.complexity_level, descriptions.image_generated, descriptions.generation_requested, descriptions.created_at, descriptions.updated_at 
+FROM descriptions 
+WHERE descriptions.id = $1::UUID
+2026-01-20 18:14:57,942 INFO sqlalchemy.engine.Engine [generated in 0.00042s] (UUID('57f67b89-ab40-41a5-9b6d-4091d5b9f4df'),)
+2026-01-20 18:14:57,991 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-20 18:14:57,992 INFO sqlalchemy.engine.Engine [generated in 0.00038s] (UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'),)
+2026-01-20 18:14:58,006 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 18:14:58,006 INFO sqlalchemy.engine.Engine [generated in 0.00039s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 18:14:58,121 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:27:44,396 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:27:44,397 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:44,404 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:27:44,405 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:44,410 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:27:44,410 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:27:44,419 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:44,529 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:27:44,529 INFO sqlalchemy.engine.Engine [generated in 0.00057s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:44,540 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:27:44,541 INFO sqlalchemy.engine.Engine [generated in 0.00038s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:27:44,590 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, parsing_progress=$2::INTEGER, descriptions_extracted=$3::BOOLEAN, updated_at=now() WHERE books.id = $4::UUID
+2026-01-20 19:27:44,590 INFO sqlalchemy.engine.Engine [generated in 0.00065s] (False, 100, True, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:27:44,595 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:27:44,611 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:27:44,614 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:27:44,614 INFO sqlalchemy.engine.Engine [generated in 0.00030s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:27:44,901 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:28:19,813 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:28:19,814 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:28:19,821 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:28:19,821 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:28:19,824 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:28:19,824 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:28:19,826 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:19,953 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:28:19,953 INFO sqlalchemy.engine.Engine [generated in 0.00048s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:28:19,968 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:28:19,968 INFO sqlalchemy.engine.Engine [generated in 0.00034s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:28:20,040 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, parsing_progress=$2::INTEGER, descriptions_extracted=$3::BOOLEAN, updated_at=now() WHERE books.id = $4::UUID
+2026-01-20 19:28:20,040 INFO sqlalchemy.engine.Engine [generated in 0.00049s] (False, 100, True, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:28:20,045 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:28:20,093 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:28:20,095 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:28:20,095 INFO sqlalchemy.engine.Engine [generated in 0.00028s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:28:20,189 INFO sqlalchemy.engine.Engine ROLLBACK
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 19:32:42
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7295423762d0
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
+2026-01-20 19:37:42,973 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:37:42,973 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:42,994 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:37:42,994 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:42,997 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:37:42,998 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:43,005 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,139 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:37:43,139 INFO sqlalchemy.engine.Engine [generated in 0.00048s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:37:43,153 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:37:43,154 INFO sqlalchemy.engine.Engine [generated in 0.00108s] (UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'),)
+2026-01-20 19:37:43,278 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,279 INFO sqlalchemy.engine.Engine [generated in 0.00037s] (3, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,286 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,286 INFO sqlalchemy.engine.Engine [generated in 0.00041s] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 274209, tzinfo=datetime.timezone.utc), UUID('343f78ff-2ae2-4a54-8841-34b318ff70c2'))
+2026-01-20 19:37:43,291 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,304 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,304 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,304 INFO sqlalchemy.engine.Engine [cached since 0.02612s ago] (7, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,306 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,306 INFO sqlalchemy.engine.Engine [cached since 0.02053s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 300214, tzinfo=datetime.timezone.utc), UUID('72026de7-c172-4cf3-b31a-fed6837f2c19'))
+2026-01-20 19:37:43,309 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,317 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,318 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,318 INFO sqlalchemy.engine.Engine [cached since 0.03988s ago] (11, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,321 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,321 INFO sqlalchemy.engine.Engine [cached since 0.03541s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 315237, tzinfo=datetime.timezone.utc), UUID('9788ca6d-5d7b-42f0-b53a-d35506aa1ace'))
+2026-01-20 19:37:43,323 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,336 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,340 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,340 INFO sqlalchemy.engine.Engine [cached since 0.0619s ago] (14, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,343 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,343 INFO sqlalchemy.engine.Engine [cached since 0.05742s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 332270, tzinfo=datetime.timezone.utc), UUID('88f19b28-db39-4dce-8dcf-0c78e6916c9d'))
+2026-01-20 19:37:43,345 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,355 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,356 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,356 INFO sqlalchemy.engine.Engine [cached since 0.07785s ago] (18, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,358 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,358 INFO sqlalchemy.engine.Engine [cached since 0.07243s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 351825, tzinfo=datetime.timezone.utc), UUID('15f8fbe9-9adb-42ef-8e72-ce4ba54c14c9'))
+2026-01-20 19:37:43,361 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,372 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,373 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,373 INFO sqlalchemy.engine.Engine [cached since 0.09514s ago] (22, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,376 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,376 INFO sqlalchemy.engine.Engine [cached since 0.09025s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 366689, tzinfo=datetime.timezone.utc), UUID('c249881a-d3ee-467d-bf98-74fca589c7a4'))
+2026-01-20 19:37:43,378 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,391 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,392 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,392 INFO sqlalchemy.engine.Engine [cached since 0.1137s ago] (25, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,393 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,394 INFO sqlalchemy.engine.Engine [cached since 0.1079s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 386472, tzinfo=datetime.timezone.utc), UUID('76e1ff89-5fd2-499a-a622-bb7269238c87'))
+2026-01-20 19:37:43,399 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,408 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,408 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,408 INFO sqlalchemy.engine.Engine [cached since 0.1303s ago] (29, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,410 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,410 INFO sqlalchemy.engine.Engine [cached since 0.1243s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 405110, tzinfo=datetime.timezone.utc), UUID('36d89b21-c89b-4c69-b980-de1d9e6dec36'))
+2026-01-20 19:37:43,411 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,419 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,419 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,419 INFO sqlalchemy.engine.Engine [cached since 0.1412s ago] (33, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,421 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,422 INFO sqlalchemy.engine.Engine [cached since 0.1358s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 417525, tzinfo=datetime.timezone.utc), UUID('efb18bb5-ddc6-4824-850d-1368af2f92df'))
+2026-01-20 19:37:43,423 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,433 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,434 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,434 INFO sqlalchemy.engine.Engine [cached since 0.1556s ago] (37, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,437 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,439 INFO sqlalchemy.engine.Engine [cached since 0.1535s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 430600, tzinfo=datetime.timezone.utc), UUID('9ae05a87-b801-4a41-87b3-9fdcd1b2b4d2'))
+2026-01-20 19:37:43,443 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,456 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,457 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,457 INFO sqlalchemy.engine.Engine [cached since 0.1792s ago] (40, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,459 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,460 INFO sqlalchemy.engine.Engine [cached since 0.1739s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 453445, tzinfo=datetime.timezone.utc), UUID('726cad5a-5aeb-4091-b799-323db82c0371'))
+2026-01-20 19:37:43,461 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,469 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,472 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,474 INFO sqlalchemy.engine.Engine [cached since 0.1956s ago] (44, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,476 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,477 INFO sqlalchemy.engine.Engine [cached since 0.1909s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 465887, tzinfo=datetime.timezone.utc), UUID('310030be-3c94-4a44-9730-f19a16ec662c'))
+2026-01-20 19:37:43,479 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,505 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,505 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,506 INFO sqlalchemy.engine.Engine [cached since 0.2275s ago] (48, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,508 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,508 INFO sqlalchemy.engine.Engine [cached since 0.222s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 495262, tzinfo=datetime.timezone.utc), UUID('9e25aec2-ffec-467d-bc84-b3d7e5555c86'))
+2026-01-20 19:37:43,509 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,517 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,517 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,517 INFO sqlalchemy.engine.Engine [cached since 0.2391s ago] (51, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,519 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,519 INFO sqlalchemy.engine.Engine [cached since 0.2336s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 514178, tzinfo=datetime.timezone.utc), UUID('654203d5-436d-489b-ac6f-262250f248a2'))
+2026-01-20 19:37:43,520 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,528 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,528 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,528 INFO sqlalchemy.engine.Engine [cached since 0.2501s ago] (55, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,530 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,530 INFO sqlalchemy.engine.Engine [cached since 0.244s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 526394, tzinfo=datetime.timezone.utc), UUID('f5b9e05c-b0b1-43c0-9cc5-eaf5a9633368'))
+2026-01-20 19:37:43,531 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,540 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,540 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,540 INFO sqlalchemy.engine.Engine [cached since 0.262s ago] (59, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,545 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,545 INFO sqlalchemy.engine.Engine [cached since 0.2591s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 538118, tzinfo=datetime.timezone.utc), UUID('260bb482-3042-4b2d-9e50-d3c61557f452'))
+2026-01-20 19:37:43,546 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,568 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,569 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,569 INFO sqlalchemy.engine.Engine [cached since 0.2909s ago] (62, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,571 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,572 INFO sqlalchemy.engine.Engine [cached since 0.2858s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 551653, tzinfo=datetime.timezone.utc), UUID('5ddbb09d-26c3-43f8-9fc5-a219aa9407e1'))
+2026-01-20 19:37:43,573 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,580 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,580 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,580 INFO sqlalchemy.engine.Engine [cached since 0.3021s ago] (66, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,583 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,584 INFO sqlalchemy.engine.Engine [cached since 0.2979s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 576968, tzinfo=datetime.timezone.utc), UUID('b9e6cc62-9460-4712-baa4-3b0fe2c05a43'))
+2026-01-20 19:37:43,591 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,597 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,598 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,598 INFO sqlalchemy.engine.Engine [cached since 0.3197s ago] (70, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,599 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,599 INFO sqlalchemy.engine.Engine [cached since 0.3137s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 595963, tzinfo=datetime.timezone.utc), UUID('0dea2956-de09-4bd1-a46a-9e1435aa4d9f'))
+2026-01-20 19:37:43,600 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,606 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,607 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,607 INFO sqlalchemy.engine.Engine [cached since 0.3287s ago] (74, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,609 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,609 INFO sqlalchemy.engine.Engine [cached since 0.323s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 604560, tzinfo=datetime.timezone.utc), UUID('53f3bbe6-d896-46ea-af44-8cf8880aab02'))
+2026-01-20 19:37:43,610 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,616 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,617 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,617 INFO sqlalchemy.engine.Engine [cached since 0.3392s ago] (77, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,619 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,619 INFO sqlalchemy.engine.Engine [cached since 0.3331s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 614482, tzinfo=datetime.timezone.utc), UUID('5edfcfa5-5f5a-4ed6-bec3-0d09f2723199'))
+2026-01-20 19:37:43,620 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,638 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,638 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,638 INFO sqlalchemy.engine.Engine [cached since 0.3602s ago] (81, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,642 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,642 INFO sqlalchemy.engine.Engine [cached since 0.3565s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 635740, tzinfo=datetime.timezone.utc), UUID('bd216ac8-78b6-49be-9473-613388e5373b'))
+2026-01-20 19:37:43,644 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,655 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,656 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,656 INFO sqlalchemy.engine.Engine [cached since 0.378s ago] (85, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,658 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,658 INFO sqlalchemy.engine.Engine [cached since 0.3724s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 653691, tzinfo=datetime.timezone.utc), UUID('736f81c7-f5af-44b5-bb56-baf1f361301b'))
+2026-01-20 19:37:43,659 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,670 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,671 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,671 INFO sqlalchemy.engine.Engine [cached since 0.3931s ago] (88, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,673 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,673 INFO sqlalchemy.engine.Engine [cached since 0.3873s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 668722, tzinfo=datetime.timezone.utc), UUID('9b19a3b5-199a-4944-b76f-53697cc1ad56'))
+2026-01-20 19:37:43,675 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,687 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,691 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,691 INFO sqlalchemy.engine.Engine [cached since 0.4125s ago] (92, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,693 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,693 INFO sqlalchemy.engine.Engine [cached since 0.4072s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 680931, tzinfo=datetime.timezone.utc), UUID('6ac2d84a-aae2-41c5-9cfe-98ee908fa1b8'))
+2026-01-20 19:37:43,694 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,704 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,704 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,704 INFO sqlalchemy.engine.Engine [cached since 0.4262s ago] (96, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,706 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,706 INFO sqlalchemy.engine.Engine [cached since 0.4204s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 700706, tzinfo=datetime.timezone.utc), UUID('687ee832-b46e-4323-9dbb-066887bc58b5'))
+2026-01-20 19:37:43,707 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,719 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,720 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:43,720 INFO sqlalchemy.engine.Engine [cached since 0.4417s ago] (100, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,724 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:37:43,724 INFO sqlalchemy.engine.Engine [cached since 0.4381s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 37, 43, 717437, tzinfo=datetime.timezone.utc), UUID('7b516731-0b48-4669-952e-c85257bb1e2a'))
+2026-01-20 19:37:43,725 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,736 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,739 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:37:43,739 INFO sqlalchemy.engine.Engine [generated in 0.00058s] (False, True, UUID('57bbbe08-c010-45cf-bf23-05522e8643e4'))
+2026-01-20 19:37:43,742 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:43,764 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:43,771 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:37:43,771 INFO sqlalchemy.engine.Engine [generated in 0.00070s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:37:43,887 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:37:45,965 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:37:45,966 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:45,971 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:37:45,972 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:45,978 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:37:45,978 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:37:45,980 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,066 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:37:46,066 INFO sqlalchemy.engine.Engine [generated in 0.00072s] (UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'),)
+2026-01-20 19:37:46,078 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:37:46,078 INFO sqlalchemy.engine.Engine [generated in 0.00042s] (UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'),)
+2026-01-20 19:37:46,132 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,136 INFO sqlalchemy.engine.Engine [generated in 0.00402s] (5, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,145 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,145 INFO sqlalchemy.engine.Engine [generated in 0.00035s] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 127378, tzinfo=datetime.timezone.utc), UUID('336bd3ff-c069-4b55-9115-3484eff0f79e'))
+2026-01-20 19:37:46,149 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,162 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,162 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,162 INFO sqlalchemy.engine.Engine [cached since 0.03089s ago] (10, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,167 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,167 INFO sqlalchemy.engine.Engine [cached since 0.02176s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 156914, tzinfo=datetime.timezone.utc), UUID('94d2ea6d-5358-4929-b2df-88d0f16a10f3'))
+2026-01-20 19:37:46,172 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,186 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,187 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,187 INFO sqlalchemy.engine.Engine [cached since 0.0553s ago] (15, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,193 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,194 INFO sqlalchemy.engine.Engine [cached since 0.04835s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 182615, tzinfo=datetime.timezone.utc), UUID('48582568-f709-489c-9f66-9f53e732bcd4'))
+2026-01-20 19:37:46,196 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,208 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,209 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,209 INFO sqlalchemy.engine.Engine [cached since 0.07717s ago] (20, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,211 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,211 INFO sqlalchemy.engine.Engine [generated in 0.00029s] (datetime.datetime(2026, 1, 20, 19, 37, 46, 203968, tzinfo=datetime.timezone.utc), UUID('715f3b66-3eb9-4858-8bb6-66b05fbf6fe7'))
+2026-01-20 19:37:46,219 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,232 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,233 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,233 INFO sqlalchemy.engine.Engine [cached since 0.1015s ago] (25, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,235 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,236 INFO sqlalchemy.engine.Engine [cached since 0.09083s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 229437, tzinfo=datetime.timezone.utc), UUID('0cb459d5-dce0-4ecc-bc0e-daa36f7d1b3b'))
+2026-01-20 19:37:46,238 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine [cached since 0.1147s ago] (30, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,249 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,249 INFO sqlalchemy.engine.Engine [cached since 0.1038s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 244426, tzinfo=datetime.timezone.utc), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'))
+2026-01-20 19:37:46,251 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,277 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,280 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,281 INFO sqlalchemy.engine.Engine [cached since 0.1492s ago] (35, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,292 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,292 INFO sqlalchemy.engine.Engine [cached since 0.1473s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 269647, tzinfo=datetime.timezone.utc), UUID('86b78cbd-563d-4512-968e-0c660f490810'))
+2026-01-20 19:37:46,296 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine [cached since 0.1809s ago] (40, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,318 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,324 INFO sqlalchemy.engine.Engine [cached since 0.1794s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 307912, tzinfo=datetime.timezone.utc), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'))
+2026-01-20 19:37:46,328 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,339 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,342 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,346 INFO sqlalchemy.engine.Engine [cached since 0.2145s ago] (45, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,350 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,350 INFO sqlalchemy.engine.Engine [cached since 0.2048s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 333634, tzinfo=datetime.timezone.utc), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'))
+2026-01-20 19:37:46,352 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,361 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,362 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,362 INFO sqlalchemy.engine.Engine [cached since 0.2306s ago] (50, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,364 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,365 INFO sqlalchemy.engine.Engine [cached since 0.2195s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 357630, tzinfo=datetime.timezone.utc), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'))
+2026-01-20 19:37:46,366 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,371 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,372 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,372 INFO sqlalchemy.engine.Engine [cached since 0.2404s ago] (55, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,374 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,374 INFO sqlalchemy.engine.Engine [cached since 0.1628s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 370018, tzinfo=datetime.timezone.utc), UUID('9a8aacc5-6b49-4242-96c2-6a45469a5c4a'))
+2026-01-20 19:37:46,375 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,385 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,387 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,387 INFO sqlalchemy.engine.Engine [cached since 0.2558s ago] (60, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,389 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,389 INFO sqlalchemy.engine.Engine [cached since 0.2443s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 381492, tzinfo=datetime.timezone.utc), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'))
+2026-01-20 19:37:46,391 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,403 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,407 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,407 INFO sqlalchemy.engine.Engine [cached since 0.2755s ago] (65, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,411 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,415 INFO sqlalchemy.engine.Engine [cached since 0.2704s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 399334, tzinfo=datetime.timezone.utc), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'))
+2026-01-20 19:37:46,420 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine [cached since 0.3077s ago] (70, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,445 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,448 INFO sqlalchemy.engine.Engine [cached since 0.3027s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 435100, tzinfo=datetime.timezone.utc), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'))
+2026-01-20 19:37:46,451 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,464 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,466 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,466 INFO sqlalchemy.engine.Engine [cached since 0.3345s ago] (75, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,469 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,469 INFO sqlalchemy.engine.Engine [cached since 0.3242s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 460851, tzinfo=datetime.timezone.utc), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'))
+2026-01-20 19:37:46,474 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,487 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,488 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,488 INFO sqlalchemy.engine.Engine [cached since 0.3565s ago] (80, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,492 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,493 INFO sqlalchemy.engine.Engine [cached since 0.2817s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 483017, tzinfo=datetime.timezone.utc), UUID('1021f91a-4ca2-4305-8d2a-5d8bdbb56cc6'))
+2026-01-20 19:37:46,500 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,510 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,512 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,512 INFO sqlalchemy.engine.Engine [cached since 0.3805s ago] (85, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,515 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,516 INFO sqlalchemy.engine.Engine [cached since 0.371s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 505460, tzinfo=datetime.timezone.utc), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'))
+2026-01-20 19:37:46,518 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,529 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,530 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,530 INFO sqlalchemy.engine.Engine [cached since 0.399s ago] (90, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,534 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,535 INFO sqlalchemy.engine.Engine [cached since 0.3243s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 523349, tzinfo=datetime.timezone.utc), UUID('c84fe32e-7fba-47e2-996e-033ce6171b72'))
+2026-01-20 19:37:46,540 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,552 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,553 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,553 INFO sqlalchemy.engine.Engine [cached since 0.4212s ago] (95, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,557 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,558 INFO sqlalchemy.engine.Engine [cached since 0.4125s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 549413, tzinfo=datetime.timezone.utc), UUID('0cd655ca-0c6d-4b0a-b0ac-59ec7ee5ad57'))
+2026-01-20 19:37:46,561 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,575 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,576 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,577 INFO sqlalchemy.engine.Engine [cached since 0.4455s ago] (100, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,584 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,585 INFO sqlalchemy.engine.Engine [cached since 0.4402s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 569745, tzinfo=datetime.timezone.utc), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'))
+2026-01-20 19:37:46,591 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,600 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,601 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:37:46,601 INFO sqlalchemy.engine.Engine [generated in 0.00032s] (False, True, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,607 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,624 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,633 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:37:46,633 INFO sqlalchemy.engine.Engine [generated in 0.00098s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:37:46,746 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:38:06,850 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:38:06,850 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,861 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:38:06,861 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,866 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:38:06,867 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,869 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:06,958 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:38:06,958 INFO sqlalchemy.engine.Engine [generated in 0.00058s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 19:38:06,977 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:38:06,977 INFO sqlalchemy.engine.Engine [generated in 0.00046s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 19:38:07,105 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,106 INFO sqlalchemy.engine.Engine [generated in 0.00098s] (3, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,121 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,122 INFO sqlalchemy.engine.Engine [generated in 0.00055s] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 101562, tzinfo=datetime.timezone.utc), UUID('679f9197-ea8d-4d6d-9e0e-411975cf3fc5'))
+2026-01-20 19:38:07,128 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,144 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,145 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,145 INFO sqlalchemy.engine.Engine [cached since 0.03984s ago] (7, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,149 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,149 INFO sqlalchemy.engine.Engine [cached since 0.02796s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 136149, tzinfo=datetime.timezone.utc), UUID('31c9e113-78d8-4df2-8a8e-461eb029c7c9'))
+2026-01-20 19:38:07,152 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,166 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,167 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,167 INFO sqlalchemy.engine.Engine [cached since 0.06222s ago] (11, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,172 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,172 INFO sqlalchemy.engine.Engine [cached since 0.05053s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 159988, tzinfo=datetime.timezone.utc), UUID('a6ba06e0-6ca6-45ce-88f9-63cbac54c504'))
+2026-01-20 19:38:07,174 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,185 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,186 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,187 INFO sqlalchemy.engine.Engine [cached since 0.08136s ago] (14, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,191 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,191 INFO sqlalchemy.engine.Engine [cached since 0.06987s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 179837, tzinfo=datetime.timezone.utc), UUID('bcb8a163-e9b5-4bb7-a81e-b94173a5fbf4'))
+2026-01-20 19:38:07,193 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,201 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,202 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,202 INFO sqlalchemy.engine.Engine [cached since 0.09705s ago] (18, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,207 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,207 INFO sqlalchemy.engine.Engine [cached since 0.08615s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 197896, tzinfo=datetime.timezone.utc), UUID('59f06da8-870e-421c-a888-132558d55645'))
+2026-01-20 19:38:07,209 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,219 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,220 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,220 INFO sqlalchemy.engine.Engine [cached since 0.1147s ago] (22, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,226 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,226 INFO sqlalchemy.engine.Engine [cached since 0.1051s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 217469, tzinfo=datetime.timezone.utc), UUID('39a44c4b-d6a4-49e3-a628-5c244ce13cb3'))
+2026-01-20 19:38:07,229 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine [cached since 0.1323s ago] (25, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,240 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,246 INFO sqlalchemy.engine.Engine [cached since 0.1248s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 234771, tzinfo=datetime.timezone.utc), UUID('6c459095-0b70-440e-a2f5-39101797e6f0'))
+2026-01-20 19:38:07,249 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,263 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,269 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,269 INFO sqlalchemy.engine.Engine [cached since 0.1641s ago] (29, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,273 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,274 INFO sqlalchemy.engine.Engine [cached since 0.1528s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 254297, tzinfo=datetime.timezone.utc), UUID('10d491de-4e9e-46bf-9802-0dc745afcefe'))
+2026-01-20 19:38:07,276 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,285 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,286 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,286 INFO sqlalchemy.engine.Engine [cached since 0.181s ago] (33, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,289 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,289 INFO sqlalchemy.engine.Engine [cached since 0.1677s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 281506, tzinfo=datetime.timezone.utc), UUID('4729cdfa-3c27-4268-b502-6fb85b1c8aef'))
+2026-01-20 19:38:07,291 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,303 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,305 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,305 INFO sqlalchemy.engine.Engine [cached since 0.2001s ago] (37, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,310 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,310 INFO sqlalchemy.engine.Engine [cached since 0.1888s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 297067, tzinfo=datetime.timezone.utc), UUID('996e186a-acd6-4ce8-92d6-2bb389c1e3ec'))
+2026-01-20 19:38:07,316 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,334 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,335 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,335 INFO sqlalchemy.engine.Engine [cached since 0.23s ago] (40, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,340 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,340 INFO sqlalchemy.engine.Engine [cached since 0.2193s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 330339, tzinfo=datetime.timezone.utc), UUID('c4b8e1d9-8e0b-417f-961c-fb6c54f7cf8f'))
+2026-01-20 19:38:07,342 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine [cached since 0.2451s ago] (44, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,357 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,357 INFO sqlalchemy.engine.Engine [cached since 0.2357s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 346574, tzinfo=datetime.timezone.utc), UUID('1faef821-84c3-415c-acc1-a1d082972656'))
+2026-01-20 19:38:07,359 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,374 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,376 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,376 INFO sqlalchemy.engine.Engine [cached since 0.2706s ago] (48, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,381 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,381 INFO sqlalchemy.engine.Engine [cached since 0.2597s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 368047, tzinfo=datetime.timezone.utc), UUID('17803fe7-ded2-44cf-907b-fcaa65486c16'))
+2026-01-20 19:38:07,383 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,400 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,401 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,401 INFO sqlalchemy.engine.Engine [cached since 0.2958s ago] (51, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,405 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,405 INFO sqlalchemy.engine.Engine [cached since 0.2835s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 394518, tzinfo=datetime.timezone.utc), UUID('fe1e628d-368b-4a0e-b94a-499268ef62a3'))
+2026-01-20 19:38:07,406 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,420 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,421 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,421 INFO sqlalchemy.engine.Engine [cached since 0.3162s ago] (55, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,427 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,429 INFO sqlalchemy.engine.Engine [cached since 0.3082s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 417010, tzinfo=datetime.timezone.utc), UUID('50b19a2c-f020-47e9-82ff-6b661b0f5d03'))
+2026-01-20 19:38:07,435 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,447 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,448 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,448 INFO sqlalchemy.engine.Engine [cached since 0.3429s ago] (59, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,452 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,452 INFO sqlalchemy.engine.Engine [cached since 0.3308s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 443168, tzinfo=datetime.timezone.utc), UUID('0bde05b6-ca5c-45fe-9f7a-7411c4638b9e'))
+2026-01-20 19:38:07,455 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,468 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,469 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,469 INFO sqlalchemy.engine.Engine [cached since 0.3636s ago] (62, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,471 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,471 INFO sqlalchemy.engine.Engine [cached since 0.3502s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 462019, tzinfo=datetime.timezone.utc), UUID('392046c7-66a2-4e0c-bb02-f59d99c3287f'))
+2026-01-20 19:38:07,473 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine [cached since 0.3771s ago] (66, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,487 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,487 INFO sqlalchemy.engine.Engine [cached since 0.3657s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 478733, tzinfo=datetime.timezone.utc), UUID('478431a1-d6f8-4a0f-986a-68f23281fbab'))
+2026-01-20 19:38:07,489 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,499 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,500 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,500 INFO sqlalchemy.engine.Engine [cached since 0.3952s ago] (70, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,504 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,505 INFO sqlalchemy.engine.Engine [cached since 0.3835s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 496611, tzinfo=datetime.timezone.utc), UUID('077fbe50-6669-41aa-8676-d142ae2a4952'))
+2026-01-20 19:38:07,512 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,525 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,526 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,526 INFO sqlalchemy.engine.Engine [cached since 0.4213s ago] (74, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,533 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,533 INFO sqlalchemy.engine.Engine [cached since 0.4118s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 521254, tzinfo=datetime.timezone.utc), UUID('6e6e86b4-bbdf-4693-a86f-af5bcdd7bb55'))
+2026-01-20 19:38:07,538 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,546 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,547 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,547 INFO sqlalchemy.engine.Engine [cached since 0.4422s ago] (77, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,551 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,551 INFO sqlalchemy.engine.Engine [cached since 0.4302s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 543218, tzinfo=datetime.timezone.utc), UUID('f0523600-acec-479d-80f0-d2392c27cfd9'))
+2026-01-20 19:38:07,553 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,565 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,566 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,566 INFO sqlalchemy.engine.Engine [cached since 0.4609s ago] (81, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,569 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,569 INFO sqlalchemy.engine.Engine [cached since 0.4479s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 560833, tzinfo=datetime.timezone.utc), UUID('ea36ac81-9e90-4465-9552-bee8bc318192'))
+2026-01-20 19:38:07,570 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,580 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,581 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,583 INFO sqlalchemy.engine.Engine [cached since 0.4776s ago] (85, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,589 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,589 INFO sqlalchemy.engine.Engine [cached since 0.4677s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 576326, tzinfo=datetime.timezone.utc), UUID('f4f89518-1b53-4f01-9027-d12d3c2fb410'))
+2026-01-20 19:38:07,593 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,609 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,610 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,610 INFO sqlalchemy.engine.Engine [cached since 0.5052s ago] (88, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,613 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,613 INFO sqlalchemy.engine.Engine [cached since 0.4917s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 605617, tzinfo=datetime.timezone.utc), UUID('7b858fc3-7c03-4c2a-b871-546d0c58dc6b'))
+2026-01-20 19:38:07,616 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,628 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,629 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,629 INFO sqlalchemy.engine.Engine [cached since 0.524s ago] (92, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,631 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,632 INFO sqlalchemy.engine.Engine [cached since 0.5106s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 625602, tzinfo=datetime.timezone.utc), UUID('f042b00a-daf0-41dc-9d1f-7b2e4cd66ba5'))
+2026-01-20 19:38:07,637 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine [cached since 0.5492s ago] (96, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,657 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,657 INFO sqlalchemy.engine.Engine [cached since 0.5358s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 644294, tzinfo=datetime.timezone.utc), UUID('48fbd6de-7e8b-4db5-827c-a4ba380f55db'))
+2026-01-20 19:38:07,660 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,670 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,671 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,671 INFO sqlalchemy.engine.Engine [cached since 0.5657s ago] (100, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,672 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,672 INFO sqlalchemy.engine.Engine [cached since 0.5513s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 669344, tzinfo=datetime.timezone.utc), UUID('20e4383c-dc78-49c3-a379-9b7d9d176d69'))
+2026-01-20 19:38:07,673 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,684 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,687 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:38:07,687 INFO sqlalchemy.engine.Engine [generated in 0.00033s] (False, True, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,692 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,708 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,710 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:38:07,710 INFO sqlalchemy.engine.Engine [generated in 0.00023s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:38:07,847 INFO sqlalchemy.engine.Engine ROLLBACK
