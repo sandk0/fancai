@@ -76,6 +76,16 @@ class ExtractedDescription:
 
     def to_dict(self) -> Dict[str, Any]:
         """Конвертация в формат Multi-NLP системы."""
+        # Safely extract entity names - handle both dict and string entities
+        entity_names = []
+        for e in self.entities:
+            if isinstance(e, dict):
+                entity_names.append(e.get("name", ""))
+            elif isinstance(e, str):
+                entity_names.append(e)
+            else:
+                entity_names.append(str(e))
+        
         return {
             "content": self.content,
             "type": self.description_type.value,
@@ -84,7 +94,7 @@ class ExtractedDescription:
             "source": "gemini_direct",
             "position": self.position,
             "word_count": len(self.content.split()),
-            "entities_mentioned": [e.get("name", "") for e in self.entities],
+            "entities_mentioned": entity_names,
             "metadata": {
                 "llm_extracted": True,
                 "entities": self.entities,
