@@ -37,7 +37,14 @@ def _run_async_task(coro):
     return asyncio.run(coro)
 
 
-@celery_app.task(name="process_book", bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(
+    name="process_book", 
+    bind=True, 
+    max_retries=3, 
+    default_retry_delay=60,
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3300  # 55 minutes soft limit
+)
 def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     """
     Асинхронная обработка книги: валидация и подготовка к on-demand извлечению.
