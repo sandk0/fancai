@@ -499,6 +499,108 @@ class GeminiDirectExtractor:
         except Exception as e:
             logger.error(f"Failed to initialize Gemini: {e}")
 
+    def _get_response_schema(self):
+        """
+        Create JSON Schema for structured output.
+        
+        This ensures Gemini returns entities as proper objects with
+        name/type/visual_summary fields, not just strings.
+        Uses google.genai.types.Schema for type safety.
+        """
+        if not self._types:
+            return None
+            
+        types = self._types
+        
+        # Entity schema - structured object with all required fields
+        entity_schema = types.Schema(
+            type="object",
+            properties={
+                "name": types.Schema(type="string", description="Имя сущности"),
+                "type": types.Schema(
+                    type="string", 
+                    enum=["character", "location", "object"],
+                    description="Тип сущности"
+                ),
+                "visual_summary": types.Schema(
+                    type="string", 
+                    description="Визуальное описание для художника"
+                ),
+                "aliases": types.Schema(
+                    type="array",
+                    items=types.Schema(type="string"),
+                    description="Альтернативные имена"
+                ),
+                "confidence": types.Schema(
+                    type="number", 
+                    description="Уверенность 0.0-1.0"
+                ),
+            },
+            required=["name", "type", "visual_summary"]
+        )
+        
+        # Relationship schema
+        relationship_schema = types.Schema(
+            type="object",
+            properties={
+                "source": types.Schema(type="string"),
+                "target": types.Schema(type="string"),
+                "type": types.Schema(type="string"),
+                "weight": types.Schema(type="number"),
+                "context": types.Schema(type="string"),
+            },
+            required=["source", "target", "type"]
+        )
+        
+        # Description schema - entities here are string names (references)
+        description_schema = types.Schema(
+            type="object",
+            properties={
+                "content": types.Schema(
+                    type="string", 
+                    description="Полное описание из текста"
+                ),
+                "type": types.Schema(
+                    type="string",
+                    enum=["location", "character", "object", "atmosphere"],
+                    description="Тип описания"
+                ),
+                "confidence": types.Schema(
+                    type="number",
+                    description="Уверенность 0.0-1.0"
+                ),
+                "entities": types.Schema(
+                    type="array",
+                    items=types.Schema(type="string"),
+                    description="Имена упомянутых сущностей"
+                ),
+            },
+            required=["content", "type"]
+        )
+        
+        # Root schema
+        return types.Schema(
+            type="object",
+            properties={
+                "entities": types.Schema(
+                    type="array",
+                    items=entity_schema,
+                    description="Список извлечённых сущностей"
+                ),
+                "relationships": types.Schema(
+                    type="array",
+                    items=relationship_schema,
+                    description="Связи между сущностями"
+                ),
+                "descriptions": types.Schema(
+                    type="array",
+                    items=description_schema,
+                    description="Описания для генерации изображений"
+                ),
+            },
+            required=["entities", "descriptions"]
+        )
+
     def is_available(self) -> bool:
         """Проверить доступность экстрактора."""
         return self._available
@@ -539,9 +641,25 @@ class GeminiDirectExtractor:
                 descriptions = self._parse_descriptions(parsed, chunk["start"])
                 all_descriptions.extend(descriptions)
                 
-                # Parse entities
+                # Parse entities with defensive coding (fallback if response_schema doesn't work)
                 entities_json = parsed.get("entities", [])
                 for e in entities_json:
+                    # Handle edge case: entity could be string instead of dict
+                    if isinstance(e, str):
+                        logger.warning(f"Entity is string instead of dict (schema bypass): {e}")
+                        all_entities.append(ExtractedEntity(
+                            name=e,
+                            type="object",
+                            visual_summary="",
+                            aliases=[],
+                            confidence=0.5
+                        ))
+                        continue
+                    
+                    if not isinstance(e, dict):
+                        logger.warning(f"Skipping non-dict entity: {type(e)}")
+                        continue
+                        
                     all_entities.append(ExtractedEntity(
                         name=e.get("name", "Unknown"),
                         type=e.get("type", "object"),
@@ -629,13 +747,18 @@ class GeminiDirectExtractor:
         Call Gemini API with tenacity retry decorator.
 
         Raises retryable exceptions that trigger tenacity retry logic.
+        Uses response_schema for structured JSON output (Gemini SDK 1.56+).
         """
         try:
-            # Call Gemini API with new SDK (google-genai)
-            # Using types.GenerateContentConfig for proper configuration
+            # Call Gemini API with structured output
+            # response_schema ensures entities are objects, not strings
+            response_schema = self._get_response_schema()
+            
             config = self._types.GenerateContentConfig(
                 temperature=0.3,
                 top_p=0.95,
+                response_mime_type="application/json",
+                response_schema=response_schema,
             )
 
             response = await asyncio.wait_for(
@@ -648,8 +771,10 @@ class GeminiDirectExtractor:
                 timeout=self.config.timeout_seconds
             )
 
-            # Extract text from response - handle both string and list formats
+            # Extract text from response - should be valid JSON now
             response_text = response.text if hasattr(response, 'text') else str(response)
+            
+            logger.debug(f"Gemini structured response received, len={len(response_text)}")
 
             return response_text
 

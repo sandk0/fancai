@@ -244,30 +244,18 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     # Сохраняем описания в базу
                     position = 0
                     for desc_data in descriptions_data:
-                        # DEBUG v3: Log BEFORE to_dict() to see raw data
-                        logger.info(f"DEBUG v3: RAW desc_data type={type(desc_data).__name__}, val={str(desc_data)[:100]}")
-                        
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
-                        # DEBUG MARKER
-                        logger.info(f"DEBUG v2: Processing description item. Type: {type(desc_dict)} Val: {str(desc_dict)[:50]}")
-
-                        # 1. Force conversion if string (legacy/broken LLM output)
+                        # Defensive coding: handle string/non-dict edge cases
                         if isinstance(desc_dict, str):
-                             logger.warning("DEBUG v2: Detected string, converting to dict.")
-                             desc_dict = {"content": desc_dict, "type": "location"}
-                        
-                        # 2. Safety check: If it's still not a dict, force it.
-                        if not isinstance(desc_dict, dict):
-                             logger.error(f"DEBUG v2: FATAL - desc_dict is {type(desc_dict)}. Force-converting.")
-                             desc_dict = {"content": str(desc_dict), "type": "location"}
+                            desc_dict = {"content": desc_dict, "type": "location"}
+                        elif not isinstance(desc_dict, dict):
+                            desc_dict = {"content": str(desc_dict), "type": "location"}
 
-                        # 3. Map string type to enum (Safe access)
+                        # Map string type to enum with safe access
                         try:
                             type_str = desc_dict.get("type", "location")
                         except AttributeError:
-                            logger.error(f"DEBUG v2: AttributeError on .get(). Obj is {type(desc_dict)}: {desc_dict}")
-                            # Fallback
                             desc_dict = {"content": str(desc_dict), "type": "location"}
                             type_str = "location"
 
