@@ -99,7 +99,7 @@ class ExtractedDescription:
         type_priority = {
             DescriptionType.LOCATION: 75,
             DescriptionType.CHARACTER: 60,
-            DescriptionType.ATMOPSHERE: 45, # Note: Fixed typo ATMOSPHERE if present, relying on enum
+            DescriptionType.ATMOSPHERE: 45,
             DescriptionType.OBJECT: 50,
         }.get(self.description_type, 40)
 
