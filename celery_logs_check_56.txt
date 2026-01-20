@@ -1,0 +1,592 @@
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 20:10:58
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7e997e883140
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 20:23:19
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7945fb0b8680
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
+2026-01-20 20:52:56,757 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 20:52:56,757 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:52:56,780 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 20:52:56,780 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:52:56,787 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 20:52:56,787 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:52:56,790 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:52:56,900 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 20:52:56,900 INFO sqlalchemy.engine.Engine [generated in 0.00052s] (UUID('0fd7948f-e723-49ac-88c9-a0d2a25220d1'),)
+2026-01-20 20:52:56,910 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 20:52:56,910 INFO sqlalchemy.engine.Engine [generated in 0.00034s] (UUID('0fd7948f-e723-49ac-88c9-a0d2a25220d1'),)
+2026-01-20 20:54:15,217 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_service_page=$1::BOOLEAN, updated_at=now() WHERE chapters.id = $2::UUID
+2026-01-20 20:54:15,218 INFO sqlalchemy.engine.Engine [generated in 0.00083s] (False, UUID('e7f6c005-7878-40f2-a892-f14402aa11cf'))
+2026-01-20 20:54:15,227 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,227 INFO sqlalchemy.engine.Engine [generated in 0.00054s] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт из Ривии')
+2026-01-20 20:54:15,246 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,246 INFO sqlalchemy.engine.Engine [generated in 0.00091s] (UUID('56261693-63dd-468e-bc7a-7b4400d541ef'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Геральт из Ривии', 'Мужчина с изможденным лицом и следами побоев на голове. Руки связаны за спиной грубой веревкой. Одет в практичную дорожную одежду, на шее скрыт ведьмачий медальон. Взгляд сосредоточенный, напряженный, выдающий внутреннюю собранность несмотря на пленение.', None, None, '{"aliases": ["\\u0413\\u0435\\u0440\\u0430\\u043b\\u044c\\u0442", "\\u0412\\u0435\\u0434\\u044c\\u043c\\u0430\\u043a"], "confidence": 1.0}')
+2026-01-20 20:54:15,253 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,254 INFO sqlalchemy.engine.Engine [cached since 0.02694s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Войт Булава')
+2026-01-20 20:54:15,257 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,257 INFO sqlalchemy.engine.Engine [cached since 0.01179s ago] (UUID('3148db09-3da8-4041-94dc-7b91643517b2'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Войт Булава', 'Грузный мужчина с выпяченным животом, вальяжно развалившийся в кресле. Одет в богатый, но неопрятный бархатный кафтан, усеянный пятнами от еды и томатного соуса. Лицо выражает самодовольство и привычку к власти.', None, None, '{"aliases": ["\\u0411\\u0443\\u043b\\u0430\\u0432\\u0430", "\\u0412\\u043e\\u0439\\u0442"], "confidence": 0.95}')
+2026-01-20 20:54:15,260 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,261 INFO sqlalchemy.engine.Engine [cached since 0.03394s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Чучело вороны')
+2026-01-20 20:54:15,270 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,270 INFO sqlalchemy.engine.Engine [cached since 0.02451s ago] (UUID('574cbacf-67a7-4677-a590-10cef140bf82'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Чучело вороны', 'Большая черная ворона с поблескивающими стеклянными глазами, стоящая на подставке из зеленой крашеной глины. Лапки утоплены в основание. Несмотря на неподвижность, кажется живой и периодически подмигивает одним глазом.', None, None, '{"aliases": ["\\u0412\\u043e\\u0440\\u043e\\u043d\\u0430"], "confidence": 0.9}')
+2026-01-20 20:54:15,272 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,272 INFO sqlalchemy.engine.Engine [cached since 0.04565s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Деревенский верзила')
+2026-01-20 20:54:15,275 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,275 INFO sqlalchemy.engine.Engine [cached since 0.02961s ago] (UUID('127da4f9-1b54-4724-8e4b-427a8cb50330'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Деревенский верзила', 'Массивный, широкоплечий мужчина с тяжелым дыханием. Стоит за спиной пленника в угрожающей позе, готов в любой момент нанести удар кулаком. Одет в простую крестьянскую одежду.', None, None, '{"aliases": ["\\u0412\\u0435\\u0440\\u0437\\u0438\\u043b\\u0430"], "confidence": 0.85}')
+2026-01-20 20:54:15,277 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,277 INFO sqlalchemy.engine.Engine [cached since 0.05027s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Каэдвен')
+2026-01-20 20:54:15,279 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,280 INFO sqlalchemy.engine.Engine [cached since 0.03421s ago] (UUID('b32a6c3c-5f22-40de-8116-3d9a9fe02d6f'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Каэдвен', 'Суровое северное королевство, окруженное Драконьими и Синими горами. Пейзаж наполнен непроходимыми пущами и пограничными мархиями. Герб — черный вздыбленный единорог на золотом поле.', None, None, '{"aliases": ["\\u041a\\u043e\\u0440\\u043e\\u043b\\u0435\\u0432\\u0441\\u0442\\u0432\\u043e \\u041a\\u0430\\u044d\\u0434\\u0432\\u0435\\u043d"], "confidence": 0.95}')
+2026-01-20 20:54:15,282 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,282 INFO sqlalchemy.engine.Engine [cached since 0.05536s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Кабинет войта')
+2026-01-20 20:54:15,284 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,285 INFO sqlalchemy.engine.Engine [cached since 0.03925s ago] (UUID('bfdc1019-d449-458e-b6dc-51fbd557af66'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Кабинет войта', 'Тесное помещение в деревенском доме. В центре стоит массивный деревянный стол, на котором расположено чучело вороны. Освещение скудное, атмосфера напряженная и душная.', None, None, '{"aliases": ["\\u0414\\u0435\\u0440\\u0435\\u0432\\u043d\\u044f"], "confidence": 0.8}')
+2026-01-20 20:54:15,286 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,287 INFO sqlalchemy.engine.Engine [cached since 0.05979s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Бан Ард')
+2026-01-20 20:54:15,290 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,290 INFO sqlalchemy.engine.Engine [cached since 0.04431s ago] (UUID('e0a990f3-b0f9-466f-848a-9c4fbc8cc6bc'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Бан Ард', 'Древний каменный город, бывшая столица, ныне превращенная в школу для чародеев. Архитектура величественная и строгая, пропитанная магической атмосферой.', None, None, '{"aliases": [], "confidence": 0.7}')
+2026-01-20 20:54:15,296 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,296 INFO sqlalchemy.engine.Engine [cached since 0.06907s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ард Каррайг')
+2026-01-20 20:54:15,299 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,299 INFO sqlalchemy.engine.Engine [cached since 0.05331s ago] (UUID('9b232c87-f95f-44e2-a435-a1285ee445bc'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Ард Каррайг', 'Город-крепость, расположенный в самом сердце Каэдвена. Текущая столица королевства с мощными оборонительными сооружениями.', None, None, '{"aliases": [], "confidence": 0.7}')
+2026-01-20 20:54:15,300 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,300 INFO sqlalchemy.engine.Engine [cached since 0.07361s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ведьмачий медальон')
+2026-01-20 20:54:15,302 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,302 INFO sqlalchemy.engine.Engine [cached since 0.05652s ago] (UUID('54b2575b-ccfc-476f-b539-3632b4e5065c'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Ведьмачий медальон', 'Серебряный медальон в форме волчьей головы (согласно контексту ведьмаков), висящий на шее Геральта. Металл холодный, неподвижный, не реагирующий на возможные проявления магии в комнате.', None, None, '{"aliases": ["\\u041c\\u0435\\u0434\\u0430\\u043b\\u044c\\u043e\\u043d"], "confidence": 0.85}')
+2026-01-20 20:54:15,303 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,303 INFO sqlalchemy.engine.Engine [cached since 0.07641s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:54:15,309 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,310 INFO sqlalchemy.engine.Engine [cached since 0.06355s ago] (UUID('7beb203d-7dc5-4e1b-9085-2f8181202ec8'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Геральт', 'Мужчина с бледным лицом и хриплым голосом, ведьмак. Руки связаны, на затылке след от удара. Одет в походную одежду, выглядит измотанным, но сохраняет достоинство.', None, None, '{"aliases": ["\\u0412\\u0435\\u0434\\u044c\\u043c\\u0430\\u043a", "\\u0411\\u0440\\u0430\\u043a\\u043e\\u0432\\u0430\\u043d\\u043d\\u044b\\u0439 \\u0442\\u043e\\u0432\\u0430\\u0440"], "confidence": 1.0}')
+2026-01-20 20:54:15,313 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,313 INFO sqlalchemy.engine.Engine [cached since 0.08627s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Булава')
+2026-01-20 20:54:15,315 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,315 INFO sqlalchemy.engine.Engine [cached since 0.06964s ago] (UUID('b11b8c1b-0efa-4c04-9ec2-1148fa5057eb'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Булава', 'Местный войт, властный мужчина с желтыми зубами. Одет в широкие шаровары. Выражение лица самоуверенное и раздражительное, взгляд часто устремлен в потолок.', None, None, '{"aliases": ["\\u0412\\u043e\\u0439\\u0442"], "confidence": 0.95}')
+2026-01-20 20:54:15,317 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,318 INFO sqlalchemy.engine.Engine [cached since 0.09075s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Блауфалл')
+2026-01-20 20:54:15,320 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,320 INFO sqlalchemy.engine.Engine [cached since 0.0743s ago] (UUID('37ba73f1-01ec-4b01-a131-1c62e7fdf785'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Блауфалл', 'Мужчина в бурой опонче (плаще), сильно испачканной грязью по подолу. Деловой вид, решительная походка, распорядитель на строительстве тракта.', None, None, '{"aliases": ["\\u0411\\u043b\\u0430\\u0443\\u0444\\u0430\\u043b\\u043b"], "confidence": 0.9}')
+2026-01-20 20:54:15,322 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,322 INFO sqlalchemy.engine.Engine [cached since 0.09505s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Дарил')
+2026-01-20 20:54:15,325 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,325 INFO sqlalchemy.engine.Engine [cached since 0.07923s ago] (UUID('273e0b33-aee6-4d81-a5b9-e2f954145ded'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Дарил', 'Огромный верзила с тяжелыми кулаками. Грубое лицо, массивная фигура, послушно исполняет приказы войта. Типичный деревенский вышибала.', None, None, '{"aliases": ["\\u0412\\u0435\\u0440\\u0437\\u0438\\u043b\\u0430"], "confidence": 0.85}')
+2026-01-20 20:54:15,327 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,327 INFO sqlalchemy.engine.Engine [cached since 0.1002s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Крестьянин')
+2026-01-20 20:54:15,329 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,329 INFO sqlalchemy.engine.Engine [cached since 0.08369s ago] (UUID('9ba4be0e-58fd-4dc3-9501-f013d16ff672'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Крестьянин', 'Бледный, напуганный мужчина в простой крестьянской одежде. Говорит неестественно громко, постоянно кланяется, в руках держит кожаный кошель.', None, None, '{"aliases": ["\\u0425\\u043e\\u0437\\u044f\\u0438\\u043d", "\\u0421\\u0432\\u0438\\u0434\\u0435\\u0442\\u0435\\u043b\\u044c"], "confidence": 0.8}')
+2026-01-20 20:54:15,334 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,334 INFO sqlalchemy.engine.Engine [cached since 0.1074s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Изба войта')
+2026-01-20 20:54:15,337 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,338 INFO sqlalchemy.engine.Engine [cached since 0.09224s ago] (UUID('27583028-d48c-4b75-93ff-78aac3ef6e70'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Изба войта', 'Деревянный интерьер с низким потолком. Внутри находится чучело вороны со стеклянным глазом. Атмосфера напряженная, пахнет пылью и старым деревом.', None, None, '{"aliases": ["\\u0418\\u0437\\u0431\\u0430"], "confidence": 0.9}')
+2026-01-20 20:54:15,340 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,340 INFO sqlalchemy.engine.Engine [cached since 0.1129s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Деревенская площадь')
+2026-01-20 20:54:15,342 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,342 INFO sqlalchemy.engine.Engine [cached since 0.09655s ago] (UUID('b50b351c-3310-486a-85a1-ee7c00422278'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Деревенская площадь', 'Открытое пространство в центре деревни с вкопанным позорным столбом для порки. Окружена деревянными постройками, под ногами утоптанная земля.', None, None, '{"aliases": ["\\u041f\\u043b\\u043e\\u0449\\u0430\\u0434\\u044c"], "confidence": 0.85}')
+2026-01-20 20:54:15,343 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,343 INFO sqlalchemy.engine.Engine [cached since 0.1166s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Кошель с монетами')
+2026-01-20 20:54:15,346 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,346 INFO sqlalchemy.engine.Engine [cached since 0.1006s ago] (UUID('97c41013-fea1-4f0e-8da7-2b660cf116a2'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Кошель с монетами', 'Небольшой кожаный мешочек, туго набитый монетами. Не звенит при движении, легко помещается в карман шаровар.', None, None, '{"aliases": ["\\u041a\\u043e\\u0448\\u0435\\u043b\\u044c"], "confidence": 0.9}')
+2026-01-20 20:54:15,348 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,348 INFO sqlalchemy.engine.Engine [cached since 0.1216s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт (молодой ведьмак)')
+2026-01-20 20:54:15,350 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,350 INFO sqlalchemy.engine.Engine [cached since 0.1047s ago] (UUID('cfab1746-c7c7-490e-8db8-35a352655956'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Геральт (молодой ведьмак)', 'Молодой мужчина с крепким телосложением, руки связаны верёвками. Выглядит потрёпанным после боя, одежда в пыли. Лицо выражает стойкость, несмотря на положение пленника.', None, None, '{"aliases": ["\\u0412\\u0435\\u0434\\u044c\\u043c\\u0430\\u043a", "\\u0411\\u0440\\u043e\\u0434\\u044f\\u0433\\u0430"], "confidence": 0.95}')
+2026-01-20 20:54:15,352 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,352 INFO sqlalchemy.engine.Engine [cached since 0.1256s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Хольт (Беловолосый всадник)')
+2026-01-20 20:54:15,354 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,355 INFO sqlalchemy.engine.Engine [cached since 0.1091s ago] (UUID('f1c2bfe9-db20-42b2-ab14-2ec812aa783f'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Хольт (Беловолосый всадник)', 'Мужчина с длинными белыми волосами, одетый в чёрный кожаный кафтан с серебряными заклёпками на плечах. За правым плечом виднеются рукояти двух мечей. Восседает на могучем вороном коне, взгляд холодный и уверенный.', None, None, '{"aliases": ["\\u0411\\u0435\\u043b\\u043e\\u0432\\u043e\\u043b\\u043e\\u0441\\u044b\\u0439", "\\u0413\\u043e\\u0441\\u043f\\u043e\\u0434\\u0438\\u043d \\u0425\\u043e\\u043b\\u044c\\u0442"], "confidence": 0.98}')
+2026-01-20 20:54:15,356 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,357 INFO sqlalchemy.engine.Engine [cached since 0.1299s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Рейс Карлетон')
+2026-01-20 20:54:15,360 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,360 INFO sqlalchemy.engine.Engine [cached since 0.1146s ago] (UUID('4334a045-79e4-42e5-9949-3261ebf56c63'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Рейс Карлетон', 'Капитан кавалерии, усатый мужчина в лосиной куртке с позолоченным аксельбантом. На голове шляпа с пышным пучком страусовых перьев. Вид щегольской, но слегка потрёпанный службой.', None, None, '{"aliases": ["\\u0413\\u043e\\u0441\\u043f\\u043e\\u0434\\u0438\\u043d \\u043a\\u0430\\u043f\\u0438\\u0442\\u0430\\u043d"], "confidence": 0.95}')
+2026-01-20 20:54:15,362 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,362 INFO sqlalchemy.engine.Engine [cached since 0.1355s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Аэльварр')
+2026-01-20 20:54:15,365 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,365 INFO sqlalchemy.engine.Engine [cached since 0.1195s ago] (UUID('d93a2c0e-f525-4709-a85d-b75efd89785d'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Аэльварр', 'Длинноволосый эльф в зелёном мундире лазутчика, на лбу характерная повязка. Лицо тонкое, черты изящные, держится в седле с природной грацией.', None, None, '{"aliases": ["\\u0413\\u043e\\u0441\\u043f\\u043e\\u0434\\u0438\\u043d \\u0410\\u044d\\u043b\\u044c\\u0432\\u0430\\u0440\\u0440", "\\u042d\\u043b\\u044c\\u0444"], "confidence": 0.92}')
+2026-01-20 20:54:15,366 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,367 INFO sqlalchemy.engine.Engine [cached since 0.1397s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Булава')
+2026-01-20 20:54:15,370 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,370 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('Деревенский войт, крепкий мужчина с властными манерами. Одет в простую, но добротную одежду старосты. Часто прикрывает глаза ладонью от солнца, упирает руки в бока.', UUID('b11b8c1b-0efa-4c04-9ec2-1148fa5057eb'))
+2026-01-20 20:54:15,372 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,372 INFO sqlalchemy.engine.Engine [cached since 0.1455s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Блауфалл')
+2026-01-20 20:54:15,375 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,375 INFO sqlalchemy.engine.Engine [cached since 0.005137s ago] ('Деловой мужчина, ответственный за строительство тракта. Прагматичен, одет в практичную одежду для поездок. Ловкие руки, которыми он незаметно прячет чужие кошельки.', UUID('37ba73f1-01ec-4b01-a131-1c62e7fdf785'))
+2026-01-20 20:54:15,377 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,377 INFO sqlalchemy.engine.Engine [cached since 0.1499s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Деревенская площадь')
+2026-01-20 20:54:15,378 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,379 INFO sqlalchemy.engine.Engine [cached since 0.008723s ago] ('Пыльное открытое пространство в центре деревни, окружённое амбарами. На площади установлен столб с перекладиной и виселичной петлёй. Вокруг бегают куры, собирается толпа крестьян.', UUID('b50b351c-3310-486a-85a1-ee7c00422278'))
+2026-01-20 20:54:15,380 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,380 INFO sqlalchemy.engine.Engine [cached since 0.1533s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Большой Тракт')
+2026-01-20 20:54:15,382 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,383 INFO sqlalchemy.engine.Engine [cached since 0.1372s ago] (UUID('98e48070-6c30-4d69-983c-383cd3dd9886'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Большой Тракт', 'Строящаяся широкая дорога, проходящая через густые леса и болота. Мощёная брёвнами и фашиной, выглядит как масштабная просека среди дикой природы.', None, None, '{"aliases": ["\\u0422\\u0440\\u0430\\u043a\\u0442", "\\u0424\\u0440\\u043e\\u043d\\u0442 \\u0440\\u0430\\u0431\\u043e\\u0442"], "confidence": 0.85}')
+2026-01-20 20:54:15,384 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,384 INFO sqlalchemy.engine.Engine [cached since 0.1573s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Мечи Хольта')
+2026-01-20 20:54:15,386 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,386 INFO sqlalchemy.engine.Engine [cached since 0.1404s ago] (UUID('ad9427e5-7b29-4c33-82d9-8ff963e0f4d4'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Мечи Хольта', 'Два меча, закреплённые за спиной всадника. Рукояти выступают над правым плечом, выполнены из тёмного металла с искусной отделкой.', None, None, '{"aliases": ["\\u041e\\u0440\\u0443\\u0436\\u0438\\u0435"], "confidence": 0.9}')
+2026-01-20 20:54:15,387 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,387 INFO sqlalchemy.engine.Engine [cached since 0.1603s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:54:15,389 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,390 INFO sqlalchemy.engine.Engine [cached since 0.1445s ago] (UUID('e627cadd-c26b-41af-a841-ea70ef08d4c3'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Престон Хольт', 'Беловолосый ведьмак средних лет с суровым лицом. Одет в чёрный кожаный кафтан с серебряными заклёпками на плечах. За правым плечом виднеются рукояти двух мечей. Восседает на мощном вороном коне. Движения грациозные, взгляд уверенный, носит перчатки.', None, None, '{"aliases": ["\\u0413\\u043e\\u0441\\u043f\\u043e\\u0434\\u0438\\u043d \\u0425\\u043e\\u043b\\u044c\\u0442", "\\u0412\\u0435\\u0434\\u044c\\u043c\\u0430\\u043a"], "confidence": 1.0}')
+2026-01-20 20:54:15,391 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,391 INFO sqlalchemy.engine.Engine [cached since 0.1647s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:54:15,394 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,394 INFO sqlalchemy.engine.Engine [cached since 0.02423s ago] ('Молодой ведьмак, выглядящий как пленник, которого только что освободили. Одет в походную одежду, возвращает себе оружие и коня. В тексте описывается как юноша, находящийся в подчиненном положении по отношению к Хольту.', UUID('7beb203d-7dc5-4e1b-9085-2f8181202ec8'))
+2026-01-20 20:54:15,396 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,396 INFO sqlalchemy.engine.Engine [cached since 0.1691s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Рейс Карлетон')
+2026-01-20 20:54:15,398 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,398 INFO sqlalchemy.engine.Engine [cached since 0.02797s ago] ('Капитан кавалерии в военной форме и шляпе. Мужчина с военной выправкой, вооружен мечом на поясе. Держится в седле прямо, проявляет сдержанное уважение к ведьмаку, касаясь края шляпы.', UUID('4334a045-79e4-42e5-9949-3261ebf56c63'))
+2026-01-20 20:54:15,400 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,400 INFO sqlalchemy.engine.Engine [cached since 0.1733s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Булава')
+2026-01-20 20:54:15,401 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,401 INFO sqlalchemy.engine.Engine [cached since 0.1744s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Деревенская площадь')
+2026-01-20 20:54:15,403 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:54:15,403 INFO sqlalchemy.engine.Engine [cached since 0.0331s ago] ('Пространство между деревенскими хатами, пыльная дорога. Вокруг толпятся испуганные крестьяне. Атмосфера напряженная, тишину нарушает лишь звон конской сбруи. Освещение дневное, воздух кажется наэлектризованным от магии.', UUID('b50b351c-3310-486a-85a1-ee7c00422278'))
+2026-01-20 20:54:15,404 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,404 INFO sqlalchemy.engine.Engine [cached since 0.1773s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Вороной конь Хольта')
+2026-01-20 20:54:15,406 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,406 INFO sqlalchemy.engine.Engine [cached since 0.1608s ago] (UUID('acc32cfc-1d65-43eb-a071-831f0e5445dc'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Вороной конь Хольта', 'Смоляно-чёрный, статный жеребец с лоснящейся шкурой. Сбруя украшена кольцами мундштука, которые мелодично звенят. Конь ведет себя спокойно и дисциплинированно под всадником.', None, None, '{"aliases": ["\\u0412\\u043e\\u0440\\u043e\\u043d\\u043e\\u0439"], "confidence": 0.9}')
+2026-01-20 20:54:15,408 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:54:15,408 INFO sqlalchemy.engine.Engine [cached since 0.1811s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Мечи ведьмака')
+2026-01-20 20:54:15,410 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:54:15,410 INFO sqlalchemy.engine.Engine [cached since 0.1645s ago] (UUID('e1f61c9f-6ad4-4076-afd5-0829bb40a69c'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Мечи ведьмака', 'Два меча, закрепленные за спиной так, что рукояти торчат над правым плечом. Функциональное, лишенное излишних украшений оружие профессионального убийцы чудовищ.', None, None, '{"aliases": ["\\u041e\\u0440\\u0443\\u0436\\u0438\\u0435"], "confidence": 0.95}')
+2026-01-20 20:55:46,103 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_service_page=$1::BOOLEAN, updated_at=now() WHERE chapters.id = $2::UUID
+2026-01-20 20:55:46,103 INFO sqlalchemy.engine.Engine [cached since 90.89s ago] (False, UUID('370770aa-cefd-4aa4-a816-3fd4069d85bb'))
+2026-01-20 20:55:46,105 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,106 INFO sqlalchemy.engine.Engine [cached since 90.88s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:55:46,107 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,107 INFO sqlalchemy.engine.Engine [cached since 90.74s ago] ('Молодой ведьмак с белыми волосами, лишенными пигмента после мутаций. Атлетичное телосложение, одет в практичную дорожную одежду и кожаный доспех. Ездит верхом на буланой кобыле. Выглядит как новичок, только начавший свой путь, взгляд сосредоточенный.', UUID('7beb203d-7dc5-4e1b-9085-2f8181202ec8'))
+2026-01-20 20:55:46,109 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,109 INFO sqlalchemy.engine.Engine [cached since 90.88s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:55:46,110 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,111 INFO sqlalchemy.engine.Engine [cached since 90.88s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Весемир')
+2026-01-20 20:55:46,114 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,114 INFO sqlalchemy.engine.Engine [cached since 90.87s ago] (UUID('822331c5-fb39-4a9c-841b-45acb593e754'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Весемир', 'Пожилой, опытный ведьмак, наставник в Каэр Морхене. Мудрое лицо со следами былых сражений, авторитетный вид.', None, None, '{"aliases": [], "confidence": 0.85}')
+2026-01-20 20:55:46,116 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,117 INFO sqlalchemy.engine.Engine [cached since 90.89s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Капитан Карлетон')
+2026-01-20 20:55:46,122 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,122 INFO sqlalchemy.engine.Engine [cached since 90.88s ago] (UUID('e06bc408-5b19-45a4-a19e-174520060542'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Капитан Карлетон', 'Военный офицер в доспехах заставы, суровое лицо, выражающее гнев и решимость наказать преступника. Командует отрядом вояк.', None, None, '{"aliases": [], "confidence": 0.8}')
+2026-01-20 20:55:46,125 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,125 INFO sqlalchemy.engine.Engine [cached since 90.9s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Каэдвен')
+2026-01-20 20:55:46,130 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,130 INFO sqlalchemy.engine.Engine [cached since 90.76s ago] ('Суровое северное королевство в марте. Пейзаж с остатками грязного снега в оврагах и желтоватым льдом на лужах. На горизонте — заснеженные пики Драконьих и Синих гор. Пронизывающий ветер, голые березовые рощи и скудная весенняя трава.', UUID('b32a6c3c-5f22-40de-8116-3d9a9fe02d6f'))
+2026-01-20 20:55:46,134 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,134 INFO sqlalchemy.engine.Engine [cached since 90.91s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Каэр Морхен')
+2026-01-20 20:55:46,137 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,137 INFO sqlalchemy.engine.Engine [cached since 90.89s ago] (UUID('18768099-fda3-438e-b0c1-9debb2d46000'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Каэр Морхен', 'Древняя каменная крепость ведьмаков, затерянная в горах. Суровая архитектура, высокие стены, атмосфера уединения и опасных тренировок.', None, None, '{"aliases": ["\\u041a\\u0440\\u0435\\u043f\\u043e\\u0441\\u0442\\u044c"], "confidence": 0.9}')
+2026-01-20 20:55:46,140 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,140 INFO sqlalchemy.engine.Engine [cached since 90.91s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Дренажная канава')
+2026-01-20 20:55:46,143 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,143 INFO sqlalchemy.engine.Engine [cached since 90.9s ago] (UUID('81f2f33f-f61c-4cdf-91b9-01d71ab19843'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Дренажная канава', 'Глубокий ров-водосток, прорезающий землю. Старая инженерная конструкция из камня и земли, по которой раньше отводили воду из шахты. Заросла сухой травой.', None, None, '{"aliases": ["\\u0420\\u043e\\u0432"], "confidence": 0.85}')
+2026-01-20 20:55:46,145 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,145 INFO sqlalchemy.engine.Engine [cached since 90.92s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Два меча Хольта')
+2026-01-20 20:55:46,148 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,149 INFO sqlalchemy.engine.Engine [cached since 90.9s ago] (UUID('7cb4d022-f73b-43d2-9005-6564b796bcde'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Два меча Хольта', 'Пара длинных мечей в ножнах, закрепленных крест-накрест за спиной всадника. Рукояти потерты от частого использования.', None, None, '{"aliases": [], "confidence": 0.9}')
+2026-01-20 20:55:46,151 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,151 INFO sqlalchemy.engine.Engine [cached since 90.92s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:55:46,154 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,155 INFO sqlalchemy.engine.Engine [cached since 90.93s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:55:46,159 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,159 INFO sqlalchemy.engine.Engine [cached since 90.93s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Затравцы')
+2026-01-20 20:55:46,163 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,164 INFO sqlalchemy.engine.Engine [cached since 90.92s ago] (UUID('f88d198b-54f3-49e8-8da5-fd3fc674d536'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Затравцы', 'Небольшие стайные существа, внешне напоминающие обезьян с собачьими головами. Покрыты грязной шерстью, имеют острые когти и зубы. Обитают в темных, затопленных подземельях, передвигаются стремительно и агрессивно.', None, None, '{"aliases": ["\\u043f\\u0441\\u043e\\u0433\\u043e\\u043b\\u043e\\u0432\\u044b\\u0435 \\u043e\\u0431\\u0435\\u0437\\u044c\\u044f\\u043d\\u044b", "\\u0442\\u0432\\u0430\\u0440\\u0438 \\u043f\\u043e\\u0434\\u0437\\u0435\\u043c\\u043d\\u044b\\u0435"], "confidence": 0.9}')
+2026-01-20 20:55:46,167 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,167 INFO sqlalchemy.engine.Engine [cached since 90.94s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Подкурек')
+2026-01-20 20:55:46,176 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,176 INFO sqlalchemy.engine.Engine [cached since 90.93s ago] (UUID('29ef9804-f960-44d1-82aa-4aafb9f48731'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Подкурек', 'Высокий холм со скалистыми склонами, испещренный входами в заброшенные шахты. На склонах видны остатки гниющих деревянных водоотливных воротов и глубокие дренажные канавы. Атмосфера заброшенности и скрытой опасности.', None, None, '{"aliases": ["\\u0445\\u043e\\u043b\\u043c \\u041f\\u043e\\u0434\\u043a\\u0443\\u0440\\u0435\\u043a"], "confidence": 0.95}')
+2026-01-20 20:55:46,180 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,180 INFO sqlalchemy.engine.Engine [cached since 90.95s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Лагерь старателей')
+2026-01-20 20:55:46,185 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,186 INFO sqlalchemy.engine.Engine [cached since 90.94s ago] (UUID('45b98da5-2d17-40ed-9f73-acb314f3cd77'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Лагерь старателей', 'Скопление белых холщовых повозок и палаток у подножия холма. Вокруг горят костры, разбросаны инструменты: лопаты, мотыги, дубинки. Место выглядит неуютным и временным, наполненным шумом и тревогой людей.', None, None, '{"aliases": ["\\u043b\\u0430\\u0433\\u0435\\u0440\\u044c \\u043e\\u0442\\u0432\\u0430\\u0436\\u043d\\u044b\\u0445 \\u0441\\u0442\\u0430\\u0440\\u0430\\u0442\\u0435\\u043b\\u0435\\u0439"], "confidence": 0.9}')
+2026-01-20 20:55:46,190 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,190 INFO sqlalchemy.engine.Engine [cached since 90.96s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Верхняя Мархия')
+2026-01-20 20:55:46,193 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,193 INFO sqlalchemy.engine.Engine [cached since 90.95s ago] (UUID('51c5b890-7919-486e-b090-22ac4a78fefe'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Верхняя Мархия', 'Холмистая местность в королевстве Каэдвен, богатая полезными ископаемыми. Пейзаж ранней весны: едва пробивающаяся трава, березовые рощи, сырая земля и холодный воздух.', None, None, '{"aliases": ["\\u0447\\u0430\\u0441\\u0442\\u044c \\u043a\\u043e\\u0440\\u043e\\u043b\\u0435\\u0432\\u0441\\u0442\\u0432\\u0430 \\u041a\\u0430\\u044d\\u0434\\u0432\\u0435\\u043d"], "confidence": 0.85}')
+2026-01-20 20:55:46,195 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,196 INFO sqlalchemy.engine.Engine [cached since 90.97s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Мотыга главного старателя')
+2026-01-20 20:55:46,200 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,200 INFO sqlalchemy.engine.Engine [cached since 90.96s ago] (UUID('92a47cc0-571e-4f9d-9742-1a2e8bab83ca'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Мотыга главного старателя', 'Тяжелый сельскохозяйственный инструмент с длинной деревянной рукоятью и массивным железным наконечником, покрытым пятнами ржавчины и земли. Используется и как орудие труда, и как импровизированное оружие.', None, None, '{"aliases": ["\\u043c\\u043e\\u0442\\u044b\\u0433\\u0430"], "confidence": 0.8}')
+2026-01-20 20:55:46,202 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,202 INFO sqlalchemy.engine.Engine [cached since 90.98s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:55:46,205 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,205 INFO sqlalchemy.engine.Engine [cached since 90.84s ago] ('Молодой ведьмак с атлетичным телосложением, одетый в практичный кожаный доспех и высокие защитные кожаные краги (штульпы). У него сосредоточенный взгляд, на шее висит серебряный ведьмачий медальон. В руках — длинный стальной меч, движения быстрые и точные.', UUID('7beb203d-7dc5-4e1b-9085-2f8181202ec8'))
+2026-01-20 20:55:46,208 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,208 INFO sqlalchemy.engine.Engine [cached since 90.98s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:55:46,210 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,213 INFO sqlalchemy.engine.Engine [cached since 90.99s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Затравцы')
+2026-01-20 20:55:46,216 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,216 INFO sqlalchemy.engine.Engine [cached since 90.99s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Нижний штрек')
+2026-01-20 20:55:46,219 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,219 INFO sqlalchemy.engine.Engine [cached since 90.97s ago] (UUID('b8d516f4-ae4e-4f1e-91ee-bfd016ef65bf'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Нижний штрек', 'Мрачный и сырой подземный коридор с высоким сводом, где с потолка постоянно капает вода. Стены изрезаны глубокими кавернами от добычи руды. Атмосфера гнетущая, освещение отсутствует, слышны лишь звуки капель и эхо.', None, None, '{"aliases": ["\\u0412\\u044b\\u0440\\u0430\\u0431\\u043e\\u0442\\u043a\\u0430", "\\u041d\\u0438\\u0436\\u043d\\u0438\\u0439 \\u0448\\u0442\\u0440\\u0435\\u043a"], "confidence": 0.95}')
+2026-01-20 20:55:46,222 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,222 INFO sqlalchemy.engine.Engine [cached since 91s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Древняя часовня')
+2026-01-20 20:55:46,226 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,226 INFO sqlalchemy.engine.Engine [cached since 90.98s ago] (UUID('66d6553e-0661-41cb-9c25-32f1321a5641'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Древняя часовня', 'Полуразрушенное кирпичное сооружение, спрятанное в глубокой каверне шахты. Руины стен, покрытые сыростью, свидетельствующие о старой вере рудокопов. Контрастирует с грубым камнем шахты.', None, None, '{"aliases": ["\\u0421\\u0442\\u0440\\u0430\\u043d\\u043d\\u043e\\u0435 \\u043a\\u0438\\u0440\\u043f\\u0438\\u0447\\u043d\\u043e\\u0435 \\u0441\\u043e\\u043e\\u0440\\u0443\\u0436\\u0435\\u043d\\u0438\\u0435"], "confidence": 0.85}')
+2026-01-20 20:55:46,230 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,230 INFO sqlalchemy.engine.Engine [cached since 91s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ведьмачий меч')
+2026-01-20 20:55:46,232 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,232 INFO sqlalchemy.engine.Engine [cached since 90.99s ago] (UUID('37e4d4c2-22c1-4e73-8c34-2ce5c9dc7f47'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Ведьмачий меч', 'Длинный, идеально сбалансированный клинок из качественной стали. Простая, но функциональная гарда, рукоять обтянута кожей. Оружие выглядит рабочим, со следами частого использования.', None, None, '{"aliases": ["\\u041c\\u0435\\u0447", "\\u041e\\u0440\\u0443\\u0436\\u0438\\u0435"], "confidence": 0.9}')
+2026-01-20 20:55:46,238 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,238 INFO sqlalchemy.engine.Engine [cached since 91.01s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:55:46,241 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,242 INFO sqlalchemy.engine.Engine [cached since 90.87s ago] ('Молодой ведьмак с атлетичным телосложением, одет в практичную кожаную одежду и высокие защитные кожаные штульпы на ногах. Лицо сосредоточенное, со следами свежих ссадин и укусов. Волосы светлые, за спиной или в руках — ведьмачий меч. Выглядит измотанным, но сохраняет боевую готовность.', UUID('7beb203d-7dc5-4e1b-9085-2f8181202ec8'))
+2026-01-20 20:55:46,245 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,247 INFO sqlalchemy.engine.Engine [cached since 91.02s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:55:46,252 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,252 INFO sqlalchemy.engine.Engine [cached since 90.88s ago] ('Пожилой ведьмак-ветеран, выглядящий как калека, с печатью возраста и былых сражений на лице. Одет в поношенную, но добротную дорожную одежду. Взгляд мудрый, проницательный и ироничный. Часто держит в руках еду или опирается на дерево, демонстрируя внешнюю расслабленность при внутренней силе.', UUID('e627cadd-c26b-41af-a841-ea70ef08d4c3'))
+2026-01-20 20:55:46,255 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,255 INFO sqlalchemy.engine.Engine [cached since 91.03s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Затравцы')
+2026-01-20 20:55:46,259 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,260 INFO sqlalchemy.engine.Engine [cached since 90.89s ago] ('Мелкие, злобные стайные существа с мощными челюстями и острыми зубами. Кожа землистого цвета, приспособленная к жизни в темноте. Ловкие, используют камни как метательное оружие, нападают кучно, стараясь вцепиться в ноги противника.', UUID('f88d198b-54f3-49e8-8da5-fd3fc674d536'))
+2026-01-20 20:55:46,262 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,262 INFO sqlalchemy.engine.Engine [cached since 91.04s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Шахта (Ствол)')
+2026-01-20 20:55:46,267 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,267 INFO sqlalchemy.engine.Engine [cached since 91.02s ago] (UUID('3cca0c71-5a81-45c3-adfd-2b37c678e8c2'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Шахта (Ствол)', 'Мрачная подземная выработка с остатками прогнивших деревянных лестниц, ведущих к вертикальному выходу на поверхность. Повсюду разбросаны камни и обломки породы. Освещение скудное, контрастное, с редкими лучами света, пробивающимися сверху.', None, None, '{"aliases": ["\\u0428\\u0442\\u043e\\u043b\\u044c\\u043d\\u044f", "\\u0412\\u044b\\u0440\\u0430\\u0431\\u043e\\u0442\\u043a\\u0430"], "confidence": 0.95}')
+2026-01-20 20:55:46,269 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,269 INFO sqlalchemy.engine.Engine [cached since 91.04s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Перекресток')
+2026-01-20 20:55:46,275 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,275 INFO sqlalchemy.engine.Engine [cached since 91.03s ago] (UUID('a6dbb085-67e8-4bb6-88c1-2e847897793b'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Перекресток', 'Распутье четырех дорог под ясным небом, окруженное березами. Ветви деревьев и небо над ними черны от сотен неподвижно сидящих или кружащих воронов. Место пропитано мистической атмосферой выбора и судьбоносных решений.', None, None, '{"aliases": ["\\u0420\\u0430\\u0441\\u043f\\u0443\\u0442\\u044c\\u0435 \\u0434\\u043e\\u0440\\u043e\\u0433"], "confidence": 0.95}')
+2026-01-20 20:55:46,278 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,279 INFO sqlalchemy.engine.Engine [cached since 91.05s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Лагерь рудокопов')
+2026-01-20 20:55:46,282 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,282 INFO sqlalchemy.engine.Engine [cached since 91.04s ago] (UUID('2c6f21f7-c19f-4cd6-84b7-b4e97e81b29d'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Лагерь рудокопов', 'Временное поселение с палатками, телегами и дымящимися над кострами котлами. Атмосфера вечернего отдыха после трудового дня, освещенная теплым светом огней.', None, None, '{"aliases": [], "confidence": 0.85}')
+2026-01-20 20:55:46,286 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,288 INFO sqlalchemy.engine.Engine [cached since 91.06s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Меч Геральта')
+2026-01-20 20:55:46,293 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,293 INFO sqlalchemy.engine.Engine [cached since 91.05s ago] (UUID('a34344c0-b516-48f3-aa00-3b5504df10ca'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Меч Геральта', 'Длинный стальной клинок, идеально сбалансированный, с простой, но функциональной гардой. Металл поблескивает, несмотря на следы недавнего боя.', None, None, '{"aliases": [], "confidence": 0.9}')
+2026-01-20 20:55:46,297 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,297 INFO sqlalchemy.engine.Engine [cached since 91.07s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Вороны')
+2026-01-20 20:55:46,303 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,303 INFO sqlalchemy.engine.Engine [cached since 91.06s ago] (UUID('73f52c34-bf2a-44db-9c87-1d9ba04f1a50'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Вороны', 'Огромная стая иссиня-черных птиц с блестящим оперением. Они ведут себя неестественно для своего вида, собираясь в сотни, наблюдая за людьми с ветвей и наполняя воздух громким карканьем.', None, None, '{"aliases": [], "confidence": 0.9}')
+2026-01-20 20:55:46,309 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,309 INFO sqlalchemy.engine.Engine [cached since 91.08s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:55:46,312 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,313 INFO sqlalchemy.engine.Engine [cached since 91.09s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Хольт')
+2026-01-20 20:55:46,315 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,316 INFO sqlalchemy.engine.Engine [cached since 91.07s ago] (UUID('309b7707-e781-4532-872c-21118fe70702'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Хольт', 'Пожилой ведьмак, заметно искалеченный и опирающийся на опыт прошлых лет. Седые волосы, лицо изрезано морщинами и шрамами. Одет в поношенную, но добротную дорожную одежду и плащ. Сидит в седле, сохраняя достоинство, несмотря на физическую немощь.', None, None, '{"aliases": ["\\u0425\\u043e\\u043b\\u044c\\u0442"], "confidence": 0.95}')
+2026-01-20 20:55:46,320 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,320 INFO sqlalchemy.engine.Engine [cached since 91.09s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Перекрёсток')
+2026-01-20 20:55:46,322 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,322 INFO sqlalchemy.engine.Engine [cached since 91.08s ago] (UUID('c1f97105-0093-4e64-b85f-49a15f32c63c'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Перекрёсток', 'Пустынное пересечение четырех грунтовых дорог под пасмурным небом. Вокруг кружат и каркают многочисленные черные вороны, сидящие на старых указателях и камнях. Атмосфера тревожного выбора и меланхолии.', None, None, '{"aliases": ["\\u044d\\u0442\\u043e\\u0442 \\u043f\\u0435\\u0440\\u0435\\u043a\\u0440\\u0435\\u0441\\u0442\\u043e\\u043a"], "confidence": 0.9}')
+2026-01-20 20:55:46,324 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,324 INFO sqlalchemy.engine.Engine [cached since 91.1s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Каэр Морхен')
+2026-01-20 20:55:46,327 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:55:46,327 INFO sqlalchemy.engine.Engine [cached since 90.96s ago] ('Древняя горная крепость ведьмаков, сложенная из серого камня, окруженная заснеженными пиками. Суровое, аскетичное место с высокими стенами и холодными залами.', UUID('18768099-fda3-438e-b0c1-9debb2d46000'))
+2026-01-20 20:55:46,329 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,329 INFO sqlalchemy.engine.Engine [cached since 91.1s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Каэдвен')
+2026-01-20 20:55:46,331 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:55:46,331 INFO sqlalchemy.engine.Engine [cached since 91.1s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ведьмачьи мечи')
+2026-01-20 20:55:46,335 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:55:46,336 INFO sqlalchemy.engine.Engine [cached since 91.09s ago] (UUID('d23f5e41-26fd-4ffd-bcd0-0e039fb96063'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'object', 'Ведьмачьи мечи', 'Пара длинных мечей: один стальной для людей, другой серебряный для чудовищ. Клинки имеют характерные гарды, кожаную обмотку рукоятей и гравировки. Выглядят как грозное, но стареющее оружие в руках ветерана.', None, None, '{"aliases": ["\\u043c\\u0435\\u0447\\u0438", "\\u043a\\u043b\\u0438\\u043d\\u043a\\u0438"], "confidence": 0.9}')
+2026-01-20 20:56:47,602 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_service_page=$1::BOOLEAN, updated_at=now() WHERE chapters.id = $2::UUID
+2026-01-20 20:56:47,602 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (False, UUID('0ed312ac-5d39-49e0-9250-d56bbed3413e'))
+2026-01-20 20:56:47,606 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,606 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:56:47,616 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,616 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:56:47,618 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,618 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Нищенка')
+2026-01-20 20:56:47,620 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,620 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('eda0f2ef-50cd-459f-aeb1-32ac1e3857c3'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Нищенка', 'Грязная женщина в лохмотьях, сидящая под стеной дома. У нее гнилые зубы и жалобное выражение лица. На коленях держит младенца, кутая его в тряпье.', None, None, '{"aliases": ["\\u0411\\u0430\\u0431\\u0430"], "confidence": 0.9}')
+2026-01-20 20:56:47,623 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,623 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Спинхэм')
+2026-01-20 20:56:47,626 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,626 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('b9d2c0ea-2006-4f26-b407-9f900037bb0a'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Спинхэм', 'Провинциальный городок с грязными узкими улочками, кишащими кошками и чумазыми детьми. Архитектура простая, преобладают деревянные и каменные постройки, покрытые копотью и грязью.', None, None, '{"aliases": ["\\u0413\\u043e\\u0440\\u043e\\u0434\\u043e\\u043a"], "confidence": 0.95}')
+2026-01-20 20:56:47,629 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,630 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Заброшенный храм')
+2026-01-20 20:56:47,634 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,634 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('28e665ee-fb01-44c7-9a76-7fb592be935e'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Заброшенный храм', 'Величественное, но пустующее здание с выбеленными известью колоннадами. Под колоннами теснятся толпы нищих. Атмосфера былого величия, сменившаяся запустением.', None, None, '{"aliases": ["\\u0425\\u0440\\u0430\\u043c"], "confidence": 0.9}')
+2026-01-20 20:56:47,636 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,636 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Рынок Спинхэма')
+2026-01-20 20:56:47,638 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,638 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('72ee1ddd-bb7b-4560-a339-20fdce0510cc'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Рынок Спинхэма', 'Шумная площадь, заполненная деревянными лотками и толпами людей. В воздухе висит тяжелая взвесь из дыма, запаха горелого жира, навоза и гнилых фруктов.', None, None, '{"aliases": ["\\u0420\\u044b\\u043d\\u043e\\u043a"], "confidence": 0.85}')
+2026-01-20 20:56:47,640 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,640 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Западная Мархия')
+2026-01-20 20:56:47,642 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,642 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('37394f8d-6013-4654-b710-0938082f338f'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Западная Мархия', 'Обширный регион вдоль берегов реки Буины, ограниченный на западе суровыми Пустульскими горами. Пограничная территория с суровым климатом и стратегическим ландшафтом.', None, None, '{"aliases": ["\\u041c\\u0430\\u0440\\u0445\\u0438\\u044f"], "confidence": 0.9}')
+2026-01-20 20:56:47,643 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,643 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ведьмачий меч')
+2026-01-20 20:56:47,646 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,646 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:56:47,647 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,648 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Престон Хольт')
+2026-01-20 20:56:47,650 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,650 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Пампинея Монтефорте')
+2026-01-20 20:56:47,653 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,655 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('984224f6-b9dd-4741-945d-84d7aa3f84a7'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Пампинея Монтефорте', 'Элегантная женщина с копной густых каштановых волос и пухлыми губами. Одета в изысканное черное платье из полупрозрачного шифона, муслина и крепа, которое искусно обнажает и скрывает фигуру одновременно. Источает аромат дорогих духов.', None, None, '{"aliases": ["\\u0413\\u043e\\u0441\\u043f\\u043e\\u0436\\u0430 \\u041f\\u0430\\u043c\\u043f\\u0438\\u043d\\u0435\\u044f"], "confidence": 0.98}')
+2026-01-20 20:56:47,659 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,661 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Рынок Спинхэма')
+2026-01-20 20:56:47,665 INFO sqlalchemy.engine.Engine UPDATE entities SET visual_summary=$1::VARCHAR, updated_at=now() WHERE entities.id = $2::UUID
+2026-01-20 20:56:47,666 INFO sqlalchemy.engine.Engine [cached since 152.3s ago] ('Шумная и тесная площадь, заставленная лотками с глиняными горшками, меховыми шапками и кренделями. Воздух пропитан тяжелой смесью запахов дыма, навоза, гнилых фруктов и жареного жира. Повсюду снующие толпы покупателей.', UUID('72ee1ddd-bb7b-4560-a339-20fdce0510cc'))
+2026-01-20 20:56:47,669 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,670 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Лорелея')
+2026-01-20 20:56:47,672 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,673 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('67807018-9e93-416d-9048-2cef9d22416f'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Лорелея', 'Внушительный дом с массивной дверью. Над входом — искусная вывеска с изображением пышногрудой сирены. Внутри — уютная прихожая, освещенная лампами, с ароматом благовоний и картинами русалок на стенах.', None, None, '{"aliases": ["\\u041f\\u0443\\u0431\\u043b\\u0438\\u0447\\u043d\\u044b\\u0439 \\u0434\\u043e\\u043c"], "confidence": 0.98}')
+2026-01-20 20:56:47,676 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,676 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Ведьмачьи мечи')
+2026-01-20 20:56:47,678 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,679 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Тимур Воронофф')
+2026-01-20 20:56:47,681 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,682 INFO sqlalchemy.engine.Engine [cached since 152.4s ago] (UUID('e9003e59-19be-4a1e-b15a-938cdaa33fdd'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Тимур Воронофф', 'Деловой партнер Хольта. В тексте лично не появляется, описывается как человек, имеющий дела в Спинхэме и Бельвуаре.', None, None, '{"aliases": ["\\u0412\\u043e\\u0440\\u043e\\u043d\\u043e\\u0444\\u0444"], "confidence": 0.85}')
+2026-01-20 20:56:47,686 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,687 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Геральт')
+2026-01-20 20:56:47,691 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,691 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Хольт')
+2026-01-20 20:56:47,692 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,693 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Пампинея Монтефорте')
+2026-01-20 20:56:47,695 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,695 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Здоровенный мужик')
+2026-01-20 20:56:47,701 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,701 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] (UUID('89d2c37a-e2f3-4938-8251-de5dab22715f'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Здоровенный мужик', 'Грузный мужчина с огромным животом, вываливающимся из-за пояса штанов. Лицо красное, неопрятное. В руках держит тяжелую деревянную палку, ведет себя агрессивно и грубо.', None, None, '{"aliases": ["\\u0411\\u0440\\u043e\\u0434\\u044f\\u0433\\u0430"], "confidence": 0.85}')
+2026-01-20 20:56:47,703 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,703 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Женщина у колодца')
+2026-01-20 20:56:47,707 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,707 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] (UUID('cce39e62-0436-4f07-a855-df61785a7b55'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'character', 'Женщина у колодца', 'Хрупкая фигура в простой, возможно, поношенной одежде. Находится в состоянии ужаса, съежившись на земле и закрывая голову руками от ударов.', None, None, '{"aliases": ["\\u0416\\u0435\\u0440\\u0442\\u0432\\u0430"], "confidence": 0.8}')
+2026-01-20 20:56:47,710 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,710 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Спинхэм')
+2026-01-20 20:56:47,713 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,713 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Лорелея')
+2026-01-20 20:56:47,714 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,715 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Бельвуар')
+2026-01-20 20:56:47,719 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,719 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] (UUID('14a3aae4-13a9-4057-b855-3badbd1967db'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Бельвуар', "Удаленное поместье или замок, место жительства таинственного персонажа 'Ф'. Представляется как конечная точка маршрута, место покоя и безопасности.", None, None, '{"aliases": [], "confidence": 0.7}')
+2026-01-20 20:56:47,721 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.name = $2::VARCHAR
+2026-01-20 20:56:47,722 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] ('0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'Колодец')
+2026-01-20 20:56:47,723 INFO sqlalchemy.engine.Engine INSERT INTO entities (id, book_id, type, name, visual_summary, master_portrait_url, seed, entity_metadata) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::INTEGER, $8::JSONB) RETURNING entities.created_at, entities.updated_at
+2026-01-20 20:56:47,723 INFO sqlalchemy.engine.Engine [cached since 152.5s ago] (UUID('5a7a50d6-964f-4b67-9e03-b4ed79a72044'), '0fd7948f-e723-49ac-88c9-a0d2a25220d1', 'location', 'Колодец', 'Массивное каменное сооружение в центре площади или на улице. Имеет прочный каменный цоколь, о который можно сильно удариться. Вокруг — открытое пространство мостовой.', None, None, '{"aliases": [], "confidence": 0.9}')

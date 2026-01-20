@@ -246,9 +246,13 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     for desc_data in descriptions_data:
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
-                        # Map string type to enum
+                        # Handle case where desc_dict is a string (e.g. from legacy extraction or list of strings)
+                        if isinstance(desc_dict, str):
+                             desc_dict = {"content": desc_dict, "type": "location"}
+
                         # Map string type to enum
                         type_str = desc_dict.get("type", "location")
+
                         try:
                             # If it's already an enum in desc_dict (from to_dict), handle it
                             if isinstance(type_str, DescriptionType):
