@@ -250,6 +250,7 @@ services:
     container_name: bookreader_frontend_lite
     environment:
       - NODE_ENV=production
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
     ports:
       - "5173:80"
     depends_on:

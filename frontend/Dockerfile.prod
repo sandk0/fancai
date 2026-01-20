@@ -46,15 +46,18 @@ FROM nginx:1.27-alpine AS production
 
 # Install security updates and required tools
 RUN apk update && apk upgrade && \
-    apk add --no-cache curl tzdata && \
+    apk add --no-cache curl tzdata openssl && \
     rm -rf /var/cache/apk/*
 
 # Copy custom nginx config (PWA-optimized)
 # Copy custom nginx config (PWA-optimized)
 # Use nginx.prod.conf for production PWA settings
 COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
-COPY .htpasswd /etc/nginx/.htpasswd
 RUN rm -f /etc/nginx/conf.d/default.conf.bak 2>/dev/null || true
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -85,6 +88,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Security: Run as non-root user
 USER nginx
+
+# Entrypoint to generate .htpasswd
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Expose port
 EXPOSE 80

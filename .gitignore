@@ -190,3 +190,4 @@ start-dev.sh
 *.log
 .env.mcp
 .env.development
+frontend/.htpasswd
