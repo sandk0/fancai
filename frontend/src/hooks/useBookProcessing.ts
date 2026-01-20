@@ -102,7 +102,12 @@ export function useBookProcessing(book: Book): UseBookProcessingResult {
             });
         },
         onSuccess: () => {
-            invalidateQueries();
+            // НЕ вызываем invalidateQueries() здесь!
+            // Optimistic update уже установил is_processing=true.
+            // Вызов invalidateQueries() приведёт к перезагрузке /books/ с сервера,
+            // где is_processing может быть ещё false (race condition),
+            // что приведёт к исчезновению ParsingOverlay.
+            // ParsingOverlay сам обновит UI через polling.
         },
         onError: () => {
             // Rollback optimistic update
