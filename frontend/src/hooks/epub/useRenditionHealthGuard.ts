@@ -37,7 +37,26 @@ const DEBUG = import.meta.env.DEV;
  * epub.js rendition on iOS/Android. The 500ms threshold was causing errors
  * when users flipped pages and immediately minimized/returned.
  */
-const MIN_BACKGROUND_TIME_FOR_RELOAD = 0; // Always reload - no threshold
+/**
+ * Detect device type based on user agent
+ * (Duplicated from readingSessions.ts to avoid circular deps)
+ */
+function detectDeviceType(): string {
+  if (typeof navigator === 'undefined') return 'desktop';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
+/**
+ * Minimum time in background before triggering reload.
+ * Adaptive Strategy:
+ * - Mobile: 0ms (Always reload to prevent iOS heap corruption)
+ * - Desktop: 2000ms (Prevent annoying reloads on tab switching)
+ */
+const DEVICE_TYPE = detectDeviceType();
+const MIN_BACKGROUND_TIME_FOR_RELOAD = DEVICE_TYPE === 'mobile' || DEVICE_TYPE === 'tablet' ? 0 : 2000;
 
 export interface RenditionHealthGuardReturn {
   /** Whether the rendition is currently healthy and ready for use */

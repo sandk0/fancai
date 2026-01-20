@@ -46,11 +46,20 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.post<{ session: ReadingSession }>(
+      // Use any to handle both wrapped and unwrapped responses
+      const response = await apiClient.post<any>(
         '/reading-sessions/start',
         data
       );
-      return response.session;
+
+      // Handle both { session: ... } and flat ReadingSession
+      const session = response.session || response;
+
+      if (!session || !session.id) {
+        throw new Error('Invalid session response from server');
+      }
+
+      return session;
     } catch (error) {
       console.error('❌ [ReadingSessions] Failed to start session:', error);
 
@@ -78,11 +87,18 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.put<{ session: ReadingSession }>(
+      const response = await apiClient.put<any>(
         `/reading-sessions/${sessionId}`,
         data
       );
-      return response.session;
+
+      const session = response.session || response;
+
+      if (!session || !session.id) {
+        throw new Error('Invalid session response from server');
+      }
+
+      return session;
     } catch (error) {
       console.error('❌ [ReadingSessions] Failed to update session:', error);
 
@@ -109,11 +125,18 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.post<{ session: ReadingSession }>(
+      const response = await apiClient.post<any>(
         `/reading-sessions/${sessionId}/end`,
         data
       );
-      return response.session;
+
+      const session = response.session || response;
+
+      if (!session || !session.id) {
+        throw new Error('Invalid session response from server');
+      }
+
+      return session;
     } catch (error) {
       console.error('❌ [ReadingSessions] Failed to end session:', error);
 
@@ -131,10 +154,16 @@ export const readingSessionsAPI = {
    */
   async getActiveSession(): Promise<ReadingSession | null> {
     try {
-      const response = await apiClient.get<{ session: ReadingSession | null }>(
-        '/reading-sessions/active'
-      );
-      return response.session;
+      const response = await apiClient.get<any>('/reading-sessions/active');
+
+      if (!response) return null;
+
+      const session = response.session || response;
+
+      // If response was empty object or null
+      if (!session || Object.keys(session).length === 0) return null;
+
+      return session;
     } catch (error) {
       console.error('❌ [ReadingSessions] Failed to get active session:', error);
       return null;

@@ -163,7 +163,28 @@ export const booksAPI = {
   async getReadingProgress(bookId: string): Promise<{
     progress: ReadingProgress | null;
   }> {
-    return apiClient.get(`/books/${bookId}/progress`);
+    try {
+      const response = await apiClient.get<any>(`/books/${bookId}/progress`);
+
+      // Handle both wrapped { progress: ... } and flat response
+      // Check if response has 'progress' key, otherwise treat response as progress object
+      let progress = null;
+
+      if (response && 'progress' in response) {
+        progress = response.progress;
+      } else {
+        // Assume flat response is the progress object itself
+        // But verify it looks like a progress object (has id or other fields)
+        if (response && (response.reading_location_cfi !== undefined || response.current_chapter !== undefined)) {
+          progress = response;
+        }
+      }
+
+      return { progress };
+    } catch (error) {
+      console.error('Failed to fetch reading progress:', error);
+      return { progress: null };
+    }
   },
 
   async updateProgress(
