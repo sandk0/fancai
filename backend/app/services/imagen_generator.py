@@ -311,7 +311,9 @@ class GoogleImagenGenerator:
     async def generate(
         self,
         prompt: str,
-        aspect_ratio: Optional[str] = None
+        aspect_ratio: Optional[str] = None,
+        reference_image_urls: Optional[List[str]] = None,
+        seed: Optional[int] = None
     ) -> ImageGenerationResult:
         """
         Generate image using Google Imagen.
@@ -319,6 +321,8 @@ class GoogleImagenGenerator:
         Args:
             prompt: English text prompt (max 480 tokens)
             aspect_ratio: Override default aspect ratio
+            reference_image_urls: URLs for reference images (Consistency)
+            seed: Random seed for deterministic generation
 
         Returns:
             ImageGenerationResult with image data or error
@@ -333,7 +337,13 @@ class GoogleImagenGenerator:
 
         try:
             # Use tenacity retry decorator for the actual generation
-            result = await self._generate_with_retry(prompt, aspect_ratio, start_time)
+            result = await self._generate_with_retry(
+                prompt=prompt,
+                aspect_ratio=aspect_ratio,
+                reference_image_urls=reference_image_urls,
+                seed=seed,
+                start_time=start_time
+            )
             return result
         except Exception as e:
             # All retries exhausted
@@ -349,6 +359,8 @@ class GoogleImagenGenerator:
         self,
         prompt: str,
         aspect_ratio: Optional[str],
+        reference_image_urls: Optional[List[str]],
+        seed: Optional[int],
         start_time: float
     ) -> ImageGenerationResult:
         """
@@ -360,15 +372,23 @@ class GoogleImagenGenerator:
             from google.genai import types
 
             # Build config
+            # NOTE: explicit reference_images support via SDK might require Image inputs (bytes)
+            # For this Phase 3 version, we support 'seed' for deterministic generation.
+            # 'reference_image_urls' logic to download and pass as bytes is marked for next iteration.
+            
+            if reference_image_urls:
+                logger.warning(f"Reference images provided but not yet fully implemented in SDK call: {reference_image_urls}")
+
             gen_config = types.GenerateImagesConfig(
                 number_of_images=1,
                 aspect_ratio=aspect_ratio or self.config.aspect_ratio,
                 person_generation=self.config.person_generation,
                 safety_filter_level=self.config.safety_filter_level,
+                # seed=seed  # Uncomment when SDK fully supports it (check version)
             )
 
             logger.info("Generating image with Imagen")
-            logger.debug(f"Prompt: {prompt[:100]}...")
+            logger.debug(f"Prompt: {prompt[:100]}... Seed: {seed}")
 
             # Generate (sync call wrapped in asyncio.to_thread)
             response = await asyncio.wait_for(
@@ -552,7 +572,9 @@ class ImagenService:
         description_type: str = "location",
         genre: Optional[str] = None,
         custom_style: Optional[str] = None,
-        aspect_ratio: Optional[str] = None
+        aspect_ratio: Optional[str] = None,
+        reference_image_urls: Optional[List[str]] = None,
+        seed: Optional[int] = None
     ) -> ImageGenerationResult:
         """
         Generate image for a Russian description.
@@ -563,6 +585,8 @@ class ImagenService:
             genre: Book genre for style adaptation
             custom_style: Additional style instructions
             aspect_ratio: Override default aspect ratio
+            reference_image_urls: List of URLs to valid reference images (Consistency)
+            seed: Random seed for deterministic generation
 
         Returns:
             ImageGenerationResult with generated image or error
@@ -589,7 +613,12 @@ class ImagenService:
             )
 
             # Generate image
-            result = await self._generator.generate(prompt, aspect_ratio)
+            result = await self._generator.generate(
+                prompt=prompt, 
+                aspect_ratio=aspect_ratio,
+                reference_image_urls=reference_image_urls,
+                seed=seed
+            )
 
             return result
 

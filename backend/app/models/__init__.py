@@ -13,6 +13,8 @@ from .reading_session import ReadingSession
 from .reading_goal import ReadingGoal, GoalType, GoalPeriod
 from .feature_flag import FeatureFlag, FeatureFlagCategory
 from .push_subscription import PushSubscription
+from .entity import Entity, EntityType
+from .entity_relationship import EntityRelationship
 
 __all__ = [
     "User",
@@ -30,4 +32,7 @@ __all__ = [
     "FeatureFlag",
     "FeatureFlagCategory",
     "PushSubscription",
+    "Entity",
+    "EntityType",
+    "EntityRelationship",
 ]

@@ -133,6 +133,7 @@ export const useChapterManagement = ({
    * ОПТИМИЗАЦИЯ: Использует IndexedDB кэш для избежания повторных API запросов
    * FIXED (2025-12-25): Added AbortController to cancel pending requests
    * FIXED (2026-01-10): Skip loading if userId is not available (PWA rehydration)
+   * FIXED (2026-01-20): Removed legacy auto-extraction. Descriptions are strictly read-only.
    */
   const loadChapterData = useCallback(async (chapter: number) => {
     if (!bookId || chapter <= 0) return;
@@ -187,11 +188,13 @@ export const useChapterManagement = ({
       // Кэша нет или он пустой - загружаем с API
       devLog('API: Cache miss or empty, fetching from API...');
 
-      // Load descriptions - сначала проверяем существующие (extract_new=false)
-      let descriptionsResponse = await booksAPI.getChapterDescriptions(
+      // Load descriptions - STRICTLY READ-ONLY (extract_new=false)
+      // Мы больше не запускаем экстракцию автоматически при открытии главы.
+      // Это делается только через кнопку "Process Book".
+      const descriptionsResponse = await booksAPI.getChapterDescriptions(
         bookId,
         chapter,
-        false // Сначала проверяем существующие
+        false // Do not extract new
       );
 
       // Check for abort after API call
@@ -200,106 +203,21 @@ export const useChapterManagement = ({
         return;
       }
 
-      let loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
+      const loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
 
-      // Если описаний нет - запускаем LLM extraction (on-demand)
       if (loadedDescriptions.length === 0) {
-        devLog('Extracting: No descriptions found, triggering LLM extraction...');
-        setIsExtractingDescriptions(true);
-
-        // Retry loop for 409 Conflict (extraction in progress)
-        const maxRetries = 4;
-        let retryCount = 0;
-
-        while (retryCount < maxRetries) {
-          try {
-            descriptionsResponse = await booksAPI.getChapterDescriptions(
-              bookId,
-              chapter,
-              true // extract_new = true - запускаем LLM extraction
-            );
-
-            // Check for abort after LLM extraction
-            if (signal.aborted) {
-              devLog('Aborting: Request aborted after LLM extraction');
-              setIsExtractingDescriptions(false);
-              return;
-            }
-
-            loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
-            devLog(`Success: LLM extracted ${loadedDescriptions.length} descriptions`);
-            break; // Success - exit retry loop
-
-          } catch (extractError: any) {
-            // Don't log abort errors as warnings
-            if (extractError?.name === 'AbortError') {
-              devLog('Aborting: LLM extraction aborted');
-              return;
-            }
-
-            // Handle 409 Conflict - extraction in progress
-            if (extractError?.response?.status === 409 || extractError?.status === 409) {
-              retryCount++;
-              const retryAfter = extractError?.response?.data?.retry_after_seconds || 15;
-              devLog(
-                `Waiting: Extraction in progress, retry ${retryCount}/${maxRetries} in ${retryAfter}s`
-              );
-
-              if (retryCount < maxRetries) {
-                // Wait and retry
-                await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
-
-                // Check if aborted during wait
-                if (signal.aborted) {
-                  devLog('Aborting: Request aborted during retry wait');
-                  setIsExtractingDescriptions(false);
-                  return;
-                }
-
-                // After waiting, try to get existing descriptions (without extract_new)
-                devLog('Extracting: Checking if extraction completed...');
-                descriptionsResponse = await booksAPI.getChapterDescriptions(
-                  bookId,
-                  chapter,
-                  false // Check existing first
-                );
-
-                loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
-                if (loadedDescriptions.length > 0) {
-                  devLog(`Success: Got ${loadedDescriptions.length} descriptions after wait`);
-                  break; // Success - extraction completed while we waited
-                }
-                // Still empty - continue retry loop
-                continue;
-              }
-            }
-
-            devWarn('Warning: LLM extraction failed:', extractError);
-            // Продолжаем с пустыми описаниями
-            break;
-          }
-        }
-
-        if (!signal.aborted) {
-          setIsExtractingDescriptions(false);
-        }
+        devLog('Info: No descriptions found for chapter. Auto-extraction is disabled.');
+      } else {
+        devLog('Success: Descriptions loaded:', {
+          count: loadedDescriptions.length,
+          sampleDescription: loadedDescriptions[0] ? {
+            id: loadedDescriptions[0].id,
+            type: loadedDescriptions[0].type,
+            textLength: loadedDescriptions[0].text?.length || 0,
+            contentLength: loadedDescriptions[0].content?.length || 0,
+          } : null,
+        });
       }
-
-      // Final abort check before updating state
-      if (signal.aborted) {
-        devLog('Aborting: Request aborted before state update');
-        return;
-      }
-
-      devLog('Success: Descriptions loaded:', {
-        count: loadedDescriptions.length,
-        sampleDescription: loadedDescriptions[0] ? {
-          id: loadedDescriptions[0].id,
-          type: loadedDescriptions[0].type,
-          textLength: loadedDescriptions[0].text?.length || 0,
-          contentLength: loadedDescriptions[0].content?.length || 0,
-        } : null,
-      });
 
       // Load images
       const imagesResponse = await imagesAPI.getBookImages(bookId, chapter);
@@ -329,7 +247,6 @@ export const useChapterManagement = ({
       setIsLoadingChapter(false);
 
       // Prefetch следующих 2 глав в фоне (для плавного UX)
-      // UPDATED (2025-12-25): Расширено до 2 глав для более плавной навигации
       // Use ref to avoid circular dependency issues
       if (prefetchRef.current) {
         prefetchRef.current(chapter);
@@ -352,12 +269,10 @@ export const useChapterManagement = ({
    * Загружает описания и изображения заранее для плавного перехода
    *
    * @param chapterNumber - Номер главы для prefetch
-   * @param allowLLMExtraction - Разрешить LLM extraction (для ближайшей главы)
    * @returns Promise<boolean> - true если prefetch успешен
    */
   const prefetchSingleChapter = useCallback(async (
-    chapterNumber: number,
-    allowLLMExtraction: boolean = true
+    chapterNumber: number
   ): Promise<boolean> => {
     if (!bookId || chapterNumber <= 0 || !userId) return false;
 
@@ -371,35 +286,17 @@ export const useChapterManagement = ({
 
       devLog(`Prefetch: Prefetching chapter ${chapterNumber}...`);
 
-      // Загружаем описания (сначала существующие)
-      let descriptionsResponse = await booksAPI.getChapterDescriptions(
+      // Загружаем описания (STRICTLY READ-ONLY)
+      const descriptionsResponse = await booksAPI.getChapterDescriptions(
         bookId,
         chapterNumber,
         false
       );
 
-      let loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
+      const loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
 
-      // Если пусто и LLM extraction разрешён - извлекаем
-      if (loadedDescriptions.length === 0 && allowLLMExtraction) {
-        devLog(`Prefetch: Prefetch: extracting via LLM for chapter ${chapterNumber}...`);
-        try {
-          descriptionsResponse = await booksAPI.getChapterDescriptions(
-            bookId,
-            chapterNumber,
-            true
-          );
-          loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
-        } catch (extractError: any) {
-          // Ignore 409 Conflict for prefetch - don't wait
-          if (extractError?.response?.status === 409 || extractError?.status === 409) {
-            devLog(`Prefetch: chapter ${chapterNumber} extraction in progress elsewhere`);
-          } else {
-            devWarn(`Warning: Prefetch LLM extraction failed for chapter ${chapterNumber}:`, extractError);
-          }
-        }
-      } else if (loadedDescriptions.length === 0) {
-        devLog(`Skip: Prefetch: skipping LLM for chapter ${chapterNumber} (allowLLMExtraction=false)`);
+      if (loadedDescriptions.length === 0) {
+        devLog(`Skip: Prefetch: no descriptions found for chapter ${chapterNumber}`);
       }
 
       // Загружаем изображения
@@ -547,8 +444,7 @@ export const useChapterManagement = ({
 
       // Fallback: individual prefetch
       for (const chapterNum of chaptersToFetch) {
-        const allowLLM = chapterNum === chaptersToFetch[0]; // Only first chapter
-        await prefetchSingleChapter(chapterNum, allowLLM);
+        await prefetchSingleChapter(chapterNum);
       }
     }
   }, [userId, bookId, prefetchSingleChapter]);

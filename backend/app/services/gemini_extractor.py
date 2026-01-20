@@ -41,8 +41,34 @@ class DescriptionType(Enum):
     """Типы описаний для извлечения."""
     LOCATION = "location"
     CHARACTER = "character"
+    OBJECT = "object"
     ATMOSPHERE = "atmosphere"
 
+
+@dataclass
+class ExtractedEntity:
+    """Извлеченная сущность (Персонаж, Локация, Предмет)."""
+    name: str
+    type: str  # character, location, object
+    visual_summary: str
+    aliases: List[str] = field(default_factory=list)
+    confidence: float = 0.0
+
+@dataclass
+class ExtractedRelationship:
+    """Связь между сущностями."""
+    source: str
+    target: str
+    type: str
+    weight: float
+    context: str = ""
+
+@dataclass
+class ChapterAnalysisResult:
+    """Полный результат анализа главы."""
+    descriptions: List[ExtractedDescription]
+    entities: List[ExtractedEntity]
+    relationships: List[ExtractedRelationship]
 
 @dataclass
 class ExtractedDescription:
@@ -352,44 +378,67 @@ class GeminiDirectExtractor:
 
     # Промпт для извлечения описаний
     # Двойные скобки {{ }} экранированы для использования с .format()
-    EXTRACTION_PROMPT = """Ты - эксперт по извлечению визуальных описаний из русской литературы для создания иллюстраций.
+    EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
-ЗАДАЧА: Найди и извлеки все визуальные описания из текста. Верни их в формате JSON.
+ЗАДАЧА:
+1. Выдели все СУЩНОСТИ (Персонажи, Локации, Значимые Предметы).
+2. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем для промпта).
+3. Определи СВЯЗИ между сущностями (кто с кем взаимодействует, где кто находится) и оцени ВЕС связи (1-10) на основе частоты взаимодействий.
 
-ТИПЫ ОПИСАНИЙ:
-- location: места, здания, ландшафты, интерьеры, природа
-- character: внешность персонажей, одежда, черты лица, поза
-- atmosphere: настроение сцены, освещение, погода, звуки, запахи
+ТИПЫ СУЩНОСТЕЙ:
+- character: Люди, существа. Описывай: лицо, волосы, одежда, возраст, особые приметы.
+- location: Места действия. Описывай: освещение, архитектура, погода, атмосфера, детали интерьера/экстерьера.
+- object: Важные предметы (меч, кольцо, автомобиль). Описывай: материал, цвет, форма, состояние.
 
-КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА:
-1. Извлекай ТОЛЬКО ПОЛНЫЕ ПРЕДЛОЖЕНИЯ - от заглавной буквы до знака препинания
-2. Минимум 200 символов, максимум 2000 символов на описание
-3. Сохраняй ОРИГИНАЛЬНЫЙ текст автора БЕЗ ИЗМЕНЕНИЙ
-4. НЕ извлекай диалоги, мысли, действия без визуальных деталей
-5. confidence: 0.9+ для детальных описаний, 0.7-0.9 для средних
-
-ФОРМАТ ОТВЕТА (ОБЯЗАТЕЛЬНО JSON):
+ФОРМАТ ОТВЕТА (JSON):
 ```json
-{{
-  "descriptions": [
-    {{
-      "content": "Полный текст описания из книги, несколько предложений с визуальными деталями.",
-      "type": "location",
-      "confidence": 0.85
-    }},
-    {{
-      "content": "Ещё одно описание персонажа или места из текста.",
+{
+  "entities": [
+    {
+      "name": "Имя или Название",
       "type": "character",
+      "visual_summary": "Высокий старик с длинной седой бородой, в синей остроконечной шляпе и серой мантии. Добрые голубые глаза.",
+      "aliases": ["Гэндальф", "Митрандир"],
+      "confidence": 0.95
+    },
+    {
+      "name": "Шир",
+      "type": "location",
+      "visual_summary": "Уютная деревня с зелеными холмами и круглыми дверями нор. Солнечный летний день, цветущие сады.",
+      "aliases": ["Хоббитон"],
       "confidence": 0.9
-    }}
+    }
+  ],
+  "relationships": [
+    {
+      "source": "Имя1",
+      "target": "Имя2",
+      "type": "FRIEND",
+      "weight": 0.8,
+      "context": "Давно знают друг друга, часто беседуют."
+    },
+    {
+      "source": "Имя1",
+      "target": "НазваниеЛокации",
+      "type": "LOCATED_IN",
+      "weight": 1.0
+    }
+  ],
+  "descriptions": [  // BACKWARD COMPATIBILITY: Старый формат для генерации сцен
+    {
+      "content": "Полное предложение с описанием из текста...",
+      "type": "location",
+      "confidence": 0.9,
+      "entities": ["Имя1", "НазваниеЛокации"]
+    }
   ]
-}}
+}
 ```
 
 ТЕКСТ ДЛЯ АНАЛИЗА:
 {text}
 
-Верни ТОЛЬКО JSON с найденными описаниями. Если описаний нет, верни {{"descriptions": []}}."""
+Верни ТОЛЬКО валидный JSON."""
 
     def __init__(self, config: Optional[GeminiConfig] = None):
         """Инициализация экстрактора."""
@@ -443,71 +492,93 @@ class GeminiDirectExtractor:
         """Проверить доступность экстрактора."""
         return self._available
 
+    async def analyze_chapter(
+        self,
+        text: str,
+        chapter_id: Optional[str] = None
+    ) -> ChapterAnalysisResult:
+        """
+        Полный анализ главы: описания + сущности + связи.
+        """
+        if not self.is_available():
+            logger.warning("Gemini extractor not available")
+            return ChapterAnalysisResult([], [], [])
+
+        if len(text) < self.config.min_chunk_chars:
+            return ChapterAnalysisResult([], [], [])
+
+        start_time = time.time()
+        
+        # Разбиваем на чанки
+        chunks = self.chunker.chunk(text)
+        logger.info(f"Text split into {len(chunks)} chunks for analysis")
+
+        all_descriptions = []
+        all_entities = []
+        all_relationships = []
+
+        for i, chunk in enumerate(chunks):
+            try:
+                # Extract raw JSON response
+                prompt = self.EXTRACTION_PROMPT.format(text=chunk["text"])
+                response_text = await self._call_gemini_with_retry(prompt)
+                parsed = self.parser.parse(response_text)
+                
+                # Parse descriptions (legacy + new)
+                descriptions = self._parse_descriptions(parsed, chunk["start"])
+                all_descriptions.extend(descriptions)
+                
+                # Parse entities
+                entities_json = parsed.get("entities", [])
+                for e in entities_json:
+                    all_entities.append(ExtractedEntity(
+                        name=e.get("name", "Unknown"),
+                        type=e.get("type", "object"),
+                        visual_summary=e.get("visual_summary", ""),
+                        aliases=e.get("aliases", []),
+                        confidence=float(e.get("confidence", 0.0))
+                    ))
+                    
+                # Parse relationships
+                rels_json = parsed.get("relationships", [])
+                for r in rels_json:
+                    all_relationships.extend(rels_json) # Raw dicts first, simplified for now
+                    # TODO: Convert to ExtractedRelationship objects strictly
+                
+                # Rate limiting
+                if i < len(chunks) - 1:
+                    await asyncio.sleep(0.1)
+
+            except Exception as e:
+                logger.warning(f"Chunk {i} analysis failed: {e}")
+                self.stats["failed_calls"] += 1
+
+        # Deduplicate Descriptions
+        unique_descriptions = self._deduplicate(all_descriptions)
+        
+        # Deduplicate Entities (Merge logic needed in ConsistencyManager, here just raw list)
+        # We return all found entities, ConsistencyManager will clean them up.
+
+        # Stats
+        self.stats["total_time"] += time.time() - start_time
+        self.stats["total_descriptions"] += len(unique_descriptions)
+
+        return ChapterAnalysisResult(
+            descriptions=unique_descriptions,
+            entities=all_entities,
+            relationships=[] # Placeholder - relationships need complex merging logic
+        )
+
     async def extract(
         self,
         text: str,
         chapter_id: Optional[str] = None
     ) -> List[ExtractedDescription]:
         """
-        Извлечь описания из текста.
-
-        Args:
-            text: Текст для обработки
-            chapter_id: ID главы (для логирования)
-
-        Returns:
-            Список извлечённых описаний
+        Legacy wrapper for backward compatibility.
         """
-        if not self.is_available():
-            logger.warning("Gemini extractor not available")
-            return []
-
-        if len(text) < self.config.min_chunk_chars:
-            logger.debug(f"Text too short ({len(text)} chars)")
-            return []
-
-        start_time = time.time()
-        all_descriptions = []
-
-        # Разбиваем на чанки
-        chunks = self.chunker.chunk(text)
-        logger.info(f"Text split into {len(chunks)} chunks for extraction")
-
-        for i, chunk in enumerate(chunks):
-            try:
-                chunk_descriptions = await self._extract_from_chunk(
-                    chunk["text"],
-                    chunk["start"]
-                )
-                all_descriptions.extend(chunk_descriptions)
-
-                # Пауза между запросами для rate limiting
-                if i < len(chunks) - 1:
-                    await asyncio.sleep(0.1)
-
-            except Exception as e:
-                logger.warning(f"Chunk {i} extraction failed: {e}")
-                self.stats["failed_calls"] += 1
-
-        # Дедупликация
-        unique_descriptions = self._deduplicate(all_descriptions)
-
-        # Фильтрация по confidence
-        filtered = [
-            d for d in unique_descriptions
-            if d.confidence >= self.config.min_confidence
-        ]
-
-        # Обновляем статистику
-        self.stats["total_time"] += time.time() - start_time
-        self.stats["total_descriptions"] += len(filtered)
-
-        logger.info(
-            f"Extracted {len(filtered)} descriptions from {len(chunks)} chunks "
-            f"(chapter: {chapter_id})"
-        )
-
-        return filtered
+        result = await self.analyze_chapter(text, chapter_id)
+        return result.descriptions
 
     async def _extract_from_chunk(
         self,
