@@ -112,7 +112,7 @@ services:
 
 networks:
   bookreader_network:
-    name: fancai-vibe-hackathon_bookreader_network
+    name: bookreader_lite_network
     external: true
 
 volumes:
