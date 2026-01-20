@@ -81,6 +81,12 @@ async def process_book_descriptions(
                         progress=0,
                         message="Starting book parsing...",
                     )
+                    
+                    # Prevent race condition: Mark as processing in DB immediately
+                    book.is_processing = True
+                    book.parsing_progress = 0
+                    await db.commit()
+
 
                     # Запускаем задачу
                     process_book_task.delay(book_id)

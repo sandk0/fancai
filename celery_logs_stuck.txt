@@ -1,0 +1,501 @@
+2026-01-20 19:37:46,186 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,187 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,187 INFO sqlalchemy.engine.Engine [cached since 0.0553s ago] (15, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,193 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,194 INFO sqlalchemy.engine.Engine [cached since 0.04835s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 182615, tzinfo=datetime.timezone.utc), UUID('48582568-f709-489c-9f66-9f53e732bcd4'))
+2026-01-20 19:37:46,196 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,208 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,209 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,209 INFO sqlalchemy.engine.Engine [cached since 0.07717s ago] (20, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,211 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,211 INFO sqlalchemy.engine.Engine [generated in 0.00029s] (datetime.datetime(2026, 1, 20, 19, 37, 46, 203968, tzinfo=datetime.timezone.utc), UUID('715f3b66-3eb9-4858-8bb6-66b05fbf6fe7'))
+2026-01-20 19:37:46,219 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,232 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,233 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,233 INFO sqlalchemy.engine.Engine [cached since 0.1015s ago] (25, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,235 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,236 INFO sqlalchemy.engine.Engine [cached since 0.09083s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 229437, tzinfo=datetime.timezone.utc), UUID('0cb459d5-dce0-4ecc-bc0e-daa36f7d1b3b'))
+2026-01-20 19:37:46,238 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,246 INFO sqlalchemy.engine.Engine [cached since 0.1147s ago] (30, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,249 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,249 INFO sqlalchemy.engine.Engine [cached since 0.1038s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 244426, tzinfo=datetime.timezone.utc), UUID('e4337e6a-8f26-4a29-a3a3-0c20403209d1'))
+2026-01-20 19:37:46,251 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,277 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,280 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,281 INFO sqlalchemy.engine.Engine [cached since 0.1492s ago] (35, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,292 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,292 INFO sqlalchemy.engine.Engine [cached since 0.1473s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 269647, tzinfo=datetime.timezone.utc), UUID('86b78cbd-563d-4512-968e-0c660f490810'))
+2026-01-20 19:37:46,296 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,312 INFO sqlalchemy.engine.Engine [cached since 0.1809s ago] (40, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,318 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,324 INFO sqlalchemy.engine.Engine [cached since 0.1794s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 307912, tzinfo=datetime.timezone.utc), UUID('49c465a1-eb52-4ebe-999f-028681a8bf7f'))
+2026-01-20 19:37:46,328 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,339 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,342 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,346 INFO sqlalchemy.engine.Engine [cached since 0.2145s ago] (45, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,350 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,350 INFO sqlalchemy.engine.Engine [cached since 0.2048s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 333634, tzinfo=datetime.timezone.utc), UUID('f414d3e8-eb3c-4b2f-a5e0-805c7f380f4b'))
+2026-01-20 19:37:46,352 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,361 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,362 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,362 INFO sqlalchemy.engine.Engine [cached since 0.2306s ago] (50, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,364 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,365 INFO sqlalchemy.engine.Engine [cached since 0.2195s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 357630, tzinfo=datetime.timezone.utc), UUID('b1455f57-01b2-4415-80a5-086df2f9d50a'))
+2026-01-20 19:37:46,366 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,371 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,372 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,372 INFO sqlalchemy.engine.Engine [cached since 0.2404s ago] (55, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,374 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,374 INFO sqlalchemy.engine.Engine [cached since 0.1628s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 370018, tzinfo=datetime.timezone.utc), UUID('9a8aacc5-6b49-4242-96c2-6a45469a5c4a'))
+2026-01-20 19:37:46,375 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,385 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,387 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,387 INFO sqlalchemy.engine.Engine [cached since 0.2558s ago] (60, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,389 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,389 INFO sqlalchemy.engine.Engine [cached since 0.2443s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 381492, tzinfo=datetime.timezone.utc), UUID('6b861555-3acc-4bcf-b99a-43b2eacb2cc8'))
+2026-01-20 19:37:46,391 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,403 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,407 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,407 INFO sqlalchemy.engine.Engine [cached since 0.2755s ago] (65, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,411 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,415 INFO sqlalchemy.engine.Engine [cached since 0.2704s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 399334, tzinfo=datetime.timezone.utc), UUID('5a90f4cc-cf53-4264-bd5c-8a2a9539fcca'))
+2026-01-20 19:37:46,420 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,439 INFO sqlalchemy.engine.Engine [cached since 0.3077s ago] (70, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,445 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,448 INFO sqlalchemy.engine.Engine [cached since 0.3027s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 435100, tzinfo=datetime.timezone.utc), UUID('96a4c8ea-98b0-47c3-8860-41f394769114'))
+2026-01-20 19:37:46,451 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,464 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,466 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,466 INFO sqlalchemy.engine.Engine [cached since 0.3345s ago] (75, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,469 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,469 INFO sqlalchemy.engine.Engine [cached since 0.3242s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 460851, tzinfo=datetime.timezone.utc), UUID('cc03bc38-6547-448e-86d2-625beab47a4d'))
+2026-01-20 19:37:46,474 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,487 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,488 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,488 INFO sqlalchemy.engine.Engine [cached since 0.3565s ago] (80, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,492 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,493 INFO sqlalchemy.engine.Engine [cached since 0.2817s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 483017, tzinfo=datetime.timezone.utc), UUID('1021f91a-4ca2-4305-8d2a-5d8bdbb56cc6'))
+2026-01-20 19:37:46,500 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,510 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,512 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,512 INFO sqlalchemy.engine.Engine [cached since 0.3805s ago] (85, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,515 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,516 INFO sqlalchemy.engine.Engine [cached since 0.371s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 505460, tzinfo=datetime.timezone.utc), UUID('9697184f-73bf-4e66-bbf1-c57f552da486'))
+2026-01-20 19:37:46,518 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,529 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,530 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,530 INFO sqlalchemy.engine.Engine [cached since 0.399s ago] (90, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,534 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 19:37:46,535 INFO sqlalchemy.engine.Engine [cached since 0.3243s ago] (datetime.datetime(2026, 1, 20, 19, 37, 46, 523349, tzinfo=datetime.timezone.utc), UUID('c84fe32e-7fba-47e2-996e-033ce6171b72'))
+2026-01-20 19:37:46,540 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,552 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,553 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,553 INFO sqlalchemy.engine.Engine [cached since 0.4212s ago] (95, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,557 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,558 INFO sqlalchemy.engine.Engine [cached since 0.4125s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 549413, tzinfo=datetime.timezone.utc), UUID('0cd655ca-0c6d-4b0a-b0ac-59ec7ee5ad57'))
+2026-01-20 19:37:46,561 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,575 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,576 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:37:46,577 INFO sqlalchemy.engine.Engine [cached since 0.4455s ago] (100, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,584 INFO sqlalchemy.engine.Engine UPDATE chapters SET descriptions_found=$1::INTEGER, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-20 19:37:46,585 INFO sqlalchemy.engine.Engine [cached since 0.4402s ago] (0, datetime.datetime(2026, 1, 20, 19, 37, 46, 569745, tzinfo=datetime.timezone.utc), UUID('3d997275-91d4-4fe6-996e-c5ca4a91b368'))
+2026-01-20 19:37:46,591 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,600 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,601 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:37:46,601 INFO sqlalchemy.engine.Engine [generated in 0.00032s] (False, True, UUID('3ef410cd-e35d-4d83-9b59-841c0a2fc3fa'))
+2026-01-20 19:37:46,607 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:37:46,624 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:37:46,633 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:37:46,633 INFO sqlalchemy.engine.Engine [generated in 0.00098s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:37:46,746 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-20 19:38:06,850 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 19:38:06,850 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,861 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 19:38:06,861 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,866 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 19:38:06,867 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 19:38:06,869 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:06,958 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 19:38:06,958 INFO sqlalchemy.engine.Engine [generated in 0.00058s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 19:38:06,977 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 19:38:06,977 INFO sqlalchemy.engine.Engine [generated in 0.00046s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 19:38:07,105 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,106 INFO sqlalchemy.engine.Engine [generated in 0.00098s] (3, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,121 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,122 INFO sqlalchemy.engine.Engine [generated in 0.00055s] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 101562, tzinfo=datetime.timezone.utc), UUID('679f9197-ea8d-4d6d-9e0e-411975cf3fc5'))
+2026-01-20 19:38:07,128 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,144 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,145 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,145 INFO sqlalchemy.engine.Engine [cached since 0.03984s ago] (7, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,149 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,149 INFO sqlalchemy.engine.Engine [cached since 0.02796s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 136149, tzinfo=datetime.timezone.utc), UUID('31c9e113-78d8-4df2-8a8e-461eb029c7c9'))
+2026-01-20 19:38:07,152 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,166 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,167 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,167 INFO sqlalchemy.engine.Engine [cached since 0.06222s ago] (11, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,172 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,172 INFO sqlalchemy.engine.Engine [cached since 0.05053s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 159988, tzinfo=datetime.timezone.utc), UUID('a6ba06e0-6ca6-45ce-88f9-63cbac54c504'))
+2026-01-20 19:38:07,174 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,185 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,186 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,187 INFO sqlalchemy.engine.Engine [cached since 0.08136s ago] (14, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,191 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,191 INFO sqlalchemy.engine.Engine [cached since 0.06987s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 179837, tzinfo=datetime.timezone.utc), UUID('bcb8a163-e9b5-4bb7-a81e-b94173a5fbf4'))
+2026-01-20 19:38:07,193 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,201 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,202 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,202 INFO sqlalchemy.engine.Engine [cached since 0.09705s ago] (18, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,207 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,207 INFO sqlalchemy.engine.Engine [cached since 0.08615s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 197896, tzinfo=datetime.timezone.utc), UUID('59f06da8-870e-421c-a888-132558d55645'))
+2026-01-20 19:38:07,209 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,219 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,220 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,220 INFO sqlalchemy.engine.Engine [cached since 0.1147s ago] (22, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,226 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,226 INFO sqlalchemy.engine.Engine [cached since 0.1051s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 217469, tzinfo=datetime.timezone.utc), UUID('39a44c4b-d6a4-49e3-a628-5c244ce13cb3'))
+2026-01-20 19:38:07,229 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,237 INFO sqlalchemy.engine.Engine [cached since 0.1323s ago] (25, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,240 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,246 INFO sqlalchemy.engine.Engine [cached since 0.1248s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 234771, tzinfo=datetime.timezone.utc), UUID('6c459095-0b70-440e-a2f5-39101797e6f0'))
+2026-01-20 19:38:07,249 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,263 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,269 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,269 INFO sqlalchemy.engine.Engine [cached since 0.1641s ago] (29, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,273 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,274 INFO sqlalchemy.engine.Engine [cached since 0.1528s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 254297, tzinfo=datetime.timezone.utc), UUID('10d491de-4e9e-46bf-9802-0dc745afcefe'))
+2026-01-20 19:38:07,276 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,285 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,286 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,286 INFO sqlalchemy.engine.Engine [cached since 0.181s ago] (33, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,289 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,289 INFO sqlalchemy.engine.Engine [cached since 0.1677s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 281506, tzinfo=datetime.timezone.utc), UUID('4729cdfa-3c27-4268-b502-6fb85b1c8aef'))
+2026-01-20 19:38:07,291 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,303 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,305 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,305 INFO sqlalchemy.engine.Engine [cached since 0.2001s ago] (37, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,310 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,310 INFO sqlalchemy.engine.Engine [cached since 0.1888s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 297067, tzinfo=datetime.timezone.utc), UUID('996e186a-acd6-4ce8-92d6-2bb389c1e3ec'))
+2026-01-20 19:38:07,316 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,334 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,335 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,335 INFO sqlalchemy.engine.Engine [cached since 0.23s ago] (40, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,340 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,340 INFO sqlalchemy.engine.Engine [cached since 0.2193s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 330339, tzinfo=datetime.timezone.utc), UUID('c4b8e1d9-8e0b-417f-961c-fb6c54f7cf8f'))
+2026-01-20 19:38:07,342 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,350 INFO sqlalchemy.engine.Engine [cached since 0.2451s ago] (44, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,357 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,357 INFO sqlalchemy.engine.Engine [cached since 0.2357s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 346574, tzinfo=datetime.timezone.utc), UUID('1faef821-84c3-415c-acc1-a1d082972656'))
+2026-01-20 19:38:07,359 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,374 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,376 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,376 INFO sqlalchemy.engine.Engine [cached since 0.2706s ago] (48, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,381 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,381 INFO sqlalchemy.engine.Engine [cached since 0.2597s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 368047, tzinfo=datetime.timezone.utc), UUID('17803fe7-ded2-44cf-907b-fcaa65486c16'))
+2026-01-20 19:38:07,383 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,400 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,401 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,401 INFO sqlalchemy.engine.Engine [cached since 0.2958s ago] (51, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,405 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,405 INFO sqlalchemy.engine.Engine [cached since 0.2835s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 394518, tzinfo=datetime.timezone.utc), UUID('fe1e628d-368b-4a0e-b94a-499268ef62a3'))
+2026-01-20 19:38:07,406 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,420 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,421 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,421 INFO sqlalchemy.engine.Engine [cached since 0.3162s ago] (55, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,427 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,429 INFO sqlalchemy.engine.Engine [cached since 0.3082s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 417010, tzinfo=datetime.timezone.utc), UUID('50b19a2c-f020-47e9-82ff-6b661b0f5d03'))
+2026-01-20 19:38:07,435 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,447 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,448 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,448 INFO sqlalchemy.engine.Engine [cached since 0.3429s ago] (59, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,452 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,452 INFO sqlalchemy.engine.Engine [cached since 0.3308s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 443168, tzinfo=datetime.timezone.utc), UUID('0bde05b6-ca5c-45fe-9f7a-7411c4638b9e'))
+2026-01-20 19:38:07,455 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,468 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,469 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,469 INFO sqlalchemy.engine.Engine [cached since 0.3636s ago] (62, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,471 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,471 INFO sqlalchemy.engine.Engine [cached since 0.3502s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 462019, tzinfo=datetime.timezone.utc), UUID('392046c7-66a2-4e0c-bb02-f59d99c3287f'))
+2026-01-20 19:38:07,473 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,482 INFO sqlalchemy.engine.Engine [cached since 0.3771s ago] (66, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,487 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,487 INFO sqlalchemy.engine.Engine [cached since 0.3657s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 478733, tzinfo=datetime.timezone.utc), UUID('478431a1-d6f8-4a0f-986a-68f23281fbab'))
+2026-01-20 19:38:07,489 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,499 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,500 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,500 INFO sqlalchemy.engine.Engine [cached since 0.3952s ago] (70, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,504 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,505 INFO sqlalchemy.engine.Engine [cached since 0.3835s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 496611, tzinfo=datetime.timezone.utc), UUID('077fbe50-6669-41aa-8676-d142ae2a4952'))
+2026-01-20 19:38:07,512 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,525 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,526 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,526 INFO sqlalchemy.engine.Engine [cached since 0.4213s ago] (74, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,533 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,533 INFO sqlalchemy.engine.Engine [cached since 0.4118s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 521254, tzinfo=datetime.timezone.utc), UUID('6e6e86b4-bbdf-4693-a86f-af5bcdd7bb55'))
+2026-01-20 19:38:07,538 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,546 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,547 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,547 INFO sqlalchemy.engine.Engine [cached since 0.4422s ago] (77, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,551 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,551 INFO sqlalchemy.engine.Engine [cached since 0.4302s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 543218, tzinfo=datetime.timezone.utc), UUID('f0523600-acec-479d-80f0-d2392c27cfd9'))
+2026-01-20 19:38:07,553 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,565 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,566 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,566 INFO sqlalchemy.engine.Engine [cached since 0.4609s ago] (81, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,569 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,569 INFO sqlalchemy.engine.Engine [cached since 0.4479s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 560833, tzinfo=datetime.timezone.utc), UUID('ea36ac81-9e90-4465-9552-bee8bc318192'))
+2026-01-20 19:38:07,570 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,580 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,581 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,583 INFO sqlalchemy.engine.Engine [cached since 0.4776s ago] (85, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,589 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,589 INFO sqlalchemy.engine.Engine [cached since 0.4677s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 576326, tzinfo=datetime.timezone.utc), UUID('f4f89518-1b53-4f01-9027-d12d3c2fb410'))
+2026-01-20 19:38:07,593 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,609 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,610 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,610 INFO sqlalchemy.engine.Engine [cached since 0.5052s ago] (88, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,613 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,613 INFO sqlalchemy.engine.Engine [cached since 0.4917s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 605617, tzinfo=datetime.timezone.utc), UUID('7b858fc3-7c03-4c2a-b871-546d0c58dc6b'))
+2026-01-20 19:38:07,616 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,628 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,629 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,629 INFO sqlalchemy.engine.Engine [cached since 0.524s ago] (92, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,631 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,632 INFO sqlalchemy.engine.Engine [cached since 0.5106s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 625602, tzinfo=datetime.timezone.utc), UUID('f042b00a-daf0-41dc-9d1f-7b2e4cd66ba5'))
+2026-01-20 19:38:07,637 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,654 INFO sqlalchemy.engine.Engine [cached since 0.5492s ago] (96, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,657 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,657 INFO sqlalchemy.engine.Engine [cached since 0.5358s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 644294, tzinfo=datetime.timezone.utc), UUID('48fbd6de-7e8b-4db5-827c-a4ba380f55db'))
+2026-01-20 19:38:07,660 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,670 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,671 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 19:38:07,671 INFO sqlalchemy.engine.Engine [cached since 0.5657s ago] (100, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,672 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-20 19:38:07,672 INFO sqlalchemy.engine.Engine [cached since 0.5513s ago] (True, False, datetime.datetime(2026, 1, 20, 19, 38, 7, 669344, tzinfo=datetime.timezone.utc), UUID('20e4383c-dc78-49c3-a379-9b7d9d176d69'))
+2026-01-20 19:38:07,673 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,684 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,687 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-20 19:38:07,687 INFO sqlalchemy.engine.Engine [generated in 0.00033s] (False, True, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 19:38:07,692 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 19:38:07,708 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 19:38:07,710 INFO sqlalchemy.engine.Engine SELECT push_subscriptions.id, push_subscriptions.user_id, push_subscriptions.endpoint, push_subscriptions.p256dh_key, push_subscriptions.auth_key, push_subscriptions.is_active, push_subscriptions.created_at, push_subscriptions.updated_at 
+FROM push_subscriptions 
+WHERE push_subscriptions.user_id = $1::UUID AND push_subscriptions.is_active = true
+2026-01-20 19:38:07,710 INFO sqlalchemy.engine.Engine [generated in 0.00023s] (UUID('8de233aa-af68-4d57-aac1-58a9d7ff596c'),)
+2026-01-20 19:38:07,847 INFO sqlalchemy.engine.Engine ROLLBACK
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 20:03:48
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7bfd7742b020
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
+2026-01-20 20:06:05,300 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-20 20:06:05,301 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:06:05,306 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-20 20:06:05,307 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:06:05,318 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-20 20:06:05,320 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-20 20:06:05,326 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:06:05,477 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-20 20:06:05,477 INFO sqlalchemy.engine.Engine [generated in 0.00046s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 20:06:05,494 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-20 20:06:05,494 INFO sqlalchemy.engine.Engine [generated in 0.00042s] (UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'),)
+2026-01-20 20:06:29,805 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:06:29,805 INFO sqlalchemy.engine.Engine [generated in 0.00031s] (3, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:06:29,810 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:06:29,810 INFO sqlalchemy.engine.Engine [generated in 0.00037s] (datetime.datetime(2026, 1, 20, 20, 6, 29, 801730, tzinfo=datetime.timezone.utc), UUID('679f9197-ea8d-4d6d-9e0e-411975cf3fc5'))
+2026-01-20 20:06:29,813 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:06:49,426 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:06:49,426 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:06:49,427 INFO sqlalchemy.engine.Engine [cached since 19.62s ago] (7, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:06:49,429 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:06:49,429 INFO sqlalchemy.engine.Engine [cached since 19.62s ago] (datetime.datetime(2026, 1, 20, 20, 6, 49, 422608, tzinfo=datetime.timezone.utc), UUID('31c9e113-78d8-4df2-8a8e-461eb029c7c9'))
+2026-01-20 20:06:49,431 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:07:04,248 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:07:04,248 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:07:04,249 INFO sqlalchemy.engine.Engine [cached since 34.44s ago] (11, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:07:04,250 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:07:04,250 INFO sqlalchemy.engine.Engine [cached since 34.44s ago] (datetime.datetime(2026, 1, 20, 20, 7, 4, 245416, tzinfo=datetime.timezone.utc), UUID('a6ba06e0-6ca6-45ce-88f9-63cbac54c504'))
+2026-01-20 20:07:04,251 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:07:26,550 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:07:26,550 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:07:26,550 INFO sqlalchemy.engine.Engine [cached since 56.75s ago] (14, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:07:26,554 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:07:26,554 INFO sqlalchemy.engine.Engine [cached since 56.74s ago] (datetime.datetime(2026, 1, 20, 20, 7, 26, 547405, tzinfo=datetime.timezone.utc), UUID('bcb8a163-e9b5-4bb7-a81e-b94173a5fbf4'))
+2026-01-20 20:07:26,555 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:07:26,999 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:07:26,999 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:07:26,999 INFO sqlalchemy.engine.Engine [cached since 57.19s ago] (18, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:07:27,006 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:07:27,006 INFO sqlalchemy.engine.Engine [cached since 57.2s ago] (datetime.datetime(2026, 1, 20, 20, 7, 26, 995626, tzinfo=datetime.timezone.utc), UUID('59f06da8-870e-421c-a888-132558d55645'))
+2026-01-20 20:07:27,009 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:07:48,870 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:07:48,870 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:07:48,870 INFO sqlalchemy.engine.Engine [cached since 79.06s ago] (22, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:07:48,878 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:07:48,878 INFO sqlalchemy.engine.Engine [cached since 79.07s ago] (datetime.datetime(2026, 1, 20, 20, 7, 48, 867351, tzinfo=datetime.timezone.utc), UUID('39a44c4b-d6a4-49e3-a628-5c244ce13cb3'))
+2026-01-20 20:07:48,881 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:08:12,208 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:08:12,209 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:08:12,209 INFO sqlalchemy.engine.Engine [cached since 102.4s ago] (25, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:08:12,210 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:08:12,211 INFO sqlalchemy.engine.Engine [cached since 102.4s ago] (datetime.datetime(2026, 1, 20, 20, 8, 12, 206643, tzinfo=datetime.timezone.utc), UUID('6c459095-0b70-440e-a2f5-39101797e6f0'))
+2026-01-20 20:08:12,212 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:08:33,730 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:08:33,731 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:08:33,731 INFO sqlalchemy.engine.Engine [cached since 123.9s ago] (29, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:08:33,734 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:08:33,734 INFO sqlalchemy.engine.Engine [cached since 123.9s ago] (datetime.datetime(2026, 1, 20, 20, 8, 33, 727269, tzinfo=datetime.timezone.utc), UUID('10d491de-4e9e-46bf-9802-0dc745afcefe'))
+2026-01-20 20:08:33,736 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:08:34,183 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:08:34,184 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:08:34,184 INFO sqlalchemy.engine.Engine [cached since 124.4s ago] (33, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:08:34,187 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:08:34,188 INFO sqlalchemy.engine.Engine [cached since 124.4s ago] (datetime.datetime(2026, 1, 20, 20, 8, 34, 179578, tzinfo=datetime.timezone.utc), UUID('4729cdfa-3c27-4268-b502-6fb85b1c8aef'))
+2026-01-20 20:08:34,190 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:08:53,911 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:08:53,911 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:08:53,911 INFO sqlalchemy.engine.Engine [cached since 144.1s ago] (37, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:08:53,914 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:08:53,915 INFO sqlalchemy.engine.Engine [cached since 144.1s ago] (datetime.datetime(2026, 1, 20, 20, 8, 53, 908437, tzinfo=datetime.timezone.utc), UUID('996e186a-acd6-4ce8-92d6-2bb389c1e3ec'))
+2026-01-20 20:08:53,916 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:09:11,094 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:09:11,094 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:09:11,095 INFO sqlalchemy.engine.Engine [cached since 161.3s ago] (40, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:09:11,098 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:09:11,098 INFO sqlalchemy.engine.Engine [cached since 161.3s ago] (datetime.datetime(2026, 1, 20, 20, 9, 11, 92563, tzinfo=datetime.timezone.utc), UUID('c4b8e1d9-8e0b-417f-961c-fb6c54f7cf8f'))
+2026-01-20 20:09:11,099 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:09:32,818 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:09:32,821 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:09:32,821 INFO sqlalchemy.engine.Engine [cached since 183s ago] (44, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:09:32,823 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:09:32,823 INFO sqlalchemy.engine.Engine [cached since 183s ago] (datetime.datetime(2026, 1, 20, 20, 9, 32, 816129, tzinfo=datetime.timezone.utc), UUID('1faef821-84c3-415c-acc1-a1d082972656'))
+2026-01-20 20:09:32,825 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:09:53,032 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:09:53,034 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:09:53,035 INFO sqlalchemy.engine.Engine [cached since 203.2s ago] (48, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:09:53,039 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:09:53,039 INFO sqlalchemy.engine.Engine [cached since 203.2s ago] (datetime.datetime(2026, 1, 20, 20, 9, 53, 29896, tzinfo=datetime.timezone.utc), UUID('17803fe7-ded2-44cf-907b-fcaa65486c16'))
+2026-01-20 20:09:53,040 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:09:53,656 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:09:53,656 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:09:53,656 INFO sqlalchemy.engine.Engine [cached since 203.9s ago] (51, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:09:53,659 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:09:53,659 INFO sqlalchemy.engine.Engine [cached since 203.8s ago] (datetime.datetime(2026, 1, 20, 20, 9, 53, 652212, tzinfo=datetime.timezone.utc), UUID('fe1e628d-368b-4a0e-b94a-499268ef62a3'))
+2026-01-20 20:09:53,661 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:10:14,024 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:10:14,026 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:10:14,026 INFO sqlalchemy.engine.Engine [cached since 224.2s ago] (55, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:10:14,028 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:10:14,028 INFO sqlalchemy.engine.Engine [cached since 224.2s ago] (datetime.datetime(2026, 1, 20, 20, 10, 14, 21440, tzinfo=datetime.timezone.utc), UUID('50b19a2c-f020-47e9-82ff-6b661b0f5d03'))
+2026-01-20 20:10:14,031 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-20 20:10:34,237 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-20 20:10:34,237 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-20 20:10:34,237 INFO sqlalchemy.engine.Engine [cached since 244.4s ago] (59, UUID('a9828cce-4d52-4249-9b25-51bca0dcb600'))
+2026-01-20 20:10:34,242 INFO sqlalchemy.engine.Engine UPDATE chapters SET updated_at=now(), parsed_at=$1::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $2::UUID
+2026-01-20 20:10:34,243 INFO sqlalchemy.engine.Engine [cached since 244.4s ago] (datetime.datetime(2026, 1, 20, 20, 10, 34, 227433, tzinfo=datetime.timezone.utc), UUID('0bde05b6-ca5c-45fe-9f7a-7411c4638b9e'))
+2026-01-20 20:10:34,245 INFO sqlalchemy.engine.Engine COMMIT
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 20:10:58
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7e997e883140
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@318f4f37b0c2 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-55-generic-x86_64-with-glibc2.41 2026-01-20 20:23:19
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         bookreader:0x7945fb0b8680
+- ** ---------- .> transport:   redis://:**@redis:6379//
+- ** ---------- .> results:     redis://:**@redis:6379/
+- *** --- * --- .> concurrency: 4 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> normal           exchange=normal(direct) key=normal
+                
+
+[tasks]
+  . app.tasks.close_abandoned_sessions
+  . app.tasks.get_cleanup_statistics
+  . cleanup_old_images
+  . generate_image_batch_task
+  . generate_image_for_text
+  . generate_image_task
+  . health_check
+  . process_book
+  . system_stats
+
