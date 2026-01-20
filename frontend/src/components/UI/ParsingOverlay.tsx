@@ -46,7 +46,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
         console.log(`[ParsingOverlay] Updating progress: ${progress}% -> ${currentProgress}%`);
         setProgress(currentProgress);
 
-        if (statusData.status === 'completed' || currentProgress >= 100) {
+        if (statusData.status === 'completed') {
           console.log(`[ParsingOverlay] Parsing completed! Stopping polling.`);
           setIsComplete(true);
           setProgress(100);
