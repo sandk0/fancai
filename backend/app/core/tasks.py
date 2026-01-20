@@ -22,6 +22,8 @@ from app.models.book import Book
 from app.models.chapter import Chapter
 from app.services.image_generator import image_generator_service
 from app.services.push_notification_service import push_notification_service
+from app.services.gemini_extractor import get_gemini_extractor, DescriptionType
+from app.services.consistency_manager import ConsistencyManager
 
 
 def _run_async_task(coro):
@@ -128,17 +130,21 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     2. Парсит первые 2 главы с помощью LLM для предзагрузки
     3. Помечает книгу как готовую
     """
-    from app.services.langextract_processor import langextract_processor
-    from app.models.description import Description, DescriptionType
+    # from app.services.langextract_processor import langextract_processor # DEPRECATED
+    # from app.models.description import Description, DescriptionType # Imported from gemini_extractor now
 
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async processing", book_id=str(book_id))
+        
+        # Initialize services
+        gemini_extractor = get_gemini_extractor()
+        consistency_manager = ConsistencyManager(db)
 
         # Проверяем доступность LLM
-        llm_available = langextract_processor.is_available()
+        llm_available = gemini_extractor.is_available()
 
         if not llm_available:
-            logger.warning("LangExtract processor not available", book_id=str(book_id))
+            logger.warning("Gemini extractor not available", book_id=str(book_id))
 
         # Получаем книгу
         book_result = await db.execute(select(Book).where(Book.id == book_id))
@@ -220,14 +226,19 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         await db.commit()
                         continue
 
-                    # Извлекаем описания через LLM
-                    result = await langextract_processor.extract_descriptions(chapter.content)
+                    # Извлекаем описания и сущности через Gemini (Agentic Flow)
+                    result = await gemini_extractor.analyze_chapter(chapter.content)
+                    
+                    # Process structured data (Entites, Relationships, Master Refs)
+                    await consistency_manager.process_chapter_analysis(str(book_id), result)
+                    
                     descriptions_data = result.descriptions if result.descriptions else []
 
                     logger.info(
-                        "Extracted descriptions",
+                        "Extracted data",
                         chapter_number=chapter.chapter_number,
                         descriptions_count=len(descriptions_data),
+                        entities_count=len(result.entities)
                     )
 
                     # Сохраняем описания в базу
@@ -236,13 +247,21 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
                         # Map string type to enum
+                        # Map string type to enum
                         type_str = desc_dict.get("type", "location")
                         try:
-                            desc_type = DescriptionType(type_str)
+                            # If it's already an enum in desc_dict (from to_dict), handle it
+                            if isinstance(type_str, DescriptionType):
+                                desc_type = type_str
+                            else:
+                                desc_type = DescriptionType(type_str)
                         except ValueError:
                             desc_type = DescriptionType.LOCATION
-
-                        new_description = Description(
+                        
+                        # Add Description model (legacy/image gen queue)
+                        from app.models.description import Description as DescriptionModel
+                        
+                        new_description = DescriptionModel(
                             chapter_id=chapter.id,
                             type=desc_type,
                             content=desc_dict.get("content", ""),
