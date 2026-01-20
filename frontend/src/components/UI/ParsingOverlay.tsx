@@ -81,9 +81,11 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     };
 
     // Начинаем проверку прогресса только если еще не завершено
+    // Добавляем начальную задержку 500мс чтобы дать бэкенду время обновить статус в БД
+    // Это предотвращает race condition когда polling начинается до завершения POST запроса
     if (!isComplete) {
-      console.log(`[ParsingOverlay] Starting polling for book ${bookId}`);
-      checkProgress();
+      console.log(`[ParsingOverlay] Starting polling for book ${bookId} (with 500ms initial delay)`);
+      intervalId = setTimeout(checkProgress, 500);
     }
 
     return () => {

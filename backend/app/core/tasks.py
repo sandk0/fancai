@@ -246,12 +246,27 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     for desc_data in descriptions_data:
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
-                        # Handle case where desc_dict is a string (e.g. from legacy extraction or list of strings)
-                        if isinstance(desc_dict, str):
-                             desc_dict = {"content": desc_dict, "type": "location"}
+                        # DEBUG MARKER
+                        logger.info(f"DEBUG v2: Processing description item. Type: {type(desc_dict)} Val: {str(desc_dict)[:50]}")
 
-                        # Map string type to enum
-                        type_str = desc_dict.get("type", "location")
+                        # 1. Force conversion if string (legacy/broken LLM output)
+                        if isinstance(desc_dict, str):
+                             logger.warning("DEBUG v2: Detected string, converting to dict.")
+                             desc_dict = {"content": desc_dict, "type": "location"}
+                        
+                        # 2. Safety check: If it's still not a dict, force it.
+                        if not isinstance(desc_dict, dict):
+                             logger.error(f"DEBUG v2: FATAL - desc_dict is {type(desc_dict)}. Force-converting.")
+                             desc_dict = {"content": str(desc_dict), "type": "location"}
+
+                        # 3. Map string type to enum (Safe access)
+                        try:
+                            type_str = desc_dict.get("type", "location")
+                        except AttributeError:
+                            logger.error(f"DEBUG v2: AttributeError on .get(). Obj is {type(desc_dict)}: {desc_dict}")
+                            # Fallback
+                            desc_dict = {"content": str(desc_dict), "type": "location"}
+                            type_str = "location"
 
                         try:
                             # If it's already an enum in desc_dict (from to_dict), handle it

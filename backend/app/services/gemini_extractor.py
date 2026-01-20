@@ -682,6 +682,15 @@ class GeminiDirectExtractor:
 
         for item in items:
             try:
+                # FIX: Handle string items (e.g. if LLM returns a simple list of strings)
+                if isinstance(item, str):
+                    item = {"content": item, "type": "location"}
+                
+                # Safety check for non-dict items
+                if not isinstance(item, dict):
+                    logger.warning(f"Skipping invalid description item type: {type(item)}")
+                    continue
+
                 content = item.get("content", "")
 
                 # Проверяем минимальную длину
