@@ -150,14 +150,13 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
       {/* Кнопка отмены */}
       {onCancel && (
         <m.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           onClick={(e) => {
             e.stopPropagation();
             onCancel();
           }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-sm font-medium transition-all duration-200 min-h-[40px]"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all duration-200 min-h-[40px] z-50 mt-4 backdrop-blur-md border border-white/10 shadow-lg"
         >
           <X className="w-4 h-4" />
           <span>Отменить</span>
