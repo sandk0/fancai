@@ -23,7 +23,7 @@ import time
 import base64
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 import logging
