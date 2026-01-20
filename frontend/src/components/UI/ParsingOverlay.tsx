@@ -97,10 +97,11 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- progress in deps causes infinite re-renders
   }, [bookId, onParsingComplete, isComplete]);
 
-  // Скрываем overlay если парсинг завершен
-  if (isComplete && !forceBlock) {
-    return null;
-  }
+  // REMOVED: Self-hiding logic. We rely on the parent to unmount us when is_processing becomes false.
+  // This prevents the overlay from vanishing too early or flickering.
+  // if (isComplete && !forceBlock) {
+  //   return null;
+  // }
 
   return (
     <m.div
@@ -147,8 +148,8 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
         </div>
       </div>
 
-      {/* Кнопка отмены */}
-      {onCancel && (
+      {/* Кнопка отмены (скрываем если завершено) */}
+      {onCancel && !isComplete && (
         <m.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
