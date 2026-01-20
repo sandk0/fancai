@@ -75,12 +75,15 @@ RUN sed -i 's|/run/nginx.pid|/tmp/nginx.pid|g' /etc/nginx/nginx.conf && \
     sed -i 's|user  nginx;|#user  nginx;|g' /etc/nginx/nginx.conf
 
 # Set proper permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
+RUN touch /etc/nginx/.htpasswd && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /tmp/nginx && \
+    chown nginx:nginx /etc/nginx/.htpasswd && \
     chmod -R 755 /usr/share/nginx/html && \
     chmod -R 755 /var/cache/nginx && \
-    chmod -R 755 /tmp/nginx
+    chmod -R 755 /tmp/nginx && \
+    chmod 664 /etc/nginx/.htpasswd
 
 # Health check (uses /health endpoint defined in nginx.prod.conf)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
