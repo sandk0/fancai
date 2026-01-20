@@ -1,15 +1,15 @@
 """Add OBJECT value to descriptiontype enum
 
-Revision ID: 2026_01_21_add_object_to_descriptiontype
-Revises: 2026_01_20_0001_add_manual_processing_fields
+Revision ID: 2026_01_21_0001
+Revises: 2026_01_20_0001
 Create Date: 2026-01-21
 
 """
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '2026_01_21_add_object_to_descriptiontype'
-down_revision = '2026_01_20_0001_add_manual_processing_fields'
+revision = '2026_01_21_0001'
+down_revision = '2026_01_20_0001'
 branch_labels = None
 depends_on = None
 
