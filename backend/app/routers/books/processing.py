@@ -155,8 +155,19 @@ async def get_parsing_status(
         book_id = book.id
 
         # Определяем статус парсинга на основе данных книги
+        
+        # Если идет обработка (независимо от того, распаршена книга или нет - например, идет генерация описаний)
+        if book.is_processing:
+             return {
+                "book_id": book_id,
+                "status": "processing",
+                "progress": book.parsing_progress,
+                "message": f"Parsing in progress: {book.parsing_progress}%",
+            }
+            
+        # Если не обрабатывается, но распаршена
         if book.is_parsed:
-            response = {
+            return {
                 "book_id": book_id,
                 "status": "completed",
                 "progress": 100,
@@ -167,15 +178,17 @@ async def get_parsing_status(
                     else 0
                 ),
             }
+        
+        # Если есть частичный прогресс (на всякий случай)
         elif book.parsing_progress > 0:
-            response = {
+            return {
                 "book_id": book_id,
                 "status": "processing",
                 "progress": book.parsing_progress,
-                "message": f"Parsing in progress: {book.parsing_progress}%",
+                "message": f"Parsing in progress (stalled): {book.parsing_progress}%",
             }
         else:
-            response = {
+            return {
                 "book_id": book_id,
                 "status": "not_started",
                 "progress": 0,
