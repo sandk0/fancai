@@ -233,21 +233,48 @@ backup_storage_files() {
     local storage_backup_dir="${BACKUP_PATH}/storage"
     mkdir -p "${storage_backup_dir}"
 
-    local storage_source="${PROJECT_ROOT}/backend/storage"
-
-    if [ ! -d "${storage_source}" ]; then
-        print_info "Storage directory not found: ${storage_source}"
-        print_info "Creating empty storage backup directory"
-        return 0
-    fi
-
-    print_info "Copying storage files from: ${storage_source}"
-
-    # Copy with rsync for efficiency (if available) or fallback to cp
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -a --info=progress2 "${storage_source}/" "${storage_backup_dir}/"
+    # Docker volume name (used in docker-compose.lite.yml)
+    local VOLUME_NAME="fancai-vibe-hackathon_uploaded_books"
+    
+    # Check if we're running on the server with Docker volumes
+    if docker volume inspect "${VOLUME_NAME}" &>/dev/null; then
+        print_info "Found Docker volume: ${VOLUME_NAME}"
+        print_info "Backing up from Docker named volume..."
+        
+        # Use Alpine container to extract data from volume
+        docker run --rm \
+            -v "${VOLUME_NAME}:/source:ro" \
+            -v "${storage_backup_dir}:/backup" \
+            alpine tar czf /backup/storage.tar.gz -C /source .
+        
+        if [ -f "${storage_backup_dir}/storage.tar.gz" ]; then
+            print_success "Docker volume backup created: $(du -sh "${storage_backup_dir}/storage.tar.gz" | cut -f1)"
+            
+            # Also extract for inventory
+            tar -xzf "${storage_backup_dir}/storage.tar.gz" -C "${storage_backup_dir}" 2>/dev/null || true
+        else
+            print_error "Docker volume backup failed"
+            return 1
+        fi
     else
-        cp -r "${storage_source}"/* "${storage_backup_dir}/" 2>/dev/null || true
+        # Fallback to bind mount path (development or alternative setup)
+        local storage_source="${PROJECT_ROOT}/backend/storage"
+        
+        if [ ! -d "${storage_source}" ] || [ -z "$(ls -A "${storage_source}" 2>/dev/null)" ]; then
+            print_info "Storage directory not found or empty: ${storage_source}"
+            print_info "And Docker volume ${VOLUME_NAME} not available"
+            print_info "Creating empty storage backup directory"
+            return 0
+        fi
+
+        print_info "Using bind mount path: ${storage_source}"
+
+        # Copy with rsync for efficiency (if available) or fallback to cp
+        if command -v rsync >/dev/null 2>&1; then
+            rsync -a --info=progress2 "${storage_source}/" "${storage_backup_dir}/"
+        else
+            cp -r "${storage_source}"/* "${storage_backup_dir}/" 2>/dev/null || true
+        fi
     fi
 
     # Create storage inventory
@@ -255,13 +282,14 @@ backup_storage_files() {
 Storage Backup Inventory
 ========================
 Timestamp: ${TIMESTAMP}
+Backup Source: Docker Volume (${VOLUME_NAME}) or Bind Mount
 
 Directory Structure:
 $(tree -L 2 "${storage_backup_dir}" 2>/dev/null || find "${storage_backup_dir}" -type d | head -20)
 
 File Counts:
 Books: $(find "${storage_backup_dir}/books" -type f 2>/dev/null | wc -l | tr -d ' ')
-Images: $(find "${storage_backup_dir}/images" -type f 2>/dev/null | wc -l | tr -d ' ')
+Generated Images: $(find "${storage_backup_dir}/generated_images" -type f 2>/dev/null | wc -l | tr -d ' ')
 Covers: $(find "${storage_backup_dir}/covers" -type f 2>/dev/null | wc -l | tr -d ' ')
 
 Total Size: $(du -sh "${storage_backup_dir}" | cut -f1)
