@@ -207,10 +207,10 @@ export const BookCard = memo(function BookCard({
 
           {/* === CENTER ACTION BUTTON for Description Processing === */}
           <AnimatePresence>
-            {/* NOT PROCESSED - show sparkles button always */}
+            {/* NOT PROCESSED - show sparkles button always - MOBILE ONLY (hidden on desktop) */}
             {processingState === 'not_processed' && !book.is_processing && (
               <m.div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 md:hidden"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -249,10 +249,10 @@ export const BookCard = memo(function BookCard({
             {/* PROCESSED - REMOVED central refresh button to avoid overlap with menu */}
             {/* The reprocess action is now in the desktop hover menu */}
 
-            {/* ERROR - show retry button always */}
+            {/* ERROR - show retry button always - MOBILE ONLY (hidden on desktop) */}
             {processingState === 'error' && !book.is_processing && (
               <m.div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 md:hidden"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
               >
