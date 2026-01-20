@@ -244,6 +244,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     # Сохраняем описания в базу
                     position = 0
                     for desc_data in descriptions_data:
+                        # DEBUG v3: Log BEFORE to_dict() to see raw data
+                        logger.info(f"DEBUG v3: RAW desc_data type={type(desc_data).__name__}, val={str(desc_data)[:100]}")
+                        
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
                         # DEBUG MARKER
