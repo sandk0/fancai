@@ -246,38 +246,8 @@ export const BookCard = memo(function BookCard({
               </m.div>
             )}
 
-            {/* PROCESSED - show reprocess button only on hover */}
-            {processingState === 'processed' && isHovered && !book.is_processing && (
-              <m.div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-              >
-                <m.button
-                  className={cn(
-                    "pointer-events-auto",
-                    "p-3 rounded-full shadow-lg backdrop-blur-md",
-                    "bg-muted/90 text-muted-foreground",
-                    "hover:bg-[var(--color-warning)]/90 hover:text-white",
-                    "min-w-[48px] min-h-[48px]",
-                    "transition-all duration-200"
-                  )}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    haptics.tap();
-                    startProcessing();  // Will trigger reprocess since already processed
-                    onProcessStart?.(book.id);
-                  }}
-                  disabled={isStarting}
-                  aria-label="Переобработать описания"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </m.button>
-              </m.div>
-            )}
+            {/* PROCESSED - REMOVED central refresh button to avoid overlap with menu */}
+            {/* The reprocess action is now in the desktop hover menu */}
 
             {/* ERROR - show retry button always */}
             {processingState === 'error' && !book.is_processing && (
@@ -387,6 +357,45 @@ export const BookCard = memo(function BookCard({
                   <BookOpen className="w-5 h-5" />
                   <span>Читать</span>
                 </m.button>
+
+                {/* Process/Reprocess Button (Desktop Menu) */}
+                {!book.is_processing && (
+                  <m.button
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 rounded-xl font-medium shadow-lg min-h-[44px] min-w-[120px] justify-center',
+                      processingState === 'error'
+                        ? 'bg-destructive/90 text-white'
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    )}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      haptics.tap();
+                      startProcessing();
+                      onProcessStart?.(book.id);
+                    }}
+                  >
+                    {processingState === 'not_processed' && (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Обработать</span>
+                      </>
+                    )}
+                    {processingState === 'processed' && (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Обновить</span>
+                      </>
+                    )}
+                    {processingState === 'error' && (
+                      <>
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Повторить</span>
+                      </>
+                    )}
+                  </m.button>
+                )}
 
                 {/* Offline Download/Remove Button */}
                 <m.button
