@@ -211,7 +211,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Hook 4: Manage chapter tracking and load descriptions/images
   // FIXED (2025-12-25): Pass isRestoringPosition to prevent race condition
-  const { currentChapter, descriptions, images, isExtractingDescriptions, cancelExtraction } = useChapterManagement({
+  const { currentChapter, descriptions, images } = useChapterManagement({
     book: epubBook,
     rendition,
     bookId: book.id,
@@ -267,7 +267,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // - Skips reload for short suspends (< 30s)
   // - Extends threshold to 2 min when operations are active (image gen, parsing)
   // - Reloads for long suspends (ensures fresh state)
-  const hasActiveOperations = isGenerating || isExtractingDescriptions || _isGeneratingImage;
+  const hasActiveOperations = isGenerating || _isGeneratingImage;
   const {
     isHealthy: isRenditionHealthy,
     isChecking: isCheckingHealth,
