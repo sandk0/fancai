@@ -1,8 +1,10 @@
-// src/sw.ts - Custom Service Worker with Workbox (injectManifest)
+// src/self.ts - Custom Service Worker with Workbox (injectManifest)
 // fancai PWA - Offline-first reading experience
 //
 // This file is compiled separately as a Service Worker.
 // TypeScript types for Service Worker environment.
+
+/// <reference lib="webworker" />
 
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute, setDefaultHandler, setCatchHandler } from 'workbox-routing'
@@ -11,9 +13,36 @@ import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { BackgroundSyncPlugin } from 'workbox-background-sync'
 
-// Service Worker global scope
-// Using globalThis cast to avoid TypeScript issues with webworker lib
-const sw = globalThis as unknown as ServiceWorkerGlobalScope
+// Define missing Service Worker types
+declare const self: ServiceWorkerGlobalScope
+
+interface SyncEvent extends ExtendableEvent {
+  tag: string
+  lastChance: boolean
+}
+
+interface PeriodicSyncEvent extends ExtendableEvent {
+  tag: string
+}
+
+interface PushMessageData {
+  arrayBuffer(): ArrayBuffer
+  blob(): Blob
+  json(): any
+  text(): string
+}
+
+interface PushEvent extends ExtendableEvent {
+  readonly data: PushMessageData | null
+}
+
+interface NotificationClickEvent extends ExtendableEvent {
+  readonly notification: Notification
+  readonly action: string
+}
+
+// Service Worker global scope - use 'self' directly
+// const sw = globalThis as unknown as ServiceWorkerGlobalScope
 
 // =============================================================================
 // PRECACHING (Static Assets)
@@ -66,8 +95,16 @@ registerRoute(
   })
 )
 
-// --- API Requests ---
-// NetworkFirst: Fresh data preferred, fallback to cache when offline
+// --- Specialized API: Parsing Status (Real-time) ---
+// NetworkOnly: Never cache status polling, it must be fresh
+registerRoute(
+  ({ url }) => url.pathname.includes('/parsing-status'),
+  new NetworkOnly()
+)
+
+// --- API Requests (General) ---
+// StaleWhileRevalidate: Safer than NetworkFirst. Returns cache if available (instant load),
+// then updates from network in background.
 // SECURITY: Only cache GET requests, exclude auth endpoints
 registerRoute(
   ({ url, request }) =>
@@ -76,10 +113,11 @@ registerRoute(
     // Exclude authentication endpoints (sensitive data)
     !url.pathname.startsWith('/api/v1/auth/') &&
     // Exclude admin endpoints (privileged access)
-    !url.pathname.startsWith('/api/v1/admin/'),
-  new NetworkFirst({
+    !url.pathname.startsWith('/api/v1/admin/') &&
+    // Exclude parsing status (handled above)
+    !url.pathname.includes('/parsing-status'),
+  new StaleWhileRevalidate({
     cacheName: 'api-cache',
-    networkTimeoutSeconds: 10,
     plugins: [
       new CacheableResponsePlugin({ statuses: [0, 200] }),
       new ExpirationPlugin({
@@ -196,10 +234,10 @@ const criticalSyncPlugin = new BackgroundSyncPlugin('fancai-critical-sync', {
           throw new Error(`HTTP ${response.status}`)
         }
         // Notify clients about successful sync
-        const clients = await sw.clients.matchAll()
+        const clients = await self.clients.matchAll()
         const requestUrl = entry.request.url
         const requestMethod = entry.request.method
-        clients.forEach(client => {
+        clients.forEach((client: Client) => {
           client.postMessage({
             type: 'SYNC_SUCCESS',
             url: requestUrl,
@@ -367,10 +405,10 @@ setCatchHandler(async ({ request }) => {
 // =============================================================================
 
 // Handle messages from the client
-sw.addEventListener('message', (event) => {
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     console.log('[SW] Skip waiting requested')
-    sw.skipWaiting()
+    self.skipWaiting()
   }
 })
 
@@ -379,7 +417,7 @@ sw.addEventListener('message', (event) => {
 // =============================================================================
 
 // Handle manual sync registration from the app (for custom Dexie-based queue)
-sw.addEventListener('sync', ((event: SyncEvent) => {
+self.addEventListener('sync', ((event: SyncEvent) => {
   console.log('[SW] Background sync triggered:', event.tag)
 
   // Handle custom app-level sync (for iOS fallback and custom queue)
@@ -395,24 +433,24 @@ sw.addEventListener('sync', ((event: SyncEvent) => {
 
 async function handleFancaiSync(): Promise<void> {
   console.log('[SW] Fancai sync - notifying clients to process Dexie queue')
-  const clients = await sw.clients.matchAll()
-  clients.forEach((client) => {
+  const clients = await self.clients.matchAll()
+  clients.forEach((client: Client) => {
     client.postMessage({ type: 'SYNC_REQUESTED', tag: 'fancai-sync' })
   })
 }
 
 async function handleReadingProgressSync(): Promise<void> {
   console.log('[SW] Reading progress sync - handled by syncQueue service')
-  const clients = await sw.clients.matchAll()
-  clients.forEach((client) => {
+  const clients = await self.clients.matchAll()
+  clients.forEach((client: Client) => {
     client.postMessage({ type: 'SYNC_REQUESTED', tag: 'reading-progress-sync' })
   })
 }
 
 async function handleOfflineQueueSync(): Promise<void> {
   console.log('[SW] Offline queue sync - handled by syncQueue service')
-  const clients = await sw.clients.matchAll()
-  clients.forEach((client) => {
+  const clients = await self.clients.matchAll()
+  clients.forEach((client: Client) => {
     client.postMessage({ type: 'SYNC_REQUESTED', tag: 'offline-queue-sync' })
   })
 }
@@ -437,7 +475,7 @@ interface PeriodicSyncEvent extends ExtendableEvent {
   tag: string
 }
 
-sw.addEventListener('periodicsync', ((event: PeriodicSyncEvent) => {
+self.addEventListener('periodicsync', ((event: PeriodicSyncEvent) => {
   console.log('[SW] Periodic background sync triggered:', event.tag)
 
   if (event.tag === 'sync-reading-progress') {
@@ -454,11 +492,11 @@ sw.addEventListener('periodicsync', ((event: PeriodicSyncEvent) => {
 async function handlePeriodicReadingProgressSync(): Promise<void> {
   console.log('[SW] Periodic reading progress sync')
 
-  const clients = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true })
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
 
   if (clients.length > 0) {
     // If app is open, notify clients to sync
-    clients.forEach((client) => {
+    clients.forEach((client: Client) => {
       client.postMessage({
         type: 'PERIODIC_SYNC_TRIGGERED',
         tag: 'sync-reading-progress',
@@ -597,7 +635,7 @@ function getDefaultContent(type: string, data?: PushPayload['data']): { title: s
  * Receives push messages from the server and displays notifications.
  * Supports different notification types: book_ready, image_ready, sync_complete
  */
-sw.addEventListener('push', ((event: PushEvent) => {
+self.addEventListener('push', ((event: PushEvent) => {
   console.log('[SW] Push received:', event)
 
   let payload: PushPayload = {}
@@ -633,10 +671,10 @@ sw.addEventListener('push', ((event: PushEvent) => {
 
   // Show notification
   event.waitUntil(
-    sw.registration.showNotification(title, options).then(() => {
+    self.registration.showNotification(title, options).then(() => {
       // Notify all clients about the push (for in-app handling)
-      return sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-        clients.forEach((client) => {
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client: Client) => {
           client.postMessage({
             type: 'PUSH_RECEIVED',
             payload,
@@ -654,7 +692,7 @@ sw.addEventListener('push', ((event: PushEvent) => {
  * Handles user clicking on notification or action buttons.
  * Routes to appropriate URL based on notification type and action.
  */
-sw.addEventListener('notificationclick', ((event: NotificationClickEvent) => {
+self.addEventListener('notificationclick', ((event: NotificationClickEvent) => {
   console.log('[SW] Notification clicked:', event.action, event.notification.data)
 
   // Close the notification
@@ -704,7 +742,7 @@ sw.addEventListener('notificationclick', ((event: NotificationClickEvent) => {
 
   // Handle navigation
   event.waitUntil(
-    sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Check if a window with the URL is already open
       for (const client of clientList) {
         if (client.url.includes(url) && 'focus' in client) {
@@ -743,7 +781,7 @@ sw.addEventListener('notificationclick', ((event: NotificationClickEvent) => {
       }
 
       // No windows open, open a new one
-      return sw.clients.openWindow(url).then((newClient) => {
+      return self.clients.openWindow(url).then((newClient) => {
         newClient?.postMessage({
           type: 'NOTIFICATION_CLICKED',
           action,
@@ -762,7 +800,7 @@ sw.addEventListener('notificationclick', ((event: NotificationClickEvent) => {
  * Tracks when notifications are closed without interaction.
  * Can be used for analytics.
  */
-sw.addEventListener('notificationclose', ((event: NotificationEvent) => {
+self.addEventListener('notificationclose', ((event: NotificationEvent) => {
   console.log('[SW] Notification closed:', event.notification.data)
 
   // Could send analytics here if needed
@@ -773,11 +811,11 @@ sw.addEventListener('notificationclose', ((event: NotificationEvent) => {
 // LIFECYCLE EVENTS
 // =============================================================================
 
-sw.addEventListener('install', () => {
+self.addEventListener('install', () => {
   console.log('[SW] Service Worker installing (Workbox injectManifest)')
 })
 
-sw.addEventListener('activate', (event) => {
+self.addEventListener('activate', (event: ExtendableEvent) => {
   console.log('[SW] Service Worker activated (Workbox injectManifest)')
 
   // Enable Navigation Preload for faster navigation (~50-100ms improvement)
@@ -785,9 +823,9 @@ sw.addEventListener('activate', (event) => {
   // in parallel with service worker startup, instead of waiting for SW to boot.
   event.waitUntil(
     (async () => {
-      if ('navigationPreload' in sw.registration) {
+      if ('navigationPreload' in self.registration) {
         try {
-          await sw.registration.navigationPreload.enable()
+          await self.registration.navigationPreload.enable()
           console.log('[SW] Navigation Preload enabled')
         } catch (error) {
           console.warn('[SW] Failed to enable Navigation Preload:', error)
