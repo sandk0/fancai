@@ -1036,15 +1036,10 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       )}
 
       {/* Description Extraction Indicator - Prominent floating card */}
-      <ExtractionIndicator
-        isExtracting={isExtractingDescriptions}
-        onCancel={cancelExtraction}
-      />
-
-      {/* Image Generation Status */}
+      {/* NEW: Image Generation Status Overlay */}
       <ImageGenerationStatus
+        isGenerating={_isGeneratingImage}
         status={generationStatus}
-        descriptionPreview={descriptionPreview}
         error={generationError}
         onCancel={cancelGeneration}
       />
