@@ -22,7 +22,7 @@ from app.models.book import Book
 from app.models.chapter import Chapter
 from app.services.image_generator import image_generator_service
 from app.services.push_notification_service import push_notification_service
-from app.services.gemini_extractor import get_gemini_extractor
+from app.services.gemini_extractor import get_gemini_extractor, DescriptionType
 from app.services.consistency_manager import ConsistencyManager
 
 
@@ -44,9 +44,8 @@ def _run_async_task(coro):
     bind=True, 
     max_retries=3, 
     default_retry_delay=60,
-    time_limit=10800,  # 3 hours hard limit
-    soft_time_limit=10500,  # 2 hours 55 minutes soft limit
-    track_started=True,  # Celery 5.6+: Track STARTED state
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3300  # 55 minutes soft limit
 )
 def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     """
@@ -57,49 +56,13 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     - Проверяет доступность LLM
     - Помечает книгу как готовую к обработке
 
-    Phase 2 Improvements:
-    - SoftTimeLimitExceeded handling for graceful timeout
-    - Finally block for atomic state cleanup
-    - Redis lock cleanup on all exit paths
-    
-    Phase 4 Improvements:
-    - Redis distributed lock to prevent duplicate processing
-
     Args:
         book_id_str: String ID книги для обработки (UUID)
 
     Returns:
         Результат обработки
     """
-    from celery.exceptions import SoftTimeLimitExceeded
-    import redis
-    from app.core.config import settings
-    
-    book_id = None
-    redis_lock = None
-    lock_key = f"book:processing:{book_id_str}"
-    
     try:
-        # Phase 4: Acquire distributed lock
-        redis_client = redis.from_url(settings.REDIS_URL)
-        redis_lock = redis_client.lock(
-            lock_key,
-            timeout=10800,  # 3 hours (match task time limit)
-            blocking=False
-        )
-        
-        if not redis_lock.acquire(blocking=False):
-            logger.warning(
-                "Book already being processed (lock exists)",
-                book_id=book_id_str,
-                lock_key=lock_key
-            )
-            return {
-                "book_id": book_id_str,
-                "status": "skipped",
-                "error": "Book is already being processed by another worker"
-            }
-        
         logger.info("Starting book processing", book_id=book_id_str, task="process_book")
         book_id = UUID(book_id_str)
 
@@ -113,17 +76,6 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
         )
         return result
 
-    except SoftTimeLimitExceeded:
-        # Celery 5.6+: Graceful timeout handling
-        logger.warning(
-            "Book processing soft time limit exceeded",
-            book_id=book_id_str,
-            timeout_seconds=10500
-        )
-        if book_id:
-            _run_async_task(_atomic_cleanup_book_state(book_id, "Timeout: soft limit exceeded (2h 55m)"))
-        raise  # Re-raise so Celery marks task as failed
-
     except Exception as e:
         logger.error(
             "Error processing book",
@@ -132,70 +84,16 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
             exc_info=True,
         )
         # Ensure we update the book state in DB so it doesn't get stuck processing
-        if book_id:
-            try:
-                _run_async_task(_atomic_cleanup_book_state(book_id, str(e)))
-            except Exception as db_e:
-                logger.error(
-                    "Failed to update book error state", 
-                    book_id=book_id_str, 
-                    error=str(db_e)
-                )
+        try:
+            _run_async_task(_handle_book_processing_error_async(UUID(book_id_str), str(e)))
+        except Exception as db_e:
+            logger.error(
+                "Failed to update book error state", 
+                book_id=book_id_str, 
+                error=str(db_e)
+            )
             
         return {"book_id": book_id_str, "status": "failed", "error": str(e)}
-    
-    finally:
-        # Phase 4: Always release Redis lock
-        if redis_lock is not None:
-            try:
-                redis_lock.release()
-                logger.debug(f"Released Redis lock for book {book_id_str}")
-            except Exception as lock_e:
-                logger.warning(f"Failed to release Redis lock: {lock_e}")
-
-
-async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
-    """
-    Atomic cleanup of book processing state.
-    
-    Guaranteed to:
-    1. Set is_processing=False
-    2. Set error message
-    3. Invalidate user cache
-    4. Clear Redis processing lock
-    
-    Phase 2: Replaces _handle_book_processing_error_async with more robust handling.
-    """
-    try:
-        async with AsyncSessionLocal() as db:
-            book_result = await db.execute(select(Book).where(Book.id == book_id))
-            book = book_result.scalar_one_or_none()
-            
-            if book:
-                book.is_processing = False
-                book.descriptions_processing_error = error_msg
-                await db.commit()
-                
-                # Invalidate cache
-                try:
-                    from app.core.cache import cache_manager
-                    pattern = f"user:{book.user_id}:books:*"
-                    await cache_manager.delete_pattern(pattern)
-                except Exception as cache_e:
-                    logger.warning(f"Cache invalidation failed: {cache_e}")
-        
-        # Clear Redis processing lock
-        try:
-            import redis.asyncio as aioredis
-            from app.core.config import settings
-            redis_client = await aioredis.from_url(settings.REDIS_URL)
-            await redis_client.delete(f"book:processing:{book_id}")
-            await redis_client.close()
-        except Exception as redis_e:
-            logger.warning(f"Redis lock cleanup failed: {redis_e}")
-                
-    except Exception as e:
-        logger.error("Error in _atomic_cleanup_book_state", book_id=str(book_id), error=str(e))
 
 
 async def _handle_book_processing_error_async(book_id: UUID, error_msg: str):
@@ -241,9 +139,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Initialize services
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
-        
-        # Import DescriptionType for DB mapping
-        from app.models.description import DescriptionType
 
         # Проверяем доступность LLM
         llm_available = gemini_extractor.is_available()
@@ -286,18 +181,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         chapter_title=chapter.title,
                         progress=f"{idx+1}/{total_chapters}",
                     )
-
-                    # Skip already parsed chapters (resume capability)
-                    if chapter.is_description_parsed:
-                        logger.debug(
-                            "Skipping already parsed chapter", 
-                            chapter_number=chapter.chapter_number
-                        )
-                        chapters_parsed += 1
-                        # Update progress to match actual state
-                        book.parsing_progress = int((chapters_parsed / total_chapters) * 100)
-                        await db.commit()
-                        continue
 
                     # Пропускаем служебные страницы
                     SERVICE_PAGE_KEYWORDS = [
@@ -363,18 +246,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     for desc_data in descriptions_data:
                         desc_dict = desc_data.to_dict() if hasattr(desc_data, 'to_dict') else desc_data
 
-                        # Defensive coding: handle string/non-dict edge cases
+                        # Handle case where desc_dict is a string (e.g. from legacy extraction or list of strings)
                         if isinstance(desc_dict, str):
-                            desc_dict = {"content": desc_dict, "type": "location"}
-                        elif not isinstance(desc_dict, dict):
-                            desc_dict = {"content": str(desc_dict), "type": "location"}
+                             desc_dict = {"content": desc_dict, "type": "location"}
 
-                        # Map string type to enum with safe access
-                        try:
-                            type_str = desc_dict.get("type", "location")
-                        except AttributeError:
-                            desc_dict = {"content": str(desc_dict), "type": "location"}
-                            type_str = "location"
+                        # Map string type to enum
+                        type_str = desc_dict.get("type", "location")
 
                         try:
                             # If it's already an enum in desc_dict (from to_dict), handle it
@@ -1131,89 +1008,3 @@ async def _get_system_stats_async() -> Dict[str, Any]:
             "extraction_mode": "on_demand",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-
-
-# =============================================================================
-# Cleanup Tasks (Phase 1: Reliability)
-# =============================================================================
-
-
-@celery_app.task(name="cleanup_stuck_books")
-def cleanup_stuck_books() -> Dict[str, Any]:
-    """
-    Очищает книги, застрявшие в is_processing=True более 4 часов.
-    
-    Запускается каждые 6 часов через Celery Beat.
-    Это предотвращает ситуации, когда книга навсегда застряла в обработке
-    из-за OOM, exception или других сбоев worker.
-    
-    Returns:
-        Dict с количеством очищенных книг и их ID
-    """
-    try:
-        result = _run_async_task(_cleanup_stuck_books_async())
-        logger.info(
-            "Cleanup stuck books completed",
-            cleaned_count=result.get("cleaned", 0),
-            book_ids=result.get("book_ids", [])
-        )
-        return result
-    except Exception as e:
-        logger.error("Error cleaning up stuck books", error=str(e))
-        return {"status": "failed", "error": str(e), "cleaned": 0}
-
-
-async def _cleanup_stuck_books_async() -> Dict[str, Any]:
-    """
-    Асинхронная функция очистки застрявших книг.
-    
-    Находит книги с is_processing=True, у которых updated_at > 4 часов назад,
-    и сбрасывает их состояние.
-    """
-    from datetime import timedelta
-    from sqlalchemy import update
-    
-    async with AsyncSessionLocal() as db:
-        # Порог: 4 часа назад
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=4)
-        
-        # Найти застрявшие книги
-        query = select(Book).where(
-            Book.is_processing == True,
-            Book.updated_at < cutoff
-        )
-        result = await db.execute(query)
-        stuck_books = result.scalars().all()
-        
-        if not stuck_books:
-            logger.info("No stuck books found during cleanup")
-            return {"cleaned": 0, "book_ids": []}
-        
-        logger.warning(
-            f"Found {len(stuck_books)} stuck books, cleaning up...",
-            book_ids=[str(b.id) for b in stuck_books]
-        )
-        
-        cleaned_ids = []
-        for book in stuck_books:
-            book.is_processing = False
-            book.descriptions_processing_error = (
-                f"Cleaned by scheduled task: stuck for 4+ hours (detected at {datetime.now(timezone.utc).isoformat()})"
-            )
-            cleaned_ids.append(str(book.id))
-            
-            # Инвалидировать кэш пользователя
-            try:
-                from app.core.cache import cache_manager
-                await cache_manager.delete_pattern(f"user:{book.user_id}:books:*")
-            except Exception as cache_e:
-                logger.warning(f"Failed to invalidate cache for book {book.id}: {cache_e}")
-        
-        await db.commit()
-        
-        return {
-            "cleaned": len(cleaned_ids),
-            "book_ids": cleaned_ids,
-            "status": "success"
-        }
-

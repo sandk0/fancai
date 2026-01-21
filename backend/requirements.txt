@@ -13,14 +13,14 @@ asyncpg==0.30.0
 
 # Redis и кэширование
 redis==5.2.1
-celery==5.4.0
-kombu==5.4.2
+celery==5.6.2  # Jan 2026: Soft shutdown, memory leak fixes, Pydantic support
+kombu==5.5.0  # Required for Celery 5.6.2
 psutil==6.1.1
 
 # Text processing (NLP REMOVED December 2025 for RAM optimization)
 # Description extraction now via LLM API (Google Gemini 3.0 Flash)
 beautifulsoup4==4.12.3
-google-genai==1.56.0  # Latest Google GenAI SDK (Gemini 3.0 Flash + Imagen 4)
+google-genai==1.59.0  # Jan 15, 2026: Model lifecycle, 100MB file limit, GCS support
 # langextract removed - using google-genai directly
 
 # Парсинг книг
@@ -34,8 +34,8 @@ aiofiles==24.1.0
 aiohttp==3.11.11  # Latest with security fixes
 
 # Валидация и настройки
-pydantic[email]==2.10.4
-pydantic-settings==2.7.1
+pydantic[email]==2.12.5  # Nov 2025: Rust core improvements
+pydantic-settings==2.8.0  # Latest compatible
 
 # Логирование и мониторинг
 loguru==0.7.3

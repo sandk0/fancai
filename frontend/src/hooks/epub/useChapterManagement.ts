@@ -56,8 +56,6 @@ interface UseChapterManagementReturn {
   descriptions: Description[];
   images: GeneratedImage[];
   isLoadingChapter: boolean;
-  isExtractingDescriptions: boolean; // LLM extraction in progress
-  cancelExtraction: () => void; // Function to cancel ongoing extraction
 }
 
 export const useChapterManagement = ({
@@ -76,7 +74,6 @@ export const useChapterManagement = ({
   const [descriptions, setDescriptions] = useState<Description[]>([]);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoadingChapter, setIsLoadingChapter] = useState(false);
-  const [isExtractingDescriptions, setIsExtractingDescriptions] = useState(false);
 
   // AbortController for canceling pending API requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -550,24 +547,12 @@ export const useChapterManagement = ({
     });
   }, []); // Только при монтировании
 
-  /**
-   * Cancel ongoing extraction (user-triggered)
-   */
-  const cancelExtraction = useCallback(() => {
-    if (abortControllerRef.current) {
-      devLog('Aborting: User cancelled extraction');
-      abortControllerRef.current.abort();
-      setIsExtractingDescriptions(false);
-      setIsLoadingChapter(false);
-    }
-  }, []);
+
 
   return {
     currentChapter,
     descriptions,
     images,
     isLoadingChapter,
-    isExtractingDescriptions,
-    cancelExtraction,
   };
 };

@@ -101,7 +101,7 @@ English translation (visual elements only, no explanations):"""
         self.api_key = api_key
         self._client = None
         self._model = "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview
-        self._cache: Dict[str, str] = {}  # Simple in-memory cache
+        self._redis = None
         self._initialize()
 
     def _initialize(self):
@@ -116,6 +116,18 @@ English translation (visual elements only, no explanations):"""
             logger.error(f"Failed to initialize translator: {e}")
             self._types = None
 
+    async def _get_redis(self):
+        """Lazy initialization of Redis client."""
+        if self._redis is None:
+            try:
+                import redis.asyncio as aioredis
+                from app.core.config import settings
+                self._redis = await aioredis.from_url(settings.REDIS_URL)
+            except Exception as e:
+                logger.warning(f"Failed to connect to Redis for translation cache: {e}")
+                return None
+        return self._redis
+
     async def translate(self, russian_text: str) -> str:
         """
         Translate Russian description to English.
@@ -126,11 +138,20 @@ English translation (visual elements only, no explanations):"""
         Returns:
             English translation optimized for image generation
         """
-        # Check cache
-        cache_key = hashlib.md5(russian_text.encode(), usedforsecurity=False).hexdigest()[:16]
-        if cache_key in self._cache:
-            logger.debug(f"Translation cache hit: {cache_key}")
-            return self._cache[cache_key]
+        # Calculate cache key
+        hash_key = hashlib.md5(russian_text.encode(), usedforsecurity=False).hexdigest()[:16]
+        cache_key = f"translation:{hash_key}"
+
+        # Check Redis cache
+        redis = await self._get_redis()
+        if redis:
+            try:
+                cached = await redis.get(cache_key)
+                if cached:
+                    logger.debug(f"Translation cache hit (Redis): {cache_key}")
+                    return cached.decode("utf-8")
+            except Exception as e:
+                logger.warning(f"Redis cache read error: {e}")
 
         if not self._client:
             logger.warning("Translator not available, returning original text")
@@ -139,7 +160,6 @@ English translation (visual elements only, no explanations):"""
         try:
             prompt = self.TRANSLATION_PROMPT.format(text=russian_text)
 
-            # Use types.GenerateContentConfig for proper configuration
             config = self._types.GenerateContentConfig(
                 temperature=0.3,
             ) if self._types else None
@@ -154,8 +174,14 @@ English translation (visual elements only, no explanations):"""
             # Extract text from response
             translation = (response.text if hasattr(response, 'text') else str(response)).strip()
 
-            # Cache result
-            self._cache[cache_key] = translation
+            # Cache result in Redis (7 days TTL)
+            if redis:
+                try:
+                    await redis.setex(cache_key, 604800, translation)
+                    logger.debug(f"Cached translation (Redis): {cache_key}")
+                except Exception as e:
+                    logger.warning(f"Redis cache write error: {e}")
+            
             logger.debug(f"Translated: {russian_text[:50]}... → {translation[:50]}...")
 
             return translation
@@ -170,47 +196,117 @@ class ImagenPromptEngineer:
     Creates optimized English prompts for Google Imagen.
 
     Includes type-specific templates and genre-aware styling.
+    Phase 3: Dynamic STYLE_TEMPLATES with genre-specific overrides.
     """
 
-    # Style templates for different description types
-    STYLE_TEMPLATES = {
+    # Base style templates for different description types (genre-neutral)
+    _BASE_STYLE_TEMPLATES = {
         DescriptionType.LOCATION: {
             "prefix": "Detailed book illustration of",
-            "style": "fantasy illustration style, atmospheric lighting, rich vibrant colors, detailed environment",
+            "base_style": "atmospheric lighting, rich vibrant colors, detailed environment",
             "suffix": "professional artwork, high quality, suitable for book illustration"
         },
         DescriptionType.CHARACTER: {
             "prefix": "Character portrait illustration of",
-            "style": "fantasy book illustration, detailed facial features, expressive eyes, period-appropriate attire",
+            "base_style": "detailed facial features, expressive eyes, period-appropriate attire",
             "suffix": "professional character design, artistic rendering, book illustration quality"
         },
         DescriptionType.ATMOSPHERE: {
             "prefix": "Atmospheric scene depicting",
-            "style": "moody cinematic lighting, emotional ambiance, dramatic composition",
+            "base_style": "cinematic lighting, emotional ambiance, dramatic composition",
             "suffix": "evocative artwork, impressionistic style, book illustration"
         },
         DescriptionType.OBJECT: {
             "prefix": "Detailed illustration of",
-            "style": "clear focus, artistic presentation, rich textures",
+            "base_style": "clear focus, artistic presentation, rich textures",
             "suffix": "still life quality, professional artwork"
         },
         DescriptionType.ACTION: {
             "prefix": "Dynamic scene of",
-            "style": "captured motion, dramatic lighting, energy and movement",
+            "base_style": "captured motion, dramatic lighting, energy and movement",
             "suffix": "cinematic moment, book illustration style"
         },
     }
 
-    # Genre-specific style modifiers
-    GENRE_STYLES = {
-        "fantasy": "fantasy art, magical atmosphere, ethereal lighting",
-        "detective": "noir style, dramatic shadows, moody atmosphere",
-        "romance": "soft warm lighting, romantic mood, gentle colors",
-        "sci-fi": "futuristic aesthetic, technological elements, sci-fi lighting",
-        "horror": "dark atmosphere, ominous shadows, unsettling mood",
-        "historical": "period-accurate details, classical style, historical authenticity",
-        "adventure": "epic scale, dramatic vistas, sense of journey",
+    # Genre-specific style overrides for each description type (Phase 3)
+    _GENRE_TYPE_OVERRIDES = {
+        "fantasy": {
+            DescriptionType.LOCATION: "ethereal glow, magical atmosphere, enchanted forest tones",
+            DescriptionType.CHARACTER: "fantasy armor, mystical aura, otherworldly features",
+            DescriptionType.ATMOSPHERE: "magical particles, fantasy sky, arcane energy",
+        },
+        "science_fiction": {
+            DescriptionType.LOCATION: "holographic displays, neon lighting, cyberpunk architecture",
+            DescriptionType.CHARACTER: "futuristic outfit, tech accessories, LED accents",
+            DescriptionType.ATMOSPHERE: "digital rain, sci-fi haze, starfield backdrop",
+        },
+        "detective": {
+            DescriptionType.LOCATION: "film noir shadows, venetian blinds light, 1940s decor",
+            DescriptionType.CHARACTER: "trench coat, fedora, smoky atmosphere",
+            DescriptionType.ATMOSPHERE: "rainy night, streetlamp glow, mysterious silhouettes",
+        },
+        "romance": {
+            DescriptionType.LOCATION: "golden hour lighting, blooming flowers, intimate setting",
+            DescriptionType.CHARACTER: "elegant attire, soft gaze, romantic aura",
+            DescriptionType.ATMOSPHERE: "sunset hues, bokeh hearts, dreamy softness",
+        },
+        "horror": {
+            DescriptionType.LOCATION: "ominous shadows, fog, dilapidated structures",
+            DescriptionType.CHARACTER: "unsettling features, pale skin, haunted eyes",
+            DescriptionType.ATMOSPHERE: "blood moon, creeping mist, dread",
+        },
+        "thriller": {
+            DescriptionType.LOCATION: "urban night, rain-slicked streets, surveillance",
+            DescriptionType.CHARACTER: "intense expression, tactical gear, tension",
+            DescriptionType.ATMOSPHERE: "electric tension, flickering lights, paranoia",
+        },
+        "historical": {
+            DescriptionType.LOCATION: "period architecture, antique furnishings, sepia warmth",
+            DescriptionType.CHARACTER: "historical costume, refined posture, classical beauty",
+            DescriptionType.ATMOSPHERE: "candlelight, vintage patina, old masters style",
+        },
     }
+
+    # Genre-specific style modifiers (Phase 2: Keys must match BookGenre.value)
+    GENRE_STYLES = {
+        # Core genres (match BookGenre enum exactly)
+        "fantasy": "fantasy art, magical atmosphere, ethereal lighting, vibrant colors, enchanted environment",
+        "detective": "noir style, dramatic shadows, moody atmosphere, 1940s film aesthetic, urban mystery",
+        "science_fiction": "futuristic aesthetic, technological elements, sci-fi lighting, neon accents, cyberpunk influences",
+        "historical": "period-accurate details, classical painting style, oil painting texture, museum quality",
+        "romance": "soft warm lighting, romantic mood, pastel colors, soft focus bokeh, intimate atmosphere",
+        "thriller": "high contrast lighting, suspenseful mood, dark tones, urban environment, cinematic tension",
+        "horror": "dark atmosphere, ominous shadows, unsettling mood, desaturated colors, gothic elements",
+        "classic": "classical book illustration, timeless elegance, traditional artwork, literary style",
+        "other": "professional book illustration, balanced lighting, artistic rendering",
+        # Extended genres (optional)
+        "adventure": "epic scale, dramatic vistas, saturated colors, sense of journey, exploration",
+        "children": "bright cheerful colors, simplified shapes, friendly style, storybook illustration",
+        "mystery": "atmospheric fog, hidden details, muted colors, enigmatic mood",
+    }
+
+    def _get_style_for_type_and_genre(
+        self,
+        description_type: DescriptionType,
+        genre: Optional[str] = None
+    ) -> str:
+        """
+        Get combined style string for description type + genre.
+        
+        Phase 3: Dynamic style generation based on genre.
+        """
+        base = self._BASE_STYLE_TEMPLATES.get(
+            description_type, 
+            self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
+        )["base_style"]
+        
+        # Check for genre-specific override for this type
+        if genre and genre.lower() in self._GENRE_TYPE_OVERRIDES:
+            genre_overrides = self._GENRE_TYPE_OVERRIDES[genre.lower()]
+            if description_type in genre_overrides:
+                return f"{base}, {genre_overrides[description_type]}"
+        
+        return base
 
     def __init__(self, translator: PromptTranslator):
         self.translator = translator
@@ -225,6 +321,8 @@ class ImagenPromptEngineer:
         """
         Create optimized English prompt for Imagen.
 
+        Phase 3: Uses dynamic genre-aware style templates.
+
         Args:
             description: Original Russian description
             description_type: Type of description
@@ -237,20 +335,23 @@ class ImagenPromptEngineer:
         # Translate Russian to English
         english_description = await self.translator.translate(description)
 
-        # Get template for type
-        template = self.STYLE_TEMPLATES.get(
+        # Get base template for type (Phase 3: use _BASE_STYLE_TEMPLATES)
+        template = self._BASE_STYLE_TEMPLATES.get(
             description_type,
-            self.STYLE_TEMPLATES[DescriptionType.LOCATION]
+            self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
         )
 
-        # Build prompt
+        # Get dynamic style based on type + genre (Phase 3)
+        dynamic_style = self._get_style_for_type_and_genre(description_type, genre)
+
+        # Build prompt with Imagen 4 optimized format
         prompt_parts = [
             template["prefix"],
             english_description,
-            template["style"],
+            dynamic_style,
         ]
 
-        # Add genre style if specified
+        # Add global genre style if specified (extra reinforcement)
         if genre and genre.lower() in self.GENRE_STYLES:
             prompt_parts.append(self.GENRE_STYLES[genre.lower()])
 
@@ -269,6 +370,72 @@ class ImagenPromptEngineer:
 
         logger.debug(f"Created Imagen prompt ({len(prompt)} chars): {prompt[:100]}...")
         return prompt
+
+    async def auto_detect_genre_async(
+        self,
+        book_title: str,
+        first_chapter_excerpt: str,
+        author: Optional[str] = None
+    ) -> str:
+        """
+        Auto-detect book genre using Gemini API.
+        
+        Phase 3: LLM-based genre detection for accurate style matching.
+        
+        Args:
+            book_title: Title of the book
+            first_chapter_excerpt: First 2000 chars of the first chapter
+            author: Optional author name
+            
+        Returns:
+            Genre key from GENRE_STYLES (e.g., 'fantasy', 'science_fiction')
+        """
+        supported_genres = list(self.GENRE_STYLES.keys())
+        
+        prompt = f"""Analyze this book and determine its primary genre.
+
+**Book Title:** {book_title}
+{f'**Author:** {author}' if author else ''}
+
+**First Chapter Excerpt:**
+{first_chapter_excerpt[:2000]}
+
+**Supported Genres:** {', '.join(supported_genres)}
+
+Respond with ONLY the exact genre name from the supported list above.
+If unsure, respond with "other".
+Do not include any explanation, just the genre name.
+"""
+        try:
+            from google import genai
+            from app.core.config import settings
+            
+            client = genai.Client(api_key=settings.LANGEXTRACT_API_KEY or settings.GOOGLE_API_KEY)
+            response = await client.aio.models.generate_content(
+                model="gemini-3-flash",
+                contents=prompt,
+            )
+            
+            detected = response.text.strip().lower().replace(" ", "_")
+            
+            # Validate against supported genres
+            if detected in supported_genres:
+                logger.info(f"Auto-detected genre for '{book_title}': {detected}")
+                return detected
+            else:
+                logger.warning(f"Unknown genre detected '{detected}' for '{book_title}', using 'other'")
+                return "other"
+                
+        except Exception as e:
+            logger.error(f"Genre detection failed for '{book_title}': {e}")
+            return "other"
+
+
+# Imagen 4 best practices for prompt format (Phase 3)
+IMAGEN4_NEGATIVE_PROMPTS = [
+    "blurry", "low quality", "distorted", "watermark", "signature",
+    "cropped", "worst quality", "jpeg artifacts", "ugly", "duplicate"
+]
 
 
 class GoogleImagenGenerator:

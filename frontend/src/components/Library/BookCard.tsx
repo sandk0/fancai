@@ -198,6 +198,7 @@ export const BookCard = memo(function BookCard({
               imageLoaded ? "opacity-100" : "opacity-0"
             )}
             onLoad={handleImageLoad}
+            loading="lazy"
             fallback={
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
                 <Book className="w-12 h-12 text-muted-foreground/50" />

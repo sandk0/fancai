@@ -58,7 +58,20 @@ celery_app.conf.update(
                 "priority": 2,
             },
         },
+        # NEW: Cleanup stuck books every 6 hours (Phase 1)
+        "cleanup-stuck-processing-books": {
+            "task": "app.core.tasks.cleanup_stuck_books",
+            "schedule": 21600.0,  # 6 hours (6 * 60 * 60)
+            "options": {
+                "queue": "light",
+                "priority": 1,
+            },
+        },
     },
+    # Celery 5.6+ Soft Shutdown (Phase 1: Dependency Updates)
+    # Allows graceful completion of long-running tasks before worker shutdown
+    worker_soft_shutdown_timeout=120,  # 2 minutes to finish current task
+    task_track_started=True,  # Enable STARTED state tracking
 )
 
 # Auto-discover tasks

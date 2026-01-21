@@ -12,6 +12,7 @@ from .reading_sessions import router as reading_sessions_router
 from .health import router as health_router
 from .push import router as push_router
 from .sync import router as sync_router
+from .websocket import router as websocket_router  # Phase 5
 
 __all__ = [
     "books_router",
@@ -26,4 +27,5 @@ __all__ = [
     "health_router",
     "push_router",
     "sync_router",
+    "websocket_router",  # Phase 5
 ]

@@ -20,6 +20,7 @@ interface AuthenticatedImageProps {
   fallback?: React.ReactNode;
   onLoad?: () => void;
   onError?: () => void;
+  loading?: "eager" | "lazy";
 }
 
 /**
@@ -37,6 +38,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
   fallback,
   onLoad,
   onError,
+  loading = "lazy",
 }: AuthenticatedImageProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,7 +119,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
       src={blobUrl}
       alt={alt}
       className={className}
-      loading="lazy"
+      loading={loading}
       decoding="async"
     />
   );

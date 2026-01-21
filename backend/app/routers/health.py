@@ -14,16 +14,22 @@ Features:
 - Версия приложения и время uptime
 """
 
-from fastapi import APIRouter, Depends, status as http_status
+
+from fastapi import APIRouter, Depends, status as http_status, HTTPException, Security
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Annotated
 from datetime import datetime, timezone, timedelta
 import asyncio
 import time
+import secrets
+import redis.asyncio as redis
 
 from ..core.database import get_database_session
+from ..core.config import settings
+from ..core.celery_app import celery_app
 from ..models.reading_session import ReadingSession
 from ..monitoring.metrics import (
     update_active_sessions_gauge,
@@ -38,6 +44,7 @@ from fastapi.responses import Response
 
 
 router = APIRouter()
+security_basic = HTTPBasic()
 
 # Время старта приложения для uptime
 APP_START_TIME = time.time()
@@ -131,11 +138,26 @@ async def check_redis() -> ComponentHealthResponse:
         ComponentHealthResponse с результатом проверки
     """
     try:
-        # TODO: Добавить реальную проверку Redis через aioredis
-        # Сейчас мок для примера
-        return ComponentHealthResponse(
-            status="ok", message="Redis connection successful", latency_ms=5.2
-        )
+        start_time = time.time()
+        # Create a connection to Redis
+        r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+        # Perform PING
+        is_connected = await r.ping()
+        latency = (time.time() - start_time) * 1000  # ms
+        
+        # Close connection
+        await r.close()
+
+        if is_connected:
+            return ComponentHealthResponse(
+                status="ok", 
+                message="Redis connection successful", 
+                latency_ms=round(latency, 2)
+            )
+        else:
+            return ComponentHealthResponse(
+                status="error", message="Redis PING failed"
+            )
     except Exception as e:
         return ComponentHealthResponse(
             status="error", message=f"Redis connection failed: {str(e)}"
@@ -145,18 +167,53 @@ async def check_redis() -> ComponentHealthResponse:
 async def check_celery() -> ComponentHealthResponse:
     """
     Проверить статус Celery workers.
+    
+    Использует Celery control inspect API для пинга воркеров.
 
     Returns:
         ComponentHealthResponse с результатом проверки
     """
     try:
-        # TODO: Добавить реальную проверку Celery через inspect
-        # Проверить количество активных workers и tasks в очереди
-        return ComponentHealthResponse(
-            status="ok",
-            message="Celery workers active",
-            details={"active_workers": 2, "queued_tasks": 5},
-        )
+        start_time = time.time()
+        # Ping active workers with a short timeout
+        # Returns a dict of {worker_name: response} or None/Empty
+        # Note: This is a synchronous call but usually fast enough for health checks
+        # For true async in FastAPI path op, we might wrap in run_in_executor if needed,
+        # but inspect().ping() usually blocks.
+        # Given we are in async def, this might block event loop briefly.
+        # Ideally we should use correct async library or thread pool.
+        # However, for simplicity and standard celery usage:
+        
+        # Using a small timeout to avoid long blocking
+        inspector = celery_app.control.inspect(timeout=0.5)
+        active = inspector.active()
+        
+        latency = (time.time() - start_time) * 1000  # ms
+
+        if active is None:
+             # If no workers found/responding
+             return ComponentHealthResponse(
+                status="warning", 
+                message="No Celery workers found or inspector timed out",
+                latency_ms=round(latency, 2)
+            )
+        
+        worker_count = len(active) if active else 0
+        
+        if worker_count > 0:
+            return ComponentHealthResponse(
+                status="ok",
+                message=f"Celery workers active: {worker_count}",
+                latency_ms=round(latency, 2),
+                details={"active_workers_count": worker_count, "workers": list(active.keys())},
+            )
+        else:
+            return ComponentHealthResponse(
+                status="warning",
+                message="Celery workers set is empty",
+                latency_ms=round(latency, 2)
+            )
+
     except Exception as e:
         return ComponentHealthResponse(
             status="error", message=f"Celery check failed: {str(e)}"
@@ -409,14 +466,49 @@ async def deep_health_check(
     )
 
 
+def verify_metrics_auth(credentials: Annotated[HTTPBasicCredentials, Depends(security_basic)]):
+    """
+    Проверка Basic Auth для доступа к метрикам.
+    
+    В production окружении переменные для auth должны быть заданы.
+    Для простоты используем заглушку, которую легко настроить.
+    """
+    # TODO: Move to config
+    METRICS_USER = "admin"
+    METRICS_PASSWORD = "metrics_secure_password" # Should be in settings/env
+    
+    current_username_bytes = credentials.username.encode("utf8")
+    correct_username_bytes = METRICS_USER.encode("utf8")
+    is_correct_username = secrets.compare_digest(
+        current_username_bytes, correct_username_bytes
+    )
+    
+    current_password_bytes = credentials.password.encode("utf8")
+    correct_password_bytes = METRICS_PASSWORD.encode("utf8")
+    is_correct_password = secrets.compare_digest(
+        current_password_bytes, correct_password_bytes
+    )
+    
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+
 @router.get(
     "/metrics",
     summary="Prometheus metrics endpoint",
-    description="Экспортирует все метрики в формате Prometheus для scraping.",
+    description="Экспортирует все метрики в формате Prometheus для scraping. Requires Basic Auth.",
     response_class=Response,  # NOTE: Returns plain text, not JSON
     tags=["prometheus", "metrics"],
 )
-async def metrics_endpoint(db: AsyncSession = Depends(get_database_session)):
+async def metrics_endpoint(
+    db: AsyncSession = Depends(get_database_session),
+    username: str = Depends(verify_metrics_auth)
+):
     """
     Prometheus metrics endpoint.
 
@@ -425,6 +517,7 @@ async def metrics_endpoint(db: AsyncSession = Depends(get_database_session)):
 
     Args:
         db: Database session (для обновления gauges)
+        username: Authenticated user
 
     Returns:
         Response с метриками в Prometheus формате

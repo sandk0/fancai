@@ -29,23 +29,19 @@ class ConsistencyManager:
     async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult):
         """
         Process the raw results from agentic parsing.
-        1. Resolve Entities (get or create, merge aliases).
+        1. Resolve Entities (get or create, merge aliases) - BATCH mode.
         2. Update Relationships.
         3. Trigger Master Reference generation (if needed).
+        
+        Phase 2: Batch entity resolution for performance.
         """
         if not result.entities:
             return
 
         logger.info(f"Processing {len(result.entities)} entities for book {book_id}")
         
-        # 1. Entity Resolution & Upsert
-        entity_map = {} # name -> Entity object
-        for raw_entity in result.entities:
-            entity = await self._resolve_and_upsert_entity(book_id, raw_entity)
-            if entity:
-                entity_map[entity.name.lower()] = entity
-                for alias in entity.entity_metadata.get("aliases", []):
-                    entity_map[alias.lower()] = entity
+        # 1. BATCH Entity Resolution & Upsert (Phase 2 optimization)
+        entity_map = await self._batch_resolve_entities(book_id, result.entities)
         
         # Flush to get IDs
         await self.db.flush()
@@ -96,6 +92,84 @@ class ConsistencyManager:
                         relationship_metadata={"context": rel.context}
                     )
                     self.db.add(new_rel)
+
+    async def _batch_resolve_entities(
+        self, book_id: str, raw_entities: List[ExtractedEntity]
+    ) -> Dict[str, Entity]:
+        """
+        Batch resolve entities: single SELECT query + in-memory deduplication.
+        
+        Phase 2 optimization: Replaces N individual queries with 1 bulk query.
+        
+        Args:
+            book_id: Book ID
+            raw_entities: List of extracted entities from parser
+            
+        Returns:
+            Dict mapping lowercase name/alias to Entity object
+        """
+        if not raw_entities:
+            return {}
+        
+        # 1. Collect all unique names for batch lookup
+        all_names = set()
+        for raw in raw_entities:
+            all_names.add(raw.name.lower())
+            for alias in raw.aliases:
+                all_names.add(alias.lower())
+        
+        # 2. Single bulk query for all existing entities
+        from sqlalchemy import or_, func
+        query = select(Entity).where(
+            Entity.book_id == book_id,
+            func.lower(Entity.name).in_(all_names)
+        )
+        result = await self.db.execute(query)
+        existing_entities = {e.name.lower(): e for e in result.scalars().all()}
+        
+        # 3. Build entity map and create new entities
+        entity_map: Dict[str, Entity] = {}
+        
+        for raw in raw_entities:
+            name_lower = raw.name.lower()
+            
+            if name_lower in existing_entities:
+                # Update existing entity if new summary is better
+                entity = existing_entities[name_lower]
+                if len(raw.visual_summary) > len(entity.visual_summary or ""):
+                    entity.visual_summary = raw.visual_summary
+                    self.db.add(entity)
+            elif name_lower not in entity_map:
+                # Create new entity (avoiding duplicates within same batch)
+                type_enum = EntityType.OBJECT
+                if raw.type.lower() == "character":
+                    type_enum = EntityType.CHARACTER
+                elif raw.type.lower() == "location":
+                    type_enum = EntityType.LOCATION
+                    
+                entity = Entity(
+                    book_id=book_id,
+                    name=raw.name,
+                    type=type_enum.value,
+                    visual_summary=raw.visual_summary,
+                    entity_metadata={"aliases": raw.aliases, "confidence": raw.confidence}
+                )
+                self.db.add(entity)
+                existing_entities[name_lower] = entity
+            else:
+                entity = entity_map[name_lower]
+            
+            # Map both name and aliases
+            entity_map[name_lower] = entity
+            for alias in raw.aliases:
+                entity_map[alias.lower()] = entity
+        
+        logger.info(
+            f"Batch resolved {len(raw_entities)} entities: "
+            f"{len(existing_entities)} existing, {len(entity_map)} total mapped"
+        )
+        
+        return entity_map
 
     async def _resolve_and_upsert_entity(self, book_id: str, raw: ExtractedEntity) -> Entity:
         """

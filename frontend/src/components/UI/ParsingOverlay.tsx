@@ -1,109 +1,154 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { m } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { booksAPI } from '@/api/books';
+import { useBookProgressWS } from '@/hooks/useBookProgressWS';
 
 interface ParsingOverlayProps {
   bookId: string;
   onParsingComplete?: () => void;
   onCancel?: () => void;  // NEW: callback для отмены обработки
-  forceBlock?: boolean;
+  forceBlock?: boolean;  // eslint-disable-line @typescript-eslint/no-unused-vars -- Reserved for future use
+  /** Use WebSocket for real-time updates (Phase 5). Falls back to polling on failure. */
+  useWebSocket?: boolean;
 }
 
 export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
   bookId,
   onParsingComplete,
   onCancel,
-  forceBlock = false
+  useWebSocket = true,  // Enable WebSocket by default (Phase 5)
+  // forceBlock is reserved for future use (blocking navigation during parsing)
 }) => {
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [usePollingFallback, setUsePollingFallback] = useState(!useWebSocket);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [etr, setEtr] = useState<string | null>(null);
 
+  // Initialize start time for ETR calculation
   useEffect(() => {
+    setStartTime(Date.now());
+  }, []);
+
+  // Update ETR based on progress
+  useEffect(() => {
+    if (!startTime || progress <= 0 || progress >= 100) {
+      if (progress >= 100) setEtr(null);
+      return;
+    }
+
+    const elapsed = Date.now() - startTime;
+    const rate = progress / elapsed; // progress per ms
+    const remainingProgress = 100 - progress;
+    const remainingTimeMs = remainingProgress / rate;
+
+    // Smooth update: only update if change is significant or enough time passed
+    // For simplicity here, just formatting it
+    if (remainingTimeMs > 0) {
+      const seconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
+      if (seconds < 60) {
+        setEtr(`${seconds} сек`);
+      } else {
+        const minutes = Math.ceil(seconds / 60);
+        setEtr(`~${minutes} мин`);
+      }
+    }
+  }, [progress, startTime]);
+
+  // Phase 5: WebSocket connection for real-time updates
+  const {
+    status: wsStatus,
+    progress: wsProgress,
+    requestCancel: wsRequestCancel,
+  } = useBookProgressWS({
+    bookId,
+    enabled: useWebSocket && !usePollingFallback && !isComplete,
+    onComplete: () => {
+      setIsComplete(true);
+      setProgress(100);
+      toast.success('Обработка завершена успешно!');
+      setTimeout(() => onParsingComplete?.(), 1000);
+    },
+    onError: (error) => {
+      console.warn('[ParsingOverlay] WebSocket error, falling back to polling:', error);
+      toast.error('Ошибка соединения. Переключаемся на резервный режим...');
+      setUsePollingFallback(true);
+    },
+    maxReconnectAttempts: 2,
+  });
+
+  // Update progress from WebSocket
+  useEffect(() => {
+    if (!usePollingFallback && wsStatus === 'connected') {
+      setProgress(wsProgress);
+    }
+  }, [wsProgress, wsStatus, usePollingFallback]);
+
+  // Fallback to polling if WebSocket fails after 3 seconds of disconnect
+  useEffect(() => {
+    if (wsStatus === 'error' || wsStatus === 'disconnected') {
+      // Give WebSocket 3 seconds to reconnect before falling back
+      const fallbackTimer = setTimeout(() => {
+        console.log('[ParsingOverlay] WebSocket unavailable, using polling');
+        setUsePollingFallback(true);
+      }, 3000);
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [wsStatus]);
+
+  // Polling fallback (same as before Phase 5)
+  useEffect(() => {
+    if (!usePollingFallback) return;
+
     let intervalId: NodeJS.Timeout | null = null;
-    let isMounted = true; // Флаг для отслеживания размонтирования компонента
+    let isMounted = true;
 
     const checkProgress = async () => {
-      // КРИТИЧЕСКИ ВАЖНО: Прерываем polling если уже завершено
-      if (!isMounted || isComplete) {
-        console.log(`[ParsingOverlay] Stopping polling: isMounted=${isMounted}, isComplete=${isComplete}`);
-        return;
-      }
+      if (!isMounted || isComplete) return;
 
       try {
         const status = await booksAPI.getParsingStatus(bookId);
-        console.log(`[ParsingOverlay] API response for ${bookId}:`, status);
+        if (!isMounted || isComplete) return;
 
-        // Проверяем снова после async операции
-        if (!isMounted || isComplete) {
-          console.log(`[ParsingOverlay] Stopping polling after API call`);
-          return;
-        }
-
-        // Обновляем прогресс
         const statusData = status as { progress?: number; status?: string };
         const currentProgress = statusData.progress || 0;
-        console.log(`[ParsingOverlay] Updating progress: ${progress}% -> ${currentProgress}%`);
         setProgress(currentProgress);
 
         if (statusData.status === 'completed') {
-          console.log(`[ParsingOverlay] Parsing completed! Stopping polling.`);
           setIsComplete(true);
           setProgress(100);
-
-          // Вызываем callback через 1 секунду, но НЕ планируем новый checkProgress
-          if (onParsingComplete) {
-            setTimeout(() => {
-              if (isMounted) {
-                onParsingComplete();
-              }
-            }, 1000);
-          }
-
-          // КРИТИЧЕСКИ ВАЖНО: НЕ планируем новый setTimeout - polling останавливается!
+          setTimeout(() => isMounted && onParsingComplete?.(), 1000);
           return;
-        } else if (statusData.status === 'not_started') {
-          // Если еще не запущен, ждем автоматического запуска с backend
-          setProgress(0);
-          intervalId = setTimeout(checkProgress, 500);
-        } else {
-          // Продолжаем проверку прогресса чаще для лучшего UX
-          intervalId = setTimeout(checkProgress, 300);
         }
-      } catch (error) {
-        console.error('[ParsingOverlay] Failed to check progress:', error);
 
-        // Повторяем попытку только если еще не завершено
+        intervalId = setTimeout(checkProgress, statusData.status === 'not_started' ? 500 : 300);
+      } catch (error) {
+        console.error('[ParsingOverlay] Polling failed:', error);
         if (isMounted && !isComplete) {
           intervalId = setTimeout(checkProgress, 1000);
         }
       }
     };
 
-    // Начинаем проверку прогресса только если еще не завершено
-    // Добавляем начальную задержку 500мс чтобы дать бэкенду время обновить статус в БД
-    // Это предотвращает race condition когда polling начинается до завершения POST запроса
     if (!isComplete) {
-      console.log(`[ParsingOverlay] Starting polling for book ${bookId} (with 500ms initial delay)`);
       intervalId = setTimeout(checkProgress, 500);
     }
 
     return () => {
-      console.log(`[ParsingOverlay] Cleanup: clearing timeout and marking unmounted`);
       isMounted = false;
-      if (intervalId) {
-        clearTimeout(intervalId);
-        intervalId = null;
-      }
+      if (intervalId) clearTimeout(intervalId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- progress in deps causes infinite re-renders
-  }, [bookId, onParsingComplete, isComplete]);
+  }, [bookId, onParsingComplete, isComplete, usePollingFallback]);
 
-  // REMOVED: Self-hiding logic. We rely on the parent to unmount us when is_processing becomes false.
-  // This prevents the overlay from vanishing too early or flickering.
-  // if (isComplete && !forceBlock) {
-  //   return null;
-  // }
+  // Handle cancel
+  const handleCancel = useCallback(() => {
+    if (!usePollingFallback && wsStatus === 'connected') {
+      wsRequestCancel();
+    }
+    onCancel?.();
+  }, [onCancel, wsRequestCancel, wsStatus, usePollingFallback]);
 
   return (
     <m.div
@@ -143,12 +188,24 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
         </svg>
 
         {/* Процент в центре */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-white font-bold text-lg">
             {Math.round(progress)}%
           </span>
         </div>
       </div>
+
+      {/* ETR Badge */}
+      {etr && !isComplete && (
+        <m.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 text-xs text-white/80 font-medium z-50 backdrop-blur-sm"
+        >
+          <Clock className="w-3 h-3" />
+          <span>Осталось: {etr}</span>
+        </m.div>
+      )}
 
       {/* Кнопка отмены (скрываем если завершено) */}
       {onCancel && !isComplete && (
@@ -157,7 +214,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
           animate={{ opacity: 1 }}
           onClick={(e) => {
             e.stopPropagation();
-            onCancel();
+            handleCancel();
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all duration-200 min-h-[40px] z-50 mt-4 backdrop-blur-md border border-white/10 shadow-lg"
         >

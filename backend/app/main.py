@@ -275,6 +275,10 @@ app.include_router(push_router, prefix="/api/v1", tags=["push"])
 # Sync router for PWA offline queue batch operations (January 2026)
 app.include_router(sync_router, prefix="/api/v1", tags=["sync"])
 
+# WebSocket router for real-time progress updates (Phase 5, January 2026)
+from .routers.websocket import router as websocket_router
+app.include_router(websocket_router, tags=["websocket"])
+
 
 @app.get("/")
 async def root() -> Dict[str, Any]:

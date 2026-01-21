@@ -6,13 +6,14 @@ REPLACES LangExtract library:
 - This module uses direct API calls to get full paragraphs
 
 ARCHITECTURE:
-- google-genai SDK for direct Gemini access
-- Structured Output with Pydantic schemas (Phase 6)
+- google-generativeai SDK for direct Gemini access
+- Few-shot prompts for Russian literature
+- JSON repair with retry logic
 - Recursive text chunking
 - Exponential backoff retry with tenacity
 
 Created: 2025-12-13
-Updated: 2026-01-22 - Phase 6: Pydantic Structured Output
+Updated: 2025-12-28 - Added tenacity-based retry logic
 Author: fancai Team
 """
 
@@ -22,7 +23,6 @@ import json
 import time
 import logging
 import asyncio
-from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
@@ -33,36 +33,8 @@ from app.core.retry import (
     RateLimitError,
     TimeoutError as RetryTimeoutError,
 )
-from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
-
-
-# Phase 6: Pydantic Schemas for Structured Output
-class GeminiEntitySchema(BaseModel):
-    name: str = Field(description="Имя сущности")
-    type: str = Field(description="character, location, object")
-    visual_summary: str = Field(description="Визуальное описание для художника")
-    aliases: List[str] = Field(default_factory=list, description="Альтернативные имена")
-    confidence: float = Field(description="Уверенность 0.0-1.0")
-
-class GeminiRelationshipSchema(BaseModel):
-    source: str
-    target: str
-    type: str
-    weight: float
-    context: str
-
-class GeminiDescriptionSchema(BaseModel):
-    content: str = Field(description="Полное описание из текста")
-    type: str = Field(description="location, character, object, atmosphere")
-    confidence: float
-    entities: List[str] = Field(default_factory=list, description="Имена упомянутых сущностей")
-
-class GeminiResponseSchema(BaseModel):
-    descriptions: List[GeminiDescriptionSchema]
-    entities: List[GeminiEntitySchema]
-    relationships: List[GeminiRelationshipSchema]
 
 
 class DescriptionType(Enum):
@@ -104,25 +76,15 @@ class ExtractedDescription:
 
     def to_dict(self) -> Dict[str, Any]:
         """Конвертация в формат Multi-NLP системы."""
-        # Safely extract entity names - handle both dict and string entities
-        entity_names = []
-        for e in self.entities:
-            if isinstance(e, dict):
-                entity_names.append(e.get("name", ""))
-            elif isinstance(e, str):
-                entity_names.append(e)
-            else:
-                entity_names.append(str(e))
-        
         return {
             "content": self.content,
-            "type": self.description_type.value.upper(),
+            "type": self.description_type.value,
             "confidence_score": self.confidence,
             "priority_score": self._calculate_priority(),
             "source": "gemini_direct",
             "position": self.position,
             "word_count": len(self.content.split()),
-            "entities_mentioned": entity_names,
+            "entities_mentioned": [e.get("name", "") for e in self.entities],
             "metadata": {
                 "llm_extracted": True,
                 "entities": self.entities,
@@ -308,6 +270,105 @@ class RecursiveTextChunker:
         return chunks
 
 
+class JSONResponseParser:
+    """
+    Парсер JSON ответов от LLM с автоматическим исправлением.
+    """
+
+    @staticmethod
+    def parse(response: str) -> Dict[str, Any]:
+        """
+        Парсинг ответа LLM с несколькими стратегиями.
+
+        Args:
+            response: Сырой ответ от LLM
+
+        Returns:
+            Распарсенный JSON или пустой результат
+        """
+        # Стратегия 1: Прямой парсинг
+        try:
+            result = json.loads(response)
+            if isinstance(result, list):
+                return {"descriptions": result}
+            return result
+        except json.JSONDecodeError:
+            pass
+
+        # Стратегия 2: Извлечение из markdown блока (более агрессивная очистка)
+        # Сначала удаляем markdown код блоки
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            # Удаляем открывающий блок (```json или ```)
+            cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+            # Удаляем закрывающий блок
+            cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+            try:
+                result = json.loads(cleaned)
+                # Handle both dict and list formats
+                if isinstance(result, list):
+                    logger.debug(f"Parsed via markdown cleanup: {len(result)} descriptions (list)")
+                    return {"descriptions": result}
+                elif isinstance(result, dict):
+                    logger.debug(f"Parsed via markdown cleanup: {len(result.get('descriptions', []))} descriptions")
+                    return result
+                return result
+            except json.JSONDecodeError as e:
+                logger.debug(f"Markdown cleanup parse failed: {e}")
+                pass
+
+        # Стратегия 2b: Стандартный regex для markdown блока
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+        if json_match:
+            try:
+                result = json.loads(json_match.group(1))
+                if isinstance(result, list):
+                    return {"descriptions": result}
+                return result
+            except json.JSONDecodeError:
+                pass
+
+        # Стратегия 3: Поиск JSON-подобной структуры
+        json_match = re.search(r'\{[\s\S]*"descriptions"[\s\S]*\}', response)
+        if json_match:
+            try:
+                return json.loads(json_match.group())
+            except json.JSONDecodeError:
+                # Попытка исправить
+                fixed = JSONResponseParser._fix_json(json_match.group())
+                try:
+                    return json.loads(fixed)
+                except json.JSONDecodeError:
+                    pass
+
+        # Стратегия 4: Извлечение массива descriptions
+        array_match = re.search(r'\[[\s\S]*\]', response)
+        if array_match:
+            try:
+                descriptions = json.loads(array_match.group())
+                return {"descriptions": descriptions}
+            except json.JSONDecodeError:
+                pass
+
+        logger.warning(f"Failed to parse JSON response: {response[:200]}...")
+        return {"descriptions": []}
+
+    @staticmethod
+    def _fix_json(text: str) -> str:
+        """Попытка исправить невалидный JSON."""
+        # Удаляем trailing commas
+        text = re.sub(r',\s*}', '}', text)
+        text = re.sub(r',\s*]', ']', text)
+
+        # Заменяем одинарные кавычки на двойные
+        text = re.sub(r"(?<=[{,:\[])\s*'([^']*?)'\s*(?=[},:\]])", r'"\1"', text)
+
+        # Экранируем переносы строк в строках
+        text = re.sub(r'(?<!\\)\n(?=[^"]*"[^"]*$)', r'\\n', text)
+
+        return text
+
+
 class GeminiDirectExtractor:
     """
     Прямой экстрактор описаний через Google Gemini API.
@@ -316,30 +377,69 @@ class GeminiDirectExtractor:
     вместо коротких сущностей (NER).
     """
 
-    # Промпт для извлечения описаний (Phase 6: Structured Output optimized)
+    # Промпт для извлечения описаний
+    # Двойные скобки {{ }} экранированы для использования с .format()
     EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
 ЗАДАЧА:
 1. Выдели все СУЩНОСТИ (Персонажи, Локации, Значимые Предметы).
 2. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем для промпта).
 3. Определи СВЯЗИ между сущностями (кто с кем взаимодействует, где кто находится) и оцени ВЕС связи (1-10) на основе частоты взаимодействий.
-4. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) для генерации иллюстраций.
 
 ТИПЫ СУЩНОСТЕЙ:
 - character: Люди, существа. Описывай: лицо, волосы, одежда, возраст, особые приметы.
 - location: Места действия. Описывай: освещение, архитектура, погода, атмосфера, детали интерьера/экстерьера.
 - object: Важные предметы (меч, кольцо, автомобиль). Описывай: материал, цвет, форма, состояние.
 
-ОПИСАНИЯ (descriptions):
-- Выделяй только визуально богатые фрагменты текста.
-- Минимальная длина описания: 100 символов.
-- Максимальная длина: 1000 символов.
-- Обязательно указывай тип (location, character, object, atmosphere).
-- В поле 'entities' перечисли имена сущностей, упомянутых в этом описании.
+ФОРМАТ ОТВЕТА (JSON):
+```json
+{{
+  "entities": [
+    {{
+      "name": "Имя или Название",
+      "type": "character",
+      "visual_summary": "Высокий старик с длинной седой бородой, в синей остроконечной шляпе и серой мантии. Добрые голубые глаза.",
+      "aliases": ["Гэндальф", "Митрандир"],
+      "confidence": 0.95
+    }},
+    {{
+      "name": "Шир",
+      "type": "location",
+      "visual_summary": "Уютная деревня с зелеными холмами и круглыми дверями нор. Солнечный летний день, цветущие сады.",
+      "aliases": ["Хоббитон"],
+      "confidence": 0.9
+    }}
+  ],
+  "relationships": [
+    {{
+      "source": "Имя1",
+      "target": "Имя2",
+      "type": "FRIEND",
+      "weight": 0.8,
+      "context": "Давно знают друг друга, часто беседуют."
+    }},
+    {{
+      "source": "Имя1",
+      "target": "НазваниеЛокации",
+      "type": "LOCATED_IN",
+      "weight": 1.0
+    }}
+  ],
+  "descriptions": [  // BACKWARD COMPATIBILITY: Старый формат для генерации сцен
+    {{
+      "content": "Полное предложение с описанием из текста...",
+      "type": "location",
+      "confidence": 0.9,
+      "entities": ["Имя1", "НазваниеЛокации"]
+    }}
+  ]
+}}
+```
 
-Текст для анализа:
+ТЕКСТ ДЛЯ АНАЛИЗА:
 {text}
-"""
+
+Верни ТОЛЬКО валидный JSON."""
 
     def __init__(self, config: Optional[GeminiConfig] = None):
         """Инициализация экстрактора."""
@@ -347,7 +447,7 @@ class GeminiDirectExtractor:
         self.config.api_key = self.config.api_key or os.getenv("LANGEXTRACT_API_KEY")
 
         self.chunker = RecursiveTextChunker(self.config)
-        # JSONResponseParser deleted in Phase 6
+        self.parser = JSONResponseParser()
 
         self._client = None  # google-genai Client
         self._model = None   # model ID string
@@ -414,66 +514,59 @@ class GeminiDirectExtractor:
         chunks = self.chunker.chunk(text)
         logger.info(f"Text split into {len(chunks)} chunks for analysis")
 
-        # Phase 2: Parallel chunk processing with semaphore (rate limit)
-        semaphore = asyncio.Semaphore(3)  # Max 3 concurrent Gemini calls
-        
-        async def process_chunk_with_semaphore(chunk_data: dict, chunk_idx: int):
-            """Process single chunk with rate limiting."""
-            async with semaphore:
-                try:
-                    prompt = self.EXTRACTION_PROMPT.format(text=chunk_data["text"])
-                    # Phase 6: Returns GeminiResponseSchema object directly
-                    gemini_response = await self._call_gemini_with_retry(prompt)
-                    
-                    chunk_descriptions = self._convert_descriptions(gemini_response.descriptions, chunk_data["start"])
-                    chunk_entities = self._convert_entities(gemini_response.entities)
-                    
-                    return {
-                        "descriptions": chunk_descriptions,
-                        "entities": chunk_entities,
-                        "success": True
-                    }
-                except Exception as e:
-                    logger.warning(f"Chunk {chunk_idx} analysis failed: {e}")
-                    self.stats["failed_calls"] += 1
-                    return {"descriptions": [], "entities": [], "success": False}
-        
-        # Execute all chunks in parallel
-        results = await asyncio.gather(*[
-            process_chunk_with_semaphore(chunk, i) 
-            for i, chunk in enumerate(chunks)
-        ], return_exceptions=True)
-        
-        # Aggregate results
         all_descriptions = []
         all_entities = []
-        
-        for result in results:
-            if isinstance(result, Exception):
-                logger.warning(f"Chunk processing exception: {result}")
-                continue
-            if result.get("success"):
-                all_descriptions.extend(result.get("descriptions", []))
-                all_entities.extend(result.get("entities", []))
+        all_relationships = []
+
+        for i, chunk in enumerate(chunks):
+            try:
+                # Extract raw JSON response
+                prompt = self.EXTRACTION_PROMPT.format(text=chunk["text"])
+                response_text = await self._call_gemini_with_retry(prompt)
+                parsed = self.parser.parse(response_text)
+                
+                # Parse descriptions (legacy + new)
+                descriptions = self._parse_descriptions(parsed, chunk["start"])
+                all_descriptions.extend(descriptions)
+                
+                # Parse entities
+                entities_json = parsed.get("entities", [])
+                for e in entities_json:
+                    all_entities.append(ExtractedEntity(
+                        name=e.get("name", "Unknown"),
+                        type=e.get("type", "object"),
+                        visual_summary=e.get("visual_summary", ""),
+                        aliases=e.get("aliases", []),
+                        confidence=float(e.get("confidence", 0.0))
+                    ))
+                    
+                # Parse relationships
+                rels_json = parsed.get("relationships", [])
+                for r in rels_json:
+                    all_relationships.extend(rels_json) # Raw dicts first, simplified for now
+                    # TODO: Convert to ExtractedRelationship objects strictly
+                
+                # Rate limiting
+                if i < len(chunks) - 1:
+                    await asyncio.sleep(0.1)
+
+            except Exception as e:
+                logger.warning(f"Chunk {i} analysis failed: {e}")
+                self.stats["failed_calls"] += 1
 
         # Deduplicate Descriptions
         unique_descriptions = self._deduplicate(all_descriptions)
         
-        # Deduplicate Entities (Phase 6: Fuzzy matching)
-        unique_entities = self._deduplicate_entities(all_entities)
-        
+        # Deduplicate Entities (Merge logic needed in ConsistencyManager, here just raw list)
+        # We return all found entities, ConsistencyManager will clean them up.
+
         # Stats
         self.stats["total_time"] += time.time() - start_time
         self.stats["total_descriptions"] += len(unique_descriptions)
-        
-        logger.info(
-            f"Parallel chunk processing complete: {len(unique_descriptions)} descriptions, "
-            f"{len(unique_entities)} entities from {len(chunks)} chunks"
-        )
 
         return ChapterAnalysisResult(
             descriptions=unique_descriptions,
-            entities=unique_entities,
+            entities=all_entities,
             relationships=[] # Placeholder - relationships need complex merging logic
         )
 
@@ -500,14 +593,18 @@ class GeminiDirectExtractor:
 
         try:
             # Use tenacity retry decorator for the actual extraction
-            # Phase 6: parsed Pydantic object
-            gemini_response = await self._call_gemini_with_retry(prompt)
+            response_text = await self._call_gemini_with_retry(prompt)
+
+            # Parse JSON response
+            parsed = self.parser.parse(response_text)
 
             # Convert to ExtractedDescription objects
-            descriptions = self._convert_descriptions(gemini_response.descriptions, offset)
+            descriptions = self._parse_descriptions(parsed, offset)
 
             self.stats["successful_calls"] += 1
-            self.stats["total_tokens"] += len(prompt) // 4  # Approximately
+
+            # Estimate tokens
+            self.stats["total_tokens"] += len(prompt) // 4 + len(response_text) // 4
 
             return descriptions
 
@@ -517,19 +614,18 @@ class GeminiDirectExtractor:
             return []
 
     @retry_llm_extraction
-    async def _call_gemini_with_retry(self, prompt: str) -> GeminiResponseSchema:
+    async def _call_gemini_with_retry(self, prompt: str) -> str:
         """
         Call Gemini API with tenacity retry decorator.
-        
-        Phase 6: Returns parsed Pydantic model directly.
+
+        Raises retryable exceptions that trigger tenacity retry logic.
         """
         try:
-            # Call Gemini API with Pydantic structured output
+            # Call Gemini API with new SDK (google-genai)
+            # Using types.GenerateContentConfig for proper configuration
             config = self._types.GenerateContentConfig(
                 temperature=0.3,
                 top_p=0.95,
-                response_mime_type="application/json",
-                response_schema=GeminiResponseSchema,
             )
 
             response = await asyncio.wait_for(
@@ -542,15 +638,10 @@ class GeminiDirectExtractor:
                 timeout=self.config.timeout_seconds
             )
 
-            # Return parsed object automatically handled by SDK
-            if hasattr(response, 'parsed') and response.parsed:
-                logger.debug("Gemini structured response received and parsed successfully")
-                return response.parsed
-                
-            # Fallback if parsed is empty (should not happen with structured output)
-            text = response.text if hasattr(response, 'text') else str(response)
-            logger.warning("Gemini returned text instead of parsed object, parsing manually")
-            return GeminiResponseSchema.model_validate_json(text)
+            # Extract text from response - handle both string and list formats
+            response_text = response.text if hasattr(response, 'text') else str(response)
+
+            return response_text
 
         except asyncio.TimeoutError as e:
             error_msg = f"Gemini API timed out after {self.config.timeout_seconds}s"
@@ -570,60 +661,67 @@ class GeminiDirectExtractor:
             logger.error(f"Gemini extraction error: {error_msg}")
             raise LLMExtractionError(error_msg) from e
 
-    def _convert_descriptions(
+    def _parse_descriptions(
         self,
-        schema_descriptions: List[GeminiDescriptionSchema],
+        parsed: Any,
         offset: int
     ) -> List[ExtractedDescription]:
-        """Convert Pydantic schemas to ExtractedDescription objects."""
+        """Конвертация JSON в ExtractedDescription объекты."""
         descriptions = []
 
-        for item in schema_descriptions:
-            content = item.content
+        # Handle different response formats
+        if isinstance(parsed, list):
+            # Direct list of descriptions
+            items = parsed
+        elif isinstance(parsed, dict):
+            # Dict with "descriptions" key
+            items = parsed.get("descriptions", [])
+        else:
+            logger.warning(f"Unexpected parsed type: {type(parsed)}")
+            return descriptions
 
-            # Проверяем минимальную длину
-            if len(content) < self.config.min_description_chars:
+        for item in items:
+            try:
+                content = item.get("content", "")
+
+                # Проверяем минимальную длину
+                if len(content) < self.config.min_description_chars:
+                    continue
+
+                # Ограничиваем максимальную длину
+                if len(content) > self.config.max_description_chars:
+                    content = content[:self.config.max_description_chars]
+
+                # Определяем тип
+                type_str = item.get("type", "location").lower()
+                try:
+                    desc_type = DescriptionType(type_str)
+                except ValueError:
+                    desc_type = DescriptionType.LOCATION
+
+                # Получаем confidence
+                confidence = float(item.get("confidence", 0.7))
+                confidence = max(0.0, min(1.0, confidence))
+
+                # Получаем entities
+                entities = item.get("entities", [])
+                if not isinstance(entities, list):
+                    entities = []
+
+                descriptions.append(ExtractedDescription(
+                    content=content,
+                    description_type=desc_type,
+                    confidence=confidence,
+                    entities=entities,
+                    position=offset,
+                    source_span=(offset, offset + len(content)),
+                ))
+
+            except Exception as e:
+                logger.debug(f"Failed to parse description: {e}")
                 continue
 
-            # Ограничиваем максимальную длину
-            if len(content) > self.config.max_description_chars:
-                content = content[:self.config.max_description_chars]
-
-            # Определяем тип
-            try:
-                desc_type = DescriptionType(item.type.lower())
-            except ValueError:
-                desc_type = DescriptionType.LOCATION
-
-            # Создаем объект
-            desc_obj = ExtractedDescription(
-                content=content,
-                description_type=desc_type,
-                confidence=item.confidence,
-                entities=[{"name": name} for name in item.entities], # Convert list[str] to list[dict] for compat
-                attributes={},
-                position=offset,  # Приблизительная позиция
-                source_span=(offset, offset + len(content))
-            )
-            descriptions.append(desc_obj)
-
         return descriptions
-
-    def _convert_entities(
-        self,
-        schema_entities: List[GeminiEntitySchema]
-    ) -> List[ExtractedEntity]:
-        """Convert Pydantic schemas to ExtractedEntity objects."""
-        entities = []
-        for item in schema_entities:
-            entities.append(ExtractedEntity(
-                name=item.name,
-                type=item.type,
-                visual_summary=item.visual_summary,
-                aliases=item.aliases,
-                confidence=item.confidence
-            ))
-        return entities
 
     def _deduplicate(
         self,
@@ -641,75 +739,6 @@ class GeminiDirectExtractor:
                 seen.add(key)
                 unique.append(desc)
 
-        return unique
-
-    def _deduplicate_entities(
-        self,
-        entities: List[ExtractedEntity]
-    ) -> List[ExtractedEntity]:
-        """
-        Deduplicate entities using fuzzy string matching.
-        
-        Merges entities with similar names (e.g. "Gandalf" and "Gandalf the Grey").
-        Combines their aliases and keeps the longest visual summary.
-        """
-        if not entities:
-            return []
-            
-        unique: List[ExtractedEntity] = []
-        
-        # Sort by name length (longest first) to prefer full names as canonical
-        sorted_entities = sorted(entities, key=lambda x: len(x.name), reverse=True)
-        
-        for entity in sorted_entities:
-            is_duplicate = False
-            best_match = None
-            
-            for existing in unique:
-                # 1. Exact match (case insensitive)
-                if entity.name.lower() == existing.name.lower():
-                    is_duplicate = True
-                    best_match = existing
-                    break
-                    
-                # 2. Similarity match (SequenceMatcher)
-                # Need strictly high threshold (>0.85) to avoid false positives
-                similarity = SequenceMatcher(None, entity.name.lower(), existing.name.lower()).ratio()
-                if similarity > 0.85:
-                    is_duplicate = True
-                    best_match = existing
-                    break
-                    
-                # 3. Substring match for very long names (if one name contains the other)
-                if (len(entity.name) > 4 and len(existing.name) > 4 and 
-                   (entity.name.lower() in existing.name.lower() or existing.name.lower() in entity.name.lower())):
-                       # Only merge if types match (don't merge "Ring" and "Ring of Power" if types differ)
-                       if entity.type == existing.type:
-                           is_duplicate = True
-                           best_match = existing
-                           break
-            
-            if is_duplicate and best_match:
-                # Merge data into existing entity
-                # 1. Aliases
-                if entity.name != best_match.name:
-                    if entity.name not in best_match.aliases:
-                        best_match.aliases.append(entity.name)
-                
-                for alias in entity.aliases:
-                    if alias not in best_match.aliases and alias != best_match.name:
-                        best_match.aliases.append(alias)
-                
-                # 2. Visual summary (keep longest/richest description)
-                if len(entity.visual_summary) > len(best_match.visual_summary):
-                    best_match.visual_summary = entity.visual_summary
-                    
-                # 3. Confidence (keep max)
-                best_match.confidence = max(best_match.confidence, entity.confidence)
-                
-            else:
-                unique.append(entity)
-                
         return unique
 
     def get_statistics(self) -> Dict[str, Any]:
