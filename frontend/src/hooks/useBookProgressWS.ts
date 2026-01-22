@@ -175,9 +175,15 @@ export function useBookProgressWS({
                 }, 25000);
             };
 
-            wsRef.current.onmessage = (event) => {
+            wsRef.current.onmessage = async (event) => {
                 try {
-                    const data: BookProgressUpdate = JSON.parse(event.data);
+                    // Handle both text and Blob messages
+                    let rawData = event.data;
+                    if (event.data instanceof Blob) {
+                        rawData = await event.data.text();
+                    }
+
+                    const data: BookProgressUpdate = JSON.parse(rawData);
                     console.log('[useBookProgressWS] Message:', data.type, data.progress);
 
                     switch (data.type) {

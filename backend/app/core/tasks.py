@@ -298,6 +298,20 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                         # Update progress to match actual state
                         book.parsing_progress = int((chapters_parsed / total_chapters) * 100)
                         await db.commit()
+                        
+                        # Publish progress even for skipped chapters
+                        try:
+                            await publish_book_progress(
+                                book_id=str(book_id),
+                                progress=book.parsing_progress,
+                                chapter=idx + 1,
+                                total_chapters=total_chapters,
+                                status="processing",
+                                message=f"Глава {idx + 1}/{total_chapters} уже обработана"
+                            )
+                        except Exception as ws_err:
+                            logger.warning("Failed to publish WebSocket progress (skip)", error=str(ws_err))
+                        
                         continue
 
                     # Пропускаем служебные страницы
