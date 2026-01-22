@@ -24,6 +24,7 @@ from app.services.image_generator import image_generator_service
 from app.services.push_notification_service import push_notification_service
 from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
+from app.routers.websocket import publish_book_progress
 
 
 def _run_async_task(coro):
@@ -413,6 +414,19 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     book.parsing_progress = int((chapters_parsed / total_chapters) * 100)
                     await db.commit()
                     
+                    # Публикуем прогресс через WebSocket (Fix: 0%/100% issue)
+                    try:
+                        await publish_book_progress(
+                            book_id=str(book_id),
+                            progress=book.parsing_progress,
+                            chapter=idx + 1,
+                            total_chapters=total_chapters,
+                            status="processing",
+                            message=f"Обработка главы {idx + 1}/{total_chapters}: {chapter.title or 'Без названия'}"
+                        )
+                    except Exception as ws_err:
+                        logger.warning("Failed to publish WebSocket progress", error=str(ws_err))
+                    
                     logger.debug(
                         "Chapter processed",
                         chapter_number=chapter.chapter_number,
@@ -445,6 +459,19 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         book.descriptions_extracted = True  # НОВОЕ: флаг успешного извлечения
         book.descriptions_processing_error = None  # Сбрасываем ошибку
         await db.commit()
+        
+        # Публикуем завершение через WebSocket
+        try:
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=100,
+                chapter=total_chapters,
+                total_chapters=total_chapters,
+                status="completed",
+                message="Обработка завершена успешно!"
+            )
+        except Exception as ws_err:
+            logger.warning("Failed to publish WebSocket completion", error=str(ws_err))
 
         # Инвалидируем кэш
         try:

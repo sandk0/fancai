@@ -178,7 +178,7 @@ export const BookCard = memo(function BookCard({
         className={cn(
           'cursor-pointer transition-shadow duration-300',
           isClickable ? 'hover:shadow-xl' : 'opacity-70',
-          !isClickable && 'pointer-events-none'
+          !isClickable && !book.is_processing && 'pointer-events-none'
         )}
         onClick={handleClick}
       >

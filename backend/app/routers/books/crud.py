@@ -601,6 +601,22 @@ async def process_book_descriptions(
         logger.info("Starting description processing", book_id=str(book.id))
         task = process_book_task.delay(str(book.id))
         task_id = task.id if task else None
+        
+        # Store task_id in Redis for cancellation
+        if task_id:
+            import redis.asyncio as aioredis
+            from app.core.config import settings
+            try:
+                redis_client = aioredis.from_url(settings.REDIS_URL)
+                await redis_client.set(
+                    f"book:task_id:{book.id}", 
+                    task_id, 
+                    ex=14400  # 4 hours TTL
+                )
+                await redis_client.close()
+            except Exception as redis_err:
+                logger.warning("Failed to store task_id in Redis", error=str(redis_err))
+        
         logger.info("Description processing task started", 
                     book_id=str(book.id), task_id=task_id)
     except Exception as e:
@@ -631,8 +647,8 @@ async def cancel_book_processing(
     Отменяет обработку описаний.
     
     При отмене:
+    - Celery task revoke'd через Redis
     - Книга разблокируется (is_processing=False)
-    - Все частично извлечённые описания удаляются
     - descriptions_extracted остаётся False
     
     Returns:
@@ -641,15 +657,39 @@ async def cancel_book_processing(
     Raises:
         HTTPException: 400 если книга не обрабатывается
     """
+    import redis.asyncio as aioredis
+    from celery.result import AsyncResult
+    from app.core.celery_app import celery_app
+    from app.core.config import settings
+    
     if not book.is_processing:
         raise HTTPException(
             status_code=400,
             detail="Книга не обрабатывается"
         )
     
-    # TODO: Отменить Celery task через revoke (требует настройки)
-    # from celery.result import AsyncResult
-    # AsyncResult(task_id).revoke(terminate=True)
+    # Получить task_id из Redis и отменить Celery task
+    task_revoked = False
+    try:
+        redis_client = aioredis.from_url(settings.REDIS_URL)
+        task_id_key = f"book:task_id:{book.id}"
+        task_id = await redis_client.get(task_id_key)
+        
+        if task_id:
+            task_id = task_id.decode() if isinstance(task_id, bytes) else task_id
+            logger.info("Revoking Celery task", task_id=task_id, book_id=str(book.id))
+            
+            # Revoke task with terminate=True to interrupt immediately
+            result = AsyncResult(task_id, app=celery_app)
+            result.revoke(terminate=True, signal='SIGTERM')
+            
+            # Clear task_id from Redis
+            await redis_client.delete(task_id_key)
+            task_revoked = True
+            
+        await redis_client.close()
+    except Exception as e:
+        logger.warning("Failed to revoke Celery task", error=str(e))
     
     # Разблокируем книгу
     book.is_processing = False
@@ -658,14 +698,26 @@ async def cancel_book_processing(
     book.parsing_progress = 0
     await db.commit()
     
-    # TODO: Удалить частично извлечённые описания
-    # await db.execute(delete(Description).where(Description.book_id == book.id))
+    # Публикуем отмену через WebSocket
+    try:
+        from app.routers.websocket import publish_book_progress
+        await publish_book_progress(
+            book_id=str(book.id),
+            progress=0,
+            chapter=0,
+            total_chapters=0,
+            status="cancelled",
+            message="Обработка отменена пользователем"
+        )
+    except Exception as ws_err:
+        logger.warning("Failed to publish cancellation", error=str(ws_err))
     
-    logger.info("Processing cancelled by user", book_id=str(book.id))
+    logger.info("Processing cancelled by user", book_id=str(book.id), task_revoked=task_revoked)
     
     return {
         "message": "Обработка отменена",
         "book_id": str(book.id),
+        "task_revoked": task_revoked,
     }
 
 
