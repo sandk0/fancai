@@ -115,9 +115,18 @@ class ConnectionManager:
                 if message["type"] == "message":
                     try:
                         if websocket.client_state == WebSocketState.CONNECTED:
-                            await websocket.send_text(message["data"])
-                    except Exception:
+                            # Redis PubSub returns bytes, decode to str
+                            data = message["data"]
+                            if isinstance(data, bytes):
+                                data = data.decode('utf-8')
+                            
+                            logger.info(f"Forwarding PubSub message to WebSocket: {data[:100]}...")
+                            await websocket.send_text(data)
+                    except Exception as e:
+                        logger.error(f"Error forwarding message: {e}")
                         break
+        except Exception as e:
+            logger.error(f"PubSub listener error: {e}")
         finally:
             await pubsub.unsubscribe(f"book_progress:{book_id}")
 
