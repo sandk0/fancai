@@ -700,7 +700,7 @@ async def cancel_book_processing(
     
     # Публикуем отмену через WebSocket
     try:
-        from app.routers.websocket import publish_book_progress
+        from app.core.pubsub import publish_book_progress
         await publish_book_progress(
             book_id=str(book.id),
             progress=0,

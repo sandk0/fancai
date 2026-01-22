@@ -24,7 +24,7 @@ from app.services.image_generator import image_generator_service
 from app.services.push_notification_service import push_notification_service
 from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
-from app.routers.websocket import publish_book_progress
+from app.core.pubsub import publish_book_progress
 
 
 def _run_async_task(coro):
