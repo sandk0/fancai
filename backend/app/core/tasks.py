@@ -279,180 +279,87 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_chapters = len(chapters)
 
         if llm_available and chapters:
-
             logger.info("Starting parallel chapter processing (v16 Async Architecture)", book_id=str(book_id))
             
-            # Semaphore to limit massive concurrency (although Extractor has its own, this is a safety net)
+            # Semaphore to limit massive concurrency
             chapter_semaphore = asyncio.Semaphore(10) 
             
-            async def process_chapter_concurrently(idx: int, chapter: Chapter):
-                """Process a single chapter concurrently."""
-                async with chapter_semaphore:
-                    nonlocal chapters_parsed, total_descriptions
-                    try:
-                        logger.debug(
-                            "Parsing chapter",
-                            chapter_number=chapter.chapter_number,
-                            chapter_title=chapter.title,
-                            progress=f"{idx+1}/{total_chapters}",
-                        )
-
-                        # Skip already parsed chapters (resume capability)
-                        if chapter.is_description_parsed:
-                            logger.debug("Skipping already parsed chapter", chapter_number=chapter.chapter_number)
-                            # Atomic increment not strictly needed within TG if simple counter, but safer
-                            chapters_parsed += 1
-                            return
-
-                        # Пропускаем служебные страницы
-                        SERVICE_PAGE_KEYWORDS = [
-                            "содержание", "оглавление", "table of contents", "contents",
-                            "от автора", "слово автора", "предисловие", "послесловие",
-                            "аннотация", "annotation", "synopsis",
-                            "эпиграф", "epigraph", "цитата",
-                            "посвящение", "dedication",
-                            "благодарности", "acknowledgments",
-                            "примечания", "notes", "сноски",
-                            "библиография", "bibliography", "references",
-                            "об авторе", "about the author", "биография",
-                            "copyright", "издательство", "publisher",
-                            "isbn", "все права защищены", "all rights reserved",
-                        ]
-
-                        chapter_title_lower = (chapter.title or "").lower()
-                        chapter_content_lower = (chapter.content or "")[:500].lower()
-
-                        is_service_page = any(
-                            keyword in chapter_title_lower or keyword in chapter_content_lower
-                            for keyword in SERVICE_PAGE_KEYWORDS
-                        )
-
-                        if chapter.word_count and chapter.word_count < 100:
-                            is_service_page = True
-
-                        if chapter.is_service_page is None:
-                            chapter.is_service_page = is_service_page
-
-                        if is_service_page:
-                            logger.debug("Skipping service page", chapter_number=chapter.chapter_number)
-                            chapter.is_description_parsed = True
-                            chapter.parsed_at = datetime.now(timezone.utc)
-                            chapters_parsed += 1
-                            # Update progress periodically or at end? Doing it here might lock DB too often.
-                            # Let's trust eventual consistency or batch updates if possible.
-                            # For now, keep DB commit per chapter (safest for resume)
-                            await db.commit() 
-                            return
-
-                        # Извлекаем описания и сущности через Gemini (Agentic Flow)
-                        # Extractor handles its own chunking and semaphores
-                        result = await gemini_extractor.analyze_chapter(chapter.content)
-                        
-                        # Process structured data (Entites, Relationships, Master Refs)
-                        await consistency_manager.process_chapter_analysis(str(book_id), result)
-                        
-                        descriptions_data = result.descriptions if result.descriptions else []
-
-                        logger.info(
-                            "Extracted data",
-                            chapter_number=chapter.chapter_number,
-                            descriptions_count=len(descriptions_data),
-                            entities_count=len(result.entities)
-                        )
-
-                        # Сохраняем описания в базу
-                        # Note: We are sharing the 'db' session. SQLAlchemy AsyncSession is not thread-safe 
-                        # but asyncio tasks run in single thread. However, concurrent use of same session 
-                        # can be tricky. Ideally we should use separate sessions or careful scoping.
-                        # BUT: 'db' is AsyncSessionLocal() from context manager.
-                        # Concurrent access to the same session object is NOT safe in SQLAlchemy asyncio.
-                        # FIX: We must NOT share 'db' across tasks if we write concurrently.
-                        # Actually, wait. The original code did `await db.commit()`.
-                        # If we have 50 tasks using `db`, it will explode.
-                        # SOLUTION: Since we are inside `process_book_task`, refactoring to open a NEW session per chapter 
-                        # is safer for `TaskGroup`, OR we must gather results and commit once.
-                        # Committing once is risky for long books (memory + failure loss).
-                        # New Session per task is best pattern for TaskGroup.
-                        
-                        # RE-ARCHITECTING DB ACCESS:
-                        # We cannot use the outer `db` session inside this concurrent function safely.
-                        pass # See below
-                        
-                    except Exception as e:
-                        logger.error(f"Error parsing chapter {chapter.chapter_number}: {e}", exc_info=True)
-
-            # Need to define the logic to handle DB safely.
-            # We will spawn tasks that manage their OWN session for writes.
-            
-            async def safe_process_chapter(idx, chapter_id_val):
-                async with AsyncSessionLocal() as session:
-                    async with chapter_semaphore:
-                        try:
-                            # Re-fetch chapter to attach to this session
-                            stmt = select(Chapter).where(Chapter.id == chapter_id_val)
-                            res = await session.execute(stmt)
-                            local_chapter = res.scalar_one_or_none()
-                            
-                            if not local_chapter: 
-                                return
-                                
-                            # Re-fetch Book for progress update (optional, or just update raw ID?)
-                            # Actually, progress calc needs total count.
-                            
-                            # ... (Copy logic but use 'session' and 'local_chapter') ...
-                            
-                            # LOGIC DUPLICATION IS HIGH. 
-                            # Let's try to keep it simple. If we use TaskGroup, we can't use the outer 'db'.
-                            pass
-                            
-            # Let's rewrite the replacement content to include the correct DB handling.
-            # Since I am replacing the block, I will implement the session management inside.
-            
-            from asyncio import TaskGroup # Python 3.11+
+            # Import TaskGroup safely (Python 3.11+)
+            try:
+                from asyncio import TaskGroup
+            except ImportError:
+                 # Fallback for older python if needed, though we are on 3.12
+                 logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
+                 raise
 
             async def process_chapter_safe(idx: int, chapter_id: UUID):
+                """
+                Process a single chapter in its own DB session to avoid concurrency issues.
+                """
                 async with AsyncSessionLocal() as session:
                     async with chapter_semaphore:
                         try:
                             # 1. Fetch Chapter
-                            ch_res = await session.execute(select(Chapter).where(Chapter.id == chapter_id))
-                            local_chapter = ch_res.scalar_one()
+                            stmt = select(Chapter).where(Chapter.id == chapter_id)
+                            res = await session.execute(stmt)
+                            local_chapter = res.scalar_one_or_none()
                             
+                            if not local_chapter:
+                                return
+                            
+                            # Skip if already parsed
                             if local_chapter.is_description_parsed:
-                                return True # Already done
+                                return
 
-                            # 2. Check Service Page
-                            SERVICE_PAGE_KEYWORDS = ["содержание", "оглавление", "contents", "предисловие", "annotation", "epigraph", "copyright", "isbn"]
+                            # 2. Check Service Page (Table of Contents, etc)
+                            SERVICE_PAGE_KEYWORDS = [
+                                "содержание", "оглавление", "table of contents", "contents",
+                                "от автора", "слово автора", "предисловие", "послесловие",
+                                "аннотация", "annotation", "synopsis",
+                                "эпиграф", "epigraph", "цитата",
+                                "посвящение", "dedication",
+                                "благодарности", "acknowledgments",
+                                "примечания", "notes", "сноски",
+                                "библиография", "bibliography", "references",
+                                "об авторе", "about the author", "биография",
+                                "copyright", "издательство", "publisher",
+                                "isbn", "все права защищены", "all rights reserved",
+                            ]
+                            
                             content_lower = (local_chapter.content or "")[:500].lower()
                             title_lower = (local_chapter.title or "").lower()
-                            is_service = any(k in title_lower or k in content_lower for k in SERVICE_PAGE_KEYWORDS)
-                            if local_chapter.word_count and local_chapter.word_count < 100: is_service = True
                             
+                            is_service = any(k in title_lower or k in content_lower for k in SERVICE_PAGE_KEYWORDS)
+                            if local_chapter.word_count and local_chapter.word_count < 100: 
+                                is_service = True
+
                             if is_service:
                                 local_chapter.is_service_page = True
                                 local_chapter.is_description_parsed = True
                                 local_chapter.parsed_at = datetime.now(timezone.utc)
                                 await session.commit()
-                                return True
+                                return
 
-                            # 3. Analyze
+                            # 3. Analyze with Gemini
+                            # Extractor has its own internal semaphore/rate-limiting too
                             result = await gemini_extractor.analyze_chapter(local_chapter.content)
                             
-                            # 4. Process consistency (Needs to be session-aware or stateless? Manager takes 'db')
-                            # We create a new manager for this session
+                            # 4. Consistency & Logic (Map Phase)
+                            # Use a local ConsistencyManager with this session
                             local_mgr = ConsistencyManager(session)
                             await local_mgr.process_chapter_analysis(str(book_id), result)
 
                             # 5. Save Descriptions
                             descriptions_data = result.descriptions or []
                             from app.models.description import Description as DescriptionModel
-                            from app.models.description import DescriptionType # re-import
+                            from app.models.description import DescriptionType
                             
                             for i, d in enumerate(descriptions_data):
                                 d_dict = d.to_dict() if hasattr(d, 'to_dict') else d
                                 try:
                                     d_type = DescriptionType(d_dict.get("type", "location"))
-                                except: d_type = DescriptionType.LOCATION
+                                except: 
+                                    d_type = DescriptionType.LOCATION
                                 
                                 new_desc = DescriptionModel(
                                     chapter_id=local_chapter.id,
@@ -472,28 +379,22 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             
                             await session.commit()
                             
-                            # 6. WebSocket Progress (Fire and forget-ish)
-                            # We can't update 'book.parsing_progress' easily without locking.
-                            # We will rely on the caller to update progress or update it approximately.
-                            # Better: Update 'Book' table directly with rough increment? 
-                            # OR: Just publish WS message saying "Chapter X done".
-                            # Let's update Book progress safely.
-                            
-                            return True
+                            logger.info(f"Chapter {local_chapter.chapter_number} parsed: {len(descriptions_data)} descriptions")
                             
                         except Exception as e:
-                            logger.error(f"TaskGroup error ch {idx}: {e}")
-                            return False
+                            logger.error(f"Error parsing chapter {idx+1}: {e}", exc_info=True)
+                            # Don't raise, just log so other chapters continue
 
-            # Launch TaskGroup
+            # Launch Parallel Processing
+            logger.info(f"Spawning {len(chapters)} parallel tasks...")
             async with TaskGroup() as tg:
                 for idx, chapter in enumerate(chapters):
                     tg.create_task(process_chapter_safe(idx, chapter.id))
             
-            # Recalculate and set final progress
-            # (Outer scope 'book' is still valid for this)
+            logger.info("Parallel processing complete.")
+
+            # Update book progress to 100% (approximate)
             book.parsing_progress = 100
-            # ... continue with post-loop logic ...
 
 
         # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
