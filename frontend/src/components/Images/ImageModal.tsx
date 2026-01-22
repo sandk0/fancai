@@ -214,190 +214,208 @@ export const ImageModal: React.FC<ImageModalProps> = ({
           className="relative max-w-4xl max-h-[90vh] mx-4 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
-        {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="text-white flex-1 min-w-0 max-w-[60%] sm:max-w-[70%]">
-              {title && (
-                <h3 id="image-modal-title" className="font-semibold truncate">
-                  {title}
-                </h3>
-              )}
-              {!title && (
-                <h3 id="image-modal-title" className="sr-only">
-                  {t('images.generatedImageAlt')}
-                </h3>
-              )}
-              {description && (
-                <p className="text-sm text-white/70 mt-1 line-clamp-2 sm:line-clamp-3">{description}</p>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setIsZoomed(!isZoomed)}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
-                aria-label={isZoomed ? t('images.zoomOut') : t('images.zoomIn')}
-              >
-                {isZoomed ? (
-                  <ZoomOut className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <ZoomIn className="h-5 w-5" aria-hidden="true" />
+          {/* Header */}
+          <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-white flex-1 min-w-0 max-w-[60%] sm:max-w-[70%]">
+                {title && (
+                  <h3 id="image-modal-title" className="font-semibold truncate">
+                    {title}
+                  </h3>
                 )}
-              </button>
-
-              {imageId && (
-                <button
-                  onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
-                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
-                  aria-label={t('images.regenerateImage')}
-                  disabled={isRegenerating}
-                >
-                  {isRegenerating ? (
-                    <div
-                      className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"
-                      role="status"
-                      aria-label={t('images.regenerating')}
-                    />
-                  ) : (
-                    <RefreshCw className="h-5 w-5" aria-hidden="true" />
-                  )}
-                </button>
-              )}
-
-              <button
-                onClick={handleShare}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
-                aria-label={t('images.share')}
-              >
-                <Share2 className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              <button
-                onClick={handleDownload}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
-                aria-label={t('images.download')}
-              >
-                <Download className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              <button
-                onClick={onClose}
-                className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
-                aria-label={t('images.close')}
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Regenerate Options */}
-        {showRegenerateOptions && (
-          <div className="absolute top-14 sm:top-16 left-2 right-2 sm:left-4 sm:right-4 z-20 bg-black/95 backdrop-blur-sm rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold flex items-center space-x-2">
-                <Wand2 className="h-5 w-5" />
-                <span>{t('images.regenerateImage')}</span>
-              </h3>
-              <button
-                onClick={() => setShowRegenerateOptions(false)}
-                className="p-1 text-white/60 hover:text-white transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-white/70 mb-1">
-                  {t('images.customStyle')}
-                </label>
-                <input
-                  type="text"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder={t('images.stylePlaceholder')}
-                  className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-lg text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
-                  disabled={isRegenerating}
-                />
+                {!title && (
+                  <h3 id="image-modal-title" className="sr-only">
+                    {t('images.generatedImageAlt')}
+                  </h3>
+                )}
+                {description && (
+                  <p className="text-sm text-white/70 mt-1 line-clamp-2 sm:line-clamp-3">{description}</p>
+                )}
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleRegenerate}
-                  disabled={isRegenerating}
-                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg transition-colors"
+                  onClick={() => setIsZoomed(!isZoomed)}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
+                  aria-label={isZoomed ? t('images.zoomOut') : t('images.zoomIn')}
                 >
-                  {isRegenerating ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                      <span>{t('images.generating')}</span>
-                    </>
+                  {isZoomed ? (
+                    <ZoomOut className="h-5 w-5" aria-hidden="true" />
                   ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      <span>{t('images.regenerate')}</span>
-                    </>
+                    <ZoomIn className="h-5 w-5" aria-hidden="true" />
                   )}
                 </button>
+
+                {imageId && (
+                  <button
+                    onClick={() => setShowRegenerateOptions(!showRegenerateOptions)}
+                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
+                    aria-label={t('images.regenerateImage')}
+                    disabled={isRegenerating}
+                  >
+                    {isRegenerating ? (
+                      <div
+                        className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"
+                        role="status"
+                        aria-label={t('images.regenerating')}
+                      />
+                    ) : (
+                      <RefreshCw className="h-5 w-5" aria-hidden="true" />
+                    )}
+                  </button>
+                )}
+
+                <button
+                  onClick={handleShare}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
+                  aria-label={t('images.share')}
+                >
+                  <Share2 className="h-5 w-5" aria-hidden="true" />
+                </button>
+
+                <button
+                  onClick={handleDownload}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
+                  aria-label={t('images.download')}
+                >
+                  <Download className="h-5 w-5" aria-hidden="true" />
+                </button>
+
+                <button
+                  onClick={onClose}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
+                  aria-label={t('images.close')}
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Regenerate Options */}
+          {showRegenerateOptions && (
+            <div className="absolute top-14 sm:top-16 left-2 right-2 sm:left-4 sm:right-4 z-20 bg-black/95 backdrop-blur-sm rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center space-x-2">
+                  <Wand2 className="h-5 w-5" />
+                  <span>{t('images.regenerateImage')}</span>
+                </h3>
                 <button
                   onClick={() => setShowRegenerateOptions(false)}
-                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
-                  disabled={isRegenerating}
+                  className="p-1 text-white/60 hover:text-white transition-colors"
                 >
-                  {t('images.cancel')}
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Image */}
-        <div className="relative overflow-hidden rounded-lg bg-black min-h-[200px]">
-          {/* Loading overlay while fetching image */}
-          {(isRegenerating || isLoadingImage) && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
-              <div className="text-center text-white">
-                <LoadingSpinner size="lg" />
-                <p className="mt-2">
-                  {isRegenerating ? t('images.regenerating') : t('images.loadingImage')}
-                </p>
-                {isRegenerating && (
-                  <p className="text-sm text-white/70 mt-1">{t('images.regeneratingTime')}</p>
-                )}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">
+                    {t('images.customStyle')}
+                  </label>
+                  <input
+                    type="text"
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder={t('images.stylePlaceholder')}
+                    className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-lg text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
+                    disabled={isRegenerating}
+                  />
+                </div>
+
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={isRegenerating}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg transition-colors"
+                  >
+                    {isRegenerating ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        <span>{t('images.generating')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        <span>{t('images.regenerate')}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowRegenerateOptions(false)}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+                    disabled={isRegenerating}
+                  >
+                    {t('images.cancel')}
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Only show img when we have a URL and not loading */}
-          {currentImageUrl && !isLoadingImage && (
-            <img
-              src={currentImageUrl}
-              alt={title || t('images.generatedImageAlt')}
-              className={`max-w-full max-h-[90vh] object-contain transition-transform duration-300 touch-manipulation ${
-                isZoomed ? 'scale-150 cursor-zoom-out' : 'cursor-zoom-in'
-              } ${isRegenerating ? 'opacity-50' : ''}`}
-              onClick={() => !isRegenerating && setIsZoomed(!isZoomed)}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                // Use a gray placeholder SVG as fallback
-                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"%3E%3Crect fill="%23374151" width="400" height="300"/%3E%3Ctext fill="%239CA3AF" font-family="system-ui" font-size="16" text-anchor="middle" x="200" y="150"%3EImage not available%3C/text%3E%3C/svg%3E';
-              }}
-            />
-          )}
-        </div>
+          {/* Image */}
+          <div className="relative overflow-hidden rounded-lg bg-black min-h-[200px]">
+            {/* Loading overlay while fetching image */}
+            {(isRegenerating || isLoadingImage) && (
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
+                <div className="text-center text-white">
+                  <LoadingSpinner size="lg" />
+                  <p className="mt-2">
+                    {isRegenerating ? t('images.regenerating') : t('images.loadingImage')}
+                  </p>
+                  {isRegenerating && (
+                    <p className="text-sm text-white/70 mt-1">{t('images.regeneratingTime')}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
-        {/* Loading state (initial, no URL yet) */}
-        {!currentImageUrl && !isRegenerating && !isLoadingImage && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-              <p className="text-white">{t('images.loadingImage')}</p>
-            </div>
+            {/* Only show img when we have a URL and not loading */}
+            {currentImageUrl && !isLoadingImage && (
+              <img
+                src={currentImageUrl}
+                alt={title || t('images.generatedImageAlt')}
+                onLoad={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = '1';
+                }}
+                className={`max-w-full max-h-[90vh] object-contain transition-all duration-500 touch-manipulation opacity-0 ${isZoomed ? 'scale-150 cursor-zoom-out' : 'cursor-zoom-in'
+                  } ${isRegenerating ? 'opacity-50' : ''}`}
+                onClick={() => !isRegenerating && setIsZoomed(!isZoomed)}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"%3E%3Crect fill="%23374151" width="400" height="300"/%3E%3Ctext fill="%239CA3AF" font-family="system-ui" font-size="16" text-anchor="middle" x="200" y="150"%3EImage not available%3C/text%3E%3C/svg%3E';
+                  target.style.opacity = '1';
+                }}
+              />
+            )}
           </div>
-        )}
-      </m.div>
+
+          {/* Loading state (initial, no URL yet) */}
+          {(!currentImageUrl && (isRegenerating || isLoadingImage)) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-20">
+              {/* Spinner already exists above in different block, simplifying here */}
+            </div>
+          )}
+
+          {/* Placeholder for missing image (Not loading, No URL) */}
+          {!currentImageUrl && !isRegenerating && !isLoadingImage && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-zinc-500 p-8 text-center">
+              <Wand2 className="h-12 w-12 mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">{t('images.noImageAvailable') || 'No image generated yet'}</p>
+              <p className="text-sm opacity-70 mb-6">{t('images.generateFirstDesc') || 'Generate an illustration for this scene.'}</p>
+              {imageId && (
+                <button
+                  onClick={() => setShowRegenerateOptions(true)}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  <span>{t('images.generate') || 'Generate'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+        </m.div>
       </div>
     </>
   );

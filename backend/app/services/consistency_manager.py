@@ -228,8 +228,11 @@ class ConsistencyManager:
             return
 
         for entity in entities:
-            # Skip if description is too short
-            if len(entity.visual_summary) < 50:
+            # Gatekeeper: Skip if description is too short OR Importance < 7
+            # Default importance 5 if None
+            imp = entity.importance if entity.importance is not None else 5
+            if len(entity.visual_summary) < 50 or imp < 7:
+                logger.debug(f"Skipping Master Ref for {entity.name} (Imp: {imp}, Len: {len(entity.visual_summary)})")
                 continue
                 
             logger.info(f"Generating Master Reference for {entity.name} ({entity.type})")
@@ -278,3 +281,141 @@ class ConsistencyManager:
                     break
                     
                 continue
+
+    async def optimize_book_entities(self, book_id: str):
+        """
+        [Phase 2] Map-Reduce Barrier: Reduce Phase.
+        
+        Optimizes entities for the entire book AFTER parallel extraction is done.
+        1. Fetches ALL entities for the book.
+        2. Sends list to Gemini with instructions to:
+           - Merge duplicates (Harry = Potter)
+           - Filter out Importance < 7 (Garbage collection)
+        3. Updates DB (Merge & Delete).
+        """
+        logger.info(f"Starting Entity Optimization (Reduce Phase) for book {book_id}")
+        
+        # 1. Fetch all entities
+        query = select(Entity).where(Entity.book_id == book_id)
+        result = await self.db.execute(query)
+        entities = result.scalars().all()
+        
+        if not entities:
+            logger.warning("No entities found to optimize")
+            return
+            
+        logger.info(f"Fetched {len(entities)} raw entities. Preparing LLM Reduce payload...")
+        
+        # 2. Serialize for LLM (Reduce Payload)
+        entity_list_text = ""
+        for e in entities:
+             # Format: "ID: [Name] (Type) - [Summary] (Imp: X)"
+             entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {e.visual_summary[:100]}...\n"
+        
+        if len(entity_list_text) > 300000:
+             logger.warning("Too many entities for single Reduce pass. Truncating (TODO: Implement Recursive Reduce)")
+             entity_list_text = entity_list_text[:300000]
+
+        # 3. Call Gemini (LLM Reduce)
+        from app.services.gemini_extractor import get_gemini_extractor
+        extractor = get_gemini_extractor()
+        if not extractor.is_available():
+            logger.warning("LLM not available for optimization")
+            return
+            
+        REDUCE_PROMPT = f"""
+        You are a Data Consistency Expert. I have extracted entities from a book, but there are duplicates and unimportant items.
+        
+        INPUT DATA:
+        {entity_list_text}
+        
+        TASK:
+        1. IDENTIFY DUPLICATES: Regard "Harry", "Harry Potter", "Mr. Potter" as the SAME entity.
+        2. FILTER GARBAGE: Remove any entity with Importance < 7 (unless it is clearly a main character).
+        3. OUTPUT JSON: List of operations to clean the database.
+        
+        Output JSON Schema:
+        {{
+            "merge_operations": [
+                {{ "keep_id": "uuid", "merge_ids": ["uuid", "uuid"] }}
+            ],
+            "delete_operations": [ "uuid", "uuid" ] 
+        }}
+        """
+        
+        try:
+            # We use the raw client to get JSON directly (or string parsing)
+            # For now, simplistic raw call wrapper since prompt is custom
+            # Ideally add method to gemini_extractor `generate_raw(prompt)`
+            # Using _call_gemini_with_retry but we need schema.
+            # Let's bypass and trust simple text parsing or use a targeted schema?
+            # Let's define schema dynamically or use a simple Text response and parse JSON.
+            
+            # Since _call_gemini_with_retry enforces GeminiResponseSchema, we cannot use it directly if payload differs.
+            # WORKAROUND: Create a bespoke method or use the generic one in a flexible way? 
+            # We'll rely on a manual implementation here using the client directly for custom task.
+            
+            import google.genai.types as types
+            # Use client from extractor
+            client = extractor._client
+            model = extractor._model
+            
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=REDUCE_PROMPT,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+            )
+            
+            import json
+            plan = json.loads(response.text)
+            
+            # 4. Execute Plan (DB Updates)
+            
+            # A. Merges
+            for merge in plan.get("merge_operations", []):
+                keep_id = merge["keep_id"]
+                merge_ids = merge["merge_ids"]
+                
+                # Logic: Re-link relationships from merged_ids to keep_id, then delete merged_ids
+                # Update EntityRelationship set source_id = keep_id where source_id in merge_ids
+                # Update EntityRelationship set target_id = keep_id where target_id in merge_ids
+                if not merge_ids: continue
+                
+                # Skip VALIDATION for speed (Assume LLM is strict)
+                try:
+                    # Update source edges
+                    stmt_source = update(EntityRelationship).where(
+                        EntityRelationship.source_id.in_(merge_ids)
+                    ).values(source_id=keep_id)
+                    await self.db.execute(stmt_source)
+                    
+                    # Update target edges
+                    stmt_target = update(EntityRelationship).where(
+                        EntityRelationship.target_id.in_(merge_ids)
+                    ).values(target_id=keep_id)
+                    await self.db.execute(stmt_target)
+                    
+                    # Delete merged entities
+                    stmt_del = select(Entity).where(Entity.id.in_(merge_ids)) # Wait, delete is separate
+                    # Actually directly delete
+                    from sqlalchemy import delete
+                    stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
+                    await self.db.execute(stmt_del)
+                    
+                except Exception as e:
+                    logger.error(f"Failed merge op for {keep_id}: {e}")
+            
+            # B. Deletes (Garbage Collection)
+            delete_ids = plan.get("delete_operations", [])
+            if delete_ids:
+                from sqlalchemy import delete
+                stmt_del_garbage = delete(Entity).where(Entity.id.in_(delete_ids))
+                await self.db.execute(stmt_del_garbage)
+                
+            await self.db.commit()
+            logger.info(f"Optimization Complete. Merged: {len(plan.get('merge_operations',[]))}, Deleted: {len(delete_ids)}")
+            
+        except Exception as e:
+            logger.error(f"Entity Optimization Failed: {e}", exc_info=True)

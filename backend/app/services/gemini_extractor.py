@@ -45,6 +45,7 @@ class GeminiEntitySchema(BaseModel):
     visual_summary: str = Field(description="Визуальное описание для художника")
     aliases: List[str] = Field(default_factory=list, description="Альтернативные имена")
     confidence: float = Field(description="Уверенность 0.0-1.0")
+    importance: int = Field(description="Важность для сюжета (1-10). 10=Протагонист, 1=Фон")
 
 class GeminiRelationshipSchema(BaseModel):
     source: str
@@ -81,6 +82,7 @@ class ExtractedEntity:
     visual_summary: str
     aliases: List[str] = field(default_factory=list)
     confidence: float = 0.0
+    importance: int = 0
 
 @dataclass
 class ExtractedRelationship:
@@ -169,7 +171,7 @@ class GeminiConfig:
     api_key: Optional[str] = None
 
     # Чанкинг
-    max_chunk_chars: int = 4000  # ~1000 токенов
+    max_chunk_chars: int = 100000  # v16: 100k chars for Massive Context
     min_chunk_chars: int = 200
     chunk_overlap_percent: float = 0.15  # 15% перекрытие
 
@@ -320,22 +322,19 @@ class GeminiDirectExtractor:
     EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
 ЗАДАЧА:
-1. Выдели все СУЩНОСТИ (Персонажи, Локации, Значимые Предметы).
-2. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем для промпта).
-3. Определи СВЯЗИ между сущностями (кто с кем взаимодействует, где кто находится) и оцени ВЕС связи (1-10) на основе частоты взаимодействий.
-4. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) для генерации иллюстраций.
+1. Выдели ТОЛЬКО ГЛАВНЫХ персонажей и КЛЮЧЕВЫЕ локации (Top-15 для сюжета). Игнорируй обычные предметы и фоновых персонажей.
+2. Оцени ВАЖНОСТЬ (importance) каждой сущности от 1 до 10.
+   - 9-10: Протагонисты, Главные антагонисты, Основные локации (Дом героя).
+   - 7-8: Значимые второстепенные персонажи, Частые локации.
+   - 1-6: ИГНОРИРОВАТЬ (не включать в output или ставить низкий скор).
+3. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем для промпта).
+4. Определи СВЯЗИ между сущностями (кто с кем взаимодействует, где кто находится).
+5. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 100 символов.
 
 ТИПЫ СУЩНОСТЕЙ:
 - character: Люди, существа. Описывай: лицо, волосы, одежда, возраст, особые приметы.
-- location: Места действия. Описывай: освещение, архитектура, погода, атмосфера, детали интерьера/экстерьера.
-- object: Важные предметы (меч, кольцо, автомобиль). Описывай: материал, цвет, форма, состояние.
-
-ОПИСАНИЯ (descriptions):
-- Выделяй только визуально богатые фрагменты текста.
-- Минимальная длина описания: 100 символов.
-- Максимальная длина: 1000 символов.
-- Обязательно указывай тип (location, character, object, atmosphere).
-- В поле 'entities' перечисли имена сущностей, упомянутых в этом описании.
+- location: Места действия. Описывай: освещение, архитектура, погода, атмосфера.
+- object: ТОЛЬКО Сюжетно Важные Артефакты (Кольцо Всевластия). Обычные стулья/чашки - игнорировать.
 
 Текст для анализа:
 {text}
@@ -621,7 +620,8 @@ class GeminiDirectExtractor:
                 type=item.type,
                 visual_summary=item.visual_summary,
                 aliases=item.aliases,
-                confidence=item.confidence
+                confidence=item.confidence,
+                importance=item.importance
             ))
         return entities
 
@@ -706,6 +706,9 @@ class GeminiDirectExtractor:
                     
                 # 3. Confidence (keep max)
                 best_match.confidence = max(best_match.confidence, entity.confidence)
+                
+                # 4. Importance (keep max)
+                best_match.importance = max(best_match.importance, entity.importance)
                 
             else:
                 unique.append(entity)

@@ -50,6 +50,10 @@ class Entity(Base):
     master_portrait_url = Column(String(1000), nullable=True)
     seed = Column(Integer, nullable=True)
     
+    # Priority & Filtering (v16)
+    importance = Column(Integer, default=5, nullable=True) # 1-10 scale
+    linked_entity_ids = Column(JSONB, default=[], nullable=True) # List of related entity IDs for assets
+    
     # Metadata (aliases, detailed traits, frequency)
     entity_metadata = Column(JSONB, default={}, nullable=False)
 

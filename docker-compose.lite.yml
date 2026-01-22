@@ -193,10 +193,10 @@ services:
       resources:
         limits:
           cpus: '1.5'
-          memory: 1536M
+          memory: 2.5G
         reservations:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '0.5'
+          memory: 2.0G
     restart: unless-stopped
     command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
 

@@ -142,6 +142,15 @@ export interface BookUploadResponse {
 // Description Types
 export type DescriptionType = 'location' | 'character' | 'atmosphere' | 'object' | 'action';
 
+export interface Entity {
+  id: string;
+  name: string;
+  type: 'character' | 'location' | 'object' | 'other';
+  importance?: number;
+  visual_summary?: string;
+  master_portrait_url?: string;
+}
+
 export interface Description {
   id: string;
   type: DescriptionType;
@@ -149,7 +158,7 @@ export interface Description {
   text?: string;  // Full text of description (same as content in most cases)
   confidence_score: number;
   priority_score: number;
-  entities_mentioned: string[];
+  entities_mentioned: string[] | string; // Handle both formats
   generated_image?: GeneratedImage;
 }
 
