@@ -31,6 +31,7 @@ psutil==6.1.1
 
 # Google AI SDK (December 2025 - replaces langextract)
 google-genai==1.56.0  # Latest Google GenAI SDK (Gemini 3.0 Flash + Imagen 4)
+google-api-core==2.24.0 # Required for exception handling
 
 # Парсинг HTML (для book_parser.py - извлечение текста из EPUB)
 beautifulsoup4==4.12.3
