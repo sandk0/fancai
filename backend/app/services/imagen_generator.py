@@ -34,7 +34,7 @@ from app.core.retry import (
     RateLimitError,
     TimeoutError as RetryTimeoutError,
 )
-from google.api_core.exceptions import BlockedPromptException
+
 
 logger = logging.getLogger(__name__)
 
@@ -545,16 +545,40 @@ class GoogleImagenGenerator:
                  await self._cache_result(cache_key, result.image_url)
                  
             return result
-        except BlockedPromptException:
-             logger.warning(f"Safety Filter Triggered for prompt: {prompt[:50]}...")
-             return ImageGenerationResult(
-                 success=False,
-                 error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
-                 image_url="/static/images/safety_placeholder.png" # Graceful Fallback
-             )
         except Exception as e:
-            # All retries exhausted
+            # Check for safety/blocked/400 errors that indicate safety filter
+            error_msg_lower = str(e).lower()
+            if "blocked" in error_msg_lower or "safety" in error_msg_lower:
+                 logger.warning(f"Safety Filter Triggered for prompt: {prompt[:50]}...")
+                 return ImageGenerationResult(
+                     success=False,
+                     error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
+                     image_url="/static/images/safety_placeholder.png" # Graceful Fallback
+                 )
+            
+            # If not safety related, re-raise to catch in general error handler or let it fail
+            # Actually we are inside `generate` which catches generic Exception below.
+            # So we raising here will go to the except below.
+            # Let's just fall through to the general handler if not safety.
+            pass
+
+            # Rethrow to be caught by the next block if meaningful? 
+            # Actually the next block catches Exception as e.
+            # Duplicate catch blocks with same type are invalid in Python? 
+            # No, 'except Exception' matches everything. 
+            # I must replace the `except BlockedPromptException` block ENTIRELY 
+            # and merge logic into the `except Exception as e` block below.
+            
+            # MERGING LOGIC:
             error_msg = str(e)
+            if "blocked" in error_msg.lower() or "safety" in error_msg.lower():
+                 return ImageGenerationResult(
+                     success=False,
+                     error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
+                     image_url="/static/images/safety_placeholder.png"
+                 )
+            
+            # All retries exhausted / other error
             logger.error(f"Image generation failed after all retries: {error_msg}")
             return ImageGenerationResult(
                 success=False,
