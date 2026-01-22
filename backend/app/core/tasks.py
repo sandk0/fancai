@@ -279,7 +279,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_chapters = len(chapters)
 
         if llm_available and chapters:
-        if llm_available and chapters:
+
             logger.info("Starting parallel chapter processing (v16 Async Architecture)", book_id=str(book_id))
             
             # Semaphore to limit massive concurrency (although Extractor has its own, this is a safety net)
