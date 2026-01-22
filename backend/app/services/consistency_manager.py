@@ -270,4 +270,11 @@ class ConsistencyManager:
                         logger.info(f"Master Reference set for {entity.name}")
             except Exception as e:
                 logger.error(f"Failed to generate master ref for {entity.name}: {e}")
+                
+                # Check for Quota Exceeded and abort loop to avoid long waits
+                error_str = str(e)
+                if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str or "Quota exceeded" in error_str:
+                    logger.warning("Quota exceeded. Stopping Master Reference generation for remaining entities.")
+                    break
+                    
                 continue

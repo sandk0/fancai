@@ -24,29 +24,43 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [usePollingFallback, setUsePollingFallback] = useState(!useWebSocket);
-  const [startTime, setStartTime] = useState<number | null>(null);
+  // Track reference point for ETR calculation (to handle page reloads/mid-process joins)
+  const [referenceTime, setReferenceTime] = useState<number | null>(null);
+  const [referenceProgress, setReferenceProgress] = useState<number | null>(null);
   const [etr, setEtr] = useState<string | null>(null);
 
-  // Initialize start time for ETR calculation
+  // Initialize reference point on first valid progress update
   useEffect(() => {
-    setStartTime(Date.now());
-  }, []);
+    if (referenceTime === null && progress >= 0) {
+      setReferenceTime(Date.now());
+      setReferenceProgress(progress);
+    } else if (progress < (referenceProgress || 0)) {
+      // Progress reset (started over)
+      setReferenceTime(Date.now());
+      setReferenceProgress(progress);
+    }
+  }, [progress, referenceTime, referenceProgress]);
 
-  // Update ETR based on progress
+  // Update ETR based on rate of change since reference point
   useEffect(() => {
-    if (!startTime || progress <= 0 || progress >= 100) {
+    if (!referenceTime || referenceProgress === null || progress >= 100) {
       if (progress >= 100) setEtr(null);
       return;
     }
 
-    const elapsed = Date.now() - startTime;
-    const rate = progress / elapsed; // progress per ms
+    const elapsed = Date.now() - referenceTime;
+    const progressDelta = progress - referenceProgress;
+
+    // Need minimal time and progress sample to calculate accurate rate
+    if (elapsed < 2000 || progressDelta <= 0) {
+      return;
+    }
+
+    const rate = progressDelta / elapsed; // progress points per ms
     const remainingProgress = 100 - progress;
     const remainingTimeMs = remainingProgress / rate;
 
-    // Smooth update: only update if change is significant or enough time passed
-    // For simplicity here, just formatting it
-    if (remainingTimeMs > 0) {
+    if (remainingTimeMs > 0 && isFinite(remainingTimeMs)) {
       const seconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
       if (seconds < 60) {
         setEtr(`${seconds} сек`);
@@ -55,7 +69,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
         setEtr(`~${minutes} мин`);
       }
     }
-  }, [progress, startTime]);
+  }, [progress, referenceTime, referenceProgress]);
 
   // Phase 5: WebSocket connection for real-time updates
   const {
