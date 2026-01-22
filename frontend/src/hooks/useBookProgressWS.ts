@@ -13,8 +13,9 @@
  * @module hooks/useBookProgressWS
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
+import { booksAPI } from '@/api/books';
 
 /** Status of WebSocket connection */
 export type WSConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -250,6 +251,26 @@ export function useBookProgressWS({
     useEffect(() => {
         if (enabled && bookId && accessToken) {
             connect();
+
+            // Initial fetch to get current state immediately (in case WS is silent initially)
+            // This prevents the "0% stuck" issue if the backend is between updates
+            const fetchInitialStatus = async () => {
+                try {
+                    const response = await booksAPI.getParsingStatus(bookId);
+                    const data = response as any;
+
+                    if (data && typeof data.progress === 'number') {
+                        console.log('[useBookProgressWS] Initial status fetched:', data.progress);
+                        setProgress(data.progress);
+                        if (data.chapter) setCurrentChapter(data.chapter);
+                        if (data.total_chapters) setTotalChapters(data.total_chapters);
+                    }
+                } catch (e) {
+                    console.error('[useBookProgressWS] Failed to fetch initial status:', e);
+                }
+            };
+
+            fetchInitialStatus();
         } else {
             disconnect();
         }
