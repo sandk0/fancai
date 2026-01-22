@@ -80,8 +80,72 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     redis_lock = None
     lock_key = f"book:processing:{book_id_str}"
     
+    # Define async wrapper to keep everything in ONE event loop
+    async def task_wrapper():
+        nonlocal book_id, redis_lock
+        
+        try:
+            # Phase 4: Acquire distributed lock
+            # Note: redis-py is sync here, but that's fine inside async wrapper
+            # provided we don't block for long.
+            # Ideally we'd use redis.asyncio, but we are reusing the existing sync client pattern 
+            # for the lock acquisition part which is fast.
+            # Or better: keep sync lock logic outside, only run async process inside.
+            # BUT: cleanup needs async DB session. So cleanup must be in the loop.
+            
+            # Since Redis Lock logic is sync, let's keep it here.
+            
+            logger.info("Starting book processing", book_id=book_id_str, task="process_book")
+            book_id = UUID(book_id_str)
+
+            # RUN MAIN PROCESSING
+            result = await _process_book_async(book_id)
+
+            logger.info(
+                "Book processing completed",
+                book_id=book_id_str,
+                status=result.get("status"),
+                chapters_preparsed=result.get("chapters_preparsed"),
+            )
+            return result
+
+        except SoftTimeLimitExceeded:
+            # Celery 5.6+: Graceful timeout handling
+            logger.warning(
+                "Book processing soft time limit exceeded",
+                book_id=book_id_str,
+                timeout_seconds=10500
+            )
+            if book_id:
+                try:
+                    await _atomic_cleanup_book_state(book_id, "Timeout: soft limit exceeded (2h 55m)")
+                except Exception as cleanup_e:
+                     logger.error(f"Cleanup failed during timeout: {cleanup_e}")
+            raise  # Re-raise so Celery marks task as failed
+
+        except Exception as e:
+            logger.error(
+                "Error processing book",
+                book_id=book_id_str,
+                error=str(e),
+                exc_info=True,
+            )
+            # Ensure we update the book state in DB so it doesn't get stuck processing
+            if book_id:
+                try:
+                    # Run cleanup in the SAME loop
+                    await _atomic_cleanup_book_state(book_id, str(e))
+                except Exception as db_e:
+                    logger.error(
+                        "Failed to update book error state", 
+                        book_id=book_id_str, 
+                        error=str(db_e)
+                    )
+            
+            return {"book_id": book_id_str, "status": "failed", "error": str(e)}
+
+    # Acquire lock first (SYNC)
     try:
-        # Phase 4: Acquire distributed lock
         redis_client = redis.from_url(settings.REDIS_URL)
         redis_lock = redis_client.lock(
             lock_key,
@@ -100,50 +164,15 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
                 "status": "skipped",
                 "error": "Book is already being processed by another worker"
             }
-        
-        logger.info("Starting book processing", book_id=book_id_str, task="process_book")
-        book_id = UUID(book_id_str)
-
-        result = _run_async_task(_process_book_async(book_id))
-
-        logger.info(
-            "Book processing completed",
-            book_id=book_id_str,
-            status=result.get("status"),
-            chapters_preparsed=result.get("chapters_preparsed"),
-        )
-        return result
-
-    except SoftTimeLimitExceeded:
-        # Celery 5.6+: Graceful timeout handling
-        logger.warning(
-            "Book processing soft time limit exceeded",
-            book_id=book_id_str,
-            timeout_seconds=10500
-        )
-        if book_id:
-            _run_async_task(_atomic_cleanup_book_state(book_id, "Timeout: soft limit exceeded (2h 55m)"))
-        raise  # Re-raise so Celery marks task as failed
-
-    except Exception as e:
-        logger.error(
-            "Error processing book",
-            book_id=book_id_str,
-            error=str(e),
-            exc_info=True,
-        )
-        # Ensure we update the book state in DB so it doesn't get stuck processing
-        if book_id:
-            try:
-                _run_async_task(_atomic_cleanup_book_state(book_id, str(e)))
-            except Exception as db_e:
-                logger.error(
-                    "Failed to update book error state", 
-                    book_id=book_id_str, 
-                    error=str(db_e)
-                )
             
-        return {"book_id": book_id_str, "status": "failed", "error": str(e)}
+        # Run everything in ONE loop
+        return asyncio.run(task_wrapper())
+        
+    except Exception as outer_e:
+        # If redis fails or asyncio.run fails totally
+        logger.error(f"Critical task failure: {outer_e}")
+        raise outer_e
+
     
     finally:
         # Phase 4: Always release Redis lock
