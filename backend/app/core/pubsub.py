@@ -48,15 +48,24 @@ async def publish_book_progress(
         }
         
         channel = f"book_progress:{book_id}"
-        await redis_client.publish(channel, json.dumps(data))
-        await redis_client.close()
         
-        logger.debug(
-            "Published book progress",
+        # Log before publish for debugging
+        logger.info(
+            "Publishing WebSocket progress",
             book_id=book_id,
             progress=progress,
-            status=status
+            channel=channel
+        )
+        
+        result = await redis_client.publish(channel, json.dumps(data))
+        await redis_client.aclose()  # Use aclose() instead of close()
+        
+        logger.info(
+            "WebSocket progress published",
+            book_id=book_id,
+            progress=progress,
+            subscribers=result
         )
         
     except Exception as e:
-        logger.warning(f"Failed to publish progress: {e}")
+        logger.error(f"Failed to publish progress: {e}", exc_info=True)
