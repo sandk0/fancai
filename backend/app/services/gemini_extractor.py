@@ -426,16 +426,18 @@ class GeminiDirectExtractor:
                     
                     chunk_descriptions = self._convert_descriptions(gemini_response.descriptions, chunk_data["start"])
                     chunk_entities = self._convert_entities(gemini_response.entities)
+                    chunk_relationships = self._convert_relationships(gemini_response.relationships)
                     
                     return {
                         "descriptions": chunk_descriptions,
                         "entities": chunk_entities,
+                        "relationships": chunk_relationships,
                         "success": True
                     }
                 except Exception as e:
                     logger.warning(f"Chunk {chunk_idx} analysis failed: {e}")
                     self.stats["failed_calls"] += 1
-                    return {"descriptions": [], "entities": [], "success": False}
+                    return {"descriptions": [], "entities": [], "relationships": [], "success": False}
         
         # Execute all chunks in parallel
         results = await asyncio.gather(*[
@@ -446,6 +448,7 @@ class GeminiDirectExtractor:
         # Aggregate results
         all_descriptions = []
         all_entities = []
+        all_relationships = []
         
         for result in results:
             if isinstance(result, Exception):
@@ -454,6 +457,7 @@ class GeminiDirectExtractor:
             if result.get("success"):
                 all_descriptions.extend(result.get("descriptions", []))
                 all_entities.extend(result.get("entities", []))
+                all_relationships.extend(result.get("relationships", []))
 
         # Deduplicate Descriptions
         unique_descriptions = self._deduplicate(all_descriptions)
@@ -467,13 +471,13 @@ class GeminiDirectExtractor:
         
         logger.info(
             f"Parallel chunk processing complete: {len(unique_descriptions)} descriptions, "
-            f"{len(unique_entities)} entities from {len(chunks)} chunks"
+            f"{len(unique_entities)} entities, {len(all_relationships)} relationships from {len(chunks)} chunks"
         )
 
         return ChapterAnalysisResult(
             descriptions=unique_descriptions,
             entities=unique_entities,
-            relationships=[] # Placeholder - relationships need complex merging logic
+            relationships=all_relationships
         )
 
     async def extract(
@@ -624,6 +628,22 @@ class GeminiDirectExtractor:
                 importance=item.importance
             ))
         return entities
+
+    def _convert_relationships(
+        self,
+        schema_relationships: List[GeminiRelationshipSchema]
+    ) -> List[ExtractedRelationship]:
+        """Convert Pydantic schemas to ExtractedRelationship objects."""
+        relationships = []
+        for item in schema_relationships:
+            relationships.append(ExtractedRelationship(
+                source=item.source,
+                target=item.target,
+                type=item.type,
+                weight=item.weight,
+                context=item.context
+            ))
+        return relationships
 
     def _deduplicate(
         self,
