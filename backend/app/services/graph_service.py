@@ -107,6 +107,7 @@ class GraphService:
             return True
             
         except Exception as e:
+            await self.db.rollback()
             logger.error(f"Graph Analysis failed: {e}")
             return False
 

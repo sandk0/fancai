@@ -418,4 +418,5 @@ class ConsistencyManager:
             logger.info(f"Optimization Complete. Merged: {len(plan.get('merge_operations',[]))}, Deleted: {len(delete_ids)}")
             
         except Exception as e:
+            await self.db.rollback()
             logger.error(f"Entity Optimization Failed: {e}", exc_info=True)
