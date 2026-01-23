@@ -258,6 +258,8 @@ app.include_router(admin_router, prefix="/api/v1")
 # Books routers (refactored into modular structure)
 app.include_router(books_router, prefix="/api/v1")
 app.include_router(chapters.router, prefix="/api/v1/books", tags=["chapters"])
+from .routers.books.entities import router as entities_router
+app.include_router(entities_router, prefix="/api/v1/books", tags=["entities"])
 app.include_router(descriptions_router, prefix="/api/v1/books", tags=["descriptions"])
 app.include_router(
     reading_progress.router, prefix="/api/v1/books", tags=["reading_progress"]
