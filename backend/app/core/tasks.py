@@ -321,6 +321,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                  logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
                  raise
 
+            # Progress tracking
+            chapters_done_count = 0
+            progress_lock = asyncio.Lock()
+
             async def process_chapter_safe(idx: int, chapter_id: UUID):
                 """
                 Process a single chapter in its own DB session to avoid concurrency issues.
@@ -409,6 +413,21 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             await session.commit()
                             
                             logger.info(f"Chapter {local_chapter.chapter_number} parsed: {len(descriptions_data)} descriptions")
+
+                            # Update progress
+                            nonlocal chapters_done_count
+                            async with progress_lock:
+                                chapters_done_count += 1
+                                current_progress = int((chapters_done_count / total_chapters) * 80)
+                            
+                            await publish_book_progress(
+                                book_id=str(book_id),
+                                progress=current_progress,
+                                chapter=local_chapter.chapter_number,
+                                total_chapters=total_chapters,
+                                status="processing",
+                                message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}"
+                            )
                             
                         except Exception as e:
                             logger.error(f"Error parsing chapter {idx+1}: {e}", exc_info=True)
@@ -432,6 +451,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # A. Reduce Phase: Merge Duplicates & Filter Garbage
         try:
             logger.info("Running Entity Optimization (Reduce Phase)...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=85,
+                status="processing",
+                message="Оптимизация сущностей..."
+            )
             await consistency_manager.optimize_book_entities(str(book_id))
         except Exception as e:
             logger.error(f"Reduce phase failed: {e}")
@@ -441,6 +466,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             from app.services.graph_service import get_graph_service
             graph_service = get_graph_service(db)
             logger.info("Calculating Graph Metrics (PageRank)...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=90,
+                status="processing",
+                message="Анализ связей графа..."
+            )
             await graph_service.calculate_pagerank(str(book_id))
         except Exception as e:
             logger.error(f"Graph analysis failed: {e}")
@@ -449,6 +480,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # This is done once after all chapters are processed to ensure global consistency
         try:
             logger.info("Generating Master References for entities...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=95,
+                status="processing",
+                message="Финальная сборка..."
+            )
             await consistency_manager.generate_master_references(str(book_id))
         except Exception as e:
             logger.error("Failed to generate master references", error=str(e))
