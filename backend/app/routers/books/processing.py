@@ -85,6 +85,7 @@ async def process_book_descriptions(
                     # Prevent race condition: Mark as processing in DB immediately
                     book.is_processing = True
                     book.parsing_progress = 0
+                    book.descriptions_extracted = False
                     await db.commit()
 
 
