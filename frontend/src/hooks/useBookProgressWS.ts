@@ -266,24 +266,34 @@ export function useBookProgressWS({
                     const data = response as any;
 
                     if (data && typeof data.progress === 'number') {
-                        console.log('[useBookProgressWS] Initial status fetched:', data.progress);
+                        console.log('[useBookProgressWS] Initial status fetched:', data.progress, data.status);
                         setProgress(data.progress);
                         if (data.chapter) setCurrentChapter(data.chapter);
                         if (data.total_chapters) setTotalChapters(data.total_chapters);
+
+                        // CRITICAL FIX: Close overlay if processing is done or not started
+                        if (data.status === 'completed' || data.status === 'not_started') {
+                            if (data.status === 'completed') setProgress(100);
+                            onComplete?.();
+                            disconnect();
+                        }
                     }
                 } catch (e) {
                     console.error('[useBookProgressWS] Failed to fetch initial status:', e);
                 }
             };
 
-            fetchInitialStatus();
+            const timeoutId = setTimeout(() => {
+                fetchInitialStatus();
+            }, 1000);
+
+            return () => {
+                clearTimeout(timeoutId);
+                disconnect();
+            };
         } else {
             disconnect();
         }
-
-        return () => {
-            disconnect();
-        };
     }, [enabled, bookId, accessToken, connect, disconnect]);
 
     return {

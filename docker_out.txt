@@ -1,0 +1,14 @@
+CONTAINER ID   IMAGE                                 COMMAND                   CREATED             STATUS                       PORTS                                         NAMES
+444761e229c9   fancai-vibe-hackathon-celery-worker   "celery -A app.core.…"    About an hour ago   Up About an hour (healthy)   8000/tcp                                      bookreader_celery_lite
+3314171a5b77   fancai-vibe-hackathon-backend         "uvicorn app.main:ap…"    About an hour ago   Up About an hour (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   bookreader_backend_lite
+6003de026ab9   fancai-vibe-hackathon-frontend        "/entrypoint.sh ngin…"    About an hour ago   Up About an hour (healthy)   0.0.0.0:5173->80/tcp, [::]:5173->80/tcp       bookreader_frontend_lite
+7489eccb6589   fancai-vibe-hackathon-celery-beat     "celery -A app.core.…"    2 hours ago         Up 2 hours (healthy)         8000/tcp                                      bookreader_beat_lite
+f116f9788517   grafana/grafana:11.3.0                "/run.sh"                 2 days ago          Up 2 days                    3000/tcp                                      bookreader_grafana
+b0fe98fcc8cf   gcr.io/cadvisor/cadvisor:v0.49.1      "/usr/bin/cadvisor -…"    2 days ago          Up 2 days (healthy)          8080/tcp                                      bookreader_cadvisor
+c96f06494079   prom/prometheus:latest                "/bin/prometheus --c…"    2 days ago          Up 2 days                    9090/tcp                                      bookreader_prometheus
+95a91b006010   grafana/loki:latest                   "/usr/bin/loki -conf…"    2 days ago          Up 2 days                    3100/tcp                                      bookreader_loki
+dd0fecdd3d73   prom/node-exporter:latest             "/bin/node_exporter …"    2 days ago          Up 2 days                    9100/tcp                                      bookreader_node_exporter
+825663ece282   grafana/promtail:latest               "/usr/bin/promtail -…"    3 days ago          Up 3 days                                                                  bookreader_promtail
+c50c3d8aa7f6   alpine:latest                         "/bin/sh -c '\n  echo…"   3 days ago          Up 2 days                                                                  bookreader_backup
+dc2408f6d967   postgres:15-alpine                    "docker-entrypoint.s…"    12 days ago         Up 2 days (healthy)          5432/tcp                                      bookreader_postgres_lite
+ce9109d14890   redis:7.4-alpine                      "docker-entrypoint.s…"    12 days ago         Up 2 days (healthy)          6379/tcp                                      bookreader_redis_lite

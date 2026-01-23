@@ -171,13 +171,23 @@ async def get_parsing_status(
                 "message": f"Parsing in progress: {book.parsing_progress}%",
             }
             
-        # Если не обрабатывается, но распаршена
+        # Если не обрабатывается, но распаршена (начальный парсинг структуры)
         if book.is_parsed:
+            # Если описания еще не извлечены, значит мы в состоянии "ожидания" или "готовности к старту"
+            # Но не "completed" в контексте AI-обработки
+            if not book.descriptions_extracted:
+                return {
+                    "book_id": book_id,
+                    "status": "not_started",
+                    "progress": 0,
+                    "message": "Content parsed, AI descriptions pending",
+                }
+                
             return {
                 "book_id": book_id,
                 "status": "completed",
                 "progress": 100,
-                "message": "Parsing completed",
+                "message": "AI processing completed",
                 "descriptions_found": (
                     sum(ch.descriptions_found for ch in book.chapters)
                     if book.chapters

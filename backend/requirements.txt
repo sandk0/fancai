@@ -72,3 +72,6 @@ tenacity==9.0.0  # Retry library with exponential backoff
 
 # Web Push Notifications (January 2026)
 pywebpush>=2.0.0
+
+# Graph Analysis & Map-Reduce (Phase 6)
+networkx==3.4.2

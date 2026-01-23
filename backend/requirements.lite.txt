@@ -85,3 +85,6 @@ pywebpush==2.0.1
 python-dateutil==2.9.0.post0
 pillow>=11.0.0
 tenacity==9.0.0  # Retry library with exponential backoff
+
+# Graph Analysis & Map-Reduce (Phase 6)
+networkx==3.4.2

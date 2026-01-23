@@ -1,0 +1,376 @@
+2026-01-23 00:10:47,281 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,281 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,282 INFO sqlalchemy.engine.Engine [cached since 0.001055s ago] (UUID('b4289f2f-04b0-497a-a519-c125b985a1c8'),)
+2026-01-23 00:10:47,282 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,282 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,282 INFO sqlalchemy.engine.Engine [cached since 0.001586s ago] (UUID('20b90667-420c-4ee9-917b-87e7643f96a3'),)
+2026-01-23 00:10:47,284 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,284 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,284 INFO sqlalchemy.engine.Engine [cached since 0.003743s ago] (UUID('ac61900f-b341-484c-9741-4c0c6c1befe5'),)
+2026-01-23 00:10:47,285 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,286 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,286 INFO sqlalchemy.engine.Engine [cached since 0.005276s ago] (UUID('b3275dea-adb1-4ea2-951a-a30fdd9e85cf'),)
+2026-01-23 00:10:47,287 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,287 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,287 INFO sqlalchemy.engine.Engine [cached since 0.00667s ago] (UUID('ce2831d3-d34c-4510-a788-6cc2c5499818'),)
+2026-01-23 00:10:47,295 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,296 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,297 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,297 INFO sqlalchemy.engine.Engine [cached since 0.01632s ago] (UUID('ae1e37b2-fc71-475c-a735-e22d64b746ec'),)
+2026-01-23 00:10:47,300 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,302 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,305 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,308 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,308 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:10:47,308 INFO sqlalchemy.engine.Engine [cached since 0.0274s ago] (UUID('1e4ef7e4-c133-4677-9601-f8413427cbe4'),)
+2026-01-23 00:10:47,309 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,310 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,314 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,315 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,323 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-23 00:10:47,323 INFO sqlalchemy.engine.Engine [generated in 0.00033s] (100, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:10:47,330 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID
+2026-01-23 00:10:47,330 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('a3bf9c86-f279-4411-a2bc-166153f8d0e5',)
+2026-01-23 00:10:47,341 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.visual_summary IS NOT NULL AND entities.master_portrait_url IS NULL
+2026-01-23 00:10:47,341 INFO sqlalchemy.engine.Engine [generated in 0.00022s] ('a3bf9c86-f279-4411-a2bc-166153f8d0e5',)
+2026-01-23 00:10:47,345 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:10:47,345 INFO sqlalchemy.engine.Engine [generated in 0.00026s] (False, True, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:10:47,347 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:10:47,351 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:10:47,352 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:10:47,352 INFO sqlalchemy.engine.Engine [cached since 0.4325s ago] (UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'),)
+2026-01-23 00:10:47,355 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_processing_error=$2::VARCHAR, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:10:47,355 INFO sqlalchemy.engine.Engine [generated in 0.00021s] (False, "(sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ign ... (155 characters truncated) ... = $3::UUID]\n[parameters: (False, True, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))]\n(Background on this error at: https://sqlalche.me/e/20/dbapi)", UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:10:47,358 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-23 00:16:53,250 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-23 00:16:53,250 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:16:53,253 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-23 00:16:53,253 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:16:53,255 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-23 00:16:53,255 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:16:53,258 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,337 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:16:53,338 INFO sqlalchemy.engine.Engine [generated in 0.00040s] (UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'),)
+2026-01-23 00:16:53,347 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-23 00:16:53,347 INFO sqlalchemy.engine.Engine [generated in 0.00031s] (UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'),)
+2026-01-23 00:16:53,745 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,748 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,748 INFO sqlalchemy.engine.Engine [generated in 0.00025s] (UUID('b4289f2f-04b0-497a-a519-c125b985a1c8'),)
+2026-01-23 00:16:53,749 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,750 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,750 INFO sqlalchemy.engine.Engine [cached since 0.002585s ago] (UUID('ac61900f-b341-484c-9741-4c0c6c1befe5'),)
+2026-01-23 00:16:53,753 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,754 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,755 INFO sqlalchemy.engine.Engine [cached since 0.007159s ago] (UUID('20b90667-420c-4ee9-917b-87e7643f96a3'),)
+2026-01-23 00:16:53,755 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,755 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,756 INFO sqlalchemy.engine.Engine [cached since 0.008152s ago] (UUID('a21061e3-0fa5-4ee5-bd2e-966be6567835'),)
+2026-01-23 00:16:53,756 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,756 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,756 INFO sqlalchemy.engine.Engine [cached since 0.008976s ago] (UUID('ae1e37b2-fc71-475c-a735-e22d64b746ec'),)
+2026-01-23 00:16:53,757 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,757 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,757 INFO sqlalchemy.engine.Engine [cached since 0.009524s ago] (UUID('ce2831d3-d34c-4510-a788-6cc2c5499818'),)
+2026-01-23 00:16:53,758 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,758 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,758 INFO sqlalchemy.engine.Engine [cached since 0.01079s ago] (UUID('b3275dea-adb1-4ea2-951a-a30fdd9e85cf'),)
+2026-01-23 00:16:53,761 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,761 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:16:53,761 INFO sqlalchemy.engine.Engine [cached since 0.01374s ago] (UUID('1e4ef7e4-c133-4677-9601-f8413427cbe4'),)
+2026-01-23 00:16:53,764 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,768 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,771 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,772 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,773 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,773 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,775 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,776 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,780 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-23 00:16:53,780 INFO sqlalchemy.engine.Engine [generated in 0.00020s] (100, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:16:53,785 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID
+2026-01-23 00:16:53,785 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('a3bf9c86-f279-4411-a2bc-166153f8d0e5',)
+2026-01-23 00:16:53,791 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.visual_summary IS NOT NULL AND entities.master_portrait_url IS NULL
+2026-01-23 00:16:53,791 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('a3bf9c86-f279-4411-a2bc-166153f8d0e5',)
+2026-01-23 00:16:53,793 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:16:53,793 INFO sqlalchemy.engine.Engine [generated in 0.00020s] (False, True, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:16:53,794 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:16:53,797 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:16:53,797 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:16:53,797 INFO sqlalchemy.engine.Engine [cached since 0.46s ago] (UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'),)
+2026-01-23 00:16:53,800 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_processing_error=$2::VARCHAR, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:16:53,800 INFO sqlalchemy.engine.Engine [generated in 0.00024s] (False, "(sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ign ... (155 characters truncated) ... = $3::UUID]\n[parameters: (False, True, UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))]\n(Background on this error at: https://sqlalche.me/e/20/dbapi)", UUID('a3bf9c86-f279-4411-a2bc-166153f8d0e5'))
+2026-01-23 00:16:53,801 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-23 00:17:03,354 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-23 00:17:03,354 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:17:03,359 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-23 00:17:03,359 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:17:03,362 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-23 00:17:03,362 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:17:03,364 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,426 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:17:03,426 INFO sqlalchemy.engine.Engine [generated in 0.00047s] (UUID('21684139-5ab0-456a-b24f-2e70f349b040'),)
+2026-01-23 00:17:03,434 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-23 00:17:03,434 INFO sqlalchemy.engine.Engine [generated in 0.00024s] (UUID('21684139-5ab0-456a-b24f-2e70f349b040'),)
+2026-01-23 00:17:03,769 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,770 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,771 INFO sqlalchemy.engine.Engine [generated in 0.00021s] (UUID('0e532cf3-10f7-4d12-a4ca-9baa2696393a'),)
+2026-01-23 00:17:03,771 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,772 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,772 INFO sqlalchemy.engine.Engine [cached since 0.001564s ago] (UUID('47ab974b-acf5-4d1d-8ffd-a6819ea7e8bd'),)
+2026-01-23 00:17:03,773 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,773 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,773 INFO sqlalchemy.engine.Engine [cached since 0.002634s ago] (UUID('8ab1667c-738c-4309-a6d5-cd256c6bfad3'),)
+2026-01-23 00:17:03,773 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,774 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,774 INFO sqlalchemy.engine.Engine [cached since 0.003396s ago] (UUID('bb281b80-1d19-4784-a036-3be7e023b8f7'),)
+2026-01-23 00:17:03,774 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,774 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,774 INFO sqlalchemy.engine.Engine [cached since 0.004021s ago] (UUID('f2e97367-dcf6-4148-8a60-0ed2fdf45621'),)
+2026-01-23 00:17:03,775 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,775 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,775 INFO sqlalchemy.engine.Engine [cached since 0.004726s ago] (UUID('008c3a5d-e436-431b-ad06-10cc200016a4'),)
+2026-01-23 00:17:03,776 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,776 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,776 INFO sqlalchemy.engine.Engine [cached since 0.006078s ago] (UUID('5df83d70-4505-4622-917c-b02c96840b83'),)
+2026-01-23 00:17:03,778 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:03,779 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:17:03,779 INFO sqlalchemy.engine.Engine [cached since 0.008545s ago] (UUID('784ebf04-b482-49c3-82f5-f28ea98f20ad'),)
+2026-01-23 00:17:03,794 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, updated_at=now(), parsed_at=$2::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $3::UUID
+2026-01-23 00:17:03,795 INFO sqlalchemy.engine.Engine [generated in 0.00033s] (True, datetime.datetime(2026, 1, 23, 0, 17, 3, 791823, tzinfo=datetime.timezone.utc), UUID('0e532cf3-10f7-4d12-a4ca-9baa2696393a'))
+2026-01-23 00:17:03,853 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-23 00:17:23,753 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR)
+2026-01-23 00:17:23,754 INFO sqlalchemy.engine.Engine [generated in 0.00056s] ('21684139-5ab0-456a-b24f-2e70f349b040', 'камни', 'англичанин', 'пастух', 'чужеземец', 'алхимик', 'магазин', 'лавка хрусталя', 'араб наделенный сверхъестественными дарованиями', 'оазис', 'эль-фаюм', 'мелхиседек', 'продавец хрусталя', 'царь салима', 'пустыня сахара', 'старый царь', 'старик', 'сантьяго', 'юноша', 'пустыня', 'урим и тумим', 'хозяин')
+2026-01-23 00:17:23,757 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:23,870 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR)
+2026-01-23 00:17:23,871 INFO sqlalchemy.engine.Engine [cached since 0.1174s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'фатима', 'военачальник', 'египетские пирамиды', 'пирамиды', 'пустыня сахара', 'вождь племени', 'желтоватое стеклянное яйцо', 'философский камень', 'сердце', 'юноша', 'путник', 'пустыня', 'женщина из пустыни', 'учитель', 'сердце сантьяго', 'сантьяго', 'алхимик')
+2026-01-23 00:17:23,874 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:26,028 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR)
+2026-01-23 00:17:26,029 INFO sqlalchemy.engine.Engine [cached since 2.275s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'фатима', 'англичанин', 'юноша', 'изумрудная скрижаль', 'оазис', 'советник вождя', 'женщина пустыни', 'погонщик верблюдов', 'сантьяго', 'шатёр вождей', 'оазис эль-фаюм', 'большой шатёр', 'всадник в чёрном', 'грань изумруда', 'спутник сантьяго', 'алхимик', 'погонщик')
+2026-01-23 00:17:26,031 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:26,194 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR)
+2026-01-23 00:17:26,195 INFO sqlalchemy.engine.Engine [cached since 2.441s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'пастух', 'араб', 'толковательница снов', 'вор в танжере', 'камни прорицания', 'цыганка', 'отец сантьяго', 'заброшенная церковь', 'мелхиседек', 'дочка суконщика', 'царь салима', 'танжер', 'старик', 'африканский берег', 'сантьяго', 'спутник', 'дочка торговца', 'старуха', 'юноша', 'урим и тумим', 'церковь с сикомором')
+2026-01-23 00:17:26,197 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:26,300 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR)
+2026-01-23 00:17:26,300 INFO sqlalchemy.engine.Engine [cached since 2.547s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'старый колдун', 'фатима', 'камни', 'юноша', 'полуразвалившаяся церковь', 'сокровища', 'алхимик', 'старый царь', 'урим и тумим', 'мелхиседек', 'сантьяго', 'ларец с сокровищами')
+2026-01-23 00:17:26,302 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:26,899 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR)
+2026-01-23 00:17:26,899 INFO sqlalchemy.engine.Engine [cached since 3.146s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'ручей', 'нимфы леса', 'нарцисс', 'дриады', 'книга', 'пресная вода', 'лесные нимфы', 'книга оскара уайльда', 'прекрасный юноша', 'берег ручья', 'алхимик')
+2026-01-23 00:17:26,901 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:28,335 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR)
+2026-01-23 00:17:28,335 INFO sqlalchemy.engine.Engine [cached since 4.582s ago] ('21684139-5ab0-456a-b24f-2e70f349b040', 'лавка хрусталя', 'пирамиды', 'лавчонка', 'камни', 'царь', 'юноша', 'танжер', 'египет', 'пастух', 'продавец', 'сантьяго', 'новый мир', 'урим и тумим', 'царь мелхиседек', 'старик', 'мелхиседек', 'торговец хрусталём', 'хозяин')
+2026-01-23 00:17:28,337 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:28,340 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-23 00:17:28,341 INFO sqlalchemy.engine.Engine [generated in 0.00030s] (100, UUID('21684139-5ab0-456a-b24f-2e70f349b040'))
+2026-01-23 00:17:28,344 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID
+2026-01-23 00:17:28,344 INFO sqlalchemy.engine.Engine [generated in 0.00027s] ('21684139-5ab0-456a-b24f-2e70f349b040',)
+2026-01-23 00:17:28,351 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.visual_summary IS NOT NULL AND entities.master_portrait_url IS NULL
+2026-01-23 00:17:28,352 INFO sqlalchemy.engine.Engine [generated in 0.00026s] ('21684139-5ab0-456a-b24f-2e70f349b040',)
+2026-01-23 00:17:28,354 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:17:28,354 INFO sqlalchemy.engine.Engine [generated in 0.00019s] (False, True, UUID('21684139-5ab0-456a-b24f-2e70f349b040'))
+2026-01-23 00:17:28,355 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:17:28,358 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:17:28,358 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:17:28,358 INFO sqlalchemy.engine.Engine [cached since 24.93s ago] (UUID('21684139-5ab0-456a-b24f-2e70f349b040'),)
+2026-01-23 00:17:28,361 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_processing_error=$2::VARCHAR, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:17:28,361 INFO sqlalchemy.engine.Engine [generated in 0.00018s] (False, "(sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ign ... (155 characters truncated) ... = $3::UUID]\n[parameters: (False, True, UUID('21684139-5ab0-456a-b24f-2e70f349b040'))]\n(Background on this error at: https://sqlalche.me/e/20/dbapi)", UUID('21684139-5ab0-456a-b24f-2e70f349b040'))
+2026-01-23 00:17:28,363 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-23 00:24:36,242 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-23 00:24:36,242 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:24:36,246 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-23 00:24:36,246 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:24:36,248 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-23 00:24:36,248 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-23 00:24:36,250 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,313 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:24:36,313 INFO sqlalchemy.engine.Engine [generated in 0.00084s] (UUID('4261601e-dc92-4e46-aa48-03a485e81cba'),)
+2026-01-23 00:24:36,322 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.book_id = $1::UUID ORDER BY chapters.chapter_number
+2026-01-23 00:24:36,323 INFO sqlalchemy.engine.Engine [generated in 0.00030s] (UUID('4261601e-dc92-4e46-aa48-03a485e81cba'),)
+2026-01-23 00:24:36,696 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,697 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,697 INFO sqlalchemy.engine.Engine [generated in 0.00018s] (UUID('50e460fe-c5ab-4d1b-b188-009e0cc97613'),)
+2026-01-23 00:24:36,698 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,698 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,698 INFO sqlalchemy.engine.Engine [cached since 0.001401s ago] (UUID('c5349f80-a625-4fb7-ba1a-440f1c552d18'),)
+2026-01-23 00:24:36,698 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,699 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,699 INFO sqlalchemy.engine.Engine [cached since 0.001925s ago] (UUID('f9336627-5f37-45d5-b1b0-1931213f83ff'),)
+2026-01-23 00:24:36,699 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,699 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,699 INFO sqlalchemy.engine.Engine [cached since 0.00261s ago] (UUID('14b2301c-2084-412f-bf18-f5950b34e198'),)
+2026-01-23 00:24:36,701 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,701 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,701 INFO sqlalchemy.engine.Engine [cached since 0.00429s ago] (UUID('ab408c65-524a-436c-8f10-05a8d7c7eb72'),)
+2026-01-23 00:24:36,702 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,702 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,702 INFO sqlalchemy.engine.Engine [cached since 0.005099s ago] (UUID('672773fe-f831-40ca-845c-e484b577067c'),)
+2026-01-23 00:24:36,703 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,703 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,703 INFO sqlalchemy.engine.Engine [cached since 0.006185s ago] (UUID('960665aa-49fc-4e87-ae2f-e63f64218efe'),)
+2026-01-23 00:24:36,704 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:24:36,704 INFO sqlalchemy.engine.Engine SELECT chapters.id, chapters.book_id, chapters.chapter_number, chapters.title, chapters.content, chapters.html_content, chapters.word_count, chapters.estimated_reading_time, chapters.is_description_parsed, chapters.descriptions_found, chapters.parsing_progress, chapters.is_service_page, chapters.created_at, chapters.updated_at, chapters.parsed_at 
+FROM chapters 
+WHERE chapters.id = $1::UUID
+2026-01-23 00:24:36,704 INFO sqlalchemy.engine.Engine [cached since 0.007238s ago] (UUID('b0acf240-873d-4c22-9369-9b0144cf8d0d'),)
+2026-01-23 00:24:36,712 INFO sqlalchemy.engine.Engine UPDATE chapters SET is_description_parsed=$1::BOOLEAN, is_service_page=$2::BOOLEAN, updated_at=now(), parsed_at=$3::TIMESTAMP WITH TIME ZONE WHERE chapters.id = $4::UUID
+2026-01-23 00:24:36,712 INFO sqlalchemy.engine.Engine [generated in 0.00029s] (True, True, datetime.datetime(2026, 1, 23, 0, 24, 36, 709389, tzinfo=datetime.timezone.utc), UUID('50e460fe-c5ab-4d1b-b188-009e0cc97613'))
+2026-01-23 00:24:36,760 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-23 00:24:54,648 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR)
+2026-01-23 00:24:54,648 INFO sqlalchemy.engine.Engine [generated in 0.00059s] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'фатима', 'пески', 'англичанин', 'юноша', 'девушка у колодца', 'погонщик верблюдов', 'сантьяго', 'шатёр вождей', 'пустыня', 'оазис', 'большой шатёр', 'всадник в чёрном', 'оазис эль-фаюм', 'спутник сантьяго', 'алхимик', 'погонщик')
+2026-01-23 00:24:54,651 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:24:55,538 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR)
+2026-01-23 00:24:55,538 INFO sqlalchemy.engine.Engine [cached since 0.8905s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'ручей', 'нимфы леса', 'нарцисс', 'дриады', 'книга', 'the stream', 'the alchemist', 'narcissus', 'книга оскара уайльда', 'алхимик')
+2026-01-23 00:24:55,540 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:24:58,268 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR)
+2026-01-23 00:24:58,268 INFO sqlalchemy.engine.Engine [cached since 3.621s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'камешки', 'англичанин', 'пастух', 'чужеземец', 'алхимик', 'лавка хрусталя', 'погонщик верблюдов', 'хозяин лавки', 'эль-фаюм', 'мелхиседек', 'продавец хрусталя', 'царь салима', 'пустыня сахара', 'старый царь', 'сантьяго', 'юноша', 'старик хозяин', 'урим и тумим', 'оазис эль-фаюм')
+2026-01-23 00:24:58,270 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:24:58,629 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR)
+2026-01-23 00:24:58,629 INFO sqlalchemy.engine.Engine [cached since 3.981s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'старый колдун', 'фатима', 'камни', 'церковь', 'полуразвалившаяся церковь', 'юноша', 'сокровища', 'алхимик', 'старый царь', 'урим и тумим', 'мелхиседек', 'сантьяго', 'ларец с сокровищами')
+2026-01-23 00:24:58,631 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:25:00,820 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR)
+2026-01-23 00:25:00,820 INFO sqlalchemy.engine.Engine [cached since 6.173s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'пирамиды', 'рыночная площадь', 'пастух', 'араб', 'толковательница снов', 'египетские пирамиды', 'вор в танжере', 'камни прорицания', 'старуха-цыганка', 'отец сантьяго', 'заброшенная церковь', 'мелхиседек', 'дочка суконщика', 'царь салима', 'рынок танжера', 'старик', 'сантьяго', 'спутник', 'дочка торговца', 'отец', 'юноша', 'урим и тумим', 'церковь с сикомором')
+2026-01-23 00:25:00,823 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:25:01,930 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR)
+2026-01-23 00:25:01,930 INFO sqlalchemy.engine.Engine [cached since 7.283s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'вождь племени', 'пирамиды', 'главный военачальник', 'возлюбленная', 'обитель', 'алхимик', 'египетские пирамиды', 'коптский монастырь', 'старая церковь', 'склянка с жидкостью', 'путник', 'разрушенная церковь в испании', 'учитель', 'эликсир бессмертия', 'философский камень', 'женщина из пустыни', 'сантьяго', 'камень', 'фатима', 'сахара', 'юноша', 'пустыня')
+2026-01-23 00:25:01,934 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:25:03,554 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND lower(entities.name) IN ($2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR)
+2026-01-23 00:25:03,554 INFO sqlalchemy.engine.Engine [cached since 8.906s ago] ('4261601e-dc92-4e46-aa48-03a485e81cba', 'рыночная площадь танжера', 'лавка хрусталя', 'лавчонка', 'камни', 'площадь', 'царь', 'юноша', 'пастух', 'продавец', 'сантьяго', 'урим и тумим', 'старик', 'мелхиседек', 'торговец хрусталём', 'хозяин', 'рынок')
+2026-01-23 00:25:03,556 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:25:03,560 INFO sqlalchemy.engine.Engine UPDATE books SET parsing_progress=$1::INTEGER, updated_at=now() WHERE books.id = $2::UUID
+2026-01-23 00:25:03,560 INFO sqlalchemy.engine.Engine [generated in 0.00023s] (100, UUID('4261601e-dc92-4e46-aa48-03a485e81cba'))
+2026-01-23 00:25:03,566 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID
+2026-01-23 00:25:03,566 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('4261601e-dc92-4e46-aa48-03a485e81cba',)
+2026-01-23 00:25:03,572 INFO sqlalchemy.engine.Engine SELECT entities.id, entities.book_id, entities.type, entities.name, entities.visual_summary, entities.master_portrait_url, entities.seed, entities.importance, entities.linked_entity_ids, entities.entity_metadata, entities.created_at, entities.updated_at 
+FROM entities 
+WHERE entities.book_id = $1::UUID AND entities.visual_summary IS NOT NULL AND entities.master_portrait_url IS NULL
+2026-01-23 00:25:03,572 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('4261601e-dc92-4e46-aa48-03a485e81cba',)
+2026-01-23 00:25:03,574 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_extracted=$2::BOOLEAN, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:25:03,574 INFO sqlalchemy.engine.Engine [generated in 0.00017s] (False, True, UUID('4261601e-dc92-4e46-aa48-03a485e81cba'))
+2026-01-23 00:25:03,575 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-23 00:25:03,578 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-23 00:25:03,578 INFO sqlalchemy.engine.Engine SELECT books.id, books.user_id, books.title, books.author, books.genre, books.language, books.file_path, books.file_format, books.file_size, books.cover_image, books.description, books.book_metadata, books.total_pages, books.estimated_reading_time, books.is_parsed, books.is_processing, books.parsing_progress, books.parsing_error, books.descriptions_extracted, books.descriptions_processing_error, books.created_at, books.updated_at, books.last_accessed 
+FROM books 
+WHERE books.id = $1::UUID
+2026-01-23 00:25:03,578 INFO sqlalchemy.engine.Engine [cached since 27.27s ago] (UUID('4261601e-dc92-4e46-aa48-03a485e81cba'),)
+2026-01-23 00:25:03,581 INFO sqlalchemy.engine.Engine UPDATE books SET is_processing=$1::BOOLEAN, descriptions_processing_error=$2::VARCHAR, updated_at=now() WHERE books.id = $3::UUID
+2026-01-23 00:25:03,581 INFO sqlalchemy.engine.Engine [generated in 0.00028s] (False, "(sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ign ... (155 characters truncated) ... = $3::UUID]\n[parameters: (False, True, UUID('4261601e-dc92-4e46-aa48-03a485e81cba'))]\n(Background on this error at: https://sqlalche.me/e/20/dbapi)", UUID('4261601e-dc92-4e46-aa48-03a485e81cba'))
+2026-01-23 00:25:03,583 INFO sqlalchemy.engine.Engine COMMIT
