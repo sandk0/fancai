@@ -14,7 +14,7 @@
  */
 
 import { memo } from 'react';
-import { ArrowLeft, List, Info, Settings } from 'lucide-react';
+import { ArrowLeft, List, Info, Settings, Users } from 'lucide-react';
 
 interface ReaderHeaderProps {
   title: string;
@@ -26,6 +26,7 @@ interface ReaderHeaderProps {
   onTocToggle: () => void;
   onInfoOpen: () => void;
   onSettingsOpen: () => void;
+  onEntitiesOpen: () => void;
 }
 
 /**
@@ -45,6 +46,7 @@ export const ReaderHeader = memo(function ReaderHeader({
   onTocToggle,
   onInfoOpen,
   onSettingsOpen,
+  onEntitiesOpen,
 }: ReaderHeaderProps) {
   return (
     <div className="absolute left-0 right-0 z-10 backdrop-blur-md border-b bg-card/95 border-border top-0 mt-safe">
@@ -119,6 +121,15 @@ export const ReaderHeader = memo(function ReaderHeader({
               />
             </div>
           </div>
+
+          {/* Entities Button */}
+          <button
+            onClick={onEntitiesOpen}
+            className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+            title="Персонажи"
+          >
+            <Users className="w-5 h-5" />
+          </button>
 
           {/* Settings Button */}
           <button

@@ -1,0 +1,108 @@
+import React from 'react';
+import { EntityDetail } from '../../types/entity';
+import { SpoilerText } from './SpoilerText';
+import { ScrollArea } from '../UI/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
+import { Badge } from '../UI/badge';
+
+interface EntityProfileProps {
+    entity: EntityDetail;
+    currentChapter: number;
+}
+
+export const EntityProfile: React.FC<EntityProfileProps> = ({ entity, currentChapter }) => {
+    // Determine if the entity itself is a spoiler (not met yet)
+    // Assuming mentions are sorted
+    const firstMeeting = entity.mentions.length > 0 ? Math.min(...entity.mentions) : 9999;
+    const isUnknown = firstMeeting > currentChapter;
+
+    if (isUnknown) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 h-[60vh] space-y-4">
+                <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center shadow-inner shadow-black">
+                    <span className="text-4xl text-gray-600">?</span>
+                </div>
+                <h2 className="text-2xl font-serif text-gray-500">Unknown Entity</h2>
+                <p className="text-gray-600 text-center max-w-xs">
+                    You haven't met this character yet. Continue reading to unlock their profile.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-slate-900 text-white min-h-[80vh] flex flex-col">
+            {/* Hero Section */}
+            <div className="relative h-64 w-full">
+                {entity.avatar_url ? (
+                    <img
+                        src={entity.avatar_url}
+                        alt={entity.name}
+                        className="w-full h-full object-cover"
+                        style={{ maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)' }}
+                    />
+                ) : (
+                    <div className="w-full h-full bg-gradient-to-b from-blue-900 to-slate-900 flex items-center justify-center">
+                        <span className="text-6xl font-serif opacity-30">{entity.name[0]}</span>
+                    </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 p-6 w-full bg-gradient-to-t from-slate-900 to-transparent">
+                    <h1 className="text-3xl font-serif font-bold text-white drop-shadow-md">
+                        {entity.name}
+                    </h1>
+                    <div className="flex gap-2 mt-2">
+                        <Badge variant="outline" className="border-blue-500 text-blue-400">
+                            {entity.type}
+                        </Badge>
+                        {entity.importance > 7 && (
+                            <Badge variant="secondary" className="bg-yellow-900 text-yellow-200 hover:bg-yellow-800">
+                                Main Character
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Section */}
+            <ScrollArea className="flex-1 p-6">
+                <div className="space-y-6 pb-20">
+                    {/* Visual Summary */}
+                    {entity.visual_summary && (
+                        <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                            <h3 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wide">
+                                Visual Description
+                            </h3>
+                            <p className="text-gray-300 italic">
+                                {entity.visual_summary}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Progressive Lore (Notes) */}
+                    <div>
+                        <h3 className="text-lg font-bold mb-4 border-b border-slate-700 pb-2">Biography</h3>
+                        {entity.notes.length === 0 ? (
+                            <p className="text-gray-500">No details available yet.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {entity.notes.map((note, idx) => (
+                                    <div key={idx} className="bg-slate-900/50 rounded p-3 text-sm leading-relaxed border-l-2 border-slate-700 pl-4">
+                                        <SpoilerText
+                                            text={note.text}
+                                            chapterIndex={note.chapter_index}
+                                            currentChapter={currentChapter}
+                                        />
+                                        <div className="text-xs text-right mt-1 text-slate-600">
+                                            Chapter {note.chapter_index} • {note.type}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </ScrollArea>
+        </div>
+    );
+};

@@ -82,6 +82,9 @@ import { notify } from '@/stores/ui';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
+import { useEntityNetwork } from '@/hooks/useEntityNetwork';
+import { EntityDrawer } from '@/components/Entities/EntityDrawer';
+import { Users } from 'lucide-react'; // Ensure icon available
 
 // Types for position conflict
 interface PositionConflict {
@@ -396,6 +399,15 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       // Don't show error notification - sessions are non-critical
     },
   });
+
+  // --- Entity Cards Integration ---
+  const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
+  const { data: entityNetwork } = useEntityNetwork(book.id);
+
+  const handleEntitiesOpen = useCallback(() => {
+    setIsEntityDrawerOpen(true);
+  }, []);
+  // --------------------------------
 
   // State for BookInfo modal
   const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
@@ -1006,10 +1018,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           progress={progress}
           currentPage={currentPage ?? undefined}
           totalPages={totalPages ?? undefined}
-          onBack={() => navigate(-1)}
+          onBack={() => navigate('/')}
           onTocToggle={() => setIsTocOpen(!isTocOpen)}
           onInfoOpen={() => setIsBookInfoOpen(true)}
-          onSettingsOpen={() => setIsSettingsOpen(true)}
+          onSettingsOpen={() => setIsSettingsOpen(!isSettingsOpen)}
+          onEntitiesOpen={handleEntitiesOpen}
         />
       )}
 
