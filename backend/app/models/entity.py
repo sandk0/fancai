@@ -66,6 +66,8 @@ class Entity(Base):
     # Relationships for graph (defined in EntityRelationship)
     # outgoing_relations = relationship("EntityRelationship", foreign_keys="EntityRelationship.source_id",back_populates="source")
     # incoming_relations = relationship("EntityRelationship", foreign_keys="EntityRelationship.target_id", back_populates="target")
+    
+    mentions = relationship("EntityMention", back_populates="entity", cascade="all, delete-orphan", lazy="raise")
 
     def __repr__(self):
         return f"<Entity(id={self.id}, name='{self.name}', type='{self.type}')>"

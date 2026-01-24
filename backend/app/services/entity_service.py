@@ -12,6 +12,7 @@ from app.models.entity import Entity, EntityType
 from app.models.entity_relationship import EntityRelationship
 from app.models.description import Description, DescriptionType
 from app.models.chapter import Chapter
+from app.models.entity_mention import EntityMention
 from app.schemas.responses.entities import (
     EntityNetworkResponse,
     EntityDetailSchema,
@@ -42,7 +43,7 @@ class EntityService:
         Результат кэшируется.
         """
         # 1. Проверяем кэш
-        cache_key = f"book:{book_id}:entity_network_v2" # v2 cache key for new logic
+        cache_key = f"book:{book_id}:entity_network_v3" # v3 cache key for Hard Links
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
             return EntityNetworkResponse.model_validate(cached_data)
@@ -53,7 +54,6 @@ class EntityService:
         all_entities = entities_res.scalars().all()
 
         # 3. Загружаем Описания (для сборки биографии)
-        # Так как прямой связи нет, грузим все описания книги и линкуем вручную
         q_descriptions = (
             select(Description)
             .join(Chapter)
@@ -62,6 +62,21 @@ class EntityService:
         )
         desc_res = await self.db.execute(q_descriptions)
         all_descriptions = desc_res.scalars().all()
+        
+        # 3.1. Загружаем Hard Link Mentions (NEW)
+        # Получаем данные о присутствии сущностей в главах из новой таблицы
+        q_mentions = (
+            select(EntityMention.entity_id, Chapter.chapter_number)
+            .join(Chapter)
+            .where(Chapter.book_id == book_id)
+        )
+        mentions_res = await self.db.execute(q_mentions)
+        # Группируем: EntityID -> Set[ChapterNumber]
+        hard_mentions_map: Dict[UUID, Set[int]] = {}
+        for eid, cnum in mentions_res.all():
+            if eid not in hard_mentions_map:
+                hard_mentions_map[eid] = set()
+            hard_mentions_map[eid].add(cnum)
 
         # 4. Загружаем Связи
         entity_ids = [e.id for e in all_entities]
@@ -75,7 +90,7 @@ class EntityService:
         all_edges = edges_res.scalars().all()
 
         # 5. Применяем логику слияния (Soft Merge)
-        response = self._build_network_response(all_entities, all_descriptions, all_edges)
+        response = self._build_network_response(all_entities, all_descriptions, all_edges, hard_mentions_map)
 
         # 6. Сохраняем в кэш
         await cache_manager.set(
@@ -90,14 +105,14 @@ class EntityService:
         self, 
         entities: List[Entity], 
         descriptions: List[Description],
-        edges: List[EntityRelationship]
+        edges: List[EntityRelationship],
+        hard_mentions_map: Dict[UUID, Set[int]]
     ) -> EntityNetworkResponse:
         """
         Основная логика дедупликации и сборки ответа.
         """
         
         # --- Шаг 0: Подготовка описаний (Mapping: Entity Name -> List[Description]) ---
-        # Это "Soft Link" - связывание по имени, так как нет внешнего ключа
         descriptions_map: Dict[str, List[Description]] = {}
         
         import json
@@ -106,24 +121,17 @@ class EntityService:
                 continue
                 
             try:
-                # entities_mentioned хранится как JSON строка списка имен ["Геральт", "Йен"]
-                # ИЛИ как CSV строка "Геральт,Йен" (legacy/buggy format)
                 mentioned_names = []
-                
-                # 1. Попытка распарсить как JSON
                 try:
                     parsed = json.loads(d.entities_mentioned)
                     if isinstance(parsed, list):
                         mentioned_names = parsed
                     elif isinstance(parsed, dict):
-                        # Handle rare case of {"name": "..."} dicts
                         mentioned_names = [parsed.get("name")] if parsed.get("name") else []
                 except json.JSONDecodeError:
-                    # 2. Fallback: Парсинг как CSV (если JSON не валиден)
                     if d.entities_mentioned:
                         mentioned_names = [x.strip() for x in d.entities_mentioned.split(",") if x.strip()]
 
-                # 3. Обработка имен
                 for name in mentioned_names:
                     if isinstance(name, str):
                         norm = self._normalize_name(name)
@@ -158,8 +166,8 @@ class EntityService:
             # Получаем связанные описания по нормализованному имени
             related_descriptions = descriptions_map.get(norm_name, [])
             
-            # Собираем данные
-            merged_detail = self._create_merged_detail(master, related_descriptions)
+            # Собираем данные (включая Hard Mentions)
+            merged_detail = self._create_merged_detail(master, related_descriptions, hard_mentions_map)
             master_entities[master.id] = merged_detail
             
             # Ремаппинг ID
@@ -199,13 +207,28 @@ class EntityService:
             edges=final_edges
         )
 
-    def _create_merged_detail(self, master: Entity, descriptions: List[Description]) -> EntityDetailSchema:
+    def _create_merged_detail(
+        self, 
+        master: Entity, 
+        descriptions: List[Description],
+        hard_mentions_map: Dict[UUID, Set[int]]
+    ) -> EntityDetailSchema:
         """
         Создает EntityDetailSchema из мастера и списка описаний.
         """
         all_notes: List[EntityNoteSchema] = []
-        all_mentions: Set[int] = set()
+        
+        # 1. Применяем Hard Mentions как базу (100% точность)
+        # Для мастера и всех его алиасов (если они были слиты в группу)
+        # Но здесь мы работаем с одним master объектом.
+        # В идеале нужно мержить сет меншонов для всей группы.
+        # Для простоты берем меншены мастера.
+        # TODO: В будущем - передавать список IDs всей группы в create_merged_detail
+        
+        all_mentions: Set[int] = hard_mentions_map.get(master.id, set())
 
+        # 2. Обогащаем данными из описаний (Soft Links)
+        # Это нужно для обратной совместимости и для "густых" данных заметок
         for d in descriptions:
             chapter_idx = 0
             if d.chapter:

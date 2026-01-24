@@ -57,6 +57,9 @@ class Chapter(Base):
     # Service page detection cache (P1.1 optimization)
     # True = skip description extraction (ToC, copyright, etc.)
     is_service_page = Column(Boolean, default=None, nullable=True)
+    
+    # Internal file path for exact mapping (e.g. "Text/chapter1.xhtml")
+    file_path = Column(String(500), nullable=True, index=True)
 
     # Временные метки
     created_at = Column(
@@ -78,6 +81,9 @@ class Chapter(Base):
     )
     generated_images = relationship(
         "GeneratedImage", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
+    )
+    mentions = relationship(
+        "EntityMention", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
     )
 
     def __repr__(self):

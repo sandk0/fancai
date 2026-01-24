@@ -108,6 +108,7 @@ class BookService:
                 html_content=chapter_data.html_content,
                 word_count=chapter_data.word_count,
                 estimated_reading_time=max(1, chapter_data.word_count // 200),
+                file_path=chapter_data.file_path,  # Save strict mapping path
             )
             db.add(chapter)
 

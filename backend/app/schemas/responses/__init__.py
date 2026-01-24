@@ -267,6 +267,7 @@ class ChapterResponse(BaseResponse):
     book_id: UUID
     chapter_number: int = Field(ge=1)
     title: str = Field(max_length=500)
+    file_path: Optional[str] = Field(None, description="Internal EPUB file path")
     content: str = Field(description="HTML/Text содержимое главы")
     word_count: int = Field(ge=0)
     estimated_reading_time: int = Field(ge=0, description="Минуты")
@@ -291,6 +292,7 @@ class ChapterSummary(BaseModel):
     id: UUID
     chapter_number: int
     title: str
+    file_path: Optional[str] = Field(None, description="Internal EPUB file path")
     word_count: int
     descriptions_found: int
 

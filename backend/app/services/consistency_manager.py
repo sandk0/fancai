@@ -26,12 +26,13 @@ class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult):
+    async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult, chapter_id: Optional[str] = None):
         """
         Process the raw results from agentic parsing.
         1. Resolve Entities (get or create, merge aliases) - BATCH mode.
-        2. Update Relationships.
-        3. Trigger Master Reference generation (if needed).
+        2. Create Entity Mentions (Link Chapter <-> Entity).
+        3. Update Relationships.
+        4. Trigger Master Reference generation (if needed).
         
         Phase 2: Batch entity resolution for performance.
         """
@@ -46,11 +47,31 @@ class ConsistencyManager:
         # Flush to get IDs
         await self.db.flush()
 
-        # 2. Relationship processing
+        # 2. Create Entity Mentions (Hard Links)
+        # This replaces the legacy JSON CSV approach
+        if chapter_id:
+            from app.models.entity_mention import EntityMention
+            
+            # Use raw entities to preserve context (if we have it) or just link resolved entities
+            # entity_map: normalized_name -> Entity object
+            # We want to link every unique resolved Entity found in this chapter.
+            
+            unique_entities = set(entity_map.values())
+            for entity in unique_entities:
+                # Check duplication? We assume this runs once per chapter.
+                mention = EntityMention(
+                    chapter_id=chapter_id,
+                    entity_id=entity.id,
+                    mention_text=entity.name, # Default to canonical name for now
+                    # extraction often doesn't give exact snippet offset yet
+                )
+                self.db.add(mention)
+
+        # 3. Relationship processing
         if result.relationships:
             await self._process_relationships(book_id, result.relationships, entity_map)
             
-        # 3. Trigger Master Reference generation (for top entities)
+        # 4. Trigger Master Reference generation (for top entities)
         # We process this in background or check if needed
         # For now, let's just trigger for newly created entities with high confidence
         for raw_entity in result.entities:

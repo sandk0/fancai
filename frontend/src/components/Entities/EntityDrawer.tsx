@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { EntityDetail } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
-import { X, ChevronRight } from 'lucide-react';
+import { isEntityMet } from '../../utils/entityUtils';
+import { X, ChevronRight, Lock } from 'lucide-react';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
 
@@ -73,40 +74,43 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                 <ScrollArea className="h-full">
                                     <div className="space-y-2 pb-20 px-2">
                                         {entityList.map((entity) => {
-                                            // Logic: Check if character is met
-                                            const mentions = entity.mentions || [];
-                                            // Fallback: if no mentions data, assume visible (0). 
-                                            // This prevents "Unknown Entity" if backend data is incomplete.
-                                            const firstMeeting = mentions.length > 0 ? Math.min(...mentions) : 0;
-
-                                            // Handle case where currentChapter might be undefined (default to 0)
-                                            // If currentChapter (e.g. 5) >= firstMeeting (e.g. 1), then IS MET.
-                                            const safeCurrentChapter = currentChapter ?? 0;
-                                            const isMet = safeCurrentChapter >= firstMeeting;
+                                            // Logic: Check if character is met via centralized utility
+                                            const isMet = isEntityMet(entity, currentChapter);
 
                                             return (
                                                 <div
                                                     key={entity.id}
                                                     onClick={() => setSelectedEntityId(entity.id)}
-                                                    className="flex items-center p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700"
+                                                    className={`flex items-center p-3 rounded-lg transition-colors cursor-pointer border border-transparent 
+                                                        ${isMet ? 'bg-slate-800/50 hover:bg-slate-800 hover:border-slate-700' : 'bg-slate-900/30 opacity-70 hover:opacity-100 hover:bg-slate-800/30'}`}
                                                 >
-                                                    <Avatar className="h-12 w-12 mr-4 border border-slate-700">
-                                                        <AvatarImage src={isMet ? (entity.avatar_url || undefined) : undefined} className={!isMet ? 'blur-sm grayscale' : ''} />
-                                                        <AvatarFallback className="bg-slate-700 text-slate-400">
-                                                            {isMet ? (entity.name ? entity.name[0] : '?') : '?'}
+                                                    <Avatar className={`h-12 w-12 mr-4 border ${isMet ? 'border-slate-700' : 'border-slate-800'}`}>
+                                                        <AvatarImage
+                                                            src={entity.avatar_url || undefined}
+                                                            className={!isMet ? 'grayscale brightness-50' : ''}
+                                                        />
+                                                        <AvatarFallback className="bg-slate-800 text-slate-500">
+                                                            {entity.name ? entity.name[0] : '?'}
                                                         </AvatarFallback>
                                                     </Avatar>
 
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className="font-medium text-slate-200 truncate">
-                                                            {isMet ? entity.name : 'Неизвестный персонаж'}
-                                                        </h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className={`font-medium truncate ${isMet ? 'text-slate-200' : 'text-slate-400'}`}>
+                                                                {entity.name}
+                                                            </h3>
+                                                            {!isMet && <Lock className="w-3 h-3 text-slate-600" />}
+                                                        </div>
+
                                                         <p className="text-xs text-slate-500 truncate">
-                                                            {isMet ? (
-                                                                entity.type === 'CHARACTER' ? 'Персонаж' :
-                                                                    entity.type === 'LOCATION' ? 'Локация' : 'Объект'
-                                                            ) : 'Читайте дальше, чтобы узнать'}
+                                                            {entity.type === 'CHARACTER' ? 'Персонаж' :
+                                                                entity.type === 'LOCATION' ? 'Локация' : 'Объект'}
                                                         </p>
+
+                                                        {/* DEBUG OVERLAY (Hidden by default, can un-comment if needed) */}
+                                                        {/* <div className="text-[10px] text-yellow-600 font-mono mt-1">
+                                                            Debug: {safeCurrentChapter} vs {firstMeeting}
+                                                        </div> */}
                                                     </div>
 
                                                     <ChevronRight className="text-slate-600 w-5 h-5 ml-2" />

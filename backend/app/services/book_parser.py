@@ -64,6 +64,7 @@ class BookChapter:
     content: str
     html_content: str = ""
     word_count: int = 0
+    file_path: str = "" # Internal EPUB path (href) for exact mapping
 
     def __post_init__(self):
         """Автоматический подсчёт слов если не указан."""
@@ -480,6 +481,7 @@ class EPUBParser:
                         title=title,
                         content=content,
                         html_content=html_content,
+                        file_path=link.split('#')[0], # Store internal href
                     )
 
                     chapters.append(chapter)
@@ -580,6 +582,7 @@ class EPUBParser:
                         title=title,
                         content=text_content,
                         html_content=html_content,
+                        file_path=item.get_name(),  # Store internal href
                     )
 
                     chapters.append(chapter)

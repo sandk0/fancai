@@ -380,7 +380,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             # 4. Consistency & Logic (Map Phase)
                             # Use a local ConsistencyManager with this session
                             local_mgr = ConsistencyManager(session)
-                            await local_mgr.process_chapter_analysis(str(book_id), result)
+                            await local_mgr.process_chapter_analysis(str(book_id), result, chapter_id=str(local_chapter.id))
 
                             # 5. Save Descriptions
                             descriptions_data = result.descriptions or []

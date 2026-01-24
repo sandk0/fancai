@@ -1,4 +1,4 @@
-export type EntityType = 'CHARACTER' | 'LOCATION' | 'OBJECT' | 'ACTION' | 'ATMOSPHERE';
+export type EntityType = 'character' | 'location' | 'object' | 'action' | 'atmosphere';
 
 export interface EntityNote {
     text: string;
