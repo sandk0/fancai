@@ -54,7 +54,7 @@ class EntityService:
             select(Entity)
             .where(Entity.book_id == book_id)
             .options(
-                selectinload(Entity.descriptions).joinedload(Description.chapter)
+                # selectinload(Entity.descriptions).joinedload(Description.chapter)
             )
         )
         entities_res = await self.db.execute(q_entities)
@@ -169,22 +169,22 @@ class EntityService:
         all_mentions: Set[int] = set()
 
         for e in group:
-            # Собираем описания
-            for d in e.descriptions:
-                # Определяем номер главы
-                chapter_idx = 0
-                if d.chapter:
-                    chapter_idx = d.chapter.chapter_number
-                
-                # Добавляем в mentions
-                all_mentions.add(chapter_idx)
-
-                all_notes.append(EntityNoteSchema(
-                    text=d.content,
-                    chapter_index=chapter_idx,
-                    is_spoiler=False, # Пока логика спойлеров на фронте
-                    type=d.type.value if d.type else "UNKNOWN"
-                ))
+            # Собираем описания (Temporarily disabled: No DB relationship yet)
+            # for d in e.descriptions:
+            #     # Определяем номер главы
+            #     chapter_idx = 0
+            #     if d.chapter:
+            #         chapter_idx = d.chapter.chapter_number
+            #     
+            #     # Добавляем в mentions
+            #     all_mentions.add(chapter_idx)
+            #
+            #     all_notes.append(EntityNoteSchema(
+            #         text=d.content,
+            #         chapter_index=chapter_idx,
+            #         is_spoiler=False, # Пока логика спойлеров на фронте
+            #         type=d.type.value if d.type else "UNKNOWN"
+            #     ))
 
         # Сортируем описания по главам
         all_notes.sort(key=lambda x: x.chapter_index)
