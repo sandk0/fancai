@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Drawer } from 'vaul';
-import { EntityDetail } from '../../types/entity';
+import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
 import { isEntityMet, getFirstMeetingChapter } from '../../utils/entityUtils';
-import { X, ChevronRight, Lock } from 'lucide-react';
+import { X, ChevronRight, Lock, Grid } from 'lucide-react';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
 
@@ -13,6 +14,7 @@ interface EntityDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     entities: Record<string, EntityDetail>;
+    edges: NetworkEdge[];
     currentChapter: number;
     initialEntityId?: string | null;
 }
@@ -21,10 +23,13 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     isOpen,
     onClose,
     entities,
+    edges,
     currentChapter,
     initialEntityId
 }) => {
     const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
+    const navigate = useNavigate();
+    const { bookId } = useParams();
 
     // Reset selection when closing/opening with new initialId
     useEffect(() => {
@@ -36,6 +41,21 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     }, [isOpen, initialEntityId]);
 
     const entityList = Object.values(entities).sort((a, b) => (b.importance || 0) - (a.importance || 0));
+
+    const relationships = React.useMemo(() => {
+        if (!selectedEntityId || !edges) return [];
+        return edges
+            .filter(e => e.source === selectedEntityId || e.target === selectedEntityId)
+            .map(e => {
+                const otherId = e.source === selectedEntityId ? e.target : e.source;
+                return {
+                    entity: entities[otherId],
+                    type: e.type,
+                    description: e.description
+                };
+            })
+            .filter(r => r.entity);
+    }, [selectedEntityId, edges, entities]);
 
     return (
         <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -55,7 +75,16 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                     ← К списку
                                 </button>
                             ) : (
-                                <h2 className="text-lg font-semibold text-white">Персонажи</h2>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-lg font-semibold text-white">Персонажи</h2>
+                                    <button
+                                        onClick={() => navigate(`/book/${bookId}/gallery`)}
+                                        className="p-1.5 bg-slate-800 rounded-full text-blue-400 hover:bg-slate-700 hover:text-blue-300 transition-colors"
+                                        title="Открыть галерею"
+                                    >
+                                        <Grid size={16} />
+                                    </button>
+                                </div>
                             )}
 
                             <button
@@ -70,6 +99,8 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                             {selectedEntityId && entities[selectedEntityId] ? (
                                 <EntityProfile
                                     entity={entities[selectedEntityId]}
+                                    relatedEntities={relationships}
+                                    onEntityClick={(id) => setSelectedEntityId(id)}
                                     currentChapter={currentChapter}
                                 />
                             ) : (

@@ -1109,6 +1109,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         isOpen={isEntityDrawerOpen}
         onClose={() => setIsEntityDrawerOpen(false)}
         entities={entityNetwork?.entities || {}}
+        edges={entityNetwork?.edges || []}
         currentChapter={currentChapter}
       />
 

@@ -7,12 +7,25 @@ import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
 import { Badge } from '../UI/badge';
 import { Lock } from 'lucide-react';
 
+interface RelationItem {
+    entity: EntityDetail;
+    type: string; // e.g. "ALLY", "ENEMY"
+    description?: string | null;
+}
+
 interface EntityProfileProps {
     entity: EntityDetail;
     currentChapter: number;
+    relatedEntities?: RelationItem[];
+    onEntityClick?: (id: string) => void;
 }
 
-export const EntityProfile: React.FC<EntityProfileProps> = ({ entity, currentChapter }) => {
+export const EntityProfile: React.FC<EntityProfileProps> = ({
+    entity,
+    currentChapter,
+    relatedEntities = [],
+    onEntityClick
+}) => {
     // Determine visibility using centralized utility
     const isUnknown = !isEntityMet(entity, currentChapter);
 
@@ -67,6 +80,48 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({ entity, currentCha
                             <p className="text-gray-400 italic text-sm">
                                 {entity.visual_summary}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Relationships Section (NEW) */}
+                    {!isUnknown && relatedEntities.length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Связи</h3>
+                            <div className="grid grid-cols-1 gap-2">
+                                {relatedEntities.map((rel, idx) => {
+                                    // Check if relation target is met
+                                    const isRelMet = isEntityMet(rel.entity, currentChapter);
+
+                                    return (
+                                        <div
+                                            key={rel.entity.id + idx}
+                                            onClick={() => isRelMet && onEntityClick?.(rel.entity.id)}
+                                            className={`flex items-center p-2 rounded bg-slate-800/40 border border-slate-800 
+                                                ${isRelMet ? 'cursor-pointer hover:bg-slate-800 hover:border-slate-700' : 'opacity-60 cursor-default'}`}
+                                        >
+                                            <Avatar className="h-8 w-8 mr-3">
+                                                <AvatarImage src={rel.entity.avatar_url || undefined} className={!isRelMet ? "grayscale" : ""} />
+                                                <AvatarFallback>{rel.entity.name[0]}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-center">
+                                                    <span className={`text-sm font-medium truncate ${isRelMet ? 'text-slate-200' : 'text-slate-500'}`}>
+                                                        {rel.entity.name}
+                                                    </span>
+                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-slate-700 text-slate-400">
+                                                        {rel.type}
+                                                    </Badge>
+                                                </div>
+                                                {rel.description && (
+                                                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                                                        {rel.description}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 

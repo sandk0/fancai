@@ -37,6 +37,7 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 // Heavy pages with large dependencies (CRITICAL for bundle size)
 // BookReaderPage includes EpubReader which loads epub.js (~300KB)
 const BookReaderPage = lazy(() => import('@/pages/BookReaderPage'));
+const BookGalleryPage = lazy(() => import('@/pages/BookGalleryPage'));
 
 // Admin dashboard (large component, admin-only)
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboardEnhanced'));
@@ -77,73 +78,74 @@ function App() {
         <Router>
           <ScrollToTop />
           <div className="App min-h-screen transition-colors bg-background text-foreground">
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* Fullscreen reader route (no layout) */}
-            <Route
-              path="/book/:bookId/read"
-              element={
-                <AuthGuard>
-                  <ChunkLoadErrorBoundary>
-                    <Suspense fallback={<PageLoadingFallback />}>
-                      <BookReaderPage />
-                    </Suspense>
-                  </ChunkLoadErrorBoundary>
-                </AuthGuard>
-              }
-            />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
 
-            {/* Protected routes with layout */}
-            <Route
-              path="/*"
-              element={
-                <AuthGuard>
-                  <Layout>
+              {/* Fullscreen reader route (no layout) */}
+              <Route
+                path="/book/:bookId/read"
+                element={
+                  <AuthGuard>
                     <ChunkLoadErrorBoundary>
                       <Suspense fallback={<PageLoadingFallback />}>
-                        <Routes>
-                          <Route path="/" element={<HomePage />} />
-                          <Route path="/library" element={<LibraryPage />} />
-                          <Route path="/book/:bookId" element={<BookPage />} />
-                          <Route path="/book/:bookId/images" element={<BookImagesPage />} />
-                          <Route path="/images" element={<ImagesGalleryPage />} />
-                          <Route path="/stats" element={<StatsPage />} />
-                          <Route path="/profile" element={<ProfilePage />} />
-                          <Route path="/settings" element={<SettingsPage />} />
-                          <Route path="/admin" element={<AdminDashboard />} />
-                          <Route path="*" element={<NotFoundPage />} />
-                        </Routes>
+                        <BookReaderPage />
                       </Suspense>
                     </ChunkLoadErrorBoundary>
-                  </Layout>
-                </AuthGuard>
-              }
+                  </AuthGuard>
+                }
+              />
+
+              {/* Protected routes with layout */}
+              <Route
+                path="/*"
+                element={
+                  <AuthGuard>
+                    <Layout>
+                      <ChunkLoadErrorBoundary>
+                        <Suspense fallback={<PageLoadingFallback />}>
+                          <Routes>
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/library" element={<LibraryPage />} />
+                            <Route path="/book/:bookId" element={<BookPage />} />
+                            <Route path="/book/:bookId/images" element={<BookImagesPage />} />
+                            <Route path="/book/:bookId/gallery" element={<BookGalleryPage />} />
+                            <Route path="/images" element={<ImagesGalleryPage />} />
+                            <Route path="/stats" element={<StatsPage />} />
+                            <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/admin" element={<AdminDashboard />} />
+                            <Route path="*" element={<NotFoundPage />} />
+                          </Routes>
+                        </Suspense>
+                      </ChunkLoadErrorBoundary>
+                    </Layout>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+
+            {/* Offline status banner */}
+            <OfflineBanner />
+
+            {/* PWA update prompt */}
+            <PWAUpdatePrompt />
+
+            {/* Global notifications */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                className: 'bg-popover text-popover-foreground border border-border',
+                success: {
+                  className: 'bg-green-500 text-white border-green-600',
+                },
+                error: {
+                  className: 'bg-destructive text-destructive-foreground border-destructive',
+                },
+              }}
             />
-          </Routes>
-          
-          {/* Offline status banner */}
-          <OfflineBanner />
-
-          {/* PWA update prompt */}
-          <PWAUpdatePrompt />
-
-          {/* Global notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              className: 'bg-popover text-popover-foreground border border-border',
-              success: {
-                className: 'bg-green-500 text-white border-green-600',
-              },
-              error: {
-                className: 'bg-destructive text-destructive-foreground border-destructive',
-              },
-            }}
-          />
           </div>
         </Router>
       </LazyMotion>
