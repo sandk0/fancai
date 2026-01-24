@@ -200,6 +200,9 @@ class EntityService:
             notes=all_notes
         )
 
+from fastapi import Depends
+from app.core.database import get_database_session
+
 # Dependency Injection Factory
-def get_entity_service(db: AsyncSession) -> EntityService:
+def get_entity_service(db: AsyncSession = Depends(get_database_session)) -> EntityService:
     return EntityService(db)
