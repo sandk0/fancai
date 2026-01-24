@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 
 interface SpoilerTextProps {
@@ -33,7 +32,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     return (
         <span
             onClick={() => setIsRevealed(true)}
-            className="cursor-pointer select-none rounded bg-gray-800 text-transparent hover:bg-gray-700 transition-colors px-1"
+            className="cursor-pointer select-none rounded bg-white/10 text-transparent hover:bg-white/20 transition-colors px-1 backdrop-blur-sm"
             title="Spoiler! Click to reveal"
         >
             {/* Render redacted blocks roughly matching text length */}

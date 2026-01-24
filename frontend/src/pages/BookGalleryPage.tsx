@@ -209,7 +209,7 @@ const BookGalleryPage: React.FC = () => {
 const FilterBadge: React.FC<{ active: boolean, onClick: () => void, label: string, count: number }> = ({ active, onClick, label, count }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${active
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${active
             ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
             : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
             }`}

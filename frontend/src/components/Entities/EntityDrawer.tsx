@@ -60,10 +60,10 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     return (
         <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <Drawer.Portal>
-                <Drawer.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" />
-                <Drawer.Content className="bg-slate-900 flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 z-50 outline-none border-t border-slate-700">
-                    <div className="p-4 bg-slate-900 rounded-t-[10px] flex-1 flex flex-col h-full">
-                        <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-slate-700 mb-4" />
+                <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
+                <Drawer.Content className="bg-[#0a0a0a] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-none border-t border-white/10 shadow-2xl">
+                    <div className="p-4 bg-[#0a0a0a] rounded-t-[10px] flex-1 flex flex-col h-full">
+                        <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mb-4" />
 
                         {/* Header Controls */}
                         <div className="flex justify-between items-center mb-4 px-2">
@@ -79,7 +79,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                     <h2 className="text-lg font-semibold text-white">Персонажи</h2>
                                     <button
                                         onClick={() => navigate(`/book/${bookId}/gallery`)}
-                                        className="p-1.5 bg-slate-800 rounded-full text-blue-400 hover:bg-slate-700 hover:text-blue-300 transition-colors"
+                                        className="p-1.5 bg-white/10 rounded-full text-purple-400 hover:bg-white/20 hover:text-purple-300 transition-colors"
                                         title="Открыть галерею"
                                     >
                                         <Grid size={16} />
@@ -89,7 +89,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
                             <button
                                 onClick={onClose}
-                                className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white"
+                                className="p-3 bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
                             >
                                 <X size={20} />
                             </button>
@@ -115,14 +115,14 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                                     key={entity.id}
                                                     onClick={() => setSelectedEntityId(entity.id)}
                                                     className={`flex items-center p-3 rounded-lg transition-colors cursor-pointer border border-transparent 
-                                                        ${isMet ? 'bg-slate-800/50 hover:bg-slate-800 hover:border-slate-700' : 'bg-slate-900/30 opacity-70 hover:opacity-100 hover:bg-slate-800/30'}`}
+                                                        ${isMet ? 'bg-white/5 hover:bg-white/10 hover:border-white/10' : 'bg-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
                                                 >
-                                                    <Avatar className={`h-12 w-12 mr-4 border ${isMet ? 'border-slate-700' : 'border-slate-800'}`}>
+                                                    <Avatar className={`h-12 w-12 mr-4 border ${isMet ? 'border-white/10' : 'border-white/5'}`}>
                                                         <AvatarImage
                                                             src={entity.avatar_url || undefined}
                                                             className={!isMet ? 'grayscale brightness-50' : ''}
                                                         />
-                                                        <AvatarFallback className="bg-slate-800 text-slate-500">
+                                                        <AvatarFallback className="bg-neutral-800 text-gray-400">
                                                             {entity.name ? entity.name[0] : '?'}
                                                         </AvatarFallback>
                                                     </Avatar>
