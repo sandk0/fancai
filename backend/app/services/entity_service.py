@@ -107,18 +107,32 @@ class EntityService:
                 
             try:
                 # entities_mentioned хранится как JSON строка списка имен ["Геральт", "Йен"]
-                mentioned_names = json.loads(d.entities_mentioned)
-                if isinstance(mentioned_names, list):
-                    for name in mentioned_names:
-                        if isinstance(name, str):
-                            norm = self._normalize_name(name)
+                # ИЛИ как CSV строка "Геральт,Йен" (legacy/buggy format)
+                mentioned_names = []
+                
+                # 1. Попытка распарсить как JSON
+                try:
+                    parsed = json.loads(d.entities_mentioned)
+                    if isinstance(parsed, list):
+                        mentioned_names = parsed
+                    elif isinstance(parsed, dict):
+                        # Handle rare case of {"name": "..."} dicts
+                        mentioned_names = [parsed.get("name")] if parsed.get("name") else []
+                except json.JSONDecodeError:
+                    # 2. Fallback: Парсинг как CSV (если JSON не валиден)
+                    if d.entities_mentioned:
+                        mentioned_names = [x.strip() for x in d.entities_mentioned.split(",") if x.strip()]
+
+                # 3. Обработка имен
+                for name in mentioned_names:
+                    if isinstance(name, str):
+                        norm = self._normalize_name(name)
+                        if norm:
                             if norm not in descriptions_map:
                                 descriptions_map[norm] = []
                             descriptions_map[norm].append(d)
-                # Fallback for structured dicts if format changed
-                elif isinstance(mentioned_names, dict):
-                     pass 
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to parse mentions for desc {d.id}: {e}")
                 continue
 
         # --- Шаг 1: Группировка дубликатов сущностей ---

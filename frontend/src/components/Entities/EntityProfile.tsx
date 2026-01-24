@@ -12,9 +12,13 @@ interface EntityProfileProps {
 
 export const EntityProfile: React.FC<EntityProfileProps> = ({ entity, currentChapter }) => {
     // Determine if the entity itself is a spoiler (not met yet)
-    // Assuming mentions are sorted
-    const firstMeeting = entity.mentions.length > 0 ? Math.min(...entity.mentions) : 9999;
-    const isUnknown = firstMeeting > currentChapter;
+    const mentions = entity.mentions || [];
+    // Fallback: if no mentions data, assume visible (0) to prevent "Unknown" for all.
+    const firstMeeting = mentions.length > 0 ? Math.min(...mentions) : 0;
+
+    // Safety check for currentChapter
+    const safeCurrentChapter = currentChapter ?? 0;
+    const isUnknown = firstMeeting > safeCurrentChapter;
 
     if (isUnknown) {
         return (
@@ -22,9 +26,9 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({ entity, currentCha
                 <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center shadow-inner shadow-black">
                     <span className="text-4xl text-gray-600">?</span>
                 </div>
-                <h2 className="text-2xl font-serif text-gray-500">Unknown Entity</h2>
+                <h2 className="text-2xl font-serif text-gray-500">Неизвестный персонаж</h2>
                 <p className="text-gray-600 text-center max-w-xs">
-                    You haven't met this character yet. Continue reading to unlock their profile.
+                    Вы еще не встретили этого персонажа. Читайте дальше, чтобы узнать больше.
                 </p>
             </div>
         );
