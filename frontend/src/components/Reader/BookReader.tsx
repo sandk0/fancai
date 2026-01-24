@@ -305,9 +305,10 @@ export const BookReader: React.FC<BookReaderProps> = ({
           currentPage={currentPage}
           totalPages={pages.length}
           onBack={() => window.history.back()}
-          onTocToggle={() => {}}
-          onInfoOpen={() => {}}
+          onTocToggle={() => { }}
+          onInfoOpen={() => { }}
           onSettingsOpen={() => setShowSettings(!showSettings)}
+          onEntitiesOpen={() => { }}
         />
 
         {/* Settings Panel */}
