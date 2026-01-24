@@ -1,20 +1,14 @@
 /**
  * useChapterMapping - Maps EPUB spine hrefs to backend chapter numbers
  *
- * Solves the mismatch between:
- * - Frontend: spine index (0, 1, 2, 3, ...)
- * - Backend: logical chapter numbers (1, 2, 3, ...)
- *
- * The backend parser skips non-chapter spine items (cover, TOC, etc.)
- * and extracts chapter numbers from content ("Глава первая" -> 1).
- *
- * This hook creates a mapping using a 2-level strategy:
- * 1. Match by title similarity (exact, partial, or chapter number)
- * 2. Sequential fallback (assume TOC order matches chapter order)
+ * STRATEGY (Hybrid):
+ * 1. Hard Match (Primary): Matches `chapter.file_path` from DB with `tocItem.href`.
+ *    This is 100% reliable for new books processed with the updated backend.
+ * 2. Heuristic Match (Fallback): Uses title similarity and regex for legacy books
+ *    (where file_path is missing) or fallback scenarios.
  *
  * @example
- * const { getChapterNumberByHref, getChapterNumberByLocation } = useChapterMapping(toc, chapters);
- * const chapterNum = getChapterNumberByLocation(rendition.currentLocation());
+ * const { getChapterNumberByHref } = useChapterMapping(toc, chapters);
  */
 
 import { useMemo } from 'react';
@@ -29,100 +23,83 @@ interface ChapterMetadata {
   number: number;
   title: string;
   word_count: number;
+  file_path?: string; // Internal EPUB path (e.g. "Text/chapter1.xhtml")
 }
 
 interface ChapterMapping {
-  /** Maps normalized href to backend chapter number */
   hrefToChapterNumber: Map<string, number>;
-  /** Get chapter number by spine href */
   getChapterNumberByHref: (href: string) => number | null;
-  /** Get chapter number by epub.js location object */
   getChapterNumberByLocation: (location: Location) => number | null;
 }
 
 // ============================================================================
-// Constants
+// Constants & Regex
 // ============================================================================
 
-/** Russian numeral words to numbers (feminine form for "глава") */
 const RUSSIAN_NUMERALS: Record<string, number> = {
-  'первая': 1, 'вторая': 2, 'третья': 3, 'четвертая': 4, 'пятая': 5,
+  'первая': 1, 'вторая': 2, 'третья': 3, 'четвертая': 4, 'четвёртая': 4, 'пятая': 5,
   'шестая': 6, 'седьмая': 7, 'восьмая': 8, 'девятая': 9, 'десятая': 10,
   'одиннадцатая': 11, 'двенадцатая': 12, 'тринадцатая': 13, 'четырнадцатая': 14,
   'пятнадцатая': 15, 'шестнадцатая': 16, 'семнадцатая': 17, 'восемнадцатая': 18,
   'девятнадцатая': 19, 'двадцатая': 20,
 };
 
-/** Regex to extract chapter numbers (Russian words or digits) */
-const CHAPTER_NUMBER_REGEX = new RegExp(
-  `(${Object.keys(RUSSIAN_NUMERALS).join('|')}|\\d+)`,
-  'i'
-);
+const SERVICE_KEYWORDS = [
+  'содержание', 'оглавление', 'table of contents', 'contents',
+  'copyright', 'издательство', 'об авторе', 'about the author',
+  'примечания', 'notes', 'благодарности', 'acknowledgments',
+  'алфавитный указатель', 'index', 'библиография', 'bibliography',
+  'isbn'
+];
 
 // ============================================================================
 // Utility Functions
 // ============================================================================
 
-/**
- * Normalize href for comparison.
- * Removes hash fragments, query params, and leading slashes.
- */
 const normalizeHref = (href: string): string =>
   href.split('#')[0].split('?')[0].replace(/^\/+/, '').toLowerCase();
 
-/**
- * Normalize title for comparison.
- * Lowercases and collapses whitespace.
- */
 const normalizeTitle = (title: string): string =>
   title.toLowerCase().replace(/\s+/g, ' ').trim();
 
-/**
- * Extract chapter number from text.
- * Supports both Russian numerals ("первая") and digits ("1").
- * @returns Chapter number or null if not found
- */
-const extractChapterNumber = (text: string): number | null => {
-  const match = normalizeTitle(text).match(CHAPTER_NUMBER_REGEX);
-  if (!match) return null;
+const extractChapterNumber = (title: string): number | null => {
+  const lower = normalizeTitle(title);
 
-  const value = match[1].toLowerCase();
-  const numericValue = RUSSIAN_NUMERALS[value] ?? parseInt(value, 10);
-  return isNaN(numericValue) ? null : numericValue;
+  for (const [word, num] of Object.entries(RUSSIAN_NUMERALS)) {
+    if (lower.includes(word)) return num;
+  }
+
+  const explicitMatch = lower.match(/(?:chapter|глава|часть|part)\s*(\d+|[ivxlcdm]+)/i);
+  if (explicitMatch) {
+    const val = explicitMatch[1];
+    if (/^[ivxlcdm]+$/.test(val)) return romanToInt(val);
+    return parseInt(val, 10);
+  }
+
+  const startMatch = lower.match(/^(\d+)\./);
+  if (startMatch) return parseInt(startMatch[1], 10);
+
+  return null;
 };
 
-/**
- * Check if two titles refer to the same chapter.
- * Uses 3 matching strategies in order:
- * 1. Exact match after normalization
- * 2. One title contains the other
- * 3. Both contain the same chapter number
- */
-const titlesMatch = (title1: string, title2: string): boolean => {
-  const norm1 = normalizeTitle(title1);
-  const norm2 = normalizeTitle(title2);
-
-  // Strategy 1: Exact match
-  if (norm1 === norm2) return true;
-
-  // Strategy 2: Substring match (e.g., "Глава 1" in "Глава первая: начало")
-  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
-
-  // Strategy 3: Same chapter number in both titles
-  const num1 = extractChapterNumber(norm1);
-  const num2 = extractChapterNumber(norm2);
-  return num1 !== null && num2 !== null && num1 === num2;
+const romanToInt = (s: string): number => {
+  const map: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+  let res = 0;
+  s = s.toLowerCase();
+  for (let i = 0; i < s.length; i++) {
+    const curr = map[s[i]] || 0;
+    const next = map[s[i + 1]] || 0;
+    if (curr < next) res -= curr;
+    else res += curr;
+  }
+  return res;
 };
 
-/**
- * Flatten nested TOC structure into a flat array.
- * Preserves order: parent items come before their children.
- */
 const flattenToc = (toc: NavItem[]): NavItem[] =>
   toc.flatMap(item => [item, ...flattenToc(item.subitems ?? [])]);
 
 // ============================================================================
-// Hook
+// Hook implementation
 // ============================================================================
 
 export const useChapterMapping = (
@@ -132,29 +109,78 @@ export const useChapterMapping = (
   const hrefToChapterNumber = useMemo(() => {
     const mapping = new Map<string, number>();
 
-    // Early return if data is missing
     if (!toc?.length || !chapters?.length) {
       return mapping;
     }
 
     const flatToc = flattenToc(toc);
     const sortedChapters = [...chapters].sort((a, b) => a.number - b.number);
+    const chapterMap = new Map<number, ChapterMetadata>();
+    sortedChapters.forEach(c => chapterMap.set(c.number, c));
 
-    flatToc.forEach((tocItem, index) => {
-      const normalizedHref = normalizeHref(tocItem.href);
-      const tocTitle = tocItem.label || '';
+    // Phase 1: Hard Matching (File Path)
+    // Used for new books where backend provides file_path
+    let hasHardMatches = false;
 
-      // Strategy 1: Match by title similarity
-      const matchedChapter = sortedChapters.find(ch => titlesMatch(tocTitle, ch.title));
+    flatToc.forEach(item => {
+      const href = normalizeHref(item.href);
+      const match = sortedChapters.find(c => c.file_path && normalizeHref(c.file_path) === href);
+      if (match) {
+        mapping.set(href, match.number);
+        hasHardMatches = true;
+      }
+    });
 
-      if (matchedChapter) {
-        mapping.set(normalizedHref, matchedChapter.number);
+    if (hasHardMatches) {
+      // If we found hard matches, rely on them primarily.
+      // We can optionally fill gaps if needed, but usually hard match is complete
+      // if the backend did its job.
+      // Returning here implicitly prefers "Strict Mode".
+      return mapping;
+    }
+
+    // Phase 2: Heuristic Matching (Legacy / Fallback)
+    // Executed ONLY if no hard matches were found (Legacy books)
+
+    const assignments: Array<{ href: string; chapterNum: number | null; confidence: 'high' | 'low' | 'none' }> = [];
+
+    flatToc.forEach(item => {
+      const title = item.label || '';
+      const normTitle = normalizeTitle(title);
+      const href = normalizeHref(item.href);
+
+      if (SERVICE_KEYWORDS.some(k => normTitle.includes(k))) {
+        assignments.push({ href, chapterNum: null, confidence: 'high' });
         return;
       }
 
-      // Strategy 2: Sequential fallback (assume same order as chapters)
-      if (index < sortedChapters.length) {
-        mapping.set(normalizedHref, sortedChapters[index].number);
+      const extractedNum = extractChapterNumber(title);
+      if (extractedNum !== null && chapterMap.has(extractedNum)) {
+        assignments.push({ href, chapterNum: extractedNum, confidence: 'high' });
+        mapping.set(href, extractedNum);
+        return;
+      }
+
+      const exactMatch = sortedChapters.find(c => normalizeTitle(c.title) === normTitle);
+      if (exactMatch) {
+        assignments.push({ href, chapterNum: exactMatch.number, confidence: 'high' });
+        mapping.set(href, exactMatch.number);
+        return;
+      }
+
+      assignments.push({ href, chapterNum: null, confidence: 'none' });
+    });
+
+    // Interpolation for gaps (Legacy Sequential Fallback)
+    let nextExpectedChapter = 1;
+    assignments.forEach((assign) => {
+      if (assign.confidence === 'high') {
+        if (assign.chapterNum !== null) nextExpectedChapter = assign.chapterNum + 1;
+      } else {
+        if (chapterMap.has(nextExpectedChapter)) {
+          mapping.set(assign.href, nextExpectedChapter);
+          nextExpectedChapter++; // Increment only if assigned
+        }
       }
     });
 
