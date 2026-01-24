@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { EntityDetail } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
-import { X, ChevronRight, User } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
 
@@ -24,7 +24,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
 
     // Reset selection when closing/opening with new initialId
-    React.useEffect(() => {
+    useEffect(() => {
         if (isOpen && initialEntityId) {
             setSelectedEntityId(initialEntityId);
         } else if (isOpen && !initialEntityId) {
@@ -49,10 +49,10 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                     onClick={() => setSelectedEntityId(null)}
                                     className="text-blue-400 text-sm font-medium hover:text-blue-300"
                                 >
-                                    ← Back to List
+                                    ← К списку
                                 </button>
                             ) : (
-                                <h2 className="text-lg font-semibold text-white">Characters</h2>
+                                <h2 className="text-lg font-semibold text-white">Персонажи</h2>
                             )}
 
                             <button
@@ -73,10 +73,16 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                 <ScrollArea className="h-full">
                                     <div className="space-y-2 pb-20 px-2">
                                         {entityList.map((entity) => {
-                                            // Check if met logic (simplified) with safe access
+                                            // Logic: Check if character is met
                                             const mentions = entity.mentions || [];
-                                            const firstMeeting = mentions.length > 0 ? Math.min(...mentions) : 9999;
-                                            const isMet = firstMeeting <= currentChapter;
+                                            // Fallback: if no mentions data, assume visible (0). 
+                                            // This prevents "Unknown Entity" if backend data is incomplete.
+                                            const firstMeeting = mentions.length > 0 ? Math.min(...mentions) : 0;
+
+                                            // Handle case where currentChapter might be undefined (default to 0)
+                                            // If currentChapter (e.g. 5) >= firstMeeting (e.g. 1), then IS MET.
+                                            const safeCurrentChapter = currentChapter ?? 0;
+                                            const isMet = safeCurrentChapter >= firstMeeting;
 
                                             return (
                                                 <div
@@ -93,10 +99,13 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-medium text-slate-200 truncate">
-                                                            {isMet ? entity.name : 'Unknown Entity'}
+                                                            {isMet ? entity.name : 'Неизвестный персонаж'}
                                                         </h3>
                                                         <p className="text-xs text-slate-500 truncate">
-                                                            {isMet ? entity.type : 'Keep reading to discover'}
+                                                            {isMet ? (
+                                                                entity.type === 'CHARACTER' ? 'Персонаж' :
+                                                                    entity.type === 'LOCATION' ? 'Локация' : 'Объект'
+                                                            ) : 'Читайте дальше, чтобы узнать'}
                                                         </p>
                                                     </div>
 
@@ -107,8 +116,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
                                         {entityList.length === 0 && (
                                             <div className="text-center py-10 text-slate-500">
-                                                {/* If empty, show loading or empty state. Since we don't have isLoading prop here yet, assume empty if ready */}
-                                                No characters found.
+                                                Персонажи не найдены.
                                             </div>
                                         )}
                                     </div>
