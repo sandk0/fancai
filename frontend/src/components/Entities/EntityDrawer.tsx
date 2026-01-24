@@ -73,8 +73,9 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                 <ScrollArea className="h-full">
                                     <div className="space-y-2 pb-20 px-2">
                                         {entityList.map((entity) => {
-                                            // Check if met logic (simplified)
-                                            const firstMeeting = entity.mentions.length > 0 ? Math.min(...entity.mentions) : 9999;
+                                            // Check if met logic (simplified) with safe access
+                                            const mentions = entity.mentions || [];
+                                            const firstMeeting = mentions.length > 0 ? Math.min(...mentions) : 9999;
                                             const isMet = firstMeeting <= currentChapter;
 
                                             return (
@@ -86,7 +87,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                                     <Avatar className="h-12 w-12 mr-4 border border-slate-700">
                                                         <AvatarImage src={isMet ? (entity.avatar_url || undefined) : undefined} className={!isMet ? 'blur-sm grayscale' : ''} />
                                                         <AvatarFallback className="bg-slate-700 text-slate-400">
-                                                            {isMet ? entity.name[0] : '?'}
+                                                            {isMet ? (entity.name ? entity.name[0] : '?') : '?'}
                                                         </AvatarFallback>
                                                     </Avatar>
 
@@ -106,6 +107,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
                                         {entityList.length === 0 && (
                                             <div className="text-center py-10 text-slate-500">
+                                                {/* If empty, show loading or empty state. Since we don't have isLoading prop here yet, assume empty if ready */}
                                                 No characters found.
                                             </div>
                                         )}
