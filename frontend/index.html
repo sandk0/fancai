@@ -1,274 +1,284 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>fancai - Read with AI-Generated Illustrations</title>
-    <meta name="description" content="Transform your reading experience with AI-powered image generation from book descriptions. Upload EPUB and FB2 files and watch your stories come to life." />
 
-    <!-- Favicon and Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/icon-192.png">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>fancai - Read with AI-Generated Illustrations</title>
+  <meta name="description"
+    content="Transform your reading experience with AI-powered image generation from book descriptions. Upload EPUB and FB2 files and watch your stories come to life." />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
+  <!-- Favicon and Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon-192.png">
 
-    <!-- Theme color for PWA (light/dark mode support) -->
-    <!-- Default theme colors - will be dynamically updated by Reader when active -->
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
-    <!-- Reader-specific theme colors (updated dynamically by EpubReader) -->
-    <meta name="theme-color" id="reader-theme-color" content="#ffffff" />
-    <meta name="msapplication-TileColor" content="#F59E0B" />
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
 
-    <!-- Apple PWA Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="fancai">
-    <meta name="mobile-web-app-capable" content="yes">
+  <!-- Theme color for PWA (light/dark mode support) -->
+  <!-- Default theme colors - will be dynamically updated by Reader when active -->
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+  <!-- Reader-specific theme colors (updated dynamically by EpubReader) -->
+  <meta name="msapplication-TileColor" content="#F59E0B" />
 
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167x167.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180x180.png">
+  <!-- Apple PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="fancai">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#121212" id="reader-theme-color" />
+  <meta name="build-timestamp" content="2026-01-24-v2-entity-cards" />
 
-    <!-- Apple Splash Screens -->
-    <!-- iPhone X / XS / 11 Pro (1125x2436) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1125x2436.png"
-          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPhone XR / 11 (828x1792) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-828x1792.png"
-          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
-    <!-- iPhone XS Max / 11 Pro Max (1242x2688) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1242x2688.png"
-          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPhone 12 / 12 Pro / 13 / 13 Pro / 14 (1170x2532) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1170x2532.png"
-          media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPhone 12 Pro Max / 13 Pro Max / 14 Plus (1284x2778) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1284x2778.png"
-          media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPhone 14 Pro (1179x2556) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1179x2556.png"
-          media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPhone 14 Pro Max (1290x2796) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1290x2796.png"
-          media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
-    <!-- iPad Pro 12.9" (2048x2732) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-2048x2732.png"
-          media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
-    <!-- iPad Pro 11" (1668x2388) -->
-    <link rel="apple-touch-startup-image"
-          href="/icons/apple-splash-1668x2388.png"
-          media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)">
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167x167.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180x180.png">
 
-    <!-- Safari Pinned Tab Icon -->
-    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#0ea5e9">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fancai.ru/" />
-    <meta property="og:title" content="fancai - Read with AI-Generated Illustrations" />
-    <meta property="og:description" content="Transform your reading experience with AI-powered image generation from book descriptions." />
-    <meta property="og:image" content="https://fancai.ru/og-image.jpg" />
+  <!-- Apple Splash Screens -->
+  <!-- iPhone X / XS / 11 Pro (1125x2436) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1125x2436.png"
+    media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone XR / 11 (828x1792) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-828x1792.png"
+    media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
+  <!-- iPhone XS Max / 11 Pro Max (1242x2688) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1242x2688.png"
+    media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone 12 / 12 Pro / 13 / 13 Pro / 14 (1170x2532) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1170x2532.png"
+    media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone 12 Pro Max / 13 Pro Max / 14 Plus (1284x2778) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1284x2778.png"
+    media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone 14 Pro (1179x2556) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1179x2556.png"
+    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone 14 Pro Max (1290x2796) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1290x2796.png"
+    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPad Pro 12.9" (2048x2732) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-2048x2732.png"
+    media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
+  <!-- iPad Pro 11" (1668x2388) -->
+  <link rel="apple-touch-startup-image" href="/icons/apple-splash-1668x2388.png"
+    media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)">
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://fancai.ru/" />
-    <meta property="twitter:title" content="fancai - Read with AI-Generated Illustrations" />
-    <meta property="twitter:description" content="Transform your reading experience with AI-powered image generation from book descriptions." />
-    <meta property="twitter:image" content="https://fancai.ru/twitter-image.jpg" />
-    
+  <!-- Safari Pinned Tab Icon -->
+  <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#0ea5e9">
 
-    <!-- Google Fonts - optimized loading (preconnect + preload) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Preload Google Fonts stylesheet for non-blocking load -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap"></noscript>
-    
-    <!-- Loading styles to prevent flash -->
-    <style>
-      /* Loading screen styles */
-      #initial-loading {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        transition: opacity 0.3s ease-out;
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://fancai.ru/" />
+  <meta property="og:title" content="fancai - Read with AI-Generated Illustrations" />
+  <meta property="og:description"
+    content="Transform your reading experience with AI-powered image generation from book descriptions." />
+  <meta property="og:image" content="https://fancai.ru/og-image.jpg" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://fancai.ru/" />
+  <meta property="twitter:title" content="fancai - Read with AI-Generated Illustrations" />
+  <meta property="twitter:description"
+    content="Transform your reading experience with AI-powered image generation from book descriptions." />
+  <meta property="twitter:image" content="https://fancai.ru/twitter-image.jpg" />
+
+
+  <!-- Google Fonts - optimized loading (preconnect + preload) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Preload Google Fonts stylesheet for non-blocking load -->
+  <link rel="preload"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap"
+    as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap">
+  </noscript>
+
+  <!-- Loading styles to prevent flash -->
+  <style>
+    /* Loading screen styles */
+    #initial-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s ease-out;
+    }
+
+    #initial-loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #0ea5e9;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
       }
-      
-      #initial-loading.hidden {
-        opacity: 0;
-        pointer-events: none;
+
+      100% {
+        transform: rotate(360deg);
       }
-      
-      .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #e5e7eb;
-        border-top: 4px solid #0ea5e9;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      .loading-text {
-        margin-top: 16px;
-        color: #64748b;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
-      }
-      
-      /* Prevent flash of unstyled content */
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      color: #64748b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+
+    /* Prevent flash of unstyled content */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f8fafc;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
       body {
-        margin: 0;
-        padding: 0;
-        background-color: #f8fafc;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
-      
-      /* Dark mode support */
-      @media (prefers-color-scheme: dark) {
-        body {
-          background-color: #111827;
-        }
-
-        #initial-loading {
-          background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-        }
-
-        .loading-text {
-          color: #9ca3af;
-        }
-      }
-
-      /* Theme class support (Tailwind compatibility) */
-      .dark body, html.dark body {
         background-color: #111827;
       }
 
-      .sepia body, html.sepia body {
-        background-color: #f7f3e9;
-      }
-
-      html.dark #initial-loading {
+      #initial-loading {
         background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
       }
 
-      html.sepia #initial-loading {
-        background: linear-gradient(135deg, #f7f3e9 0%, #f0e6d2 100%);
-      }
-
-      html.sepia .loading-text {
-        color: #8d6e63;
-      }
-
-      /* data-theme attribute support (CSS custom properties) */
-      [data-theme="dark"] body {
-        background-color: #111827;
-      }
-
-      [data-theme="sepia"] body {
-        background-color: #f7f3e9;
-      }
-
-      [data-theme="dark"] #initial-loading {
-        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      }
-
-      [data-theme="sepia"] #initial-loading {
-        background: linear-gradient(135deg, #f7f3e9 0%, #f0e6d2 100%);
-      }
-
-      [data-theme="dark"] .loading-text {
+      .loading-text {
         color: #9ca3af;
       }
+    }
 
-      [data-theme="sepia"] .loading-text {
-        color: #8d6e63;
-      }
-    </style>
-    <!-- Theme initialization (prevents FOUC) -->
-    <script>
-      (function() {
-        try {
-          var theme = localStorage.getItem('app-theme');
-          if (theme === 'system' || !theme) {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
+    /* Theme class support (Tailwind compatibility) */
+    .dark body,
+    html.dark body {
+      background-color: #111827;
+    }
 
-          // Set data-theme attribute for CSS custom properties
-          document.documentElement.setAttribute('data-theme', theme);
+    .sepia body,
+    html.sepia body {
+      background-color: #f7f3e9;
+    }
 
-          // Set class for Tailwind compatibility
-          if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else if (theme === 'sepia') {
-            document.documentElement.classList.add('sepia');
-          }
+    html.dark #initial-loading {
+      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    }
 
-          // Set color-scheme for native elements (scrollbars, inputs, etc.)
-          document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
-        } catch (e) {}
-      })();
-    </script>
-  </head>
-  <body>
-    <!-- Initial loading screen -->
-    <div id="initial-loading">
-      <div style="text-align: center;">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading fancai...</div>
-      </div>
+    html.sepia #initial-loading {
+      background: linear-gradient(135deg, #f7f3e9 0%, #f0e6d2 100%);
+    }
+
+    html.sepia .loading-text {
+      color: #8d6e63;
+    }
+
+    /* data-theme attribute support (CSS custom properties) */
+    [data-theme="dark"] body {
+      background-color: #111827;
+    }
+
+    [data-theme="sepia"] body {
+      background-color: #f7f3e9;
+    }
+
+    [data-theme="dark"] #initial-loading {
+      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    }
+
+    [data-theme="sepia"] #initial-loading {
+      background: linear-gradient(135deg, #f7f3e9 0%, #f0e6d2 100%);
+    }
+
+    [data-theme="dark"] .loading-text {
+      color: #9ca3af;
+    }
+
+    [data-theme="sepia"] .loading-text {
+      color: #8d6e63;
+    }
+  </style>
+  <!-- Theme initialization (prevents FOUC) -->
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('app-theme');
+        if (theme === 'system' || !theme) {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        // Set data-theme attribute for CSS custom properties
+        document.documentElement.setAttribute('data-theme', theme);
+
+        // Set class for Tailwind compatibility
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else if (theme === 'sepia') {
+          document.documentElement.classList.add('sepia');
+        }
+
+        // Set color-scheme for native elements (scrollbars, inputs, etc.)
+        document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
+      } catch (e) { }
+    })();
+  </script>
+</head>
+
+<body>
+  <!-- Initial loading screen -->
+  <div id="initial-loading">
+    <div style="text-align: center;">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading fancai...</div>
     </div>
-    
-    <!-- React root -->
-    <div id="root"></div>
-    
-    <!-- Remove loading screen once React loads -->
-    <script>
-      // Hide loading screen once the page is loaded
-      window.addEventListener('load', function() {
-        const loadingElement = document.getElementById('initial-loading');
-        if (loadingElement) {
+  </div>
+
+  <!-- React root -->
+  <div id="root"></div>
+
+  <!-- Remove loading screen once React loads -->
+  <script>
+    // Hide loading screen once the page is loaded
+    window.addEventListener('load', function () {
+      const loadingElement = document.getElementById('initial-loading');
+      if (loadingElement) {
+        setTimeout(() => {
+          loadingElement.classList.add('hidden');
           setTimeout(() => {
-            loadingElement.classList.add('hidden');
-            setTimeout(() => {
-              loadingElement.remove();
-            }, 300);
-          }, 100);
-        }
-      });
-      
-      // Fallback: remove loading screen after maximum wait time
-      setTimeout(function() {
-        const loadingElement = document.getElementById('initial-loading');
-        if (loadingElement) {
-          loadingElement.remove();
-        }
-      }, 5000);
-    </script>
-    
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+            loadingElement.remove();
+          }, 300);
+        }, 100);
+      }
+    });
+
+    // Fallback: remove loading screen after maximum wait time
+    setTimeout(function () {
+      const loadingElement = document.getElementById('initial-loading');
+      if (loadingElement) {
+        loadingElement.remove();
+      }
+    }, 5000);
+  </script>
+
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
