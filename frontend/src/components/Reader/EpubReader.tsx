@@ -1104,6 +1104,14 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         />
       )}
 
+      {/* Entity Drawer */}
+      <EntityDrawer
+        isOpen={isEntityDrawerOpen}
+        onClose={() => setIsEntityDrawerOpen(false)}
+        entities={entityNetwork?.entities || {}}
+        currentChapter={currentChapter}
+      />
+
       {/* Selection Menu */}
       <SelectionMenu
         selection={selection}
