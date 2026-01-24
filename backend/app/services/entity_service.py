@@ -42,25 +42,28 @@ class EntityService:
         Результат кэшируется.
         """
         # 1. Проверяем кэш
-        cache_key = f"book:{book_id}:entity_network"
+        cache_key = f"book:{book_id}:entity_network_v2" # v2 cache key for new logic
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
-            # Pydantic v2: model_validate handles dict -> model conversion
             return EntityNetworkResponse.model_validate(cached_data)
 
-        # 2. Загружаем данные из БД (Optimized Eager Loading)
-        # Сущности + Описания + Главы (для chapter index)
-        q_entities = (
-            select(Entity)
-            .where(Entity.book_id == book_id)
-            .options(
-                # selectinload(Entity.descriptions).joinedload(Description.chapter)
-            )
-        )
+        # 2. Загружаем Сущности
+        q_entities = select(Entity).where(Entity.book_id == book_id)
         entities_res = await self.db.execute(q_entities)
         all_entities = entities_res.scalars().all()
 
-        # Связи
+        # 3. Загружаем Описания (для сборки биографии)
+        # Так как прямой связи нет, грузим все описания книги и линкуем вручную
+        q_descriptions = (
+            select(Description)
+            .join(Chapter)
+            .where(Chapter.book_id == book_id)
+            .options(joinedload(Description.chapter))
+        )
+        desc_res = await self.db.execute(q_descriptions)
+        all_descriptions = desc_res.scalars().all()
+
+        # 4. Загружаем Связи
         entity_ids = [e.id for e in all_entities]
         if not entity_ids:
             return EntityNetworkResponse(entities={}, edges=[])
@@ -71,14 +74,14 @@ class EntityService:
         edges_res = await self.db.execute(q_edges)
         all_edges = edges_res.scalars().all()
 
-        # 3. Применяем логику слияния (Soft Merge)
-        response = self._build_network_response(all_entities, all_edges)
+        # 5. Применяем логику слияния (Soft Merge)
+        response = self._build_network_response(all_entities, all_descriptions, all_edges)
 
-        # 4. Сохраняем в кэш (сериализуем через model_dump)
+        # 6. Сохраняем в кэш
         await cache_manager.set(
             cache_key, 
             response.model_dump(mode='json'), 
-            ttl=3600 # 1 час
+            ttl=3600 
         )
 
         return response
@@ -86,13 +89,39 @@ class EntityService:
     def _build_network_response(
         self, 
         entities: List[Entity], 
+        descriptions: List[Description],
         edges: List[EntityRelationship]
     ) -> EntityNetworkResponse:
         """
         Основная логика дедупликации и сборки ответа.
         """
         
-        # --- Шаг 1: Группировка дубликатов ---
+        # --- Шаг 0: Подготовка описаний (Mapping: Entity Name -> List[Description]) ---
+        # Это "Soft Link" - связывание по имени, так как нет внешнего ключа
+        descriptions_map: Dict[str, List[Description]] = {}
+        
+        import json
+        for d in descriptions:
+            if not d.entities_mentioned:
+                continue
+                
+            try:
+                # entities_mentioned хранится как JSON строка списка имен ["Геральт", "Йен"]
+                mentioned_names = json.loads(d.entities_mentioned)
+                if isinstance(mentioned_names, list):
+                    for name in mentioned_names:
+                        if isinstance(name, str):
+                            norm = self._normalize_name(name)
+                            if norm not in descriptions_map:
+                                descriptions_map[norm] = []
+                            descriptions_map[norm].append(d)
+                # Fallback for structured dicts if format changed
+                elif isinstance(mentioned_names, dict):
+                     pass 
+            except Exception:
+                continue
+
+        # --- Шаг 1: Группировка дубликатов сущностей ---
         groups: Dict[str, List[Entity]] = {}
         
         for e in entities:
@@ -101,50 +130,45 @@ class EntityService:
                 groups[norm_name] = []
             groups[norm_name].append(e)
 
-        # --- Шаг 2: Выбор Master Entity в каждой группе ---
-        # Map: Old ID -> Master ID
+        # --- Шаг 2: Выбор Master Entity и обогащение данными ---
         id_remap: Dict[UUID, UUID] = {}
         master_entities: Dict[UUID, EntityDetailSchema] = {}
 
         for norm_name, group in groups.items():
-            # Эвристика выбора мастера:
-            # 1. Есть visual_summary (значит уже генерировали арт)
-            # 2. Максимальный importance
-            # 3. Самое длинное имя (обычно "Геральт из Ривии" > "Геральт") - спорно, оставим importance
-            
+            # Выбор мастера
             master = max(group, key=lambda x: (
                 100 if x.visual_summary else 0,
-                x.importance or 0,
-                len(x.descriptions)
+                x.importance or 0
             ))
             
-            # Собираем данные со всех дублей в мастера
-            merged_detail = self._merge_group_to_master(master, group)
+            # Получаем связанные описания по нормализованному имени
+            related_descriptions = descriptions_map.get(norm_name, [])
+            
+            # Собираем данные
+            merged_detail = self._create_merged_detail(master, related_descriptions)
             master_entities[master.id] = merged_detail
             
-            # Запоминаем ремаппинг
+            # Ремаппинг ID
             for e in group:
                 id_remap[e.id] = master.id
 
-        # --- Шаг 3: Пересборка связей (Edges) с учетом ремаппинга ---
+        # --- Шаг 3: Пересборка связей ---
         final_edges: List[NetworkEdgeSchema] = []
-        processed_edges = set() # (source, target, type) для исключения дублей ребер
+        processed_edges = set()
 
         for edge in edges:
-            # Если source или target были удалены (не попали в выборку) - пропускаем
             if edge.source_id not in id_remap or edge.target_id not in id_remap:
                 continue
 
             new_source = id_remap[edge.source_id]
             new_target = id_remap[edge.target_id]
 
-            # Исключаем петли (связь сама с собой после мержа)
             if new_source == new_target:
                 continue
 
             edge_key = (new_source, new_target, edge.type)
             if edge_key in processed_edges:
-                continue # Уже есть такая связь между мастерами
+                continue
             
             processed_edges.add(edge_key)
 
@@ -153,7 +177,7 @@ class EntityService:
                 target=new_target,
                 type=edge.type,
                 weight=edge.weight or 0,
-                description=edge.relationship_metadata.get("context") # Берем контекст
+                description=edge.relationship_metadata.get("context")
             ))
 
         return EntityNetworkResponse(
@@ -161,38 +185,33 @@ class EntityService:
             edges=final_edges
         )
 
-    def _merge_group_to_master(self, master: Entity, group: List[Entity]) -> EntityDetailSchema:
+    def _create_merged_detail(self, master: Entity, descriptions: List[Description]) -> EntityDetailSchema:
         """
-        Собирает данные из списка сущностей в одну схему.
+        Создает EntityDetailSchema из мастера и списка описаний.
         """
         all_notes: List[EntityNoteSchema] = []
         all_mentions: Set[int] = set()
 
-        for e in group:
-            # Собираем описания (Temporarily disabled: No DB relationship yet)
-            # for d in e.descriptions:
-            #     # Определяем номер главы
-            #     chapter_idx = 0
-            #     if d.chapter:
-            #         chapter_idx = d.chapter.chapter_number
-            #     
-            #     # Добавляем в mentions
-            #     all_mentions.add(chapter_idx)
-            #
-            #     all_notes.append(EntityNoteSchema(
-            #         text=d.content,
-            #         chapter_index=chapter_idx,
-            #         is_spoiler=False, # Пока логика спойлеров на фронте
-            #         type=d.type.value if d.type else "UNKNOWN"
-            #     ))
+        for d in descriptions:
+            chapter_idx = 0
+            if d.chapter:
+                chapter_idx = d.chapter.chapter_number
+            
+            all_mentions.add(chapter_idx)
 
-        # Сортируем описания по главам
+            all_notes.append(EntityNoteSchema(
+                text=d.content,
+                chapter_index=chapter_idx,
+                is_spoiler=False,
+                type=d.type.value if d.type else "UNKNOWN"
+            ))
+
         all_notes.sort(key=lambda x: x.chapter_index)
         
         return EntityDetailSchema(
             id=master.id,
             name=master.name,
-            type=master.type, # TODO: Enum handling string conversion
+            type=master.type,
             avatar_url=master.master_portrait_url,
             visual_summary=master.visual_summary,
             importance=master.importance or 5,
