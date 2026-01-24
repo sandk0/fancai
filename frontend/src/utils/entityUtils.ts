@@ -21,9 +21,10 @@ export const isEntityMet = (entity: EntityDetail, currentChapter?: number): bool
     // Note: Backend might send empty mentions if parsing failed. 
     // The UI handles "Met" vs "Unknown" display.
     if (mentions.length === 0) {
-        // Option: If it's a MAIN character (importance > 8), maybe show it anyway?
-        // Let's stick to rigorous "Not Met" to avoid spoilers, relying on UI to show "Locked" state.
-        return false;
+        // Fail-Open Strategy: If backend didn't parse mentions (or legacy data),
+        // we assume the character is VISIBLE rather than hiding them.
+        // Better to show a spoiler than an empty screen.
+        return true;
     }
 
     const firstMeeting = Math.min(...mentions);

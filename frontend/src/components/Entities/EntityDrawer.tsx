@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { EntityDetail } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
-import { isEntityMet } from '../../utils/entityUtils';
+import { isEntityMet, getFirstMeetingChapter } from '../../utils/entityUtils';
 import { X, ChevronRight, Lock } from 'lucide-react';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
+
+const DEBUG_MODE = process.env.NODE_ENV === 'development';
 
 interface EntityDrawerProps {
     isOpen: boolean;
@@ -107,10 +109,12 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                                                 entity.type === 'LOCATION' ? 'Локация' : 'Объект'}
                                                         </p>
 
-                                                        {/* DEBUG OVERLAY (Hidden by default, can un-comment if needed) */}
-                                                        {/* <div className="text-[10px] text-yellow-600 font-mono mt-1">
-                                                            Debug: {safeCurrentChapter} vs {firstMeeting}
-                                                        </div> */}
+                                                        {/* DEBUG OVERLAY */}
+                                                        {DEBUG_MODE && (
+                                                            <div className="text-[10px] text-yellow-500 font-mono mt-1">
+                                                                Ch: {currentChapter} vs First: {isEntityMet(entity, currentChapter) ? 'Met' : getFirstMeetingChapter(entity)}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <ChevronRight className="text-slate-600 w-5 h-5 ml-2" />
