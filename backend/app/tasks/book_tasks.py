@@ -348,7 +348,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             if is_service:
                                 local_chapter.is_service_page = True
                                 local_chapter.is_description_parsed = True
-                                local_chapter.parsed_at = datetime.now(timezone.utc)
+                                local_chapter.parsed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                                 await session.commit()
                                 return
 
@@ -386,7 +386,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                             local_chapter.descriptions_found = len(descriptions_data)
                             local_chapter.is_description_parsed = True
-                            local_chapter.parsed_at = datetime.now(timezone.utc)
+                            local_chapter.parsed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                             
                             await session.commit()
                             
