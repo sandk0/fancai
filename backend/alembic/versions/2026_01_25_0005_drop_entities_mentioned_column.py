@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'drop_entities_mentioned'
-down_revision = 'add_entity_type_enum'
+down_revision = '2026_01_25_0004'
 branch_labels = None
 depends_on = None
 

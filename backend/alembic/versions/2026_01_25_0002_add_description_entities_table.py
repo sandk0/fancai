@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = '2026_01_25_0002'
-down_revision = '2026_01_25_0001'
+down_revision = '8ccf2b499f3b'
 branch_labels = None
 depends_on = None
 
