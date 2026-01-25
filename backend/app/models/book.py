@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, Float, ForeignKey, func, select
+from sqlalchemy import Integer, String, Text, Float, ForeignKey, DateTime, func, select
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,11 +74,11 @@ class Book(Base):
     descriptions_extracted: Mapped[bool] = mapped_column(default=False, nullable=False)
     descriptions_processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    last_accessed: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_accessed: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="books", lazy="raise")
     chapters: Mapped[list["Chapter"]] = relationship(
@@ -269,11 +269,11 @@ class ReadingProgress(Base):
     reading_speed_wpm: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    last_read_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    last_read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading

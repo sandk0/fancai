@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, ForeignKey, Float, Enum as SQLEnum, func
+from sqlalchemy import Integer, String, Text, ForeignKey, Float, DateTime, Enum as SQLEnum, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -57,9 +57,9 @@ class Description(Base):
     image_generated: Mapped[bool] = mapped_column(default=False, nullable=False)
     generation_requested: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     chapter: Mapped["Chapter"] = relationship("Chapter", back_populates="descriptions", lazy="raise")

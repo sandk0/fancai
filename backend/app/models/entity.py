@@ -4,7 +4,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import String, Text, ForeignKey, Integer, func
+from sqlalchemy import String, Text, ForeignKey, Integer, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, ENUM as PG_ENUM
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -51,9 +51,9 @@ class Entity(Base):
     
     entity_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     book: Mapped["Book"] = relationship("Book", backref="entities", lazy="raise")

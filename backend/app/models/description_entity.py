@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 import uuid as uuid_module
 
-from sqlalchemy import String, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import String, Float, ForeignKey, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -52,7 +52,7 @@ class DescriptionEntity(Base):
     mention_cfi: Mapped[str | None] = mapped_column(String(500), nullable=True)
     mention_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
     
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint('description_id', 'entity_id', name='uq_description_entity'),

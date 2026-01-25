@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, Float, ForeignKey
+from sqlalchemy import Integer, String, Text, Float, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -126,11 +126,11 @@ class GeneratedImage(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading

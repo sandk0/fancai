@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 import uuid as uuid_module
 
-from sqlalchemy import Integer, String, Text, ForeignKey
+from sqlalchemy import Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -50,7 +50,7 @@ class EntityMention(Base):
     # CFI position for precise spoiler protection (e.g., "epubcfi(/6/4!/4/2:0)")
     mention_cfi: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
     
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relationships
     chapter: Mapped["Chapter"] = relationship("Chapter", back_populates="mentions")

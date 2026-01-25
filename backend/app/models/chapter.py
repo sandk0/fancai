@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 import uuid as uuid_module
 
-from sqlalchemy import Integer, String, Text, ForeignKey, func
+from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -48,11 +48,11 @@ class Chapter(Base):
     is_service_page: Mapped[bool | None] = mapped_column(default=None, nullable=True)
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    parsed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     book: Mapped["Book"] = relationship("Book", back_populates="chapters", lazy="raise")
     descriptions: Mapped[list["Description"]] = relationship(

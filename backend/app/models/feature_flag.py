@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import String, Text
+from sqlalchemy import String, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -64,10 +64,10 @@ class FeatureFlag(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     def __repr__(self) -> str:

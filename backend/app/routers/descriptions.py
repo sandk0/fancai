@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Dict, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..core.database import get_database_session, AsyncSessionLocal
 from ..core.auth import get_current_active_user
@@ -218,7 +218,7 @@ async def get_chapter_descriptions(
             # Update chapter stats
             chapter.descriptions_found = len(descriptions_data)
             chapter.is_description_parsed = True
-            chapter.parsed_at = datetime.utcnow()
+            chapter.parsed_at = datetime.now(timezone.utc)
 
             await db.commit()
             await db.refresh(chapter)
@@ -804,7 +804,7 @@ async def _background_extract_descriptions(
                 # Update chapter stats
                 chapter.descriptions_found = len(descriptions_data)
                 chapter.is_description_parsed = True
-                chapter.parsed_at = datetime.utcnow()
+                chapter.parsed_at = datetime.now(timezone.utc)
 
                 await db.commit()
 

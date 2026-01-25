@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Integer, String, ForeignKey, DateTime, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -72,11 +72,11 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    last_login: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Статистика
     longest_streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -147,8 +147,8 @@ class Subscription(Base):
     )
 
     # Даты подписки
-    start_date: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    end_date: Mapped[datetime | None] = mapped_column(nullable=True)
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Настройки
     auto_renewal: Mapped[bool] = mapped_column(default=False, nullable=False)
@@ -156,12 +156,12 @@ class Subscription(Base):
     # Использование лимитов
     books_uploaded: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     images_generated_month: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_reset_date: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    last_reset_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     # Отношения
