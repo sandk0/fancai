@@ -1,73 +1,69 @@
-"""
-Модель универсальной сущности (Персонаж, Локация, Объект).
-"""
-
-from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Text,
-    ForeignKey,
-    Integer,
-)
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-import uuid
+from datetime import datetime
+from typing import Any, TYPE_CHECKING
+from uuid import UUID
+import uuid as uuid_module
 import enum
+
+from sqlalchemy import String, Text, ForeignKey, Integer, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, ENUM as PG_ENUM
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+
 from ..core.database import Base
 
+if TYPE_CHECKING:
+    from .book import Book
+    from .entity_mention import EntityMention
+    from .description_entity import DescriptionEntity
+
+
 class EntityType(enum.Enum):
-    """Типы сущностей для AI анализа."""
     CHARACTER = "character"
     LOCATION = "location"
     OBJECT = "object"
 
+
+entity_type_pg_enum = PG_ENUM(
+    'character', 'location', 'object',
+    name='entitytype',
+    create_type=False
+)
+
+
 class Entity(Base):
-    """
-    Универсальная сущность (Персонаж, Локация, Предмет).
-    
-    Attributes:
-        id: Уникальный ID
-        book_id: Ссылка на книгу
-        type: Тип сущности (CHARACTER, LOCATION, OBJECT)
-        name: Имя или название
-        visual_summary: Визуальное описание для генерации (промпт)
-        master_portrait_url: Ссылка на эталонное изображение (Reference Image)
-        seed: Фиксированный сид для генерации (Consistency Seed)
-        meta: Дополнительные метаданные (alias names, role, appearance_count)
-    """
     __tablename__ = "entities"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    book_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     
-    type = Column(String(50), nullable=False, index=True)  # EntityType value
-    name = Column(String(255), nullable=False, index=True)
-    visual_summary = Column(Text, nullable=True)  # Core visual description
+    type: Mapped[str] = mapped_column(entity_type_pg_enum, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    visual_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     
-    # Consistency Assets
-    master_portrait_url = Column(String(1000), nullable=True)
-    seed = Column(Integer, nullable=True)
+    master_portrait_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     
-    # Priority & Filtering (v16)
-    importance = Column(Integer, default=5, nullable=True) # 1-10 scale
-    linked_entity_ids = Column(JSONB, default=[], nullable=True) # List of related entity IDs for assets
+    importance: Mapped[int | None] = mapped_column(Integer, default=5, nullable=True)
+    linked_entity_ids: Mapped[list[Any] | None] = mapped_column(JSONB, default=[], nullable=True)
     
-    # Metadata (aliases, detailed traits, frequency)
-    entity_metadata = Column(JSONB, default={}, nullable=False)
+    entity_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
 
-    # Relationships
-    book = relationship("Book", backref="entities", lazy="raise")
+    book: Mapped["Book"] = relationship("Book", backref="entities", lazy="raise")
     
-    # Relationships for graph (defined in EntityRelationship)
-    # outgoing_relations = relationship("EntityRelationship", foreign_keys="EntityRelationship.source_id",back_populates="source")
-    # incoming_relations = relationship("EntityRelationship", foreign_keys="EntityRelationship.target_id", back_populates="target")
-    
-    mentions = relationship("EntityMention", back_populates="entity", cascade="all, delete-orphan", lazy="raise")
+    mentions: Mapped[list["EntityMention"]] = relationship(
+        "EntityMention", back_populates="entity", cascade="all, delete-orphan", lazy="raise"
+    )
+    linked_descriptions: Mapped[list["DescriptionEntity"]] = relationship(
+        "DescriptionEntity", back_populates="entity", cascade="all, delete-orphan", lazy="raise"
+    )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Entity(id={self.id}, name='{self.name}', type='{self.type}')>"

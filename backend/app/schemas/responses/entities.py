@@ -10,9 +10,10 @@ class EntityNoteSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     text: str
-    chapter_index: int  # ! Ключевое поле: 0-based index или номер главы
+    chapter_index: int
+    cfi: Optional[str] = None
     is_spoiler: bool = False
-    type: str # CHARACTER, ACTION, LOCATION, etc. (DescriptionType value)
+    type: str
 
 class EntityDetailSchema(BaseModel):
     """
@@ -21,16 +22,16 @@ class EntityDetailSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    name: str              # Основное (нормализованное) имя
-    type: str              # CHARACTER / LOCATION / OBJECT
+    name: str
+    type: str
     avatar_url: Optional[str] = None
     visual_summary: Optional[str] = None
-    importance: int = 5    # 1-10
+    importance: int = 5
     
-    # Спойлер-защита
-    mentions: List[int] = [] # Список номеров глав, где сущность упоминается
+    mentions: List[int] = []
+    first_mention_cfi: Optional[str] = None
+    first_mention_offset: Optional[int] = None
     
-    # Собранные описания из всех дублей
     notes: List[EntityNoteSchema] = []
 
 class NetworkEdgeSchema(BaseModel):

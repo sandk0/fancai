@@ -47,23 +47,22 @@ class ConsistencyManager:
         # Flush to get IDs
         await self.db.flush()
 
-        # 2. Create Entity Mentions (Hard Links)
-        # This replaces the legacy JSON CSV approach
+        # 2. Create Entity Mentions (Hard Links) with offset from extraction
         if chapter_id:
             from app.models.entity_mention import EntityMention
             
-            # Use raw entities to preserve context (if we have it) or just link resolved entities
-            # entity_map: normalized_name -> Entity object
-            # We want to link every unique resolved Entity found in this chapter.
-            
-            unique_entities = set(entity_map.values())
-            for entity in unique_entities:
-                # Check duplication? We assume this runs once per chapter.
+            seen_entity_ids = set()
+            for raw_entity in result.entities:
+                resolved_entity = entity_map.get(raw_entity.name.lower())
+                if not resolved_entity or resolved_entity.id in seen_entity_ids:
+                    continue
+                    
+                seen_entity_ids.add(resolved_entity.id)
                 mention = EntityMention(
                     chapter_id=chapter_id,
-                    entity_id=entity.id,
-                    mention_text=entity.name, # Default to canonical name for now
-                    # extraction often doesn't give exact snippet offset yet
+                    entity_id=resolved_entity.id,
+                    mention_text=raw_entity.name,
+                    start_index=raw_entity.first_mention_offset,
                 )
                 self.db.add(mention)
 
@@ -118,35 +117,32 @@ class ConsistencyManager:
         self, book_id: str, raw_entities: List[ExtractedEntity]
     ) -> Dict[str, Entity]:
         """
-        Batch resolve entities: single SELECT query + in-memory deduplication.
-        
-        Phase 2 optimization: Replaces N individual queries with 1 bulk query.
-        
-        Args:
-            book_id: Book ID
-            raw_entities: List of extracted entities from parser
-            
-        Returns:
-            Dict mapping lowercase name/alias to Entity object
+        Batch resolve entities with alias-aware deduplication.
         """
         if not raw_entities:
             return {}
         
-        # 1. Collect all unique names for batch lookup
         all_names = set()
         for raw in raw_entities:
             all_names.add(raw.name.lower())
             for alias in raw.aliases:
                 all_names.add(alias.lower())
         
-        # 2. Single bulk query for all existing entities
-        from sqlalchemy import or_, func
-        query = select(Entity).where(
-            Entity.book_id == book_id,
-            func.lower(Entity.name).in_(all_names)
-        )
+        from sqlalchemy import or_, func, cast
+        from sqlalchemy.dialects.postgresql import JSONB
+        
+        query = select(Entity).where(Entity.book_id == book_id)
         result = await self.db.execute(query)
-        existing_entities = {e.name.lower(): e for e in result.scalars().all()}
+        all_book_entities = list(result.scalars().all())
+        
+        existing_entities: Dict[str, Entity] = {}
+        for entity in all_book_entities:
+            existing_entities[entity.name.lower()] = entity
+            
+            stored_aliases = entity.entity_metadata.get("aliases", []) if entity.entity_metadata else []
+            for alias in stored_aliases:
+                if isinstance(alias, str):
+                    existing_entities[alias.lower()] = entity
         
         # 3. Build entity map and create new entities
         entity_map: Dict[str, Entity] = {}

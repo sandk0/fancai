@@ -15,6 +15,7 @@ from .feature_flag import FeatureFlag, FeatureFlagCategory
 from .push_subscription import PushSubscription
 from .entity import Entity, EntityType
 from .entity_relationship import EntityRelationship
+from .description_entity import DescriptionEntity
 
 __all__ = [
     "User",
@@ -35,4 +36,5 @@ __all__ = [
     "Entity",
     "EntityType",
     "EntityRelationship",
+    "DescriptionEntity",
 ]

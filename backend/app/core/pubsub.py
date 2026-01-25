@@ -1,13 +1,8 @@
-"""
-Redis PubSub utilities for real-time communication.
-
-This module is specifically designed to avoid circular imports.
-It can be safely imported from tasks.py without triggering router imports.
-"""
-
 import json
-from app.core.logging import logger
+import logging
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def publish_book_progress(
@@ -49,23 +44,38 @@ async def publish_book_progress(
         
         channel = f"book_progress:{book_id}"
         
-        # Log before publish for debugging
-        logger.info(
-            "Publishing WebSocket progress",
-            book_id=book_id,
-            progress=progress,
-            channel=channel
-        )
+        logger.info(f"Publishing WebSocket progress: book_id={book_id}, progress={progress}, channel={channel}")
         
         result = await redis_client.publish(channel, json.dumps(data))
-        await redis_client.aclose()  # Use aclose() instead of close()
+        await redis_client.aclose()
         
-        logger.info(
-            "WebSocket progress published",
-            book_id=book_id,
-            progress=progress,
-            subscribers=result
-        )
+        logger.info(f"WebSocket progress published: book_id={book_id}, progress={progress}, subscribers={result}")
         
     except Exception as e:
         logger.error(f"Failed to publish progress: {e}", exc_info=True)
+
+
+async def publish_entities_updated(
+    book_id: str,
+    entities_count: int,
+    message: str = "",
+):
+    try:
+        import redis.asyncio as aioredis
+        redis_client = await aioredis.from_url(settings.REDIS_URL)
+        
+        data = {
+            "type": "entities_updated",
+            "book_id": book_id,
+            "entities_count": entities_count,
+            "message": message,
+        }
+        
+        channel = f"book_progress:{book_id}"
+        result = await redis_client.publish(channel, json.dumps(data))
+        await redis_client.aclose()
+        
+        logger.info(f"Entities updated event published: book_id={book_id}, count={entities_count}, subscribers={result}")
+        
+    except Exception as e:
+        logger.error(f"Failed to publish entities_updated: {e}", exc_info=True)
