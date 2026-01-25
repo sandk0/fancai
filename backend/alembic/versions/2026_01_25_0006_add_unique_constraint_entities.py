@@ -19,16 +19,21 @@ depends_on = None
 
 def upgrade() -> None:
     # Step 1: Remove duplicates keeping entity with highest importance
+    # Uses ROW_NUMBER to guarantee exactly one winner per (book_id, lower(name)) group
+    # Priority: highest importance → earliest created_at → lowest id (tiebreaker)
     op.execute("""
-        DELETE FROM entities e1
-        USING entities e2
-        WHERE e1.book_id = e2.book_id
-          AND lower(e1.name) = lower(e2.name)
-          AND e1.id != e2.id
-          AND (
-              e1.importance < e2.importance
-              OR (e1.importance = e2.importance AND e1.created_at > e2.created_at)
-          );
+        DELETE FROM entities
+        WHERE id IN (
+            SELECT id FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY book_id, lower(name)
+                           ORDER BY importance DESC, created_at ASC, id ASC
+                       ) as rn
+                FROM entities
+            ) ranked
+            WHERE rn > 1
+        );
     """)
     
     # Step 2: Create unique index (idempotent)
