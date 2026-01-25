@@ -169,7 +169,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -207,7 +207,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'location',
           confidence_score: 0.85,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -247,7 +247,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -289,7 +289,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -331,7 +331,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -400,7 +400,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
         {
           id: 'desc-2',
@@ -408,7 +408,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'location',
           confidence_score: 0.85,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -465,7 +465,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -487,7 +487,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -533,7 +533,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -579,7 +579,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -628,7 +628,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -679,7 +679,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -714,7 +714,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 
@@ -751,7 +751,7 @@ describe('useDescriptionHighlighting', () => {
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
-          entities_mentioned: [],
+
         },
       ];
 

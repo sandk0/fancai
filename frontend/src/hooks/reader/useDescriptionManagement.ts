@@ -147,7 +147,6 @@ export const useDescriptionManagement = ({
                   content: d.content,
                   confidence_score: d.confidence_score,
                   priority_score: d.priority_score,
-                  entities_mentioned: d.entities_mentioned,
                 },
                 chapter: {
                   id: '',

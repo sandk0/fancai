@@ -71,8 +71,7 @@ function convertCachedDescriptions(
     content: desc.content,
     type: mapDescriptionType(desc.type),
     confidence_score: desc.confidence,
-    priority_score: desc.confidence, // Use confidence as priority fallback
-    entities_mentioned: [], // Empty for cached data
+    priority_score: desc.confidence,
     generated_image: desc.imageUrl ? {
       id: `cached_${desc.id}`,
       service_used: 'cached',

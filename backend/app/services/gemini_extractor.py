@@ -17,8 +17,6 @@ Author: fancai Team
 """
 
 import os
-import re
-import json
 import time
 import logging
 import asyncio
@@ -46,6 +44,7 @@ class GeminiEntitySchema(BaseModel):
     aliases: List[str] = Field(default_factory=list, description="Альтернативные имена")
     confidence: float = Field(description="Уверенность 0.0-1.0")
     importance: int = Field(description="Важность для сюжета (1-10). 10=Протагонист, 1=Фон")
+    first_mention_offset: Optional[int] = Field(default=None, description="Позиция (символ) первого упоминания в тексте")
 
 class GeminiRelationshipSchema(BaseModel):
     source: str
@@ -83,6 +82,7 @@ class ExtractedEntity:
     aliases: List[str] = field(default_factory=list)
     confidence: float = 0.0
     importance: int = 0
+    first_mention_offset: Optional[int] = None
 
 @dataclass
 class ExtractedRelationship:
@@ -318,23 +318,28 @@ class GeminiDirectExtractor:
     вместо коротких сущностей (NER).
     """
 
-    # Промпт для извлечения описаний (Phase 6: Structured Output optimized)
     EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
 ЗАДАЧА:
 1. Выдели ТОЛЬКО ГЛАВНЫХ персонажей и КЛЮЧЕВЫЕ локации (Top-15 для сюжета). Игнорируй обычные предметы и фоновых персонажей.
 2. Оцени ВАЖНОСТЬ (importance) каждой сущности от 1 до 10.
-   - 9-10: Протагонисты, Главные антагонисты, Основные локации (Дом героя).
+   - 9-10: Протагонисты, Главные антагонисты, Основные локации.
    - 7-8: Значимые второстепенные персонажи, Частые локации.
-   - 1-6: ИГНОРИРОВАТЬ (не включать в output или ставить низкий скор).
-3. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем для промпта).
-4. Определи СВЯЗИ между сущностями (кто с кем взаимодействует, где кто находится).
-5. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 100 символов.
+   - 1-6: ИГНОРИРОВАТЬ.
+3. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем).
+4. КРИТИЧНО: Укажи ВСЕ АЛЬТЕРНАТИВНЫЕ ИМЕНА (aliases) персонажа!
+   - Примеры: "Геральт" → aliases: ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]
+   - Примеры: "Гарри Поттер" → aliases: ["Мальчик-который-выжил", "Избранный"]
+   - Примеры: "Aragorn" → aliases: ["Strider", "Elessar", "Isildur's Heir"]
+5. Определи СВЯЗИ между сущностями.
+6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 100 символов.
+7. ВАЖНО: Для каждой сущности укажи "first_mention_offset" — позицию (номер символа от начала текста), где сущность ПЕРВЫЙ раз упоминается.
+   - Пример: если "Геральт" впервые появляется на 150-м символе текста, то first_mention_offset: 150
 
 ТИПЫ СУЩНОСТЕЙ:
 - character: Люди, существа. Описывай: лицо, волосы, одежда, возраст, особые приметы.
 - location: Места действия. Описывай: освещение, архитектура, погода, атмосфера.
-- object: ТОЛЬКО Сюжетно Важные Артефакты (Кольцо Всевластия). Обычные стулья/чашки - игнорировать.
+- object: ТОЛЬКО Сюжетно Важные Артефакты (Кольцо Всевластия). Обычные предметы - игнорировать.
 
 Текст для анализа:
 {text}
@@ -346,11 +351,10 @@ class GeminiDirectExtractor:
         self.config.api_key = self.config.api_key or os.getenv("LANGEXTRACT_API_KEY")
 
         self.chunker = RecursiveTextChunker(self.config)
-        # JSONResponseParser deleted in Phase 6
 
-        self._client = None  # google-genai Client
-        self._model = None   # model ID string
-        self._types = None   # google.genai.types module
+        self._client: Any = None
+        self._model: Optional[str] = None
+        self._types: Any = None
         self._available = False
 
         # Статистика
@@ -425,7 +429,7 @@ class GeminiDirectExtractor:
                     gemini_response = await self._call_gemini_with_retry(prompt)
                     
                     chunk_descriptions = self._convert_descriptions(gemini_response.descriptions, chunk_data["start"])
-                    chunk_entities = self._convert_entities(gemini_response.entities)
+                    chunk_entities = self._convert_entities(gemini_response.entities, chunk_data["start"])
                     chunk_relationships = self._convert_relationships(gemini_response.relationships)
                     
                     return {
@@ -614,18 +618,37 @@ class GeminiDirectExtractor:
 
     def _convert_entities(
         self,
-        schema_entities: List[GeminiEntitySchema]
+        schema_entities: List[GeminiEntitySchema],
+        chunk_offset: int = 0
     ) -> List[ExtractedEntity]:
-        """Convert Pydantic schemas to ExtractedEntity objects."""
+        """Convert Pydantic schemas to ExtractedEntity objects with validation."""
         entities = []
         for item in schema_entities:
+            # Validate and clamp importance to 1-10 range
+            importance = item.importance
+            if importance < 1 or importance > 10:
+                logger.debug(f"Clamping importance {importance} to 1-10 for entity '{item.name}'")
+                importance = max(1, min(10, importance))
+            
+            # Validate confidence to 0.0-1.0 range
+            confidence = item.confidence
+            if confidence < 0.0 or confidence > 1.0:
+                logger.debug(f"Clamping confidence {confidence} to 0.0-1.0 for entity '{item.name}'")
+                confidence = max(0.0, min(1.0, confidence))
+            
+            # Calculate absolute offset (chunk_offset + relative offset from Gemini)
+            first_mention_offset = None
+            if item.first_mention_offset is not None:
+                first_mention_offset = chunk_offset + item.first_mention_offset
+            
             entities.append(ExtractedEntity(
-                name=item.name,
-                type=item.type,
-                visual_summary=item.visual_summary,
-                aliases=item.aliases,
-                confidence=item.confidence,
-                importance=item.importance
+                name=item.name.strip() if item.name else "",
+                type=item.type.lower() if item.type else "character",
+                visual_summary=item.visual_summary or "",
+                aliases=[a.strip() for a in item.aliases if a] if item.aliases else [],
+                confidence=confidence,
+                importance=importance,
+                first_mention_offset=first_mention_offset
             ))
         return entities
 

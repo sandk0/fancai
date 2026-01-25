@@ -66,7 +66,6 @@ async def process_book_descriptions(book_id: UUID) -> int:
                         priority_score=desc_data["priority_score"],
                         position_in_chapter=desc_data.get("position_in_chapter", 0),
                         word_count=len(desc_data["content"].split()),
-                        entities_mentioned=desc_data.get("entities_mentioned", []),
                         emotional_tone=desc_data.get("emotional_tone", "neutral"),
                         complexity_level=desc_data.get("complexity_level", "medium"),
                         is_suitable_for_generation=desc_data.get("confidence_score", 0) >= 0.3

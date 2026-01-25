@@ -4,109 +4,70 @@
 Содержит извлеченные NLP-парсером описания из текста книг.
 """
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    ForeignKey,
-    Float,
-    Enum as SQLEnum,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
+import uuid as uuid_module
 import enum
+
+from sqlalchemy import Integer, String, Text, ForeignKey, Float, Enum as SQLEnum, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from ..core.database import Base
 
+if TYPE_CHECKING:
+    from .chapter import Chapter
+    from .image import GeneratedImage
+    from .description_entity import DescriptionEntity
+
 
 class DescriptionType(enum.Enum):
-    """
-    Типы описаний с приоритетами согласно техническому заданию.
-
-    Приоритеты:
-    - LOCATION: 75% (высший приоритет)
-    - CHARACTER: 60%
-    - ATMOSPHERE: 45%
-    - OBJECT: 40%
-    - ACTION: 30% (низший приоритет)
-    """
-
-    LOCATION = "LOCATION"  # Локации (интерьеры, экстерьеры, природа)
-    CHARACTER = "CHARACTER"  # Персонажи (внешность, одежда, эмоции)
-    ATMOSPHERE = "ATMOSPHERE"  # Атмосфера (время суток, погода, настроение)
-    OBJECT = "OBJECT"  # Объекты (оружие, артефакты, транспорт)
-    ACTION = "ACTION"  # Действия/сцены (битвы, церемонии, события)
+    LOCATION = "LOCATION"
+    CHARACTER = "CHARACTER"
+    ATMOSPHERE = "ATMOSPHERE"
+    OBJECT = "OBJECT"
+    ACTION = "ACTION"
 
 
 class Description(Base):
-    """
-    Модель описания, извлеченного из текста книги.
-
-    Attributes:
-        id: Уникальный идентификатор описания
-        chapter_id: ID главы (внешний ключ)
-        type: Тип описания (location, character, atmosphere, object, action)
-        content: Текст описания
-        context: Контекст вокруг описания (для лучшего понимания)
-        confidence_score: Уверенность NLP-парсера (0.0-1.0)
-        position_in_chapter: Позиция описания в главе
-        word_count: Количество слов в описании
-        is_suitable_for_generation: Подходит ли для генерации изображений
-        priority_score: Приоритетный счет для генерации
-        entities_mentioned: Упомянутые сущности (персонажи, места)
-    """
-
     __tablename__ = "descriptions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    chapter_id = Column(
-        UUID(as_uuid=True), ForeignKey("chapters.id"), nullable=False, index=True
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    chapter_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("chapters.id"), nullable=False, index=True
     )
 
-    # Основная информация
-    type = Column(SQLEnum(DescriptionType), nullable=False, index=True)
-    content = Column(Text, nullable=False)
-    context = Column(Text, nullable=True)  # Контекст вокруг описания
+    type: Mapped[DescriptionType] = mapped_column(SQLEnum(DescriptionType), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Метрики парсинга
-    confidence_score = Column(Float, nullable=False, default=0.0)  # 0.0-1.0
-    position_in_chapter = Column(Integer, nullable=False)  # Позиция в тексте главы
-    word_count = Column(Integer, nullable=False, default=0)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    position_in_chapter: Mapped[int] = mapped_column(Integer, nullable=False)
+    word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    # Оценка для генерации
-    is_suitable_for_generation = Column(Boolean, default=True, nullable=False)
-    priority_score = Column(Float, nullable=False, default=0.0)  # Расчетный приоритет
+    is_suitable_for_generation: Mapped[bool] = mapped_column(default=True, nullable=False)
+    priority_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
-    # NLP анализ
-    entities_mentioned = Column(Text, nullable=True)  # JSON список сущностей
-    emotional_tone = Column(String(50), nullable=True)  # positive, negative, neutral
-    complexity_level = Column(String(20), nullable=True)  # simple, medium, complex
+    emotional_tone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    complexity_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    # Статус генерации изображения
-    image_generated = Column(Boolean, default=False, nullable=False)
-    generation_requested = Column(Boolean, default=False, nullable=False)
+    image_generated: Mapped[bool] = mapped_column(default=False, nullable=False)
+    generation_requested: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    # Отношения
-    # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    chapter = relationship("Chapter", back_populates="descriptions", lazy="raise")
-    generated_images = relationship(
+    chapter: Mapped["Chapter"] = relationship("Chapter", back_populates="descriptions", lazy="raise")
+    generated_images: Mapped[list["GeneratedImage"]] = relationship(
         "GeneratedImage", back_populates="description", cascade="all, delete-orphan", lazy="raise"
+    )
+    linked_entities: Mapped[list["DescriptionEntity"]] = relationship(
+        "DescriptionEntity", back_populates="description", cascade="all, delete-orphan", lazy="raise"
     )
 
     def __repr__(self) -> str:

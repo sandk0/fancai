@@ -245,7 +245,6 @@ class TestChapterSchemas:
             "word_count": 5,
             "is_suitable_for_generation": True,
             "image_generated": True,
-            "entities_mentioned": "mountains, valley",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }

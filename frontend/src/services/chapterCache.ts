@@ -106,7 +106,6 @@ function fromCachedDescription(cached: CachedDescription): Description | null {
     text: cached.content,
     confidence_score: cached.confidence ?? 0,
     priority_score: cached.confidence ?? 0,
-    entities_mentioned: [],
     generated_image: cached.imageUrl ? {
       id: '',
       service_used: 'cached',

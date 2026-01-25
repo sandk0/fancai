@@ -61,8 +61,7 @@ class TestBookParsingServiceIntegration:
                 "confidence_score": 0.95,
                 "position": 10,
                 "word_count": 3,
-                "priority_score": 0.9,
-                "entities_mentioned": ["forest"]
+                "priority_score": 0.9
             }
         ]
 
@@ -95,8 +94,7 @@ class TestBookParsingServiceIntegration:
                 "confidence_score": 0.9,
                 "position": 0,
                 "word_count": 1,
-                "priority_score": 0.8,
-                "entities_mentioned": []
+                "priority_score": 0.8
             }
         ]
 

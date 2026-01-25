@@ -209,7 +209,6 @@ async def get_chapter_descriptions(
                     content=desc_dict.get("content", ""),
                     confidence_score=desc_dict.get("confidence_score", 0.8),
                     priority_score=desc_dict.get("priority_score", 0.5),
-                    entities_mentioned=",".join(desc_dict.get("entities_mentioned", [])),
                     position_in_chapter=position,
                     word_count=desc_dict.get("word_count", len(desc_dict.get("content", "").split())),
                 )
@@ -289,7 +288,6 @@ async def get_chapter_descriptions(
             word_count=desc.word_count,
             is_suitable_for_generation=desc.is_suitable_for_generation,
             image_generated=desc.image_generated,
-            entities_mentioned=desc.entities_mentioned or "",
             created_at=desc.created_at,
             updated_at=desc.updated_at,
         ))
@@ -373,7 +371,6 @@ async def get_description(
         word_count=description.word_count,
         is_suitable_for_generation=description.is_suitable_for_generation,
         image_generated=description.image_generated,
-        entities_mentioned=description.entities_mentioned or "",
         created_at=description.created_at,
         updated_at=description.updated_at,
     )
@@ -454,7 +451,6 @@ async def _get_chapter_descriptions_internal(
             word_count=desc.word_count,
             is_suitable_for_generation=desc.is_suitable_for_generation,
             image_generated=desc.image_generated,
-            entities_mentioned=desc.entities_mentioned or "",
             created_at=desc.created_at,
             updated_at=desc.updated_at,
         ))
@@ -645,7 +641,6 @@ async def get_batch_descriptions(
                 word_count=desc.word_count,
                 is_suitable_for_generation=desc.is_suitable_for_generation,
                 image_generated=desc.image_generated,
-                entities_mentioned=desc.entities_mentioned or "",
                 created_at=desc.created_at,
                 updated_at=desc.updated_at,
             ))
@@ -800,7 +795,6 @@ async def _background_extract_descriptions(
                         content=desc_dict.get("content", ""),
                         confidence_score=desc_dict.get("confidence_score", 0.8),
                         priority_score=desc_dict.get("priority_score", 0.5),
-                        entities_mentioned=",".join(desc_dict.get("entities_mentioned", [])),
                         position_in_chapter=position,
                         word_count=desc_dict.get("word_count", len(desc_dict.get("content", "").split())),
                     )

@@ -11,6 +11,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.entity import Entity
 from app.models.entity_relationship import EntityRelationship
 from app.models.description import Description, DescriptionType
+from app.models.description_entity import DescriptionEntity
 
 async def main():
     # NEW Book ID
@@ -70,13 +71,18 @@ async def main():
                     "direction": direction
                 })
 
-            # 3. Fetch descriptions (STRICT CHARACTER FILTER)
-            desc_stmt = select(Description).where(
-                and_(
-                    Description.entities_mentioned.ilike(f"%{entity.name}%"),
-                    Description.type == DescriptionType.CHARACTER
+            # 3. Fetch descriptions via description_entities M:N table
+            desc_stmt = (
+                select(Description)
+                .join(DescriptionEntity, Description.id == DescriptionEntity.description_id)
+                .where(
+                    and_(
+                        DescriptionEntity.entity_id == entity.id,
+                        Description.type == DescriptionType.CHARACTER
+                    )
                 )
-            ).limit(10)
+                .limit(10)
+            )
             
             desc_result = await db.execute(desc_stmt)
             descriptions = [d.content for d in desc_result.scalars().all()]

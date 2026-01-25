@@ -57,7 +57,6 @@ async def process_single_chapter():
                     priority_score=desc_data["priority_score"],
                     position_in_chapter=0,
                     word_count=len(desc_data["content"].split()),
-                    entities_mentioned=json.dumps(desc_data.get("entities_mentioned", []), ensure_ascii=False),
                     is_suitable_for_generation=desc_data.get("confidence_score", 0) >= 0.3
                 )
                 db.add(description)

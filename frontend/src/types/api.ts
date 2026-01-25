@@ -155,10 +155,9 @@ export interface Description {
   id: string;
   type: DescriptionType;
   content: string;
-  text?: string;  // Full text of description (same as content in most cases)
+  text?: string;
   confidence_score: number;
   priority_score: number;
-  entities_mentioned: string[] | string; // Handle both formats
   generated_image?: GeneratedImage;
 }
 
@@ -168,15 +167,13 @@ export interface NLPAnalysis {
   descriptions: Description[];
 }
 
-// Image Generation Types
 export interface ImageDescription {
   id: string;
   type: DescriptionType;
-  text: string;  // Полный текст описания
-  content: string;  // Сокращенный текст
+  text: string;
+  content: string;
   confidence_score: number;
   priority_score: number;
-  entities_mentioned?: string[];
 }
 
 export interface ImageChapter {

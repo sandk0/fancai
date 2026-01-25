@@ -82,9 +82,9 @@ import { notify } from '@/stores/ui';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
-import { useEntityNetwork } from '@/hooks/useEntityNetwork';
+import { useEntityNetwork, usePrefetchEntityNetwork } from '@/hooks/useEntityNetwork';
 import { EntityDrawer } from '@/components/Entities/EntityDrawer';
-import { Users } from 'lucide-react'; // Ensure icon available
+import { Users } from 'lucide-react';
 
 // Types for position conflict
 interface PositionConflict {
@@ -402,7 +402,14 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // --- Entity Cards Integration ---
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
-  const { data: entityNetwork } = useEntityNetwork(book.id);
+  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(book.id);
+  const prefetchEntityNetwork = usePrefetchEntityNetwork();
+  
+  useEffect(() => {
+    if (book.id) {
+      prefetchEntityNetwork(book.id);
+    }
+  }, [book.id, prefetchEntityNetwork]);
 
   const handleEntitiesOpen = useCallback(() => {
     setIsEntityDrawerOpen(true);
@@ -1086,7 +1093,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
             content: selectedImage.description.text || selectedImage.description.content,
             confidence_score: 0,
             priority_score: selectedImage.description.priority_score,
-            entities_mentioned: []
           } : undefined}
           isOpen={isModalOpen}
           onClose={closeModal}
@@ -1111,6 +1117,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         entities={entityNetwork?.entities || {}}
         edges={entityNetwork?.edges || []}
         currentChapter={currentChapter}
+        currentCFI={currentCFI}
+        isLoading={isEntityNetworkLoading}
       />
 
       {/* Selection Menu */}

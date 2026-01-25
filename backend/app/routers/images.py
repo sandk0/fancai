@@ -708,7 +708,6 @@ async def get_book_images(
                     ),  # Сокращенный для превью
                     "confidence_score": description.confidence_score,
                     "priority_score": description.priority_score,
-                    "entities_mentioned": description.entities_mentioned,
                 },
                 "chapter": {
                     "id": str(chapter.id),

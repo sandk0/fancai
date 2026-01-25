@@ -320,7 +320,6 @@ class DescriptionResponse(BaseResponse):
     word_count: int = Field(ge=0)
     is_suitable_for_generation: bool
     image_generated: bool
-    entities_mentioned: str = Field(description="Comma-separated entities")
     created_at: datetime
     updated_at: datetime
 

@@ -19,7 +19,6 @@ describe('ChapterCache', () => {
       text: 'Test character description',
       confidence_score: 0.9,
       priority_score: 0.8,
-      entities_mentioned: ['hero'],
     },
   ];
 
