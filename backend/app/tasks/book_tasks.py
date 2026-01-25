@@ -1,0 +1,547 @@
+"""
+Book processing Celery tasks.
+"""
+
+from app.core.celery_app import celery_app
+import asyncio
+from typing import Dict, Any, cast
+from datetime import datetime, timezone
+from uuid import UUID
+from sqlalchemy import select, func
+
+from app.core.database import AsyncSessionLocal
+from app.core.logging import logger
+from app.models.book import Book
+from app.models.chapter import Chapter
+from app.services.gemini_extractor import get_gemini_extractor
+from app.services.consistency_manager import ConsistencyManager
+from app.core.pubsub import publish_book_progress, publish_entities_updated
+from app.services.push_notification_service import push_notification_service
+
+
+@celery_app.task(
+    name="process_book", 
+    bind=True, 
+    max_retries=3, 
+    default_retry_delay=60,
+    time_limit=10800,  # 3 hours hard limit
+    soft_time_limit=10500,  # 2 hours 55 minutes soft limit
+    track_started=True,  # Celery 5.6+: Track STARTED state
+)
+def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
+    """
+    Асинхронная обработка книги: валидация и подготовка к on-demand извлечению.
+
+    После удаления NLP системы эта задача только:
+    - Валидирует книгу и главы
+    - Проверяет доступность LLM
+    - Помечает книгу как готовую к обработке
+
+    Phase 2 Improvements:
+    - SoftTimeLimitExceeded handling for graceful timeout
+    - Finally block for atomic state cleanup
+    - Redis lock cleanup on all exit paths
+    
+    Phase 4 Improvements:
+    - Redis distributed lock to prevent duplicate processing
+
+    Args:
+        book_id_str: String ID книги для обработки (UUID)
+
+    Returns:
+        Результат обработки
+    """
+    from celery.exceptions import SoftTimeLimitExceeded
+    import redis
+    from app.core.config import settings
+    
+    book_id = None
+    redis_lock = None
+    lock_key = f"book:processing:{book_id_str}"
+    
+    # Define async wrapper to keep everything in ONE event loop
+    async def task_wrapper():
+        nonlocal book_id, redis_lock
+        
+        try:
+            # Phase 4: Acquire distributed lock
+            # Note: redis-py is sync here, but that's fine inside async wrapper
+            # provided we don't block for long.
+            # Ideally we'd use redis.asyncio, but we are reusing the existing sync client pattern 
+            # for the lock acquisition part which is fast.
+            # Or better: keep sync lock logic outside, only run async process inside.
+            # BUT: cleanup needs async DB session. So cleanup must be in the loop.
+            
+            # Since Redis Lock logic is sync, let's keep it here.
+            
+            logger.info("Starting book processing", book_id=book_id_str, task="process_book")
+            book_id = UUID(book_id_str)
+
+            # RUN MAIN PROCESSING
+            result = await _process_book_async(book_id)
+
+            logger.info(
+                "Book processing completed",
+                book_id=book_id_str,
+                status=result.get("status"),
+                chapters_preparsed=result.get("chapters_preparsed"),
+            )
+            return result
+
+        except SoftTimeLimitExceeded:
+            # Celery 5.6+: Graceful timeout handling
+            logger.warning(
+                "Book processing soft time limit exceeded",
+                book_id=book_id_str,
+                timeout_seconds=10500
+            )
+            if book_id:
+                try:
+                    await _atomic_cleanup_book_state(book_id, "Timeout: soft limit exceeded (2h 55m)")
+                except Exception as cleanup_e:
+                     logger.error(f"Cleanup failed during timeout: {cleanup_e}")
+            raise  # Re-raise so Celery marks task as failed
+
+        except Exception as e:
+            logger.error(
+                "Error processing book",
+                book_id=book_id_str,
+                error=str(e),
+                exc_info=True,
+            )
+            # Ensure we update the book state in DB so it doesn't get stuck processing
+            if book_id:
+                try:
+                    # Run cleanup in the SAME loop
+                    await _atomic_cleanup_book_state(book_id, str(e))
+                except Exception as db_e:
+                    logger.error(
+                        "Failed to update book error state", 
+                        book_id=book_id_str, 
+                        error=str(db_e)
+                    )
+            
+            return {"book_id": book_id_str, "status": "failed", "error": str(e)}
+
+    # Acquire lock first (SYNC)
+    try:
+        redis_client = redis.from_url(settings.REDIS_URL)
+        redis_lock = redis_client.lock(
+            lock_key,
+            timeout=10800,  # 3 hours (match task time limit)
+            blocking=False
+        )
+        
+        if not redis_lock.acquire(blocking=False):
+            logger.warning(
+                "Book already being processed (lock exists)",
+                book_id=book_id_str,
+                lock_key=lock_key
+            )
+            return {
+                "book_id": book_id_str,
+                "status": "skipped",
+                "error": "Book is already being processed by another worker"
+            }
+            
+        # Run everything in ONE loop
+        return asyncio.run(task_wrapper())
+        
+    except Exception as outer_e:
+        # If redis fails or asyncio.run fails totally
+        logger.error(f"Critical task failure: {outer_e}")
+        raise outer_e
+
+    
+    finally:
+        # Phase 4: Always release Redis lock
+        if redis_lock is not None:
+            try:
+                redis_lock.release()
+                logger.debug(f"Released Redis lock for book {book_id_str}")
+            except Exception as lock_e:
+                logger.warning(f"Failed to release Redis lock: {lock_e}")
+
+
+async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
+    """
+    Atomic cleanup of book processing state.
+    
+    Guaranteed to:
+    1. Set is_processing=False
+    2. Set error message
+    3. Invalidate user cache
+    4. Clear Redis processing lock
+    
+    Phase 2: Replaces _handle_book_processing_error_async with more robust handling.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            book_result = await db.execute(select(Book).where(Book.id == book_id))
+            book = book_result.scalar_one_or_none()
+            
+            if book:
+                book.is_processing = False
+                book.descriptions_processing_error = error_msg
+                await db.commit()
+                
+                # Invalidate cache
+                try:
+                    from app.core.cache import cache_manager
+                    pattern = f"user:{book.user_id}:books:*"
+                    await cache_manager.delete_pattern(pattern)
+                except Exception as cache_e:
+                    logger.warning(f"Cache invalidation failed: {cache_e}")
+        
+        # Clear Redis processing lock
+        try:
+            import redis.asyncio as aioredis
+            from app.core.config import settings
+            redis_client = await aioredis.from_url(settings.REDIS_URL)
+            await redis_client.delete(f"book:processing:{book_id}")
+            await redis_client.close()
+        except Exception as redis_e:
+            logger.warning(f"Redis lock cleanup failed: {redis_e}")
+                
+    except Exception as e:
+        logger.error("Error in _atomic_cleanup_book_state", book_id=str(book_id), error=str(e))
+
+
+async def _handle_book_processing_error_async(book_id: UUID, error_msg: str):
+    """
+    Updates book state on processing failure.
+    Sets is_processing=False and descriptions_processing_error.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            book_result = await db.execute(select(Book).where(Book.id == book_id))
+            book = book_result.scalar_one_or_none()
+            
+            if book:
+                book.is_processing = False
+                book.descriptions_processing_error = error_msg
+                await db.commit()
+                
+                # Invalidate cache
+                from app.core.cache import cache_manager
+                pattern = f"user:{book.user_id}:books:*"
+                await cache_manager.delete_pattern(pattern)
+                
+    except Exception as e:
+        logger.error("Error in _handle_book_processing_error_async", error=str(e))
+
+
+
+async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
+    """
+    Асинхронная функция обработки книги.
+
+    После загрузки:
+    1. Валидирует книгу и главы
+    2. Парсит первые 2 главы с помощью LLM для предзагрузки
+    3. Помечает книгу как готовую
+    """
+    # from app.services.langextract_processor import langextract_processor # DEPRECATED
+    # from app.models.description import Description, DescriptionType # Imported from gemini_extractor now
+
+    async with AsyncSessionLocal() as db:
+        logger.debug("Starting async processing", book_id=str(book_id))
+        
+        # Initialize services
+        gemini_extractor = get_gemini_extractor()
+        consistency_manager = ConsistencyManager(db)
+        
+        # Import DescriptionType for DB mapping
+        from app.models.description import DescriptionType
+
+        # Проверяем доступность LLM
+        llm_available = gemini_extractor.is_available()
+
+        if not llm_available:
+            logger.warning("Gemini extractor not available", book_id=str(book_id))
+
+        # Получаем книгу
+        book_result = await db.execute(select(Book).where(Book.id == book_id))
+        book = book_result.scalar_one_or_none()
+
+        if not book:
+            logger.error("Book not found", book_id=str(book_id))
+            raise ValueError(f"Book with id {book_id} not found")
+
+        logger.info("Found book", book_id=str(book_id), title=book.title, author=book.author)
+
+        # Получаем главы
+        chapters_result = await db.execute(
+            select(Chapter)
+            .where(Chapter.book_id == book_id)
+            .order_by(Chapter.chapter_number)
+        )
+        chapters = chapters_result.scalars().all()
+
+        logger.info("Found chapters", book_id=str(book_id), chapters_count=len(chapters))
+
+        # ИЗМЕНЕНО: Обрабатываем ВСЕ главы книги (ранее было только 5)
+        # Теперь обработка запускается вручную, поэтому обрабатываем полностью
+        chapters_parsed = 0
+        total_descriptions = 0
+        total_chapters = len(chapters)
+
+        if llm_available and chapters:
+            logger.info("Starting parallel chapter processing (v16 Async Architecture)", book_id=str(book_id))
+            
+            # Semaphore to limit massive concurrency
+            chapter_semaphore = asyncio.Semaphore(10) 
+            
+            # Import TaskGroup safely (Python 3.11+)
+            try:
+                from asyncio import TaskGroup
+            except ImportError:
+                 # Fallback for older python if needed, though we are on 3.12
+                 logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
+                 raise
+
+            # Progress tracking
+            chapters_done_count = 0
+            progress_lock = asyncio.Lock()
+
+            async def process_chapter_safe(idx: int, chapter_id: UUID):
+                """
+                Process a single chapter in its own DB session to avoid concurrency issues.
+                """
+                async with AsyncSessionLocal() as session:
+                    async with chapter_semaphore:
+                        try:
+                            # 1. Fetch Chapter
+                            stmt = select(Chapter).where(Chapter.id == chapter_id)
+                            res = await session.execute(stmt)
+                            local_chapter = res.scalar_one_or_none()
+                            
+                            if not local_chapter:
+                                return
+                            
+                            # Skip if already parsed
+                            if local_chapter.is_description_parsed:
+                                return
+
+                            # 2. Check Service Page (Table of Contents, etc)
+                            SERVICE_PAGE_KEYWORDS = [
+                                "содержание", "оглавление", "table of contents", "contents",
+                                "от автора", "слово автора", "предисловие", "послесловие",
+                                "аннотация", "annotation", "synopsis",
+                                "эпиграф", "epigraph", "цитата",
+                                "посвящение", "dedication",
+                                "благодарности", "acknowledgments",
+                                "примечания", "notes", "сноски",
+                                "библиография", "bibliography", "references",
+                                "об авторе", "about the author", "биография",
+                                "copyright", "издательство", "publisher",
+                                "isbn", "все права защищены", "all rights reserved",
+                            ]
+                            
+                            content_lower = (local_chapter.content or "")[:500].lower()
+                            title_lower = (local_chapter.title or "").lower()
+                            
+                            is_service = any(k in title_lower or k in content_lower for k in SERVICE_PAGE_KEYWORDS)
+                            if local_chapter.word_count and local_chapter.word_count < 100: 
+                                is_service = True
+
+                            if is_service:
+                                local_chapter.is_service_page = True
+                                local_chapter.is_description_parsed = True
+                                local_chapter.parsed_at = datetime.now(timezone.utc)
+                                await session.commit()
+                                return
+
+                            # 3. Analyze with Gemini
+                            # Extractor has its own internal semaphore/rate-limiting too
+                            result = await gemini_extractor.analyze_chapter(local_chapter.content)
+                            
+                            # 4. Consistency & Logic (Map Phase)
+                            # Use a local ConsistencyManager with this session
+                            local_mgr = ConsistencyManager(session)
+                            await local_mgr.process_chapter_analysis(str(book_id), result, chapter_id=str(local_chapter.id))
+
+                            # 5. Save Descriptions
+                            descriptions_data = result.descriptions or []
+                            from app.models.description import Description as DescriptionModel
+                            
+                            for i, d in enumerate(descriptions_data):
+                                d_dict = cast(Dict[str, Any], d.to_dict() if hasattr(d, 'to_dict') else dict(d) if isinstance(d, dict) else {"content": str(d)})
+                                try:
+                                    d_type = DescriptionType(d_dict.get("type", "location"))
+                                except ValueError:
+                                    logger.warning(f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION")
+                                    d_type = DescriptionType.LOCATION
+                                
+                                new_desc = DescriptionModel(
+                                    chapter_id=local_chapter.id,
+                                    type=d_type,
+                                    content=d_dict.get("content", ""),
+                                    confidence_score=d_dict.get("confidence_score", 0.8),
+                                    priority_score=d_dict.get("priority_score", 0.5),
+                                    position_in_chapter=i,
+                                    word_count=d_dict.get("word_count", 0)
+                                )
+                                session.add(new_desc)
+
+                            local_chapter.descriptions_found = len(descriptions_data)
+                            local_chapter.is_description_parsed = True
+                            local_chapter.parsed_at = datetime.now(timezone.utc)
+                            
+                            await session.commit()
+                            
+                            logger.info(f"Chapter {local_chapter.chapter_number} parsed: {len(descriptions_data)} descriptions")
+
+                            # Update progress
+                            nonlocal chapters_done_count
+                            async with progress_lock:
+                                chapters_done_count += 1
+                                current_progress = int((chapters_done_count / total_chapters) * 80)
+                            
+                            await publish_book_progress(
+                                book_id=str(book_id),
+                                progress=current_progress,
+                                chapter=local_chapter.chapter_number,
+                                total_chapters=total_chapters,
+                                status="processing",
+                                message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}"
+                            )
+                            
+                        except Exception as e:
+                            logger.error(f"Error parsing chapter {idx+1}: {e}", exc_info=True)
+                            # Don't raise, just log so other chapters continue
+
+            # Launch Parallel Processing
+            logger.info(f"Spawning {len(chapters)} parallel tasks...")
+            async with TaskGroup() as tg:
+                for idx, chapter in enumerate(chapters):
+                    tg.create_task(process_chapter_safe(idx, chapter.id))
+            
+            logger.info("Parallel processing complete.")
+
+            # Update book progress to 100% (approximate)
+            book.parsing_progress = 100
+
+
+        # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
+        # Executed once after all chapters are extracted.
+        
+        # A. Reduce Phase: Merge Duplicates & Filter Garbage
+        try:
+            logger.info("Running Entity Optimization (Reduce Phase)...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=85,
+                status="processing",
+                message="Оптимизация сущностей..."
+            )
+            await consistency_manager.optimize_book_entities(str(book_id))
+            
+            from app.models.entity import Entity
+            entities_count_result = await db.execute(
+                select(func.count(Entity.id)).where(Entity.book_id == book_id)
+            )
+            entities_count = entities_count_result.scalar() or 0
+            
+            await publish_entities_updated(
+                book_id=str(book_id),
+                entities_count=entities_count,
+                message=f"Обнаружено {entities_count} сущностей"
+            )
+        except Exception as e:
+            logger.error(f"Reduce phase failed: {e}")
+            
+        # B. Graph Phase: PageRank & Importance
+        try:
+            from app.services.graph_service import get_graph_service
+            graph_service = get_graph_service(db)
+            logger.info("Calculating Graph Metrics (PageRank)...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=90,
+                status="processing",
+                message="Анализ связей графа..."
+            )
+            await graph_service.calculate_pagerank(str(book_id))
+        except Exception as e:
+            logger.error(f"Graph analysis failed: {e}")
+
+        # 5. Generate Master References for optimized entities
+        # This is done once after all chapters are processed to ensure global consistency
+        try:
+            logger.info("Generating Master References for entities...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=95,
+                status="processing",
+                message="Финальная сборка..."
+            )
+            await consistency_manager.generate_master_references(str(book_id))
+        except Exception as e:
+            logger.error("Failed to generate master references", error=str(e))
+
+
+        # Помечаем книгу как готовую с извлечёнными описаниями
+        book.is_processing = False
+        book.is_parsed = True
+        book.parsing_progress = 100
+        book.descriptions_extracted = True  # НОВОЕ: флаг успешного извлечения
+        book.descriptions_processing_error = None  # Сбрасываем ошибку
+        await db.commit()
+        
+        # Публикуем завершение через WebSocket
+        try:
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=100,
+                chapter=total_chapters,
+                total_chapters=total_chapters,
+                status="completed",
+                message="Обработка завершена успешно!"
+            )
+        except Exception as ws_err:
+            logger.warning("Failed to publish WebSocket completion", error=str(ws_err))
+
+        # Инвалидируем кэш
+        try:
+            from app.core.cache import cache_manager
+            logger.debug("Invalidating book list cache", user_id=str(book.user_id))
+            pattern = f"user:{book.user_id}:books:*"
+            deleted_count = await cache_manager.delete_pattern(pattern)
+            logger.debug("Cache invalidated", keys_deleted=deleted_count)
+        except Exception as e:
+            logger.warning("Failed to invalidate cache", error=str(e))
+
+        result = {
+            "book_id": str(book_id),
+            "status": "completed",
+            "chapters_count": len(chapters),
+            "chapters_preparsed": chapters_parsed,
+            "descriptions_extracted": total_descriptions,
+            "llm_available": llm_available,
+            "extraction_mode": "full_book",  # ИЗМЕНЕНО с preparse_first_chapters
+            "message": f"Book fully processed. {chapters_parsed} chapters with {total_descriptions} descriptions."
+        }
+
+        logger.info(
+            "Book processing finished",
+            book_id=str(book_id),
+            chapters_count=len(chapters),
+            chapters_preparsed=chapters_parsed,
+            descriptions_extracted=total_descriptions,
+        )
+
+        # Send push notification to user (non-blocking)
+        try:
+            await push_notification_service.send_book_ready_notification(
+                db=db,
+                user_id=book.user_id,
+                book_id=book.id,
+                book_title=book.title,
+            )
+            logger.debug("Push notification sent for book ready", book_id=str(book_id))
+        except Exception as e:
+            # Don't fail the task if push notification fails
+            logger.warning("Failed to send book ready push notification", error=str(e))
+
+        return result
