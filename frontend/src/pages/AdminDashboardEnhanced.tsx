@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Activity, Cpu, Database, Image, Server, Users } from 'lucide-react';
+import { AlertTriangle, Activity, Cpu, Database, Image, Server, Users, GitMerge } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { notify } from '@/stores/ui';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -28,6 +28,7 @@ import { AdminTabNavigation, type AdminTab } from '@/components/Admin/AdminTabNa
 import { AdminStats } from '@/components/Admin/AdminStats';
 import { AdminMultiNLPSettings } from '@/components/Admin/AdminMultiNLPSettings';
 import { AdminParsingSettings } from '@/components/Admin/AdminParsingSettings';
+import { AdminEntityMerge } from '@/components/Admin/AdminEntityMerge';
 import { Accordion, type AccordionItem } from '@/components/UI/Accordion';
 import {
   adminAPI,
@@ -189,6 +190,13 @@ const AdminDashboard: React.FC = () => {
       ),
     },
     {
+      id: 'entities',
+      title: t('admin.entities'),
+      description: 'Entity deduplication',
+      icon: GitMerge,
+      content: <AdminEntityMerge t={t} />,
+    },
+    {
       id: 'images',
       title: t('admin.images'),
       description: 'Генерация изображений',
@@ -295,7 +303,8 @@ const AdminDashboard: React.FC = () => {
               />
             )}
 
-            {/* Images Tab */}
+            {activeTab === 'entities' && <AdminEntityMerge t={t} />}
+
             {activeTab === 'images' && (
               <div className="text-center py-12">
                 <Image className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

@@ -395,6 +395,62 @@ const ListItemSkeleton = React.forwardRef<HTMLDivElement, ListItemSkeletonProps>
 )
 ListItemSkeleton.displayName = "ListItemSkeleton"
 
+export interface EntityCardSkeletonProps
+  extends React.HTMLAttributes<HTMLDivElement> {
+  showChevron?: boolean
+}
+
+const EntityCardSkeleton = React.forwardRef<HTMLDivElement, EntityCardSkeletonProps>(
+  ({ className, showChevron = true, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "flex items-center p-3 rounded-lg bg-white/5",
+          className
+        )}
+        aria-label="Loading entity"
+        aria-busy="true"
+        {...props}
+      >
+        <Skeleton variant="circular" width={48} height={48} className="mr-4 border border-white/10" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <Skeleton variant="text" className="h-4 w-2/3" />
+          <Skeleton variant="text" className="h-3 w-1/3" />
+        </div>
+        {showChevron && (
+          <Skeleton variant="rectangular" width={20} height={20} className="ml-2" />
+        )}
+      </div>
+    )
+  }
+)
+EntityCardSkeleton.displayName = "EntityCardSkeleton"
+
+export interface EntityListSkeletonProps
+  extends React.HTMLAttributes<HTMLDivElement> {
+  count?: number
+}
+
+const EntityListSkeleton = React.forwardRef<HTMLDivElement, EntityListSkeletonProps>(
+  ({ className, count = 5, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("space-y-2 px-2", className)}
+        aria-label="Loading entities"
+        aria-busy="true"
+        {...props}
+      >
+        {Array.from({ length: count }).map((_, i) => (
+          <EntityCardSkeleton key={i} />
+        ))}
+      </div>
+    )
+  }
+)
+EntityListSkeleton.displayName = "EntityListSkeleton"
+
 export {
   Skeleton,
   skeletonVariants,
@@ -404,4 +460,6 @@ export {
   AvatarSkeleton,
   CardSkeleton,
   ListItemSkeleton,
+  EntityCardSkeleton,
+  EntityListSkeleton,
 }

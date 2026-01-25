@@ -20,6 +20,8 @@ export const ru = {
     search: 'Поиск',
     filter: 'Фильтры',
     noResults: 'Ничего не найдено',
+    refresh: 'Обновить',
+    retry: 'Повторить',
   },
 
   // Аутентификация / Authentication
@@ -308,10 +310,10 @@ export const ru = {
     accessDenied: 'Доступ запрещен',
     accessDeniedDesc: 'Для доступа к этой странице необходимы права администратора.',
 
-    // Tabs
     overview: 'Обзор',
     multiNlpSettings: 'Настройки Multi-NLP',
     parsing: 'Парсинг',
+    entities: 'Сущности',
     images: 'Изображения',
     system: 'Система',
     users: 'Пользователи',
@@ -384,10 +386,20 @@ export const ru = {
     systemUpdated: 'Системные настройки успешно обновлены',
     saveFailed: 'Ошибка сохранения',
 
-    // Placeholders
     imageSettings: 'Настройки генерации изображений будут доступны здесь.',
     systemSettings: 'Настройки конфигурации системы будут доступны здесь.',
     userManagement: 'Интерфейс управления пользователями будет доступен здесь.',
+
+    loadingDuplicates: 'Загрузка дубликатов...',
+    failedToLoadDuplicates: 'Не удалось загрузить дубликаты',
+    noDuplicatesFound: 'Дубликаты не найдены. Все сущности уникальны.',
+    duplicateGroups: 'Групп дубликатов',
+    extraEntities: 'лишних сущностей',
+    selectMasterEntity: 'Выберите главную сущность (остальные будут объединены в неё):',
+    mergeEntities: 'Объединить',
+    mergeSuccess: 'Объединение выполнено',
+    mergeFailed: 'Ошибка объединения',
+    mergeError: 'Ошибка',
   },
 
   // Ошибки / Errors

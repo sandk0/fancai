@@ -238,7 +238,6 @@ export const adminAPI = {
     return apiClient.post('/admin/initialize-settings');
   },
 
-  // NLP processor info
   async getNLPProcessorInfo(): Promise<{
     processor_info: {
       type: string;
@@ -249,5 +248,37 @@ export const adminAPI = {
     available_models: Record<string, string[]>;
   }> {
     return apiClient.get('/admin/nlp-processor-info');
-  }
+  },
+
+  async getEntityDuplicates(bookId?: string): Promise<{
+    groups: Array<{
+      book_id: string;
+      book_title: string;
+      normalized_name: string;
+      entities: Array<{
+        id: string;
+        name: string;
+        type: string;
+        importance: number;
+        visual_summary: string | null;
+        created_at: string | null;
+      }>;
+    }>;
+    total_duplicates: number;
+  }> {
+    const params = bookId ? `?book_id=${bookId}` : '';
+    return apiClient.get(`/admin/entities/duplicates${params}`);
+  },
+
+  async mergeEntities(masterId: string, duplicateIds: string[]): Promise<{
+    success: boolean;
+    merged_count: number;
+    master_id: string;
+    message: string;
+  }> {
+    return apiClient.post('/admin/entities/merge', {
+      master_id: masterId,
+      duplicate_ids: duplicateIds,
+    });
+  },
 };

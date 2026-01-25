@@ -1,6 +1,6 @@
 import React from 'react';
 import { EntityDetail } from '../../types/entity';
-import { isEntityMet } from '../../utils/entityUtils';
+import { isEntityMetCFI } from '../../utils/entityUtils';
 import { SpoilerText } from './SpoilerText';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
@@ -16,6 +16,7 @@ interface RelationItem {
 interface EntityProfileProps {
     entity: EntityDetail;
     currentChapter: number;
+    currentCFI?: string | null;
     relatedEntities?: RelationItem[];
     onEntityClick?: (id: string) => void;
 }
@@ -23,15 +24,14 @@ interface EntityProfileProps {
 export const EntityProfile: React.FC<EntityProfileProps> = ({
     entity,
     currentChapter,
+    currentCFI,
     relatedEntities = [],
     onEntityClick
 }) => {
-    // Determine visibility using centralized utility
-    const isUnknown = !isEntityMet(entity, currentChapter);
+    const isUnknown = !isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
 
     return (
-        <div className="bg-[#0a0a0a] text-white h-full flex flex-col">
-            {/* Hero Section - ALWAYS VISIBLE */}
+        <div className="bg-[var(--color-bg-base)] text-[var(--color-text-default)] h-full flex flex-col">
             <div className="relative h-64 w-full flex-shrink-0">
                 {entity.avatar_url ? (
                     <img
@@ -41,26 +41,26 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                         style={{ maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)' }}
                     />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-blue-950 to-[#0a0a0a] flex items-center justify-center">
+                    <div className="w-full h-full bg-gradient-to-b from-blue-950 to-[var(--color-bg-base)] flex items-center justify-center">
                         <Avatar className="w-32 h-32 opacity-50">
-                            <AvatarFallback className="text-6xl font-serif bg-white/10 text-gray-400">
+                            <AvatarFallback className="text-6xl font-serif bg-[var(--color-bg-elevated,white/10)] text-[var(--color-text-muted)]">
                                 {entity.name[0]}
                             </AvatarFallback>
                         </Avatar>
                     </div>
                 )}
 
-                <div className="absolute bottom-0 left-0 p-6 w-full bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent">
-                    <h1 className="text-3xl font-serif font-bold text-white drop-shadow-md flex items-center gap-3">
+                <div className="absolute bottom-0 left-0 p-6 w-full bg-gradient-to-t from-[var(--color-bg-base)] via-[var(--color-bg-base)]/80 to-transparent">
+                    <h1 className="text-3xl font-serif font-bold text-[var(--color-text-default)] drop-shadow-md flex items-center gap-3">
                         {entity.name}
-                        {isUnknown && <Lock className="w-5 h-5 text-gray-400 opacity-70" />}
+                        {isUnknown && <Lock className="w-5 h-5 text-[var(--color-text-muted)] opacity-70" />}
                     </h1>
                     <div className="flex gap-2 mt-2">
-                        <Badge variant="outline" className="border-blue-500/50 text-blue-400">
+                        <Badge variant="outline" className="border-[var(--color-accent-500)]/50 text-[var(--color-accent-500)]">
                             {entity.type}
                         </Badge>
                         {isUnknown && (
-                            <Badge variant="secondary" className="bg-neutral-800 text-gray-400">
+                            <Badge variant="secondary" className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
                                 Не встречен
                             </Badge>
                         )}
@@ -68,36 +68,32 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                 </div>
             </div>
 
-            {/* Content Section */}
             <ScrollArea className="flex-1 p-6">
                 <div className="space-y-6 pb-20">
-                    {/* Visual Summary */}
                     {entity.visual_summary && (
-                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                            <h3 className="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wide">
+                        <div className="bg-[var(--color-bg-elevated,white/5)] p-4 rounded-lg border border-[var(--color-border-default,white/10)]">
+                            <h3 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
                                 Внешность
                             </h3>
-                            <p className="text-gray-400 italic text-sm">
+                            <p className="text-[var(--color-text-muted)] italic text-sm">
                                 {entity.visual_summary}
                             </p>
                         </div>
                     )}
 
-                    {/* Relationships Section (NEW) */}
                     {!isUnknown && relatedEntities.length > 0 && (
                         <div>
-                            <h3 className="text-lg font-bold mb-3 border-b border-white/10 pb-2">Связи</h3>
+                            <h3 className="text-lg font-bold mb-3 border-b border-[var(--color-border-default,white/10)] pb-2">Связи</h3>
                             <div className="grid grid-cols-1 gap-2">
                                 {relatedEntities.map((rel, idx) => {
-                                    // Check if relation target is met
-                                    const isRelMet = isEntityMet(rel.entity, currentChapter);
+                                    const isRelMet = isEntityMetCFI(rel.entity, currentCFI ?? null, currentChapter);
 
                                     return (
                                         <div
                                             key={rel.entity.id + idx}
                                             onClick={() => isRelMet && onEntityClick?.(rel.entity.id)}
-                                            className={`flex items-center p-3 rounded bg-white/5 border border-white/5 
-                                                ${isRelMet ? 'cursor-pointer hover:bg-white/10 hover:border-white/10 transition-colors' : 'opacity-60 cursor-default'}`}
+                                            className={`flex items-center p-3 rounded bg-[var(--color-bg-elevated,white/5)] border border-[var(--color-border-subtle,white/5)] 
+                                                ${isRelMet ? 'cursor-pointer hover:bg-[var(--color-bg-hover,white/10)] hover:border-[var(--color-border-default,white/10)] transition-colors' : 'opacity-60 cursor-default'}`}
                                         >
                                             <Avatar className="h-8 w-8 mr-3">
                                                 <AvatarImage src={rel.entity.avatar_url || undefined} className={!isRelMet ? "grayscale" : ""} />
@@ -105,15 +101,15 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-center">
-                                                    <span className={`text-sm font-medium truncate ${isRelMet ? 'text-gray-200' : 'text-gray-500'}`}>
+                                                    <span className={`text-sm font-medium truncate ${isRelMet ? 'text-[var(--color-text-default)]' : 'text-[var(--color-text-muted)]'}`}>
                                                         {rel.entity.name}
                                                     </span>
-                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-white/10 text-gray-400">
+                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-[var(--color-bg-elevated,white/10)] text-[var(--color-text-muted)]">
                                                         {rel.type}
                                                     </Badge>
                                                 </div>
                                                 {rel.description && (
-                                                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                                                    <p className="text-xs text-[var(--color-text-subtle)] truncate mt-0.5">
                                                         {rel.description}
                                                     </p>
                                                 )}
@@ -125,33 +121,31 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                         </div>
                     )}
 
-                    {/* Progressive Lore (Notes) or Spoiler Warning */}
                     <div>
-                        <h3 className="text-lg font-bold mb-4 border-b border-white/10 pb-2">История</h3>
+                        <h3 className="text-lg font-bold mb-4 border-b border-[var(--color-border-default,white/10)] pb-2">История</h3>
 
                         {isUnknown ? (
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center space-y-3">
-                                <Lock className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                                <h4 className="text-gray-300 font-medium">Информация скрыта</h4>
-                                <p className="text-gray-500 text-sm">
+                            <div className="bg-[var(--color-bg-elevated,white/5)] border border-[var(--color-border-default,white/10)] rounded-lg p-6 text-center space-y-3">
+                                <Lock className="w-8 h-8 text-[var(--color-text-disabled)] mx-auto mb-2" />
+                                <h4 className="text-[var(--color-text-default)] font-medium">Информация скрыта</h4>
+                                <p className="text-[var(--color-text-muted)] text-sm">
                                     История этого персонажа скрыта, чтобы не испортить вам впечатление от чтения.
                                     Продолжайте читать, и информация откроется автоматически.
                                 </p>
                             </div>
                         ) : (
-                            // Visible Content
                             entity.notes.length === 0 ? (
-                                <p className="text-gray-500">Нет записей.</p>
+                                <p className="text-[var(--color-text-muted)]">Нет записей.</p>
                             ) : (
                                 <div className="space-y-4">
                                     {entity.notes.map((note, idx) => (
-                                        <div key={idx} className="bg-black/20 rounded p-3 text-sm leading-relaxed border-l-2 border-white/20 pl-4">
+                                        <div key={idx} className="bg-[var(--color-bg-muted)]/20 rounded p-3 text-sm leading-relaxed border-l-2 border-[var(--color-border-default,white/20)] pl-4">
                                             <SpoilerText
                                                 text={note.text}
                                                 chapterIndex={note.chapter_index}
                                                 currentChapter={currentChapter}
                                             />
-                                            <div className="text-xs text-right mt-1 text-gray-600">
+                                            <div className="text-xs text-right mt-1 text-[var(--color-text-disabled)]">
                                                 Глава {note.chapter_index} • {note.type}
                                             </div>
                                         </div>

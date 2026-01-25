@@ -14,6 +14,7 @@ export type WebSocketEventType =
   | 'image_generation_completed'
   | 'image_generation_failed'
   | 'chapter_descriptions_extracted'
+  | 'entities_updated'
   | 'user_notification';
 
 export interface WebSocketMessage {
@@ -168,6 +169,16 @@ class WebSocketService {
           'Descriptions Found',
           `Extracted ${messageData.descriptions_count as number} descriptions from Chapter ${messageData.chapter_number as number}`
         );
+        break;
+
+      case 'entities_updated':
+        notify.info(
+          'Entities Updated',
+          messageData.message as string || `Found ${messageData.entities_count as number} entities`
+        );
+        window.dispatchEvent(new CustomEvent('entities_updated', {
+          detail: { book_id: messageData.book_id }
+        }));
         break;
 
       case 'user_notification': {

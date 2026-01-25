@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
-import { Activity, Cpu, Database, Image, Server, Users } from 'lucide-react';
+import { Activity, Cpu, Database, Image, Server, Users, GitMerge } from 'lucide-react';
 
-export type AdminTab = 'overview' | 'nlp' | 'parsing' | 'images' | 'system' | 'users';
+export type AdminTab = 'overview' | 'nlp' | 'parsing' | 'images' | 'system' | 'users' | 'entities';
 
 interface AdminTabNavigationProps {
   activeTab: AdminTab;
@@ -31,6 +31,7 @@ export const AdminTabNavigation: React.FC<AdminTabNavigationProps> = ({
     { id: 'overview' as AdminTab, name: t('admin.overview'), icon: Activity },
     { id: 'nlp' as AdminTab, name: t('admin.multiNlpSettings'), icon: Cpu },
     { id: 'parsing' as AdminTab, name: t('admin.parsing'), icon: Database },
+    { id: 'entities' as AdminTab, name: t('admin.entities'), icon: GitMerge },
     { id: 'images' as AdminTab, name: t('admin.images'), icon: Image },
     { id: 'system' as AdminTab, name: t('admin.system'), icon: Server },
     { id: 'users' as AdminTab, name: t('admin.users'), icon: Users }

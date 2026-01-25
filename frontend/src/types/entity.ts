@@ -3,19 +3,22 @@ export type EntityType = 'character' | 'location' | 'object' | 'action' | 'atmos
 export interface EntityNote {
     text: string;
     chapter_index: number;
+    cfi?: string | null;
     is_spoiler: boolean;
     type: string;
 }
 
 export interface EntityDetail {
-    id: string; // UUID
+    id: string;
     name: string;
     type: EntityType | string;
     avatar_url?: string | null;
     visual_summary?: string | null;
-    importance: number; // 1-10
+    importance: number;
 
     mentions: number[];
+    first_mention_cfi?: string | null;
+    first_mention_offset?: number | null;
     notes: EntityNote[];
 }
 
