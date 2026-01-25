@@ -16,6 +16,7 @@ from .push_subscription import PushSubscription
 from .entity import Entity, EntityType
 from .entity_relationship import EntityRelationship
 from .description_entity import DescriptionEntity
+from .entity_mention import EntityMention
 
 __all__ = [
     "User",
@@ -37,4 +38,5 @@ __all__ = [
     "EntityType",
     "EntityRelationship",
     "DescriptionEntity",
+    "EntityMention",
 ]
