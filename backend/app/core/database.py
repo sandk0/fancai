@@ -6,11 +6,15 @@
 
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from typing import AsyncGenerator
 import logging
 
 from .config import settings
+
+
+class Base(DeclarativeBase):
+    pass
 
 # Настройка логирования SQL запросов
 logging.basicConfig()
@@ -73,9 +77,6 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
-
-# Базовый класс для моделей
-Base = declarative_base()
 
 # Метаданные для миграций
 metadata = MetaData()

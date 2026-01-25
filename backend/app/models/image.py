@@ -4,23 +4,23 @@
 Содержит информацию о изображениях, созданных AI-сервисами.
 """
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    ForeignKey,
-    Float,
-)
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+import uuid as uuid_module
 import enum
 
+from sqlalchemy import Integer, String, Text, Float, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.sql import func
+
 from ..core.database import Base
+
+if TYPE_CHECKING:
+    from .description import Description
+    from .chapter import Chapter
+    from .user import User
 
 
 class ImageService(enum.Enum):
@@ -67,81 +67,78 @@ class GeneratedImage(Base):
 
     __tablename__ = "generated_images"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
 
-    description_id = Column(
-        UUID(as_uuid=True), ForeignKey("descriptions.id"), nullable=False, index=True
+    description_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("descriptions.id"), nullable=False, index=True
     )
 
     # Direct chapter linking (для быстрого доступа)
-    chapter_id = Column(
-        UUID(as_uuid=True), ForeignKey("chapters.id"), nullable=True, index=True
+    chapter_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("chapters.id"), nullable=True, index=True
     )
 
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
 
     # Информация о генерации
-    service_used = Column(
+    service_used: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True
     )  # pollinations, openai_dalle, etc.
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String(20), default=ImageStatus.PENDING.value, nullable=False, index=True
     )
 
     # Результат генерации
-    image_url = Column(String(2000), nullable=True)  # URL от сервиса
-    local_path = Column(String(1000), nullable=True, index=True)  # Локальный путь
-    prompt_used = Column(Text, nullable=False)  # Использованный промпт
+    image_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # URL от сервиса
+    local_path: Mapped[str | None] = mapped_column(String(1000), nullable=True, index=True)  # Локальный путь
+    prompt_used: Mapped[str] = mapped_column(Text, nullable=False)  # Использованный промпт
 
     # Параметры генерации
-    generation_parameters = Column(
+    generation_parameters: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True
     )  # {"width": 512, "height": 512, "style": "fantasy"} - JSONB для быстрого поиска
-    generation_time_seconds = Column(Float, nullable=True)
+    generation_time_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Информация о файле
-    file_size = Column(Integer, nullable=True)  # размер в байтах
-    image_width = Column(Integer, nullable=True)
-    image_height = Column(Integer, nullable=True)
-    file_format = Column(String(10), nullable=True)  # jpg, png, webp
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)  # размер в байтах
+    image_width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_format: Mapped[str | None] = mapped_column(String(10), nullable=True)  # jpg, png, webp
 
     # Качество и модерация
-    quality_score = Column(Float, nullable=True)  # 0.0-1.0
-    is_moderated = Column(Boolean, default=False, nullable=False)
-    moderation_result = Column(
+    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0.0-1.0
+    is_moderated: Mapped[bool] = mapped_column(default=False, nullable=False)
+    moderation_result: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True
     )  # Результат проверки на NSFW, etc. - JSONB для индексации
-    moderation_notes = Column(Text, nullable=True)
+    moderation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Статистика использования
-    view_count = Column(Integer, default=0, nullable=False)
-    download_count = Column(Integer, default=0, nullable=False)
+    view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    download_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Ошибки
-    error_message = Column(Text, nullable=True)
-    retry_count = Column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-    generated_at = Column(DateTime(timezone=True), nullable=True)
+    generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    description = relationship("Description", back_populates="generated_images", lazy="raise")
-    chapter = relationship("Chapter", back_populates="generated_images", lazy="raise")
-    user = relationship("User", back_populates="generated_images", lazy="raise")
+    description: Mapped["Description"] = relationship("Description", back_populates="generated_images", lazy="raise")
+    chapter: Mapped["Chapter | None"] = relationship("Chapter", back_populates="generated_images", lazy="raise")
+    user: Mapped["User"] = relationship("User", back_populates="generated_images", lazy="raise")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<GeneratedImage(id={self.id}, service={self.service_used}, status={self.status})>"
 
     def is_ready_for_display(self) -> bool:
@@ -174,7 +171,7 @@ class GeneratedImage(Base):
         else:
             return ""
 
-    def get_generation_info(self) -> dict:
+    def get_generation_info(self) -> dict[str, Any]:
         """
         Получает информацию о генерации для отображения пользователю.
 

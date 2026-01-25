@@ -5,17 +5,15 @@ Feature flags позволяют включать/выключать функц�
 Используется для безопасного rollout новых функций и A/B тестирования.
 """
 
-from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
-import uuid
+from datetime import datetime
+from uuid import UUID
+import uuid as uuid_module
 import enum
+
+from sqlalchemy import String, Text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
 
 from ..core.database import Base
 
@@ -23,11 +21,11 @@ from ..core.database import Base
 class FeatureFlagCategory(enum.Enum):
     """Категории feature flags."""
 
-    NLP = "nlp"  # NLP-related features
-    PARSER = "parser"  # Book parsing features
-    IMAGES = "images"  # Image generation features
-    SYSTEM = "system"  # System-level features
-    EXPERIMENTAL = "experimental"  # Experimental features
+    NLP = "nlp"
+    PARSER = "parser"
+    IMAGES = "images"
+    SYSTEM = "system"
+    EXPERIMENTAL = "experimental"
 
 
 class FeatureFlag(Base):
@@ -39,81 +37,37 @@ class FeatureFlag(Base):
     - A/B тестирования
     - Временного отключения проблемных компонентов
     - Постепенной миграции между архитектурами
-
-    Attributes:
-        id: Уникальный идентификатор флага
-        name: Название флага (уникальное, например "USE_NEW_NLP_ARCHITECTURE")
-        enabled: Включен ли флаг (True/False)
-        category: Категория флага (NLP, PARSER, IMAGES, SYSTEM, EXPERIMENTAL)
-        description: Человекочитаемое описание назначения флага
-        default_value: Значение по умолчанию (для fallback)
-        metadata: JSON метаданные (для дополнительной конфигурации)
-        created_at: Дата создания флага
-        updated_at: Дата последнего изменения
-
-    Example:
-        >>> flag = FeatureFlag(
-        ...     name="USE_NEW_NLP_ARCHITECTURE",
-        ...     enabled=True,
-        ...     category="nlp",
-        ...     description="Enable Strategy Pattern NLP architecture"
-        ... )
     """
 
     __tablename__ = "feature_flags"
 
-    # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-
-    # Core fields
-    name = Column(
-        String(100),
-        unique=True,
-        index=True,
-        nullable=False,
-        comment="Unique flag name (e.g., 'USE_NEW_NLP_ARCHITECTURE')",
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
     )
 
-    enabled = Column(
-        Boolean,
-        default=False,
-        server_default="false",
-        nullable=False,
-        index=True,
-        comment="Whether the flag is enabled",
+    name: Mapped[str] = mapped_column(
+        String(100), unique=True, index=True, nullable=False
     )
 
-    category = Column(
-        String(50),
-        default=FeatureFlagCategory.SYSTEM.value,
-        nullable=False,
-        index=True,
-        comment="Flag category (nlp, parser, images, system, experimental)",
+    enabled: Mapped[bool] = mapped_column(
+        default=False, server_default="false", nullable=False, index=True
     )
 
-    description = Column(
-        Text,
-        nullable=True,
-        comment="Human-readable description of the flag's purpose",
+    category: Mapped[str] = mapped_column(
+        String(50), default=FeatureFlagCategory.SYSTEM.value, nullable=False, index=True
     )
 
-    default_value = Column(
-        Boolean,
-        default=False,
-        server_default="false",
-        nullable=False,
-        comment="Default value (fallback if flag not found)",
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    default_value: Mapped[bool] = mapped_column(
+        default=False, server_default="false", nullable=False
     )
 
-    # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     def __repr__(self) -> str:

@@ -473,18 +473,16 @@ def verify_metrics_auth(credentials: Annotated[HTTPBasicCredentials, Depends(sec
     В production окружении переменные для auth должны быть заданы.
     Для простоты используем заглушку, которую легко настроить.
     """
-    # TODO: Move to config
-    METRICS_USER = "admin"
-    METRICS_PASSWORD = "metrics_secure_password" # Should be in settings/env
+    from ..core.config import settings
     
     current_username_bytes = credentials.username.encode("utf8")
-    correct_username_bytes = METRICS_USER.encode("utf8")
+    correct_username_bytes = settings.METRICS_USER.encode("utf8")
     is_correct_username = secrets.compare_digest(
         current_username_bytes, correct_username_bytes
     )
     
     current_password_bytes = credentials.password.encode("utf8")
-    correct_password_bytes = METRICS_PASSWORD.encode("utf8")
+    correct_password_bytes = settings.METRICS_PASSWORD.encode("utf8")
     is_correct_password = secrets.compare_digest(
         current_password_bytes, correct_password_bytes
     )

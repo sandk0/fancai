@@ -4,85 +4,64 @@
 Содержит структуру глав и их контент для парсинга описаний.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
+import uuid as uuid_module
+
+from sqlalchemy import Integer, String, Text, ForeignKey, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from ..core.database import Base
 
+if TYPE_CHECKING:
+    from .book import Book
+    from .description import Description
+    from .image import GeneratedImage
+    from .entity_mention import EntityMention
+
 
 class Chapter(Base):
-    """
-    Модель главы книги.
-
-    Attributes:
-        id: Уникальный идентификатор главы
-        book_id: ID книги (внешний ключ)
-        chapter_number: Номер главы в книге
-        title: Название главы
-        content: Текстовое содержимое главы
-        html_content: HTML содержимое (если есть форматирование)
-        word_count: Количество слов в главе
-        estimated_reading_time: Расчетное время чтения в минутах
-        is_description_parsed: Флаг завершения парсинга описаний
-        descriptions_found: Количество найденных описаний
-    """
-
     __tablename__ = "chapters"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    book_id = Column(
-        UUID(as_uuid=True), ForeignKey("books.id"), nullable=False, index=True
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    book_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("books.id"), nullable=False, index=True
     )
 
-    # Информация о главе
-    chapter_number = Column(Integer, nullable=False, index=True)
-    title = Column(String(500), nullable=True)
+    chapter_number: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # Контент
-    content = Column(Text, nullable=False)  # Чистый текст
-    html_content = Column(Text, nullable=True)  # HTML с форматированием
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Статистика
-    word_count = Column(Integer, default=0, nullable=False)
-    estimated_reading_time = Column(Integer, default=0, nullable=False)  # минуты
+    word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_reading_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    # Статус парсинга описаний
-    is_description_parsed = Column(Boolean, default=False, nullable=False)
-    descriptions_found = Column(Integer, default=0, nullable=False)
-    parsing_progress = Column(Integer, default=0, nullable=False)  # 0-100%
+    is_description_parsed: Mapped[bool] = mapped_column(default=False, nullable=False)
+    descriptions_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    parsing_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    # Service page detection cache (P1.1 optimization)
-    # True = skip description extraction (ToC, copyright, etc.)
-    is_service_page = Column(Boolean, default=None, nullable=True)
-    
-    # Internal file path for exact mapping (e.g. "Text/chapter1.xhtml")
-    file_path = Column(String(500), nullable=True, index=True)
+    is_service_page: Mapped[bool | None] = mapped_column(default=None, nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
-    # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-    parsed_at = Column(DateTime(timezone=True), nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    # Отношения
-    # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    book = relationship("Book", back_populates="chapters", lazy="raise")
-    descriptions = relationship(
+    book: Mapped["Book"] = relationship("Book", back_populates="chapters", lazy="raise")
+    descriptions: Mapped[list["Description"]] = relationship(
         "Description", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
     )
-    generated_images = relationship(
+    generated_images: Mapped[list["GeneratedImage"]] = relationship(
         "GeneratedImage", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
     )
-    mentions = relationship(
+    mentions: Mapped[list["EntityMention"]] = relationship(
         "EntityMention", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
     )
 
@@ -174,11 +153,6 @@ class Chapter(Base):
         return is_service
 
     def cache_service_page_status(self) -> bool:
-        """
-        Вычисляет и кэширует статус служебной страницы.
-
-        Returns:
-            True если это служебная страница
-        """
-        self.is_service_page = self.check_is_service_page()
-        return self.is_service_page
+        result = self.check_is_service_page()
+        self.is_service_page = result
+        return result

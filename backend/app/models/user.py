@@ -4,26 +4,25 @@
 Содержит модели User, Subscription и связанные таблицы.
 """
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Enum as SQLEnum,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped
-from sqlalchemy.sql import func
-import uuid
-import enum
+from datetime import datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
+import uuid as uuid_module
+import enum
+
+from sqlalchemy import Integer, String, ForeignKey, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.sql import func
 
 from ..core.database import Base
 
 if TYPE_CHECKING:
-    pass
+    from .book import Book, ReadingProgress
+    from .reading_session import ReadingSession
+    from .reading_goal import ReadingGoal
+    from .image import GeneratedImage
+    from .push_subscription import PushSubscription
 
 
 class SubscriptionPlan(enum.Enum):
@@ -60,61 +59,60 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    full_name = Column(String(255), nullable=True)
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Статус аккаунта
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_verified = Column(Boolean, default=False, nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-    last_login = Column(DateTime(timezone=True), nullable=True)
+    last_login: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Статистика
-    longest_streak_days = Column(Integer, default=0, nullable=False)
+    longest_streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # User preferences
-    timezone = Column(String(50), default="UTC", nullable=False)  # IANA timezone name (e.g., "Europe/Moscow")
+    timezone: Mapped[str] = mapped_column(String(50), default="UTC", nullable=False)  # IANA timezone name (e.g., "Europe/Moscow")
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    books = relationship("Book", back_populates="user", cascade="all, delete-orphan", lazy="raise")
-    reading_progress = relationship(
+    books: Mapped[list["Book"]] = relationship(
+        "Book", back_populates="user", cascade="all, delete-orphan", lazy="raise"
+    )
+    reading_progress: Mapped[list["ReadingProgress"]] = relationship(
         "ReadingProgress", back_populates="user", cascade="all, delete-orphan", lazy="raise"
     )
-    reading_sessions = relationship(
+    reading_sessions: Mapped[list["ReadingSession"]] = relationship(
         "ReadingSession", back_populates="user", cascade="all, delete-orphan", lazy="raise"
     )
-    reading_goals = relationship(
+    reading_goals: Mapped[list["ReadingGoal"]] = relationship(
         "ReadingGoal", back_populates="user", cascade="all, delete-orphan", lazy="raise"
     )
-    subscription = relationship(
+    subscription: Mapped["Subscription | None"] = relationship(
         "Subscription",
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",
         lazy="raise",
     )
-    generated_images = relationship(
+    generated_images: Mapped[list["GeneratedImage"]] = relationship(
         "GeneratedImage", back_populates="user", cascade="all, delete-orphan", lazy="raise"
     )
-    push_subscriptions = relationship(
+    push_subscriptions: Mapped[list["PushSubscription"]] = relationship(
         "PushSubscription", back_populates="user", cascade="all, delete-orphan", lazy="raise"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}')>"
 
 
@@ -134,50 +132,43 @@ class Subscription(Base):
 
     __tablename__ = "subscriptions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
 
-    plan: Mapped[SubscriptionPlan] = Column(
+    plan: Mapped[SubscriptionPlan] = mapped_column(
         SQLEnum(SubscriptionPlan), default=SubscriptionPlan.FREE, nullable=False
     )
-    status: Mapped[SubscriptionStatus] = Column(
+    status: Mapped[SubscriptionStatus] = mapped_column(
         SQLEnum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE, nullable=False
     )
 
     # Даты подписки
-    start_date = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    end_date = Column(DateTime(timezone=True), nullable=True)
+    start_date: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    end_date: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Настройки
-    auto_renewal = Column(Boolean, default=False, nullable=False)
+    auto_renewal: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # Использование лимитов
-    books_uploaded = Column(Integer, default=0, nullable=False)
-    images_generated_month = Column(Integer, default=0, nullable=False)
-    last_reset_date = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    books_uploaded: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    images_generated_month: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_reset_date: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
     # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    user = relationship("User", back_populates="subscription", lazy="raise")
+    user: Mapped["User"] = relationship("User", back_populates="subscription", lazy="raise")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Subscription(id={self.id}, user_id={self.user_id}, plan={self.plan.value})>"
 
     def is_within_books_limit(self, limit: int) -> bool:

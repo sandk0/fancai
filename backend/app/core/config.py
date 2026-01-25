@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     # Логирование
     LOG_LEVEL: str = "INFO"
 
+    # Metrics Authentication (for /health/metrics endpoint)
+    METRICS_USER: str = "admin"
+    METRICS_PASSWORD: str = "metrics_secure_password"  # Override via env in production
+
     # Web Push (VAPID) Configuration (January 2026)
     VAPID_PUBLIC_KEY: Optional[str] = None
     VAPID_PRIVATE_KEY: Optional[str] = None

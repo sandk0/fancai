@@ -4,41 +4,31 @@
 Содержит модели Book, ReadingProgress и связанные функции.
 """
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    ForeignKey,
-    Float,
-    select,
-)
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from sqlalchemy.ext.asyncio import AsyncSession
-import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+import uuid as uuid_module
 import enum
-from typing import TYPE_CHECKING
+
+from sqlalchemy import Integer, String, Text, Float, ForeignKey, func, select
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import Base
 
 if TYPE_CHECKING:
-    pass
+    from .user import User
+    from .chapter import Chapter
+    from .reading_session import ReadingSession
 
 
 class BookFormat(enum.Enum):
-    """Форматы поддерживаемых книг."""
-
     EPUB = "epub"
     FB2 = "fb2"
 
 
 class BookGenre(enum.Enum):
-    """Жанры книг для настройки стилей генерации изображений."""
-
     FANTASY = "fantasy"
     DETECTIVE = "detective"
     SCIFI = "science_fiction"
@@ -51,93 +41,57 @@ class BookGenre(enum.Enum):
 
 
 class Book(Base):
-    """
-    Модель книги в системе.
-
-    Attributes:
-        id: Уникальный идентификатор книги
-        user_id: ID владельца книги
-        title: Название книги
-        author: Автор книги
-        genre: Жанр (влияет на стиль генерации изображений)
-        language: Язык книги
-        file_path: Путь к файлу книги на сервере
-        file_format: Формат файла (EPUB, FB2)
-        file_size: Размер файла в байтах
-        cover_image: Путь к обложке книги
-        description: Описание/аннотация книги
-        metadata: Дополнительные метаданные из файла
-        total_pages: Общее количество страниц (расчетное)
-        estimated_reading_time: Расчетное время чтения в минутах
-        is_parsed: Флаг завершения парсинга содержимого
-        parsing_progress: Прогресс парсинга (0-100)
-    """
-
     __tablename__ = "books"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
 
-    # Основная информация
-    title = Column(String(500), nullable=False, index=True)
-    author = Column(String(255), nullable=True, index=True)
-    genre = Column(String(50), default=BookGenre.OTHER.value, nullable=False)
-    language = Column(String(10), default="ru", nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    author: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    genre: Mapped[str] = mapped_column(String(50), default=BookGenre.OTHER.value, nullable=False)
+    language: Mapped[str] = mapped_column(String(10), default="ru", nullable=False)
 
-    # Файл
-    file_path = Column(String(1000), nullable=False)
-    file_format = Column(String(10), nullable=False)  # epub, fb2
-    file_size = Column(Integer, nullable=False)  # размер в байтах
+    file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    file_format: Mapped[str] = mapped_column(String(10), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # Контент
-    cover_image = Column(String(1000), nullable=True)
-    description = Column(Text, nullable=True)
-    book_metadata = Column(
-        JSONB, nullable=True
-    )  # метаданные из файла (JSONB для быстрого поиска)
+    cover_image: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    book_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
-    # Статистика
-    total_pages = Column(Integer, default=0, nullable=False)
-    estimated_reading_time = Column(Integer, default=0, nullable=False)  # минуты
+    total_pages: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_reading_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    # Статус обработки
-    is_parsed = Column(Boolean, default=False, nullable=False)
-    is_processing = Column(Boolean, default=True, nullable=False)  # True while Celery task is running
-    parsing_progress = Column(Integer, default=0, nullable=False)  # 0-100%
-    parsing_error = Column(Text, nullable=True)
+    is_parsed: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_processing: Mapped[bool] = mapped_column(default=True, nullable=False)
+    parsing_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     
-    # Статус обработки описаний (ручной запуск)
-    descriptions_extracted = Column(Boolean, default=False, nullable=False)  # Описания извлечены?
-    descriptions_processing_error = Column(Text, nullable=True)  # Ошибка обработки описаний
+    descriptions_extracted: Mapped[bool] = mapped_column(default=False, nullable=False)
+    descriptions_processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-    last_accessed = Column(DateTime(timezone=True), nullable=True)
+    last_accessed: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    # Отношения
-    # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    user = relationship("User", back_populates="books", lazy="raise")
-    chapters = relationship(
+    user: Mapped["User"] = relationship("User", back_populates="books", lazy="raise")
+    chapters: Mapped[list["Chapter"]] = relationship(
         "Chapter", back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
-    reading_progress = relationship(
+    reading_progress: Mapped[list["ReadingProgress"]] = relationship(
         "ReadingProgress", back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
-    reading_sessions = relationship(
+    reading_sessions: Mapped[list["ReadingSession"]] = relationship(
         "ReadingSession", back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Book(id={self.id}, title='{self.title}', author='{self.author}')>"
 
     def get_user_progress(self, user_id: UUID) -> "ReadingProgress | None":
@@ -289,47 +243,42 @@ class ReadingProgress(Base):
 
     __tablename__ = "reading_progress"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
     )
-    book_id = Column(
-        UUID(as_uuid=True), ForeignKey("books.id"), nullable=False, index=True
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    book_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("books.id"), nullable=False, index=True
     )
 
     # Позиция чтения
-    current_chapter = Column(Integer, default=1, nullable=False)
-    current_page = Column(Integer, default=1, nullable=False)
-    current_position = Column(Integer, default=0, nullable=False)  # позиция в главе
-    reading_location_cfi = Column(
+    current_chapter: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    current_page: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    current_position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # позиция в главе
+    reading_location_cfi: Mapped[str | None] = mapped_column(
         String(500), nullable=True
     )  # CFI для epub.js (точная позиция)
-    scroll_offset_percent = Column(
+    scroll_offset_percent: Mapped[float] = mapped_column(
         Float, default=0.0, nullable=False
     )  # Точный % скролла внутри страницы (0-100)
 
     # Статистика чтения
-    reading_time_minutes = Column(Integer, default=0, nullable=False)
-    reading_speed_wpm = Column(Float, default=0.0, nullable=False)
+    reading_time_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reading_speed_wpm: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Временные метки
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-    last_read_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    last_read_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    user = relationship("User", back_populates="reading_progress", lazy="raise")
-    book = relationship("Book", back_populates="reading_progress", lazy="raise")
+    user: Mapped["User"] = relationship("User", back_populates="reading_progress", lazy="raise")
+    book: Mapped["Book"] = relationship("Book", back_populates="reading_progress", lazy="raise")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ReadingProgress(user_id={self.user_id}, book_id={self.book_id}, chapter={self.current_chapter})>"

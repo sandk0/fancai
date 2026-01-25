@@ -585,15 +585,23 @@ class GoogleImagenGenerator:
                 error_message=f"Imagen generation failed: {error_msg}"
             )
             
-    # New method to handle Cache Write after generation
-    async def _cache_result(self, cache_key: str, url: str):
-         try:
+    async def _cache_result(self, cache_key: str, url: str) -> None:
+        try:
             from app.core.config import settings
             import redis.asyncio as aioredis
+            
             redis_client = await aioredis.from_url(settings.REDIS_URL)
-            await redis_client.setex(cache_key, 604800, url) # 7 days
-            await redis_client.close()
-         except: pass
+            try:
+                await redis_client.setex(cache_key, 604800, url)  # 7 days TTL
+                logger.debug(f"Cached image result: {cache_key[:32]}...")
+            finally:
+                await redis_client.close()
+        except ConnectionError as e:
+            logger.warning(f"Redis connection failed for cache write: {e}")
+        except TimeoutError as e:
+            logger.warning(f"Redis timeout for cache write: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error caching image result: {type(e).__name__}: {e}")
 
     @retry_image_generation
     async def _generate_with_retry(
