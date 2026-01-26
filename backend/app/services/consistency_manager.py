@@ -26,7 +26,7 @@ class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult, chapter_id: Optional[str] = None):
+    async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult, chapter_id: Optional[str] = None) -> Dict[str, Entity]:
         """
         Process the raw results from agentic parsing.
         1. Resolve Entities (get or create, merge aliases) - BATCH mode.
@@ -35,9 +35,13 @@ class ConsistencyManager:
         4. Trigger Master Reference generation (if needed).
         
         Phase 2: Batch entity resolution for performance.
+        
+        Returns:
+            entity_map: Dict[str, Entity] - mapping of lowercase names to Entity objects,
+                        used by book_tasks.py to create DescriptionEntity links.
         """
         if not result.entities:
-            return
+            return {}
 
         logger.info(f"Processing {len(result.entities)} entities for book {book_id}")
         
@@ -78,6 +82,8 @@ class ConsistencyManager:
                 # We can check if it needs master ref in _generate...
                 # Ideally this is a separate background task to not slow down extraction
                 pass 
+        
+        return entity_map
                 
     async def _process_relationships(self, book_id: str, relationships: List[ExtractedRelationship], entity_map: Dict[str, Entity]):
         """
@@ -101,7 +107,7 @@ class ConsistencyManager:
                     # Input weight is 1-10. Existing weight default 0.5.
                     # Let's average them? Or Max?
                     # Let's just update metadata and weight
-                    existing.weight = (existing.weight + (rel.weight / 10.0)) / 2
+                    existing.weight = int((existing.weight + (rel.weight / 10.0)) / 2)
                     self.db.add(existing)
                 else:
                     new_rel = EntityRelationship(
@@ -248,8 +254,9 @@ class ConsistencyManager:
             # Gatekeeper: Skip if description is too short OR Importance < 7
             # Default importance 5 if None
             imp = entity.importance if entity.importance is not None else 5
-            if len(entity.visual_summary) < 50 or imp < 7:
-                logger.debug(f"Skipping Master Ref for {entity.name} (Imp: {imp}, Len: {len(entity.visual_summary)})")
+            visual_summary = entity.visual_summary or ""
+            if len(visual_summary) < 50 or imp < 7:
+                logger.debug(f"Skipping Master Ref for {entity.name} (Imp: {imp}, Len: {len(visual_summary)})")
                 continue
                 
             logger.info(f"Generating Master Reference for {entity.name} ({entity.type})")
@@ -323,11 +330,10 @@ class ConsistencyManager:
             
         logger.info(f"Fetched {len(entities)} raw entities. Preparing LLM Reduce payload...")
         
-        # 2. Serialize for LLM (Reduce Payload)
         entity_list_text = ""
         for e in entities:
-             # Format: "ID: [Name] (Type) - [Summary] (Imp: X)"
-             entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {e.visual_summary[:100]}...\n"
+             summary = (e.visual_summary or "")[:100]
+             entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {summary}...\n"
         
         if len(entity_list_text) > 300000:
              logger.warning("Too many entities for single Reduce pass. Truncating (TODO: Implement Recursive Reduce)")

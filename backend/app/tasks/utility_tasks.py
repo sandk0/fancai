@@ -46,9 +46,8 @@ async def _get_system_stats_async() -> Dict[str, Any]:
         images_count = await db.execute(select(func.count(GeneratedImage.id)))
         total_images = images_count.scalar()
 
-        from app.services.langextract_processor import LangExtractProcessor
-        processor = LangExtractProcessor()
-        llm_available = processor.is_available()
+        from app.services.gemini_extractor import gemini_extractor
+        llm_available = gemini_extractor.is_available()
 
         return {
             "status": "operational",

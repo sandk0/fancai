@@ -31,6 +31,11 @@ from app.core.retry import (
     RateLimitError,
     TimeoutError as RetryTimeoutError,
 )
+from app.monitoring.metrics import (
+    record_llm_request,
+    record_llm_error,
+    record_llm_rate_limit,
+)
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -58,6 +63,7 @@ class GeminiDescriptionSchema(BaseModel):
     type: str = Field(description="location, character, object, atmosphere")
     confidence: float
     entities: List[str] = Field(default_factory=list, description="Имена упомянутых сущностей")
+    text_offset: Optional[int] = Field(default=None, description="Позиция начала описания в тексте (символ от начала)")
 
 class GeminiResponseSchema(BaseModel):
     descriptions: List[GeminiDescriptionSchema]
@@ -177,9 +183,9 @@ class GeminiConfig:
 
     # Извлечение
     max_descriptions_per_chunk: int = 10
-    min_description_chars: int = 100
+    min_description_chars: int = 50
     max_description_chars: int = 1000
-    min_confidence: float = 0.6
+    min_confidence: float = 0.4
 
     # Retry логика
     max_retries: int = 3
@@ -332,9 +338,12 @@ class GeminiDirectExtractor:
    - Примеры: "Гарри Поттер" → aliases: ["Мальчик-который-выжил", "Избранный"]
    - Примеры: "Aragorn" → aliases: ["Strider", "Elessar", "Isildur's Heir"]
 5. Определи СВЯЗИ между сущностями.
-6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 100 символов.
+6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 50 символов.
 7. ВАЖНО: Для каждой сущности укажи "first_mention_offset" — позицию (номер символа от начала текста), где сущность ПЕРВЫЙ раз упоминается.
    - Пример: если "Геральт" впервые появляется на 150-м символе текста, то first_mention_offset: 150
+8. КРИТИЧНО для descriptions: Укажи "text_offset" — позицию (номер символа от начала текста), где начинается каждое описание.
+   - Найди ТОЧНОЕ место в тексте, откуда взято описание
+   - Пример: "Комната была темной и пыльной..." найдено на позиции 2340, text_offset: 2340
 
 ТИПЫ СУЩНОСТЕЙ:
 - character: Люди, существа. Описывай: лицо, волосы, одежда, возраст, особые приметы.
@@ -428,8 +437,12 @@ class GeminiDirectExtractor:
                     # Phase 6: Returns GeminiResponseSchema object directly
                     gemini_response = await self._call_gemini_with_retry(prompt)
                     
-                    chunk_descriptions = self._convert_descriptions(gemini_response.descriptions, chunk_data["start"])
-                    chunk_entities = self._convert_entities(gemini_response.entities, chunk_data["start"])
+                    chunk_descriptions = self._convert_descriptions(
+                        gemini_response.descriptions, chunk_data["start"], chunk_data["text"]
+                    )
+                    chunk_entities = self._convert_entities(
+                        gemini_response.entities, chunk_data["start"], chunk_data["text"]
+                    )
                     chunk_relationships = self._convert_relationships(gemini_response.relationships)
                     
                     return {
@@ -458,10 +471,13 @@ class GeminiDirectExtractor:
             if isinstance(result, Exception):
                 logger.warning(f"Chunk processing exception: {result}")
                 continue
-            if result.get("success"):
-                all_descriptions.extend(result.get("descriptions", []))
-                all_entities.extend(result.get("entities", []))
-                all_relationships.extend(result.get("relationships", []))
+            if not isinstance(result, dict):
+                continue
+            chunk_result: Dict[str, Any] = result
+            if chunk_result.get("success"):
+                all_descriptions.extend(chunk_result.get("descriptions", []))
+                all_entities.extend(chunk_result.get("entities", []))
+                all_relationships.extend(chunk_result.get("relationships", []))
 
         # Deduplicate Descriptions
         unique_descriptions = self._deduplicate(all_descriptions)
@@ -510,8 +526,7 @@ class GeminiDirectExtractor:
             # Phase 6: parsed Pydantic object
             gemini_response = await self._call_gemini_with_retry(prompt)
 
-            # Convert to ExtractedDescription objects
-            descriptions = self._convert_descriptions(gemini_response.descriptions, offset)
+            descriptions = self._convert_descriptions(gemini_response.descriptions, offset, chunk_text)
 
             self.stats["successful_calls"] += 1
             self.stats["total_tokens"] += len(prompt) // 4  # Approximately
@@ -530,8 +545,10 @@ class GeminiDirectExtractor:
         
         Phase 6: Returns parsed Pydantic model directly.
         """
+        start_time = time.time()
+        model_name = self.config.model_id
+        
         try:
-            # Call Gemini API with Pydantic structured output
             config = self._types.GenerateContentConfig(
                 temperature=0.3,
                 top_p=0.95,
@@ -549,68 +566,91 @@ class GeminiDirectExtractor:
                 timeout=self.config.timeout_seconds
             )
 
-            # Return parsed object automatically handled by SDK
+            duration = time.time() - start_time
+            record_llm_request(model_name, "success", duration)
+
             if hasattr(response, 'parsed') and response.parsed:
                 logger.debug("Gemini structured response received and parsed successfully")
                 return response.parsed
                 
-            # Fallback if parsed is empty (should not happen with structured output)
             text = response.text if hasattr(response, 'text') else str(response)
             logger.warning("Gemini returned text instead of parsed object, parsing manually")
             return GeminiResponseSchema.model_validate_json(text)
 
         except asyncio.TimeoutError as e:
+            duration = time.time() - start_time
+            record_llm_request(model_name, "timeout", duration)
+            record_llm_error(model_name, "timeout")
             error_msg = f"Gemini API timed out after {self.config.timeout_seconds}s"
             logger.warning(error_msg)
             raise RetryTimeoutError(error_msg) from e
 
         except Exception as e:
+            duration = time.time() - start_time
             error_msg = str(e)
-            # Check if it's a rate limit error
+            
             if "rate" in error_msg.lower() and "limit" in error_msg.lower():
+                record_llm_request(model_name, "rate_limited", duration)
+                record_llm_rate_limit(model_name)
                 raise RateLimitError(error_msg) from e
             if "quota" in error_msg.lower():
+                record_llm_request(model_name, "rate_limited", duration)
+                record_llm_rate_limit(model_name)
                 raise RateLimitError(error_msg) from e
             if "429" in error_msg:
+                record_llm_request(model_name, "rate_limited", duration)
+                record_llm_rate_limit(model_name)
                 raise RateLimitError(error_msg) from e
-            # Other errors - wrap as retryable LLMExtractionError
+                
+            record_llm_request(model_name, "error", duration)
+            record_llm_error(model_name, "api_error")
             logger.error(f"Gemini extraction error: {error_msg}")
             raise LLMExtractionError(error_msg) from e
 
     def _convert_descriptions(
         self,
         schema_descriptions: List[GeminiDescriptionSchema],
-        offset: int
+        offset: int,
+        source_text: Optional[str] = None
     ) -> List[ExtractedDescription]:
-        """Convert Pydantic schemas to ExtractedDescription objects."""
+        """Convert Pydantic schemas to ExtractedDescription objects with validation."""
         descriptions = []
+        source_lower = source_text.lower() if source_text else None
 
         for item in schema_descriptions:
             content = item.content
 
-            # Проверяем минимальную длину
             if len(content) < self.config.min_description_chars:
                 continue
 
-            # Ограничиваем максимальную длину
+            if item.confidence < self.config.min_confidence:
+                logger.debug(f"Skipping low confidence description: {content[:50]}... (conf={item.confidence})")
+                continue
+
+            if source_lower:
+                content_sample = content[:100].lower()
+                if content_sample not in source_lower:
+                    logger.debug(f"Description not found in source text: {content[:50]}...")
+                    continue
+
             if len(content) > self.config.max_description_chars:
                 content = content[:self.config.max_description_chars]
 
-            # Определяем тип
             try:
                 desc_type = DescriptionType(item.type.lower())
             except ValueError:
                 desc_type = DescriptionType.LOCATION
 
-            # Создаем объект
+            actual_position = item.text_offset if item.text_offset is not None else offset
+            
             desc_obj = ExtractedDescription(
                 content=content,
                 description_type=desc_type,
                 confidence=item.confidence,
-                entities=[{"name": name} for name in item.entities], # Convert list[str] to list[dict] for compat
+                entities=[{"name": name} for name in item.entities],
                 attributes={},
-                position=offset,  # Приблизительная позиция
-                source_span=(offset, offset + len(content))
+                position=actual_position,
+                source_span=(actual_position, actual_position + len(content))
             )
             descriptions.append(desc_obj)
 
@@ -619,30 +659,44 @@ class GeminiDirectExtractor:
     def _convert_entities(
         self,
         schema_entities: List[GeminiEntitySchema],
-        chunk_offset: int = 0
+        chunk_offset: int = 0,
+        source_text: Optional[str] = None
     ) -> List[ExtractedEntity]:
         """Convert Pydantic schemas to ExtractedEntity objects with validation."""
         entities = []
+        source_lower = source_text.lower() if source_text else None
+        
         for item in schema_entities:
-            # Validate and clamp importance to 1-10 range
+            name = item.name.strip() if item.name else ""
+            if not name:
+                continue
+                
+            if source_lower:
+                name_in_text = name.lower() in source_lower
+                aliases_in_text = any(
+                    a.lower().strip() in source_lower 
+                    for a in (item.aliases or []) if a
+                )
+                if not name_in_text and not aliases_in_text:
+                    logger.debug(f"Entity '{name}' not found in source text, skipping")
+                    continue
+            
             importance = item.importance
             if importance < 1 or importance > 10:
-                logger.debug(f"Clamping importance {importance} to 1-10 for entity '{item.name}'")
+                logger.debug(f"Clamping importance {importance} to 1-10 for entity '{name}'")
                 importance = max(1, min(10, importance))
             
-            # Validate confidence to 0.0-1.0 range
             confidence = item.confidence
             if confidence < 0.0 or confidence > 1.0:
-                logger.debug(f"Clamping confidence {confidence} to 0.0-1.0 for entity '{item.name}'")
+                logger.debug(f"Clamping confidence {confidence} to 0.0-1.0 for entity '{name}'")
                 confidence = max(0.0, min(1.0, confidence))
             
-            # Calculate absolute offset (chunk_offset + relative offset from Gemini)
             first_mention_offset = None
             if item.first_mention_offset is not None:
                 first_mention_offset = chunk_offset + item.first_mention_offset
             
             entities.append(ExtractedEntity(
-                name=item.name.strip() if item.name else "",
+                name=name,
                 type=item.type.lower() if item.type else "character",
                 visual_summary=item.visual_summary or "",
                 aliases=[a.strip() for a in item.aliases if a] if item.aliases else [],
@@ -785,3 +839,23 @@ def get_gemini_extractor(config: Optional[GeminiConfig] = None) -> GeminiDirectE
     if _extractor is None:
         _extractor = GeminiDirectExtractor(config)
     return _extractor
+
+
+class _LazyGeminiExtractor:
+    """Lazy singleton proxy for backward compatibility with langextract_processor API."""
+    
+    _instance: Optional[GeminiDirectExtractor] = None
+    
+    def _get_instance(self) -> GeminiDirectExtractor:
+        if self._instance is None:
+            self._instance = get_gemini_extractor()
+        return self._instance
+    
+    def is_available(self) -> bool:
+        return self._get_instance().is_available()
+    
+    async def extract_descriptions(self, text: str, chapter_id: Optional[str] = None):
+        return await self._get_instance().extract(text, chapter_id)
+
+
+gemini_extractor = _LazyGeminiExtractor()

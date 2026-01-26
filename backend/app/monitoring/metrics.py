@@ -298,6 +298,60 @@ def update_concurrent_users_gauge(count: int):
 
 
 # ============================================================================
+# LLM Metrics - Gemini API monitoring
+# ============================================================================
+
+llm_requests_total = Counter(
+    "llm_requests_total",
+    "Total number of LLM API requests",
+    ["model", "status"],
+)
+
+llm_request_duration_seconds = Histogram(
+    "llm_request_duration_seconds",
+    "LLM API request duration in seconds",
+    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 60.0],
+    labelnames=["model"],
+)
+
+llm_tokens_total = Counter(
+    "llm_tokens_total",
+    "Total tokens processed by LLM",
+    ["model", "direction"],
+)
+
+llm_errors_total = Counter(
+    "llm_errors_total",
+    "Total LLM API errors",
+    ["model", "error_type"],
+)
+
+llm_rate_limit_hits = Counter(
+    "llm_rate_limit_hits_total",
+    "Number of rate limit hits from LLM API",
+    ["model"],
+)
+
+
+def record_llm_request(model: str, status: str, duration: float):
+    llm_requests_total.labels(model=model, status=status).inc()
+    llm_request_duration_seconds.labels(model=model).observe(duration)
+
+
+def record_llm_tokens(model: str, input_tokens: int, output_tokens: int):
+    llm_tokens_total.labels(model=model, direction="input").inc(input_tokens)
+    llm_tokens_total.labels(model=model, direction="output").inc(output_tokens)
+
+
+def record_llm_error(model: str, error_type: str):
+    llm_errors_total.labels(model=model, error_type=error_type).inc()
+
+
+def record_llm_rate_limit(model: str):
+    llm_rate_limit_hits.labels(model=model).inc()
+
+
+# ============================================================================
 # Export all metrics for /metrics endpoint
 # ============================================================================
 
@@ -322,4 +376,13 @@ __all__ = [
     "update_active_sessions_gauge",
     "update_abandoned_sessions_gauge",
     "update_concurrent_users_gauge",
+    "llm_requests_total",
+    "llm_request_duration_seconds",
+    "llm_tokens_total",
+    "llm_errors_total",
+    "llm_rate_limit_hits",
+    "record_llm_request",
+    "record_llm_tokens",
+    "record_llm_error",
+    "record_llm_rate_limit",
 ]

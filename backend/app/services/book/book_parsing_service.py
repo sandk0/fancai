@@ -13,7 +13,7 @@ Single Responsibility Principle:
 
 NLP REMOVAL (December 2025):
 - Удален multi_nlp_manager (требовал 10-12 ГБ RAM)
-- Используется langextract_processor (LLM-based, ~500 МБ)
+- Используется gemini_extractor (LLM-based via Gemini API)
 - Описания больше не хранятся в отдельной таблице
 - Извлечение происходит on-demand через LLM API
 """
@@ -70,26 +70,29 @@ class BookParsingService:
         Raises:
             ValueError: Если глава не найдена
         """
-        from ...services.langextract_processor import LangExtractProcessor
+        from ...services.gemini_extractor import gemini_extractor
 
-        # Получаем главу
         result = await db.execute(select(Chapter).where(Chapter.id == chapter_id))
         chapter = result.scalar_one_or_none()
         if not chapter:
             raise ValueError(f"Chapter {chapter_id} not found")
 
-        # Извлекаем описания с помощью LLM
-        processor = LangExtractProcessor()
-        if not processor.is_available():
-            logger.warning("LangExtract processor not available, returning empty list")
+        if not gemini_extractor.is_available():
+            logger.warning("Gemini extractor not available, returning empty list")
             return []
 
         try:
-            result = await processor.extract_descriptions(
+            descriptions = await gemini_extractor.extract_descriptions(
                 text=chapter.content,
                 chapter_id=str(chapter_id)
             )
-            return result.descriptions
+            converted: List[Dict[str, Any]] = []
+            for d in descriptions:
+                if hasattr(d, 'to_dict'):
+                    converted.append(d.to_dict())
+                elif isinstance(d, dict):
+                    converted.append(d)
+            return converted
         except Exception as e:
             logger.error(f"Error extracting descriptions for chapter {chapter_id}: {e}")
             return []
@@ -115,46 +118,49 @@ class BookParsingService:
         Returns:
             Список описаний в виде словарей
         """
-        from ...services.langextract_processor import LangExtractProcessor
+        from ...services.gemini_extractor import gemini_extractor
 
-        # Получаем главы книги
         chapters_result = await db.execute(
             select(Chapter)
             .where(Chapter.book_id == book_id)
-            .order_by(Chapter.order)
+            .order_by(Chapter.chapter_number)
         )
         chapters = chapters_result.scalars().all()
 
         if not chapters:
             return []
 
-        processor = LangExtractProcessor()
-        if not processor.is_available():
-            logger.warning("LangExtract processor not available")
+        if not gemini_extractor.is_available():
+            logger.warning("Gemini extractor not available")
             return []
 
-        all_descriptions = []
+        all_descriptions: List[Dict[str, Any]] = []
         for chapter in chapters:
             if len(all_descriptions) >= limit:
                 break
 
             try:
-                result = await processor.extract_descriptions(
+                descriptions = await gemini_extractor.extract_descriptions(
                     text=chapter.content,
                     chapter_id=str(chapter.id)
                 )
 
-                for desc in result.descriptions:
-                    if description_type and desc.get("type") != description_type:
+                for desc in descriptions:
+                    if hasattr(desc, 'to_dict'):
+                        desc_dict = desc.to_dict()
+                    elif isinstance(desc, dict):
+                        desc_dict = desc
+                    else:
                         continue
-                    all_descriptions.append(desc)
+                    if description_type and desc_dict.get("type") != description_type:
+                        continue
+                    all_descriptions.append(desc_dict)
                     if len(all_descriptions) >= limit:
                         break
             except Exception as e:
                 logger.error(f"Error extracting descriptions for chapter {chapter.id}: {e}")
                 continue
 
-        # Сортируем по priority_score
         all_descriptions.sort(key=lambda x: x.get("priority_score", 0), reverse=True)
         return all_descriptions[:limit]
 
@@ -177,7 +183,7 @@ class BookParsingService:
             ValueError: Если книга не найдена
         """
         from sqlalchemy import func
-        from ...services.langextract_processor import LangExtractProcessor
+        from ...services.gemini_extractor import gemini_extractor
 
         result = await db.execute(select(Book).where(Book.id == book_id))
         book = result.scalar_one_or_none()
@@ -185,21 +191,18 @@ class BookParsingService:
         if not book:
             raise ValueError(f"Book with id {book_id} not found")
 
-        # Подсчитываем главы
         total_chapters_result = await db.execute(
             select(func.count(Chapter.id)).where(Chapter.book_id == book_id)
         )
         total_chapters = total_chapters_result.scalar() or 0
 
-        # Проверяем доступность LLM
-        processor = LangExtractProcessor()
-        llm_available = processor.is_available()
+        llm_available = gemini_extractor.is_available()
 
         return {
             "total_chapters": total_chapters,
             "llm_available": llm_available,
             "extraction_mode": "on_demand",
-            "message": "Descriptions are extracted on-demand via LLM API"
+            "message": "Descriptions are extracted on-demand via Gemini API"
         }
 
 

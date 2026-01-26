@@ -9,14 +9,49 @@ from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy import select, func
 
+from difflib import get_close_matches
+from typing import Optional
+
 from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
 from app.models.book import Book
+from app.models.entity import Entity
 from app.models.chapter import Chapter
 from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
 from app.core.pubsub import publish_book_progress, publish_entities_updated
 from app.services.push_notification_service import push_notification_service
+
+
+def find_entity_fuzzy(
+    entity_name: str, 
+    entity_map: Dict[str, Entity], 
+    cutoff: float = 0.7
+) -> Optional[Entity]:
+    """
+    Find entity with fuzzy matching fallback.
+    
+    Strategy:
+    1. Exact match (lowercase)
+    2. Close string match (difflib, cutoff=0.7)
+    3. Substring containment (either direction)
+    """
+    name_lower = entity_name.lower().strip()
+    
+    if name_lower in entity_map:
+        return entity_map[name_lower]
+    
+    matches = get_close_matches(name_lower, entity_map.keys(), n=1, cutoff=cutoff)
+    if matches:
+        logger.debug(f"Fuzzy match: '{entity_name}' -> '{matches[0]}'")
+        return entity_map[matches[0]]
+    
+    for key, entity in entity_map.items():
+        if name_lower in key or key in name_lower:
+            logger.debug(f"Substring match: '{entity_name}' -> '{key}'")
+            return entity
+    
+    return None
 
 
 @celery_app.task(
@@ -241,9 +276,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     2. Парсит первые 2 главы с помощью LLM для предзагрузки
     3. Помечает книгу как готовую
     """
-    # from app.services.langextract_processor import langextract_processor # DEPRECATED
-    # from app.models.description import Description, DescriptionType # Imported from gemini_extractor now
-
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async processing", book_id=str(book_id))
         
@@ -359,11 +391,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             # 4. Consistency & Logic (Map Phase)
                             # Use a local ConsistencyManager with this session
                             local_mgr = ConsistencyManager(session)
-                            await local_mgr.process_chapter_analysis(str(book_id), result, chapter_id=str(local_chapter.id))
+                            entity_map = await local_mgr.process_chapter_analysis(str(book_id), result, chapter_id=str(local_chapter.id))
 
-                            # 5. Save Descriptions
+                            # 5. Save Descriptions and create DescriptionEntity links
                             descriptions_data = result.descriptions or []
                             from app.models.description import Description as DescriptionModel
+                            from app.models.description_entity import DescriptionEntity
                             
                             for i, d in enumerate(descriptions_data):
                                 d_dict = cast(Dict[str, Any], d.to_dict() if hasattr(d, 'to_dict') else dict(d) if isinstance(d, dict) else {"content": str(d)})
@@ -383,6 +416,41 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     word_count=d_dict.get("word_count", 0)
                                 )
                                 session.add(new_desc)
+                                await session.flush()  # Get new_desc.id
+                                
+                                # Create DescriptionEntity links for spoiler protection
+                                entities_mentioned = d_dict.get("entities_mentioned", [])
+                                entities_linked = 0
+                                entities_not_found = []
+                                
+                                for entity_name in entities_mentioned:
+                                    if not entity_name:
+                                        continue
+                                    entity = find_entity_fuzzy(entity_name, entity_map)
+                                    if entity:
+                                        desc_entity = DescriptionEntity(
+                                            description_id=new_desc.id,
+                                            entity_id=entity.id,
+                                            confidence=d_dict.get("confidence_score", 0.8),
+                                            mention_text=entity_name
+                                        )
+                                        session.add(desc_entity)
+                                        entities_linked += 1
+                                    else:
+                                        entities_not_found.append(entity_name)
+                                
+                                # Diagnostic logging for entity lookup
+                                if entities_mentioned:
+                                    logger.debug(
+                                        f"Description {i+1}: entities_mentioned={entities_mentioned}, "
+                                        f"linked={entities_linked}, not_found={entities_not_found}, "
+                                        f"entity_map_keys={list(entity_map.keys())[:10]}..."
+                                    )
+                                    if entities_not_found:
+                                        logger.warning(
+                                            f"Entity lookup miss in chapter {local_chapter.chapter_number}: "
+                                            f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
+                                        )
 
                             local_chapter.descriptions_found = len(descriptions_data)
                             local_chapter.is_description_parsed = True
