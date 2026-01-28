@@ -1458,3 +1458,293 @@ def dead_letter_handler(task_name: str, task_id: str, args: tuple, exception: st
 ---
 
 **Конец консолидированного плана**
+
+---
+
+## Часть 13: Глубокий аудит безопасности (28 января 2026)
+
+### 13.1 Методология
+
+Проведён глубокий аудит с использованием **4 параллельных фоновых агентов**:
+
+| Агент | Область аудита | Длительность |
+|-------|----------------|--------------|
+| bg_2b8dcf99 | 7 роутеров (health, images, sessions, etc.) | 57s |
+| bg_8a4447e5 | auth.py — Security Deep Dive | 64s |
+| bg_fe688e9f | graph_service.py — SQLAlchemy bulk update | 68s |
+| bg_e5a5985f | SQLAlchemy case() best practices | 108s |
+
+### 13.2 КРИТИЧЕСКИЕ БАГИ (Runtime Failures)
+
+#### 🔴 TD-AUDIT-8: Неправильный синтаксис `case()` в graph_service.py
+
+**Файл:** `backend/app/services/graph_service.py:102-106`
+
+**Текущий код (НЕВЕРНО):**
+```python
+case_mapping = {u[0]: u[1] for u in updates}  # dict
+stmt = update(Entity).values(importance=case(case_mapping, value=Entity.id))
+```
+
+**Проблема:** SQLAlchemy 2.0 `case()` **НЕ принимает словарь**. Код упадёт при первом вызове PageRank.
+
+**Правильный паттерн (из официальной документации):**
+```python
+case_conditions = []
+for node_id, score in updates:
+    case_conditions.append((Entity.id == UUID(node_id), score))
+
+stmt = (
+    update(Entity)
+    .where(Entity.id.in_([UUID(u[0]) for u in updates]))
+    .values(importance=case(*case_conditions, else_=Entity.importance))
+)
+```
+
+**Дополнительные проблемы:**
+- `node_id` — строка, `Entity.id` — UUID (type mismatch)
+- Отсутствует `else_=` — NULL для несовпавших строк
+
+**Приоритет:** P0 — **Runtime crash**
+**Время исправления:** 30 мин
+
+---
+
+#### 🔴 TD-AUDIT-9: Python `is` вместо SQL `==` в users.py
+
+**Файл:** `backend/app/routers/users.py:335`
+
+**Текущий код (НЕВЕРНО):**
+```python
+.where(User.is_active is True)  # Python identity check
+```
+
+**Проблема:** `is True` — Python оператор идентичности. SQLAlchemy Column **никогда** не будет `is True`, поэтому условие всегда `False`.
+
+**Правильный код:**
+```python
+.where(User.is_active == True)  # SQL comparison
+# или лучше:
+.where(User.is_active.is_(True))
+```
+
+**Приоритет:** P0 — **Возвращает неверные данные**
+**Время исправления:** 5 мин
+
+---
+
+### 13.3 ВЫСОКИЙ ПРИОРИТЕТ (Security + Validation)
+
+#### 🟠 TD-AUDIT-10: Отсутствие Pydantic валидации в reading_progress.py
+
+**Файл:** `backend/app/routers/reading_progress.py:123`
+
+**Текущий код:**
+```python
+async def update_reading_progress(
+    book_id: UUID,
+    progress_data: dict,  # RAW DICT — обход валидации!
+```
+
+**Проблема:** `dict` обходит автоматическую валидацию FastAPI/Pydantic. Атакующий может передать произвольные данные.
+
+**Исправление:**
+```python
+from pydantic import BaseModel
+
+class ReadingProgressUpdate(BaseModel):
+    current_cfi: str | None = None
+    progress_percent: float | None = Field(None, ge=0, le=100)
+    chapter_index: int | None = Field(None, ge=0)
+
+async def update_reading_progress(
+    book_id: UUID,
+    progress_data: ReadingProgressUpdate,
+```
+
+**Приоритет:** P1 — Security
+**Время исправления:** 30 мин
+
+---
+
+#### 🟠 TD-AUDIT-11: Redis fail-open в token_blacklist.py
+
+**Файл:** `backend/app/services/token_blacklist.py:105-107`
+
+**Текущий код:**
+```python
+except Exception as e:
+    logger.warning(f"Failed to check token blacklist: {e}")
+    return False  # Fail-open: токен НЕ в чёрном списке
+```
+
+**Проблема:** Если Redis недоступен, **все отозванные токены принимаются**.
+
+**Рекомендация:** Для production рассмотреть fail-closed или circuit breaker.
+
+**Приоритет:** P1 — Security (requires discussion)
+**Время исправления:** 2-4ч (architecture decision)
+
+---
+
+#### 🟠 TD-AUDIT-12: 7-дневный access token
+
+**Файл:** `backend/app/core/config.py:43`
+
+```python
+ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 дней
+```
+
+**Проблема:** Индустриальный стандарт — 15-60 минут. 7 дней увеличивает окно атаки при компрометации токена.
+
+**Рекомендация:** Сократить до 60 минут, использовать refresh tokens (уже есть — 30 дней).
+
+**Приоритет:** P2 — Security hardening
+**Время исправления:** 15 мин (но требует тестирования frontend)
+
+---
+
+### 13.4 СРЕДНИЙ ПРИОРИТЕТ (Resource Leaks + Info Disclosure)
+
+#### 🟡 TD-AUDIT-13: Redis connection leak в websocket.py
+
+**Файл:** `backend/app/routers/websocket.py:271-290`
+
+**Текущий код:**
+```python
+async def publish_book_progress(...):
+    redis_client = await aioredis.from_url(settings.REDIS_URL)
+    # ... operations ...
+    await redis_client.close()  # Только при успехе!
+```
+
+**Проблема:** Если исключение между созданием клиента и close(), соединение утекает.
+
+**Исправление:**
+```python
+async def publish_book_progress(...):
+    redis_client = await aioredis.from_url(settings.REDIS_URL)
+    try:
+        # ... operations ...
+    finally:
+        await redis_client.close()
+```
+
+**Приоритет:** P2
+**Время исправления:** 10 мин
+
+---
+
+#### 🟡 TD-AUDIT-14: Оставшиеся `str(e)` в HTTP responses
+
+**Файлы с утечкой внутренних ошибок:**
+
+| Файл | Строки | Код |
+|------|--------|-----|
+| routers/health.py | 129, 163, 214 | `message=f"...failed: {str(e)}"` |
+| routers/reading_sessions.py | 348, 511 | `detail=str(e)` |
+| routers/auth.py | 137 | `detail=str(e)` |
+| routers/push.py | 156 | `detail=str(e)` |
+| routers/books/validation.py | 207 | `detail=f"Error parsing: {str(e)}"` |
+| routers/admin/entities.py | 233 | `detail=f"Merge failed: {str(e)}"` |
+| routers/admin/images.py | 84 | `detail=f"Failed to update: {str(e)}"` |
+| routers/chapters.py | 109, 220 | `ChapterFetchException(str(e))` |
+
+**Приоритет:** P2 — Information disclosure
+**Время исправления:** 1ч (8 файлов)
+
+---
+
+#### 🟡 TD-AUDIT-15: Race condition в reading_sessions.py
+
+**Файл:** `backend/app/routers/reading_sessions.py:309-323`
+
+**Проблема:** Два отдельных commit() создают окно для duplicate active sessions:
+```python
+if active_session:
+    active_session.end_session(...)
+    await db.commit()  # Commit 1
+new_session = ReadingSession(...)
+await db.commit()  # Commit 2 — race window!
+```
+
+**Исправление:** Одна транзакция.
+
+**Приоритет:** P2
+**Время исправления:** 30 мин
+
+---
+
+### 13.5 НИЗКИЙ ПРИОРИТЕТ (Code Quality)
+
+| ID | Проблема | Файл | Время |
+|----|----------|------|-------|
+| TD-AUDIT-16 | Unused AuthMiddleware class | auth.py:181-230 | 15 мин |
+| TD-AUDIT-17 | Pydantic v1 @validator → v2 @field_validator | reading_sessions.py:58 | 15 мин |
+| TD-AUDIT-18 | Hardcoded path `/app/storage/` | images.py:34 | 10 мин |
+| TD-AUDIT-19 | nx.Graph() instead of nx.DiGraph() | graph_service.py:30 | 10 мин |
+| TD-AUDIT-20 | Missing rate limiting on image generation | images.py:157 | 2ч |
+
+---
+
+### 13.6 Приоритизированный план исправлений
+
+```
+НЕМЕДЛЕННО (30 мин):
+├── TD-AUDIT-8: graph_service.py case() ────────── Runtime crash
+└── TD-AUDIT-9: users.py is True ────────────────── Wrong data
+
+СЕГОДНЯ (2ч):
+├── TD-AUDIT-10: reading_progress.py Pydantic ──── Security
+├── TD-AUDIT-13: websocket.py Redis leak ────────── Resource
+└── TD-AUDIT-14: str(e) в 8 файлах ──────────────── Info disclosure
+
+ЭТА НЕДЕЛЯ (4-6ч):
+├── TD-AUDIT-15: Race condition sessions ────────── Data integrity
+├── TD-AUDIT-11: Token blacklist fail-open ──────── Security (discuss)
+└── TD-AUDIT-12: Token expiration ───────────────── Security hardening
+
+БЭКЛОГ:
+├── TD-AUDIT-16..20: Code quality ───────────────── 3ч
+└── Rate limiting on image generation ───────────── 2ч
+```
+
+### 13.7 Обновлённая общая таблица задач
+
+| Приоритет | Задачи | Статус |
+|-----------|--------|--------|
+| **P0** | TD-AUDIT-8 (case), TD-AUDIT-9 (is True) | ❌ Требует немедленного исправления |
+| **P1** | TD-AUDIT-10..12 | ❌ Не выполнено |
+| **P2** | TD-AUDIT-13..15 | ❌ Не выполнено |
+| **P3** | TD-AUDIT-16..20 | ❌ Бэклог |
+
+---
+
+### 13.8 Источники исследований (Librarian Agent)
+
+**SQLAlchemy `case()` Best Practices:**
+- [Official nested_sets example](https://github.com/sqlalchemy/sqlalchemy/blob/main/examples/nested_sets/nested_sets.py)
+- [GitHub Discussion #6640](https://github.com/sqlalchemy/sqlalchemy/discussions/6640) — maintainer @CaselIT
+- [Official docs: data_update](https://docs.sqlalchemy.org/en/20/tutorial/data_update.html)
+
+**Правильный паттерн bulk update:**
+```python
+# PostgreSQL optimal: UPDATE...FROM VALUES
+from sqlalchemy import Values
+
+values = Values(
+    Entity.c.id, Entity.c.importance, name="my_values"
+).data([(id1, score1), (id2, score2), ...])
+
+stmt = (
+    Entity.update()
+    .values(importance=values.c.importance)
+    .where(Entity.id == values.c.id)
+)
+```
+
+---
+
+**Автор:** Claude (Sisyphus)  
+**Дата:** 28 января 2026  
+**Версия:** 5.0 (Deep Security Audit)

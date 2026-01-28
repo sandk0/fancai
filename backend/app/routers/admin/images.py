@@ -4,6 +4,7 @@ Admin API routes for image generation settings.
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from loguru import logger
 
 from ...core.auth import get_current_admin_user
 from ...models.user import User
@@ -79,7 +80,8 @@ async def update_image_generation_settings(
             settings=settings.model_dump(),
         )
     except Exception as e:
+        logger.exception(f"Failed to update image generation settings: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update image generation settings: {str(e)}",
+            detail="Failed to update image generation settings",
         )

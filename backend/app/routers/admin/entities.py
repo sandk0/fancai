@@ -229,5 +229,5 @@ async def merge_entities(
         
     except Exception as e:
         await db.rollback()
-        logger.error(f"[AdminEntities] Merge failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Merge failed: {str(e)}")
+        logger.exception(f"[AdminEntities] Merge failed: {e}")
+        raise HTTPException(status_code=500, detail="Entity merge operation failed")

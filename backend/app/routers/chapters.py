@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Dict, Any, List
+from loguru import logger
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user
@@ -106,7 +107,8 @@ async def list_chapters(
     except HTTPException:
         raise
     except Exception as e:
-        raise ChapterFetchException(str(e))
+        logger.exception(f"Error fetching chapters list: {e}")
+        raise ChapterFetchException("Failed to fetch chapters")
 
 
 @router.get("/{book_id}/chapters/{chapter_number}", response_model=ChapterDetailResponse)
@@ -217,4 +219,5 @@ async def get_chapter(
     except HTTPException:
         raise
     except Exception as e:
-        raise ChapterFetchException(str(e))
+        logger.exception(f"Error fetching chapter: {e}")
+        raise ChapterFetchException("Failed to fetch chapter content")

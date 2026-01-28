@@ -315,19 +315,16 @@ async def start_reading_session(
         active_session = active_session_result.scalar_one_or_none()
 
         if active_session:
-            # Автоматически завершаем с текущей позицией
             active_session.end_session(
-                end_position=active_session.start_position,  # Не было прогресса
+                end_position=active_session.start_position,
                 ended_at=datetime.now(timezone.utc),
             )
-            await db.commit()
 
-        # Создаем новую сессию
         new_session = ReadingSession(
             user_id=current_user.id,
             book_id=book_uuid,
             start_position=request.start_position,
-            end_position=request.start_position,  # Изначально совпадает со start
+            end_position=request.start_position,
             device_type=request.device_type,
             is_active=True,
             started_at=datetime.now(timezone.utc),

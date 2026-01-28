@@ -14,6 +14,7 @@ from pathlib import Path
 
 import aiofiles
 import aiofiles.os
+from loguru import logger
 
 from ...services.book_parser import book_parser
 from ...schemas.responses.books_validation import (
@@ -204,7 +205,8 @@ async def parse_book_preview(file: UploadFile = File(...)) -> BookParsePreviewRe
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error parsing book: {str(e)}")
+        logger.exception(f"Error parsing book: {e}")
+        raise HTTPException(status_code=500, detail="Error parsing book file")
 
     finally:
         # Удаляем временный файл

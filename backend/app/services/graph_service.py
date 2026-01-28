@@ -10,6 +10,7 @@ Responsible for:
 import logging
 import networkx as nx
 from typing import List, Dict, Any, Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, case
 from app.models.entity import Entity
@@ -97,12 +98,17 @@ class GraphService:
                 updates.append((node_id, score))
                 
             if updates:
-                ids = [u[0] for u in updates]
-                case_mapping = {u[0]: u[1] for u in updates}
+                case_conditions = []
+                uuid_ids = []
+                for node_id, score in updates:
+                    uuid_id = UUID(node_id)
+                    uuid_ids.append(uuid_id)
+                    case_conditions.append((Entity.id == uuid_id, score))
+                
                 stmt = (
                     update(Entity)
-                    .where(Entity.id.in_(ids))
-                    .values(importance=case(case_mapping, value=Entity.id))
+                    .where(Entity.id.in_(uuid_ids))
+                    .values(importance=case(*case_conditions, else_=Entity.importance))
                 )
                 await self.db.execute(stmt)
                 

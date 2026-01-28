@@ -20,6 +20,7 @@ import os
 import time
 import logging
 import asyncio
+import hashlib
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ from app.core.retry import (
     RateLimitError,
     TimeoutError as RetryTimeoutError,
 )
+from app.core.cache import cache_manager
 from app.monitoring.metrics import (
     record_llm_request,
     record_llm_error,
@@ -77,6 +79,33 @@ class DescriptionType(Enum):
     CHARACTER = "character"
     OBJECT = "object"
     ATMOSPHERE = "atmosphere"
+
+
+import re
+
+def extract_positions_from_tags(
+    tagged_text: str, 
+    original_text: str
+) -> List[Tuple[int, int, str, str]]:
+    """
+    Extract exact positions from Tagged Span Annotation.
+    
+    Returns:
+        List of (start, end, type, content) tuples
+    """
+    pattern = r'@@START##(\w+)@@(.+?)@@END##'
+    results = []
+    
+    for match in re.finditer(pattern, tagged_text, re.DOTALL):
+        desc_type = match.group(1).lower()
+        desc_text = match.group(2).strip()
+        
+        start = original_text.find(desc_text)
+        if start != -1:
+            end = start + len(desc_text)
+            results.append((start, end, desc_type, desc_text))
+    
+    return results
 
 
 @dataclass
@@ -186,6 +215,13 @@ class GeminiConfig:
     min_description_chars: int = 50
     max_description_chars: int = 1000
     min_confidence: float = 0.4
+
+    # TSA (Tagged Span Annotation) для точных позиций
+    use_tsa_validation: bool = True
+
+    # LLM Response Caching
+    enable_cache: bool = True
+    cache_ttl_seconds: int = 86400
 
     # Retry логика
     max_retries: int = 3
@@ -405,6 +441,32 @@ class GeminiDirectExtractor:
         """Проверить доступность экстрактора."""
         return self._available
 
+    def _get_cache_key(self, text: str) -> str:
+        text_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
+        return f"llm:gemini:{self.config.model_id}:{text_hash}"
+
+    async def _get_cached_response(self, cache_key: str) -> Optional[GeminiResponseSchema]:
+        if not self.config.enable_cache:
+            return None
+        
+        cached = await cache_manager.get(cache_key)
+        if cached:
+            logger.debug(f"LLM cache hit: {cache_key}")
+            self.stats["cache_hits"] = self.stats.get("cache_hits", 0) + 1
+            return GeminiResponseSchema.model_validate(cached)
+        return None
+
+    async def _set_cached_response(self, cache_key: str, response: GeminiResponseSchema) -> None:
+        if not self.config.enable_cache:
+            return
+        
+        await cache_manager.set(
+            cache_key,
+            response.model_dump(),
+            self.config.cache_ttl_seconds
+        )
+        logger.debug(f"LLM cache set: {cache_key}")
+
     async def analyze_chapter(
         self,
         text: str,
@@ -430,18 +492,23 @@ class GeminiDirectExtractor:
         semaphore = asyncio.Semaphore(3)  # Max 3 concurrent Gemini calls
         
         async def process_chunk_with_semaphore(chunk_data: dict, chunk_idx: int):
-            """Process single chunk with rate limiting."""
+            """Process single chunk with rate limiting and caching."""
             async with semaphore:
                 try:
-                    prompt = self.EXTRACTION_PROMPT.format(text=chunk_data["text"])
-                    # Phase 6: Returns GeminiResponseSchema object directly
-                    gemini_response = await self._call_gemini_with_retry(prompt)
+                    chunk_text = chunk_data["text"]
+                    cache_key = self._get_cache_key(chunk_text)
+                    
+                    gemini_response = await self._get_cached_response(cache_key)
+                    if not gemini_response:
+                        prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
+                        gemini_response = await self._call_gemini_with_retry(prompt)
+                        await self._set_cached_response(cache_key, gemini_response)
                     
                     chunk_descriptions = self._convert_descriptions(
-                        gemini_response.descriptions, chunk_data["start"], chunk_data["text"]
+                        gemini_response.descriptions, chunk_data["start"], chunk_text
                     )
                     chunk_entities = self._convert_entities(
-                        gemini_response.entities, chunk_data["start"], chunk_data["text"]
+                        gemini_response.entities, chunk_data["start"], chunk_text
                     )
                     chunk_relationships = self._convert_relationships(gemini_response.relationships)
                     
@@ -519,17 +586,19 @@ class GeminiDirectExtractor:
         """Extract descriptions from a single chunk using tenacity retry."""
         self.stats["total_calls"] += 1
 
-        prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
-
         try:
-            # Use tenacity retry decorator for the actual extraction
-            # Phase 6: parsed Pydantic object
-            gemini_response = await self._call_gemini_with_retry(prompt)
+            cache_key = self._get_cache_key(chunk_text)
+            gemini_response = await self._get_cached_response(cache_key)
+            
+            if not gemini_response:
+                prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
+                gemini_response = await self._call_gemini_with_retry(prompt)
+                await self._set_cached_response(cache_key, gemini_response)
+                self.stats["total_tokens"] += len(prompt) // 4
 
             descriptions = self._convert_descriptions(gemini_response.descriptions, offset, chunk_text)
 
             self.stats["successful_calls"] += 1
-            self.stats["total_tokens"] += len(prompt) // 4  # Approximately
 
             return descriptions
 
@@ -641,7 +710,9 @@ class GeminiDirectExtractor:
             except ValueError:
                 desc_type = DescriptionType.LOCATION
 
-            actual_position = item.text_offset if item.text_offset is not None else offset
+            actual_position = self._find_exact_position(
+                content, source_text, offset, item.text_offset
+            )
             
             desc_obj = ExtractedDescription(
                 content=content,
@@ -655,6 +726,41 @@ class GeminiDirectExtractor:
             descriptions.append(desc_obj)
 
         return descriptions
+
+    def _find_exact_position(
+        self,
+        content: str,
+        source_text: Optional[str],
+        chunk_offset: int,
+        llm_offset: Optional[int]
+    ) -> int:
+        """
+        Find exact position of description in source text.
+        
+        Priority:
+        1. Direct string match in source_text (most accurate)
+        2. LLM-provided offset (if available)
+        3. Chunk offset (fallback)
+        """
+        if not self.config.use_tsa_validation or not source_text:
+            return llm_offset if llm_offset is not None else chunk_offset
+
+        search_text = content[:150] if len(content) > 150 else content
+        
+        exact_pos = source_text.find(search_text)
+        if exact_pos != -1:
+            return chunk_offset + exact_pos
+        
+        search_lower = search_text.lower()
+        source_lower = source_text.lower()
+        lower_pos = source_lower.find(search_lower)
+        if lower_pos != -1:
+            return chunk_offset + lower_pos
+        
+        if llm_offset is not None:
+            return chunk_offset + llm_offset
+        
+        return chunk_offset
 
     def _convert_entities(
         self,

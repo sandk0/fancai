@@ -10,9 +10,10 @@ API роуты для работы с прогрессом чтения в fanca
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from uuid import UUID
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user
@@ -24,6 +25,14 @@ from ..schemas.responses import (
     ReadingProgressDetailResponse,
     ReadingProgressResponse,
 )
+
+
+class ReadingProgressUpdateRequest(BaseModel):
+    current_chapter: int = Field(default=1, ge=1)
+    current_position_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    reading_location_cfi: Optional[str] = None
+    scroll_offset_percent: float = Field(default=0.0, ge=0, le=100)
+    current_page: Optional[int] = Field(default=None, deprecated=True)
 
 
 router = APIRouter()
@@ -120,32 +129,14 @@ async def get_reading_progress(
 @router.post("/{book_id}/progress")
 async def update_reading_progress(
     book_id: UUID,
-    progress_data: dict,
+    progress_data: ReadingProgressUpdateRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> Dict[str, Any]:
     """
     Обновляет прогресс чтения книги пользователем.
-
-    Args:
-        book_id: ID книги
-        progress_data: Данные прогресса:
-            - current_chapter: номер текущей главы (обязательно)
-            - current_position_percent: процент прочитанного в главе 0-100 (опционально)
-            - reading_location_cfi: CFI для epub.js (опционально)
-            - scroll_offset_percent: точный скролл внутри страницы (опционально)
-            - current_page: номер страницы для обратной совместимости (опционально)
-        current_user: Текущий аутентифицированный пользователь
-        db: Сессия базы данных
-
-    Returns:
-        Обновленный прогресс чтения
-
-    Raises:
-        HTTPException: 404 если книга не найдена
     """
     try:
-        # Проверяем, что книга принадлежит пользователю
         book = await book_service.get_book_by_id(
             db=db, book_id=book_id, user_id=current_user.id
         )
@@ -153,23 +144,10 @@ async def update_reading_progress(
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
 
-        current_chapter = max(1, progress_data.get("current_chapter", 1))
-
-        # Получаем CFI если передан (для epub.js)
-        reading_location_cfi = progress_data.get("reading_location_cfi")
-
-        # Получаем scroll_offset_percent если передан (для точного восстановления позиции)
-        scroll_offset_percent = progress_data.get("scroll_offset_percent", 0.0)
-        scroll_offset_percent = max(0.0, min(100.0, float(scroll_offset_percent)))
-
-        # Поддерживаем оба формата: новый (current_position_percent) и старый (current_page)
-        position_percent = progress_data.get("current_position_percent")
-        if position_percent is None:
-            # Обратная совместимость: если передали current_page, игнорируем его
-            # и устанавливаем позицию в 0% (начало главы)
-            position_percent = 0.0
-
-        position_percent = max(0.0, min(100.0, float(position_percent)))
+        current_chapter = progress_data.current_chapter
+        reading_location_cfi = progress_data.reading_location_cfi
+        scroll_offset_percent = progress_data.scroll_offset_percent
+        position_percent = progress_data.current_position_percent or 0.0
 
         # Обновляем прогресс чтения
         progress = await book_progress_service.update_reading_progress(

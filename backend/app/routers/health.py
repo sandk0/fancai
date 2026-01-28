@@ -27,6 +27,8 @@ import time
 import secrets
 import redis.asyncio as redis
 
+from loguru import logger
+
 from ..core.database import get_database_session
 from ..core.config import settings
 from ..core.celery_app import celery_app
@@ -125,8 +127,9 @@ async def check_database(db: AsyncSession) -> ComponentHealthResponse:
                 status="error", message="Database query returned unexpected result"
             )
     except Exception as e:
+        logger.error(f"Database health check failed: {e}")
         return ComponentHealthResponse(
-            status="error", message=f"Database connection failed: {str(e)}"
+            status="error", message="Database connection failed"
         )
 
 
@@ -159,8 +162,9 @@ async def check_redis() -> ComponentHealthResponse:
                 status="error", message="Redis PING failed"
             )
     except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
         return ComponentHealthResponse(
-            status="error", message=f"Redis connection failed: {str(e)}"
+            status="error", message="Redis connection failed"
         )
 
 
@@ -210,8 +214,9 @@ async def check_celery() -> ComponentHealthResponse:
             )
 
     except Exception as e:
+        logger.error(f"Celery health check failed: {e}")
         return ComponentHealthResponse(
-            status="error", message=f"Celery check failed: {str(e)}"
+            status="error", message="Celery check failed"
         )
 
 

@@ -268,6 +268,7 @@ async def publish_book_progress(
         status: "processing", "completed", "failed"
         message: Optional status message
     """
+    redis_client = None
     try:
         import redis.asyncio as aioredis
         redis_client = await aioredis.from_url(settings.REDIS_URL)
@@ -284,7 +285,9 @@ async def publish_book_progress(
         
         channel = f"book_progress:{book_id}"
         await redis_client.publish(channel, json.dumps(data))
-        await redis_client.close()
         
     except Exception as e:
         logger.warning(f"Failed to publish progress: {e}")
+    finally:
+        if redis_client:
+            await redis_client.close()

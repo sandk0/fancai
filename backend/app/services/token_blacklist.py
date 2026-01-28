@@ -74,21 +74,22 @@ class TokenBlacklist:
             logger.error(f"Failed to blacklist token: {e}")
             return False
 
-    async def is_blacklisted(self, token: str) -> bool:
+    async def is_blacklisted(self, token: str, require_online: bool = False) -> bool:
         """
         Check if token is blacklisted (revoked).
 
         Args:
             token: The JWT token string to check
+            require_online: If True, fail-closed when Redis unavailable.
+                           If False (default), fail-open for offline mode support.
 
         Returns:
-            True if token is blacklisted,
-            False if not blacklisted or Redis unavailable
+            True if token is blacklisted or (require_online=True and Redis down),
+            False if not blacklisted or (require_online=False and Redis down)
 
-        Security Note:
-            If Redis is unavailable, this returns False (fail-open).
-            This is a conscious security trade-off for availability.
-            For high-security environments, consider fail-closed behavior.
+        Behavior:
+            - require_online=False: Allows offline reading of cached books
+            - require_online=True: Use for sensitive operations (payments, admin)
         """
         key = f"{self.PREFIX}{token}"
 
@@ -101,9 +102,10 @@ class TokenBlacklist:
 
             return is_revoked
         except Exception as e:
-            logger.warning(f"Failed to check token blacklist: {e}")
-            # Fail-open: allow access if Redis is unavailable
-            # Change to 'return True' for fail-closed (more secure but less available)
+            logger.warning(f"Token blacklist check failed (Redis unavailable): {e}")
+            if require_online:
+                logger.warning("Fail-closed: Rejecting token due to Redis unavailability")
+                return True
             return False
 
     async def remove(self, token: str) -> bool:

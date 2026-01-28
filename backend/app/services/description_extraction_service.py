@@ -30,7 +30,7 @@ from loguru import logger
 
 from app.models.description import Description, DescriptionType
 from app.models.chapter import Chapter
-from app.core.cache import cache_manager
+from app.core.cache import cache_manager, DistributedLock
 from app.services.gemini_extractor import gemini_extractor, ExtractedDescription
 from app.schemas.responses import DescriptionResponse
 from app.schemas.responses.descriptions import (
@@ -104,72 +104,69 @@ class DescriptionExtractionService:
             raise LLMUnavailableError()
         
         lock_key = f"llm_extract_lock:chapter:{chapter.id}"
-        lock_acquired = await cache_manager.acquire_lock(lock_key, ttl=self.LOCK_TTL)
         
-        if not lock_acquired:
-            raise ExtractionLockError(chapter.id)
-        
-        start_time = datetime.now(timezone.utc)
-        
-        try:
-            logger.info(f"🔄 Starting LLM extraction for chapter {chapter.id}")
+        async with DistributedLock(
+            cache_manager, lock_key, ttl=self.LOCK_TTL, renewal_interval=60
+        ) as lock_acquired:
+            if not lock_acquired:
+                raise ExtractionLockError(chapter.id)
             
-            if delete_existing:
-                await self._delete_chapter_descriptions(chapter.id)
+            start_time = datetime.now(timezone.utc)
             
             try:
-                result = await asyncio.wait_for(
-                    gemini_extractor.extract_descriptions(chapter.content),
-                    timeout=self.LLM_EXTRACTION_TIMEOUT
+                logger.info(f"🔄 Starting LLM extraction for chapter {chapter.id}")
+                
+                if delete_existing:
+                    await self._delete_chapter_descriptions(chapter.id)
+                
+                try:
+                    result = await asyncio.wait_for(
+                        gemini_extractor.extract_descriptions(chapter.content),
+                        timeout=self.LLM_EXTRACTION_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    await self.db.rollback()
+                    raise ExtractionTimeoutError(chapter.id, self.LLM_EXTRACTION_TIMEOUT)
+                
+                descriptions_data = result if result else []
+                
+                descriptions = []
+                for position, desc_data in enumerate(descriptions_data):
+                    desc = self._create_description_from_data(
+                        chapter_id=chapter.id,
+                        desc_data=desc_data,
+                        position=position
+                    )
+                    self.db.add(desc)
+                    descriptions.append(desc)
+                
+                chapter.descriptions_found = len(descriptions)
+                chapter.is_description_parsed = True
+                chapter.parsed_at = datetime.now(timezone.utc)
+                
+                await self.db.commit()
+                
+                for desc in descriptions:
+                    await self.db.refresh(desc)
+                
+                extraction_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                
+                logger.info(
+                    f"✅ LLM extraction complete for chapter {chapter.id}: "
+                    f"{len(descriptions)} descriptions in {extraction_time_ms:.0f}ms"
                 )
-            except asyncio.TimeoutError:
-                # Rollback to restore deleted descriptions on timeout
-                await self.db.rollback()
-                raise ExtractionTimeoutError(chapter.id, self.LLM_EXTRACTION_TIMEOUT)
-            
-            descriptions_data = result if result else []
-            
-            descriptions = []
-            for position, desc_data in enumerate(descriptions_data):
-                desc = self._create_description_from_data(
+                
+                return ExtractionResult(
+                    descriptions=descriptions,
                     chapter_id=chapter.id,
-                    desc_data=desc_data,
-                    position=position
+                    extraction_time_ms=extraction_time_ms
                 )
-                self.db.add(desc)
-                descriptions.append(desc)
             
-            chapter.descriptions_found = len(descriptions)
-            chapter.is_description_parsed = True
-            chapter.parsed_at = datetime.now(timezone.utc)
-            
-            await self.db.commit()
-            
-            for desc in descriptions:
-                await self.db.refresh(desc)
-            
-            extraction_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-            
-            logger.info(
-                f"✅ LLM extraction complete for chapter {chapter.id}: "
-                f"{len(descriptions)} descriptions in {extraction_time_ms:.0f}ms"
-            )
-            
-            return ExtractionResult(
-                descriptions=descriptions,
-                chapter_id=chapter.id,
-                extraction_time_ms=extraction_time_ms
-            )
-        
-        except ExtractionTimeoutError:
-            # Already rolled back above, just re-raise
-            raise
-        except Exception:
-            # Rollback on any other error to restore deleted descriptions
-            await self.db.rollback()
-            raise
-        finally:
-            await cache_manager.release_lock(lock_key)
+            except ExtractionTimeoutError:
+                raise
+            except Exception:
+                await self.db.rollback()
+                raise
     
     async def get_chapter_descriptions(
         self,

@@ -16,14 +16,64 @@ Performance targets:
 """
 
 import json
+import asyncio
 import functools
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, TYPE_CHECKING
 from datetime import timedelta
 from redis.asyncio import Redis, ConnectionPool
 from redis.exceptions import RedisError
 from loguru import logger
 
 from .config import settings
+
+if TYPE_CHECKING:
+    from .cache import CacheManager as CacheManagerType
+
+
+class DistributedLock:
+    """
+    Async context manager for distributed locks with auto-renewal.
+    Prevents lock expiration during long-running operations.
+    
+    Usage:
+        async with DistributedLock(cache_manager, "my_lock", ttl=60, renewal_interval=30):
+            await long_running_operation()
+    """
+    
+    def __init__(
+        self,
+        cache_manager: "CacheManagerType",
+        lock_key: str,
+        ttl: int = 60,
+        renewal_interval: int = 30,
+    ):
+        self._cache = cache_manager
+        self._lock_key = lock_key
+        self._ttl = ttl
+        self._renewal_interval = renewal_interval
+        self._renewal_task: Optional[asyncio.Task] = None
+        self._acquired = False
+
+    async def __aenter__(self) -> bool:
+        self._acquired = await self._cache.acquire_lock(self._lock_key, self._ttl)
+        if self._acquired:
+            self._renewal_task = asyncio.create_task(self._renewal_loop())
+        return self._acquired
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._renewal_task:
+            self._renewal_task.cancel()
+            try:
+                await self._renewal_task
+            except asyncio.CancelledError:
+                pass
+        if self._acquired:
+            await self._cache.release_lock(self._lock_key)
+
+    async def _renewal_loop(self):
+        while True:
+            await asyncio.sleep(self._renewal_interval)
+            await self._cache.renew_lock(self._lock_key, self._ttl)
 
 
 class CacheManager:
@@ -285,6 +335,22 @@ class CacheManager:
             logger.warning(f"Redis lock release error for {lock_key}: {e}")
             return False
 
+    async def renew_lock(self, lock_key: str, ttl: int = 60) -> bool:
+        """
+        Renew TTL on an existing lock. Use to prevent expiration during long operations.
+        """
+        if not self._is_available or not self._redis:
+            return True
+
+        try:
+            result = await self._redis.expire(lock_key, ttl)
+            if result:
+                logger.debug(f"🔄 Lock RENEWED: {lock_key} (TTL: {ttl}s)")
+            return bool(result)
+        except RedisError as e:
+            logger.warning(f"Redis lock renew error for {lock_key}: {e}")
+            return False
+
     async def get_stats(self) -> dict:
         """
         Get cache statistics.
@@ -444,17 +510,20 @@ CACHE_KEY_PATTERNS = {
     "description_image": "description:{description_id}:image",
     # User Statistics (December 2025)
     "user_stats": "user_stats:{user_id}",
+    # LLM Response Caching (January 2026)
+    "llm_response": "llm:{model}:{text_hash}",
 }
 
 
 # Cache TTL configuration (in seconds)
 CACHE_TTL = {
-    "book_metadata": 3600,  # 1 hour
-    "book_chapters": 3600,  # 1 hour
-    "book_list": 10,  # 10 seconds (FREQUENTLY UPDATED - short TTL!)
-    "chapter_content": 3600,  # 1 hour
-    "user_progress": 300,  # 5 minutes (updated frequently)
-    "book_descriptions": 3600,  # 1 hour
-    "book_toc": 3600,  # 1 hour
-    "user_stats": 300,  # 5 minutes (December 2025 - user statistics caching)
+    "book_metadata": 3600,
+    "book_chapters": 3600,
+    "book_list": 10,
+    "chapter_content": 3600,
+    "user_progress": 300,
+    "book_descriptions": 3600,
+    "book_toc": 3600,
+    "user_stats": 300,
+    "llm_response": 86400,
 }

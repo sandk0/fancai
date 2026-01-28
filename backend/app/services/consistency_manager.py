@@ -175,7 +175,12 @@ class ConsistencyManager:
                     name=raw.name,
                     type=type_enum.value,
                     visual_summary=raw.visual_summary,
-                    entity_metadata={"aliases": raw.aliases, "confidence": raw.confidence}
+                    importance=raw.importance if raw.importance else 5,
+                    entity_metadata={
+                        "aliases": raw.aliases,
+                        "confidence": raw.confidence,
+                        "first_mention_offset": raw.first_mention_offset,
+                    }
                 )
                 self.db.add(entity)
                 existing_entities[name_lower] = entity
@@ -225,7 +230,12 @@ class ConsistencyManager:
             name=raw.name,
             type=type_enum.value,
             visual_summary=raw.visual_summary,
-            entity_metadata={"aliases": raw.aliases, "confidence": raw.confidence}
+            importance=raw.importance if raw.importance else 5,
+            entity_metadata={
+                "aliases": raw.aliases,
+                "confidence": raw.confidence,
+                "first_mention_offset": raw.first_mention_offset,
+            }
         )
         self.db.add(new_entity)
         # await self.db.flush() # Needed if we want ID immediately

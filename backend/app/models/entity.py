@@ -4,7 +4,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import String, Text, ForeignKey, Integer, DateTime, func
+from sqlalchemy import String, Text, ForeignKey, Integer, DateTime, func, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, ENUM as PG_ENUM
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -31,6 +31,14 @@ entity_type_pg_enum = PG_ENUM(
 
 class Entity(Base):
     __tablename__ = "entities"
+    __table_args__ = (
+        Index(
+            "ix_entities_book_id_name_lower",
+            "book_id",
+            func.lower("name"),
+            unique=True,
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
@@ -50,6 +58,11 @@ class Entity(Base):
     linked_entity_ids: Mapped[list[Any] | None] = mapped_column(JSONB, default=[], nullable=True)
     
     entity_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
+    
+    first_mention_cfi: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, index=True,
+        comment="CFI of first mention for spoiler protection"
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
