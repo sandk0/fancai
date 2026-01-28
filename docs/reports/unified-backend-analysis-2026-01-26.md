@@ -1748,3 +1748,312 @@ stmt = (
 **Автор:** Claude (Sisyphus)  
 **Дата:** 28 января 2026  
 **Версия:** 5.0 (Deep Security Audit)
+
+---
+
+## Часть 14: Глубокий аудит изменённых файлов (29 января 2026)
+
+### 14.1 Методология
+
+Проведён глубокий аудит с использованием **6 параллельных агентов**:
+
+| Агент | Область | Результат |
+|-------|---------|-----------|
+| explore | tsa_parser.py | Regex, edge cases, singleton |
+| explore | gemini_extractor.py | TSA integration, async, semaphore |
+| explore | book_tasks.py | Celery, locks, transactions |
+| explore | description_extraction_service.py | Lock TTL, cache, memory |
+| librarian | FastAPI + SQLAlchemy 2.0 | Best practices comparison |
+| librarian | Celery + async | AI/LLM workload patterns |
+
+Дополнительно:
+- **LSP diagnostics** на все изменённые файлы
+- **Context7** для SQLAlchemy 2.0 документации
+- **Верификация** TSA validation bug через Python script
+
+---
+
+### 14.2 🔴 CRITICAL — Требуют немедленного исправления
+
+#### TD-P3-1: TSA Position Validation Bug
+**Файл:** `gemini_extractor.py:770` + `tsa_parser.py:280`
+
+**Проблема:** При валидации spans передаётся `original_text` (текст чанка), но позиции spans уже содержат `chunk_offset`:
+
+```python
+# gemini_extractor.py:769-770
+parsed_spans = parser.parse(original_text, tsa_response.tagged_text, chunk_offset)
+validated_spans = TSAParser.validate_spans(parsed_spans, original_text)  # BUG!
+
+# tsa_parser.py:280 — пытается slice по offset+local_pos
+actual_text = original_text[span.start:span.end]  # span.start = chunk_offset + local_pos
+```
+
+**Верификация:**
+```python
+chunk_offset = 1000
+local_pos = 50
+chunk_text = 'x' * 200  # len=200
+
+span_start = chunk_offset + local_pos  # 1050
+# chunk_text[1050:1070] → "" (out of bounds!)
+```
+
+**Последствия:** ВСЕ описания помечаются как невалидные, TSA не работает.
+
+**Исправление:**
+```python
+# Вариант 1: Валидировать ДО добавления offset
+local_spans = parser.parse(original_text, tsa_response.tagged_text, chunk_offset=0)
+validated_local = TSAParser.validate_spans(local_spans, original_text)
+# Добавить offset после валидации
+for span in validated_local:
+    span.start += chunk_offset
+    span.end += chunk_offset
+
+# Вариант 2: Вычитать offset при валидации
+actual_text = original_text[span.start - chunk_offset : span.end - chunk_offset]
+```
+
+**Приоритет:** P0 — **TSA не работает**
+**Время исправления:** 1ч
+
+---
+
+#### TD-P3-2: Semaphore Per-Call — Rate Limiting Broken
+**Файл:** `gemini_extractor.py:536`
+
+```python
+async def analyze_chapter(self, content: str) -> Dict[str, Any]:
+    # ...
+    semaphore = asyncio.Semaphore(3)  # НОВЫЙ семафор на каждый вызов!
+```
+
+**Проблема:** Семафор создаётся внутри метода. При 10 параллельных вызовах → 10×3 = 30 запросов к Gemini вместо 3.
+
+**Исправление:**
+```python
+class GeminiDirectExtractor:
+    def __init__(self, config: Optional[GeminiConfig] = None):
+        self._semaphore = asyncio.Semaphore(config.max_concurrent_calls if config else 3)
+```
+
+**Приоритет:** P0 — **Rate limiting broken**
+**Время исправления:** 30 мин
+
+---
+
+#### TD-P3-3: Redis Lock Key Mismatch — Deadlock
+**Файл:** `book_tasks.py:95, 236`
+
+```python
+# Line 95: Lock acquired
+lock_key = f"book:processing:{book_id_str}"  # string
+
+# Line 236: Cleanup deletes DIFFERENT key
+await redis_client.delete(f"book:processing:{book_id}")  # UUID object!
+```
+
+**Последствия:** Блокировка никогда не удаляется → книга навсегда заблокирована.
+
+**Исправление:**
+```python
+# Line 236
+await redis_client.delete(f"book:processing:{str(book_id)}")
+```
+
+**Приоритет:** P0 — **Deadlock**
+**Время исправления:** 5 мин
+
+---
+
+#### TD-P3-4: TaskGroup ExceptionGroup Not Handled
+**Файл:** `book_tasks.py:489-491`
+
+```python
+async with TaskGroup() as tg:
+    for idx, chapter in enumerate(chapters):
+        tg.create_task(process_chapter_safe(idx, chapter.id))
+```
+
+**Проблема:** Python 3.11+ TaskGroup выбрасывает `ExceptionGroup`. Код не обрабатывает `except*`.
+
+**Исправление:**
+```python
+try:
+    async with TaskGroup() as tg:
+        for idx, chapter in enumerate(chapters):
+            tg.create_task(process_chapter_safe(idx, chapter.id))
+except* Exception as excgroup:
+    logger.error(f"Chapter processing errors: {len(excgroup.exceptions)} failures")
+    for exc in excgroup.exceptions:
+        logger.error(f"  - {type(exc).__name__}: {exc}")
+```
+
+**Приоритет:** P0 — **Unhandled exception**
+**Время исправления:** 30 мин
+
+---
+
+#### TD-P3-5: Race Condition — Delete Before LLM Call
+**Файл:** `description_extraction_service.py:119-129`
+
+```python
+if delete_existing:
+    await self._delete_chapter_descriptions(chapter.id)  # Удаляет старые
+
+result = await asyncio.wait_for(
+    gemini_extractor.extract_descriptions(chapter.content),
+    timeout=self.LLM_EXTRACTION_TIMEOUT
+)  # Если таймаут → старые описания потеряны!
+```
+
+**Исправление:** Удалять ПОСЛЕ успешного извлечения:
+```python
+result = await asyncio.wait_for(...)
+if result and delete_existing:
+    await self._delete_chapter_descriptions(chapter.id)
+# Затем добавить новые
+```
+
+**Приоритет:** P0 — **Data loss**
+**Время исправления:** 30 мин
+
+---
+
+#### TD-P3-6: Thread-Safety — Stats Race Condition
+**Файл:** `gemini_extractor.py:449-457, 555, 619`
+
+```python
+self.stats["total_calls"] += 1
+self.stats["failed_calls"] += 1
+```
+
+**Проблема:** Словарь изменяется из нескольких async задач без блокировки.
+
+**Исправление:**
+```python
+class GeminiDirectExtractor:
+    def __init__(self, ...):
+        self._stats_lock = asyncio.Lock()
+    
+    async def _increment_stat(self, key: str):
+        async with self._stats_lock:
+            self.stats[key] += 1
+```
+
+**Приоритет:** P1 — **Race condition**
+**Время исправления:** 30 мин
+
+---
+
+#### TD-P3-7: Lock Renewal Interval Risk
+**Файл:** `description_extraction_service.py:109`
+
+```python
+DistributedLock(cache_manager, lock_key, ttl=45, renewal_interval=20)
+```
+
+**Проблема:** `renewal_interval=20` при `TTL=45` оставляет 25с запаса. Недостаточно.
+
+**Исправление:** `renewal_interval=15` (TTL // 3)
+
+**Статус:** ✅ **ИСПРАВЛЕНО** (в этой сессии)
+
+---
+
+### 14.3 🟠 HIGH — Требуют исправления
+
+| ID | Файл | Проблема | Время |
+|----|------|----------|-------|
+| TD-P3-8 | book_tasks.py:279,393 | Shared DB session across parallel tasks | 2ч |
+| TD-P3-9 | book_tasks.py:306-311 | Unbounded memory — loads ALL chapters | 2ч |
+| TD-P3-10 | book_tasks.py:480-485 | Missing rollback before commit | 30м |
+| TD-P3-11 | gemini_extractor.py:660-668 | Sync call in async via to_thread | 1ч |
+| TD-P3-12 | gemini_extractor.py:1036-1106 | O(n²) entity deduplication | 2ч |
+| TD-P3-13 | description_extraction_service.py:147-163 | Missing cache invalidation | 1ч |
+| TD-P3-14 | description_extraction_service.py:149-150 | N+1 query in refresh loop | 30м |
+| TD-P3-15 | routers/books/crud.py:567-627 | Missing transaction boundaries | 2ч |
+| TD-P3-16 | services/auth_service.py:176-195 | Inconsistent error handling | 1ч |
+| TD-P3-17 | book_tasks.py:245-266 | Dead code — never called | 15м |
+| TD-P3-18 | gemini_extractor.py:94-116 | Dead code — extract_positions_from_tags | 15м |
+
+---
+
+### 14.4 🟡 MEDIUM — Рекомендуется исправить
+
+| ID | Файл | Проблема |
+|----|------|----------|
+| TD-P3-19 | book_tasks.py:336,466-469 | Race condition in progress tracking |
+| TD-P3-20 | book_tasks.py:233-237 | Redis client not closed on exception |
+| TD-P3-21 | book_tasks.py:163-170 | Sync Redis in async context |
+| TD-P3-22 | book_tasks.py:389 | Missing retry logic for Gemini calls |
+| TD-P3-23 | gemini_extractor.py:496,507 | Missing timeout on cache operations |
+| TD-P3-24 | gemini_extractor.py:1125-1134 | Singleton not thread-safe |
+| TD-P3-25 | gemini_extractor.py:553-556 | Error swallowing without traceback |
+| TD-P3-26 | description_extraction_service.py:259-263 | Silent cache failures (no metrics) |
+| TD-P3-27 | description_extraction_service.py:389-393 | Corrupted cache not invalidated |
+| TD-P3-28 | description_extraction_service.py:276-305 | Missing validation in description creation |
+| TD-P3-29 | description_extraction_service.py:485-487 | Commit outside transaction context |
+| TD-P3-30 | description_extraction_service.py:289-293 | Type mismatch ("location" vs "LOCATION") |
+| TD-P3-31 | tsa_parser.py:294-301 | Singleton not thread-safe |
+| TD-P3-32 | core/dependencies.py:60-76 | N+1 query pattern |
+
+---
+
+### 14.5 ✅ Что уже ХОРОШО в кодовой базе
+
+1. **`expire_on_commit=False`** — Правильно для async сессий
+2. **`lazy="raise"` на отношениях** — Предотвращает N+1
+3. **Proper eager loading** — `selectinload` для коллекций, `joinedload` для single
+4. **Connection pool configuration** — `pool_pre_ping`, `pool_use_lifo`
+5. **Session dependency with yield** — Правильный паттерн FastAPI
+
+---
+
+### 14.6 Обновлённый план (после аудита)
+
+#### P0 — НЕМЕДЛЕННО (сегодня)
+
+```
+TD-P3-1: TSA validation bug ─────────────────────── 1ч
+TD-P3-2: Semaphore per-call ─────────────────────── 30м
+TD-P3-3: Redis lock key mismatch ────────────────── 5м
+TD-P3-4: TaskGroup ExceptionGroup ───────────────── 30м
+TD-P3-5: Delete before LLM (race) ───────────────── 30м
+                                          ИТОГО: 3ч
+```
+
+#### P1 — ЭТА НЕДЕЛЯ
+
+```
+TD-P3-6: Stats thread safety ────────────────────── 30м
+TD-P3-8..10: book_tasks improvements ────────────── 4ч
+TD-P3-11..14: gemini/desc service ───────────────── 5ч
+TD-P3-15..16: Transaction boundaries ────────────── 3ч
+TD-P3-17..18: Dead code cleanup ─────────────────── 30м
+                                         ИТОГО: 13ч
+```
+
+#### P2 — СЛЕДУЮЩАЯ НЕДЕЛЯ
+
+```
+TD-P3-19..32: Medium priority fixes ─────────────── 8-10ч
+```
+
+---
+
+### 14.7 Статистика аудита
+
+| Severity | Count | Исправлено | Осталось |
+|----------|-------|------------|----------|
+| 🔴 CRITICAL | 7 | 1 (TD-P3-7) | 6 |
+| 🟠 HIGH | 11 | 0 | 11 |
+| 🟡 MEDIUM | 14 | 0 | 14 |
+| **ИТОГО** | **32** | **1** | **31** |
+
+---
+
+**Автор:** Claude (Sisyphus)  
+**Дата:** 29 января 2026  
+**Версия:** 6.0 (Deep Audit of Changed Files)
