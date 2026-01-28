@@ -33,6 +33,7 @@ from app.core.retry import (
     TimeoutError as RetryTimeoutError,
 )
 from app.core.cache import cache_manager
+from app.services.tsa_parser import TSAParser, get_tsa_parser
 from app.monitoring.metrics import (
     record_llm_request,
     record_llm_error,
@@ -69,6 +70,13 @@ class GeminiDescriptionSchema(BaseModel):
 
 class GeminiResponseSchema(BaseModel):
     descriptions: List[GeminiDescriptionSchema]
+    entities: List[GeminiEntitySchema]
+    relationships: List[GeminiRelationshipSchema]
+
+
+class GeminiTSAResponseSchema(BaseModel):
+    """Tag format: <desc type="location" occurrence="1">text</desc>"""
+    tagged_text: str = Field(description="Оригинальный текст с XML-тегами вокруг описаний")
     entities: List[GeminiEntitySchema]
     relationships: List[GeminiRelationshipSchema]
 
@@ -217,7 +225,9 @@ class GeminiConfig:
     min_confidence: float = 0.4
 
     # TSA (Tagged Span Annotation) для точных позиций
-    use_tsa_validation: bool = True
+    use_tsa_mode: bool = True
+    tsa_fuzzy_threshold: float = 0.85
+    tsa_position_tolerance: int = 100
 
     # LLM Response Caching
     enable_cache: bool = True
@@ -360,6 +370,40 @@ class GeminiDirectExtractor:
     вместо коротких сущностей (NER).
     """
 
+    TSA_EXTRACTION_PROMPT = """Ты - литературный редактор. Анализируй текст и размечай визуальные описания.
+
+ЗАДАЧА:
+1. Верни ОРИГИНАЛЬНЫЙ текст с XML-тегами вокруг описаний
+2. Формат тегов: <desc type="TYPE" occurrence="N">точный текст из оригинала</desc>
+3. TYPE = location | character | object | atmosphere
+4. occurrence = номер вхождения если текст повторяется (по умолчанию 1)
+
+КРИТЕРИИ ОПИСАНИЙ:
+- Минимум 50 символов
+- Создаёт визуальный образ (внешность, место, атмосфера)
+- Подходит для иллюстрации
+
+ПРИМЕР:
+Вход: "Иван вошёл в комнату. Комната была тёмной и пыльной, с высокими потолками и старинной мебелью."
+Выход в tagged_text: "Иван вошёл в комнату. <desc type=\"location\" occurrence=\"1\">Комната была тёмной и пыльной, с высокими потолками и старинной мебелью.</desc>"
+
+ПРАВИЛА:
+- Текст внутри тегов должен быть ТОЧНОЙ копией из оригинала
+- Сохраняй все пробелы и знаки препинания
+- Не изменяй текст вне тегов
+- Для персонажей: описание внешности, одежды, возраста
+- Для локаций: освещение, архитектура, атмосфера
+- Игнорируй обычные предметы (только сюжетно важные артефакты)
+
+ТАКЖЕ выдели:
+1. ГЛАВНЫХ персонажей (importance 7-10) с visual_summary и aliases
+2. КЛЮЧЕВЫЕ локации
+3. СВЯЗИ между сущностями
+
+Текст для анализа:
+{text}
+"""
+
     EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
 ЗАДАЧА:
@@ -492,32 +536,20 @@ class GeminiDirectExtractor:
         semaphore = asyncio.Semaphore(3)  # Max 3 concurrent Gemini calls
         
         async def process_chunk_with_semaphore(chunk_data: dict, chunk_idx: int):
-            """Process single chunk with rate limiting and caching."""
             async with semaphore:
                 try:
                     chunk_text = chunk_data["text"]
+                    chunk_offset = chunk_data["start"]
                     cache_key = self._get_cache_key(chunk_text)
                     
-                    gemini_response = await self._get_cached_response(cache_key)
-                    if not gemini_response:
-                        prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
-                        gemini_response = await self._call_gemini_with_retry(prompt)
-                        await self._set_cached_response(cache_key, gemini_response)
-                    
-                    chunk_descriptions = self._convert_descriptions(
-                        gemini_response.descriptions, chunk_data["start"], chunk_text
-                    )
-                    chunk_entities = self._convert_entities(
-                        gemini_response.entities, chunk_data["start"], chunk_text
-                    )
-                    chunk_relationships = self._convert_relationships(gemini_response.relationships)
-                    
-                    return {
-                        "descriptions": chunk_descriptions,
-                        "entities": chunk_entities,
-                        "relationships": chunk_relationships,
-                        "success": True
-                    }
+                    if self.config.use_tsa_mode:
+                        return await self._process_chunk_tsa(
+                            chunk_text, chunk_offset, cache_key, chunk_idx
+                        )
+                    else:
+                        return await self._process_chunk_legacy(
+                            chunk_text, chunk_offset, cache_key, chunk_idx
+                        )
                 except Exception as e:
                     logger.warning(f"Chunk {chunk_idx} analysis failed: {e}")
                     self.stats["failed_calls"] += 1
@@ -676,6 +708,161 @@ class GeminiDirectExtractor:
             logger.error(f"Gemini extraction error: {error_msg}")
             raise LLMExtractionError(error_msg) from e
 
+    @retry_llm_extraction
+    async def _call_gemini_tsa(self, prompt: str) -> GeminiTSAResponseSchema:
+        start_time = time.time()
+        model_name = self.config.model_id
+        
+        try:
+            config = self._types.GenerateContentConfig(
+                temperature=0.3,
+                top_p=0.95,
+                response_mime_type="application/json",
+                response_schema=GeminiTSAResponseSchema,
+            )
+
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._client.models.generate_content,
+                    model=self._model,
+                    contents=prompt,
+                    config=config,
+                ),
+                timeout=self.config.timeout_seconds
+            )
+
+            duration = time.time() - start_time
+            record_llm_request(model_name, "success", duration)
+
+            if hasattr(response, 'parsed') and response.parsed:
+                return response.parsed
+                
+            text = response.text if hasattr(response, 'text') else str(response)
+            return GeminiTSAResponseSchema.model_validate_json(text)
+
+        except asyncio.TimeoutError as e:
+            duration = time.time() - start_time
+            record_llm_request(model_name, "timeout", duration)
+            record_llm_error(model_name, "timeout")
+            raise RetryTimeoutError(f"TSA call timed out after {self.config.timeout_seconds}s") from e
+
+        except Exception as e:
+            duration = time.time() - start_time
+            error_msg = str(e)
+            
+            if any(x in error_msg.lower() for x in ["rate", "quota", "429"]):
+                record_llm_request(model_name, "rate_limited", duration)
+                record_llm_rate_limit(model_name)
+                raise RateLimitError(error_msg) from e
+                
+            record_llm_request(model_name, "error", duration)
+            record_llm_error(model_name, "api_error")
+            raise LLMExtractionError(error_msg) from e
+
+    def _convert_tsa_to_descriptions(
+        self,
+        tsa_response: GeminiTSAResponseSchema,
+        original_text: str,
+        chunk_offset: int
+    ) -> List[ExtractedDescription]:
+        parser = get_tsa_parser()
+        parsed_spans = parser.parse(original_text, tsa_response.tagged_text, chunk_offset)
+        validated_spans = TSAParser.validate_spans(parsed_spans, original_text)
+        
+        descriptions = []
+        for span in validated_spans:
+            if len(span.text) < self.config.min_description_chars:
+                continue
+            
+            try:
+                desc_type = DescriptionType(span.span_type)
+            except ValueError:
+                desc_type = DescriptionType.LOCATION
+            
+            descriptions.append(ExtractedDescription(
+                content=span.text,
+                description_type=desc_type,
+                confidence=span.confidence,
+                entities=[],
+                attributes={"match_method": span.match_method},
+                position=span.start,
+                source_span=(span.start, span.end)
+            ))
+        
+        logger.info(f"TSA extracted {len(descriptions)} descriptions from {len(parsed_spans)} spans")
+        return descriptions
+
+    async def _process_chunk_tsa(
+        self,
+        chunk_text: str,
+        chunk_offset: int,
+        cache_key: str,
+        chunk_idx: int
+    ) -> Dict[str, Any]:
+        cache_key_tsa = f"{cache_key}:tsa"
+        cached = await cache_manager.get(cache_key_tsa)
+        
+        if cached:
+            tsa_response = GeminiTSAResponseSchema.model_validate(cached)
+        else:
+            prompt = self.TSA_EXTRACTION_PROMPT.format(text=chunk_text)
+            tsa_response = await self._call_gemini_tsa(prompt)
+            await cache_manager.set(
+                cache_key_tsa,
+                tsa_response.model_dump(),
+                self.config.cache_ttl_seconds
+            )
+        
+        chunk_descriptions = self._convert_tsa_to_descriptions(
+            tsa_response, chunk_text, chunk_offset
+        )
+        chunk_entities = self._convert_entities(
+            tsa_response.entities, chunk_offset, chunk_text
+        )
+        chunk_relationships = self._convert_relationships(tsa_response.relationships)
+        
+        return {
+            "descriptions": chunk_descriptions,
+            "entities": chunk_entities,
+            "relationships": chunk_relationships,
+            "success": True
+        }
+
+    async def _process_chunk_legacy(
+        self,
+        chunk_text: str,
+        chunk_offset: int,
+        cache_key: str,
+        chunk_idx: int
+    ) -> Dict[str, Any]:
+        cached = await cache_manager.get(cache_key)
+        
+        if cached:
+            gemini_response = GeminiResponseSchema.model_validate(cached)
+        else:
+            prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
+            gemini_response = await self._call_gemini_with_retry(prompt)
+            await cache_manager.set(
+                cache_key,
+                gemini_response.model_dump(),
+                self.config.cache_ttl_seconds
+            )
+        
+        chunk_descriptions = self._convert_descriptions(
+            gemini_response.descriptions, chunk_offset, chunk_text
+        )
+        chunk_entities = self._convert_entities(
+            gemini_response.entities, chunk_offset, chunk_text
+        )
+        chunk_relationships = self._convert_relationships(gemini_response.relationships)
+        
+        return {
+            "descriptions": chunk_descriptions,
+            "entities": chunk_entities,
+            "relationships": chunk_relationships,
+            "success": True
+        }
+
     def _convert_descriptions(
         self,
         schema_descriptions: List[GeminiDescriptionSchema],
@@ -742,7 +929,7 @@ class GeminiDirectExtractor:
         2. LLM-provided offset (if available)
         3. Chunk offset (fallback)
         """
-        if not self.config.use_tsa_validation or not source_text:
+        if not source_text:
             return llm_offset if llm_offset is not None else chunk_offset
 
         search_text = content[:150] if len(content) > 150 else content
