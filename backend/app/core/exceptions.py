@@ -4,10 +4,62 @@ Custom exception classes для fancai.
 Этот модуль содержит специализированные исключения для различных
 типов ошибок в приложении, обеспечивая консистентные error messages
 и коды статусов.
+
+TD-P16-3: RFC 9457 Problem Details support.
 """
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
+from fastapi.responses import JSONResponse
+from typing import Optional, Dict, Any
 from uuid import UUID
+
+
+class ProblemDetail(HTTPException):
+    """
+    RFC 9457 Problem Details base exception.
+    https://www.rfc-editor.org/rfc/rfc9457.html
+    """
+    
+    def __init__(
+        self,
+        status_code: int,
+        type_uri: str,
+        title: str,
+        detail: Optional[str] = None,
+        instance: Optional[str] = None,
+        extensions: Optional[Dict[str, Any]] = None,
+    ):
+        self.type_uri = type_uri
+        self.title = title
+        self.detail_msg = detail
+        self.instance = instance
+        self.extensions = extensions or {}
+        
+        super().__init__(status_code=status_code, detail=detail or title)
+    
+    def to_dict(self, request: Optional[Request] = None) -> Dict[str, Any]:
+        result = {
+            "type": self.type_uri,
+            "title": self.title,
+            "status": self.status_code,
+        }
+        if self.detail_msg:
+            result["detail"] = self.detail_msg
+        if self.instance:
+            result["instance"] = self.instance
+        elif request:
+            result["instance"] = str(request.url)
+        result.update(self.extensions)
+        return result
+
+
+async def problem_detail_exception_handler(request: Request, exc: ProblemDetail) -> JSONResponse:
+    """FastAPI exception handler for RFC 9457 Problem Details."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.to_dict(request),
+        media_type="application/problem+json",
+    )
 
 
 # ============================================================================

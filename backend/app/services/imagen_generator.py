@@ -502,9 +502,12 @@ class GoogleImagenGenerator:
             )
 
         # 1. Semantic Caching (Cost Optimization)
-        # Check if we already generated this prompt+seed combination
-        cache_key = f"imagen:cache:{hashlib.md5((prompt + str(seed or '')).encode()).hexdigest()}"
+        # TD-P15-4 FIX: Include aspect_ratio in cache key to avoid returning wrong dimensions
+        effective_aspect = aspect_ratio or self.config.aspect_ratio
+        cache_key = f"imagen:cache:{hashlib.md5((prompt + str(seed or '') + effective_aspect).encode()).hexdigest()}"
         
+        # TD-P15-5 FIX: Use try/finally to guarantee Redis connection is closed
+        redis_client = None
         try:
             # Lazy redis load inside method to avoid init issues
             from app.core.config import settings
@@ -516,7 +519,6 @@ class GoogleImagenGenerator:
             if cached_url:
                 cached_url_str = cached_url.decode('utf-8')
                 logger.info(f"Semantic Cache HIT for prompt. URL: {cached_url_str[:30]}...")
-                await redis_client.close()
                 return ImageGenerationResult(
                     success=True,
                     image_url=cached_url_str,
@@ -524,9 +526,14 @@ class GoogleImagenGenerator:
                     model_used="cache",
                     prompt_used=prompt
                 )
-            await redis_client.close()
         except Exception as cache_e:
             logger.warning(f"Cache check failed: {cache_e}")
+        finally:
+            if redis_client is not None:
+                try:
+                    await redis_client.close()
+                except Exception:
+                    pass  # Ignore close errors
 
         start_time = time.time()
 

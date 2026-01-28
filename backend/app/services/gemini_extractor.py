@@ -455,6 +455,12 @@ class GeminiDirectExtractor:
             "total_tokens": 0,
             "total_time": 0.0,
         }
+        # TD-P3-6 FIX: Lock for thread-safe stats updates
+        self._stats_lock = asyncio.Lock()
+
+        # Rate limiting semaphore for concurrent Gemini API calls
+        # TD-P3-2 FIX: Moved from per-call to class level
+        self._chunk_semaphore = asyncio.Semaphore(3)
 
         self._initialize()
 
@@ -496,7 +502,8 @@ class GeminiDirectExtractor:
         cached = await cache_manager.get(cache_key)
         if cached:
             logger.debug(f"LLM cache hit: {cache_key}")
-            self.stats["cache_hits"] = self.stats.get("cache_hits", 0) + 1
+            async with self._stats_lock:
+                self.stats["cache_hits"] = self.stats.get("cache_hits", 0) + 1
             return GeminiResponseSchema.model_validate(cached)
         return None
 
@@ -532,11 +539,8 @@ class GeminiDirectExtractor:
         chunks = self.chunker.chunk(text)
         logger.info(f"Text split into {len(chunks)} chunks for analysis")
 
-        # Phase 2: Parallel chunk processing with semaphore (rate limit)
-        semaphore = asyncio.Semaphore(3)  # Max 3 concurrent Gemini calls
-        
         async def process_chunk_with_semaphore(chunk_data: dict, chunk_idx: int):
-            async with semaphore:
+            async with self._chunk_semaphore:
                 try:
                     chunk_text = chunk_data["text"]
                     chunk_offset = chunk_data["start"]
@@ -552,7 +556,8 @@ class GeminiDirectExtractor:
                         )
                 except Exception as e:
                     logger.warning(f"Chunk {chunk_idx} analysis failed: {e}")
-                    self.stats["failed_calls"] += 1
+                    async with self._stats_lock:
+                        self.stats["failed_calls"] += 1
                     return {"descriptions": [], "entities": [], "relationships": [], "success": False}
         
         # Execute all chunks in parallel
@@ -584,9 +589,9 @@ class GeminiDirectExtractor:
         # Deduplicate Entities (Phase 6: Fuzzy matching)
         unique_entities = self._deduplicate_entities(all_entities)
         
-        # Stats
-        self.stats["total_time"] += time.time() - start_time
-        self.stats["total_descriptions"] += len(unique_descriptions)
+        async with self._stats_lock:
+            self.stats["total_time"] += time.time() - start_time
+            self.stats["total_descriptions"] += len(unique_descriptions)
         
         logger.info(
             f"Parallel chunk processing complete: {len(unique_descriptions)} descriptions, "
@@ -616,7 +621,8 @@ class GeminiDirectExtractor:
         offset: int
     ) -> List[ExtractedDescription]:
         """Extract descriptions from a single chunk using tenacity retry."""
-        self.stats["total_calls"] += 1
+        async with self._stats_lock:
+            self.stats["total_calls"] += 1
 
         try:
             cache_key = self._get_cache_key(chunk_text)
@@ -626,17 +632,20 @@ class GeminiDirectExtractor:
                 prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
                 gemini_response = await self._call_gemini_with_retry(prompt)
                 await self._set_cached_response(cache_key, gemini_response)
-                self.stats["total_tokens"] += len(prompt) // 4
+                async with self._stats_lock:
+                    self.stats["total_tokens"] += len(prompt) // 4
 
             descriptions = self._convert_descriptions(gemini_response.descriptions, offset, chunk_text)
 
-            self.stats["successful_calls"] += 1
+            async with self._stats_lock:
+                self.stats["successful_calls"] += 1
 
             return descriptions
 
         except Exception as e:
             logger.warning(f"Chunk extraction failed after all retries: {e}")
-            self.stats["failed_calls"] += 1
+            async with self._stats_lock:
+                self.stats["failed_calls"] += 1
             return []
 
     @retry_llm_extraction
@@ -766,8 +775,9 @@ class GeminiDirectExtractor:
         chunk_offset: int
     ) -> List[ExtractedDescription]:
         parser = get_tsa_parser()
-        parsed_spans = parser.parse(original_text, tsa_response.tagged_text, chunk_offset)
-        validated_spans = TSAParser.validate_spans(parsed_spans, original_text)
+        
+        local_spans = parser.parse(original_text, tsa_response.tagged_text, chunk_offset=0)
+        validated_spans = TSAParser.validate_spans(local_spans, original_text)
         
         descriptions = []
         for span in validated_spans:
@@ -779,17 +789,20 @@ class GeminiDirectExtractor:
             except ValueError:
                 desc_type = DescriptionType.LOCATION
             
+            global_start = chunk_offset + span.start
+            global_end = chunk_offset + span.end
+            
             descriptions.append(ExtractedDescription(
                 content=span.text,
                 description_type=desc_type,
                 confidence=span.confidence,
                 entities=[],
                 attributes={"match_method": span.match_method},
-                position=span.start,
-                source_span=(span.start, span.end)
+                position=global_start,
+                source_span=(global_start, global_end)
             ))
         
-        logger.info(f"TSA extracted {len(descriptions)} descriptions from {len(parsed_spans)} spans")
+        logger.info(f"TSA extracted {len(descriptions)} descriptions from {len(local_spans)} spans")
         return descriptions
 
     async def _process_chunk_tsa(
@@ -1122,15 +1135,18 @@ class GeminiDirectExtractor:
         }
 
 
-# Singleton
+# Singleton with thread-safe initialization
 _extractor: Optional[GeminiDirectExtractor] = None
+_extractor_lock = __import__('threading').Lock()
 
 
 def get_gemini_extractor(config: Optional[GeminiConfig] = None) -> GeminiDirectExtractor:
     """Получить singleton экстрактора."""
     global _extractor
     if _extractor is None:
-        _extractor = GeminiDirectExtractor(config)
+        with _extractor_lock:
+            if _extractor is None:
+                _extractor = GeminiDirectExtractor(config)
     return _extractor
 
 

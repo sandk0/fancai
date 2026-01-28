@@ -10,7 +10,7 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, ForeignKey, Float, DateTime, Enum as SQLEnum, func
+from sqlalchemy import Integer, String, Text, ForeignKey, Float, DateTime, Enum as SQLEnum, func, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -32,6 +32,9 @@ class DescriptionType(enum.Enum):
 
 class Description(Base):
     __tablename__ = "descriptions"
+    __table_args__ = (
+        Index("idx_descriptions_chapter_position", "chapter_id", "position_in_chapter"),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True

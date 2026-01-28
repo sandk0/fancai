@@ -3,24 +3,29 @@ API роуты для генерации изображений в fancai.
 Thin router layer - delegates to ImageCRUDService and ImageGeneratorService.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
 from pydantic import BaseModel
+from dataclasses import dataclass
 from pathlib import Path
 import os
+import calendar
 from loguru import logger
 
 from ..utils.etag import check_conditional_request, get_mime_type_from_extension
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, get_current_admin_user
+from ..core.config import settings
 from ..services.image_generator import ImageGeneratorService
 from ..services.image_crud_service import ImageCRUDService
 from ..core.container import get_image_generator_service_dep
-from ..models.user import User
+from ..models.user import User, Subscription, SubscriptionPlan, SubscriptionStatus
 from ..models.description import DescriptionType
+from sqlalchemy import select
+from datetime import datetime, timezone
 from ..schemas.responses.images import (
     ImageGenerationStatusResponse,
     UserImageStatsResponse,
@@ -32,6 +37,105 @@ from ..schemas.responses.images import (
 
 router = APIRouter()
 GENERATED_IMAGES_DIR = Path("/app/storage/generated_images")
+
+GENERATION_LIMITS = {
+    SubscriptionPlan.FREE: settings.FREE_GENERATIONS_LIMIT,
+    SubscriptionPlan.PREMIUM: settings.PREMIUM_GENERATIONS_LIMIT,
+    SubscriptionPlan.ULTIMATE: 999999,
+}
+
+
+@dataclass
+class RateLimitInfo:
+    limit: int
+    remaining: int
+    reset_timestamp: int
+
+
+async def check_image_quota(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> Tuple[User, RateLimitInfo]:
+    """
+    TD-P15-7: Dependency to check user's image generation quota before generation.
+    TD-P16-4: Returns RateLimitInfo for X-RateLimit-* headers.
+    
+    Raises HTTPException 402 if quota exceeded.
+    """
+    result = await db.execute(
+        select(Subscription)
+        .where(Subscription.user_id == current_user.id)
+        .where(Subscription.status == SubscriptionStatus.ACTIVE)
+    )
+    subscription = result.scalar_one_or_none()
+    
+    now = datetime.now(timezone.utc)
+    
+    if not subscription:
+        subscription = Subscription(
+            user_id=current_user.id,
+            plan=SubscriptionPlan.FREE,
+            status=SubscriptionStatus.ACTIVE,
+            images_generated_month=0,
+            last_reset_date=now,
+        )
+        db.add(subscription)
+        await db.flush()
+    
+    if subscription.last_reset_date.month != now.month or subscription.last_reset_date.year != now.year:
+        subscription.images_generated_month = 0
+        subscription.last_reset_date = now
+        db.add(subscription)
+        await db.flush()
+    
+    limit = GENERATION_LIMITS.get(subscription.plan, settings.FREE_GENERATIONS_LIMIT)
+    remaining = max(0, limit - subscription.images_generated_month)
+    
+    _, last_day = calendar.monthrange(now.year, now.month)
+    reset_date = datetime(now.year, now.month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    reset_timestamp = int(reset_date.timestamp())
+    
+    rate_limit_info = RateLimitInfo(limit=limit, remaining=remaining, reset_timestamp=reset_timestamp)
+    
+    if subscription.images_generated_month >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "error": "quota_exceeded",
+                "message": f"Monthly image generation limit reached ({limit} images)",
+                "current_usage": subscription.images_generated_month,
+                "limit": limit,
+                "plan": subscription.plan.value,
+                "upgrade_url": "/settings/subscription",
+            },
+            headers={
+                "X-RateLimit-Limit": str(limit),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(reset_timestamp),
+            }
+        )
+    
+    return current_user, rate_limit_info
+
+
+def set_rate_limit_headers(response: Response, rate_limit: RateLimitInfo) -> None:
+    """TD-P16-4: Add X-RateLimit-* headers to response."""
+    response.headers["X-RateLimit-Limit"] = str(rate_limit.limit)
+    response.headers["X-RateLimit-Remaining"] = str(rate_limit.remaining)
+    response.headers["X-RateLimit-Reset"] = str(rate_limit.reset_timestamp)
+
+
+async def increment_image_quota(user_id: UUID, db: AsyncSession) -> None:
+    """Increment user's image generation count after successful generation."""
+    result = await db.execute(
+        select(Subscription)
+        .where(Subscription.user_id == user_id)
+        .where(Subscription.status == SubscriptionStatus.ACTIVE)
+    )
+    subscription = result.scalar_one_or_none()
+    if subscription:
+        subscription.images_generated_month += 1
+        db.add(subscription)
 
 
 def get_image_service(db: AsyncSession) -> ImageCRUDService:
@@ -158,11 +262,14 @@ async def get_user_images_stats(
 async def generate_image_for_description(
     description_id: UUID,
     params: ImageGenerationParams,
+    response: Response,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_active_user),
+    quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> ImageGenerationSuccessResponse:
+    current_user, rate_limit = quota_result
+    set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
     
     description = await service.get_description_with_access_check(description_id, current_user.id)
@@ -195,6 +302,9 @@ async def generate_image_for_description(
             chapter_id=description.chapter_id,
         )
         
+        await increment_image_quota(current_user.id, db)
+        await db.commit()
+        
         return ImageGenerationSuccessResponse(
             image_id=image.id,
             description_id=description.id,
@@ -215,11 +325,14 @@ async def generate_image_for_description(
 async def generate_images_for_chapter(
     chapter_id: UUID,
     request: BatchGenerationRequest,
+    response: Response,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_active_user),
+    quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> Dict[str, Any]:
+    current_user, rate_limit = quota_result
+    set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
     
     chapter = await service.get_chapter_with_access_check(chapter_id, current_user.id)
@@ -279,6 +392,9 @@ async def generate_images_for_chapter(
                     "generation_time": result.generation_time_seconds,
                 })
                 successful_generations += 1
+                await increment_image_quota(current_user.id, db)
+        
+        await db.commit()
         
         return {
             "chapter_id": str(chapter_id),
@@ -395,10 +511,14 @@ async def delete_generated_image(
 async def regenerate_image(
     image_id: UUID,
     params: ImageGenerationParams,
-    current_user: User = Depends(get_current_active_user),
+    response: Response,
+    quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> Dict[str, Any]:
+    current_user, rate_limit = quota_result
+    set_rate_limit_headers(response, rate_limit)
+    
     from ..models.image import GeneratedImage
     from ..models.description import Description
     from ..models.chapter import Chapter
@@ -437,6 +557,9 @@ async def regenerate_image(
             prompt_used=params.style_prompt or "default",
             generation_time_seconds=gen_result.generation_time_seconds,
         )
+        
+        await increment_image_quota(current_user.id, db)
+        await db.commit()
         
         return {
             "image_id": str(updated_image.id),
@@ -493,10 +616,13 @@ async def get_admin_image_stats(
 async def queue_async_image_generation(
     description_id: UUID,
     request: AsyncGenerationRequest,
-    current_user: User = Depends(get_current_active_user),
+    response: Response,
+    quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> Dict[str, Any]:
+    current_user, rate_limit = quota_result
+    set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
     
     description = await service.get_description_with_access_check(description_id, current_user.id)
@@ -526,10 +652,13 @@ async def queue_async_image_generation(
 async def queue_async_batch_generation(
     chapter_id: UUID,
     request: BatchGenerationRequest,
-    current_user: User = Depends(get_current_active_user),
+    response: Response,
+    quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> Dict[str, Any]:
+    current_user, rate_limit = quota_result
+    set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
     
     chapter = await service.get_chapter_with_access_check(chapter_id, current_user.id)

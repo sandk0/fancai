@@ -94,7 +94,14 @@ async def get_any_book(
     Raises:
         BookNotFoundException: Если книга не найдена
     """
-    result = await db.execute(select(Book).where(Book.id == book_id))
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Book)
+        .options(selectinload(Book.chapters))
+        .options(selectinload(Book.reading_progress))
+        .where(Book.id == book_id)
+    )
     book = result.scalar_one_or_none()
 
     if not book:

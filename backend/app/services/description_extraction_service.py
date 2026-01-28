@@ -116,9 +116,6 @@ class DescriptionExtractionService:
             try:
                 logger.info(f"🔄 Starting LLM extraction for chapter {chapter.id}")
                 
-                if delete_existing:
-                    await self._delete_chapter_descriptions(chapter.id)
-                
                 try:
                     result = await asyncio.wait_for(
                         gemini_extractor.extract_descriptions(chapter.content),
@@ -129,6 +126,9 @@ class DescriptionExtractionService:
                     raise ExtractionTimeoutError(chapter.id, self.LLM_EXTRACTION_TIMEOUT)
                 
                 descriptions_data = result if result else []
+                
+                if delete_existing:
+                    await self._delete_chapter_descriptions(chapter.id)
                 
                 descriptions = []
                 for position, desc_data in enumerate(descriptions_data):

@@ -295,26 +295,24 @@ class ConsistencyManager:
                 )
                 
                 if gen_result.success:
-                    # Save URL and path
-                    # We need to construct a URL. Usually tasks.py handles this.
-                    # But here we are in service.
                     import os
                     filename = os.path.basename(gen_result.local_path) if gen_result.local_path else None
                     if filename:
                         entity.master_portrait_url = f"/api/v1/images/file/{filename}"
                         self.db.add(entity)
-                        await self.db.commit() # Commit each success
                         logger.info(f"Master Reference set for {entity.name}")
             except Exception as e:
                 logger.error(f"Failed to generate master ref for {entity.name}: {e}")
                 
-                # Check for Quota Exceeded and abort loop to avoid long waits
                 error_str = str(e)
                 if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str or "Quota exceeded" in error_str:
                     logger.warning("Quota exceeded. Stopping Master Reference generation for remaining entities.")
                     break
                     
                 continue
+        
+        # TD-P17-3 FIX: Single commit after loop instead of N commits inside loop
+        await self.db.commit()
 
     async def optimize_book_entities(self, book_id: str):
         """

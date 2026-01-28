@@ -256,7 +256,9 @@ class BookProgressService:
             if valid_position < existing_position:
                 # Only block: dropping to near-zero from significant progress
                 # This is the specific pattern of the race condition bug
-                is_suspicious = existing_position > 5.0 and valid_position < 2.0
+                # TD-P15-6: Softened thresholds (was 5%/2%, now 10%/1%) to allow
+                # legitimate chapter starts and re-reading
+                is_suspicious = existing_position > 10.0 and valid_position < 1.0
 
                 if is_suspicious:
                     print(

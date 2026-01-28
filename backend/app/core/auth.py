@@ -54,8 +54,8 @@ async def get_current_user(
     # Проверяем токен
     token = credentials.credentials
 
-    # Check if token is blacklisted (revoked via logout)
-    if await token_blacklist.is_blacklisted(token):
+    # TD-P19-3 FIX: fail-closed for main auth (require_online=True)
+    if await token_blacklist.is_blacklisted(token, require_online=True):
         raise token_revoked_exception
 
     payload = auth_service.verify_token(token, "access")
@@ -198,8 +198,7 @@ class AuthMiddleware:
         Returns:
             True если токен действительный и не отозван
         """
-        # Check blacklist first
-        if await token_blacklist.is_blacklisted(token):
+        if await token_blacklist.is_blacklisted(token, require_online=True):
             return False
 
         payload = auth_service.verify_token(token, "access")

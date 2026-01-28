@@ -18,13 +18,15 @@ Performance targets:
 import json
 import asyncio
 import functools
-from typing import Any, Callable, Optional, Union, TYPE_CHECKING
+from typing import Any, Callable, Optional, TypeVar, Union, TYPE_CHECKING
 from datetime import timedelta
 from redis.asyncio import Redis, ConnectionPool
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from loguru import logger
 
 from .config import settings
+
+T = TypeVar("T")
 
 if TYPE_CHECKING:
     from .cache import CacheManager as CacheManagerType
@@ -73,7 +75,10 @@ class DistributedLock:
     async def _renewal_loop(self):
         while True:
             await asyncio.sleep(self._renewal_interval)
-            await self._cache.renew_lock(self._lock_key, self._ttl)
+            try:
+                await self._cache.renew_lock(self._lock_key, self._ttl)
+            except Exception as e:
+                logger.warning(f"Lock renewal failed for {self._lock_key}: {e}")
 
 
 class CacheManager:
@@ -145,6 +150,30 @@ class CacheManager:
         """Check if Redis is available."""
         return self._is_available
 
+    async def _with_retry(
+        self,
+        operation: Callable[[], Any],
+        max_retries: int = 2,
+        base_delay: float = 0.1,
+    ) -> Any:
+        """
+        TD-P19-2: Execute Redis operation with retry on transient failures.
+        Uses exponential backoff: 0.1s, 0.2s for 2 retries.
+        """
+        last_error: Optional[Exception] = None
+        for attempt in range(max_retries + 1):
+            try:
+                return await operation()
+            except (RedisError, RedisConnectionError, asyncio.TimeoutError) as e:
+                last_error = e
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt)
+                    logger.debug(f"Redis retry {attempt + 1}/{max_retries}: {e}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(f"Redis operation failed after {max_retries + 1} attempts: {e}")
+        raise last_error if last_error else RuntimeError("Redis retry exhausted")
+
     async def get(self, key: str) -> Optional[Any]:
         """
         Get value from cache.
@@ -159,13 +188,16 @@ class CacheManager:
             return None
 
         try:
-            value = await self._redis.get(key)
+            async def _get():
+                return await self._redis.get(key)
+            
+            value = await self._with_retry(_get)
             if value:
                 logger.debug(f"🎯 Cache HIT: {key}")
                 return json.loads(value)
             logger.debug(f"❌ Cache MISS: {key}")
             return None
-        except RedisError as e:
+        except Exception as e:
             logger.warning(f"Redis GET error for key {key}: {e}")
             return None
 
@@ -187,23 +219,25 @@ class CacheManager:
             return False
 
         try:
-            # Convert timedelta to seconds
             if isinstance(ttl, timedelta):
                 ttl = int(ttl.total_seconds())
 
-            # Serialize to JSON
             serialized = json.dumps(value, default=str)
 
-            # Set with optional TTL
-            if ttl:
-                await self._redis.setex(key, ttl, serialized)
-            else:
-                await self._redis.set(key, serialized)
+            async def _set():
+                if ttl:
+                    await self._redis.setex(key, ttl, serialized)
+                else:
+                    await self._redis.set(key, serialized)
 
+            await self._with_retry(_set)
             logger.debug(f"💾 Cache SET: {key} (TTL: {ttl}s)")
             return True
 
-        except (RedisError, TypeError, ValueError) as e:
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Redis SET serialization error for key {key}: {e}")
+            return False
+        except Exception as e:
             logger.warning(f"Redis SET error for key {key}: {e}")
             return False
 
@@ -221,10 +255,13 @@ class CacheManager:
             return False
 
         try:
-            await self._redis.delete(key)
+            async def _delete():
+                await self._redis.delete(key)
+            
+            await self._with_retry(_delete)
             logger.debug(f"🗑️ Cache DELETE: {key}")
             return True
-        except RedisError as e:
+        except Exception as e:
             logger.warning(f"Redis DELETE error for key {key}: {e}")
             return False
 
@@ -292,26 +329,22 @@ class CacheManager:
             True if lock acquired, False if already locked
         """
         if not self._is_available or not self._redis:
-            # If Redis unavailable, allow the operation (no locking)
             logger.warning(f"Redis unavailable, cannot acquire lock: {lock_key}")
             return True
 
         try:
-            # SET key value NX EX ttl
-            # NX = only set if not exists
-            # EX = expiration in seconds
-            result = await self._redis.set(
-                lock_key, value, nx=True, ex=ttl
-            )
+            async def _acquire():
+                return await self._redis.set(lock_key, value, nx=True, ex=ttl)
+            
+            result = await self._with_retry(_acquire)
             if result:
                 logger.debug(f"🔒 Lock ACQUIRED: {lock_key} (TTL: {ttl}s)")
                 return True
             else:
                 logger.debug(f"⏳ Lock BUSY: {lock_key}")
                 return False
-        except RedisError as e:
+        except Exception as e:
             logger.warning(f"Redis lock acquire error for {lock_key}: {e}")
-            # Allow operation on error (fail-open)
             return True
 
     async def release_lock(self, lock_key: str) -> bool:
@@ -328,10 +361,13 @@ class CacheManager:
             return True
 
         try:
-            await self._redis.delete(lock_key)
+            async def _release():
+                await self._redis.delete(lock_key)
+            
+            await self._with_retry(_release)
             logger.debug(f"🔓 Lock RELEASED: {lock_key}")
             return True
-        except RedisError as e:
+        except Exception as e:
             logger.warning(f"Redis lock release error for {lock_key}: {e}")
             return False
 

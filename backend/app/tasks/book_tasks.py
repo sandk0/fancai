@@ -159,6 +159,8 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
             return {"book_id": book_id_str, "status": "failed", "error": str(e)}
 
     # Acquire lock first (SYNC)
+    # TD-P18-4: Use sync Redis properly with explicit cleanup
+    redis_client = None
     try:
         redis_client = redis.from_url(settings.REDIS_URL)
         redis_lock = redis_client.lock(
@@ -189,13 +191,17 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
 
     
     finally:
-        # Phase 4: Always release Redis lock
         if redis_lock is not None:
             try:
                 redis_lock.release()
                 logger.debug(f"Released Redis lock for book {book_id_str}")
             except Exception as lock_e:
                 logger.warning(f"Failed to release Redis lock: {lock_e}")
+        if redis_client is not None:
+            try:
+                redis_client.close()
+            except Exception:
+                pass
 
 
 async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
@@ -233,7 +239,7 @@ async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
             import redis.asyncio as aioredis
             from app.core.config import settings
             redis_client = await aioredis.from_url(settings.REDIS_URL)
-            await redis_client.delete(f"book:processing:{book_id}")
+            await redis_client.delete(f"book:processing:{str(book_id)}")
             await redis_client.close()
         except Exception as redis_e:
             logger.warning(f"Redis lock cleanup failed: {redis_e}")
@@ -484,11 +490,16 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 local_chapter.parse_attempts += 1
                                 await session.commit()
 
-            # Launch Parallel Processing
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
-            async with TaskGroup() as tg:
-                for idx, chapter in enumerate(chapters):
-                    tg.create_task(process_chapter_safe(idx, chapter.id))
+            try:
+                async with TaskGroup() as tg:
+                    for idx, chapter in enumerate(chapters):
+                        tg.create_task(process_chapter_safe(idx, chapter.id))
+            except* Exception as excgroup:
+                failed_count = len(excgroup.exceptions)
+                logger.error(f"Chapter processing: {failed_count} tasks failed")
+                for exc in excgroup.exceptions:
+                    logger.error(f"  - {type(exc).__name__}: {exc}")
             
             logger.info("Parallel processing complete.")
 

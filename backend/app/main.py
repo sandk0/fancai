@@ -37,6 +37,7 @@ from .services.settings_manager import settings_manager
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.cache_control import CacheControlMiddleware
 from .middleware.rate_limit import rate_limiter, rate_limit
+from .core.exceptions import ProblemDetail, problem_detail_exception_handler
 
 # Версия приложения
 VERSION = "0.1.0"
@@ -190,7 +191,10 @@ app.add_middleware(
         "ETag",
         "Last-Modified",
         "Cache-Control",
-    ],  # For file downloads, pagination & HTTP caching
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+    ],
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
@@ -247,6 +251,9 @@ async def general_exception_handler(request: Request, exc: Exception):
         )
 
     return response
+
+
+app.add_exception_handler(ProblemDetail, problem_detail_exception_handler)
 
 
 # Подключение роутеров
