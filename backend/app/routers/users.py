@@ -5,6 +5,7 @@ API роуты для управления пользователями в fanca
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select, func
+from loguru import logger
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, get_current_admin_user
@@ -88,9 +89,10 @@ async def test_database_connection(
         )
 
     except Exception as e:
+        logger.exception(f"Database connection check failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database connection failed: {str(e)}",
+            detail="Database connection check failed",
         )
 
 

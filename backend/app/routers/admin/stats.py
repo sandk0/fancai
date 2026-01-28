@@ -12,6 +12,7 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 import os
 import redis.asyncio as redis
+from loguru import logger
 
 from ...core.database import get_database_session
 from ...core.auth import get_current_admin_user
@@ -65,7 +66,8 @@ async def get_system_stats(
         queue_size = await redis_client.llen("parsing_queue")
 
         await redis_client.close()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to get Redis stats: {e}")
         active_parsing_tasks = 0
         queue_size = 0
 

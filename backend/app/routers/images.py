@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from pathlib import Path
 import os
+from loguru import logger
 
 from ..utils.etag import check_conditional_request, get_mime_type_from_extension
 from ..core.database import get_database_session
@@ -206,7 +207,8 @@ async def generate_image_for_description(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+        logger.exception(f"Error generating image for description: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image generation")
 
 
 @router.post("/images/generate/chapter/{chapter_id}")
@@ -288,8 +290,9 @@ async def generate_images_for_chapter(
             "message": f"Generated {successful_generations} images for chapter",
         }
     except Exception as e:
+        logger.exception(f"Batch generation failed: {e}")
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Batch generation failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during batch generation")
 
 
 @router.get("/images/description/{description_id}")
@@ -453,8 +456,9 @@ async def regenerate_image(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error regenerating image: {e}")
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image regeneration")
 
 
 @router.get("/images/admin/stats")

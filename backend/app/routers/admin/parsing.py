@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Dict
 import os
 import redis.asyncio as redis
+from loguru import logger
 
 from ...core.auth import get_current_admin_user
 from ...models.user import User
@@ -150,7 +151,8 @@ async def clear_parsing_queue(admin_user: User = Depends(get_current_admin_user)
 
         return ClearQueueResponse(message="Parsing queue cleared successfully")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to clear queue: {str(e)}")
+        logger.exception(f"Failed to clear queue: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear parsing queue")
 
 
 @router.post("/unlock-parsing", response_model=UnlockParsingResponse)
@@ -167,6 +169,7 @@ async def unlock_parsing(admin_user: User = Depends(get_current_admin_user)) -> 
 
         return UnlockParsingResponse(message="Parsing lock removed successfully")
     except Exception as e:
+        logger.exception(f"Failed to unlock parsing: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Failed to unlock parsing: {str(e)}"
+            status_code=500, detail="Failed to unlock parsing"
         )

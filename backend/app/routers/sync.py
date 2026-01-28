@@ -343,4 +343,4 @@ async def batch_sync(
         raise
     except Exception as e:
         logger.error("Batch sync error", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal error occurred during sync")

@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from .database import get_database_session
 from ..services.auth_service import auth_service
@@ -170,8 +171,8 @@ def get_optional_current_user():
 
             return user
 
-        except Exception:
-            # Если что-то пошло не так, просто возвращаем None
+        except Exception as e:
+            logger.debug(f"Optional auth failed: {e}")
             return None
 
     return _get_optional_current_user

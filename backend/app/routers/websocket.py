@@ -242,8 +242,8 @@ async def websocket_book_progress(
         manager.disconnect(book_id, websocket)
         try:
             await pubsub.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Error closing pubsub: {e}")
 
 
 # Helper function to publish progress from tasks.py

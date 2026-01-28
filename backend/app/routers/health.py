@@ -175,18 +175,13 @@ async def check_celery() -> ComponentHealthResponse:
     """
     try:
         start_time = time.time()
-        # Ping active workers with a short timeout
-        # Returns a dict of {worker_name: response} or None/Empty
-        # Note: This is a synchronous call but usually fast enough for health checks
-        # For true async in FastAPI path op, we might wrap in run_in_executor if needed,
-        # but inspect().ping() usually blocks.
-        # Given we are in async def, this might block event loop briefly.
-        # Ideally we should use correct async library or thread pool.
-        # However, for simplicity and standard celery usage:
         
-        # Using a small timeout to avoid long blocking
-        inspector = celery_app.control.inspect(timeout=0.5)
-        active = inspector.active()
+        # Wrap synchronous Celery inspect in thread to avoid blocking event loop
+        def _check_celery_workers():
+            inspector = celery_app.control.inspect(timeout=0.5)
+            return inspector.active()
+        
+        active = await asyncio.to_thread(_check_celery_workers)
         
         latency = (time.time() - start_time) * 1000  # ms
 

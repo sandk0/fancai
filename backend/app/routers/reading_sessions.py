@@ -17,6 +17,8 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, timezone
 
+from loguru import logger
+
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user
 from ..models.user import User
@@ -346,10 +348,11 @@ async def start_reading_session(
             detail=f"Invalid book_id format: {str(e)}",
         )
     except Exception as e:
+        logger.exception(f"Error starting reading session: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error starting reading session: {str(e)}",
+            detail="An internal error occurred while starting the session",
         )
 
 
@@ -420,10 +423,11 @@ async def update_reading_session(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error updating reading session: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating reading session: {str(e)}",
+            detail="An internal error occurred while updating the session",
         )
 
 
@@ -532,10 +536,11 @@ async def end_reading_session(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error ending reading session: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error ending reading session: {str(e)}",
+            detail="An internal error occurred while ending the session",
         )
 
 
@@ -576,9 +581,10 @@ async def get_active_session(
         return session_to_response(session)
 
     except Exception as e:
+        logger.exception(f"Error fetching active session: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching active session: {str(e)}",
+            detail="An internal error occurred while fetching active session",
         )
 
 
@@ -718,9 +724,10 @@ async def get_reading_sessions_history(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error fetching reading sessions history: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching reading sessions history: {str(e)}",
+            detail="An internal error occurred while fetching session history",
         )
 
 
@@ -865,8 +872,9 @@ async def batch_update_sessions(
         )
 
     except Exception as e:
+        logger.exception(f"Error in batch update: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error in batch update: {str(e)}",
+            detail="An internal error occurred during batch update",
         )

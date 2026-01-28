@@ -11,7 +11,7 @@ import logging
 import networkx as nx
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, case
 from app.models.entity import Entity
 from app.models.entity_relationship import EntityRelationship
 from app.models.book import Book
@@ -96,10 +96,14 @@ class GraphService:
                 # For now single updates is fine for < 500 entities
                 updates.append((node_id, score))
                 
-            # Execute Batch Update
-            # We can loop updates
-            for node_id, score in updates:
-                stmt = update(Entity).where(Entity.id == node_id).values(importance=score)
+            if updates:
+                ids = [u[0] for u in updates]
+                case_mapping = {u[0]: u[1] for u in updates}
+                stmt = (
+                    update(Entity)
+                    .where(Entity.id.in_(ids))
+                    .values(importance=case(case_mapping, value=Entity.id))
+                )
                 await self.db.execute(stmt)
                 
             await self.db.commit()

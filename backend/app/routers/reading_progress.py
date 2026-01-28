@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import Dict, Any
 from uuid import UUID
+from loguru import logger
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user
@@ -66,8 +67,8 @@ async def get_reading_progress(
         # Cache stores dict (via model_dump), so we need to reconstruct the model
         try:
             return ReadingProgressDetailResponse.model_validate(cached_result)
-        except Exception:
-            # If cache is corrupted, invalidate and continue to fetch fresh data
+        except Exception as e:
+            logger.warning(f"Cache validation failed, invalidating: {e}")
             await cache_manager.delete(cache_key_str)
 
     try:
@@ -110,8 +111,9 @@ async def get_reading_progress(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error fetching progress: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error fetching progress: {str(e)}"
+            status_code=500, detail="An internal error occurred while fetching progress"
         )
 
 
@@ -211,6 +213,7 @@ async def update_reading_progress(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"Error updating progress: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error updating progress: {str(e)}"
+            status_code=500, detail="An internal error occurred while updating progress"
         )

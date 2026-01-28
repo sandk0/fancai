@@ -4,6 +4,7 @@ Admin API routes for system-wide settings.
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from loguru import logger
 
 from ...core.auth import get_current_admin_user
 from ...models.user import User
@@ -73,8 +74,9 @@ async def update_system_settings(
             settings=settings.model_dump()
         )
     except Exception as e:
+        logger.exception(f"Failed to update system settings: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Failed to update system settings: {str(e)}"
+            status_code=500, detail="Failed to update system settings"
         )
 
 
@@ -91,6 +93,7 @@ async def initialize_default_settings(
         else:
             return InitializeSettingsResponse(message="Settings already exist, no changes made")
     except Exception as e:
+        logger.exception(f"Failed to initialize settings: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Failed to initialize settings: {str(e)}"
+            status_code=500, detail="Failed to initialize settings"
         )
