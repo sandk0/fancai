@@ -342,8 +342,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 """
                 async with AsyncSessionLocal() as session:
                     async with chapter_semaphore:
+                        local_chapter = None
                         try:
-                            # 1. Fetch Chapter
                             stmt = select(Chapter).where(Chapter.id == chapter_id)
                             res = await session.execute(stmt)
                             local_chapter = res.scalar_one_or_none()
@@ -455,6 +455,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             local_chapter.descriptions_found = len(descriptions_data)
                             local_chapter.is_description_parsed = True
                             local_chapter.parsed_at = datetime.now(timezone.utc)
+                            local_chapter.parsing_error = None
+                            local_chapter.parse_attempts += 1
                             
                             await session.commit()
                             
@@ -477,7 +479,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             
                         except Exception as e:
                             logger.error(f"Error parsing chapter {idx+1}: {e}", exc_info=True)
-                            # Don't raise, just log so other chapters continue
+                            if local_chapter:
+                                local_chapter.parsing_error = str(e)[:1000]
+                                local_chapter.parse_attempts += 1
+                                await session.commit()
 
             # Launch Parallel Processing
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
@@ -580,15 +585,30 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         except Exception as e:
             logger.warning("Failed to invalidate cache", error=str(e))
 
+        failed_chapters_result = await db.execute(
+            select(Chapter.chapter_number, Chapter.parsing_error)
+            .where(Chapter.book_id == book_id)
+            .where(Chapter.parsing_error.isnot(None))
+        )
+        failed_chapters = [(r[0], r[1][:100]) for r in failed_chapters_result.fetchall()]
+        
+        if failed_chapters:
+            logger.warning(
+                f"Book {book_id} has {len(failed_chapters)} failed chapters: "
+                f"{[c[0] for c in failed_chapters]}"
+            )
+        
         result = {
             "book_id": str(book_id),
-            "status": "completed",
+            "status": "completed" if not failed_chapters else "completed_with_errors",
             "chapters_count": len(chapters),
             "chapters_preparsed": chapters_parsed,
+            "chapters_failed": len(failed_chapters),
+            "failed_chapter_numbers": [c[0] for c in failed_chapters],
             "descriptions_extracted": total_descriptions,
             "llm_available": llm_available,
-            "extraction_mode": "full_book",  # ИЗМЕНЕНО с preparse_first_chapters
-            "message": f"Book fully processed. {chapters_parsed} chapters with {total_descriptions} descriptions."
+            "extraction_mode": "full_book",
+            "message": f"Book processed. {chapters_parsed} chapters, {len(failed_chapters)} failed."
         }
 
         logger.info(
