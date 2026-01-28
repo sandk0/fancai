@@ -106,7 +106,7 @@ class DescriptionExtractionService:
         lock_key = f"llm_extract_lock:chapter:{chapter.id}"
         
         async with DistributedLock(
-            cache_manager, lock_key, ttl=self.LOCK_TTL, renewal_interval=60
+            cache_manager, lock_key, ttl=self.LOCK_TTL, renewal_interval=20
         ) as lock_acquired:
             if not lock_acquired:
                 raise ExtractionLockError(chapter.id)

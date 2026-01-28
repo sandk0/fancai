@@ -21,6 +21,7 @@ NLP REMOVAL (December 2025):
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from uuid import UUID
 import logging
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -135,9 +136,13 @@ class BookParsingService:
             return []
 
         all_descriptions: List[Dict[str, Any]] = []
-        for chapter in chapters:
+        for idx, chapter in enumerate(chapters):
             if len(all_descriptions) >= limit:
                 break
+
+            # Rate limiting: delay between LLM calls (skip first call)
+            if idx > 0:
+                await asyncio.sleep(0.5)  # 500ms delay to avoid API rate limits
 
             try:
                 descriptions = await gemini_extractor.extract_descriptions(

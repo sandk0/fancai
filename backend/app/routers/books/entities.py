@@ -77,8 +77,13 @@ async def update_entity_cfi(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
     
-    entity.first_mention_cfi = request.first_mention_cfi
-    await db.commit()
+    try:
+        entity.first_mention_cfi = request.first_mention_cfi
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to update entity CFI: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
     
     cache_key = f"book:{book_id}:entity_network_v3"
     await cache_manager.delete(cache_key)
