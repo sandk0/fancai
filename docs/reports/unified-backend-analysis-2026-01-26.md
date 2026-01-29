@@ -2955,7 +2955,7 @@ result = await db.execute(
 
 | ID | Задача | Файл | Время | Статус |
 |----|--------|------|-------|--------|
-| TD-AUDIT-25-2 | Fix health.py type errors | health.py | 1ч | ⏳ Deferred |
+| TD-AUDIT-25-2 | Fix health.py type errors | health.py | 1ч | ✅ d3e69cb |
 | TD-AUDIT-25-3 | Add Optional to push.py | push.py:267 | 5м | ✅ b447263 |
 | TD-AUDIT-25-4 | Fix reading_location_cfi type | book_progress_service.py:161 | 5м | ✅ b447263 |
 | TD-AUDIT-25-5 | Pydantic v2 min_length | reading_sessions.py:119-120 | 5м | ✅ b447263 |
@@ -2975,13 +2975,13 @@ result = await db.execute(
 | Категория | Всего | Выполнено | Осталось |
 |-----------|-------|-----------|----------|
 | **P0 Critical** | 8 | 8 | **0 ✅** |
-| **P1 High** | 21 | 20 | **1** (25-2 deferred) |
+| **P1 High** | 21 | 21 | **0 ✅** |
 | **P2 Medium** | 30 | 27 | **3** (25-6..8) |
 | **Entity Cards** | 20 | 18 | **2** |
 | **Backlog** | 7 | 0 | **7** |
-| **ИТОГО** | **86** | **73** | **13** |
+| **ИТОГО** | **86** | **74** | **12** |
 
-**Прогресс: 85%** (73/86 задач)
+**Прогресс: 86%** (74/86 задач)
 
 ---
 
@@ -2991,12 +2991,11 @@ result = await db.execute(
 НЕМЕДЛЕННО (P0):
 └── TD-AUDIT-25-1: Fix chapters.py attributes ───── 15м
 
-СЕГОДНЯ (P1):
-├── TD-AUDIT-25-2: health.py type errors ────────── 1ч
-├── TD-AUDIT-25-3: push.py Optional ─────────────── 5м
-├── TD-AUDIT-25-4: reading_location_cfi ─────────── 5м
-└── TD-AUDIT-25-5: Pydantic min_length ──────────── 5м
-                                          ИТОГО: ~1.5ч
+СЕГОДНЯ (P1): ✅ ВСЕ ВЫПОЛНЕНЫ
+├── TD-AUDIT-25-2: health.py type errors ────────── ✅ d3e69cb
+├── TD-AUDIT-25-3: push.py Optional ─────────────── ✅ b447263
+├── TD-AUDIT-25-4: reading_location_cfi ─────────── ✅ b447263
+└── TD-AUDIT-25-5: Pydantic min_length ──────────── ✅ b447263
 
 BACKLOG (P2):
 ├── TD-AUDIT-25-6: type: ignore removal ─────────── 2ч
