@@ -165,6 +165,145 @@ class ImageGenerationSuccessResponse(BaseModel):
 
 
 # ============================================================================
+# BATCH & DETAIL SCHEMAS (TD-P16-1b)
+# ============================================================================
+
+
+class DescriptionSummary(BaseModel):
+    """Summary of description for image responses."""
+
+    id: UUID
+    type: str
+    text: str
+    content: str
+    confidence_score: Optional[float] = None
+    priority_score: Optional[float] = None
+
+
+class ChapterSummary(BaseModel):
+    """Summary of chapter for image responses."""
+
+    id: UUID
+    number: int
+    title: str
+
+
+class GeneratedImageSummary(BaseModel):
+    """Single generated image in batch response."""
+
+    description_id: UUID
+    description_type: str
+    image_url: Optional[str] = None
+    generation_time: float
+
+
+class BatchImageGenerationResponse(BaseModel):
+    """Response for POST /images/generate/chapter/{chapter_id}."""
+
+    chapter_id: UUID
+    total_descriptions: int = Field(ge=0)
+    processed: int = Field(ge=0)
+    successful: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    images: List[GeneratedImageSummary]
+    message: str
+
+
+class ImageDetailResponse(BaseModel):
+    """Response for GET /images/description/{description_id}."""
+
+    id: UUID
+    image_url: str
+    created_at: str
+    generation_time_seconds: float = Field(ge=0)
+    service_used: str = "imagen"
+    status: str = "completed"
+    is_moderated: bool = False
+    view_count: int = Field(ge=0, default=0)
+    download_count: int = Field(ge=0, default=0)
+    description: DescriptionSummary
+    chapter: ChapterSummary
+
+
+class BookImageItem(BaseModel):
+    """Single image item in book images list (simplified)."""
+
+    id: UUID
+    image_url: str
+    created_at: str
+    generation_time_seconds: float = Field(ge=0)
+    description: DescriptionSummary
+    chapter: ChapterSummary
+
+
+class BookImagesResponse(BaseModel):
+    """Response for GET /images/book/{book_id}."""
+
+    book_id: UUID
+    book_title: str
+    images: List[BookImageItem]
+    pagination: Dict[str, int]
+
+
+class ImageDeleteResponse(BaseModel):
+    """Response for DELETE /images/{image_id}."""
+
+    message: str = "Image deleted successfully"
+
+
+class ImageRegenerateResponse(BaseModel):
+    """Response for POST /images/regenerate/{image_id}."""
+
+    image_id: UUID
+    description_id: UUID
+    image_url: str
+    generation_time: float = Field(ge=0)
+    status: str = "regenerated"
+    updated_at: Optional[str] = None
+    message: str = "Image regenerated successfully"
+    description: DescriptionSummary
+
+
+class AdminImageStatsResponse(BaseModel):
+    """Response for GET /images/admin/stats."""
+
+    total_images_generated: int = Field(ge=0)
+    generation_by_type: Dict[str, int]
+    performance: Dict[str, float]
+    system_status: Dict[str, str]
+    celery_stats: Dict[str, int] = Field(default_factory=dict)
+
+
+class AsyncGenerationQueueResponse(BaseModel):
+    """Response for POST /images/generate/async/* endpoints."""
+
+    task_id: str
+    status: str = "queued"
+    message: str
+    status_url: str
+
+
+class AsyncBatchQueueResponse(BaseModel):
+    """Response for POST /images/generate/async/chapter/{chapter_id}."""
+
+    task_id: str
+    status: str = "queued"
+    total_descriptions: int = Field(ge=0)
+    queued_for_processing: int = Field(ge=0)
+    skipped_existing: int = Field(ge=0)
+    status_url: str
+
+
+class TaskStatusResponse(BaseModel):
+    """Response for GET /images/task/{task_id}."""
+
+    task_id: str
+    status: str
+    result: Optional[Dict] = None
+    message: str
+
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
@@ -175,4 +314,17 @@ __all__ = [
     "ImageGenerationStatusResponse",
     "UserImageStatsResponse",
     "ImageGenerationSuccessResponse",
+    "DescriptionSummary",
+    "ChapterSummary",
+    "GeneratedImageSummary",
+    "BatchImageGenerationResponse",
+    "ImageDetailResponse",
+    "BookImageItem",
+    "BookImagesResponse",
+    "ImageDeleteResponse",
+    "ImageRegenerateResponse",
+    "AdminImageStatsResponse",
+    "AsyncGenerationQueueResponse",
+    "AsyncBatchQueueResponse",
+    "TaskStatusResponse",
 ]

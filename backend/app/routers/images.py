@@ -33,6 +33,15 @@ from ..schemas.responses.images import (
     QueueStats,
     UserGenerationInfo,
     APIProviderInfo,
+    BatchImageGenerationResponse,
+    GeneratedImageSummary,
+    ImageDetailResponse,
+    DescriptionSummary,
+    ChapterSummary,
+    BookImageItem,
+    BookImagesResponse,
+    ImageDeleteResponse,
+    ImageRegenerateResponse,
 )
 
 router = APIRouter()
@@ -321,7 +330,7 @@ async def generate_image_for_description(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image generation")
 
 
-@router.post("/images/generate/chapter/{chapter_id}")
+@router.post("/images/generate/chapter/{chapter_id}", response_model=BatchImageGenerationResponse)
 async def generate_images_for_chapter(
     chapter_id: UUID,
     request: BatchGenerationRequest,
@@ -330,7 +339,7 @@ async def generate_images_for_chapter(
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> BatchImageGenerationResponse:
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
@@ -347,7 +356,11 @@ async def generate_images_for_chapter(
     descriptions_to_process = [d for d in all_descriptions if d.id not in existing][:request.max_images]
     
     if not descriptions_to_process:
-        return {"message": "All suitable descriptions already have images", "chapter_id": str(chapter_id), "processed": 0, "skipped": len(all_descriptions)}
+        return BatchImageGenerationResponse(
+            chapter_id=chapter_id, total_descriptions=len(all_descriptions),
+            processed=0, successful=0, failed=0, images=[],
+            message="All suitable descriptions already have images",
+        )
     
     descriptions_dicts = [
         {
@@ -385,38 +398,38 @@ async def generate_images_for_chapter(
                     chapter_id=chapter_id,
                 )
                 
-                generated_images.append({
-                    "description_id": str(desc.id),
-                    "description_type": desc.type.value,
-                    "image_url": http_url or result.image_url,
-                    "generation_time": result.generation_time_seconds,
-                })
+                generated_images.append(GeneratedImageSummary(
+                    description_id=desc.id,
+                    description_type=desc.type.value,
+                    image_url=http_url or result.image_url,
+                    generation_time=result.generation_time_seconds or 0.0,
+                ))
                 successful_generations += 1
                 await increment_image_quota(current_user.id, db)
         
         await db.commit()
         
-        return {
-            "chapter_id": str(chapter_id),
-            "total_descriptions": len(all_descriptions),
-            "processed": len(descriptions_to_process),
-            "successful": successful_generations,
-            "failed": len(descriptions_to_process) - successful_generations,
-            "images": generated_images,
-            "message": f"Generated {successful_generations} images for chapter",
-        }
+        return BatchImageGenerationResponse(
+            chapter_id=chapter_id,
+            total_descriptions=len(all_descriptions),
+            processed=len(descriptions_to_process),
+            successful=successful_generations,
+            failed=len(descriptions_to_process) - successful_generations,
+            images=generated_images,
+            message=f"Generated {successful_generations} images for chapter",
+        )
     except Exception as e:
         logger.exception(f"Batch generation failed: {e}")
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during batch generation")
 
 
-@router.get("/images/description/{description_id}")
+@router.get("/images/description/{description_id}", response_model=ImageDetailResponse)
 async def get_image_for_description(
     description_id: UUID,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
+) -> ImageDetailResponse:
     service = get_image_service(db)
     
     result = await service.get_image_with_relations(description_id, current_user.id)
@@ -424,39 +437,36 @@ async def get_image_for_description(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found for this description")
     
     image, description, chapter = result
+    content_preview = description.content[:100] + "..." if len(description.content) > 100 else description.content
     
-    return {
-        "id": str(image.id),
-        "image_url": image.image_url,
-        "created_at": image.created_at.isoformat(),
-        "generation_time_seconds": image.generation_time_seconds,
-        "service_used": image.service_used or "imagen",
-        "status": image.status or "completed",
-        "is_moderated": image.is_moderated or False,
-        "view_count": image.view_count or 0,
-        "download_count": image.download_count or 0,
-        "description": {
-            "id": str(description.id),
-            "type": description.type.value,
-            "text": description.content,
-            "content": description.content[:100] + "..." if len(description.content) > 100 else description.content,
-            "confidence_score": description.confidence_score,
-            "priority_score": description.priority_score,
-        },
-        "chapter": {"id": str(chapter.id), "number": chapter.chapter_number, "title": chapter.title},
-    }
+    return ImageDetailResponse(
+        id=image.id,
+        image_url=image.image_url or "",
+        created_at=image.created_at.isoformat(),
+        generation_time_seconds=image.generation_time_seconds or 0.0,
+        service_used=image.service_used or "imagen",
+        status=image.status or "completed",
+        is_moderated=image.is_moderated or False,
+        view_count=image.view_count or 0,
+        download_count=image.download_count or 0,
+        description=DescriptionSummary(
+            id=description.id, type=description.type.value, text=description.content,
+            content=content_preview, confidence_score=description.confidence_score,
+            priority_score=description.priority_score,
+        ),
+        chapter=ChapterSummary(id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""),
+    )
 
 
-@router.get("/images/book/{book_id}")
+@router.get("/images/book/{book_id}", response_model=BookImagesResponse)
 async def get_book_images(
     book_id: UUID,
     skip: int = 0,
     limit: int = 50,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
+) -> BookImagesResponse:
     from ..models.book import Book
-    from sqlalchemy import select
     
     book_result = await db.execute(select(Book).where(Book.id == book_id).where(Book.user_id == current_user.id))
     book = book_result.scalar_one_or_none()
@@ -466,48 +476,44 @@ async def get_book_images(
     service = get_image_service(db)
     images_data = await service.get_for_book(book_id, current_user.id, skip, limit)
     
-    result_images = []
-    for image, description, chapter in images_data:
-        result_images.append({
-            "id": str(image.id),
-            "image_url": image.image_url,
-            "created_at": image.created_at.isoformat(),
-            "generation_time_seconds": image.generation_time_seconds,
-            "description": {
-                "id": str(description.id),
-                "type": description.type.value,
-                "text": description.content,
-                "content": description.content[:100] + "..." if len(description.content) > 100 else description.content,
-                "confidence_score": description.confidence_score,
-                "priority_score": description.priority_score,
-            },
-            "chapter": {"id": str(chapter.id), "number": chapter.chapter_number, "title": chapter.title},
-        })
+    result_images = [
+        BookImageItem(
+            id=image.id,
+            image_url=image.image_url or "",
+            created_at=image.created_at.isoformat(),
+            generation_time_seconds=image.generation_time_seconds or 0.0,
+            description=DescriptionSummary(
+                id=description.id, type=description.type.value, text=description.content,
+                content=description.content[:100] + "..." if len(description.content) > 100 else description.content,
+                confidence_score=description.confidence_score, priority_score=description.priority_score,
+            ),
+            chapter=ChapterSummary(id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""),
+        )
+        for image, description, chapter in images_data
+    ]
     
-    return {
-        "book_id": str(book_id),
-        "book_title": book.title,
-        "images": result_images,
-        "pagination": {"skip": skip, "limit": limit, "total_found": len(result_images)},
-    }
+    return BookImagesResponse(
+        book_id=book_id, book_title=book.title, images=result_images,
+        pagination={"skip": skip, "limit": limit, "total_found": len(result_images)},
+    )
 
 
-@router.delete("/images/{image_id}")
+@router.delete("/images/{image_id}", response_model=ImageDeleteResponse)
 async def delete_generated_image(
     image_id: UUID,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, str]:
+) -> ImageDeleteResponse:
     service = get_image_service(db)
     
     deleted = await service.delete_with_file(image_id, current_user.id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found or access denied")
     
-    return {"message": "Image deleted successfully"}
+    return ImageDeleteResponse()
 
 
-@router.post("/images/regenerate/{image_id}")
+@router.post("/images/regenerate/{image_id}", response_model=ImageRegenerateResponse)
 async def regenerate_image(
     image_id: UUID,
     params: ImageGenerationParams,
@@ -515,7 +521,7 @@ async def regenerate_image(
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> ImageRegenerateResponse:
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     
@@ -561,21 +567,19 @@ async def regenerate_image(
         await increment_image_quota(current_user.id, db)
         await db.commit()
         
-        return {
-            "image_id": str(updated_image.id),
-            "description_id": str(description.id),
-            "image_url": gen_result.image_url,
-            "generation_time": gen_result.generation_time_seconds,
-            "status": "regenerated",
-            "updated_at": updated_image.updated_at.isoformat() if updated_image.updated_at else None,
-            "message": "Image regenerated successfully",
-            "description": {
-                "id": str(description.id),
-                "type": description.type.value,
-                "text": description.content,
-                "content": description.content[:100] + "..." if len(description.content) > 100 else description.content,
-            },
-        }
+        content_preview = description.content[:100] + "..." if len(description.content) > 100 else description.content
+        return ImageRegenerateResponse(
+            image_id=updated_image.id,
+            description_id=description.id,
+            image_url=gen_result.image_url or "",
+            generation_time=gen_result.generation_time_seconds or 0.0,
+            status="regenerated",
+            updated_at=updated_image.updated_at.isoformat() if updated_image.updated_at else None,
+            message="Image regenerated successfully",
+            description=DescriptionSummary(
+                id=description.id, type=description.type.value, text=description.content, content=content_preview,
+            ),
+        )
     except HTTPException:
         raise
     except Exception as e:

@@ -2381,6 +2381,95 @@ BACKLOG:
 
 ---
 
+## Часть 22: Сессия 29 января 2026
+
+### 22.1 ✅ ВЫПОЛНЕНО — Performance & Caching
+
+| ID | Задача | Коммит | Описание |
+|----|--------|--------|----------|
+| **TD-P2-4** | LLM Response Caching | `f72a914` | Создан `llm_cache_service.py` с Redis-кэшем (TTL 30 дней), интегрирован в `gemini_extractor.py` |
+| **TD-P2-9** | Eager Loading Audit | `f72a914` | Добавлен `selectinload` в `book_service`, `book_parsing_service`, `consistency_manager`, переписан `users.py` |
+| **EC-2.5** | CFI Update Endpoint | `f72a914` | Добавлен `PATCH /entities/mentions/cfi` в `admin/entities.py` |
+
+### 22.2 ✅ ВЫПОЛНЕНО — TD-P16-1: API Format Audit
+
+| ID | Задача | Коммит | Описание |
+|----|--------|--------|----------|
+| **TD-P16-1** | API Format Audit | `884264a` | Полный аудит 60+ endpoints, найдено 24 с raw dicts |
+| **auth.py** | login/register | `884264a` | Теперь возвращают `LoginResponse`, `RegisterResponse` |
+| **reading_progress.py** | update | `884264a` | Теперь возвращает `ReadingProgressUpdateResponse` |
+| **chapters.py** | list | `884264a` | Теперь возвращает `ChaptersListResponse` (новая схема) |
+| **crud.py** | list/detail | `422e5dd` | Теперь возвращают `BookListResponse`, `BookDetailResponse` |
+
+**Созданы новые схемы:**
+- `ChapterListItem` — краткая информация о главе
+- `ChaptersListResponse` — список глав с пагинацией
+
+**Отчёт:** `docs/reports/api_format_audit.md`
+
+### 22.3 Коммиты сессии
+
+| Коммит | Описание |
+|--------|----------|
+| `f72a914` | LLM caching, eager loading, CFI endpoint |
+| `884264a` | TD-P16-1 audit + auth/progress/chapters fixes |
+| `422e5dd` | crud.py Pydantic standardization |
+
+### 22.4 ⏳ ОСТАВШИЕСЯ ЗАДАЧИ
+
+#### Backend (LOW priority)
+
+| ID | Задача | Файл | Оценка |
+|----|--------|------|--------|
+| **TD-P16-1b** | images.py Pydantic | 9 endpoints | 2-3ч |
+| **TD-P16-1c** | admin/* Pydantic | 8 endpoints | 1-2ч |
+| **TD-P16-1d** | descriptions.py extract-background | 1 endpoint | 15м |
+
+#### Frontend (EC-2.* CFI Integration)
+
+| ID | Задача | Приоритет | Оценка |
+|----|--------|-----------|--------|
+| **EC-2.3** | Frontend CFI generator | MEDIUM | 4ч |
+| **EC-2.4** | Frontend spoiler filtering | MEDIUM | 4ч |
+
+#### Entity Cards (EC-4.* Frontend)
+
+| ID | Задача | Приоритет | Оценка |
+|----|--------|-----------|--------|
+| **EC-4.1** | EntityDrawer refactor | MEDIUM | 6ч |
+| **EC-4.2** | Entity list UI | MEDIUM | 4ч |
+
+### 22.5 Обновлённая статистика
+
+| Категория | Всего | Выполнено | Осталось |
+|-----------|-------|-----------|----------|
+| **P0 Critical** | 7 | 7 | **0 ✅** |
+| **P1 High** | 17 | 17 | **0 ✅** |
+| **P2 Performance** | 4 | 4 | **0 ✅** |
+| **P2 Code Quality (TD-P16)** | 4 | 1 | **3** |
+| **Entity Cards Backend** | 8 | 6 | **2** |
+| **Entity Cards Frontend** | 10 | 0 | **10** |
+| **ИТОГО** | **50** | **35** | **15** |
+
+### 22.6 Рекомендуемый порядок работы
+
+```
+БЫСТРЫЕ WINS (Backend cleanup):
+├── TD-P16-1b: images.py Pydantic ────────── 2-3ч
+├── TD-P16-1c: admin/* Pydantic ─────────── 1-2ч  
+└── TD-P16-1d: descriptions.py ──────────── 15м
+
+FRONTEND CFI (для spoiler protection):
+├── EC-2.3: useCFI hook ─────────────────── 4ч
+└── EC-2.4: spoiler filtering ───────────── 4ч
+
+FRONTEND ENTITY CARDS:
+├── EC-4.1: EntityDrawer refactor ───────── 6ч
+└── EC-4.2..4.5: Entity UI ──────────────── 4ч
+```
+
+---
+
 **Автор:** Claude (Sisyphus)  
-**Дата:** 30 января 2026  
-**Версия:** 9.0 (Post-Sprint Status)
+**Дата:** 29 января 2026  
+**Версия:** 10.0 (TD-P16-1 Complete)
