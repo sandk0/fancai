@@ -120,10 +120,12 @@ class BookParsingService:
             Список описаний в виде словарей
         """
         from ...services.gemini_extractor import gemini_extractor
+        from sqlalchemy.orm import selectinload
 
         chapters_result = await db.execute(
             select(Chapter)
             .where(Chapter.book_id == book_id)
+            .options(selectinload(Chapter.descriptions))
             .order_by(Chapter.chapter_number)
         )
         chapters = chapters_result.scalars().all()

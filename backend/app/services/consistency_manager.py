@@ -8,17 +8,15 @@ Responsible for:
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models.entity import Entity, EntityType
 from app.models.entity_relationship import EntityRelationship
-from app.models.book import Book
-from app.models.book import Book
 from app.services.gemini_extractor import ChapterAnalysisResult, ExtractedEntity, ExtractedRelationship
 from app.services.imagen_generator import get_imagen_service
+from app.core.json_utils import parse_json_safe
 import random
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -134,10 +132,16 @@ class ConsistencyManager:
             for alias in raw.aliases:
                 all_names.add(alias.lower())
         
-        from sqlalchemy import or_, func, cast
-        from sqlalchemy.dialects.postgresql import JSONB
+        from sqlalchemy.orm import selectinload
         
-        query = select(Entity).where(Entity.book_id == book_id)
+        query = (
+            select(Entity)
+            .where(Entity.book_id == book_id)
+            .options(
+                selectinload(Entity.mentions),
+                selectinload(Entity.linked_descriptions)
+            )
+        )
         result = await self.db.execute(query)
         all_book_entities = list(result.scalars().all())
         
@@ -399,8 +403,7 @@ class ConsistencyManager:
                 )
             )
             
-            import json
-            plan = json.loads(response.text)
+            plan = parse_json_safe(response.text) or {}
             
             # 4. Execute Plan (DB Updates)
             

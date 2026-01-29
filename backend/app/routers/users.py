@@ -262,26 +262,28 @@ async def list_all_users(
     total_count = await db.execute(select(func.count(User.id)))
     total = total_count.scalar()
 
-    # Получаем пользователей с пагинацией
+    from sqlalchemy.orm import selectinload
     users_result = await db.execute(
-        select(User).order_by(User.created_at.desc()).offset(skip).limit(limit)
+        select(User)
+        .options(selectinload(User.subscription))
+        .order_by(User.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     users = users_result.scalars().all()
+    
+    user_ids = [user.id for user in users]
+    books_counts_result = await db.execute(
+        select(Book.user_id, func.count(Book.id).label("count"))
+        .where(Book.user_id.in_(user_ids))
+        .group_by(Book.user_id)
+    )
+    books_counts = {row.user_id: row.count for row in books_counts_result.all()}
 
-    # Формируем список пользователей
     users_data = []
     for user in users:
-        # Получаем подписку для каждого пользователя
-        subscription_result = await db.execute(
-            select(Subscription).where(Subscription.user_id == user.id)
-        )
-        subscription = subscription_result.scalar_one_or_none()
-
-        # Получаем количество книг
-        books_count = await db.execute(
-            select(func.count(Book.id)).where(Book.user_id == user.id)
-        )
-        total_books = books_count.scalar()
+        subscription = user.subscription
+        total_books = books_counts.get(user.id, 0)
 
         users_data.append(
             UserListItem(

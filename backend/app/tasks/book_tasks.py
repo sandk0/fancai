@@ -248,30 +248,6 @@ async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
         logger.error("Error in _atomic_cleanup_book_state", book_id=str(book_id), error=str(e))
 
 
-async def _handle_book_processing_error_async(book_id: UUID, error_msg: str):
-    """
-    Updates book state on processing failure.
-    Sets is_processing=False and descriptions_processing_error.
-    """
-    try:
-        async with AsyncSessionLocal() as db:
-            book_result = await db.execute(select(Book).where(Book.id == book_id))
-            book = book_result.scalar_one_or_none()
-            
-            if book:
-                book.is_processing = False
-                book.descriptions_processing_error = error_msg
-                await db.commit()
-                
-                # Invalidate cache
-                from app.core.cache import cache_manager
-                pattern = f"user:{book.user_id}:books:*"
-                await cache_manager.delete_pattern(pattern)
-                
-    except Exception as e:
-        logger.error("Error in _handle_book_processing_error_async", error=str(e))
-
-
 
 async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     """
@@ -512,7 +488,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         
         # A. Reduce Phase: Merge Duplicates & Filter Garbage
         try:
-            logger.info("Running Entity Optimization (Reduce Phase)...", book_id=str(book_id))
+            async with db.begin_nested():
+                logger.info("Running Entity Optimization (Reduce Phase)...", book_id=str(book_id))
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=85,
@@ -537,7 +514,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             
         # B. Graph Phase: PageRank & Importance
         try:
-            from app.services.graph_service import get_graph_service
+            async with db.begin_nested():
+                from app.services.graph_service import get_graph_service
             graph_service = get_graph_service(db)
             logger.info("Calculating Graph Metrics (PageRank)...", book_id=str(book_id))
             await publish_book_progress(
@@ -553,7 +531,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # 5. Generate Master References for optimized entities
         # This is done once after all chapters are processed to ensure global consistency
         try:
-            logger.info("Generating Master References for entities...", book_id=str(book_id))
+            async with db.begin_nested():
+                logger.info("Generating Master References for entities...", book_id=str(book_id))
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=95,

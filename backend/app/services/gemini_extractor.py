@@ -39,6 +39,8 @@ from app.monitoring.metrics import (
     record_llm_error,
     record_llm_rate_limit,
 )
+from app.core.json_utils import parse_model_safe
+from app.services.llm_cache_service import llm_cache, ChapterCacheKey
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -88,32 +90,6 @@ class DescriptionType(Enum):
     OBJECT = "object"
     ATMOSPHERE = "atmosphere"
 
-
-import re
-
-def extract_positions_from_tags(
-    tagged_text: str, 
-    original_text: str
-) -> List[Tuple[int, int, str, str]]:
-    """
-    Extract exact positions from Tagged Span Annotation.
-    
-    Returns:
-        List of (start, end, type, content) tuples
-    """
-    pattern = r'@@START##(\w+)@@(.+?)@@END##'
-    results = []
-    
-    for match in re.finditer(pattern, tagged_text, re.DOTALL):
-        desc_type = match.group(1).lower()
-        desc_text = match.group(2).strip()
-        
-        start = original_text.find(desc_text)
-        if start != -1:
-            end = start + len(desc_text)
-            results.append((start, end, desc_type, desc_text))
-    
-    return results
 
 
 @dataclass
@@ -685,7 +661,7 @@ class GeminiDirectExtractor:
                 
             text = response.text if hasattr(response, 'text') else str(response)
             logger.warning("Gemini returned text instead of parsed object, parsing manually")
-            return GeminiResponseSchema.model_validate_json(text)
+            return parse_model_safe(text, GeminiResponseSchema)
 
         except asyncio.TimeoutError as e:
             duration = time.time() - start_time
@@ -812,19 +788,23 @@ class GeminiDirectExtractor:
         cache_key: str,
         chunk_idx: int
     ) -> Dict[str, Any]:
-        cache_key_tsa = f"{cache_key}:tsa"
-        cached = await cache_manager.get(cache_key_tsa)
+        cache_key_obj = ChapterCacheKey(
+            book_id="unknown",
+            chapter_id=cache_key,
+            chapter_content_hash=llm_cache.compute_content_hash(chunk_text),
+            prompt_template_hash=llm_cache.compute_content_hash(self.TSA_EXTRACTION_PROMPT),
+            model_name=self.config.model_id,
+            analysis_type="tsa"
+        )
+        
+        cached = await llm_cache.get(cache_key_obj)
         
         if cached:
             tsa_response = GeminiTSAResponseSchema.model_validate(cached)
         else:
             prompt = self.TSA_EXTRACTION_PROMPT.format(text=chunk_text)
             tsa_response = await self._call_gemini_tsa(prompt)
-            await cache_manager.set(
-                cache_key_tsa,
-                tsa_response.model_dump(),
-                self.config.cache_ttl_seconds
-            )
+            await llm_cache.set(cache_key_obj, tsa_response.model_dump())
         
         chunk_descriptions = self._convert_tsa_to_descriptions(
             tsa_response, chunk_text, chunk_offset
@@ -848,18 +828,23 @@ class GeminiDirectExtractor:
         cache_key: str,
         chunk_idx: int
     ) -> Dict[str, Any]:
-        cached = await cache_manager.get(cache_key)
+        cache_key_obj = ChapterCacheKey(
+            book_id="unknown",
+            chapter_id=cache_key,
+            chapter_content_hash=llm_cache.compute_content_hash(chunk_text),
+            prompt_template_hash=llm_cache.compute_content_hash(self.EXTRACTION_PROMPT),
+            model_name=self.config.model_id,
+            analysis_type="legacy"
+        )
+        
+        cached = await llm_cache.get(cache_key_obj)
         
         if cached:
             gemini_response = GeminiResponseSchema.model_validate(cached)
         else:
             prompt = self.EXTRACTION_PROMPT.format(text=chunk_text)
             gemini_response = await self._call_gemini_with_retry(prompt)
-            await cache_manager.set(
-                cache_key,
-                gemini_response.model_dump(),
-                self.config.cache_ttl_seconds
-            )
+            await llm_cache.set(cache_key_obj, gemini_response.model_dump())
         
         chunk_descriptions = self._convert_descriptions(
             gemini_response.descriptions, chunk_offset, chunk_text

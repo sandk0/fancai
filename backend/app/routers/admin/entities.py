@@ -231,3 +231,27 @@ async def merge_entities(
         await db.rollback()
         logger.exception(f"[AdminEntities] Merge failed: {e}")
         raise HTTPException(status_code=500, detail="Entity merge operation failed")
+
+
+class CFIUpdateRequest(BaseModel):
+    mention_id: UUID
+    cfi: str
+
+
+@router.patch("/entities/mentions/cfi", response_model=bool)
+async def update_mention_cfi(
+    request: CFIUpdateRequest,
+    admin_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_database_session),
+):
+    """
+    Update CFI position for an entity mention.
+    
+    This is used by the frontend Reader component when it calculates 
+    the exact CFI for a text match found by the backend.
+    """
+    stmt = update(EntityMention).where(EntityMention.id == request.mention_id).values(mention_cfi=request.cfi)
+    await db.execute(stmt)
+    await db.commit()
+    
+    return True

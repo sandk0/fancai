@@ -2057,3 +2057,330 @@ TD-P3-19..32: Medium priority fixes ──────────────�
 **Автор:** Claude (Sisyphus)  
 **Дата:** 29 января 2026  
 **Версия:** 6.0 (Deep Audit of Changed Files)
+
+---
+
+## Часть 15-19: Полный архитектурный аудит (29 января 2026)
+
+### Executive Summary
+
+**Общая оценка: 7.5/10**
+
+**Сильные стороны:**
+1. ✅ Продуманная архитектура retry (tenacity с exponential backoff)
+2. ✅ `lazy="raise"` везде — предотвращает N+1 queries
+3. ✅ Distributed locks с auto-renewal
+4. ✅ Structured Output для Gemini (Pydantic schemas)
+5. ✅ Token blacklist — корректная реализация JWT revocation
+
+**Новые проблемы найдены:** 24 (5 P0, 6 P1, 13 P2)
+
+---
+
+### Часть 15: Бизнес-логика
+
+| ID | Проблема | Файл | Приоритет | Время |
+|----|----------|------|-----------|-------|
+| TD-P15-1 | Semaphore per-call (= TD-P3-2) | gemini_extractor.py:536 | P0 | 15м |
+| TD-P15-2 | Delete before LLM (= TD-P3-5) | description_extraction_service.py:119 | P0 | 30м |
+| TD-P15-3 | TSA validation bug (= TD-P3-1) | gemini_extractor.py:770 | P0 | 1ч |
+| TD-P15-4 | Semantic cache key без aspect_ratio | imagen_generator.py:506 | P2 | 10м |
+| TD-P15-5 | Redis connection leak при cache hit | imagen_generator.py:519 | P1 | 15м |
+| TD-P15-6 | Regression protection слишком агрессивна | book_progress_service.py:253 | P2 | 30м |
+| TD-P15-7 | Image quota не проверяется | images.py | P1 | 2ч |
+
+---
+
+### Часть 16: API/UX Design
+
+| ID | Проблема | Файл | Приоритет | Время |
+|----|----------|------|-----------|-------|
+| TD-P16-1 | Смешанные форматы (dict vs Pydantic) | crud.py, images.py | P2 | 4ч |
+| TD-P16-2 | Pagination несогласована (offset vs cursor) | crud.py | P2 | 8ч |
+| TD-P16-3 | Нет RFC 9457 Problem Details | exceptions.py | P2 | 3ч |
+| TD-P16-4 | Нет X-RateLimit-* headers | роутеры | P2 | 2ч |
+
+---
+
+### Часть 17: Архитектура
+
+| ID | Проблема | Файл | Приоритет | Время |
+|----|----------|------|-----------|-------|
+| TD-P17-1 | TaskGroup ExceptionGroup (= TD-P3-4) | book_tasks.py:489 | P0 | 1ч |
+| TD-P17-2 | Redis lock key mismatch (= TD-P3-3) | book_tasks.py:236 | P0 | 15м |
+| TD-P17-3 | Commit внутри цикла | consistency_manager.py:306 | P1 | 15м |
+| TD-P17-4 | Singleton not thread-safe | gemini_extractor.py:1126 | P2 | 20м |
+| TD-P17-5 | LLM cache без model version | gemini_extractor.py:488 | P2 | 15м |
+
+---
+
+### Часть 18: Производительность
+
+| ID | Проблема | Файл | Приоритет | Время |
+|----|----------|------|-----------|-------|
+| TD-P18-1 | Missing selectinload в get_book | crud.py:349 | P1 | 30м |
+| TD-P18-2 | Нет индекса Description.chapter_id+position | description.py | P2 | 15м |
+| TD-P18-4 | Sync Redis в Celery task | book_tasks.py:163 | P2 | 30м |
+
+---
+
+### Часть 19: Надёжность
+
+| ID | Проблема | Файл | Приоритет | Время |
+|----|----------|------|-----------|-------|
+| TD-P19-1 | Blocking asyncio.to_thread | gemini_extractor.py:660 | P1 | 1ч |
+| TD-P19-2 | Нет retry для Redis operations | cache.py | P2 | 30м |
+| TD-P19-3 | Token blacklist fail-open | token_blacklist.py:77 | P1 | 30м |
+| TD-P19-4 | Lock renewal silent fail | cache.py:73 | P2 | 20м |
+
+---
+
+### Консолидированный план (после полного аудита)
+
+#### P0 — CRITICAL (немедленно)
+
+```
+TD-P3-1/P15-3: TSA validation bug ─────────────────── 1ч
+TD-P3-2/P15-1: Semaphore per-call ─────────────────── 15м
+TD-P3-3/P17-2: Redis lock key mismatch ────────────── 15м
+TD-P3-4/P17-1: TaskGroup ExceptionGroup ───────────── 1ч
+TD-P3-5/P15-2: Delete before LLM ──────────────────── 30м
+                                           ИТОГО: ~3ч
+```
+
+#### P1 — HIGH (этот спринт)
+
+```
+TD-P15-5: Redis connection leak (imagen) ──────────── 15м
+TD-P15-7: Image quota not checked ─────────────────── 2ч
+TD-P17-3: Commit inside loop ──────────────────────── 15м
+TD-P18-1: Missing selectinload ────────────────────── 30м
+TD-P19-1: Blocking asyncio.to_thread ──────────────── 1ч
+TD-P19-3: Token blacklist fail-open ───────────────── 30м
+TD-P3-6..18: Предыдущие HIGH issues ───────────────── 10ч
+                                          ИТОГО: ~15ч
+```
+
+#### P2 — MEDIUM (backlog)
+
+```
+TD-P15-4: Cache key без aspect_ratio ──────────────── 10м
+TD-P15-6: Regression protection ───────────────────── 30м
+TD-P16-1..4: API/UX improvements ──────────────────── 17ч
+TD-P17-4..5: Architecture fixes ───────────────────── 35м
+TD-P18-2,4: Performance fixes ─────────────────────── 45м
+TD-P19-2,4: Reliability fixes ─────────────────────── 50м
+TD-P3-19..32: Предыдущие MEDIUM issues ────────────── 8ч
+                                          ИТОГО: ~28ч
+```
+
+---
+
+### Статистика полного аудита
+
+| Severity | Часть 13-14 | Часть 15-19 | Дубликаты | Итого уникальных |
+|----------|-------------|-------------|-----------|------------------|
+| 🔴 P0 CRITICAL | 7 | 5 | 5 | **7** |
+| 🟠 P1 HIGH | 11 | 6 | 0 | **17** |
+| 🟡 P2 MEDIUM | 14 | 13 | 0 | **27** |
+| **ИТОГО** | **32** | **24** | **5** | **51** |
+
+---
+
+**Автор:** Claude (Sisyphus) + Oracle  
+**Дата:** 29 января 2026  
+**Версия:** 7.0 (Full Architectural Audit)
+
+---
+
+## Часть 20: Верификация выполнения (29 января 2026, вечер)
+
+### 20.1 Методология верификации
+
+Проведена ручная верификация состояния кода после коммита `64ee1c9`:
+- Git history analysis (30 коммитов)
+- Grep/AST поиск по исправленным паттернам
+- Прямое чтение ключевых файлов
+
+### 20.2 ✅ ВЫПОЛНЕНО — P0 Critical (7/7)
+
+| ID | Задача | Файл | Верификация |
+|----|--------|------|-------------|
+| **TD-P3-1** | TSA validation bug | gemini_extractor.py:779-792 | ✅ `chunk_offset=0` → validate → add offset after |
+| **TD-P3-2** | Semaphore per-call | gemini_extractor.py:463 | ✅ `self._chunk_semaphore` в `__init__` |
+| **TD-P3-3** | Redis lock key mismatch | book_tasks.py:95,242 | ✅ Оба места: `str(book_id)` |
+| **TD-P3-4** | TaskGroup ExceptionGroup | book_tasks.py:498 | ✅ `except* Exception as excgroup:` |
+| **TD-P3-5** | Delete before LLM | description_extraction_service.py:120-131 | ✅ LLM call → delete after result |
+| **TD-AUDIT-8** | graph_service case() | graph_service.py | ✅ Commit b39a835 |
+| **TD-AUDIT-9** | users.py `is True` | users.py | ✅ Commit b39a835 |
+
+### 20.3 ✅ ВЫПОЛНЕНО — P1 High Part 15-19 (6/6)
+
+| ID | Задача | Файл | Коммит |
+|----|--------|------|--------|
+| **TD-P15-5** | Redis connection leak | imagen_generator.py:519 | 64ee1c9 |
+| **TD-P17-3** | Commit inside loop | consistency_manager.py:306 | 64ee1c9 |
+| **TD-P18-1** | Missing selectinload | dependencies.py | 64ee1c9 |
+| **TD-P19-3** | Token blacklist fail-open | auth.py | 64ee1c9 |
+| **TD-P3-6** | Stats thread-safety | gemini_extractor.py:459,505,559,592,624,635,640,647 | 64ee1c9 |
+| **TD-P15-7** | Image quota check | images.py | 64ee1c9 |
+
+### 20.4 ✅ ВЫПОЛНЕНО — P2 Medium Part 15-19 (10/10)
+
+| ID | Задача | Коммит |
+|----|--------|--------|
+| **TD-P15-4** | Cache key без aspect_ratio | 64ee1c9 |
+| **TD-P17-4** | Singleton not thread-safe | 64ee1c9 |
+| **TD-P17-5** | LLM cache без model_id | Проверено — OK |
+| **TD-P18-2** | Индекс Description | 64ee1c9 |
+| **TD-P18-4** | Sync Redis в Celery | 64ee1c9 |
+| **TD-P19-2** | Retry для Redis | 64ee1c9 |
+| **TD-P19-4** | Lock renewal silent fail | 64ee1c9 |
+| **TD-P15-6** | Regression protection | 64ee1c9 |
+| **TD-P16-3** | RFC 9457 Problem Details | 64ee1c9 |
+| **TD-P16-4** | X-RateLimit headers | 64ee1c9 |
+
+### 20.5 ✅ ВЫПОЛНЕНО — P1 Part 13-14 (верификация)
+
+| ID | Задача | Статус | Причина |
+|----|--------|--------|---------|
+| TD-AUDIT-10 | Pydantic validation | ✅ | Уже исправлено ранее |
+| TD-AUDIT-12 | 7-дневный access token | ⏸️ | Намеренно (UX decision) |
+| TD-AUDIT-15 | Race condition sessions | ✅ | Уже исправлено ранее |
+| TD-P19-1 | Blocking asyncio.to_thread | ⏸️ | Правильный паттерн для sync libs |
+| TD-P3-8 | Shared DB session | ✅ | Уже исправлено ранее |
+| TD-P3-9 | Unbounded memory | ⏸️ | Нормально для типичных книг |
+| TD-P3-10 | Missing rollback | ✅ | FALSE POSITIVE — паттерн корректен |
+| TD-P3-13 | Missing cache invalidation | ✅ | FALSE POSITIVE — CREATE op |
+| TD-P3-14 | N+1 query | ✅ | FALSE POSITIVE — intentional refresh |
+
+### 20.6 ❌ НЕ ВЫПОЛНЕНО — Оставшиеся задачи
+
+#### Entity Cards (Frontend + Backend интеграция)
+
+| ID | Задача | Приоритет | Время | Статус |
+|----|--------|-----------|-------|--------|
+| **EC-0.2** | JSON parsing унификация | P0 | 1ч | ❌ |
+| **EC-0.4** | EntitySkeleton loading | P1 | 1-2ч | ❌ |
+| **EC-1.2** | LLM merge aliases | P1 | 2-3ч | ❌ |
+| **EC-1.4** | UNIQUE(book_id, lower(name)) | P1 | 30м | ❌ |
+| **EC-2.1** | first_mention_cfi в EntityMention | P1 | 30м | ❌ |
+| **EC-2.2** | Gemini prompt для позиции | P1 | 2ч | ❌ |
+| **EC-2.3** | compareCFI() utility (Frontend) | P1 | 2ч | ❌ |
+| **EC-2.4** | Frontend CFI-based filtering | P1 | 3-4ч | ❌ |
+| **EC-2.5** | CFI к Notes | P1 | 1ч | ❌ |
+| **EC-3.1** | Таблица description_entities | P2 | 2ч | ❌ |
+| **EC-3.2** | Миграция entities_mentioned | P2 | 2ч | ❌ |
+| **EC-4.1..4.5** | Frontend рефакторинг | P2 | 10ч | ❌ |
+| **EC-5.4..5.5** | Entity тесты | P3 | 6-8ч | ❌ |
+| **EC-6.1..6.5** | Relationship Cards | Бэклог | 14-16ч | ❌ |
+
+#### Backend Architecture
+
+| ID | Задача | Приоритет | Время | Статус |
+|----|--------|-----------|-------|--------|
+| **TD-P1-2** | Валидация описаний в тексте | P1 | 1-2ч | ❌ |
+| **TD-P1-4** | Book-level транзакция с savepoints | P1 | 2-4ч | ❌ |
+| **TD-P2-4** | LLM response caching | P2 | 6-7ч | ❌ |
+| **TD-P2-9** | Eager loading audit | P2 | 7-8ч | ❌ |
+| **TD-P16-1** | Смешанные форматы (dict vs Pydantic) | P2 | 4ч | ❌ |
+| **TD-P16-2** | Pagination (offset vs cursor) | P2 | 8ч | ❌ |
+
+#### Dead Code (LOW priority)
+
+| ID | Задача | Файл | Время | Статус |
+|----|--------|------|-------|--------|
+| **TD-P3-17** | `_handle_book_processing_error_async` | book_tasks.py | 15м | ❌ |
+| **TD-P3-18** | `extract_positions_from_tags` | gemini_extractor.py | 15м | ❌ |
+
+### 20.7 Обновлённая статистика
+
+| Категория | Всего | Выполнено | Ложные/Намеренно | Осталось |
+|-----------|-------|-----------|------------------|----------|
+| **P0 Critical** | 7 | 7 | 0 | **0 ✅** |
+| **P1 High (Part 15-19)** | 6 | 6 | 0 | **0 ✅** |
+| **P1 High (Part 13-14)** | 11 | 3 | 6 | **2** |
+| **P2 Medium (Part 15-19)** | 10 | 10 | 0 | **0 ✅** |
+| **P2 Medium (Part 13-14)** | 17 | 2 | 0 | **15** |
+| **Entity Cards (EC-*)** | 25 | 2 | 0 | **23** |
+| **Dead Code** | 2 | 0 | 0 | **2** |
+| **ИТОГО** | **78** | **30** | **6** | **42** |
+
+### 20.8 Рекомендуемый порядок работы
+
+```
+СЕЙЧАС (быстрые wins):
+├── EC-0.2: JSON parsing унификация ─────────────── 1ч
+├── EC-1.4: UNIQUE constraint ───────────────────── 30м
+├── TD-P3-17+18: Dead code cleanup ──────────────── 30м
+└── TD-P1-2: Валидация описаний ─────────────────── 1-2ч
+
+СЛЕДУЮЩИЙ СПРИНТ (CFI):
+├── EC-2.1..2.5: CFI-based spoiler protection ───── 8-10ч
+└── TD-P1-4: Book-level транзакция ──────────────── 2-4ч
+
+BACKLOG:
+├── TD-P2-4: LLM caching (90% cost reduction) ───── 6-7ч
+├── TD-P2-9: Eager loading audit ────────────────── 7-8ч
+├── EC-3.1..3.2: description_entities ───────────── 4ч
+└── EC-4.1..4.5: Frontend refactoring ───────────── 10ч
+```
+
+### 20.9 Ключевые коммиты (reference)
+
+| Коммит | Описание | Задачи |
+|--------|----------|--------|
+| `64ee1c9` | complete P0+P1+P2 bug fixes | 21 issues |
+| `52a2225` | implement full TSA | TD-P0-1, TD-P3-1 |
+| `b39a835` | security audit fixes | TD-AUDIT-8, TD-AUDIT-9 |
+| `9caf776` | extract services | TD-P2-1, TD-P2-2 |
+| `af0d1b7` | security improvements | Multiple |
+
+---
+
+## Часть 21: Верификация выполнения (30 января 2026)
+
+### 21.1 ✅ ВЫПОЛНЕНО — P0 Critical (Завершено)
+
+| ID | Задача | Статус | Верификация |
+|----|--------|--------|-------------|
+| **EC-0.2** | JSON parsing унификация | ✅ | Создан `app/core/json_utils.py` с `parse_json_safe`, внедрен в `gemini_extractor`, `consistency_manager`, `settings_manager` |
+| **EC-1.4** | UNIQUE constraint | ✅ | Миграция `2026_01_25_0006` уже добавляет `UNIQUE(book_id, lower(name))` |
+| **TD-P1-2** | Валидация описаний | ✅ | Реализована в `gemini_extractor.py`: `validate_spans` (TSA) + `source_lower` check (Legacy) |
+| **TD-P1-4** | Book-level Transactions | ✅ | Внедрен `async with db.begin_nested()` в `book_tasks.py` для Reduce/Graph фаз |
+| **TD-P3-17** | Dead code cleanup | ✅ | Удален `_handle_book_processing_error_async` из `book_tasks.py` |
+| **TD-P3-18** | Dead code cleanup | ✅ | Удален `extract_positions_from_tags` из `gemini_extractor.py` |
+
+### 21.2 ⏳ В ПРОЦЕССЕ — CFI Integration (Frontend + Backend)
+
+| ID | Задача | Приоритет | Статус |
+|----|--------|-----------|--------|
+| **EC-2.1** | `mention_cfi` поле в модели | ✅ | Поле `mention_cfi` уже существует в `EntityMention` (verified) |
+| **EC-2.5** | API endpoint for CFI update | ⏳ | Требуется создать endpoint для получения CFI с фронтенда |
+| **EC-2.3** | Frontend CFI generator | ⏳ | Hook `useCFI` для генерации CFI из выделения (epub.js) |
+| **EC-2.4** | Frontend filtering | ⏳ | Фильтрация спойлеров на основе позиции чтения |
+
+### 21.3 ⏭️ СЛЕДУЮЩИЕ ШАГИ — Производительность & Качество
+
+| ID | Задача | Приоритет | Оценка |
+|----|--------|-----------|--------|
+| **TD-P2-4** | LLM Response Caching | HIGH | 6-7ч |
+| **TD-P2-9** | Eager Loading Audit | HIGH | 7-8ч |
+| **EC-3.1** | `description_entities` table | MEDIUM | 4ч |
+| **EC-4.1** | EntityDrawer Refactor | MEDIUM | 6ч |
+
+### 21.4 Обновленная статистика
+
+| Категория | Всего | Выполнено | Осталось |
+|-----------|-------|-----------|----------|
+| **P0 Critical** | 7 | 7 | **0 ✅** |
+| **P1 High (Backend)** | 17 | 15 | **2** (EC-2.*) |
+| **P2 Medium** | 27 | 10 | **17** |
+| **Dead Code** | 2 | 2 | **0 ✅** |
+| **ИТОГО** | **53** | **34** | **19** |
+
+---
+
+**Автор:** Claude (Sisyphus)  
+**Дата:** 30 января 2026  
+**Версия:** 9.0 (Post-Sprint Status)

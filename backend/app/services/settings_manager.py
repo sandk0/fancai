@@ -9,6 +9,7 @@ import logging
 import json
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
+from app.core.json_utils import dump_json
 
 try:
     from redis import asyncio as aioredis
@@ -280,7 +281,7 @@ class SettingsManager:
                 redis_key = f"settings:{category}"
                 await self.redis_client.set(
                     redis_key,
-                    json.dumps(self._settings[category]),
+                    dump_json(self._settings[category]),
                     ex=None
                 )
                 logger.debug(f"Set {category}.{key} = {value} (persisted to Redis)")

@@ -20,7 +20,7 @@ from pathlib import Path
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from ...models.book import Book, ReadingProgress, BookGenre
 from ...models.chapter import Chapter
@@ -170,6 +170,7 @@ class BookService:
             .where(Book.user_id == user_id)
             .options(selectinload(Book.chapters))
             .options(selectinload(Book.reading_progress))
+            .options(joinedload(Book.user))
             .order_by(order_clause)
             .offset(skip)
             .limit(limit)
