@@ -19,6 +19,7 @@ interface EntityDrawerProps {
     entities: Record<string, EntityDetail>;
     edges: NetworkEdge[];
     currentChapter: number;
+    maxChapterReached: number;
     currentCFI?: string | null;
     initialEntityId?: string | null;
     isLoading?: boolean;
@@ -32,12 +33,15 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     currentChapter,
     currentCFI,
     initialEntityId,
-    isLoading = false
+    isLoading = false,
+    maxChapterReached,
 }) => {
     const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
     const [selectedRelationship, setSelectedRelationship] = useState<SelectedRelationship | null>(null);
     const navigate = useNavigate();
     const { bookId } = useParams();
+
+    const effectiveChapter = Math.max(currentChapter, maxChapterReached || 0);
 
     useEffect(() => {
         if (isOpen && initialEntityId) {
@@ -138,7 +142,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                         edge={selectedRelationship.edge}
                                         sourceEntity={selectedRelationship.sourceEntity}
                                         targetEntity={selectedRelationship.targetEntity}
-                                        currentChapter={currentChapter}
+                                        currentChapter={effectiveChapter}
                                         currentCFI={currentCFI}
                                         onEntityClick={(id) => {
                                             setSelectedRelationship(null);
@@ -152,13 +156,13 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                     relatedEntities={relationships}
                                     onEntityClick={(id) => setSelectedEntityId(id)}
                                     onRelationshipClick={handleRelationshipClick}
-                                    currentChapter={currentChapter}
+                                    currentChapter={effectiveChapter}
                                     currentCFI={currentCFI}
                                 />
                             ) : (
                                 <EntityList
                                     entities={entities}
-                                    currentChapter={currentChapter}
+                                    currentChapter={effectiveChapter}
                                     currentCFI={currentCFI}
                                     onEntitySelect={(id) => setSelectedEntityId(id)}
                                     isLoading={isLoading}

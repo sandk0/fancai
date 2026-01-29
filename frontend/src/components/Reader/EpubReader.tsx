@@ -211,6 +211,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     return 'bg-white';
   }, [theme]);
 
+  const maxChapterReached = useMemo(() => {
+    const savedChapter = book.reading_progress?.current_chapter || 1;
+    return Math.max(currentChapter, savedChapter);
+  }, [currentChapter, book.reading_progress]);
+
   return (
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
       <div
@@ -256,7 +261,15 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       <ReaderModals
         imageModal={{ isOpen: isModalOpen, selectedImage, onClose: closeModal, onImageRegenerated: handleImageRegenerated }}
         bookInfo={{ isOpen: isBookInfoOpen, onClose: () => setIsBookInfoOpen(false), metadata: book }}
-        entityDrawer={{ isOpen: isEntityDrawerOpen, onClose: () => setIsEntityDrawerOpen(false), network: entityNetwork, isLoading: isEntityNetworkLoading, currentChapter, currentCFI }}
+        entityDrawer={{ 
+          isOpen: isEntityDrawerOpen, 
+          onClose: () => setIsEntityDrawerOpen(false), 
+          network: entityNetwork, 
+          isLoading: isEntityNetworkLoading, 
+          currentChapter, 
+          maxChapterReached,
+          currentCFI 
+        }}
         selection={{ data: selection, onCopy: handleCopy, onClose: clearSelection }}
         toc={{ isOpen: isTocOpen, onClose: () => setIsTocOpen(false), items: toc, currentHref: currentHref || '', onChapterClick: handleTocChapterClick }}
         positionConflict={{ data: positionConflict, onUseServer: handleUseServerPosition, onUseLocal: handleUseLocalPosition }}
