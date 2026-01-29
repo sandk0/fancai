@@ -17,7 +17,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 
 from ...core.auth import get_current_admin_user
 from ...core.database import get_database_session
@@ -25,6 +25,13 @@ from ...models.user import User
 from ...models.feature_flag import FeatureFlagCategory
 from ...services.feature_flag_manager import FeatureFlagManager
 from ...schemas.responses import FeatureFlagBulkUpdateResponse
+from ...schemas.responses.admin import (
+    FeatureFlagUpdateResponse,
+    FeatureFlagCacheClearResponse,
+    FeatureFlagInitializeResponse,
+    FeatureFlagCategoryItem,
+    FeatureFlagCategoriesResponse,
+)
 
 
 router = APIRouter(prefix="/feature-flags", tags=["admin", "feature-flags"])
@@ -70,8 +77,9 @@ class BulkUpdateRequest(BaseModel):
     """Request model для массового обновления флагов."""
 
     updates: Dict[str, bool] = Field(
+        ...,
         description="Dictionary of {flag_name: enabled}",
-        example={"USE_ADVANCED_PARSER": True, "USE_LLM_ENRICHMENT": False},
+        json_schema_extra={"example": {"USE_ADVANCED_PARSER": True, "USE_LLM_ENRICHMENT": False}},
     )
 
 
@@ -167,13 +175,13 @@ async def get_feature_flag(
     )
 
 
-@router.put("/{flag_name}")
+@router.put("/{flag_name}", response_model=FeatureFlagUpdateResponse)
 async def update_feature_flag(
     flag_name: str,
     update_request: FeatureFlagUpdateRequest,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
+) -> FeatureFlagUpdateResponse:
     """
     Обновить feature flag.
 
@@ -201,14 +209,13 @@ async def update_feature_flag(
             status_code=404, detail=f"Feature flag '{flag_name}' not found"
         )
 
-    # Get updated flag
     flag = await flag_manager.get_flag(flag_name)
 
-    return {
-        "message": f"Feature flag '{flag_name}' updated successfully",
-        "flag": flag.to_dict() if flag else None,
-        "admin": current_user.email,
-    }
+    return FeatureFlagUpdateResponse(
+        message=f"Feature flag '{flag_name}' updated successfully",
+        flag=flag.to_dict() if flag else None,
+        admin=current_user.email,
+    )
 
 
 @router.post("", response_model=FeatureFlagResponse, status_code=201)
@@ -309,115 +316,73 @@ async def bulk_update_feature_flags(
     success_count = sum(1 for success in results.values() if success)
     failed_count = len(results) - success_count
 
-    return {
-        "message": f"Bulk update completed: {success_count} success, {failed_count} failed",
-        "results": results,
-        "total": len(results),
-        "success_count": success_count,
-        "failed_count": failed_count,
-        "admin": current_user.email,
-    }
+    return FeatureFlagBulkUpdateResponse(
+        message=f"Bulk update completed: {success_count} success, {failed_count} failed",
+        results=results,
+        total=len(results),
+        success_count=success_count,
+        failed_count=failed_count,
+        admin_email=current_user.email,
+    )
 
 
-@router.delete("/cache")
+@router.delete("/cache", response_model=FeatureFlagCacheClearResponse)
 async def clear_feature_flags_cache(
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
-    """
-    Очистить кэш feature flags.
-
-    Полезно после прямого изменения в БД или для принудительной
-    перезагрузки флагов.
-
-    Args:
-        current_user: Текущий администратор
-        db: Database session
-
-    Returns:
-        Результат операции
-    """
+) -> FeatureFlagCacheClearResponse:
     flag_manager = FeatureFlagManager(db)
     flag_manager.clear_cache()
 
-    return {
-        "message": "Feature flags cache cleared successfully",
-        "admin": current_user.email,
-    }
+    return FeatureFlagCacheClearResponse(admin=current_user.email)
 
 
-@router.post("/initialize")
+@router.post("/initialize", response_model=FeatureFlagInitializeResponse)
 async def initialize_default_flags(
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
-    """
-    Инициализировать дефолтные feature flags.
-
-    Создает стандартные флаги если их нет в БД.
-    Безопасно вызывать несколько раз - не создаст дубликаты.
-
-    Args:
-        current_user: Текущий администратор
-        db: Database session
-
-    Returns:
-        Результат операции
-    """
+) -> FeatureFlagInitializeResponse:
     flag_manager = FeatureFlagManager(db)
     await flag_manager.initialize()
 
     all_flags = await flag_manager.get_all_flags()
 
-    return {
-        "message": "Default feature flags initialized",
-        "total_flags": len(all_flags),
-        "admin": current_user.email,
-    }
+    return FeatureFlagInitializeResponse(
+        total_flags=len(all_flags),
+        admin=current_user.email,
+    )
 
 
-@router.get("/categories/list")
+@router.get("/categories/list", response_model=FeatureFlagCategoriesResponse)
 async def get_flag_categories(
     current_user: User = Depends(get_current_admin_user),
-) -> Dict[str, Any]:
-    """
-    Получить список доступных категорий feature flags.
-
-    Args:
-        current_user: Текущий администратор
-
-    Returns:
-        Список категорий с описаниями
-    """
+) -> FeatureFlagCategoriesResponse:
     categories = [
-        {
-            "value": FeatureFlagCategory.NLP.value,
-            "label": "NLP Features",
-            "description": "Natural Language Processing related features",
-        },
-        {
-            "value": FeatureFlagCategory.PARSER.value,
-            "label": "Parser Features",
-            "description": "Book parsing and content extraction features",
-        },
-        {
-            "value": FeatureFlagCategory.IMAGES.value,
-            "label": "Image Features",
-            "description": "Image generation and processing features",
-        },
-        {
-            "value": FeatureFlagCategory.SYSTEM.value,
-            "label": "System Features",
-            "description": "System-level features and infrastructure",
-        },
-        {
-            "value": FeatureFlagCategory.EXPERIMENTAL.value,
-            "label": "Experimental Features",
-            "description": "Experimental and beta features",
-        },
+        FeatureFlagCategoryItem(
+            value=FeatureFlagCategory.NLP.value,
+            label="NLP Features",
+            description="Natural Language Processing related features",
+        ),
+        FeatureFlagCategoryItem(
+            value=FeatureFlagCategory.PARSER.value,
+            label="Parser Features",
+            description="Book parsing and content extraction features",
+        ),
+        FeatureFlagCategoryItem(
+            value=FeatureFlagCategory.IMAGES.value,
+            label="Image Features",
+            description="Image generation and processing features",
+        ),
+        FeatureFlagCategoryItem(
+            value=FeatureFlagCategory.SYSTEM.value,
+            label="System Features",
+            description="System-level features and infrastructure",
+        ),
+        FeatureFlagCategoryItem(
+            value=FeatureFlagCategory.EXPERIMENTAL.value,
+            label="Experimental Features",
+            description="Experimental and beta features",
+        ),
     ]
 
-    return {
-        "categories": categories,
-        "total": len(categories),
-    }
+    return FeatureFlagCategoriesResponse(categories=categories, total=len(categories))

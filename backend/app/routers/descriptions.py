@@ -26,6 +26,7 @@ from ..schemas.responses.descriptions import (
     ChapterDescriptionsResponse,
     BatchDescriptionsRequest,
     BatchDescriptionsResponse,
+    BackgroundExtractionResponse,
 )
 from ..schemas.responses import DescriptionResponse
 
@@ -223,6 +224,7 @@ async def _background_extract_descriptions(
 
 @router.post(
     "/{book_id}/chapters/{chapter_number}/extract-background",
+    response_model=BackgroundExtractionResponse,
     summary="Trigger background LLM extraction",
     description="Starts LLM extraction in background. Returns immediately."
 )
@@ -232,7 +234,7 @@ async def trigger_background_extraction(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> dict:
+) -> BackgroundExtractionResponse:
     service = get_description_service(db)
     
     book = await book_service.get_book_by_id(
@@ -248,13 +250,19 @@ async def trigger_background_extraction(
         raise ChapterNotFoundException(chapter_number, book_id)
     
     if chapter.check_is_service_page():
-        return {"status": "skipped", "reason": "service_page", "chapter_number": chapter_number}
+        return BackgroundExtractionResponse(
+            status="skipped", chapter_number=chapter_number, reason="service_page"
+        )
     
     if await service.check_has_descriptions(chapter.id):
-        return {"status": "already_extracted", "chapter_number": chapter_number}
+        return BackgroundExtractionResponse(
+            status="already_extracted", chapter_number=chapter_number, reason=None
+        )
     
     if not service.is_llm_available():
-        return {"status": "unavailable", "reason": "llm_processor_unavailable", "chapter_number": chapter_number}
+        return BackgroundExtractionResponse(
+            status="unavailable", chapter_number=chapter_number, reason="llm_processor_unavailable"
+        )
     
     background_tasks.add_task(
         _background_extract_descriptions,
@@ -265,4 +273,6 @@ async def trigger_background_extraction(
     
     logger.info(f"[API] Triggered background extraction: chapter={chapter_number}")
     
-    return {"status": "extraction_started", "chapter_number": chapter_number}
+    return BackgroundExtractionResponse(
+        status="extraction_started", chapter_number=chapter_number, reason=None
+    )

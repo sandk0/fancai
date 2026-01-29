@@ -552,6 +552,49 @@ class ImageGenerationSettingsUpdateResponse(BaseModel):
 
 
 # ============================================================================
+# Feature Flag Additional Responses (TD-P16-1c)
+# ============================================================================
+
+
+class FeatureFlagUpdateResponse(BaseModel):
+    """Response for PUT /admin/feature-flags/{flag_name}."""
+
+    message: str
+    flag: Optional[Dict[str, Any]] = None
+    admin: str
+
+
+class FeatureFlagCacheClearResponse(BaseModel):
+    """Response for DELETE /admin/feature-flags/cache."""
+
+    message: str = Field(default="Feature flags cache cleared successfully")
+    admin: str
+
+
+class FeatureFlagInitializeResponse(BaseModel):
+    """Response for POST /admin/feature-flags/initialize."""
+
+    message: str = Field(default="Default feature flags initialized")
+    total_flags: int = Field(ge=0)
+    admin: str
+
+
+class FeatureFlagCategoryItem(BaseModel):
+    """Single category item in categories list."""
+
+    value: str
+    label: str
+    description: str
+
+
+class FeatureFlagCategoriesResponse(BaseModel):
+    """Response for GET /admin/feature-flags/categories/list."""
+
+    categories: List[FeatureFlagCategoryItem]
+    total: int = Field(ge=0)
+
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
@@ -578,4 +621,10 @@ __all__ = [
     "InitializeSettingsResponse",
     # Image Generation Settings (Phase 1.4)
     "ImageGenerationSettingsUpdateResponse",
+    # Feature Flags (TD-P16-1c)
+    "FeatureFlagUpdateResponse",
+    "FeatureFlagCacheClearResponse",
+    "FeatureFlagInitializeResponse",
+    "FeatureFlagCategoryItem",
+    "FeatureFlagCategoriesResponse",
 ]

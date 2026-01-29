@@ -208,6 +208,19 @@ class BatchDescriptionsResponse(BaseModel):
 
 
 # ============================================================================
+# BACKGROUND EXTRACTION (TD-P16-1d)
+# ============================================================================
+
+
+class BackgroundExtractionResponse(BaseModel):
+    """Response for POST /descriptions/{book_id}/chapters/{chapter_number}/extract-background."""
+
+    status: str = Field(description="extraction_started | skipped | already_extracted | unavailable")
+    chapter_number: int
+    reason: Optional[str] = Field(None, description="Reason for skip/unavailable status")
+
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
@@ -220,4 +233,5 @@ __all__ = [
     "BatchDescriptionsRequest",
     "ChapterDescriptionsResult",
     "BatchDescriptionsResponse",
+    "BackgroundExtractionResponse",
 ]
