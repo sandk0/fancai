@@ -41,47 +41,7 @@ class WebSocketService {
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const wsUrl = this.getWebSocketUrl();
-        this.ws = new WebSocket(wsUrl);
-
-        this.ws.onopen = () => {
-          console.log('WebSocket connected');
-          this.isConnected = true;
-          this.reconnectAttempts = 0;
-          this.startHeartbeat();
-          resolve();
-        };
-
-        this.ws.onmessage = (event) => {
-          try {
-            const message: WebSocketMessage = JSON.parse(event.data);
-            this.handleMessage(message);
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
-          }
-        };
-
-        this.ws.onclose = (event) => {
-          console.log('WebSocket disconnected:', event.code, event.reason);
-          this.isConnected = false;
-          this.stopHeartbeat();
-          
-          if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.scheduleReconnect();
-          }
-        };
-
-        this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          reject(error);
-        };
-
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return Promise.resolve();
   }
 
   private scheduleReconnect(): void {
