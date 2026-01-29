@@ -395,12 +395,14 @@ async def update_reading_session(
         session = result.scalar_one_or_none()
 
         if not session:
+            logger.warning(f"Reading session {session_id} not found for user {current_user.id} in update_reading_session")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Reading session {session_id} not found",
             )
 
         if not session.is_active:
+            logger.info(f"Reading session {session_id} is inactive, cannot update")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot update inactive session",
