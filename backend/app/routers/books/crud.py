@@ -54,6 +54,7 @@ from ...schemas.responses import (
     BookListResponse,
     BookDetailResponse,
     BookUploadResponse,
+    BookSummary,
 )
 
 
@@ -248,96 +249,60 @@ async def get_user_books(
         limit=limit,
     )
 
-    # Try to get from cache
     cache_key_str = cache_key(
-        "user",
-        current_user.id,
-        "books",
-        f"skip:{skip}",
-        f"limit:{limit}",
-        f"sort:{sort_by}",
+        "user", current_user.id, "books", f"skip:{skip}", f"limit:{limit}", f"sort:{sort_by}"
     )
     cached_result = await cache_manager.get(cache_key_str)
     if cached_result is not None:
-        logger.debug("Cache HIT for books", user_id=str(current_user.id))
-        return cached_result
-
-    logger.debug("Cache MISS for books - querying database", user_id=str(current_user.id))
+        try:
+            return BookListResponse.model_validate(cached_result)
+        except Exception:
+            await cache_manager.delete(cache_key_str)
 
     try:
-        # ОПТИМИЗАЦИЯ: Получаем книги пользователя с предрасчитанным прогрессом
-        # Использует eager loading, чтобы избежать N+1 queries (используем DI)
         books_with_progress = await book_progress_svc.get_books_with_progress(
             db, current_user.id, skip, limit, sort_by
         )
-        logger.debug("Retrieved books from service", books_count=len(books_with_progress))
 
-        # Формируем ответ
-        books_data = []
-        for book, reading_progress in books_with_progress:
+        books_list: list[BookSummary] = []
+        for book, progress_percent in books_with_progress:
             try:
-                books_data.append(
-                    {
-                        "id": str(book.id),
-                        "title": book.title,
-                        "author": book.author or "Неизвестный автор",
-                        "genre": book.genre,
-                        "language": book.language,
-                        "description": book.description or "",
-                        "cover_image": book.cover_image,
-                        "file_format": book.file_format,
-                        "file_size": book.file_size,
-                        "total_pages": book.total_pages,
-                        "estimated_reading_time": book.estimated_reading_time or 0,
-                        "estimated_reading_time_hours": (
-                            round(book.estimated_reading_time / 60, 1)
-                            if book.estimated_reading_time > 0
-                            else 0.0
-                        ),
-                        "chapters_count": (
-                            len(book.chapters)
-                            if hasattr(book, "chapters") and book.chapters
-                            else 0
-                        ),
-                        "reading_progress_percent": round(reading_progress, 1),
-                        "has_cover": bool(book.cover_image),
-                        "is_parsed": book.is_parsed,
-                        "parsing_progress": book.parsing_progress,
-                        "is_processing": book.is_processing if hasattr(book, 'is_processing') else not book.is_parsed,
-                        "created_at": (
-                            book.created_at.isoformat() if book.created_at else None
-                        ),
-                        "last_accessed": (
-                            book.last_accessed.isoformat()
-                            if book.last_accessed
-                            else None
-                        ),
-                    }
+                reading_time = book.estimated_reading_time or 0
+                books_list.append(
+                    BookSummary(
+                        id=book.id,
+                        title=book.title,
+                        author=book.author or "Неизвестный автор",
+                        genre=book.genre,
+                        language=book.language,
+                        description=book.description or "",
+                        cover_image=book.cover_image,
+                        file_format=book.file_format,
+                        file_size=book.file_size,
+                        total_pages=book.total_pages,
+                        estimated_reading_time=reading_time,
+                        estimated_reading_time_hours=round(reading_time / 60, 1) if reading_time > 0 else 0.0,
+                        chapters_count=len(book.chapters) if hasattr(book, "chapters") and book.chapters else 0,
+                        reading_progress_percent=round(progress_percent, 1),
+                        has_cover=bool(book.cover_image),
+                        is_parsed=book.is_parsed,
+                        parsing_progress=book.parsing_progress,
+                        is_processing=book.is_processing if hasattr(book, "is_processing") else not book.is_parsed,
+                        created_at=book.created_at,
+                        last_accessed=book.last_accessed,
+                    )
                 )
             except Exception as e:
                 logger.warning("Error processing book", book_id=str(book.id), error=str(e))
 
-        # Получаем общее количество книг для пагинации
-        total_books_result = await db.execute(
+        total_result = await db.execute(
             select(func.count(Book.id)).where(Book.user_id == current_user.id)
         )
-        total_books = total_books_result.scalar() or 0
+        total_books = total_result.scalar() or 0
 
-        logger.info(
-            "Books request completed",
-            books_returned=len(books_data),
-            total_books=total_books,
-        )
+        response = BookListResponse(books=books_list, total=total_books, skip=skip, limit=limit)
 
-        response = {
-            "books": books_data,
-            "total": total_books,
-            "skip": skip,
-            "limit": limit,
-        }
-
-        # Cache the result (5 minutes TTL for book lists)
-        await cache_manager.set(cache_key_str, response, ttl=CACHE_TTL["book_list"])
+        await cache_manager.set(cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_list"])
 
         return response
 
@@ -371,24 +336,18 @@ async def get_book(
         TTL: 1 hour (rarely changes)
         Key: book:{book_id}:metadata
     """
-    # Try to get from cache
     cache_key_str = cache_key("book", book.id, "metadata")
     cached_result = await cache_manager.get(cache_key_str)
     if cached_result is not None:
-        logger.debug("Cache HIT for book", book_id=str(book.id))
-        return cached_result
-
-    logger.debug("Cache MISS for book - building response", book_id=str(book.id))
+        try:
+            return BookDetailResponse.model_validate(cached_result)
+        except Exception:
+            await cache_manager.delete(cache_key_str)
 
     try:
-        # Прогресс чтения - используем унифицированный метод из модели
         progress_percent = await book.get_reading_progress_percent(db, current_user.id)
 
-        # Получаем текущую позицию для интерфейса
-        current_chapter = 1
-        current_page = 1
-        current_position = 0
-        reading_location_cfi = None
+        current_chapter, current_page, current_position, reading_location_cfi = 1, 1, 0, None
         if book.reading_progress:
             progress = book.reading_progress[0]
             current_chapter = progress.current_chapter
@@ -396,64 +355,56 @@ async def get_book(
             current_position = progress.current_position
             reading_location_cfi = progress.reading_location_cfi
 
-        # Информация о главах
-        chapters_data = []
-        for chapter in sorted(book.chapters, key=lambda c: c.chapter_number):
-            chapters_data.append(
-                {
-                    "id": str(chapter.id),
-                    "number": chapter.chapter_number,
-                    "title": chapter.title,
-                    "word_count": chapter.word_count,
-                    "estimated_reading_time_minutes": chapter.estimated_reading_time,
-                    "is_description_parsed": chapter.is_description_parsed,
-                    "descriptions_found": chapter.descriptions_found,
-                }
-            )
+        chapters_data = [
+            {
+                "id": str(ch.id),
+                "number": ch.chapter_number,
+                "title": ch.title,
+                "word_count": ch.word_count,
+                "estimated_reading_time_minutes": ch.estimated_reading_time,
+                "is_description_parsed": ch.is_description_parsed,
+                "descriptions_found": ch.descriptions_found,
+            }
+            for ch in sorted(book.chapters, key=lambda c: c.chapter_number)
+        ]
 
-        response = {
-            "id": str(book.id),
-            "user_id": str(book.user_id),
-            "title": book.title,
-            "author": book.author,
-            "genre": book.genre,
-            "language": book.language,
-            "file_path": book.file_path,
-            "file_format": book.file_format,
-            "file_size": book.file_size,
-            "cover_image": book.cover_image,
-            "description": book.description,
-            "book_metadata": book.book_metadata,
-            "total_pages": book.total_pages,
-            "estimated_reading_time": book.estimated_reading_time or 0,
-            "is_parsed": book.is_parsed,
-            "parsing_progress": book.parsing_progress,
-            "parsing_error": book.parsing_error,
-            "created_at": book.created_at.isoformat(),
-            "updated_at": book.updated_at.isoformat(),
-            "last_accessed": (
-                book.last_accessed.isoformat() if book.last_accessed else None
-            ),
-            # Frontend computed fields
-            "estimated_reading_time_hours": (
-                round(book.estimated_reading_time / 60, 1)
-                if book.estimated_reading_time > 0
-                else 0.0
-            ),
-            "file_size_mb": round(book.file_size / (1024 * 1024), 2),
-            "has_cover": bool(book.cover_image),
-            "chapters": chapters_data,
-            "reading_progress": {
+        reading_time = book.estimated_reading_time or 0
+        response = BookDetailResponse(
+            id=book.id,
+            user_id=book.user_id,
+            title=book.title,
+            author=book.author,
+            genre=book.genre,
+            language=book.language,
+            file_path=book.file_path,
+            file_format=book.file_format,
+            file_size=book.file_size,
+            cover_image=book.cover_image,
+            description=book.description,
+            book_metadata=book.book_metadata,
+            total_pages=book.total_pages,
+            estimated_reading_time=reading_time,
+            is_parsed=book.is_parsed,
+            is_processing=book.is_processing if hasattr(book, "is_processing") else not book.is_parsed,
+            parsing_progress=book.parsing_progress,
+            parsing_error=book.parsing_error,
+            created_at=book.created_at,
+            updated_at=book.updated_at,
+            last_accessed=book.last_accessed,
+            estimated_reading_time_hours=round(reading_time / 60, 1) if reading_time > 0 else 0.0,
+            file_size_mb=round(book.file_size / (1024 * 1024), 2),
+            has_cover=bool(book.cover_image),
+            chapters=chapters_data,
+            reading_progress={
                 "current_chapter": current_chapter,
                 "current_page": current_page,
                 "current_position": current_position,
                 "reading_location_cfi": reading_location_cfi,
                 "progress_percent": round(progress_percent, 1),
             },
-        }
+        )
 
-        # Cache the result (1 hour TTL for book metadata)
-        await cache_manager.set(cache_key_str, response, ttl=CACHE_TTL["book_metadata"])
+        await cache_manager.set(cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_metadata"])
 
         return response
 
