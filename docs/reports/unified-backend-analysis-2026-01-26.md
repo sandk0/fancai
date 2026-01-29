@@ -2947,18 +2947,18 @@ result = await db.execute(
 
 #### P0 — CRITICAL (немедленно)
 
-| ID | Задача | Файл | Время |
-|----|--------|------|-------|
-| TD-AUDIT-25-1 | Fix missing GeneratedImage attributes | chapters.py:175-176 | 15м |
+| ID | Задача | Файл | Время | Статус |
+|----|--------|------|-------|--------|
+| TD-AUDIT-25-1 | Fix missing GeneratedImage attributes | chapters.py:175-176 | 15м | ✅ b447263 |
 
 #### P1 — HIGH (этот спринт)
 
-| ID | Задача | Файл | Время |
-|----|--------|------|-------|
-| TD-AUDIT-25-2 | Fix health.py type errors | health.py | 1ч |
-| TD-AUDIT-25-3 | Add Optional to push.py | push.py:267 | 5м |
-| TD-AUDIT-25-4 | Fix reading_location_cfi type | book_progress_service.py:161 | 5м |
-| TD-AUDIT-25-5 | Pydantic v2 min_length | reading_sessions.py:119-120 | 5м |
+| ID | Задача | Файл | Время | Статус |
+|----|--------|------|-------|--------|
+| TD-AUDIT-25-2 | Fix health.py type errors | health.py | 1ч | ⏳ Deferred |
+| TD-AUDIT-25-3 | Add Optional to push.py | push.py:267 | 5м | ✅ b447263 |
+| TD-AUDIT-25-4 | Fix reading_location_cfi type | book_progress_service.py:161 | 5м | ✅ b447263 |
+| TD-AUDIT-25-5 | Pydantic v2 min_length | reading_sessions.py:119-120 | 5м | ✅ b447263 |
 
 #### P2 — MEDIUM (backlog)
 
@@ -2974,14 +2974,14 @@ result = await db.execute(
 
 | Категория | Всего | Выполнено | Осталось |
 |-----------|-------|-----------|----------|
-| **P0 Critical** | 8 | 7 | **1** (TD-AUDIT-25-1) |
-| **P1 High** | 21 | 17 | **4** (25-2..5) |
+| **P0 Critical** | 8 | 8 | **0 ✅** |
+| **P1 High** | 21 | 20 | **1** (25-2 deferred) |
 | **P2 Medium** | 30 | 27 | **3** (25-6..8) |
 | **Entity Cards** | 20 | 18 | **2** |
 | **Backlog** | 7 | 0 | **7** |
-| **ИТОГО** | **86** | **69** | **17** |
+| **ИТОГО** | **86** | **73** | **13** |
 
-**Прогресс: 80%** (69/86 задач)
+**Прогресс: 85%** (73/86 задач)
 
 ---
 
@@ -3008,4 +3008,4 @@ BACKLOG (P2):
 
 **Автор:** Claude (Sisyphus)  
 **Дата:** 29 января 2026  
-**Версия:** 13.0 (Full Architectural Audit)
+**Версия:** 14.0 (Audit Fixes Applied)
