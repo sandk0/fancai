@@ -84,7 +84,6 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
 import { useEntityNetwork, usePrefetchEntityNetwork } from '@/hooks/useEntityNetwork';
 import { EntityDrawer } from '@/components/Entities/EntityDrawer';
-import { Users } from 'lucide-react';
 
 // Types for position conflict
 interface PositionConflict {
