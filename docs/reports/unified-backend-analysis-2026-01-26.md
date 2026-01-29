@@ -2606,6 +2606,86 @@ QUALITY (если готовимся к production):
 
 ---
 
+## Часть 24: Сессия 29 января 2026 (продолжение)
+
+### 24.1 ✅ ВЫПОЛНЕНО — TD-P16-1 API Format Audit (20/20)
+
+| Файл | Endpoints | Статус |
+|------|-----------|--------|
+| auth.py | 2/2 | ✅ LoginResponse, RegisterResponse |
+| reading_progress.py | 1/1 | ✅ ReadingProgressUpdateResponse |
+| chapters.py | 1/1 | ✅ ChaptersListResponse |
+| crud.py | 2/2 | ✅ BookListResponse, BookDetailResponse |
+| images.py | 9/9 | ✅ All async/admin endpoints converted |
+| admin/feature_flags.py | 4/4 | ✅ |
+| descriptions.py | 1/1 | ✅ BackgroundExtractionResponse |
+
+**Новые схемы (images.py):**
+- PerformanceStats, SystemStatus, AdminImageStatsResponse
+- AsyncGenerationQueueResponse, AsyncBatchQueueResponse, AsyncBatchSkippedResponse
+- TaskStatusResponse
+
+### 24.2 ✅ ВЫПОЛНЕНО — EC-1.2 LLM Entity Alias Deduplication
+
+| Компонент | Описание |
+|-----------|----------|
+| `entity_deduplication_service.py` | Gemini-based semantic duplicate detection |
+| `GET /admin/entities/suggest-merges/{book_id}` | Admin endpoint для LLM анализа |
+| `_merge_entities_internal()` | Refactored merge function for reuse |
+| Auto-merge in book_tasks.py | Automatic merge for confidence >= 0.85 |
+
+**Gemini prompt находит:**
+- Full name vs nickname: "Гарри Поттер" ↔ "Поттер"
+- Aliases: "Геральт" ↔ "Белый Волк"
+- Descriptive names: "Старый волшебник" ↔ "Дамблдор"
+
+### 24.3 Коммиты сессии
+
+| Коммит | Описание |
+|--------|----------|
+| `2777be0` | TD-P16-1 images.py async endpoints (4 final) |
+| `a493351` | EC-1.2 LLM entity alias deduplication |
+
+### 24.4 Обновлённая статистика
+
+| Категория | Всего | Выполнено | Осталось |
+|-----------|-------|-----------|----------|
+| **P0 Critical** | 7 | 7 | **0 ✅** |
+| **P1 High** | 17 | 17 | **0 ✅** |
+| **P2 Performance** | 4 | 4 | **0 ✅** |
+| **TD-P16-1 API Audit** | 20 | 20 | **0 ✅** |
+| **Entity Cards Core** | 12 | 12 | **0 ✅** |
+| **Entity Cards Enhancement** | 3 | 1 | **2** (EC-2.1 frontend, EC-2.5) |
+| **Entity Cards Polish** | 5 | 0 | **5** (LOW) |
+| **Backlog** | 7 | 0 | **7** |
+| **ИТОГО** | **75** | **61** | **14** |
+
+**Прогресс: 81%** (61/75 задач)
+
+### 24.5 Оставшиеся задачи
+
+**MEDIUM Priority — Entity Enhancement:**
+| ID | Задача | Оценка |
+|----|--------|--------|
+| EC-2.1 | Frontend CFI integration | 2ч |
+| EC-2.5 | CFI to descriptions | 1ч |
+
+**LOW Priority — Frontend Polish:**
+| ID | Задача | Оценка |
+|----|--------|--------|
+| EC-4.4 | CSS variables | 1ч |
+| EC-4.5 | Virtualization | 2ч |
+| EC-5.4 | Entity unit tests | 3ч |
+| EC-5.5 | E2E tests | 4ч |
+
+**BACKLOG:**
+| ID | Задача | Оценка |
+|----|--------|--------|
+| EC-6.1..6.5 | Relationship Cards | 14-16ч |
+| BL-1..2 | Gemini Pro integration | 6ч |
+
+---
+
 **Автор:** Claude (Sisyphus)  
 **Дата:** 29 января 2026  
-**Версия:** 11.0 (Plan Actualization)
+**Версия:** 12.0 (EC-1.2 + TD-P16-1 Complete)
