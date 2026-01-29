@@ -158,7 +158,7 @@ class BookProgressService:
         book_id: UUID,
         chapter_number: int,
         position_percent: float = 0.0,
-        reading_location_cfi: str = None,
+        reading_location_cfi: Optional[str] = None,
         scroll_offset_percent: float = 0.0,
     ) -> ReadingProgress:
         """

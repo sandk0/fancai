@@ -124,12 +124,15 @@ async def check_database(db: AsyncSession) -> ComponentHealthResponse:
             )
         else:
             return ComponentHealthResponse(
-                status="error", message="Database query returned unexpected result"
+                status="error",
+                message="Database query returned unexpected result",
+                latency_ms=round(latency, 2),
             )
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return ComponentHealthResponse(
-            status="error", message="Database connection failed"
+            status="error",
+            message="Database connection failed",
         )
 
 

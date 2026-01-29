@@ -117,7 +117,7 @@ class BatchUpdateRequest(BaseModel):
     """
 
     updates: List[BatchUpdateItem] = Field(
-        ..., min_items=1, max_items=50, description="Список обновлений (max 50)"
+        ..., min_length=1, max_length=50, description="Список обновлений (max 50)"
     )
 
 

@@ -22,6 +22,8 @@ Usage:
     POST /api/v1/push/test
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
@@ -264,7 +266,7 @@ async def list_subscriptions(
     "Useful for verifying that push notifications are working correctly.",
 )
 async def send_test_notification(
-    request: TestNotificationRequest = None,
+    request: Optional[TestNotificationRequest] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> TestNotificationResponse:

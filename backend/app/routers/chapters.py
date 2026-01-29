@@ -166,14 +166,12 @@ async def get_chapter(
         )
         images = images_result.scalars().all()
 
-        # Convert images to dict format for response
         images_data: List[Dict[str, Any]] = []
         for img in images:
             images_data.append({
                 "id": str(img.id),
                 "image_url": img.image_url,
-                "description_text": img.description_text,
-                "description_type": img.description_type,
+                "prompt_used": img.prompt_used,
                 "status": img.status,
             })
 
