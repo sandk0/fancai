@@ -494,13 +494,6 @@ async def end_reading_session(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Session already ended"
             )
 
-        # Валидация: end_position должна быть >= start_position
-        if request.end_position < session.start_position:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"end_position ({request.end_position}) must be >= start_position ({session.start_position})",
-            )
-
         # Завершаем сессию используя метод модели
         try:
             session.end_session(
