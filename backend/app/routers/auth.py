@@ -23,6 +23,8 @@ from ..schemas.responses import (
     RegisterResponse,
     RefreshTokenResponse,
     LogoutResponse,
+    UserResponse,
+    TokenPair,
 )
 from ..schemas.responses.auth import (
     CurrentUserResponse,
@@ -112,26 +114,17 @@ async def register_user(
         # Refresh user object to ensure all fields are loaded
         await db.refresh(user)
 
-        # Access all fields while still in session to avoid detached instance errors
-        user_data = {
-            "id": str(user.id),
-            "email": user.email,
-            "full_name": user.full_name,
-            "is_active": user.is_active,
-            "is_verified": user.is_verified,
-            "is_admin": user.is_admin,
-            "created_at": user.created_at.isoformat(),
-            "updated_at": user.updated_at.isoformat(),
-        }
+        tokens_dict = auth_svc.create_tokens_for_user(user)
 
-        # Создаем токены для нового пользователя (используем DI)
-        tokens = auth_svc.create_tokens_for_user(user)
-
-        return {
-            "user": user_data,
-            "tokens": tokens,
-            "message": "User registered successfully",
-        }
+        return RegisterResponse(
+            user=UserResponse.model_validate(user),
+            tokens=TokenPair(
+                access_token=tokens_dict["access_token"],
+                refresh_token=tokens_dict["refresh_token"],
+                token_type=tokens_dict.get("token_type", "bearer"),
+            ),
+            message="User registered successfully",
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -171,30 +164,17 @@ async def login_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # User object already refreshed in auth_service.authenticate_user()
-    # All fields including created_at, updated_at are loaded
+    tokens_dict = auth_svc.create_tokens_for_user(user)
 
-    # Access all fields while still in session to avoid detached instance errors
-    user_data = {
-        "id": str(user.id),
-        "email": user.email,
-        "full_name": user.full_name,
-        "is_active": user.is_active,
-        "is_verified": user.is_verified,
-        "is_admin": user.is_admin,
-        "created_at": user.created_at.isoformat(),
-        "updated_at": user.updated_at.isoformat(),
-        "last_login": user.last_login.isoformat() if user.last_login else None,
-    }
-
-    # Создаем токены (используем DI)
-    tokens = auth_svc.create_tokens_for_user(user)
-
-    return {
-        "user": user_data,
-        "tokens": tokens,
-        "message": "Login successful",
-    }
+    return LoginResponse(
+        user=UserResponse.model_validate(user),
+        tokens=TokenPair(
+            access_token=tokens_dict["access_token"],
+            refresh_token=tokens_dict["refresh_token"],
+            token_type=tokens_dict.get("token_type", "bearer"),
+        ),
+        message="Login successful",
+    )
 
 
 @router.post("/auth/refresh", response_model=RefreshTokenResponse)

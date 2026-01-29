@@ -34,17 +34,18 @@ from ..schemas.responses import (
     NavigationInfo,
     BookMinimalInfo,
 )
+from ..schemas.responses.chapters import ChaptersListResponse, ChapterListItem
 
 
 router = APIRouter()
 
 
-@router.get("/{book_id}/chapters")
+@router.get("/{book_id}/chapters", response_model=ChaptersListResponse)
 async def list_chapters(
     book: Book = Depends(get_user_book),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
+) -> ChaptersListResponse:
     """
     Получает список всех глав книги.
 
@@ -64,43 +65,41 @@ async def list_chapters(
         TTL: 1 hour (rarely changes)
         Key: book:{book_id}:chapters:list
     """
-    # Try to get from cache
     cache_key_str = cache_key("book", book.id, "chapters", "list")
     cached_result = await cache_manager.get(cache_key_str)
     if cached_result is not None:
-        return cached_result
+        try:
+            return ChaptersListResponse.model_validate(cached_result)
+        except Exception:
+            await cache_manager.delete(cache_key_str)
 
     try:
-        book_id = book.id
-
-        # Получаем главы
         chapters = await book_service.get_book_chapters(
-            db=db, book_id=book_id, user_id=current_user.id
+            db=db, book_id=book.id, user_id=current_user.id
         )
 
-        # Формируем ответ
-        chapters_data = []
-        for chapter in sorted(chapters, key=lambda c: c.chapter_number):
-            chapters_data.append(
-                {
-                    "id": str(chapter.id),
-                    "number": chapter.chapter_number,
-                    "title": chapter.title,
-                    "word_count": chapter.word_count,
-                    "estimated_reading_time_minutes": chapter.estimated_reading_time,
-                    "is_description_parsed": chapter.is_description_parsed,
-                    "descriptions_found": chapter.descriptions_found,
-                }
+        chapters_list = [
+            ChapterListItem(
+                id=chapter.id,
+                number=chapter.chapter_number,
+                title=chapter.title or f"Chapter {chapter.chapter_number}",
+                word_count=chapter.word_count,
+                estimated_reading_time_minutes=chapter.estimated_reading_time,
+                is_description_parsed=chapter.is_description_parsed,
+                descriptions_found=chapter.descriptions_found,
             )
+            for chapter in sorted(chapters, key=lambda c: c.chapter_number)
+        ]
 
-        response = {
-            "book_id": str(book_id),
-            "total_chapters": len(chapters_data),
-            "chapters": chapters_data,
-        }
+        response = ChaptersListResponse(
+            book_id=book.id,
+            total_chapters=len(chapters_list),
+            chapters=chapters_list,
+        )
 
-        # Cache the result (1 hour TTL)
-        await cache_manager.set(cache_key_str, response, ttl=CACHE_TTL["book_chapters"])
+        await cache_manager.set(
+            cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_chapters"]
+        )
 
         return response
 

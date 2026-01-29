@@ -118,6 +118,31 @@ class ChapterDetailResponse(BaseModel):
 
 
 # ============================================================================
+# CHAPTER LIST SCHEMAS
+# ============================================================================
+
+
+class ChapterListItem(BaseModel):
+    """Summary info for chapter in list view."""
+
+    id: UUID
+    number: int = Field(ge=1)
+    title: str
+    word_count: int = Field(ge=0)
+    estimated_reading_time_minutes: int = Field(ge=0)
+    is_description_parsed: bool
+    descriptions_found: int = Field(ge=0)
+
+
+class ChaptersListResponse(BaseModel):
+    """Response for GET /{book_id}/chapters endpoint."""
+
+    book_id: UUID
+    total_chapters: int = Field(ge=0)
+    chapters: List[ChapterListItem]
+
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
@@ -125,4 +150,6 @@ __all__ = [
     "NavigationInfo",
     "BookMinimalInfo",
     "ChapterDetailResponse",
+    "ChapterListItem",
+    "ChaptersListResponse",
 ]

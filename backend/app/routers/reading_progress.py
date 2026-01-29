@@ -10,7 +10,7 @@ API роуты для работы с прогрессом чтения в fanca
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import Dict, Any, Optional
+from typing import Optional
 from uuid import UUID
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -24,6 +24,7 @@ from ..models.book import ReadingProgress
 from ..schemas.responses import (
     ReadingProgressDetailResponse,
     ReadingProgressResponse,
+    ReadingProgressUpdateResponse,
 )
 
 
@@ -126,13 +127,13 @@ async def get_reading_progress(
         )
 
 
-@router.post("/{book_id}/progress")
+@router.post("/{book_id}/progress", response_model=ReadingProgressUpdateResponse)
 async def update_reading_progress(
     book_id: UUID,
     progress_data: ReadingProgressUpdateRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
-) -> Dict[str, Any]:
+) -> ReadingProgressUpdateResponse:
     """
     Обновляет прогресс чтения книги пользователем.
     """
@@ -171,22 +172,10 @@ async def update_reading_progress(
         book_cache_key = cache_key("book", book_id, "metadata")
         await cache_manager.delete(book_cache_key)
 
-        return {
-            "progress": {
-                "id": str(progress.id),
-                "current_chapter": progress.current_chapter,
-                "current_page": progress.current_page,
-                "current_position": progress.current_position,
-                "reading_location_cfi": progress.reading_location_cfi,
-                "scroll_offset_percent": progress.scroll_offset_percent,
-                "reading_time_minutes": progress.reading_time_minutes,
-                "reading_speed_wpm": progress.reading_speed_wpm,
-                "last_read_at": (
-                    progress.last_read_at.isoformat() if progress.last_read_at else None
-                ),
-            },
-            "message": "Reading progress updated successfully",
-        }
+        return ReadingProgressUpdateResponse(
+            progress=ReadingProgressResponse.model_validate(progress),
+            message="Reading progress updated successfully",
+        )
 
     except HTTPException:
         raise
