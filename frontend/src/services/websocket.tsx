@@ -35,8 +35,9 @@ class WebSocketService {
   private getWebSocketUrl(): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '8000' : window.location.port;
-    return `${protocol}//${host}:${port}/ws`;
+    const portSuffix = (import.meta.env.DEV || window.location.port === '') ? '' : `:${window.location.port}`;
+    
+    return `${protocol}//${host}${portSuffix}/ws`;
   }
 
   connect(): Promise<void> {
