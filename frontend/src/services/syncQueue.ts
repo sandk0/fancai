@@ -661,9 +661,12 @@ function mapTypeToEndpoint(
     case 'progress':
       return `/api/v1/books/${bookId}/progress`
     case 'reading_session':
+      if (data.action === 'start') return '/api/v1/reading-sessions/start';
+      if (data.action === 'update') return `/api/v1/reading-sessions/${data.sessionId}/update`;
+      if (data.action === 'end') return `/api/v1/reading-sessions/${data.sessionId}/end`;
       return data.sessionId
-        ? `/api/v1/reading-sessions/${data.sessionId}`
-        : '/api/v1/reading-sessions'
+        ? `/api/v1/reading-sessions/${data.sessionId}/update`
+        : '/api/v1/reading-sessions/start'
     case 'bookmark':
       return `/api/v1/books/${bookId}/bookmarks`
     case 'highlight':
@@ -680,7 +683,7 @@ function mapTypeToMethod(type: SyncOperationType): 'POST' | 'PUT' {
     case 'progress':
       return 'PUT'
     case 'reading_session':
-      return 'POST' // Will be PUT if sessionId exists
+      return 'POST'
     default:
       return 'POST'
   }
@@ -735,22 +738,35 @@ export async function queueReadingSession(
   userId: string,
   bookId: string,
   action: 'start' | 'update' | 'end',
-  data?: { sessionId?: string; duration?: number; pagesRead?: number }
+  data?: { sessionId?: string; duration?: number; pagesRead?: number; currentPosition?: number; endPosition?: number }
 ): Promise<string> {
-  const endpoint =
-    action === 'start'
-      ? '/api/v1/reading-sessions'
-      : `/api/v1/reading-sessions/${data?.sessionId}`
+  let endpoint = '/api/v1/reading-sessions';
+  if (action === 'start') {
+    endpoint = '/api/v1/reading-sessions/start';
+  } else if (action === 'update' && data?.sessionId) {
+    endpoint = `/api/v1/reading-sessions/${data.sessionId}/update`;
+  } else if (action === 'end' && data?.sessionId) {
+    endpoint = `/api/v1/reading-sessions/${data.sessionId}/end`;
+  }
+
+  const body: Record<string, any> = {
+    book_id: bookId,
+    action,
+    ...data,
+  };
+
+  if (data?.currentPosition !== undefined) {
+    body.current_position = Math.round(data.currentPosition);
+  }
+  if (data?.endPosition !== undefined) {
+    body.end_position = Math.round(data.endPosition);
+  }
 
   return syncQueue.addOperation({
     type: 'reading_session',
     endpoint,
     method: action === 'start' ? 'POST' : 'PUT',
-    body: {
-      book_id: bookId,
-      action,
-      ...data,
-    },
+    body,
     userId,
     bookId,
     priority: 'critical',

@@ -41,7 +41,7 @@ export const readingSessionsAPI = {
   ): Promise<ReadingSession> {
     const data: StartSessionRequest = {
       book_id: bookId,
-      start_position: Math.max(0, Math.min(100, startPosition)),
+      start_position: Math.round(Math.max(0, Math.min(100, startPosition))),
       device_type: deviceType || detectDeviceType(),
     };
 
@@ -83,12 +83,12 @@ export const readingSessionsAPI = {
     currentPosition: number
   ): Promise<ReadingSession> {
     const data: UpdateSessionRequest = {
-      current_position: Math.max(0, Math.min(100, currentPosition)),
+      current_position: Math.round(Math.max(0, Math.min(100, currentPosition))),
     };
 
     try {
       const response = await apiClient.put<any>(
-        `/reading-sessions/${sessionId}`,
+        `/reading-sessions/${sessionId}/update`,
         data
       );
 
@@ -121,7 +121,7 @@ export const readingSessionsAPI = {
     endPosition: number
   ): Promise<ReadingSession> {
     const data: EndSessionRequest = {
-      end_position: Math.max(0, Math.min(100, endPosition)),
+      end_position: Math.round(Math.max(0, Math.min(100, endPosition))),
     };
 
     try {
@@ -184,7 +184,7 @@ export const readingSessionsAPI = {
     if (params?.skip) searchParams.append('skip', params.skip.toString());
     if (params?.limit) searchParams.append('limit', params.limit.toString());
 
-    const url = `/reading-sessions${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+    const url = `/reading-sessions/history${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
 
     try {
       return await apiClient.get<ReadingSessionHistory>(url);

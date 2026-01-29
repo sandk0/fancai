@@ -361,11 +361,11 @@ export function useReadingSession({
             onError: () => {
               // If graceful end fails, use beacon API as fallback
               try {
-                const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+                const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
                 navigator.sendBeacon(
                   `${apiUrl}/reading-sessions/${sessionId}/end`,
                   JSON.stringify({
-                    end_position: position,
+                    end_position: Math.round(position),
                     _beacon: true,
                   })
                 );
@@ -402,12 +402,12 @@ export function useReadingSession({
 
         // Try beacon API first (works even when page is closing)
         try {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+          const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
 
           const beaconData = new Blob(
             [
               JSON.stringify({
-                end_position: positionRef.current,
+                end_position: Math.round(positionRef.current),
               }),
             ],
             { type: 'application/json' }
