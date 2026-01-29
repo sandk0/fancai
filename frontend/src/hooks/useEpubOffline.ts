@@ -249,20 +249,20 @@ export function useEpubOffline(bookId: string) {
       return null
     }
 
-    // Try cache first
+    // Try cache first - ALWAYS check cache regardless of network status
     const cached = await epubCache.get(userId, bookId)
     if (cached) {
-      if (DEBUG) console.log('[useEpubOffline] Using cached EPUB for:', bookId)
+      if (DEBUG) console.log('[useEpubOffline] Cache HIT for:', bookId)
       return cached
     }
 
-    // If offline and not cached, return null
+    // If not in cache, check network connectivity
     if (!isOnline()) {
       if (DEBUG) console.log('[useEpubOffline] Offline and no cache for:', bookId)
       return null
     }
 
-    // Fetch from network
+    // Fetch from network (only if not cached and online)
     try {
       const bookUrl = booksAPI.getBookFileUrl(bookId)
       const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)

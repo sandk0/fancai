@@ -251,30 +251,41 @@ export const useProgressSync = ({
         });
 
         const url = `${window.location.origin}/api/v1/books/${bookId}/progress`;
-        // Fixed: Use correct storage key (was 'auth_token', should be 'bookreader_access_token')
-        const token = localStorage.getItem('bookreader_access_token');
-
-        if (token) {
-          // Use fetch with keepalive - supports headers unlike sendBeacon
-          // keepalive allows the request to continue after the page unloads
-          try {
-            fetch(url, {
-              method: 'POST', // Fixed: backend expects POST, not PUT (was causing 405 errors)
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: data,
-              keepalive: true, // Critical: allows request to complete after page unload
-            }).catch(() => {
-              // Ignore errors on page close - request may have been sent
+        
+        // FIX (TD-FRONT-101): Use credentials: 'include' to send HttpOnly cookies
+        // Backend now uses HttpOnly cookies instead of localStorage tokens
+        // keepalive allows the request to continue after the page unloads
+        try {
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: data,
+            keepalive: true,
+            credentials: 'include', // Critical: sends HttpOnly cookies for authentication
+          }).catch(() => {
+            // Ignore errors on page close - request may have been sent
+          });
+        } catch {
+          // Fallback to sync endpoint which accepts token in body for sendBeacon
+          if ('sendBeacon' in navigator) {
+            const syncUrl = `${window.location.origin}/api/v1/sync/batch`;
+            const syncPayload = JSON.stringify({
+              operations: [{
+                type: 'progress',
+                book_id: bookId,
+                data: {
+                  current_chapter: chapter,
+                  current_position_percent: currentProgress,
+                  reading_location_cfi: cfi,
+                  scroll_offset_percent: currentScrollOffset,
+                },
+                timestamp: Date.now(),
+              }],
             });
-          } catch {
-            // Fallback to sendBeacon (won't have auth, but better than nothing)
-            if ('sendBeacon' in navigator) {
-              const blob = new Blob([data], { type: 'application/json' });
-              navigator.sendBeacon(url, blob);
-            }
+            const blob = new Blob([syncPayload], { type: 'text/plain' });
+            navigator.sendBeacon(syncUrl, blob);
           }
         }
       }

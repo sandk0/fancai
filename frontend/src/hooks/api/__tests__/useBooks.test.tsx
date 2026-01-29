@@ -67,11 +67,8 @@ describe('useBooks hooks', () => {
     // Mock auth store
     vi.mocked(useAuthStore.getState).mockReturnValue({
       user: mockUser,
-      accessToken: 'test-token',
-      refreshToken: 'test-refresh',
       isAuthenticated: true,
       isLoading: false,
-      tokens: null,
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),

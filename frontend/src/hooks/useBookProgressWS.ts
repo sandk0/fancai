@@ -1,11 +1,11 @@
 /**
  * useBookProgressWS - WebSocket hook for real-time book processing progress
  *
- * Phase 5: WebSocket Implementation
+ * Phase 5: WebSocket Implementation (Updated January 2026)
  *
  * Features:
  * - Automatic connection/reconnection
- * - JWT authentication via query param
+ * - JWT authentication via HttpOnly cookie (browser sends automatically)
  * - Ping/pong keepalive
  * - Graceful cleanup on unmount
  * - Fallback to polling on connection failure
@@ -96,17 +96,18 @@ export function useBookProgressWS({
     const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
     const pingInterval = useRef<NodeJS.Timeout | null>(null);
 
-    const { accessToken } = useAuthStore();
+    const { isAuthenticated } = useAuthStore();
 
-    /**
-     * Build WebSocket URL with proper protocol and auth token
-     */
-    const buildWsUrl = useCallback(() => {
-        const baseUrl = import.meta.env.VITE_WS_URL || window.location.origin;
-        const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-        const wsHost = baseUrl.replace(/^https?/, wsProtocol);
-        return `${wsHost}/ws/book-progress/${bookId}?token=${accessToken}`;
-    }, [bookId, accessToken]);
+    const buildWsUrl = useCallback((): string | null => {
+        if (!isAuthenticated) return null;
+        
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.hostname;
+        const port = import.meta.env.DEV ? '8000' : window.location.port;
+        const portSuffix = port ? `:${port}` : '';
+        
+        return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}`;
+    }, [isAuthenticated, bookId]);
 
     /**
      * Send message to WebSocket server
@@ -147,8 +148,8 @@ export function useBookProgressWS({
      * Connect to WebSocket server
      */
     const connect = useCallback(() => {
-        if (!accessToken || !bookId) {
-            console.warn('[useBookProgressWS] Missing token or bookId');
+        const wsUrl = buildWsUrl();
+        if (!wsUrl || !bookId) {
             return;
         }
 
@@ -158,8 +159,7 @@ export function useBookProgressWS({
         }
 
         setStatus('connecting');
-        const wsUrl = buildWsUrl();
-        console.log('[useBookProgressWS] Connecting to:', wsUrl.replace(accessToken, '***'));
+        if (import.meta.env.DEV) console.log('[useBookProgressWS] Connecting to WebSocket...');
 
         try {
             wsRef.current = new WebSocket(wsUrl);
@@ -251,11 +251,11 @@ export function useBookProgressWS({
             setStatus('error');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookId, accessToken, buildWsUrl, enabled, maxReconnectAttempts]);
+    }, [bookId, isAuthenticated, buildWsUrl, enabled, maxReconnectAttempts]);
 
     // Connect/disconnect based on enabled state
     useEffect(() => {
-        if (enabled && bookId && accessToken) {
+        if (enabled && bookId && isAuthenticated) {
             connect();
 
             // Initial fetch to get current state immediately (in case WS is silent initially)
@@ -294,7 +294,7 @@ export function useBookProgressWS({
         } else {
             disconnect();
         }
-    }, [enabled, bookId, accessToken, connect, disconnect]);
+    }, [enabled, bookId, isAuthenticated, connect, disconnect]);
 
     return {
         status,

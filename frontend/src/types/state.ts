@@ -4,18 +4,9 @@ import { User, Book, Chapter, GeneratedImage, UserProfile, GenerationStatus, Des
 
 // Auth Store State
 export interface AuthState {
-  // Authentication state
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  
-  // Token storage
-  tokens: {
-    access_token: string | null;
-    refresh_token: string | null;
-  } | null;
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
@@ -94,37 +85,66 @@ export interface ImagesState {
   refreshImages: () => Promise<void>;
 }
 
-// Reader Store State
-export interface ReaderState {
-  // Reader settings
-  fontSize: number; // 14, 16, 18, 20, 24
-  fontFamily: 'sans' | 'serif' | 'mono';
-  theme: 'light' | 'dark' | 'sepia';
-  lineHeight: number; // 1.2, 1.4, 1.6, 1.8, 2.0
-  wordsPerPage: number; // 250, 350, 450, 550
-  
-  // Reading state
+export type ReaderTheme = 'light' | 'dark' | 'sepia' | 'night' | 'outdoor';
+export type NavigationMode = 'swipe' | 'tap';
+
+export interface LocalReadingProgress {
+  bookId: string;
+  currentChapter: number;
   currentPage: number;
-  totalPages: number;
-  isFullscreen: boolean;
-  showImages: boolean;
-  autoScroll: boolean;
-  
+  progress: number;
+  lastReadAt: Date;
+  totalTimeRead: number;
+}
+
+export interface LocalBookmark {
+  chapter: number;
+  page: number;
+  text: string;
+  createdAt: Date;
+}
+
+export interface LocalHighlight {
+  id: string;
+  chapter: number;
+  text: string;
+  color: string;
+  createdAt: Date;
+}
+
+export interface ReaderState {
+  fontSize: number;
+  fontFamily: string;
+  lineHeight: number;
+  theme: ReaderTheme;
+  backgroundColor: string;
+  textColor: string;
+  maxWidth: number;
+  margin: number;
+  navigationMode: NavigationMode;
+
+  // Reading state
+  readingProgress: Record<string, LocalReadingProgress>;
+  bookmarks: Record<string, LocalBookmark[]>;
+  highlights: Record<string, LocalHighlight[]>;
+
   // Actions
-  setFontSize: (size: number) => void;
-  setFontFamily: (family: 'sans' | 'serif' | 'mono') => void;
-  setTheme: (theme: 'light' | 'dark' | 'sepia') => void;
-  setLineHeight: (height: number) => void;
-  setWordsPerPage: (words: number) => void;
-  setCurrentPage: (page: number) => void;
-  setTotalPages: (pages: number) => void;
-  toggleFullscreen: () => void;
-  toggleShowImages: () => void;
-  toggleAutoScroll: () => void;
-  nextPage: () => void;
-  previousPage: () => void;
-  goToPage: (page: number) => void;
+  updateFontSize: (size: number) => void;
+  updateFontFamily: (family: string) => void;
+  updateLineHeight: (height: number) => void;
+  updateTheme: (theme: ReaderTheme) => void;
+  updateMaxWidth: (width: number) => void;
+  updateMargin: (margin: number) => void;
+  updateNavigationMode: (mode: NavigationMode) => void;
+  updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
+  addBookmark: (bookId: string, chapter: number, page: number, text: string) => void;
+  removeBookmark: (bookId: string, index: number) => void;
+  addHighlight: (bookId: string, chapter: number, text: string, color: string) => void;
+  removeHighlight: (bookId: string, highlightId: string) => void;
   resetSettings: () => void;
+  reset: () => void;
+  getReadingProgress: (bookId: string) => LocalReadingProgress | null;
+  getTotalReadingTime: () => number;
 }
 
 // UI Store State

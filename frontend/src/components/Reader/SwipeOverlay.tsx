@@ -14,6 +14,7 @@
  */
 
 import React, { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { m, AnimatePresence } from 'framer-motion';
 import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
 import SwipeIndicator from './SwipeIndicator';
@@ -61,6 +62,7 @@ export const SwipeOverlay: React.FC<SwipeOverlayProps> = memo(({
   onAnimationComplete: _onAnimationComplete,
   headerHeight = 70,
 }) => {
+  const { t } = useTranslation();
   // Calculate progress as percentage of viewport
   const swipeProgress = useMemo(() => {
     const absOffset = Math.abs(swipeState.offset);
@@ -133,7 +135,6 @@ export const SwipeOverlay: React.FC<SwipeOverlayProps> = memo(({
             edgeOffset={20}
           />
 
-          {/* Boundary feedback - shows when at chapter edge */}
           {showBoundaryFeedback && (
             <m.div
               className="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2
@@ -143,7 +144,7 @@ export const SwipeOverlay: React.FC<SwipeOverlayProps> = memo(({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
             >
-              {swipeState.atBoundary === 'start' ? 'Начало главы' : 'Конец главы'}
+              {swipeState.atBoundary === 'start' ? t('reader.swipe.chapter_start') : t('reader.swipe.chapter_end')}
             </m.div>
           )}
 

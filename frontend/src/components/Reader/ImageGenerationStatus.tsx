@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GenerationStatus } from '@/hooks/epub/useImageModal';
 
 interface ImageGenerationStatusProps {
@@ -23,6 +24,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
   error,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -62,7 +64,6 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
   // Don't render if not needed
   if (!shouldRender) return null;
 
-  // Status icon and text
   const getStatusContent = () => {
     switch (status) {
       case 'generating':
@@ -70,7 +71,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
           icon: (
             <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
           ),
-          text: 'Генерация изображения...',
+          text: t('reader.image_generation.generating'),
           showCancel: true,
         };
       case 'completed':
@@ -80,7 +81,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ),
-          text: 'Изображение создано',
+          text: t('reader.image_generation.completed'),
           showCancel: false,
         };
       case 'error':
@@ -90,7 +91,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           ),
-          text: error || 'Ошибка генерации',
+          text: error || t('reader.image_generation.error'),
           showCancel: false,
         };
       default:
@@ -102,6 +103,9 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`
         fixed top-20 right-4 z-[800]
         bg-popover border-border border
@@ -122,7 +126,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
           <button
             onClick={onCancel}
             className="min-h-[44px] min-w-[44px] p-2 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Отменить"
+            title={t('reader.image_generation.cancel')}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ProgressIndicatorProps {
   progress: number; // 0-100
@@ -26,6 +27,8 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   totalPages,
   isVisible = true,
 }) => {
+  const { t } = useTranslation();
+
   if (!isVisible) return null;
 
   return (
@@ -38,7 +41,14 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
 
         {/* Progress bar */}
         <div className="flex-1">
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={t('reader.progress.aria_label', 'Reading progress')}
+            className="h-2 bg-muted rounded-full overflow-hidden"
+          >
             <div
               className="h-full bg-primary transition-all duration-300"
               style={{ width: `${progress}%` }}
@@ -46,22 +56,17 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
           </div>
         </div>
 
-        {/* Chapter/Page info */}
         <div className="text-xs text-muted-foreground flex items-center gap-2">
           {totalChapters && (
-            <span>
-              Гл. {currentChapter}/{totalChapters}
-            </span>
+            <span>{t('reader.progress.chapter_short', { current: currentChapter, total: totalChapters })}</span>
           )}
           {!totalChapters && (
-            <span>Глава {currentChapter}</span>
+            <span>{t('reader.progress.chapter_only', { current: currentChapter })}</span>
           )}
           {totalPages && currentPage && (
             <>
               <span>•</span>
-              <span>
-                Стр. {currentPage}/{totalPages}
-              </span>
+              <span>{t('reader.progress.page_short', { current: currentPage, total: totalPages })}</span>
             </>
           )}
         </div>

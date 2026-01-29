@@ -92,52 +92,32 @@ export const IOSTapZones = memo(function IOSTapZones({
   headerHeight = 70,
   navigationEnabled = true, // When false (swipe mode), only center zone is rendered
 }: IOSTapZonesProps) {
-  // Only render on iOS
-  if (!isIOS()) {
-    return null;
-  }
-
+  // All hooks MUST be called before any early returns (Rules of Hooks)
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastNavTimeRef = useRef<number>(0);
   const lastDescClickTimeRef = useRef<number>(0);
-
-  // Navigation lock - prevents multiple navigations while one is in progress
   const isNavigatingRef = useRef<boolean>(false);
-  const navCountRef = useRef<number>(0); // Debug: count navigations
-
-  // Debug: visual tap indicator state
+  const navCountRef = useRef<number>(0);
   const [debugTapInfo, setDebugTapInfo] = useState<string | null>(null);
+  
+  const isIOSDevice = isIOS();
 
-  // Listen for response from iframe
   useEffect(() => {
+    if (!isIOSDevice) return;
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'IFRAME_DEBUG') {
-        // Show debug message from iframe
         setDebugTapInfo(`IF: ${event.data.message}`);
         setTimeout(() => setDebugTapInfo(null), 3000);
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [isIOSDevice]);
 
-  // Debug log for iOS detection (only once on mount)
-  if (import.meta.env.DEV) {
-    console.log('[IOSTapZones] Rendering overlay zones on iOS', {
-      isStandalone: isStandalone(),
-      zoneWidth: `${ZONE_WIDTH_PERCENT}%`,
-    });
-  }
-
-  /**
-   * Handle touch start - record position
-   */
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
-
     const touch = e.touches[0];
     if (!touch) return;
-
     touchStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
@@ -145,19 +125,13 @@ export const IOSTapZones = memo(function IOSTapZones({
     };
   }, [enabled]);
 
-  /**
-   * Handle touch end - determine if tap and navigate
-   */
   const handleTouchEnd = useCallback((
     e: React.TouchEvent,
     action: 'prev' | 'next'
   ) => {
-    // Prevent default to stop any native handling
     e.preventDefault();
     e.stopPropagation();
-
     if (!enabled) return;
-
     if (!touchStartRef.current) return;
 
     const touch = e.changedTouches[0];
@@ -169,39 +143,26 @@ export const IOSTapZones = memo(function IOSTapZones({
     const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
     const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
     const duration = Date.now() - touchStartRef.current.time;
-
     touchStartRef.current = null;
 
-    // Check if it's a tap (not swipe or long press)
     const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
+    if (!isTap) return;
 
-    if (!isTap) {
-      return;
-    }
-
-    // Navigation lock - prevent multiple navigations
     if (isNavigatingRef.current) {
       setDebugTapInfo(`LOCKED`);
       setTimeout(() => setDebugTapInfo(null), 1000);
       return;
     }
 
-    // Debounce navigation to prevent double triggers
     const now = Date.now();
-    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) {
-      return;
-    }
+    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) return;
     lastNavTimeRef.current = now;
 
-    // Set navigation lock
     isNavigatingRef.current = true;
     navCountRef.current += 1;
     const navNum = navCountRef.current;
-
-    // Show debug indicator
     setDebugTapInfo(`NAV#${navNum}:${action}`);
 
-    // Navigate with lock protection
     const doNavigate = async () => {
       try {
         if (action === 'prev') {
@@ -210,7 +171,6 @@ export const IOSTapZones = memo(function IOSTapZones({
           await onNextPage();
         }
       } finally {
-        // Release lock after navigation completes or after timeout
         setTimeout(() => {
           isNavigatingRef.current = false;
           setDebugTapInfo(null);
@@ -218,44 +178,28 @@ export const IOSTapZones = memo(function IOSTapZones({
       }
     };
 
-    // Use requestAnimationFrame then execute
     requestAnimationFrame(() => {
       doNavigate();
     });
   }, [enabled, onPrevPage, onNextPage]);
 
-  /**
-   * Handle click - fallback for devices where touch events don't work
-   * NOTE: On real iOS devices, a tap may generate BOTH touchend AND click events
-   * The shared lastNavTimeRef and isNavigatingRef prevent double navigation
-   */
   const handleClick = useCallback((
     e: React.MouseEvent,
     action: 'prev' | 'next'
   ) => {
-    // Prevent default
     e.preventDefault();
     e.stopPropagation();
-
     if (!enabled) return;
 
-    // Navigation lock check
-    if (isNavigatingRef.current) {
-      return;
-    }
+    if (isNavigatingRef.current) return;
 
-    // Debounce - shared with touch handler to prevent double triggers
     const now = Date.now();
-    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) {
-      return;
-    }
+    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) return;
     lastNavTimeRef.current = now;
 
-    // Set navigation lock
     isNavigatingRef.current = true;
     navCountRef.current += 1;
     const navNum = navCountRef.current;
-
     setDebugTapInfo(`CLK#${navNum}:${action}`);
 
     const doNavigate = async () => {
@@ -278,15 +222,10 @@ export const IOSTapZones = memo(function IOSTapZones({
     });
   }, [enabled, onPrevPage, onNextPage]);
 
-  /**
-   * Handle center zone touch start - record position for tap detection
-   */
   const handleCenterTouchStart = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
-
     const touch = e.touches[0];
     if (!touch) return;
-
     touchStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
@@ -294,33 +233,6 @@ export const IOSTapZones = memo(function IOSTapZones({
     };
   }, [enabled]);
 
-  /**
-   * Handle center zone touch end - detect swipes OR send coordinates to iframe via postMessage
-   *
-   * iOS PWA FIX (January 2026):
-   * On iOS PWA, iframe.contentDocument is null due to security restrictions.
-   * Instead of trying to access it directly, we send tap coordinates to the iframe
-   * via postMessage. The script inside the iframe (injected by useContentHooks)
-   * will do elementFromPoint and send the descriptionId back via postMessage.
-   *
-   * SWIPE MODE FIX (January 2026):
-   * When navigationEnabled is false (swipe mode), we also detect swipe gestures here.
-   * The center zone overlay intercepts all touches before they reach the iframe,
-   * so we must handle swipes in this component for iOS.
-   *
-   * Flow for taps:
-   * 1. User taps in center zone
-   * 2. We calculate coordinates relative to iframe
-   * 3. We send postMessage to iframe with coordinates: { type: 'TAP_COORDINATES', x, y }
-   * 4. Script in iframe does elementFromPoint, finds description
-   * 5. Script sends postMessage back: { type: 'DESCRIPTION_CLICK', descriptionId }
-   * 6. useDescriptionHighlighting receives message and triggers callback
-   *
-   * Flow for swipes (when navigationEnabled is false):
-   * 1. User swipes horizontally
-   * 2. We detect the swipe direction
-   * 3. We call onPrevPage or onNextPage
-   */
   const handleCenterTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
 
@@ -455,7 +367,18 @@ export const IOSTapZones = memo(function IOSTapZones({
     }
   }, [enabled, navigationEnabled, onPrevPage, onNextPage, onCenterTap]);
 
-  // Common styles for tap zones
+  // Early return for non-iOS devices (after all hooks are called)
+  if (!isIOSDevice) {
+    return null;
+  }
+
+  if (import.meta.env.DEV) {
+    console.log('[IOSTapZones] Rendering overlay zones on iOS', {
+      isStandalone: isStandalone(),
+      zoneWidth: `${ZONE_WIDTH_PERCENT}%`,
+    });
+  }
+
   const baseStyle: React.CSSProperties = {
     position: 'absolute',
     top: `calc(${headerHeight}px + env(safe-area-inset-top))`,

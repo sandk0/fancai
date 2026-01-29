@@ -9,7 +9,7 @@ interface ParsingOverlayProps {
   bookId: string;
   onParsingComplete?: () => void;
   onCancel?: () => void;  // NEW: callback для отмены обработки
-  forceBlock?: boolean;  // eslint-disable-line @typescript-eslint/no-unused-vars -- Reserved for future use
+  forceBlock?: boolean;
   /** Use WebSocket for real-time updates (Phase 5). Falls back to polling on failure. */
   useWebSocket?: boolean;
 }

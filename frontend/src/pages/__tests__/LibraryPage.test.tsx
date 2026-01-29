@@ -14,8 +14,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LibraryPage from '../LibraryPage';
 import type { Book } from '@/types/api';
+import { useAuthStore } from '@/stores/auth';
+
+// Mock auth store first
+vi.mock('@/stores/auth');
+
+const mockUser = {
+  id: 'test-user-id',
+  email: 'test@example.com',
+  full_name: 'Test User',
+  is_active: true,
+  is_verified: true,
+  is_admin: false,
+  created_at: '2025-01-01T00:00:00Z',
+};
 
 // Mock dependencies
 const mockNavigate = vi.fn();
@@ -84,17 +99,39 @@ const createMockBook = (overrides?: Partial<Book>): Book => ({
   ...overrides,
 });
 
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false },
+  },
+});
+
 const renderLibraryPage = () => {
+  const queryClient = createTestQueryClient();
   return render(
-    <BrowserRouter>
-      <LibraryPage />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <LibraryPage />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 };
 
 describe('LibraryPage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    vi.mocked(useAuthStore.getState).mockReturnValue({
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      refreshAccessToken: vi.fn(),
+      updateUser: vi.fn(),
+      loadUserFromStorage: vi.fn(),
+    });
   });
 
   // ============================================================================

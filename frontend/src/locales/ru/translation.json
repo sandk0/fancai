@@ -1,0 +1,175 @@
+{
+  "reader": {
+    "loading": "Загрузка книги...",
+    "preparing": "Подготовка книги...",
+    "restoring_position": "Восстановление позиции...",
+    "restoring_session": "Восстановление сессии...",
+    "error": {
+      "title": "Не удалось загрузить книгу",
+      "technical_details": "Техническая информация",
+      "retry": "Попробовать снова",
+      "back_to_library": "В библиотеку",
+      "network": "Проверьте подключение к интернету и попробуйте снова.",
+      "not_found": "Файл книги не найден. Возможно, книга была удалена.",
+      "session_expired": "Сессия истекла. Пожалуйста, войдите в систему снова.",
+      "forbidden": "У вас нет доступа к этой книге.",
+      "server_error": "Ошибка сервера. Попробуйте позже.",
+      "timeout": "Превышено время ожидания. Проверьте соединение и попробуйте снова.",
+      "format_error": "Не удалось открыть файл книги. Формат может быть поврежден.",
+      "render_error": "Ошибка отображения. Обновите страницу и попробуйте снова.",
+      "unknown": "Произошла ошибка при загрузке книги. Попробуйте позже."
+    },
+    "conflict": {
+      "title": "Конфликт прогресса чтения",
+      "description": "Найден сохраненный прогресс, который отличается от текущего.",
+      "server": "Сервер",
+      "local": "Локально",
+      "use_server": "Использовать версию с сервера",
+      "use_local": "Оставить локальную версию",
+      "time_ago": "{{time}} назад",
+      "just_now": "только что",
+      "minutes_short": "{{count}} мин",
+      "hours_short": "{{count}} ч",
+      "days_short": "{{count}} д"
+    },
+    "swipe": {
+      "chapter_start": "Начало главы",
+      "chapter_end": "Конец главы"
+    },
+    "extraction": {
+      "analyzing": "AI анализирует главу...",
+      "usually_takes": "Обычно занимает 5-15 секунд",
+      "cancel": "Отменить",
+      "cancel_analysis": "Отменить анализ"
+    },
+    "image_generation": {
+      "generating": "Генерация изображения...",
+      "completed": "Изображение создано",
+      "error": "Ошибка генерации",
+      "cancel": "Отменить"
+    },
+    "progress": {
+      "chapter_short": "Гл. {{current}}/{{total}}",
+      "chapter_only": "Глава {{current}}",
+      "page_short": "Стр. {{current}}/{{total}}",
+      "saving": "Сохранение...",
+      "saved": "Позиция сохранена"
+    },
+    "notification": {
+      "position_restored": "Позиция восстановлена",
+      "continuing_from": "Продолжаем с {{percent}}%",
+      "error_restoring": "Не удалось перейти к сохраненной позиции",
+      "session_complete": "Сессия завершена",
+      "session_stats": "Вы читали {{minutes}} мин и прочитали {{pages}} стр.",
+      "copied": "Скопировано",
+      "copied_desc": "Текст скопирован в буфер обмена",
+      "copy_error": "Не удалось скопировать текст"
+    },
+    "settings": {
+      "title": "Настройки читалки",
+      "theme": "Тема оформления",
+      "themes": {
+        "light": "Светлая",
+        "dark": "Тёмная",
+        "sepia": "Сепия"
+      },
+      "font_size": "Размер шрифта",
+      "wake_lock": "Не выключать экран",
+      "wake_lock_active": "Экран не будет гаснуть",
+      "wake_lock_enabled": "Активируется при чтении",
+      "wake_lock_disabled": "Экран будет гаснуть",
+      "navigation": "Режим навигации",
+      "nav_swipe": "Свайп",
+      "nav_swipe_desc": "Листайте пальцем",
+      "nav_tap": "Тап",
+      "nav_tap_desc": "Нажимайте по краям"
+    },
+    "header": {
+      "back": "Назад",
+      "toc": "Содержание",
+      "info": "О книге",
+      "entities": "Энциклопедия",
+      "settings": "Настройки",
+      "progress_label": "Прогресс чтения: {{percent}}%"
+    },
+    "info": {
+      "title": "О книге",
+      "close": "Закрыть",
+      "description": "Описание",
+      "publisher": "Издательство",
+      "pubdate": "Дата публикации",
+      "language": "Язык",
+      "rights": "Права"
+    },
+    "toc": {
+      "title": "Содержание",
+      "search_placeholder": "Поиск глав...",
+      "no_results": "Главы не найдены",
+      "empty": "Содержание отсутствует",
+      "try_search": "Попробуйте другой запрос",
+      "chapters_count": "{{count}} из {{total}} глав",
+      "close_hint": "закрыть",
+      "untitled": "Без названия"
+    },
+    "library": {
+      "title": "Моя библиотека",
+      "books_count_one": "{{count}} книга",
+      "books_count_few": "{{count}} книги",
+      "books_count_many": "{{count}} книг",
+      "processing": "({{count}} обрабатывается)",
+      "upload": "Загрузить книгу",
+      "search_placeholder": "Поиск по названию или автору...",
+      "sort": {
+        "label": "Сортировка",
+        "created_desc": "Сначала новые",
+        "created_asc": "Сначала старые",
+        "title_asc": "По названию А-Я",
+        "title_desc": "По названию Я-А",
+        "author_asc": "По автору А-Я",
+        "accessed_desc": "Недавно читал"
+      },
+      "filter": {
+        "toggle": "Фильтры",
+        "genre": "Жанр",
+        "progress": "Прогресс чтения",
+        "reset": "Сбросить фильтры",
+        "genres": {
+          "all": "Все жанры",
+          "fiction": "Художественная",
+          "non-fiction": "Документальная",
+          "fantasy": "Фэнтези",
+          "sci-fi": "Научная фантастика",
+          "romance": "Романтика",
+          "mystery": "Детектив",
+          "thriller": "Триллер"
+        },
+        "progress_opts": {
+          "all": "Все книги",
+          "not_started": "Не начаты",
+          "in_progress": "В процессе",
+          "completed": "Завершены"
+        }
+      },
+      "pagination": {
+        "prev": "Назад",
+        "next": "Далее",
+        "page": "Страница {{current}} из {{total}}"
+      },
+      "refresh": {
+        "success": "Библиотека обновлена",
+        "error": "Не удалось обновить библиотеку"
+      },
+      "delete": {
+        "success": "Книга удалена",
+        "error": "Ошибка удаления"
+      },
+      "empty": {
+        "title": "Ваша библиотека пуста",
+        "description": "Загрузите первую книгу, чтобы начать чтение с AI-иллюстрациями",
+        "search_title": "Книги не найдены",
+        "search_desc": "Нет результатов для \"{{query}}\". Попробуйте другой запрос.",
+        "clear_search": "Очистить поиск"
+      }
+    }
+  }
+}

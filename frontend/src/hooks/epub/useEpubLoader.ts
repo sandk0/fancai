@@ -703,7 +703,7 @@ export const useEpubLoader = ({
           // Note: rendition.off() without arguments clears all listeners
           try {
             currentRendition.off();
-          } catch (_err) {
+          } catch {
             // Ignore event listener errors
           }
 
@@ -713,7 +713,7 @@ export const useEpubLoader = ({
           }
 
           renditionRef.current = null;
-        } catch (_err) {
+        } catch {
           // Ignore destruction errors during cleanup
         }
       }
@@ -729,7 +729,7 @@ export const useEpubLoader = ({
           }
 
           bookRef.current = null;
-        } catch (_err) {
+        } catch {
           // Ignore destruction errors during cleanup
         }
       }

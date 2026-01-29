@@ -12,6 +12,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
       timeout: 120000, // 2 minutes for LLM description extraction
+      withCredentials: true, // Send HttpOnly cookies
       headers: {
         'Content-Type': 'application/json',
       },
@@ -24,28 +25,20 @@ class ApiClient {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        console.log(`🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`);
-        console.log('🌐 [AXIOS] Request config:', {
-          url: config.url,
-          method: config.method,
-          headers: config.headers,
-          hasData: !!config.data,
-        });
+        if (import.meta.env.DEV) {
+          console.log(`🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`);
+        }
 
         // КРИТИЧЕСКИ ВАЖНО: Если data это FormData, удаляем Content-Type
         // чтобы браузер сам установил multipart/form-data с boundary
         if (config.data instanceof FormData) {
-          console.log('🌐 [AXIOS] Detected FormData, removing Content-Type header');
+          if (import.meta.env.DEV) console.log('🌐 [AXIOS] Detected FormData, removing Content-Type header');
           if (config.headers) {
             delete config.headers['Content-Type'];
           }
         }
 
-        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log('🌐 [AXIOS] Added Authorization header');
-        }
+        // No longer adding Authorization header manually - using HttpOnly cookies
         return config;
       },
       (error) => {
@@ -57,26 +50,28 @@ class ApiClient {
     // Response interceptor for token refresh
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
+        if (import.meta.env.DEV) console.log(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
         return response;
       },
       async (error) => {
-        console.error('🌐 [AXIOS] Response error:', {
-          url: error.config?.url,
-          status: error.response?.status,
-          message: error.message,
-        });
-
         const originalRequest = error.config;
 
+        // Skip logging for 401s that we're about to retry (reduces noise)
+        if (error.response?.status !== 401 || originalRequest._retry) {
+          console.error('🌐 [AXIOS] Response error:', {
+            url: error.config?.url,
+            status: error.response?.status,
+            message: error.message,
+          });
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
-          console.log('🌐 [AXIOS] 401 error, attempting token refresh...');
+          if (import.meta.env.DEV) console.log('🌐 [AXIOS] 401 error, attempting token refresh...');
           originalRequest._retry = true;
 
           try {
-            const newToken = await this.refreshToken();
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            console.log('🌐 [AXIOS] Token refreshed, retrying request...');
+            await this.refreshToken();
+            if (import.meta.env.DEV) console.log('🌐 [AXIOS] Token refreshed, retrying request...');
             return this.client(originalRequest);
           } catch (refreshError) {
             // Refresh failed, clear auth data but don't redirect immediately
@@ -102,21 +97,21 @@ class ApiClient {
       return this.refreshPromise;
     }
 
-    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
+    // Call refresh endpoint - cookie will be sent automatically
     this.refreshPromise = this.client
-      .post('/auth/refresh', { refresh_token: refreshToken })
-      .then((response) => {
-        const { tokens } = response.data;
-        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-        return tokens.access_token;
+      .post('/auth/refresh')
+      .then(() => {
+        // Cookie updated successfully
+        return 'refreshed';
+      })
+      .catch((error) => {
+        this.refreshPromise = null;
+        throw error;
       })
       .finally(() => {
-        this.refreshPromise = null;
+        // Keep promise for a bit to prevent stampede?
+        // Actually we should clear it immediately or shortly after
+        setTimeout(() => { this.refreshPromise = null; }, 1000);
       });
 
     return this.refreshPromise;
@@ -124,9 +119,13 @@ class ApiClient {
 
   private clearAuthData() {
     console.log('🧹 Clearing auth data...');
+    // Clear legacy tokens if any
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+
+    // Call logout endpoint to clear cookies
+    this.client.post('/auth/logout').catch(() => {});
 
     // Also clear Zustand store (async import)
     import('@/stores/auth')

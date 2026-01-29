@@ -7,7 +7,7 @@ Middleware и dependencies для аутентификации в fancai.
 
 from typing import Optional
 from uuid import UUID
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
@@ -18,19 +18,22 @@ from ..services.token_blacklist import token_blacklist
 from ..models.user import User
 
 
-# Создаем схему безопасности для Bearer токенов
-security = HTTPBearer()
+# Создаем схему безопасности для Bearer токенов (auto_error=False to allow checking cookies)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    access_token_cookie: Optional[str] = Cookie(None, alias="access_token"),
     db: AsyncSession = Depends(get_database_session),
 ) -> User:
     """
     Dependency для получения текущего аутентифицированного пользователя.
+    Reads token from Authorization header OR 'access_token' HttpOnly cookie.
 
     Args:
         credentials: JWT токен из заголовка Authorization
+        access_token_cookie: JWT токен из куки
         db: Сессия базы данных
 
     Returns:
@@ -51,8 +54,15 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Проверяем токен
-    token = credentials.credentials
+    # 1. Try Authorization header
+    token = credentials.credentials if credentials else None
+
+    # 2. Try Cookie
+    if not token and access_token_cookie:
+        token = access_token_cookie
+
+    if not token:
+        raise credentials_exception
 
     # TD-P19-3 FIX: fail-closed for main auth (require_online=True)
     if await token_blacklist.is_blacklisted(token, require_online=True):

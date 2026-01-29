@@ -1,33 +1,10 @@
-/**
- * BookGrid - Redesigned responsive book grid with skeleton loading
- *
- * Grid breakpoints:
- * - Mobile: 2 columns
- * - Tablet (sm/md): 3-4 columns
- * - Desktop (lg/xl): 5-6 columns
- *
- * Features:
- * - Skeleton loading state
- * - Empty state with illustration
- * - Search empty state
- * - Responsive grid layout
- * - Animation support via AnimatePresence
- *
- * @param books - Array of books to display
- * @param isLoading - Loading state for skeleton
- * @param searchQuery - Current search query (for empty state)
- * @param onBookClick - Callback when clicking a book
- * @param onClearSearch - Callback to clear search
- * @param onUploadClick - Callback to upload first book
- * @param onParsingComplete - Callback when parsing completes
- * @param onDelete - Callback for delete action
- */
-
-import { memo, useCallback } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
-import { Search, Plus, BookOpen } from 'lucide-react';
+import { memo, useMemo, useRef } from 'react';
+import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { BookCard } from './BookCard';
 import { Skeleton } from '@/components/UI/Skeleton';
+import { useColumns } from '@/hooks/useColumns';
 import type { Book as BookType } from '@/types/api';
 
 interface BookGridProps {
@@ -41,170 +18,80 @@ interface BookGridProps {
   onDelete?: (bookId: string) => void;
 }
 
-/**
- * BookCardSkeleton - Skeleton for book card loading state
- */
-const BookCardSkeleton = memo(function BookCardSkeleton() {
-  return (
-    <div className="animate-pulse">
-      {/* Cover skeleton - 2:3 aspect ratio */}
-      <Skeleton
-        variant="rectangular"
-        className="aspect-[2/3] w-full rounded-xl"
-      />
-      {/* Title skeleton */}
-      <div className="mt-3 px-1">
-        <Skeleton variant="text" className="h-4 w-3/4 mb-2" />
-        <Skeleton variant="text" className="h-3 w-1/2" />
-      </div>
-    </div>
-  );
-});
-
-/**
- * EmptyStateIllustration - SVG illustration for empty library
- */
-const EmptyStateIllustration = () => (
-  <div className="w-32 h-32 mx-auto mb-6 relative">
-    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-primary/5" />
-    <div className="absolute inset-4 flex items-center justify-center">
-      <div className="relative">
-        {/* Stack of books illustration */}
-        <div className="absolute -left-2 bottom-0 w-8 h-10 rounded bg-primary/30 transform -rotate-12" />
-        <div className="absolute left-1 bottom-0 w-8 h-12 rounded bg-primary/50 transform -rotate-6" />
-        <div className="relative w-10 h-14 rounded bg-primary flex items-center justify-center shadow-lg">
-          <BookOpen className="w-5 h-5 text-primary-foreground" />
-        </div>
-      </div>
-    </div>
+const BookCardSkeleton = memo(() => (
+  <div className="animate-pulse">
+    <Skeleton variant="rectangular" className="aspect-[2/3] w-full rounded-xl" />
+    <div className="mt-3 px-1"><Skeleton variant="text" className="h-4 w-3/4 mb-2" /><Skeleton variant="text" className="h-3 w-1/2" /></div>
   </div>
-);
+));
 
-/**
- * SearchEmptyIllustration - SVG illustration for no search results
- */
-const SearchEmptyIllustration = () => (
-  <div className="w-24 h-24 mx-auto mb-6 relative">
-    <div className="absolute inset-0 rounded-full bg-muted flex items-center justify-center">
-      <Search className="w-10 h-10 text-muted-foreground/50" />
-    </div>
-    <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center">
-      <span className="text-destructive font-bold text-sm">?</span>
-    </div>
-  </div>
-);
-
-/**
- * BookGrid - Memoized grid/list of book cards
- */
 export const BookGrid = memo(function BookGrid({
-  books,
-  isLoading = false,
-  searchQuery,
-  onBookClick,
-  onClearSearch,
-  onUploadClick,
-  onParsingComplete,
-  onDelete,
+  books, isLoading = false, searchQuery, onBookClick, onClearSearch, onUploadClick, onParsingComplete, onDelete,
 }: BookGridProps) {
-  // Memoize book click handler factory
-  const createBookClickHandler = useCallback(
-    (bookId: string) => () => onBookClick(bookId),
-    [onBookClick]
-  );
+  const { t } = useTranslation();
+  const columns = useColumns();
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  // Loading state with skeleton grid
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < books.length; i += columns) {
+      result.push(books.slice(i, i + columns));
+    }
+    return result;
+  }, [books, columns]);
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: rows.length,
+    estimateSize: () => 450,
+    overscan: 2,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
   if (isLoading) {
     return (
-      <div
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 lg:gap-6"
-        aria-busy="true"
-        aria-live="polite"
-        role="region"
-        aria-label="Loading books"
-      >
-        {Array.from({ length: 12 }).map((_, index) => (
-          <BookCardSkeleton key={index} />
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
+        {Array.from({ length: 12 }).map((_, i) => <BookCardSkeleton key={i} />)}
       </div>
     );
   }
 
-  // Empty state: No results from search
   if (books.length === 0 && searchQuery) {
     return (
-      <m.div
-        className="text-center py-16 px-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <SearchEmptyIllustration />
-        <h3 className="text-xl font-bold mb-2 text-foreground">
-          Книги не найдены
-        </h3>
-        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-          Нет результатов для "{searchQuery}". Попробуйте другой запрос.
-        </p>
-        {onClearSearch && (
-          <m.button
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-primary-foreground shadow-lg min-h-[44px]"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onClearSearch}
-          >
-            Очистить поиск
-          </m.button>
-        )}
-      </m.div>
+      <div className="text-center py-16 px-4">
+        <h3 className="text-xl font-bold mb-2">{t('library.empty.search_title')}</h3>
+        <p className="opacity-70 mb-6">{t('library.empty.search_desc', { query: searchQuery })}</p>
+        {onClearSearch && <button onClick={onClearSearch} className="px-6 py-3 bg-primary text-white rounded-xl">{t('library.empty.clear_search')}</button>}
+      </div>
     );
   }
 
-  // Empty state: No books at all
   if (books.length === 0) {
     return (
-      <m.div
-        className="text-center py-16 px-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <EmptyStateIllustration />
-        <h3 className="text-xl font-bold mb-2 text-foreground">
-          Ваша библиотека пуста
-        </h3>
-        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-          Загрузите первую книгу, чтобы начать чтение с AI-иллюстрациями
-        </p>
-        {onUploadClick && (
-          <m.button
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-primary-foreground shadow-lg min-h-[44px]"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onUploadClick}
-          >
-            <Plus className="w-5 h-5" />
-            Загрузить первую книгу
-          </m.button>
-        )}
-      </m.div>
+      <div className="text-center py-16 px-4">
+        <h3 className="text-xl font-bold mb-2">{t('library.empty.title')}</h3>
+        <p className="opacity-70 mb-6">{t('library.empty.description')}</p>
+        {onUploadClick && <button onClick={onUploadClick} className="px-6 py-3 bg-primary text-white rounded-xl flex items-center gap-2 mx-auto"><Plus className="w-5 h-5" />{t('library.upload')}</button>}
+      </div>
     );
   }
 
-  // Books grid - responsive columns
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 lg:gap-6">
-      <AnimatePresence mode="popLayout">
-        {books.map((book) => (
-          <BookCard
-            key={book.id}
-            book={book}
-            onClick={createBookClickHandler(book.id)}
-            onParsingComplete={onParsingComplete}
-            onDelete={onDelete}
-          />
-        ))}
-      </AnimatePresence>
+    <div ref={parentRef} className="w-full relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+      {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+        <div
+          key={virtualRow.key}
+          className="absolute top-0 left-0 w-full grid gap-4 sm:gap-5 lg:gap-6"
+          style={{
+            height: `${virtualRow.size}px`,
+            transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`
+          }}
+        >
+          {rows[virtualRow.index].map((book) => (
+            <BookCard key={book.id} book={book} onClick={() => onBookClick(book.id)} onParsingComplete={onParsingComplete} onDelete={onDelete} />
+          ))}
+        </div>
+      ))}
     </div>
   );
 });

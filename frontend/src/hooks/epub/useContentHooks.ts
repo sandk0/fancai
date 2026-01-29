@@ -208,7 +208,7 @@ export const useContentHooks = (
     return () => {
       try {
         rendition.hooks.content.deregister(contentHook);
-      } catch (_err) {
+      } catch {
         // Ignore deregistration errors during cleanup
       }
     };

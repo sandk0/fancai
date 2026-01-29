@@ -12,11 +12,8 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       // Initial state
       user: null,
-      accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
-      isLoading: true, // Start with loading=true to prevent premature redirects
-      tokens: null,
+      isLoading: true,
 
       // Actions
       login: async (email: string, password: string) => {
@@ -28,17 +25,12 @@ export const useAuthStore = create<AuthState>()(
           await clearAllCaches();
 
           const response = await authAPI.login({ email, password });
-          const { user, tokens } = response;
+          const { user } = response; // Tokens are now in HttpOnly cookies
 
           console.log('🔐 Login successful for:', user.email);
-          console.log('🔑 Saving tokens to localStorage...');
-
-          // Store tokens in localStorage
-          localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-          localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
+          
+          // Store user data in localStorage for offline access
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
-
-          console.log('💾 Data saved to localStorage');
 
           // IMPORTANT: Restore reading progress AFTER successful login
           console.log('📂 Checking for reading progress backup...');
@@ -49,8 +41,6 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user,
-            accessToken: tokens.access_token,
-            refreshToken: tokens.refresh_token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -64,7 +54,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          // Clear any stale caches from previous session BEFORE register
           console.log('🧹 Clearing stale caches before registration...');
           await clearAllCaches();
 
@@ -73,17 +62,12 @@ export const useAuthStore = create<AuthState>()(
             password,
             full_name: fullName
           });
-          const { user, tokens } = response;
+          const { user } = response;
 
-          // Store tokens and user data in localStorage
-          localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-          localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
           set({
             user,
-            accessToken: tokens.access_token,
-            refreshToken: tokens.refresh_token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -96,22 +80,21 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         console.log('🚪 Logging out...');
 
-        // IMPORTANT: Backup reading progress BEFORE clearing caches
         const userId = get().user?.id;
         if (userId) {
           console.log('💾 Backing up reading progress before logout...');
           backupReadingProgress(userId);
         }
 
-        // Call logout API
+        // Call logout API (clears cookies)
         authAPI.logout().catch(console.error);
 
-        // Clear localStorage (except reading progress backup)
+        // Clear localStorage
+        localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        // Clear legacy tokens if present
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER_DATA);
 
-        // CRITICAL: Clear all caches to prevent data leakage to next user
         console.log('🧹 Clearing all caches on logout...');
         try {
           await clearAllCaches();
@@ -123,33 +106,16 @@ export const useAuthStore = create<AuthState>()(
         // Reset state
         set({
           user: null,
-          accessToken: null,
-          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
         });
       },
 
       refreshAccessToken: async () => {
-        const { refreshToken } = get();
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
+        // Just call API, cookies handled automatically
         try {
-          const response = await authAPI.refreshToken(refreshToken);
-          const { tokens } = response;
-
-          // Update tokens in localStorage
-          localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-          localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-
-          set({
-            accessToken: tokens.access_token,
-            refreshToken: tokens.refresh_token,
-          });
+          await authAPI.refreshToken(''); // Argument ignored in new implementation
         } catch (error) {
-          // Refresh failed, logout user
           get().logout();
           throw error;
         }
@@ -161,67 +127,37 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loadUserFromStorage: async () => {
-        console.log('📱 Loading user from storage...');
-        set({ isLoading: true }); // Start loading
+        console.log('📱 Loading user session...');
+        set({ isLoading: true });
 
         try {
-          const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-          const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+          // Optimistically load user data for UI
           const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-
-          console.log('🔑 Token found:', !!token);
-          console.log('🔄 Refresh token found:', !!refreshToken);
-          console.log('👤 User data found:', !!userData);
-
-          if (token && refreshToken) {
-            const user = userData ? JSON.parse(userData) : null;
-            console.log('✅ Restoring user session for:', user?.email);
-
-            // Set token and user data first
-            set({
-              accessToken: token,
-              refreshToken: refreshToken,
-              user,
-              isAuthenticated: true,
-              // Keep isLoading true until we verify token
-            });
-
-            // Verify token with API call before allowing page to render
-            if (user) {
-              try {
-                const response = await authAPI.getCurrentUser();
-                console.log('✅ Token verified, user data refreshed successfully');
-                get().updateUser(response.user);
-                set({ isLoading: false }); // Stop loading after successful verification
-              } catch (error) {
-                console.warn('⚠️ Token verification failed:', error);
-                // Token is invalid - clear auth state
-                get().logout();
-                set({ isLoading: false });
-              }
-            } else {
-              // No user data but have tokens - still set loading false
-              set({ isLoading: false });
-            }
-          } else {
-            console.log('❌ No valid tokens found, user not authenticated');
-            set({
-              user: null,
-              accessToken: null,
-              refreshToken: null,
-              isAuthenticated: false,
-              isLoading: false, // Stop loading - no tokens to verify
-            });
+          if (userData) {
+            set({ user: JSON.parse(userData) });
           }
-        } catch (error) {
-          console.error('💥 Failed to load user from storage:', error);
+
+          // Verify session with API (checks HttpOnly cookies)
+          const response = await authAPI.getCurrentUser();
+          console.log('✅ Session valid for:', response.user.email);
+          
+          set({
+            user: response.user,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+          
+          // Update cached user data
+          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
+          
+        } catch {
+          console.log('❌ Session invalid or expired');
           set({
             user: null,
-            accessToken: null,
-            refreshToken: null,
             isAuthenticated: false,
             isLoading: false,
           });
+          localStorage.removeItem(STORAGE_KEYS.USER_DATA);
         }
       },
     }),
@@ -229,25 +165,13 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-store',
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => (state) => {
-        console.log('🔄 Zustand rehydrating auth store...', state);
-        if (state) {
-          console.log('✅ Auth store rehydrated with user:', state.user?.email);
-          // Force load from localStorage after rehydration to ensure consistency
-          setTimeout(() => {
-            console.log('🔄 Post-rehydration loadUserFromStorage...');
-            useAuthStore.getState().loadUserFromStorage();
-          }, 100);
-        } else {
-          console.log('⚠️ No persisted state found, loading from localStorage...');
-          setTimeout(() => {
-            useAuthStore.getState().loadUserFromStorage();
-          }, 100);
-        }
+      onRehydrateStorage: () => (_state) => {
+        console.log('🔄 Zustand rehydrating auth store...');
+        setTimeout(() => {
+          useAuthStore.getState().loadUserFromStorage();
+        }, 100);
       },
     }
   )

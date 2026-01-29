@@ -21,7 +21,6 @@ import type {
   PushSubscribeResponse,
   PushUnsubscribeResponse,
 } from '@/types/push';
-import { STORAGE_KEYS } from '@/types/state';
 
 // =============================================================================
 // Constants
@@ -33,20 +32,11 @@ const API_BASE = '/api/v1/push';
 // Auth Helper
 // =============================================================================
 
-/**
- * Get authorization headers for API requests
- * Uses localStorage token (not cookies) for Docker compatibility
- */
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-  const headers: HeadersInit = {
+  return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
 }
 
 // =============================================================================
@@ -234,6 +224,7 @@ class PushNotificationManager {
       headers: {
         'Accept': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -407,6 +398,7 @@ class PushNotificationManager {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -428,6 +420,7 @@ class PushNotificationManager {
       method: 'DELETE',
       headers: getAuthHeaders(),
       body: JSON.stringify({ endpoint }),
+      credentials: 'include',
     });
 
     if (!response.ok) {

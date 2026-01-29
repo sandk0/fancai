@@ -18,6 +18,20 @@ import { BrowserRouter } from 'react-router-dom';
 import { EpubReader } from '../EpubReader';
 import type { BookDetail, ChapterInfo } from '@/types/api';
 import type { Book, Rendition, EpubLocations } from '@/types/epub';
+import { useAuthStore } from '@/stores/auth';
+
+// Mock auth store - MUST be before other mocks that depend on it
+vi.mock('@/stores/auth');
+
+const mockUser = {
+  id: 'test-user-id',
+  email: 'test@example.com',
+  full_name: 'Test User',
+  is_active: true,
+  is_verified: true,
+  is_admin: false,
+  created_at: '2025-01-01T00:00:00Z',
+};
 
 // Mock dependencies
 vi.mock('@/api/books', () => ({
@@ -176,7 +190,11 @@ vi.mock('@/hooks/epub', () => ({
   useChapterMapping: vi.fn(() => ({
     getChapterNumberByLocation: vi.fn(() => 1),
   })),
-  useProgressSync: vi.fn(),
+  useProgressSync: vi.fn(() => ({
+    isSaving: false,
+    lastSaved: null,
+    saveProgress: vi.fn(),
+  })),
   useEpubNavigation: vi.fn(() => ({
     nextPage: vi.fn(),
     prevPage: vi.fn(),
@@ -291,18 +309,42 @@ const createMockBook = (overrides?: Partial<BookDetail>): BookDetail => ({
   ...overrides,
 });
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false },
+  },
+});
+
 const renderEpubReader = (book: BookDetail = createMockBook()) => {
+  const queryClient = createTestQueryClient();
   return render(
-    <BrowserRouter>
-      <EpubReader book={book} />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <EpubReader book={book} />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 };
 
 describe('EpubReader Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Setup localStorage mock
+    
+    vi.mocked(useAuthStore.getState).mockReturnValue({
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      refreshAccessToken: vi.fn(),
+      updateUser: vi.fn(),
+      loadUserFromStorage: vi.fn(),
+    });
+    
     localStorage.setItem('auth_token', 'mock-token');
   });
 
@@ -879,11 +921,9 @@ describe('EpubReader Component', () => {
     it('highlights descriptions on load', async () => {
       const { useDescriptionHighlighting } = await import('@/hooks/epub');
 
-      vi.mocked(useDescriptionHighlighting).mockImplementation((config) => {
-        if (config.enabled) {
-          // Hook internally finds CFI ranges, we just verify it was called
-        }
-      });
+      vi.mocked(useDescriptionHighlighting).mockImplementation((_config) => ({
+        highlightDescription: vi.fn().mockReturnValue(false),
+      }));
 
       renderEpubReader();
 

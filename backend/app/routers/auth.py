@@ -5,7 +5,7 @@ API роуты для аутентификации в fancai.
 """
 
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Cookie
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
@@ -17,6 +17,7 @@ from ..services.auth_service import AuthService
 from ..services.token_blacklist import TokenBlacklist
 from ..core.container import get_auth_service_dep, get_token_blacklist_dep
 from ..models.user import User
+from ..core.config import settings
 from ..middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
 from ..schemas.responses import (
     LoginResponse,
@@ -75,22 +76,14 @@ class UserProfileUpdateRequest(BaseModel):
 async def register_user(
     user_request: UserRegistrationRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_database_session),
     auth_svc: AuthService = Depends(get_auth_service_dep),
 ) -> RegisterResponse:
     """
     Регистрация нового пользователя.
 
-    Args:
-        user_request: Данные для регистрации
-        request: HTTP request object (для rate limiting)
-        db: Сессия базы данных
-
-    Returns:
-        Информация о созданном пользователе и токены
-
-    Raises:
-        HTTPException: Если email уже используется или другие ошибки
+    Set HttpOnly cookies for tokens.
     """
     # PRODUCTION-GRADE password validation (12 chars minimum)
     from ..core.validation import validate_password_strength
@@ -116,6 +109,25 @@ async def register_user(
 
         tokens_dict = auth_svc.create_tokens_for_user(user)
 
+        # Set HttpOnly Cookies
+        response.set_cookie(
+            key="access_token",
+            value=tokens_dict["access_token"],
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens_dict["refresh_token"],
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            path="/api/v1/auth/refresh",
+        )
+
         return RegisterResponse(
             user=UserResponse.model_validate(user),
             tokens=TokenPair(
@@ -135,22 +147,14 @@ async def register_user(
 async def login_user(
     user_request: UserLoginRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_database_session),
     auth_svc: AuthService = Depends(get_auth_service_dep),
 ) -> LoginResponse:
     """
     Вход пользователя в систему.
 
-    Args:
-        user_request: Данные для входа
-        request: HTTP request object (для rate limiting)
-        db: Сессия базы данных
-
-    Returns:
-        Информация о пользователе и токены
-
-    Raises:
-        HTTPException: Если неверные учетные данные
+    Set HttpOnly cookies for tokens.
     """
     # Аутентифицируем пользователя (используем DI)
     user = await auth_svc.authenticate_user(
@@ -166,6 +170,25 @@ async def login_user(
 
     tokens_dict = auth_svc.create_tokens_for_user(user)
 
+    # Set HttpOnly Cookies
+    response.set_cookie(
+        key="access_token",
+        value=tokens_dict["access_token"],
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens_dict["refresh_token"],
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/v1/auth/refresh",
+    )
+
     return LoginResponse(
         user=UserResponse.model_validate(user),
         tokens=TokenPair(
@@ -179,32 +202,31 @@ async def login_user(
 
 @router.post("/auth/refresh", response_model=RefreshTokenResponse)
 async def refresh_token(
-    request: TokenRefreshRequest,
+    response: Response,
+    request_body: Optional[TokenRefreshRequest] = None,
+    refresh_token_cookie: Optional[str] = Cookie(None, alias="refresh_token"),
     db: AsyncSession = Depends(get_database_session),
     auth_svc: AuthService = Depends(get_auth_service_dep),
 ) -> RefreshTokenResponse:
     """
     Обновление access токена с помощью refresh токена.
-
-    Args:
-        request: Refresh токен
-        db: Сессия базы данных
-
-    Returns:
-        Новый access токен
-
-    Raises:
-        HTTPException: Если refresh токен недействительный
-
-    Example:
-        ```bash
-        curl -X POST http://localhost:8000/api/v1/auth/refresh \\
-             -H "Content-Type: application/json" \\
-             -d '{"refresh_token": "<refresh_token>"}'
-        ```
+    Reads from cookie or body. Sets new cookies.
     """
+    token_to_use = None
+    if request_body and request_body.refresh_token:
+        token_to_use = request_body.refresh_token
+    elif refresh_token_cookie:
+        token_to_use = refresh_token_cookie
+
+    if not token_to_use:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Обновляем токен (используем DI)
-    tokens = await auth_svc.refresh_access_token(db, request.refresh_token)
+    tokens = await auth_svc.refresh_access_token(db, token_to_use)
 
     if not tokens:
         raise HTTPException(
@@ -213,139 +235,70 @@ async def refresh_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Set new cookies
+    response.set_cookie(
+        key="access_token",
+        value=tokens["access_token"],
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    # Rotation of refresh token? If create_tokens_for_user logic is used inside refresh service.
+    # auth_svc.refresh_access_token returns access_token only usually?
+    # Let's check auth_service.py. If it returns new refresh token, we should set it too.
+    
+    if "refresh_token" in tokens:
+         response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            path="/api/v1/auth/refresh",
+        )
+
     return RefreshTokenResponse(
         access_token=tokens["access_token"], token_type=tokens["token_type"]
     )
 
 
-@router.get("/auth/me", response_model=CurrentUserResponse)
-async def get_current_user_info(
-    current_user: User = Depends(get_current_active_user),
-) -> CurrentUserResponse:
-    """
-    Получение информации о текущем пользователе.
-
-    Args:
-        current_user: Текущий пользователь из токена
-
-    Returns:
-        Информация о пользователе
-    """
-    return CurrentUserResponse(
-        user={
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "is_active": current_user.is_active,
-            "is_verified": current_user.is_verified,
-            "is_admin": current_user.is_admin,
-            "created_at": current_user.created_at.isoformat(),
-            "updated_at": current_user.updated_at.isoformat(),
-            "last_login": (
-                current_user.last_login.isoformat() if current_user.last_login else None
-            ),
-        }
-    )
-
-
-@router.put("/auth/profile", response_model=ProfileUpdateResponse)
-async def update_user_profile(
-    request: UserProfileUpdateRequest,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_database_session),
-    auth_svc: AuthService = Depends(get_auth_service_dep),
-) -> ProfileUpdateResponse:
-    """
-    Обновление профиля пользователя.
-
-    Args:
-        request: Данные для обновления
-        current_user: Текущий пользователь
-        db: Сессия базы данных
-
-    Returns:
-        Сообщение об успешном обновлении
-
-    Raises:
-        HTTPException: Если неверный текущий пароль или другие ошибки
-    """
-    # Валидация нового пароля (PRODUCTION-GRADE)
-    if request.new_password:
-        from ..core.validation import validate_password_strength
-
-        is_valid, error_msg = validate_password_strength(request.new_password)
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg,
-            )
-
-    # Если пытаются сменить пароль, требуем текущий пароль
-    if request.new_password and not request.current_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is required to change password",
-        )
-
-    # Обновляем профиль (используем DI)
-    success = await auth_svc.update_user_profile(
-        db=db,
-        user_id=current_user.id,
-        full_name=request.full_name,
-        current_password=request.current_password,
-        new_password=request.new_password,
-    )
-
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to update profile. Check your current password.",
-        )
-
-    return ProfileUpdateResponse(message="Profile updated successfully")
-
-
 @router.post("/auth/logout", response_model=LogoutResponse)
 async def logout_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    response: Response,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    access_token_cookie: Optional[str] = Cookie(None, alias="access_token"),
     auth_svc: AuthService = Depends(get_auth_service_dep),
     token_bl: TokenBlacklist = Depends(get_token_blacklist_dep),
 ) -> LogoutResponse:
     """
     Выход пользователя из системы.
-
-    Добавляет токен в blacklist до его естественного истечения,
-    предотвращая повторное использование токена после logout.
-
-    Args:
-        credentials: JWT токен для валидации
-
-    Returns:
-        Сообщение об успешном выходе с timestamp
-
-    Example:
-        ```bash
-        curl -X POST http://localhost:8000/api/v1/auth/logout \\
-             -H "Authorization: Bearer <token>"
-        ```
-
-    Security:
-        - Token is blacklisted in Redis until its natural expiration
-        - Subsequent requests with this token will be rejected with 401
-        - Blacklist entries auto-expire when the token would have expired
+    Clears cookies and blacklists token.
     """
-    token = credentials.credentials
+    token = None
+    if credentials:
+        token = credentials.credentials
+    elif access_token_cookie:
+        token = access_token_cookie
 
-    # Verify token and extract expiration (используем DI)
-    payload = auth_svc.verify_token(token, "access")
+    if token:
+        # Verify token and extract expiration (используем DI)
+        payload = auth_svc.verify_token(token, "access")
 
-    if payload:
-        # Get token expiration from payload
-        exp_timestamp = payload.get("exp")
-        if exp_timestamp:
-            expires_at = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
-            # Add token to blacklist (используем DI)
-            await token_bl.add(token, expires_at)
+        if payload:
+            # Get token expiration from payload
+            exp_timestamp = payload.get("exp")
+            if exp_timestamp:
+                expires_at = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+                # Add token to blacklist (используем DI)
+                await token_bl.add(token, expires_at)
+
+    # Clear cookies
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth/refresh")
+    # Also delete without path just in case
+    response.delete_cookie(key="refresh_token")
 
     return LogoutResponse()
 

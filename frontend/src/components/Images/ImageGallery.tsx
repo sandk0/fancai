@@ -108,7 +108,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       try {
         await navigator.clipboard.writeText(image.image_url);
         notify.success('Copied to Clipboard', 'Image URL copied to clipboard');
-      } catch (error) {
+      } catch {
         notify.error('Share Failed', 'Failed to share image');
       }
     }

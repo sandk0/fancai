@@ -15,7 +15,6 @@
  */
 
 import { db, createImageId, IMAGE_CACHE_TTL, type CachedImage } from './db'
-import { STORAGE_KEYS } from '@/types/state'
 
 /** Enable debug logging only in development */
 const DEBUG = import.meta.env.DEV
@@ -252,11 +251,10 @@ class ImageCacheService {
         return false
       }
 
-      // Download image as blob with Authorization header
+      // Download image as blob using HttpOnly cookies for auth (TD-FRONT-102)
       if (DEBUG) console.log('[ImageCache] Downloading image for caching:', descriptionId)
-      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
       const response = await fetch(imageUrl, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
       })
 
       if (!response.ok) {

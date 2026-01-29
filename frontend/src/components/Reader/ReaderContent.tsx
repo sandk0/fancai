@@ -37,17 +37,16 @@ export const ReaderContent: React.FC<ReaderContentProps> = React.memo(({
 }) => {
   const pageContent = pages[currentPage - 1];
 
-  const getHighlightedContent = (): string => {
-    if (!pageContent) {
-      return '';
-    }
+  const highlightedHtml = React.useMemo(() => {
+    if (!pageContent) return '';
 
+    let content = pageContent;
     if (highlightedDescriptions.length > 0) {
-      return highlightDescription(pageContent, highlightedDescriptions);
+      content = highlightDescription(pageContent, highlightedDescriptions);
     }
 
-    return pageContent;
-  };
+    return DOMPurify.sanitize(content);
+  }, [pageContent, highlightedDescriptions, highlightDescription]);
 
   return (
     <m.div
@@ -67,7 +66,7 @@ export const ReaderContent: React.FC<ReaderContentProps> = React.memo(({
     >
       <div
         dangerouslySetInnerHTML={{
-          __html: DOMPurify.sanitize(getHighlightedContent())
+          __html: highlightedHtml
         }}
         className="select-text epub-content"
       />

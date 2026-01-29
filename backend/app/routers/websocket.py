@@ -1,19 +1,21 @@
 """
 WebSocket Router for real-time book processing progress.
 
-Phase 5: WebSocket Implementation
+Phase 5: WebSocket Implementation (Updated January 2026)
 
 Features:
 - Real-time progress updates for book processing
 - Redis PubSub for multi-worker support
 - Graceful connection management
-- JWT authentication via query param
+- Cookie-based JWT authentication (HttpOnly cookies)
+- Fallback to query param for backward compatibility
 
 Usage:
-    ws://host/ws/book-progress/{book_id}?token={jwt_token}
+    wss://host/ws/book-progress/{book_id}
+    (Authentication via HttpOnly cookie 'access_token')
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.websockets import WebSocketState
 from typing import Optional, Dict, Any
 import asyncio
@@ -22,8 +24,10 @@ import logging
 from uuid import UUID
 
 from app.core.config import settings
-from app.services.auth_service import get_current_user_from_token
+from app.services.auth_service import auth_service
+from app.services.token_blacklist import token_blacklist
 from app.models.user import User
+from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -135,11 +139,64 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def get_user_from_ws_token(token: str) -> Optional[User]:
-    """Validate JWT token from WebSocket query param."""
+async def get_user_from_websocket(
+    websocket: WebSocket,
+    query_token: Optional[str] = None
+) -> Optional[User]:
+    """
+    Authenticate WebSocket connection using HttpOnly cookie or query param fallback.
+    
+    Priority:
+    1. HttpOnly cookie 'access_token' (secure, recommended)
+    2. Query parameter 'token' (backward compatibility, logs warning)
+    
+    Also checks token blacklist for revoked tokens (logout support).
+    """
+    token = None
+    auth_source = None
+    
+    # Priority 1: Try HttpOnly cookie (secure method)
+    cookie_token = websocket.cookies.get("access_token")
+    if cookie_token:
+        token = cookie_token
+        auth_source = "cookie"
+    # Priority 2: Fallback to query param (backward compat, less secure)
+    elif query_token:
+        token = query_token
+        auth_source = "query_param"
+        logger.warning(f"WebSocket auth via query param (deprecated) - use cookies instead")
+    
+    if not token:
+        logger.warning("WebSocket auth failed: no token provided")
+        return None
+    
     try:
-        user = await get_current_user_from_token(token)
-        return user
+        # Check token blacklist (logout support)
+        if await token_blacklist.is_blacklisted(token, require_online=False):
+            logger.warning(f"WebSocket auth failed: token revoked (source={auth_source})")
+            return None
+        
+        # Verify JWT token
+        payload = auth_service.verify_token(token, "access")
+        if not payload:
+            logger.warning(f"WebSocket auth failed: invalid token (source={auth_source})")
+            return None
+        
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
+        
+        user_id = UUID(user_id_str)
+        
+        # Fetch user from database
+        async with AsyncSessionLocal() as session:
+            user = await auth_service.get_user_by_id(session, user_id)
+            if user and user.is_active:
+                logger.info(f"WebSocket auth success: user={user.email}, source={auth_source}")
+                return user
+        
+        return None
+        
     except Exception as e:
         logger.warning(f"WebSocket auth failed: {e}")
         return None
@@ -173,21 +230,17 @@ async def websocket_book_progress(
             "type": "ping" | "cancel"
         }
     """
-    # Validate UUID
+    # Validate UUID format
     try:
-        book_uuid = UUID(book_id)
+        UUID(book_id)
     except ValueError:
         await websocket.close(code=4000, reason="Invalid book ID")
         return
     
-    # Authenticate
-    if not token:
-        await websocket.close(code=4001, reason="Token required")
-        return
-    
-    user = await get_user_from_ws_token(token)
+    # Authenticate via cookie (priority) or query param (fallback)
+    user = await get_user_from_websocket(websocket, token)
     if not user:
-        await websocket.close(code=4001, reason="Invalid token")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed")
         return
     
     # Connect

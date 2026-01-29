@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
  
 import React from 'react';
-import { useAuthStore } from '@/stores/auth';
 import { useUIStore } from '@/stores/ui';
 import { useBooksStore } from '@/stores/books';
 import { useImagesStore } from '@/stores/images';
+import { useAuthStore } from '@/stores/auth';
 
 export type WebSocketEventType = 
   | 'book_processing_started'
@@ -39,10 +39,10 @@ class WebSocketService {
     return `${protocol}//${host}:${port}/ws`;
   }
 
-  connect(token: string): Promise<void> {
+  connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const wsUrl = `${this.getWebSocketUrl()}?token=${encodeURIComponent(token)}`;
+        const wsUrl = this.getWebSocketUrl();
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
@@ -68,7 +68,7 @@ class WebSocketService {
           this.stopHeartbeat();
           
           if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.scheduleReconnect(token);
+            this.scheduleReconnect();
           }
         };
 
@@ -83,14 +83,14 @@ class WebSocketService {
     });
   }
 
-  private scheduleReconnect(token: string): void {
+  private scheduleReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1);
     
     console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
     
     setTimeout(() => {
-      this.connect(token).catch(error => {
+      this.connect().catch(error => {
         console.error('Reconnection failed:', error);
       });
     }, delay);
@@ -249,7 +249,7 @@ export const useWebSocket = () => {
   }, []);
   
   return {
-    connect: (token: string) => websocketService.connect(token),
+    connect: () => websocketService.connect(),
     disconnect: () => websocketService.disconnect(),
     send: (message: unknown) => websocketService.send(message),
     isConnected: websocketService.isWebSocketConnected(),
@@ -257,24 +257,16 @@ export const useWebSocket = () => {
   };
 };
 
-// Auto-connect hook for authenticated users
 export const useAutoWebSocket = () => {
-  const { user, tokens } = useAuthStore();
   const webSocket = useWebSocket();
+  const { isAuthenticated } = useAuthStore();
   
   React.useEffect(() => {
-    if (user && tokens?.access_token && !webSocket.isConnected) {
-      webSocket.connect(tokens.access_token).catch(error => {
-        console.error('Failed to connect WebSocket:', error);
-      });
+    if (isAuthenticated) {
+      webSocket.connect().catch(console.error);
     }
-    
-    return () => {
-      if (webSocket.isConnected) {
-        webSocket.disconnect();
-      }
-    };  
-  }, [user, tokens?.access_token]);
+    return () => webSocket.disconnect();
+  }, [isAuthenticated]);
   
   return webSocket;
 };

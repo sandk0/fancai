@@ -82,6 +82,9 @@ export interface Book {
   genre?: string;
   language?: string;
   description?: string;
+  publisher?: string;
+  rights?: string;
+  pubdate?: string;
   total_pages: number;
   estimated_reading_time_hours: number;
   chapters_count: number;

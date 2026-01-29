@@ -33,21 +33,11 @@ import {
   type SyncStatus,
   MAX_SYNC_RETRIES,
 } from './db'
-import { STORAGE_KEYS } from '@/types/state'
 
-/**
- * Get authorization headers for API requests
- * Uses localStorage token (not cookies) for Docker compatibility
- */
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
-  const headers: Record<string, string> = {
+  return {
     'Content-Type': 'application/json',
   }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  return headers
 }
 
 // ============================================================================
@@ -464,6 +454,7 @@ class SyncQueue {
           ...op.headers,
         },
         body: op.body ? JSON.stringify(op.body) : undefined,
+        credentials: 'include',
       })
 
       if (!response.ok) {
