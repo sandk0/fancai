@@ -35,16 +35,15 @@ class EntityDetailSchema(BaseModel):
     notes: List[EntityNoteSchema] = []
 
 class NetworkEdgeSchema(BaseModel):
-    """
-    Связь между сущностями (ребро графа).
-    """
     model_config = ConfigDict(from_attributes=True)
 
     source: UUID
     target: UUID
-    type: str              # KINSHIP, ALLY, ENEMY
+    type: str
     weight: int = 0
-    description: Optional[str] = None # Контекст связи
+    description: Optional[str] = None
+    first_interaction_cfi: Optional[str] = None
+    first_interaction_chapter: Optional[int] = None
 
 class EntityNetworkResponse(BaseModel):
     """

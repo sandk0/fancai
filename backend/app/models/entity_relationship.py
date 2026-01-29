@@ -45,6 +45,9 @@ class EntityRelationship(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # KINSHIP, ALLY, ENEMY
     weight: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # -100 (Enemy) to +100 (Soulmate)
     
+    first_interaction_cfi: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
+    first_interaction_chapter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    
     relationship_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

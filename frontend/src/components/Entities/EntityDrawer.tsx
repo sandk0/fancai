@@ -4,7 +4,14 @@ import { Drawer } from 'vaul';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
 import { EntityList } from './EntityList';
+import { RelationshipCard } from './RelationshipCard';
 import { X, Grid } from 'lucide-react';
+
+interface SelectedRelationship {
+    edge: NetworkEdge;
+    sourceEntity: EntityDetail;
+    targetEntity: EntityDetail;
+}
 
 interface EntityDrawerProps {
     isOpen: boolean;
@@ -28,15 +35,17 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     isLoading = false
 }) => {
     const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
+    const [selectedRelationship, setSelectedRelationship] = useState<SelectedRelationship | null>(null);
     const navigate = useNavigate();
     const { bookId } = useParams();
 
-    // Reset selection when closing/opening with new initialId
     useEffect(() => {
         if (isOpen && initialEntityId) {
             setSelectedEntityId(initialEntityId);
+            setSelectedRelationship(null);
         } else if (isOpen && !initialEntityId) {
             setSelectedEntityId(null);
+            setSelectedRelationship(null);
         }
     }, [isOpen, initialEntityId]);
 
@@ -49,11 +58,41 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                 return {
                     entity: entities[otherId],
                     type: e.type,
-                    description: e.description
+                    description: e.description,
+                    edge: e
                 };
             })
             .filter(r => r.entity);
     }, [selectedEntityId, edges, entities]);
+
+    const handleRelationshipClick = (edge: NetworkEdge, sourceEntity: EntityDetail, targetEntity: EntityDetail) => {
+        setSelectedRelationship({ edge, sourceEntity, targetEntity });
+    };
+
+    const handleBackFromRelationship = () => {
+        setSelectedRelationship(null);
+    };
+
+    const handleBackFromProfile = () => {
+        if (selectedRelationship) {
+            setSelectedRelationship(null);
+        } else {
+            setSelectedEntityId(null);
+        }
+    };
+
+    const getBackButtonText = () => {
+        if (selectedRelationship) return '← К профилю';
+        if (selectedEntityId) return '← К списку';
+        return null;
+    };
+
+    const getTitle = () => {
+        if (selectedRelationship) {
+            return `${selectedRelationship.sourceEntity.name} ↔ ${selectedRelationship.targetEntity.name}`;
+        }
+        return 'Персонажи';
+    };
 
     return (
         <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -64,16 +103,16 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                         <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-[var(--color-bg-hover)] mb-4" />
 
                         <div className="flex justify-between items-center mb-4 px-2">
-                            {selectedEntityId ? (
+                            {(selectedEntityId || selectedRelationship) ? (
                                 <button
-                                    onClick={() => setSelectedEntityId(null)}
+                                    onClick={selectedRelationship ? handleBackFromRelationship : handleBackFromProfile}
                                     className="text-[var(--color-link)] text-sm font-medium hover:text-[var(--color-link-hover)]"
                                 >
-                                    ← К списку
+                                    {getBackButtonText()}
                                 </button>
                             ) : (
                                 <div className="flex items-center gap-3">
-                                    <h2 className="text-lg font-semibold text-[var(--color-text-default)]">Персонажи</h2>
+                                    <h2 className="text-lg font-semibold text-[var(--color-text-default)]">{getTitle()}</h2>
                                     <button
                                         onClick={() => navigate(`/book/${bookId}/gallery`)}
                                         className="p-1.5 bg-[var(--color-bg-elevated)] rounded-full text-[var(--color-accent-500)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-400)] transition-colors"
@@ -93,11 +132,26 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                         </div>
 
                         <div className="flex-1 overflow-hidden relative">
-                            {selectedEntityId && entities[selectedEntityId] ? (
+                            {selectedRelationship ? (
+                                <div className="h-full overflow-auto p-2">
+                                    <RelationshipCard
+                                        edge={selectedRelationship.edge}
+                                        sourceEntity={selectedRelationship.sourceEntity}
+                                        targetEntity={selectedRelationship.targetEntity}
+                                        currentChapter={currentChapter}
+                                        currentCFI={currentCFI}
+                                        onEntityClick={(id) => {
+                                            setSelectedRelationship(null);
+                                            setSelectedEntityId(id);
+                                        }}
+                                    />
+                                </div>
+                            ) : selectedEntityId && entities[selectedEntityId] ? (
                                 <EntityProfile
                                     entity={entities[selectedEntityId]}
                                     relatedEntities={relationships}
                                     onEntityClick={(id) => setSelectedEntityId(id)}
+                                    onRelationshipClick={handleRelationshipClick}
                                     currentChapter={currentChapter}
                                     currentCFI={currentCFI}
                                 />

@@ -1,16 +1,17 @@
 import React from 'react';
-import { EntityDetail } from '../../types/entity';
+import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { isEntityMetCFI } from '../../utils/entityUtils';
 import { SpoilerText } from './SpoilerText';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
 import { Badge } from '../UI/badge';
-import { Lock } from 'lucide-react';
+import { Lock, ChevronRight } from 'lucide-react';
 
 interface RelationItem {
     entity: EntityDetail;
-    type: string; // e.g. "ALLY", "ENEMY"
+    type: string;
     description?: string | null;
+    edge?: NetworkEdge;
 }
 
 interface EntityProfileProps {
@@ -19,6 +20,7 @@ interface EntityProfileProps {
     currentCFI?: string | null;
     relatedEntities?: RelationItem[];
     onEntityClick?: (id: string) => void;
+    onRelationshipClick?: (edge: NetworkEdge, sourceEntity: EntityDetail, targetEntity: EntityDetail) => void;
 }
 
 export const EntityProfile: React.FC<EntityProfileProps> = ({
@@ -26,7 +28,8 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
     currentChapter,
     currentCFI,
     relatedEntities = [],
-    onEntityClick
+    onEntityClick,
+    onRelationshipClick
 }) => {
     const isUnknown = !isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
 
@@ -87,13 +90,23 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                             <div className="grid grid-cols-1 gap-2">
                                 {relatedEntities.map((rel, idx) => {
                                     const isRelMet = isEntityMetCFI(rel.entity, currentCFI ?? null, currentChapter);
+                                    const hasEdge = rel.edge && onRelationshipClick;
+
+                                    const handleClick = () => {
+                                        if (!isRelMet) return;
+                                        if (hasEdge && rel.edge) {
+                                            onRelationshipClick(rel.edge, entity, rel.entity);
+                                        } else {
+                                            onEntityClick?.(rel.entity.id);
+                                        }
+                                    };
 
                                     return (
                                         <div
                                             key={rel.entity.id + idx}
-                                            onClick={() => isRelMet && onEntityClick?.(rel.entity.id)}
-                                            className={`flex items-center p-3 rounded bg-[var(--color-bg-elevated,white/5)] border border-[var(--color-border-subtle,white/5)] 
-                                                ${isRelMet ? 'cursor-pointer hover:bg-[var(--color-bg-hover,white/10)] hover:border-[var(--color-border-default,white/10)] transition-colors' : 'opacity-60 cursor-default'}`}
+                                            onClick={handleClick}
+                                            className={`flex items-center p-3 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] 
+                                                ${isRelMet ? 'cursor-pointer hover:bg-[var(--color-bg-hover)] hover:border-[var(--color-border-default)] transition-colors' : 'opacity-60 cursor-default'}`}
                                         >
                                             <Avatar className="h-8 w-8 mr-3">
                                                 <AvatarImage src={rel.entity.avatar_url || undefined} className={!isRelMet ? "grayscale" : ""} />
@@ -104,7 +117,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                                     <span className={`text-sm font-medium truncate ${isRelMet ? 'text-[var(--color-text-default)]' : 'text-[var(--color-text-muted)]'}`}>
                                                         {rel.entity.name}
                                                     </span>
-                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-[var(--color-bg-elevated,white/10)] text-[var(--color-text-muted)]">
+                                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
                                                         {rel.type}
                                                     </Badge>
                                                 </div>
@@ -114,6 +127,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                                     </p>
                                                 )}
                                             </div>
+                                            {isRelMet && <ChevronRight className="w-4 h-4 text-[var(--color-text-disabled)] ml-2" />}
                                         </div>
                                     );
                                 })}

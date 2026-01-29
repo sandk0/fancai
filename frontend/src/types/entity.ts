@@ -23,11 +23,13 @@ export interface EntityDetail {
 }
 
 export interface NetworkEdge {
-    source: string; // UUID
-    target: string; // UUID
+    source: string;
+    target: string;
     type: string;
     weight: number;
     description?: string | null;
+    first_interaction_cfi?: string | null;
+    first_interaction_chapter?: number | null;
 }
 
 export interface EntityNetworkResponse {

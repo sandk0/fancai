@@ -264,7 +264,9 @@ class EntityService:
                 target=new_target,
                 type=str(edge.type),
                 weight=int(edge.weight or 0),
-                description=context
+                description=context,
+                first_interaction_cfi=edge.first_interaction_cfi,
+                first_interaction_chapter=edge.first_interaction_chapter
             ))
 
         return EntityNetworkResponse(
