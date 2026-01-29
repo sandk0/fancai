@@ -31,7 +31,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
             <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-gray-100"
+                className="text-[var(--color-text-default)]"
             >
                 {text}
             </motion.span>
@@ -41,7 +41,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     return (
         <span
             onClick={() => setIsRevealed(true)}
-            className="cursor-pointer select-none rounded bg-white/10 text-transparent hover:bg-white/20 transition-colors px-1 backdrop-blur-sm"
+            className="cursor-pointer select-none rounded bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
             title="Spoiler! Click to reveal"
         >
             {/* Render redacted blocks roughly matching text length */}

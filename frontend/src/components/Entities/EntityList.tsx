@@ -94,14 +94,14 @@ export const EntityList: React.FC<EntityListProps> = ({
                         searchQuery ? (
                             <button
                                 onClick={clearSearch}
-                                className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                                className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                                 aria-label="Очистить поиск"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         ) : undefined
                     }
-                    className="bg-[var(--color-bg-elevated,#1a1a1a)] border-[var(--color-border-subtle,white/5)]"
+                    className="bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)]"
                 />
             </div>
 
@@ -112,8 +112,8 @@ export const EntityList: React.FC<EntityListProps> = ({
                         onClick={() => handleTypeFilterChange(filter.type)}
                         className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors
                             ${activeTypeFilter === filter.type
-                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                : 'bg-[var(--color-bg-elevated,white/5)] text-[var(--color-text-muted,#94a3b8)] border border-transparent hover:bg-[var(--color-bg-hover,white/10)]'
+                                ? 'bg-[var(--color-info-muted)] text-[var(--color-info)] border border-[var(--color-info)]/30'
+                                : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border border-transparent hover:bg-[var(--color-bg-hover)]'
                             }`}
                     >
                         {filter.label}
@@ -136,7 +136,7 @@ export const EntityList: React.FC<EntityListProps> = ({
                     {hasMore && (
                         <button
                             onClick={loadMore}
-                            className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-sm text-[var(--color-text-muted,#94a3b8)] hover:text-[var(--color-text-default)] bg-[var(--color-bg-elevated,white/5)] hover:bg-[var(--color-bg-hover,white/10)] rounded-lg transition-colors"
+                            className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-default)] bg-[var(--color-bg-elevated)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
                         >
                             <ChevronDown className="w-4 h-4" />
                             Показать ещё ({filteredEntities.length - visibleCount})
@@ -144,7 +144,7 @@ export const EntityList: React.FC<EntityListProps> = ({
                     )}
 
                     {filteredEntities.length === 0 && (
-                        <div className="text-center py-10 text-[var(--color-text-muted,#64748b)]">
+                        <div className="text-center py-10 text-[var(--color-text-muted)]">
                             {searchQuery || activeTypeFilter !== 'ALL'
                                 ? 'Ничего не найдено'
                                 : 'Персонажи не найдены'

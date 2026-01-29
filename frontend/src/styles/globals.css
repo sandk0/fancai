@@ -28,6 +28,9 @@
     --color-bg-subtle: #F9FAFB;
     --color-bg-muted: #F3F4F6;
     --color-bg-emphasis: #E5E7EB;
+    --color-bg-elevated: rgba(0, 0, 0, 0.03);
+    --color-bg-hover: rgba(0, 0, 0, 0.05);
+    --color-bg-overlay: rgba(0, 0, 0, 0.5);
 
     --color-text-default: #111827;
     --color-text-muted: #4B5563;
@@ -36,6 +39,10 @@
 
     --color-border-default: #E5E7EB;
     --color-border-muted: #F3F4F6;
+    --color-border-subtle: rgba(0, 0, 0, 0.05);
+
+    --color-link: #3B82F6;
+    --color-link-hover: #2563EB;
 
     /* Accent - warm orange */
     --color-accent-400: #FBBF24;
@@ -92,6 +99,9 @@
     --color-bg-subtle: #1A1A1A;
     --color-bg-muted: #1E1E1E;
     --color-bg-emphasis: #2A2A2A;
+    --color-bg-elevated: rgba(255, 255, 255, 0.05);
+    --color-bg-hover: rgba(255, 255, 255, 0.1);
+    --color-bg-overlay: rgba(0, 0, 0, 0.6);
 
     /* Text - off-white for reduced eye strain */
     --color-text-default: #E8E8E8;
@@ -102,6 +112,11 @@
     /* Borders - neutral */
     --color-border-default: #2D2D2D;
     --color-border-muted: #252525;
+    --color-border-subtle: rgba(255, 255, 255, 0.05);
+
+    /* Interactive - links and actions */
+    --color-link: #60A5FA;
+    --color-link-hover: #93C5FD;
 
     /* Accent - brighter for dark mode */
     --color-accent-400: #FCD34D;
@@ -156,6 +171,9 @@
     --color-bg-subtle: #F7EBCF;
     --color-bg-muted: #F5E6C8;
     --color-bg-emphasis: #EBD9B5;
+    --color-bg-elevated: rgba(0, 0, 0, 0.03);
+    --color-bg-hover: rgba(0, 0, 0, 0.06);
+    --color-bg-overlay: rgba(0, 0, 0, 0.4);
 
     /* Text - warm brown tones */
     --color-text-default: #3D2914;
@@ -166,6 +184,10 @@
     /* Borders - warm */
     --color-border-default: #E8D5B5;
     --color-border-muted: #EFE0C8;
+    --color-border-subtle: rgba(0, 0, 0, 0.05);
+
+    --color-link: #B45309;
+    --color-link-hover: #92400E;
 
     /* Accent - deep amber/orange */
     --color-accent-400: #F59E0B;
@@ -221,6 +243,9 @@
     --color-bg-subtle: #FFFDF0;
     --color-bg-muted: #FFFCEB;
     --color-bg-emphasis: #FFF9E0;
+    --color-bg-elevated: rgba(0, 0, 0, 0.04);
+    --color-bg-hover: rgba(0, 0, 0, 0.08);
+    --color-bg-overlay: rgba(0, 0, 0, 0.5);
 
     /* Text - pure black for maximum contrast */
     --color-text-default: #000000;
@@ -231,6 +256,10 @@
     /* Borders - visible in bright light */
     --color-border-default: #D1D5DB;
     --color-border-muted: #E5E7EB;
+    --color-border-subtle: rgba(0, 0, 0, 0.08);
+
+    --color-link: #1E40AF;
+    --color-link-hover: #1E3A8A;
 
     /* Accent - deep blue for visibility */
     --color-accent-400: #3B82F6;
