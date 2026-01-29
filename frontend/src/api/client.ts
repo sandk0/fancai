@@ -65,7 +65,10 @@ class ApiClient {
           });
         }
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Skip token refresh for auth endpoints - they handle their own auth
+        const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+        
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           if (import.meta.env.DEV) console.log('🌐 [AXIOS] 401 error, attempting token refresh...');
           originalRequest._retry = true;
 
