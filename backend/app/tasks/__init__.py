@@ -7,7 +7,6 @@ from .reading_sessions_tasks import close_abandoned_sessions, get_cleanup_statis
 from .book_tasks import (
     process_book_task,
     _atomic_cleanup_book_state,
-    _handle_book_processing_error_async,
     _process_book_async,
 )
 
@@ -38,7 +37,6 @@ __all__ = [
     "get_cleanup_statistics",
     "process_book_task",
     "_atomic_cleanup_book_state",
-    "_handle_book_processing_error_async",
     "_process_book_async",
     "generate_image_task",
     "generate_image_batch_task",

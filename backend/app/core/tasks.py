@@ -13,7 +13,6 @@ All tasks have been moved to app/tasks/ modules:
 from app.tasks.book_tasks import (
     process_book_task,
     _atomic_cleanup_book_state,
-    _handle_book_processing_error_async,
     _process_book_async,
 )
 
@@ -44,7 +43,6 @@ _run_async_task = run_async
 __all__ = [
     "process_book_task",
     "_atomic_cleanup_book_state",
-    "_handle_book_processing_error_async",
     "_process_book_async",
     "generate_image_task",
     "generate_image_batch_task",
