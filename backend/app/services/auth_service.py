@@ -12,6 +12,7 @@ import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from ..models.user import User, Subscription, SubscriptionPlan, SubscriptionStatus
 from ..core.config import settings
@@ -240,7 +241,11 @@ class AuthService:
         Returns:
             Пользователь или None
         """
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.subscription))
+        )
         return result.scalar_one_or_none()
 
     async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[User]:
@@ -254,7 +259,11 @@ class AuthService:
         Returns:
             Пользователь или None
         """
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.subscription))
+        )
         return result.scalar_one_or_none()
 
     def create_tokens_for_user(self, user: User) -> Dict[str, str]:

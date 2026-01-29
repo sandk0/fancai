@@ -303,6 +303,14 @@ async def logout_user(
     return LogoutResponse()
 
 
+@router.get("/auth/me", response_model=CurrentUserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_active_user),
+) -> CurrentUserResponse:
+    """Получение информации о текущем пользователе."""
+    return CurrentUserResponse(user=UserResponse.model_validate(current_user).model_dump())
+
+
 @router.delete("/auth/deactivate", response_model=AccountDeactivationResponse)
 async def deactivate_account(
     current_user: User = Depends(get_current_active_user),
