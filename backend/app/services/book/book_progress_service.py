@@ -272,6 +272,7 @@ class BookProgressService:
                     progress.scroll_offset_percent = scroll_offset_percent
                     progress.last_read_at = datetime.now(timezone.utc)
                     await db.commit()
+                    await db.refresh(progress)
                     return progress
 
             # Обновляем существующий
