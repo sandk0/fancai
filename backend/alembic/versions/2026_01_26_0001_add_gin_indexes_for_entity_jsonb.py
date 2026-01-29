@@ -15,7 +15,7 @@ GIN indexes enable fast JSONB queries (100x faster for containment checks).
 from alembic import op
 
 revision = "2026_01_26_0001"
-down_revision = "2026_01_25_0006"
+down_revision = "add_unique_entity_name"
 branch_labels = None
 depends_on = None
 
