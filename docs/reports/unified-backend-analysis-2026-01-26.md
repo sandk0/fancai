@@ -2686,6 +2686,326 @@ QUALITY (если готовимся к production):
 
 ---
 
+## Часть 25: Полный архитектурный аудит Backend (29 января 2026)
+
+### Executive Summary
+
+**Общая оценка: 8.0/10**
+
+**Ключевые проблемы найдены:**
+1. 🔴 **P0**: Обращение к несуществующим атрибутам модели (chapters.py)
+2. 🟠 **P1**: Множество LSP ошибок в health.py (типы)
+3. 🟠 **P1**: Pydantic v2 deprecated `min_items`/`max_items`
+4. 🟠 **P1**: Type mismatch в reading_progress.py
+5. 🟡 **P2**: 9 мест с `# type: ignore` в images.py
+
+**Ключевые сильные стороны:**
+1. ✅ RFC 9457 Problem Details реализован
+2. ✅ Comprehensive exceptions hierarchy (50+ классов)
+3. ✅ Rate limiting с X-RateLimit-* headers
+4. ✅ `lazy="raise"` везде — предотвращает N+1
+5. ✅ `selectinload` используется в ключевых местах
+
+---
+
+### 25.1 🔴 CRITICAL — Требует немедленного исправления
+
+#### TD-AUDIT-25-1: Обращение к несуществующим атрибутам GeneratedImage
+
+**Файл:** `backend/app/routers/chapters.py:175-176`
+**Приоритет:** P0
+**Категория:** Runtime Error
+
+**Текущий код:**
+```python
+images_data.append({
+    "id": str(img.id),
+    "image_url": img.image_url,
+    "description_text": img.description_text,  # ❌ НЕ СУЩЕСТВУЕТ
+    "description_type": img.description_type,  # ❌ НЕ СУЩЕСТВУЕТ
+    "status": img.status,
+})
+```
+
+**Проблема:** Модель `GeneratedImage` не имеет атрибутов `description_text` и `description_type`. Это вызовет `AttributeError` при runtime.
+
+**Исправление:**
+```python
+images_data.append({
+    "id": str(img.id),
+    "image_url": img.image_url,
+    "prompt_used": img.prompt_used,  # Или загрузить из связанного Description
+    "status": img.status,
+})
+```
+
+**Альтернатива:** Добавить eager loading для description и получать данные оттуда.
+
+**Время исправления:** 15мин
+
+---
+
+### 25.2 🟠 HIGH — Требуют исправления в этом спринте
+
+#### TD-AUDIT-25-2: health.py — Множество ошибок типов
+
+**Файл:** `backend/app/routers/health.py:120-218`
+**Приоритет:** P1
+**Категория:** Type Safety
+
+**Проблема:** 20+ LSP ошибок связанных с:
+- `ComponentHealthResponse` вызывается без обязательных параметров `latency_ms`, `details`
+- `asyncio.gather(return_exceptions=True)` возвращает `BaseException | T`, но код обращается к атрибутам без проверки
+
+**Текущий код (пример):**
+```python
+return ComponentHealthResponse(
+    status="ok",
+    message="Database connection successful",
+    latency_ms=round(latency, 2),
+)  # ✅ OK
+
+return ComponentHealthResponse(
+    status="error", message="Database query returned unexpected result"
+)  # ❌ Missing latency_ms, details
+```
+
+**Исправление:**
+```python
+return ComponentHealthResponse(
+    status="error",
+    message="Database query returned unexpected result",
+    latency_ms=None,
+    details=None,
+)
+```
+
+**Для gather errors:**
+```python
+if isinstance(db_check, BaseException):
+    db_check = ComponentHealthResponse(
+        status="error",
+        message=f"Database check failed: {db_check}",
+        latency_ms=None,
+        details=None,
+    )
+```
+
+**Время исправления:** 1ч
+
+---
+
+#### TD-AUDIT-25-3: push.py — Optional type annotation
+
+**Файл:** `backend/app/routers/push.py:267`
+**Приоритет:** P1
+**Категория:** Type Safety
+
+**Текущий код:**
+```python
+async def send_test_notification(
+    request: TestNotificationRequest = None,  # ❌
+    ...
+):
+```
+
+**Проблема:** `= None` без `Optional` или `| None` нарушает типизацию.
+
+**Исправление:**
+```python
+async def send_test_notification(
+    request: Optional[TestNotificationRequest] = None,
+    ...
+):
+```
+
+**Время исправления:** 5мин
+
+---
+
+#### TD-AUDIT-25-4: reading_progress.py — Type mismatch
+
+**Файл:** `backend/app/routers/reading_progress.py:160`
+**Приоритет:** P1
+**Категория:** Type Safety
+
+**Текущий код:**
+```python
+reading_location_cfi = progress_data.reading_location_cfi  # str | None
+# ...
+progress = await book_progress_service.update_reading_progress(
+    ...
+    reading_location_cfi=reading_location_cfi,  # ❌ Передаём None
+)
+```
+
+**Проблема:** `update_reading_progress` ожидает `str`, но получает `str | None`.
+
+**Исправление в book_progress_service.py:161:**
+```python
+reading_location_cfi: Optional[str] = None,
+```
+
+**Время исправления:** 5мин
+
+---
+
+#### TD-AUDIT-25-5: reading_sessions.py — Pydantic v2 deprecated
+
+**Файл:** `backend/app/routers/reading_sessions.py:119-120`
+**Приоритет:** P1
+**Категория:** Pydantic v2 Compatibility
+
+**Текущий код:**
+```python
+updates: List[BatchUpdateItem] = Field(
+    ..., min_items=1, max_items=50, description="Список обновлений (max 50)"
+)
+```
+
+**Проблема:** `min_items` и `max_items` устарели в Pydantic v2. Нужно использовать `min_length` и `max_length`.
+
+**Исправление:**
+```python
+updates: List[BatchUpdateItem] = Field(
+    ..., min_length=1, max_length=50, description="Список обновлений (max 50)"
+)
+```
+
+**Время исправления:** 5мин
+
+---
+
+### 25.3 🟡 MEDIUM — Рекомендуется исправить
+
+#### TD-AUDIT-25-6: images.py — type: ignore suppression
+
+**Файл:** `backend/app/routers/images.py:609-752`
+**Приоритет:** P2
+**Категория:** Code Quality
+
+**Проблема:** 9 мест с `# type: ignore[assignment]` — сигнал о проблемах с типами возвращаемых значений из сервисов.
+
+**Рекомендация:** Типизировать возвращаемые значения в `ImageCRUDService` и `ImageGeneratorService` вместо подавления ошибок.
+
+**Время исправления:** 2ч
+
+---
+
+#### TD-AUDIT-25-7: Нет for_update() для конкурентных операций
+
+**Файл:** Множество мест в routers/
+**Приоритет:** P2
+**Категория:** Race Conditions
+
+**Проблема:** Операции read-modify-write (например, `increment_image_quota`) не используют `SELECT FOR UPDATE`, что может привести к race conditions при конкурентных запросах.
+
+**Места:**
+- `images.py:144-155` — increment quota
+- `reading_sessions.py` — session updates
+
+**Исправление:**
+```python
+result = await db.execute(
+    select(Subscription)
+    .where(Subscription.user_id == user_id)
+    .with_for_update()  # ← Добавить
+)
+```
+
+**Время исправления:** 1ч
+
+---
+
+#### TD-AUDIT-25-8: Test Coverage Gaps
+
+**Приоритет:** P2
+**Категория:** Testing
+
+**Роутеры БЕЗ тестов:**
+- `images.py` — 9 endpoints, 0 tests (P0!)
+- `users.py` — 6 endpoints, 0 tests (P1)
+- `websocket.py` — 1 endpoint, 0 tests
+- `sync.py` — 1 endpoint, 0 tests
+- `push.py` — 5 endpoints, 0 tests
+- `health.py` — 4 endpoints, 0 tests
+
+**Сервисы БЕЗ тестов:**
+- `image_generator.py` — только TEMPLATE файл (0 реальных тестов)
+- `image_crud_service.py` — 0 tests
+- `reading_session_cache.py` — 0 tests
+- `entity_deduplication_service.py` — 0 tests
+- `consistency_manager.py` — 0 tests
+
+**Рекомендация:** Создать минимум тесты для `images.py` и `image_generator.py`.
+
+**Время исправления:** 8-10ч
+
+---
+
+### 25.4 Консолидированный план действий
+
+#### P0 — CRITICAL (немедленно)
+
+| ID | Задача | Файл | Время |
+|----|--------|------|-------|
+| TD-AUDIT-25-1 | Fix missing GeneratedImage attributes | chapters.py:175-176 | 15м |
+
+#### P1 — HIGH (этот спринт)
+
+| ID | Задача | Файл | Время |
+|----|--------|------|-------|
+| TD-AUDIT-25-2 | Fix health.py type errors | health.py | 1ч |
+| TD-AUDIT-25-3 | Add Optional to push.py | push.py:267 | 5м |
+| TD-AUDIT-25-4 | Fix reading_location_cfi type | book_progress_service.py:161 | 5м |
+| TD-AUDIT-25-5 | Pydantic v2 min_length | reading_sessions.py:119-120 | 5м |
+
+#### P2 — MEDIUM (backlog)
+
+| ID | Задача | Файл | Время |
+|----|--------|------|-------|
+| TD-AUDIT-25-6 | Remove type: ignore | images.py | 2ч |
+| TD-AUDIT-25-7 | Add for_update() | routers/* | 1ч |
+| TD-AUDIT-25-8 | Add tests for images.py | tests/ | 8ч |
+
+---
+
+### 25.5 Обновлённая статистика
+
+| Категория | Всего | Выполнено | Осталось |
+|-----------|-------|-----------|----------|
+| **P0 Critical** | 8 | 7 | **1** (TD-AUDIT-25-1) |
+| **P1 High** | 21 | 17 | **4** (25-2..5) |
+| **P2 Medium** | 30 | 27 | **3** (25-6..8) |
+| **Entity Cards** | 20 | 18 | **2** |
+| **Backlog** | 7 | 0 | **7** |
+| **ИТОГО** | **86** | **69** | **17** |
+
+**Прогресс: 80%** (69/86 задач)
+
+---
+
+### 25.6 Рекомендуемый порядок работы
+
+```
+НЕМЕДЛЕННО (P0):
+└── TD-AUDIT-25-1: Fix chapters.py attributes ───── 15м
+
+СЕГОДНЯ (P1):
+├── TD-AUDIT-25-2: health.py type errors ────────── 1ч
+├── TD-AUDIT-25-3: push.py Optional ─────────────── 5м
+├── TD-AUDIT-25-4: reading_location_cfi ─────────── 5м
+└── TD-AUDIT-25-5: Pydantic min_length ──────────── 5м
+                                          ИТОГО: ~1.5ч
+
+BACKLOG (P2):
+├── TD-AUDIT-25-6: type: ignore removal ─────────── 2ч
+├── TD-AUDIT-25-7: for_update() ─────────────────── 1ч
+└── TD-AUDIT-25-8: Test coverage ────────────────── 8ч
+```
+
+---
+
 **Автор:** Claude (Sisyphus)  
 **Дата:** 29 января 2026  
-**Версия:** 12.0 (EC-1.2 + TD-P16-1 Complete)
+**Версия:** 13.0 (Full Architectural Audit)
