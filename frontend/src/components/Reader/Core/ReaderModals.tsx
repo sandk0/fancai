@@ -40,6 +40,7 @@ interface ReaderModalsProps {
     network: EntityNetworkResponse | undefined;
     isLoading: boolean;
     currentChapter: number;
+    maxChapterReached: number;
     currentCFI: string;
   };
   selection: {
@@ -116,6 +117,7 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         entities={entityDrawer.network?.entities || {}}
         edges={entityDrawer.network?.edges || []}
         currentChapter={entityDrawer.currentChapter}
+        maxChapterReached={entityDrawer.maxChapterReached}
         currentCFI={entityDrawer.currentCFI}
         isLoading={entityDrawer.isLoading}
       />
