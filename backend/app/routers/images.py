@@ -6,7 +6,7 @@ Thin router layer - delegates to ImageCRUDService and ImageGeneratorService.
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID
 from pydantic import BaseModel
 from dataclasses import dataclass
@@ -42,6 +42,13 @@ from ..schemas.responses.images import (
     BookImagesResponse,
     ImageDeleteResponse,
     ImageRegenerateResponse,
+    PerformanceStats,
+    SystemStatus,
+    AdminImageStatsResponse,
+    AsyncGenerationQueueResponse,
+    AsyncBatchQueueResponse,
+    AsyncBatchSkippedResponse,
+    TaskStatusResponse,
 )
 
 router = APIRouter()
@@ -588,35 +595,45 @@ async def regenerate_image(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image regeneration")
 
 
-@router.get("/images/admin/stats")
+@router.get("/images/admin/stats", response_model=AdminImageStatsResponse)
 async def get_admin_image_stats(
     current_admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> AdminImageStatsResponse:
     service = get_image_service(db)
     stats = await service.get_admin_stats()
     service_stats = await image_gen_svc.get_generation_stats()
     
-    return {
-        "total_images_generated": stats["total_images"],
-        "generation_by_type": stats["type_distribution"],
-        "performance": {
-            "average_generation_time_seconds": stats["avg_generation_time"],
-            "current_queue_size": service_stats["queue_size"],
-            "is_processing": service_stats["is_processing"],
-        },
-        "system_status": {
-            "service_operational": True,
-            "api_provider": "Google Imagen 4",
-            "supported_types": service_stats["supported_types"],
-            "queue_backend": service_stats.get("queue_backend", "celery_redis"),
-        },
-        "celery_stats": service_stats.get("celery_stats", {}),
-    }
+    # Type-safe extraction from service dicts
+    total_images: int = stats.get("total_images", 0)  # type: ignore[assignment]
+    type_dist: Dict[str, int] = stats.get("type_distribution", {})  # type: ignore[assignment]
+    avg_time = stats.get("avg_generation_time")
+    queue_size: int = service_stats.get("queue_size", 0)  # type: ignore[assignment]
+    is_proc: bool = service_stats.get("is_processing", False)  # type: ignore[assignment]
+    sup_types: List[str] = service_stats.get("supported_types", [])  # type: ignore[assignment]
+    q_backend: str = service_stats.get("queue_backend", "celery_redis")  # type: ignore[assignment]
+    cel_stats: Dict[str, int] = service_stats.get("celery_stats", {})  # type: ignore[assignment]
+    
+    return AdminImageStatsResponse(
+        total_images_generated=total_images,
+        generation_by_type=type_dist,
+        performance=PerformanceStats(
+            average_generation_time_seconds=float(avg_time) if avg_time is not None else None,  # type: ignore[arg-type]
+            current_queue_size=queue_size,
+            is_processing=is_proc,
+        ),
+        system_status=SystemStatus(
+            service_operational=True,
+            api_provider="Google Imagen 4",
+            supported_types=sup_types,
+            queue_backend=q_backend,
+        ),
+        celery_stats=cel_stats,
+    )
 
 
-@router.post("/images/generate/async/{description_id}", status_code=202)
+@router.post("/images/generate/async/{description_id}", status_code=202, response_model=AsyncGenerationQueueResponse)
 async def queue_async_image_generation(
     description_id: UUID,
     request: AsyncGenerationRequest,
@@ -624,7 +641,7 @@ async def queue_async_image_generation(
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> AsyncGenerationQueueResponse:
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
@@ -645,11 +662,13 @@ async def queue_async_image_generation(
         custom_style=request.style_prompt,
     )
     
-    return {
-        **queue_result,
-        "message": "Image generation queued. Use task_id to check status.",
-        "status_url": f"/api/v1/images/task/{queue_result['task_id']}",
-    }
+    return AsyncGenerationQueueResponse(
+        task_id=queue_result["task_id"],
+        status=queue_result["status"],
+        description_id=str(description_id),
+        message="Image generation queued. Use task_id to check status.",
+        status_url=f"/api/v1/images/task/{queue_result['task_id']}",
+    )
 
 
 @router.post("/images/generate/async/chapter/{chapter_id}", status_code=202)
@@ -660,7 +679,7 @@ async def queue_async_batch_generation(
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
     db: AsyncSession = Depends(get_database_session),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> Union[AsyncBatchQueueResponse, AsyncBatchSkippedResponse]:
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
@@ -680,7 +699,12 @@ async def queue_async_batch_generation(
     descriptions_to_process = [d for d in all_descriptions if d.id not in existing][:request.max_images]
     
     if not descriptions_to_process:
-        return {"message": "All suitable descriptions already have images", "chapter_id": str(chapter_id), "processed": 0, "skipped": len(all_descriptions)}
+        return AsyncBatchSkippedResponse(
+            message="All suitable descriptions already have images",
+            chapter_id=str(chapter_id),
+            processed=0,
+            skipped=len(all_descriptions),
+        )
     
     descriptions_data = [
         {"id": str(d.id), "content": d.content, "type": d.type.value if hasattr(d.type, 'value') else str(d.type)}
@@ -695,21 +719,25 @@ async def queue_async_batch_generation(
         max_images=request.max_images,
     )
     
-    return {
-        **queue_result,
-        "total_descriptions": len(all_descriptions),
-        "queued_for_processing": len(descriptions_to_process),
-        "skipped_existing": len(existing),
-        "status_url": f"/api/v1/images/task/{queue_result['task_id']}",
-    }
+    return AsyncBatchQueueResponse(
+        task_id=queue_result["task_id"],
+        status=queue_result["status"],
+        chapter_id=str(chapter_id),
+        descriptions_count=queue_result["descriptions_count"],
+        total_descriptions=len(all_descriptions),
+        queued_for_processing=len(descriptions_to_process),
+        skipped_existing=len(existing),
+        status_url=f"/api/v1/images/task/{queue_result['task_id']}",
+        message=queue_result["message"],
+    )
 
 
-@router.get("/images/task/{task_id}")
+@router.get("/images/task/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(
     task_id: str,
     current_user: User = Depends(get_current_active_user),
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
-) -> Dict[str, Any]:
+) -> TaskStatusResponse:
     status_info = image_gen_svc.get_task_status(task_id)
     
     status_messages = {
@@ -721,5 +749,12 @@ async def get_task_status(
         "REVOKED": "Task was cancelled",
     }
     
-    status_info["message"] = status_messages.get(status_info["status"], f"Task status: {status_info['status']}")
-    return status_info
+    task_status: str = status_info.get("status", "UNKNOWN")  # type: ignore[assignment]
+    return TaskStatusResponse(
+        task_id=str(status_info.get("task_id", task_id)),
+        status=task_status,
+        ready=bool(status_info.get("ready", False)),
+        result=status_info.get("result"),
+        error=status_info.get("error"),
+        message=status_messages.get(task_status, f"Task status: {task_status}"),
+    )

@@ -264,21 +264,39 @@ class ImageRegenerateResponse(BaseModel):
     description: DescriptionSummary
 
 
+class PerformanceStats(BaseModel):
+    """Performance statistics for admin stats."""
+
+    average_generation_time_seconds: Optional[float] = None
+    current_queue_size: int = Field(ge=0)
+    is_processing: bool
+
+
+class SystemStatus(BaseModel):
+    """System status for admin stats."""
+
+    service_operational: bool = True
+    api_provider: str = "Google Imagen 4"
+    supported_types: List[str]
+    queue_backend: str = "celery_redis"
+
+
 class AdminImageStatsResponse(BaseModel):
     """Response for GET /images/admin/stats."""
 
     total_images_generated: int = Field(ge=0)
     generation_by_type: Dict[str, int]
-    performance: Dict[str, float]
-    system_status: Dict[str, str]
+    performance: PerformanceStats
+    system_status: SystemStatus
     celery_stats: Dict[str, int] = Field(default_factory=dict)
 
 
 class AsyncGenerationQueueResponse(BaseModel):
-    """Response for POST /images/generate/async/* endpoints."""
+    """Response for POST /images/generate/async/{description_id}."""
 
     task_id: str
     status: str = "queued"
+    description_id: str
     message: str
     status_url: str
 
@@ -288,10 +306,22 @@ class AsyncBatchQueueResponse(BaseModel):
 
     task_id: str
     status: str = "queued"
+    chapter_id: str
+    descriptions_count: int = Field(ge=0)
     total_descriptions: int = Field(ge=0)
     queued_for_processing: int = Field(ge=0)
     skipped_existing: int = Field(ge=0)
     status_url: str
+    message: str
+
+
+class AsyncBatchSkippedResponse(BaseModel):
+    """Response when all descriptions already have images."""
+
+    message: str
+    chapter_id: str
+    processed: int = 0
+    skipped: int = Field(ge=0)
 
 
 class TaskStatusResponse(BaseModel):
@@ -299,7 +329,9 @@ class TaskStatusResponse(BaseModel):
 
     task_id: str
     status: str
+    ready: bool
     result: Optional[Dict] = None
+    error: Optional[str] = None
     message: str
 
 
@@ -323,8 +355,11 @@ __all__ = [
     "BookImagesResponse",
     "ImageDeleteResponse",
     "ImageRegenerateResponse",
+    "PerformanceStats",
+    "SystemStatus",
     "AdminImageStatsResponse",
     "AsyncGenerationQueueResponse",
     "AsyncBatchQueueResponse",
+    "AsyncBatchSkippedResponse",
     "TaskStatusResponse",
 ]
