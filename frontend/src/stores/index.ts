@@ -1,5 +1,4 @@
 // Store imports for initialization
-import { useAuthStore as _useAuthStore } from './auth';
 import { initializeStorageManagement } from '@/services/storageManager';
 import { registerPeriodicSync } from '@/utils/serviceWorker';
 
@@ -24,15 +23,8 @@ export const initializeStores = () => {
     console.warn('Failed to initialize theme:', error);
   }
   
-  // Load auth data from storage (lazy initialization)
-  setTimeout(() => {
-    try {
-      if (DEBUG) console.log('[Stores] Initializing auth store...');
-      _useAuthStore.getState().loadUserFromStorage();
-    } catch (error) {
-      console.warn('Failed to initialize auth store:', error);
-    }
-  }, 0);
+  // Auth store initialization is handled by Zustand persist's onRehydrateStorage
+  // DO NOT call loadUserFromStorage here - it causes duplicate API calls and race conditions
 
   // Initialize storage management for PWA (delay to ensure app is ready)
   setTimeout(() => {
