@@ -99,7 +99,7 @@ class EntityService:
         logger.info(f"[EntityService] Loaded {len(all_descriptions)} descriptions for book_id={book_id}")
         
         q_desc_entities = (
-            select(DescriptionEntity.description_id, DescriptionEntity.entity_id)
+            select(DescriptionEntity.description_id, DescriptionEntity.entity_id, DescriptionEntity.mention_cfi)
             .join(Description)
             .join(Chapter)
             .where(Chapter.book_id == book_id)
@@ -107,11 +107,14 @@ class EntityService:
         desc_entities_res = await self.db.execute(q_desc_entities)
         
         entity_to_descriptions: Dict[UUID, List[Description]] = {}
-        for desc_id, entity_id in desc_entities_res.all():
+        description_cfi_map: Dict[UUID, str] = {}
+        for desc_id, entity_id, mention_cfi in desc_entities_res.all():
             if entity_id not in entity_to_descriptions:
                 entity_to_descriptions[entity_id] = []
             if desc_id in descriptions_by_id:
                 entity_to_descriptions[entity_id].append(descriptions_by_id[desc_id])
+            if mention_cfi:
+                description_cfi_map[desc_id] = mention_cfi
         
         logger.info(f"[EntityService] Loaded description_entities links for {len(entity_to_descriptions)} entities")
         
@@ -153,7 +156,7 @@ class EntityService:
         all_edges = edges_res.scalars().all()
 
         response = self._build_network_response(
-            list(all_entities), list(all_edges), hard_mentions_map, cfi_mentions_map, offset_mentions_map, entity_to_descriptions
+            list(all_entities), list(all_edges), hard_mentions_map, cfi_mentions_map, offset_mentions_map, entity_to_descriptions, description_cfi_map
         )
 
         # 6. Сохраняем в кэш
@@ -172,7 +175,8 @@ class EntityService:
         hard_mentions_map: Dict[UUID, Set[int]],
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
-        entity_to_descriptions: Dict[UUID, List[Description]]
+        entity_to_descriptions: Dict[UUID, List[Description]],
+        description_cfi_map: Dict[UUID, str]
     ) -> EntityNetworkResponse:
         alias_to_canonical: Dict[str, str] = {}
         groups: Dict[str, List[Entity]] = {}
@@ -223,7 +227,7 @@ class EntityService:
                 related_descriptions.extend(entity_to_descriptions.get(entity.id, []))
             
             merged_detail = self._create_merged_detail(
-                master, related_descriptions, hard_mentions_map, cfi_mentions_map, offset_mentions_map
+                master, related_descriptions, hard_mentions_map, cfi_mentions_map, offset_mentions_map, description_cfi_map
             )
             master_entities[master.id] = merged_detail
             
@@ -274,7 +278,8 @@ class EntityService:
         descriptions: List[Description],
         hard_mentions_map: Dict[UUID, Set[int]],
         cfi_mentions_map: Dict[UUID, List[str]],
-        offset_mentions_map: Dict[UUID, List[int]]
+        offset_mentions_map: Dict[UUID, List[int]],
+        description_cfi_map: Dict[UUID, str]
     ) -> EntityDetailSchema:
         all_notes: List[EntityNoteSchema] = []
         all_mentions: Set[int] = set(hard_mentions_map.get(master.id, set()))
@@ -294,10 +299,11 @@ class EntityService:
             
             all_mentions.add(chapter_idx)
 
+            note_cfi = description_cfi_map.get(d.id)
             all_notes.append(EntityNoteSchema(
                 text=d.content,
                 chapter_index=chapter_idx,
-                cfi=None,
+                cfi=note_cfi,
                 is_spoiler=False,
                 type=d.type.value if d.type else "UNKNOWN"
             ))

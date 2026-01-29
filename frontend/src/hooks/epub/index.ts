@@ -30,3 +30,5 @@ export { useResizeHandler } from './useResizeHandler';
 export { useBookMetadata, type BookMetadata } from './useBookMetadata';
 export { useTextSelection, type Selection } from './useTextSelection';
 export { useToc, type UseTocReturn } from './useToc';
+export { useCFIGenerator } from './useCFIGenerator';
+export { useEntityCFIPopulation } from './useEntityCFIPopulation';

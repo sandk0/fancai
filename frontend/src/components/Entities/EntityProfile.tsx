@@ -140,11 +140,13 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                 <div className="space-y-4">
                                     {entity.notes.map((note, idx) => (
                                         <div key={idx} className="bg-[var(--color-bg-muted)]/20 rounded p-3 text-sm leading-relaxed border-l-2 border-[var(--color-border-default,white/20)] pl-4">
-                                            <SpoilerText
-                                                text={note.text}
-                                                chapterIndex={note.chapter_index}
-                                                currentChapter={currentChapter}
-                                            />
+                                                    <SpoilerText
+                                                        text={note.text}
+                                                        chapterIndex={note.chapter_index}
+                                                        currentChapter={currentChapter}
+                                                        noteCfi={note.cfi}
+                                                        currentCfi={currentCFI}
+                                                    />
                                             <div className="text-xs text-right mt-1 text-[var(--color-text-disabled)]">
                                                 Глава {note.chapter_index} • {note.type}
                                             </div>

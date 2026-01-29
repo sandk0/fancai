@@ -242,21 +242,51 @@ class CFIUpdateRequest(BaseModel):
     cfi: str
 
 
+class EntityCFIUpdateRequest(BaseModel):
+    entity_id: UUID
+    cfi: str
+
+
 @router.patch("/entities/mentions/cfi", response_model=bool)
 async def update_mention_cfi(
     request: CFIUpdateRequest,
     admin_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
 ):
-    """
-    Update CFI position for an entity mention.
-    
-    This is used by the frontend Reader component when it calculates 
-    the exact CFI for a text match found by the backend.
-    """
     stmt = update(EntityMention).where(EntityMention.id == request.mention_id).values(mention_cfi=request.cfi)
     await db.execute(stmt)
     await db.commit()
+    
+    return True
+
+
+@router.patch("/entities/cfi", response_model=bool)
+async def update_entity_first_mention_cfi(
+    request: EntityCFIUpdateRequest,
+    admin_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_database_session),
+):
+    first_mention_stmt = (
+        select(EntityMention.id)
+        .where(EntityMention.entity_id == request.entity_id)
+        .order_by(EntityMention.chapter_id, EntityMention.start_index.nulls_last())
+        .limit(1)
+    )
+    result = await db.execute(first_mention_stmt)
+    mention_id = result.scalar_one_or_none()
+    
+    if not mention_id:
+        raise HTTPException(status_code=404, detail="No mentions found for this entity")
+    
+    update_stmt = update(EntityMention).where(EntityMention.id == mention_id).values(mention_cfi=request.cfi)
+    await db.execute(update_stmt)
+    await db.commit()
+    
+    entity_result = await db.execute(select(Entity.book_id).where(Entity.id == request.entity_id))
+    book_id = entity_result.scalar_one_or_none()
+    if book_id:
+        cache_key = f"book:{book_id}:entity_network_v3"
+        await cache_manager.delete(cache_key)
     
     return True
 

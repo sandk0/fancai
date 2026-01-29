@@ -281,4 +281,18 @@ export const adminAPI = {
       duplicate_ids: duplicateIds,
     });
   },
+
+  async updateMentionCFI(mentionId: string, cfi: string): Promise<boolean> {
+    return apiClient.client.patch('/admin/entities/mentions/cfi', {
+      mention_id: mentionId,
+      cfi,
+    }).then(response => response.data);
+  },
+
+  async updateEntityCFI(entityId: string, cfi: string): Promise<boolean> {
+    return apiClient.client.patch('/admin/entities/cfi', {
+      entity_id: entityId,
+      cfi,
+    }).then(response => response.data);
+  },
 };

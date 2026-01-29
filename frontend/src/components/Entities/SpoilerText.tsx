@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { isNoteSpoilerCFI } from '../../utils/entityUtils';
 
 interface SpoilerTextProps {
     text: string;
     chapterIndex: number;
     currentChapter: number;
+    noteCfi?: string | null;
+    currentCfi?: string | null;
     forceReveal?: boolean;
 }
 
@@ -12,9 +15,15 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     text,
     chapterIndex,
     currentChapter,
+    noteCfi,
+    currentCfi,
     forceReveal = false
 }) => {
-    const isSpoiler = !forceReveal && chapterIndex > currentChapter;
+    const isSpoiler = !forceReveal && isNoteSpoilerCFI(
+        { text, chapter_index: chapterIndex, cfi: noteCfi, is_spoiler: false, type: '' },
+        currentCfi ?? null,
+        currentChapter
+    );
     const [isRevealed, setIsRevealed] = useState(false);
 
     if (!isSpoiler || isRevealed) {
