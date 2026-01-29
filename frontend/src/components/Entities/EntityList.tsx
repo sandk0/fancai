@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { EntityDetail } from '../../types/entity';
 import { EntityCard, entityTypeLabels } from './EntityCard';
 import { EntityListSkeleton } from '../UI/Skeleton';
-import { ScrollArea } from '../UI/scroll-area';
 import { Input } from '../UI/Input';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 type EntityType = 'CHARACTER' | 'LOCATION' | 'OBJECT';
 
-const INITIAL_VISIBLE_COUNT = 20;
-const LOAD_MORE_COUNT = 20;
+const VIRTUALIZATION_THRESHOLD = 30;
+const ESTIMATED_ITEM_HEIGHT = 72;
 
 const TYPE_FILTERS: { type: EntityType | 'ALL'; label: string }[] = [
     { type: 'ALL', label: 'Все' },
@@ -35,7 +35,7 @@ export const EntityList: React.FC<EntityListProps> = ({
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTypeFilter, setActiveTypeFilter] = useState<EntityType | 'ALL'>('ALL');
-    const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+    const parentRef = useRef<HTMLDivElement>(null);
 
     const filteredEntities = useMemo(() => {
         let result = Object.values(entities).sort((a, b) => (b.importance || 0) - (a.importance || 0));
@@ -52,29 +52,26 @@ export const EntityList: React.FC<EntityListProps> = ({
         return result;
     }, [entities, activeTypeFilter, searchQuery]);
 
-    const visibleEntities = useMemo(() => {
-        return filteredEntities.slice(0, visibleCount);
-    }, [filteredEntities, visibleCount]);
+    const useVirtualization = filteredEntities.length > VIRTUALIZATION_THRESHOLD;
 
-    const hasMore = filteredEntities.length > visibleCount;
-
-    const loadMore = () => {
-        setVisibleCount((prev) => prev + LOAD_MORE_COUNT);
-    };
+    const virtualizer = useVirtualizer({
+        count: filteredEntities.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => ESTIMATED_ITEM_HEIGHT,
+        overscan: 5,
+        enabled: useVirtualization,
+    });
 
     const clearSearch = () => {
         setSearchQuery('');
-        setVisibleCount(INITIAL_VISIBLE_COUNT);
     };
 
     const handleTypeFilterChange = (type: EntityType | 'ALL') => {
         setActiveTypeFilter(type);
-        setVisibleCount(INITIAL_VISIBLE_COUNT);
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(e.target.value);
-        setVisibleCount(INITIAL_VISIBLE_COUNT);
     };
 
     if (isLoading) {
@@ -121,38 +118,66 @@ export const EntityList: React.FC<EntityListProps> = ({
                 ))}
             </div>
 
-            <ScrollArea className="flex-1">
-                <div className="space-y-2 pb-20 px-2">
-                    {visibleEntities.map((entity) => (
-                        <EntityCard
-                            key={entity.id}
-                            entity={entity}
-                            currentChapter={currentChapter}
-                            currentCFI={currentCFI}
-                            onClick={() => onEntitySelect(entity.id)}
-                        />
-                    ))}
-
-                    {hasMore && (
-                        <button
-                            onClick={loadMore}
-                            className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-default)] bg-[var(--color-bg-elevated)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
-                        >
-                            <ChevronDown className="w-4 h-4" />
-                            Показать ещё ({filteredEntities.length - visibleCount})
-                        </button>
-                    )}
-
-                    {filteredEntities.length === 0 && (
-                        <div className="text-center py-10 text-[var(--color-text-muted)]">
-                            {searchQuery || activeTypeFilter !== 'ALL'
-                                ? 'Ничего не найдено'
-                                : 'Персонажи не найдены'
-                            }
-                        </div>
-                    )}
+            {filteredEntities.length === 0 ? (
+                <div className="text-center py-10 text-[var(--color-text-muted)]">
+                    {searchQuery || activeTypeFilter !== 'ALL'
+                        ? 'Ничего не найдено'
+                        : 'Персонажи не найдены'
+                    }
                 </div>
-            </ScrollArea>
+            ) : useVirtualization ? (
+                <div
+                    ref={parentRef}
+                    className="flex-1 overflow-auto px-2"
+                    style={{ contain: 'strict' }}
+                >
+                    <div
+                        style={{
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: '100%',
+                            position: 'relative',
+                        }}
+                    >
+                        {virtualizer.getVirtualItems().map((virtualRow) => {
+                            const entity = filteredEntities[virtualRow.index];
+                            return (
+                                <div
+                                    key={entity.id}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: `${virtualRow.size}px`,
+                                        transform: `translateY(${virtualRow.start}px)`,
+                                    }}
+                                >
+                                    <EntityCard
+                                        entity={entity}
+                                        currentChapter={currentChapter}
+                                        currentCFI={currentCFI}
+                                        onClick={() => onEntitySelect(entity.id)}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : (
+                <div className="flex-1 overflow-auto px-2 pb-20">
+                    <div className="space-y-2">
+                        {filteredEntities.map((entity) => (
+                            <EntityCard
+                                key={entity.id}
+                                entity={entity}
+                                currentChapter={currentChapter}
+                                currentCFI={currentCFI}
+                                onClick={() => onEntitySelect(entity.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
