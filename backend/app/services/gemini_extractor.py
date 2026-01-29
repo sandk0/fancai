@@ -49,24 +49,24 @@ logger = logging.getLogger(__name__)
 # Phase 6: Pydantic Schemas for Structured Output
 class GeminiEntitySchema(BaseModel):
     name: str = Field(description="Имя сущности")
-    type: str = Field(description="character, location, object")
-    visual_summary: str = Field(description="Визуальное описание для художника")
+    type: str = Field(default="character", description="character, location, object")
+    visual_summary: str = Field(default="", description="Визуальное описание для художника")
     aliases: List[str] = Field(default_factory=list, description="Альтернативные имена")
-    confidence: float = Field(description="Уверенность 0.0-1.0")
-    importance: int = Field(description="Важность для сюжета (1-10). 10=Протагонист, 1=Фон")
+    confidence: float = Field(default=1.0, description="Уверенность 0.0-1.0")
+    importance: int = Field(default=5, description="Важность для сюжета (1-10). 10=Протагонист, 1=Фон")
     first_mention_offset: Optional[int] = Field(default=None, description="Позиция (символ) первого упоминания в тексте")
 
 class GeminiRelationshipSchema(BaseModel):
     source: str
     target: str
-    type: str
-    weight: float
-    context: str
+    type: str = Field(default="related")
+    weight: float = Field(default=0.5)
+    context: str = Field(default="")
 
 class GeminiDescriptionSchema(BaseModel):
     content: str = Field(description="Полное описание из текста")
-    type: str = Field(description="location, character, object, atmosphere")
-    confidence: float
+    type: str = Field(default="location", description="location, character, object, atmosphere")
+    confidence: float = Field(default=1.0)
     entities: List[str] = Field(default_factory=list, description="Имена упомянутых сущностей")
     text_offset: Optional[int] = Field(default=None, description="Позиция начала описания в тексте (символ от начала)")
 

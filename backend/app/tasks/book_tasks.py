@@ -442,12 +442,14 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             
                             await session.commit()
                             
-                            logger.info(f"Chapter {local_chapter.chapter_number} parsed: {len(descriptions_data)} descriptions")
+                            num_descriptions = len(descriptions_data)
+                            logger.info(f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions")
 
                             # Update progress
-                            nonlocal chapters_done_count
+                            nonlocal chapters_done_count, total_descriptions
                             async with progress_lock:
                                 chapters_done_count += 1
+                                total_descriptions += num_descriptions
                                 current_progress = int((chapters_done_count / total_chapters) * 80)
                             
                             await publish_book_progress(

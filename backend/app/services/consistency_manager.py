@@ -366,7 +366,7 @@ class ConsistencyManager:
         
         TASK:
         1. IDENTIFY DUPLICATES: Regard "Harry", "Harry Potter", "Mr. Potter" as the SAME entity.
-        2. FILTER GARBAGE: Remove any entity with Importance < 7 (unless it is clearly a main character).
+        2. FILTER GARBAGE: Remove any entity with Importance < 3 (very minor background characters with no visual description). Keep all entities with Importance >= 3.
         3. OUTPUT JSON: List of operations to clean the database.
         
         Output JSON Schema:
@@ -403,21 +403,22 @@ class ConsistencyManager:
                 )
             )
             
-            plan = parse_json_safe(response.text) or {}
+            from typing import Dict, Any
+            raw_plan = parse_json_safe(response.text)
+            plan: Dict[str, Any] = raw_plan if isinstance(raw_plan, dict) else {}
             
             # 4. Execute Plan (DB Updates)
             
             # A. Merges
-            for merge in plan.get("merge_operations", []):
-                keep_id = merge["keep_id"]
-                merge_ids = merge["merge_ids"]
+            merge_ops = plan.get("merge_operations", [])
+            for merge in merge_ops:
+                if not isinstance(merge, dict): continue
+                keep_id = merge.get("keep_id")
+                merge_ids = merge.get("merge_ids", [])
                 
                 # Logic: Re-link relationships from merged_ids to keep_id, then delete merged_ids
-                # Update EntityRelationship set source_id = keep_id where source_id in merge_ids
-                # Update EntityRelationship set target_id = keep_id where target_id in merge_ids
-                if not merge_ids: continue
+                if not keep_id or not merge_ids: continue
                 
-                # Skip VALIDATION for speed (Assume LLM is strict)
                 try:
                     # Update source edges
                     stmt_source = update(EntityRelationship).where(
@@ -432,8 +433,6 @@ class ConsistencyManager:
                     await self.db.execute(stmt_target)
                     
                     # Delete merged entities
-                    stmt_del = select(Entity).where(Entity.id.in_(merge_ids)) # Wait, delete is separate
-                    # Actually directly delete
                     from sqlalchemy import delete
                     stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
                     await self.db.execute(stmt_del)
@@ -449,7 +448,7 @@ class ConsistencyManager:
                 await self.db.execute(stmt_del_garbage)
                 
             await self.db.commit()
-            logger.info(f"Optimization Complete. Merged: {len(plan.get('merge_operations',[]))}, Deleted: {len(delete_ids)}")
+            logger.info(f"Optimization Complete. Merged: {len(merge_ops)}, Deleted: {len(delete_ids)}")
             
         except Exception as e:
             await self.db.rollback()
