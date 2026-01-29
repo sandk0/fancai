@@ -511,6 +511,34 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             )
         except Exception as e:
             logger.error(f"Reduce phase failed: {e}")
+        
+        # C. LLM-based Deduplication Phase (EC-1.2)
+        try:
+            from app.services.entity_deduplication_service import EntityDeduplicationService
+            logger.info("Running LLM Entity Deduplication...", book_id=str(book_id))
+            dedup_service = EntityDeduplicationService(db=db)
+            dedup_response = await dedup_service.suggest_merges(book_id)
+            
+            if dedup_response.merge_groups:
+                from app.routers.admin.entities import _merge_entities_internal
+                auto_merged = 0
+                for group in dedup_response.merge_groups:
+                    if group.confidence >= 0.85:
+                        try:
+                            await _merge_entities_internal(
+                                db=db,
+                                master_id=UUID(group.master_id),
+                                duplicate_ids=[UUID(did) for did in group.duplicate_ids],
+                            )
+                            auto_merged += len(group.duplicate_ids)
+                            logger.info(f"Auto-merged {len(group.duplicate_ids)} entities (conf={group.confidence})")
+                        except Exception as merge_err:
+                            logger.warning(f"Auto-merge failed: {merge_err}")
+                
+                if auto_merged > 0:
+                    logger.info(f"LLM Dedup: auto-merged {auto_merged} entities", book_id=str(book_id))
+        except Exception as e:
+            logger.warning(f"LLM deduplication phase failed (non-critical): {e}")
             
         # B. Graph Phase: PageRank & Importance
         try:
