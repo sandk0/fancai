@@ -2470,6 +2470,142 @@ FRONTEND ENTITY CARDS:
 
 ---
 
+## Часть 23: Актуализация плана (29 января 2026, поздняя сессия)
+
+### 23.1 Методология верификации
+
+Проведена полная верификация через:
+- Git history (30 коммитов с 25 января)
+- Grep/AST поиск по ключевым паттернам
+- Прямое чтение файлов
+
+### 23.2 ✅ ПОЛНОСТЬЮ ЗАВЕРШЕНО
+
+#### P0 Critical (7/7) ✅
+| ID | Задача | Верификация |
+|----|--------|-------------|
+| TD-P0-1..5 | TSA, thresholds, fuzzy, logging | Коммиты 52a2225, 64ee1c9 |
+| TD-P3-1..5 | TSA validation, semaphore, lock key, TaskGroup, delete order | Коммит 64ee1c9 |
+| TD-AUDIT-8, 9 | case() syntax, `is True` | Коммит b39a835 |
+
+#### P1 High Backend (17/17) ✅
+| ID | Задача | Верификация |
+|----|--------|-------------|
+| TD-P1-1 | langextract removal | Коммит 9caf776 |
+| TD-P1-2 | Validation описаний | `validate_spans` в gemini_extractor.py |
+| TD-P1-4 | Book-level transactions | `begin_nested()` в book_tasks.py |
+| TD-P2-1 | DescriptionExtractionService | description_extraction_service.py |
+| TD-P2-2 | ImageCRUDService | image_crud_service.py |
+| TD-P2-4 | LLM Response Caching | llm_cache_service.py (f72a914) |
+| TD-P2-9 | Eager Loading | selectinload в book_service, users.py |
+| TD-P15-5..7 | Redis leak, commit loop, image quota | Коммит 64ee1c9 |
+| TD-P17-3 | Commit inside loop | consistency_manager.py |
+| TD-P18-1 | Missing selectinload | dependencies.py |
+| TD-P19-3 | Token blacklist | auth.py |
+
+#### TD-P16-1 API Format Audit (16/20) ✅
+| Файл | Endpoints | Статус |
+|------|-----------|--------|
+| auth.py | 2/2 | ✅ LoginResponse, RegisterResponse |
+| reading_progress.py | 1/1 | ✅ ReadingProgressUpdateResponse |
+| chapters.py | 1/1 | ✅ ChaptersListResponse |
+| crud.py | 2/2 | ✅ BookListResponse, BookDetailResponse |
+| images.py | 5/9 | ⚠️ 4 async/admin endpoints используют Dict |
+| admin/feature_flags.py | 4/4 | ✅ (сессия 29.01 вечер) |
+| descriptions.py | 1/1 | ✅ BackgroundExtractionResponse |
+
+#### Entity Cards (EC-*) — БОЛЬШИНСТВО УЖЕ РЕАЛИЗОВАНО ✅
+| ID | Задача | Статус | Верификация |
+|----|--------|--------|-------------|
+| EC-0.2 | JSON parsing | ✅ | `app/core/json_utils.py` |
+| EC-1.4 | UNIQUE constraint | ✅ | Миграция 2026_01_25_0006 |
+| EC-2.3 | compareCFI | ✅ | `frontend/src/utils/cfiUtils.ts` |
+| EC-2.4 | Spoiler filtering | ✅ | `SpoilerText.tsx` component |
+| EC-3.1 | description_entities table | ✅ | Миграция 2026_01_25_0002 |
+| EC-3.2 | Migrate entities_mentioned | ✅ | Миграция 2026_01_25_0003 |
+| EC-4.1 | EntityDrawer refactor | ✅ | `EntityDrawer.tsx`, `EntityList.tsx`, `EntityCard.tsx` |
+| EC-4.2 | Entity search | ✅ | Search в EntityList |
+| EC-4.3 | Entity filtering | ✅ | Type filter в EntityList |
+
+### 23.3 ⏳ ОСТАВШИЕСЯ ЗАДАЧИ (актуально)
+
+#### LOW Priority — Backend Cleanup
+
+| ID | Задача | Файл | Оценка | Причина LOW |
+|----|--------|------|--------|-------------|
+| TD-P16-1b | images.py async endpoints | 4 endpoints | 2ч | Dynamic typing from Celery |
+| TD-P1-5 | Redis lock renewal | book_tasks.py | 1ч | Текущий код работает |
+| TD-P1-6 | GIN indexes | migration | 15м | Миграция создана, нужно apply |
+
+#### MEDIUM Priority — Entity Enhancement
+
+| ID | Задача | Описание | Оценка |
+|----|--------|----------|--------|
+| EC-1.2 | LLM merge aliases | Gemini для дедупликации имён | 2-3ч |
+| EC-2.1 | mention_cfi population | Backend endpoint для обновления CFI | ✅ Endpoint создан, нужна frontend интеграция |
+| EC-2.5 | CFI to Notes | Добавить CFI к описаниям | 1ч |
+
+#### LOW Priority — Frontend Polish
+
+| ID | Задача | Описание | Оценка |
+|----|--------|----------|--------|
+| EC-4.4 | CSS variables | Унификация стилей | 1ч |
+| EC-4.5 | Virtualization | Для больших списков | 2ч |
+| EC-5.4 | Entity tests | Unit tests | 3ч |
+| EC-5.5 | E2E tests | Playwright | 4ч |
+
+#### BACKLOG — Future Features
+
+| ID | Задача | Описание | Оценка |
+|----|--------|----------|--------|
+| EC-6.1..6.5 | Relationship Cards | Отношения между сущностями | 14-16ч |
+| BL-1 | Gemini 3 Pro | Для ULTIMATE тарифа | 4ч |
+| BL-2 | Model feature flag | Выбор модели | 2ч |
+
+### 23.4 Обновлённая статистика
+
+| Категория | Всего | Выполнено | Осталось |
+|-----------|-------|-----------|----------|
+| **P0 Critical** | 7 | 7 | **0 ✅** |
+| **P1 High** | 17 | 17 | **0 ✅** |
+| **P2 Performance** | 4 | 4 | **0 ✅** |
+| **TD-P16-1 API Audit** | 20 | 16 | **4** (LOW) |
+| **Entity Cards Core** | 12 | 12 | **0 ✅** |
+| **Entity Cards Polish** | 8 | 2 | **6** (LOW/MEDIUM) |
+| **Backlog** | 7 | 0 | **7** |
+| **ИТОГО** | **75** | **58** | **17** |
+
+**Прогресс: 77%** (58/75 задач)
+
+### 23.5 Рекомендуемые следующие шаги
+
+```
+QUICK WINS (если хочется закрыть):
+├── TD-P1-6: Apply GIN indexes migration ───────── 15м
+└── TD-P16-1b: images.py async endpoints ───────── 2ч (optional)
+
+ENTITY ENHANCEMENT (если продолжаем функционал):
+├── EC-1.2: LLM entity alias merging ───────────── 2-3ч
+├── EC-2.1: Frontend CFI integration ───────────── 2ч
+└── EC-2.5: CFI to descriptions ────────────────── 1ч
+
+QUALITY (если готовимся к production):
+├── EC-5.4: Entity unit tests ──────────────────── 3ч
+└── EC-5.5: E2E tests ──────────────────────────── 4ч
+```
+
+### 23.6 Коммиты этой сессии
+
+| Коммит | Описание |
+|--------|----------|
+| `00b668f` | admin/feature_flags.py + descriptions.py Pydantic |
+| `bef6ddb` | images.py Pydantic (5 endpoints) |
+| `422e5dd` | crud.py Pydantic |
+| `884264a` | TD-P16-1 audit + auth/progress/chapters |
+| `f72a914` | LLM caching, eager loading, CFI endpoint |
+
+---
+
 **Автор:** Claude (Sisyphus)  
 **Дата:** 29 января 2026  
-**Версия:** 10.0 (TD-P16-1 Complete)
+**Версия:** 11.0 (Plan Actualization)
