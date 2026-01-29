@@ -15,7 +15,7 @@ Features:
 """
 
 
-from fastapi import APIRouter, Depends, status as http_status, HTTPException, Security
+from fastapi import APIRouter, Depends, status as http_status, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
@@ -223,7 +223,7 @@ async def check_celery() -> ComponentHealthResponse:
         )
 
 
-async def get_active_sessions_stats(db: AsyncSession) -> Dict[str, int]:
+async def get_active_sessions_stats(db: AsyncSession) -> Dict[str, Any]:
     """
     Получить статистику активных сессий.
 
@@ -350,7 +350,7 @@ async def reading_sessions_health_check(
         ReadingSessionsHealthResponse с детальной информацией
     """
     # Параллельное выполнение всех проверок
-    db_check, redis_check, celery_check, stats, abandoned = await asyncio.gather(
+    db_check_result, redis_check_result, celery_check_result, stats_result, abandoned_result = await asyncio.gather(
         check_database(db),
         check_redis(),
         check_celery(),
@@ -359,11 +359,40 @@ async def reading_sessions_health_check(
         return_exceptions=True,
     )
 
-    # Обработка исключений
-    if isinstance(stats, Exception):
-        stats = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
-    if isinstance(abandoned, Exception):
-        abandoned = 0
+    # Обработка исключений - преобразуем BaseException в типизированные значения
+    if isinstance(db_check_result, BaseException):
+        db_check = ComponentHealthResponse(
+            status="error",
+            message=f"Database check failed: {db_check_result}",
+        )
+    else:
+        db_check = db_check_result
+
+    if isinstance(redis_check_result, BaseException):
+        redis_check = ComponentHealthResponse(
+            status="error",
+            message=f"Redis check failed: {redis_check_result}",
+        )
+    else:
+        redis_check = redis_check_result
+
+    if isinstance(celery_check_result, BaseException):
+        celery_check = ComponentHealthResponse(
+            status="error",
+            message=f"Celery check failed: {celery_check_result}",
+        )
+    else:
+        celery_check = celery_check_result
+
+    if isinstance(stats_result, BaseException):
+        stats: Dict[str, Any] = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
+    else:
+        stats = stats_result
+
+    if isinstance(abandoned_result, BaseException):
+        abandoned: int = 0
+    else:
+        abandoned = abandoned_result
 
     # Обновляем Prometheus gauges
     update_active_sessions_gauge(stats["total_active"])
@@ -426,7 +455,7 @@ async def deep_health_check(
     uptime = time.time() - APP_START_TIME
 
     # Параллельные проверки
-    db_check, redis_check, celery_check, stats = await asyncio.gather(
+    db_check_result, redis_check_result, celery_check_result, stats_result = await asyncio.gather(
         check_database(db),
         check_redis(),
         check_celery(),
@@ -434,16 +463,42 @@ async def deep_health_check(
         return_exceptions=True,
     )
 
-    if isinstance(stats, Exception):
-        stats = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
+    if isinstance(db_check_result, BaseException):
+        db_check = ComponentHealthResponse(
+            status="error",
+            message=f"Database check failed: {db_check_result}",
+        )
+    else:
+        db_check = db_check_result
 
-    # TODO: Добавить проверки NLP и Image Generation services
-    components = {
+    if isinstance(redis_check_result, BaseException):
+        redis_check = ComponentHealthResponse(
+            status="error",
+            message=f"Redis check failed: {redis_check_result}",
+        )
+    else:
+        redis_check = redis_check_result
+
+    if isinstance(celery_check_result, BaseException):
+        celery_check = ComponentHealthResponse(
+            status="error",
+            message=f"Celery check failed: {celery_check_result}",
+        )
+    else:
+        celery_check = celery_check_result
+
+    if isinstance(stats_result, BaseException):
+        stats: Dict[str, Any] = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
+    else:
+        stats = stats_result
+
+    components: Dict[str, ComponentHealthResponse] = {
         "database": db_check,
         "redis": redis_check,
         "celery": celery_check,
         "reading_sessions": ComponentHealthResponse(
             status="ok",
+            message="Reading sessions service operational",
             details={
                 "active_sessions": stats["total_active"],
                 "concurrent_users": stats["concurrent_users"],
