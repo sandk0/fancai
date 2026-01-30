@@ -184,7 +184,7 @@ export const adminAPI = {
     if (skip > 0) params.append('skip', skip.toString());
     if (limit !== 50) params.append('limit', limit.toString());
     
-    const url = `/admin/users${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `/users/admin/users${params.toString() ? '?' + params.toString() : ''}`;
     return apiClient.get(url);
   },
 

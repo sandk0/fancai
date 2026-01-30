@@ -14,6 +14,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { X, AlertTriangle, Trash2 } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Z_INDEX } from '@/lib/zIndex';
 
 interface DeleteConfirmModalProps {
@@ -31,6 +32,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   // Handle Escape key press
@@ -97,7 +99,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                 id="delete-modal-title"
                 className="text-xl font-semibold text-foreground"
               >
-                Удалить книгу?
+                {t('library.deleteModal.title')}
               </h2>
             </div>
             <button
@@ -112,15 +114,14 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
           {/* Content */}
           <div id="delete-modal-description" className="p-6">
             <p className="text-muted-foreground">
-              Вы уверены, что хотите удалить книгу{' '}
+              {t('library.deleteModal.confirm_text')}{' '}
               <span className="font-semibold text-foreground">
                 "{bookTitle}"
               </span>
               ?
             </p>
             <p className="mt-3 text-sm text-muted-foreground/70">
-              Это действие необратимо. Все данные книги, включая прогресс чтения
-              и сгенерированные изображения, будут удалены.
+              {t('library.deleteModal.warning')}
             </p>
           </div>
 
@@ -134,7 +135,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               disabled={isDeleting}
               className="px-4 py-2 rounded-lg font-medium transition-colors hover:bg-muted disabled:opacity-50 text-muted-foreground"
             >
-              Отмена
+              {t('library.deleteModal.cancel')}
             </button>
             <button
               onClick={onConfirm}
@@ -144,12 +145,12 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               {isDeleting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Удаление...
+                  {t('library.deleteModal.deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="w-4 h-4" />
-                  Удалить
+                  {t('library.deleteModal.delete')}
                 </>
               )}
             </button>

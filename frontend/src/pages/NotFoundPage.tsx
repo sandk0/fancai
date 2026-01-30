@@ -11,35 +11,37 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Library, Upload, Search, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NotFoundPage: React.FC = () => {
-  const navigate = useNavigate();
+   const { t } = useTranslation();
+   const navigate = useNavigate();
 
-  const quickLinks = [
-    {
-      icon: Home,
-      label: 'Главная',
-      path: '/',
-      color: 'text-blue-600',
-    },
-    {
-      icon: Library,
-      label: 'Библиотека',
-      path: '/library',
-      color: 'text-purple-600',
-    },
-    {
-      icon: Upload,
-      label: 'Загрузить книгу',
-      onClick: () => {
-        navigate('/library');
-        // TODO: trigger upload modal
-      },
-      color: 'text-green-600',
-    },
-  ];
+   const quickLinks = [
+     {
+       icon: Home,
+       label: t('notFound.home'),
+       path: '/',
+       color: 'text-blue-600',
+     },
+     {
+       icon: Library,
+       label: t('notFound.library'),
+       path: '/library',
+       color: 'text-purple-600',
+     },
+     {
+       icon: Upload,
+       label: t('notFound.upload'),
+       onClick: () => {
+         navigate('/library');
+         // TODO: trigger upload modal
+       },
+       color: 'text-green-600',
+     },
+   ];
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -55,36 +57,35 @@ const NotFoundPage: React.FC = () => {
           </h1>
         </div>
 
-        {/* Title */}
-        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground">
-          Страница не найдена
-        </h2>
+         {/* Title */}
+         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground">
+           {t('notFound.title')}
+         </h2>
 
-        {/* Description */}
-        <p className="text-lg mb-8 text-muted-foreground">
-          Кажется, вы заблудились в цифровой библиотеке. Страница, которую вы ищете, не
-          существует или была перемещена.
-        </p>
+         {/* Description */}
+         <p className="text-lg mb-8 text-muted-foreground">
+           {t('notFound.description')}
+         </p>
 
-        {/* Search Box */}
-        <div className="max-w-md mx-auto mb-12">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Может быть, вы искали..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 bg-background border-border text-foreground focus:ring-ring"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.currentTarget.value) {
-                  navigate(`/library?search=${encodeURIComponent(e.currentTarget.value)}`);
-                }
-              }}
-            />
-          </div>
-          <p className="text-xs mt-2 text-muted-foreground">
-            Нажмите Enter для поиска в библиотеке
-          </p>
-        </div>
+         {/* Search Box */}
+         <div className="max-w-md mx-auto mb-12">
+           <div className="relative">
+             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+             <input
+               type="text"
+               placeholder={t('notFound.search_placeholder')}
+               className="w-full pl-12 pr-4 py-3 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 bg-background border-border text-foreground focus:ring-ring"
+               onKeyDown={(e) => {
+                 if (e.key === 'Enter' && e.currentTarget.value) {
+                   navigate(`/library?search=${encodeURIComponent(e.currentTarget.value)}`);
+                 }
+               }}
+             />
+           </div>
+           <p className="text-xs mt-2 text-muted-foreground">
+             {t('notFound.search_hint')}
+           </p>
+         </div>
 
         {/* Quick Links */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -103,26 +104,26 @@ const NotFoundPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Back to Home Button */}
-        <button
-          onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Home className="w-5 h-5" />
-          <span>На главную</span>
-          <ArrowRight className="w-5 h-5" />
-        </button>
+         {/* Back to Home Button */}
+         <button
+           onClick={() => navigate('/')}
+           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+         >
+           <Home className="w-5 h-5" />
+           <span>{t('notFound.go_home')}</span>
+           <ArrowRight className="w-5 h-5" />
+         </button>
 
-        {/* Help Text */}
-        <p className="mt-8 text-sm text-muted-foreground">
-          Если проблема сохраняется, попробуйте обновить страницу или{' '}
-          <button
-            onClick={() => navigate('/settings')}
-            className="underline hover:no-underline text-primary"
-          >
-            свяжитесь с поддержкой
-          </button>
-        </p>
+         {/* Help Text */}
+         <p className="mt-8 text-sm text-muted-foreground">
+           {t('notFound.help_text')}{' '}
+           <button
+             onClick={() => navigate('/settings')}
+             className="underline hover:no-underline text-primary"
+           >
+             {t('notFound.contact_support')}
+           </button>
+         </p>
       </div>
     </div>
   );

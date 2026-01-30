@@ -1,0 +1,356 @@
+{
+  "library": {
+    "title": "My Library",
+    "books_count_one": "{{count}} book",
+    "books_count_few": "{{count}} books",
+    "books_count_many": "{{count}} books",
+    "processing": "({{count}} processing)",
+    "upload": "Upload book",
+    "search_placeholder": "Search by title or author...",
+    "sort": {
+      "label": "Sort",
+      "created_desc": "Newest first",
+      "created_asc": "Oldest first",
+      "title_asc": "Title A-Z",
+      "title_desc": "Title Z-A",
+      "author_asc": "Author A-Z",
+      "accessed_desc": "Recently read"
+    },
+    "filter": {
+      "toggle": "Filters",
+      "genre": "Genre",
+      "progress": "Reading progress",
+      "reset": "Reset filters",
+      "genres": {
+        "all": "All genres",
+        "fiction": "Fiction",
+        "non-fiction": "Non-fiction",
+        "fantasy": "Fantasy",
+        "sci-fi": "Sci-Fi",
+        "romance": "Romance",
+        "mystery": "Mystery",
+        "thriller": "Thriller"
+      },
+      "progress_opts": {
+        "all": "All books",
+        "not_started": "Not started",
+        "in_progress": "In progress",
+        "completed": "Completed"
+      }
+    },
+    "pagination": {
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{current}} of {{total}}"
+    },
+    "refresh": {
+      "success": "Library updated",
+      "error": "Failed to update library"
+    },
+    "delete": {
+      "success": "Book deleted",
+      "error": "Delete error"
+    },
+    "deleteModal": {
+      "title": "Delete book?",
+      "confirm_text": "Are you sure you want to delete the book",
+      "warning": "This action cannot be undone. All book data, including reading progress and generated images, will be deleted.",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "delete": "Delete"
+    },
+    "download": {
+      "offline_options": "Offline book options",
+      "offline": "Offline",
+      "delete_offline": "Delete offline copy",
+      "cancel": "Cancel download",
+      "retry": "Retry",
+      "title": "Download for offline reading",
+      "download": "Download"
+    },
+    "empty": {
+      "title": "Your library is empty",
+      "description": "Upload your first book to start reading with AI illustrations",
+      "search_title": "No books found",
+      "search_desc": "No results for \"{{query}}\". Try a different search.",
+      "clear_search": "Clear search"
+    }
+  },
+  "reader": {
+    "loading": "Loading book...",
+    "preparing": "Preparing book...",
+    "restoring_position": "Restoring position...",
+    "restoring_session": "Restoring session...",
+    "error": {
+      "title": "Failed to load book",
+      "technical_details": "Technical details",
+      "retry": "Try again",
+      "back_to_library": "Back to library",
+      "network": "Check your internet connection and try again.",
+      "not_found": "Book file not found. The book may have been deleted.",
+      "session_expired": "Session expired. Please log in again.",
+      "forbidden": "You don't have access to this book.",
+      "server_error": "Server error. Try again later.",
+      "timeout": "Request timed out. Check your connection and try again.",
+      "format_error": "Could not open book file. Format may be corrupted.",
+      "render_error": "Display error. Refresh the page and try again.",
+      "unknown": "An error occurred while loading the book. Try again later."
+    },
+    "conflict": {
+      "title": "Reading progress conflict",
+      "description": "Found saved progress that differs from current.",
+      "server": "Server",
+      "local": "Local",
+      "use_server": "Use server version",
+      "use_local": "Keep local version",
+      "time_ago": "{{time}} ago",
+      "just_now": "just now",
+      "minutes_short": "{{count}} min",
+      "hours_short": "{{count}} hr",
+      "days_short": "{{count}} d"
+    },
+    "swipe": {
+      "chapter_start": "Chapter start",
+      "chapter_end": "Chapter end"
+    },
+    "extraction": {
+      "analyzing": "AI analyzing chapter...",
+      "usually_takes": "Usually takes 5-15 seconds",
+      "cancel": "Cancel",
+      "cancel_analysis": "Cancel analysis"
+    },
+    "image_generation": {
+      "generating": "Generating image...",
+      "completed": "Image created",
+      "error": "Generation error",
+      "cancel": "Cancel"
+    },
+    "progress": {
+      "chapter_short": "Ch. {{current}}/{{total}}",
+      "chapter_only": "Chapter {{current}}",
+      "page_short": "Pg. {{current}}/{{total}}",
+      "saving": "Saving...",
+      "saved": "Position saved"
+    },
+    "notification": {
+      "position_restored": "Position restored",
+      "continuing_from": "Continuing from {{percent}}%",
+      "error_restoring": "Could not navigate to saved position",
+      "session_complete": "Session complete",
+      "session_stats": "You read for {{minutes}} min and read {{pages}} pages.",
+      "copied": "Copied",
+      "copied_desc": "Text copied to clipboard",
+      "copy_error": "Could not copy text"
+    },
+    "settings": {
+      "title": "Reader settings",
+      "theme": "Theme",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "sepia": "Sepia"
+      },
+      "font_size": "Font size",
+      "wake_lock": "Keep screen on",
+      "wake_lock_active": "Screen will stay on",
+      "wake_lock_enabled": "Activates while reading",
+      "wake_lock_disabled": "Screen will turn off",
+      "navigation": "Navigation mode",
+      "nav_swipe": "Swipe",
+      "nav_swipe_desc": "Swipe to navigate",
+      "nav_tap": "Tap",
+      "nav_tap_desc": "Tap edges to navigate"
+    },
+    "header": {
+      "back": "Back",
+      "toc": "Contents",
+      "info": "About book",
+      "entities": "Encyclopedia",
+      "settings": "Settings",
+      "progress_label": "Reading progress: {{percent}}%"
+    },
+    "info": {
+      "title": "About book",
+      "close": "Close",
+      "description": "Description",
+      "publisher": "Publisher",
+      "pubdate": "Publication date",
+      "language": "Language",
+      "rights": "Rights"
+    },
+    "toc": {
+      "title": "Contents",
+      "search_placeholder": "Search chapters...",
+      "no_results": "No chapters found",
+      "empty": "No table of contents",
+      "try_search": "Try a different query",
+      "chapters_count": "{{count}} of {{total}} chapters",
+      "close_hint": "close",
+      "untitled": "Untitled"
+    }
+  },
+  "bookCard": {
+    "read": "Read",
+    "delete": "Delete",
+    "close": "Close",
+    "menu": "Book menu",
+    "process": "Process",
+    "process_descriptions": "Process descriptions",
+    "reprocess": "Reprocess",
+    "retry": "Retry",
+    "retry_processing": "Retry processing",
+    "offline": "Offline",
+    "download_offline": "Download offline",
+    "remove_offline": "Remove offline",
+    "available_offline": "Available offline",
+    "downloading": "Downloading {{progress}}%",
+    "ai_processing": "AI processing...",
+    "status": {
+      "processed": "Descriptions processed",
+      "not_processed": "Descriptions not processed",
+      "processing": "Processing...",
+      "error": "Processing error"
+    }
+  },
+  "entities": {
+    "spoiler_click_to_reveal": "Spoiler! Click to reveal",
+    "type_character": "Character",
+    "type_location": "Location",
+    "type_object": "Object",
+    "not_met": "Not met",
+    "appearance": "Appearance",
+    "relations": "Relations",
+    "history": "History",
+    "info_hidden": "Information hidden",
+    "info_hidden_desc": "This character's history is hidden to avoid spoilers. Continue reading and the information will be revealed automatically.",
+    "no_notes": "No notes.",
+    "chapter": "Chapter",
+    "search_placeholder": "Search...",
+    "clear_search": "Clear search",
+    "filter_all": "All",
+    "no_results": "Nothing found",
+    "no_entities": "No characters found"
+  },
+  "gallery": {
+    "title": "Character Gallery",
+    "entities_count": "{{count}} entities",
+    "filter_all": "All",
+    "filter_characters": "Characters",
+    "filter_locations": "Locations",
+    "no_results": "Nothing found."
+  },
+  "imagesGallery": {
+    "loading": "Loading images...",
+    "loading_books": "Loading books: {{current}} / {{total}}",
+    "completed": "completed",
+    "title": "Image Gallery",
+    "subtitle": "All AI-generated images from your books",
+    "stats": {
+      "total": "Total images",
+      "locations": "Locations",
+      "characters": "Characters",
+      "atmosphere": "Atmosphere"
+    },
+    "search_placeholder": "Search by description...",
+    "filters": "Filters",
+    "filter_book": "Book",
+    "all_books": "All books",
+    "filter_type": "Description type",
+    "all_types": "All types",
+    "sort": "Sort",
+    "sort_newest": "Newest first",
+    "sort_oldest": "Oldest first",
+    "sort_book": "By book",
+    "found_count": "Found {{count}} images",
+    "reset_filters": "Reset filters",
+    "no_results": "No images found",
+    "no_results_hint": "Try changing filters or upload new books",
+    "page_info": "Page {{current}} of {{total}} ({{count}} images)",
+    "prev_page": "Previous page",
+    "next_page": "Next page"
+  },
+  "stats": {
+    "loading": "Loading statistics...",
+    "error_title": "Loading error",
+    "error_message": "Could not load reading statistics",
+    "title": "Reading Statistics",
+    "subtitle": "Your progress and achievements",
+    "total_books": "total books",
+    "this_month": "this month",
+    "hours_reading": "hours reading",
+    "pages_read": "pages read",
+    "streak_title": "Reading streak",
+    "current_streak": "Current streak",
+    "best_streak": "Best streak",
+    "avg_per_day": "Average {{count}} minutes per day",
+    "weekly_activity": "Weekly activity",
+    "no_weekly_data": "No reading data for the past week",
+    "no_weekly_hint": "Start reading to see statistics",
+    "genres_title": "Genre distribution",
+    "books_unit": "books",
+    "top_books_title": "Top books by reading time",
+    "achievements_title": "Achievements",
+    "achievement_first_book": "First Book",
+    "achievement_first_book_desc": "Read your first book",
+    "achievement_marathoner": "Marathoner",
+    "achievement_marathoner_desc": "7 days in a row",
+    "achievement_bookworm": "Bookworm",
+    "achievement_bookworm_desc": "10 books read",
+    "achievement_determined": "Determined",
+    "achievement_determined_desc": "Reach monthly goal",
+    "achievement_sprinter": "Sprinter",
+    "achievement_sprinter_desc": "3 hours in one day",
+    "achievement_legend": "Legend",
+    "achievement_legend_desc": "50 books read",
+    "day_sun": "Sun",
+    "day_mon": "Mon",
+    "day_tue": "Tue",
+    "day_wed": "Wed",
+    "day_thu": "Thu",
+    "day_fri": "Fri",
+    "day_sat": "Sat"
+  },
+  "profile": {
+    "loading": "Loading profile...",
+    "update_success": "Profile updated successfully",
+    "update_error": "Error updating profile",
+    "stats": {
+      "books_read": "Books read",
+      "hours_reading": "Hours reading",
+      "achievements": "Achievements"
+    },
+    "goals": {
+      "monthly": "Monthly goal",
+      "daily": "Minutes per day"
+    },
+    "units": {
+      "books": "books",
+      "minutes": "min"
+    },
+    "registered": "Registered:",
+    "plan_free": "Free Plan",
+    "admin": "Admin",
+    "goals_title": "Reading goals",
+    "completed": "completed",
+    "info_title": "Profile information",
+    "full_name": "Full name",
+    "not_specified": "Not specified",
+    "email": "Email",
+    "account_type": "Account type",
+    "admin_role": "Administrator",
+    "user_role": "Regular user",
+    "registration_date": "Registration date"
+  },
+  "notFound": {
+    "home": "Home",
+    "library": "Library",
+    "upload": "Upload book",
+    "title": "Page not found",
+    "description": "Looks like you got lost in the digital library. The page you're looking for doesn't exist or has been moved.",
+    "search_placeholder": "Maybe you were looking for...",
+    "search_hint": "Press Enter to search the library",
+    "go_home": "Go home",
+    "help_text": "If the problem persists, try refreshing the page or contact support",
+    "contact_support": "contact support"
+  }
+}

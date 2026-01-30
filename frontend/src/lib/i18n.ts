@@ -4,6 +4,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 // Import translations directly for offline support
 import ruTranslation from '../locales/ru/translation.json';
+import enTranslation from '../locales/en/translation.json';
 
 // Initialize i18n
 i18n
@@ -16,6 +17,9 @@ i18n
     resources: {
       ru: {
         translation: ruTranslation,
+      },
+      en: {
+        translation: enTranslation,
       },
     },
     fallbackLng: 'ru',

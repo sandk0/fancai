@@ -32,7 +32,7 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-popover/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-border">
+    <div className="absolute left-1/2 -translate-x-1/2 z-10 bg-popover/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-border" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
       <div className="flex items-center gap-2 sm:gap-4 min-w-[140px] sm:min-w-[200px]">
         {/* Progress percentage */}
         <div className="text-sm font-medium tabular-nums text-popover-foreground">

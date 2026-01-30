@@ -14,6 +14,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { getErrorMessage } from '@/utils/errors';
 import {
@@ -49,10 +50,11 @@ function calculateAchievements(totalBooks: number, streak: number) {
 }
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuthStore();
-  const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(user?.full_name || '');
+   const { t } = useTranslation();
+   const { user } = useAuthStore();
+   const queryClient = useQueryClient();
+   const [isEditing, setIsEditing] = useState(false);
+   const [editedName, setEditedName] = useState(user?.full_name || '');
 
   // Fetch user statistics
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -60,60 +62,60 @@ const ProfilePage: React.FC = () => {
     queryFn: () => booksAPI.getUserStatistics(),
   });
 
-  // Update profile mutation
-  const updateProfileMutation = useMutation({
-    mutationFn: (data: { full_name?: string }) => authAPI.updateProfile(data),
-    onSuccess: () => {
-      toast.success('Профиль успешно обновлен');
-      queryClient.invalidateQueries({ queryKey: ['current-user'] });
-      setIsEditing(false);
-    },
-    onError: (error: Error | { response?: { data?: { detail?: string } } }) => {
-      toast.error(getErrorMessage(error, 'Ошибка при обновлении профиля'));
-    },
-  });
+   // Update profile mutation
+   const updateProfileMutation = useMutation({
+     mutationFn: (data: { full_name?: string }) => authAPI.updateProfile(data),
+     onSuccess: () => {
+       toast.success(t('profile.update_success'));
+       queryClient.invalidateQueries({ queryKey: ['current-user'] });
+       setIsEditing(false);
+     },
+     onError: (error: Error | { response?: { data?: { detail?: string } } }) => {
+       toast.error(getErrorMessage(error, t('profile.update_error')));
+     },
+   });
 
-  // Calculate stats from API data
-  const stats = useMemo(() => {
-    if (!statsData?.statistics) {
-      return [
-        { label: 'Книг прочитано', value: '0', icon: BookOpen, color: 'text-primary' },
-        { label: 'Часов чтения', value: '0', icon: Clock, color: 'text-primary' },
-        { label: 'Достижений', value: '0', icon: Award, color: 'text-primary' },
-      ];
-    }
+   // Calculate stats from API data
+   const stats = useMemo(() => {
+     if (!statsData?.statistics) {
+       return [
+         { label: t('profile.stats.books_read'), value: '0', icon: BookOpen, color: 'text-primary' },
+         { label: t('profile.stats.hours_reading'), value: '0', icon: Clock, color: 'text-primary' },
+         { label: t('profile.stats.achievements'), value: '0', icon: Award, color: 'text-primary' },
+       ];
+     }
 
-    const s = statsData.statistics;
-    const totalHours = Math.round((s.total_reading_time_minutes || 0) / 60);
-    const achievements = calculateAchievements(s.total_books || 0, s.reading_streak_days || 0);
+     const s = statsData.statistics;
+     const totalHours = Math.round((s.total_reading_time_minutes || 0) / 60);
+     const achievements = calculateAchievements(s.total_books || 0, s.reading_streak_days || 0);
 
-    return [
-      { label: 'Книг прочитано', value: String(s.total_books || 0), icon: BookOpen, color: 'text-primary' },
-      { label: 'Часов чтения', value: String(totalHours), icon: Clock, color: 'text-primary' },
-      { label: 'Достижений', value: String(achievements.earned), icon: Award, color: 'text-primary' },
-    ];
-  }, [statsData]);
+     return [
+       { label: t('profile.stats.books_read'), value: String(s.total_books || 0), icon: BookOpen, color: 'text-primary' },
+       { label: t('profile.stats.hours_reading'), value: String(totalHours), icon: Clock, color: 'text-primary' },
+       { label: t('profile.stats.achievements'), value: String(achievements.earned), icon: Award, color: 'text-primary' },
+     ];
+   }, [statsData, t]);
 
-  // Calculate reading goals
-  const readingGoals = useMemo(() => {
-    if (!statsData?.statistics) {
-      return [
-        { label: 'Цель на месяц', current: 0, target: 5, unit: 'книг' },
-        { label: 'Минут в день', current: 0, target: 60, unit: 'мин' },
-      ];
-    }
+   // Calculate reading goals
+   const readingGoals = useMemo(() => {
+     if (!statsData?.statistics) {
+       return [
+         { label: t('profile.goals.monthly'), current: 0, target: 5, unit: t('profile.units.books') },
+         { label: t('profile.goals.daily'), current: 0, target: 60, unit: t('profile.units.minutes') },
+       ];
+     }
 
-    const s = statsData.statistics;
-    const booksInProgress = s.books_in_progress || 0;
-    // Используем унифицированную метрику из API
-    // Формула на бэкенде: total_minutes / days_with_reading_activity
-    const avgMinutesPerDay = s.avg_minutes_per_day || 0;
+     const s = statsData.statistics;
+     const booksInProgress = s.books_in_progress || 0;
+     // Используем унифицированную метрику из API
+     // Формула на бэкенде: total_minutes / days_with_reading_activity
+     const avgMinutesPerDay = s.avg_minutes_per_day || 0;
 
-    return [
-      { label: 'Цель на месяц', current: booksInProgress, target: 5, unit: 'книг' },
-      { label: 'Минут в день', current: avgMinutesPerDay, target: 60, unit: 'мин' },
-    ];
-  }, [statsData]);
+     return [
+       { label: t('profile.goals.monthly'), current: booksInProgress, target: 5, unit: t('profile.units.books') },
+       { label: t('profile.goals.daily'), current: avgMinutesPerDay, target: 60, unit: t('profile.units.minutes') },
+     ];
+   }, [statsData, t]);
 
   const handleSave = () => {
     if (editedName.trim() && editedName !== user?.full_name) {
@@ -128,13 +130,13 @@ const ProfilePage: React.FC = () => {
     setIsEditing(false);
   };
 
-  if (statsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <LoadingSpinner size="lg" text="Загрузка профиля..." />
-      </div>
-    );
-  }
+   if (statsLoading) {
+     return (
+       <div className="flex items-center justify-center min-h-64">
+         <LoadingSpinner size="lg" text={t('profile.loading')} />
+       </div>
+     );
+   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -215,18 +217,18 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Subscription Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                <Sparkles className="w-4 h-4 text-yellow-300" />
-                <span className="font-semibold text-primary-foreground">Free Plan</span>
-                {user?.is_admin && (
-                  <>
-                    <div className="w-1 h-1 rounded-full bg-white/50" />
-                    <Shield className="w-4 h-4 text-green-300" />
-                    <span className="font-semibold text-primary-foreground">Admin</span>
-                  </>
-                )}
-              </div>
+               {/* Subscription Badge */}
+               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                 <Sparkles className="w-4 h-4 text-yellow-300" />
+                 <span className="font-semibold text-primary-foreground">{t('profile.plan_free')}</span>
+                 {user?.is_admin && (
+                   <>
+                     <div className="w-1 h-1 rounded-full bg-white/50" />
+                     <Shield className="w-4 h-4 text-green-300" />
+                     <span className="font-semibold text-primary-foreground">{t('profile.admin')}</span>
+                   </>
+                 )}
+               </div>
             </div>
           </div>
         </div>
@@ -252,14 +254,14 @@ const ProfilePage: React.FC = () => {
         ))}
       </div>
 
-      {/* Reading Goals */}
-      <div className="mb-12">
-        <div className="flex items-center gap-3 mb-6">
-          <Target className="w-6 h-6 text-primary" />
-          <h2 className="fluid-h3 font-bold text-foreground">
-            Цели чтения
-          </h2>
-        </div>
+       {/* Reading Goals */}
+       <div className="mb-12">
+         <div className="flex items-center gap-3 mb-6">
+           <Target className="w-6 h-6 text-primary" />
+           <h2 className="fluid-h3 font-bold text-foreground">
+             {t('profile.goals_title')}
+           </h2>
+         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {readingGoals.map((goal, index) => (
@@ -286,72 +288,72 @@ const ProfilePage: React.FC = () => {
                 />
               </div>
 
-              <div className="mt-2 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  {Math.round((goal.current / goal.target) * 100)}% выполнено
-                </span>
-              </div>
+               <div className="mt-2 flex items-center gap-2">
+                 <TrendingUp className="w-4 h-4 text-primary" />
+                 <span className="text-sm text-muted-foreground">
+                   {Math.round((goal.current / goal.target) * 100)}% {t('profile.completed')}
+                 </span>
+               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Profile Information */}
-      <div className="p-8 rounded-xl border-2 bg-card border-border">
-        <div className="flex items-center gap-3 mb-6">
-          <User className="w-6 h-6 text-primary" />
-          <h2 className="fluid-h3 font-bold text-foreground">
-            Информация профиля
-          </h2>
-        </div>
+       {/* Profile Information */}
+       <div className="p-8 rounded-xl border-2 bg-card border-border">
+         <div className="flex items-center gap-3 mb-6">
+           <User className="w-6 h-6 text-primary" />
+           <h2 className="fluid-h3 font-bold text-foreground">
+             {t('profile.info_title')}
+           </h2>
+         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-muted-foreground">
-              Полное имя
-            </label>
-            <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
-              {user?.full_name || 'Не указано'}
-            </div>
-          </div>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           {/* Full Name */}
+           <div>
+             <label className="block text-sm font-medium mb-2 text-muted-foreground">
+               {t('profile.full_name')}
+             </label>
+             <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
+               {user?.full_name || t('profile.not_specified')}
+             </div>
+           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-muted-foreground">
-              Email
-            </label>
-            <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground truncate">
-              {user?.email}
-            </div>
-          </div>
+           {/* Email */}
+           <div>
+             <label className="block text-sm font-medium mb-2 text-muted-foreground">
+               {t('profile.email')}
+             </label>
+             <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground truncate">
+               {user?.email}
+             </div>
+           </div>
 
-          {/* Account Type */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-muted-foreground">
-              Тип аккаунта
-            </label>
-            <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
-              {user?.is_admin ? 'Администратор' : 'Обычный пользователь'}
-            </div>
-          </div>
+           {/* Account Type */}
+           <div>
+             <label className="block text-sm font-medium mb-2 text-muted-foreground">
+               {t('profile.account_type')}
+             </label>
+             <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
+               {user?.is_admin ? t('profile.admin_role') : t('profile.user_role')}
+             </div>
+           </div>
 
-          {/* Member Since */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-muted-foreground">
-              Дата регистрации
-            </label>
-            <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
-              {new Date().toLocaleDateString('ru-RU', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+           {/* Member Since */}
+           <div>
+             <label className="block text-sm font-medium mb-2 text-muted-foreground">
+               {t('profile.registration_date')}
+             </label>
+             <div className="px-4 py-3 rounded-xl border-2 bg-muted border-border text-foreground">
+               {new Date().toLocaleDateString('ru-RU', {
+                 year: 'numeric',
+                 month: 'long',
+                 day: 'numeric'
+               })}
+             </div>
+           </div>
+         </div>
+       </div>
     </div>
   );
 };

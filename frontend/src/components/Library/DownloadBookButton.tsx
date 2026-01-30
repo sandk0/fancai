@@ -18,6 +18,7 @@
 
 import { memo, useCallback } from 'react'
 import { Download, X, Check, Trash2, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Button, Spinner } from '@/components/UI/button'
 import { Progress } from '@/components/UI/progress'
@@ -69,6 +70,7 @@ export const DownloadBookButton = memo(function DownloadBookButton({
   className,
   disabled = false,
 }: DownloadBookButtonProps) {
+  const { t } = useTranslation()
   const {
     isAvailableOffline,
     isDownloading,
@@ -132,11 +134,11 @@ export const DownloadBookButton = memo(function DownloadBookButton({
               className
             )}
             onClick={(e) => e.stopPropagation()}
-            aria-label="Offline book options"
+            aria-label={t('library.download.offline_options')}
           >
             <Check className="h-4 w-4" />
             {variant !== 'icon' && (
-              <span className="ml-1.5 text-xs">Offline</span>
+              <span className="ml-1.5 text-xs">{t('library.download.offline')}</span>
             )}
           </Button>
         </DropdownMenuTrigger>
@@ -146,7 +148,7 @@ export const DownloadBookButton = memo(function DownloadBookButton({
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Delete offline copy
+            {t('library.download.delete_offline')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -164,7 +166,7 @@ export const DownloadBookButton = memo(function DownloadBookButton({
           size="icon"
           className={cn('h-9 w-9 relative', className)}
           onClick={handleCancelClick}
-          aria-label="Cancel download"
+          aria-label={t('library.download.cancel')}
         >
           <Spinner className="h-4 w-4 absolute" />
           <X className="h-3 w-3 opacity-0 hover:opacity-100 transition-opacity" />
@@ -189,7 +191,7 @@ export const DownloadBookButton = memo(function DownloadBookButton({
           size="icon"
           className="h-8 w-8"
           onClick={handleCancelClick}
-          aria-label="Cancel download"
+          aria-label={t('library.download.cancel')}
         >
           <X className="h-4 w-4" />
         </Button>
@@ -209,10 +211,10 @@ export const DownloadBookButton = memo(function DownloadBookButton({
         onClick={handleRetryClick}
         disabled={disabled}
         title={error}
-        aria-label="Retry download"
+        aria-label={t('library.download.retry')}
       >
         <RefreshCw className="h-4 w-4" />
-        {variant !== 'icon' && <span className="ml-1.5 text-xs">Retry</span>}
+        {variant !== 'icon' && <span className="ml-1.5 text-xs">{t('library.download.retry')}</span>}
       </Button>
     )
   }
@@ -231,11 +233,11 @@ export const DownloadBookButton = memo(function DownloadBookButton({
       )}
       onClick={handleDownloadClick}
       disabled={disabled}
-      title="Download for offline reading"
-      aria-label="Download for offline reading"
+      title={t('library.download.title')}
+      aria-label={t('library.download.title')}
     >
       <Download className="h-4 w-4" />
-      {variant !== 'icon' && <span className="ml-1.5 text-xs">Download</span>}
+      {variant !== 'icon' && <span className="ml-1.5 text-xs">{t('library.download.download')}</span>}
     </Button>
   )
 })

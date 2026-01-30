@@ -86,12 +86,16 @@ export const useAuthStore = create<AuthState>()(
           backupReadingProgress(userId);
         }
 
-        // Call logout API (clears cookies)
-        authAPI.logout().catch(console.error);
+        // TD-FRONT-130: Properly await logout API call (clears cookies + blacklists token)
+        try {
+          await authAPI.logout();
+          console.log('✅ Logout API call successful');
+        } catch (error) {
+          console.error('❌ Logout API call failed:', error);
+        }
 
         // Clear localStorage
         localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-        // Clear legacy tokens if present
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
 
@@ -103,7 +107,6 @@ export const useAuthStore = create<AuthState>()(
           console.error('❌ Failed to clear some caches on logout:', error);
         }
 
-        // Reset state
         set({
           user: null,
           isAuthenticated: false,

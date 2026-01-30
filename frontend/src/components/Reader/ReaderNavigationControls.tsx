@@ -50,7 +50,7 @@ export const ReaderNavigationControls: React.FC<ReaderNavigationControlsProps> =
         <button
           onClick={onPrevPage}
           disabled={!canGoPrev}
-          className="flex items-center space-x-2 px-4 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 min-h-[44px] bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label={t('reader.previous')}
         >
           <ChevronLeft className="h-5 w-5" />
@@ -61,7 +61,7 @@ export const ReaderNavigationControls: React.FC<ReaderNavigationControlsProps> =
           <select
             value={currentChapter}
             onChange={(e) => onJumpToChapter(parseInt(e.target.value))}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-foreground"
+            className="px-3 py-2 min-h-[44px] bg-card border border-border rounded-lg text-foreground"
             aria-label="Select chapter"
           >
             {Array.from({ length: totalChapters }, (_, i) => i + 1).map(num => (
@@ -75,7 +75,7 @@ export const ReaderNavigationControls: React.FC<ReaderNavigationControlsProps> =
         <button
           onClick={onNextPage}
           disabled={!canGoNext}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 min-h-[44px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label={t('reader.next')}
         >
           <span>{t('reader.next')}</span>

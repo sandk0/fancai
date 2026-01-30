@@ -15,18 +15,19 @@
 
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
-  BarChart3,
-  BookOpen,
-  Clock,
-  TrendingUp,
-  Award,
-  Target,
-  Calendar,
-  Zap,
-  Star,
-  Flame,
-} from 'lucide-react';
+   BarChart3,
+   BookOpen,
+   Clock,
+   TrendingUp,
+   Award,
+   Target,
+   Calendar,
+   Zap,
+   Star,
+   Flame,
+ } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { booksAPI } from '@/api/books';
 import { formatReadingTime } from '@/utils/formatters';
@@ -34,11 +35,12 @@ import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 
 const StatsPage: React.FC = () => {
-  // Fetch detailed user statistics (including weekly activity)
-  const { data: detailedStats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ['user-reading-statistics'],
-    queryFn: () => booksAPI.getUserReadingStatistics(),
-  });
+   const { t } = useTranslation();
+   // Fetch detailed user statistics (including weekly activity)
+   const { data: detailedStats, isLoading: statsLoading, error: statsError } = useQuery({
+     queryKey: ['user-reading-statistics'],
+     queryFn: () => booksAPI.getUserReadingStatistics(),
+   });
 
   // Fetch all books for additional stats (genre distribution, top books)
   const { data: booksData, isLoading: booksLoading } = useQuery({
@@ -124,21 +126,21 @@ const StatsPage: React.FC = () => {
       .slice(0, 5);
   }, [booksData]);
 
-  // Achievements based on real stats
-  const achievements = useMemo(() => {
-    const totalBooks = stats.totalBooks;
-    const streak = stats.currentStreak;
-    const hoursPerDay = stats.totalHours / Math.max(1, streak);
+   // Achievements based on real stats
+   const achievements = useMemo(() => {
+     const totalBooks = stats.totalBooks;
+     const streak = stats.currentStreak;
+     const hoursPerDay = stats.totalHours / Math.max(1, streak);
 
-    return [
-      { name: 'Первая книга', description: 'Прочитайте первую книгу', icon: BookOpen, earned: totalBooks >= 1 },
-      { name: 'Марафонец', description: '7 дней подряд', icon: Flame, earned: streak >= 7 },
-      { name: 'Книжный червь', description: '10 книг прочитано', icon: Star, earned: totalBooks >= 10 },
-      { name: 'Целеустремленный', description: 'Достигните месячной цели', icon: Target, earned: stats.booksThisMonth >= 5 },
-      { name: 'Спринтер', description: '3 часа за день', icon: Zap, earned: hoursPerDay >= 3 },
-      { name: 'Легенда', description: '50 книг прочитано', icon: Award, earned: totalBooks >= 50 },
-    ];
-  }, [stats]);
+     return [
+       { name: t('stats.achievement_first_book'), description: t('stats.achievement_first_book_desc'), icon: BookOpen, earned: totalBooks >= 1 },
+       { name: t('stats.achievement_marathoner'), description: t('stats.achievement_marathoner_desc'), icon: Flame, earned: streak >= 7 },
+       { name: t('stats.achievement_bookworm'), description: t('stats.achievement_bookworm_desc'), icon: Star, earned: totalBooks >= 10 },
+       { name: t('stats.achievement_determined'), description: t('stats.achievement_determined_desc'), icon: Target, earned: stats.booksThisMonth >= 5 },
+       { name: t('stats.achievement_sprinter'), description: t('stats.achievement_sprinter_desc'), icon: Zap, earned: hoursPerDay >= 3 },
+       { name: t('stats.achievement_legend'), description: t('stats.achievement_legend_desc'), icon: Award, earned: totalBooks >= 50 },
+     ];
+   }, [stats, t]);
 
   // Weekly activity from API
   const weeklyActivity = useMemo(() => {
@@ -166,169 +168,169 @@ const StatsPage: React.FC = () => {
 
   const maxMinutes = Math.max(...weeklyActivity.map((d) => d.minutes), 1); // Минимум 1 для избежания деления на 0
 
-  if (statsLoading || booksLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <LoadingSpinner size="lg" text="Загрузка статистики..." />
-      </div>
-    );
-  }
+   if (statsLoading || booksLoading) {
+     return (
+       <div className="flex items-center justify-center min-h-64">
+         <LoadingSpinner size="lg" text={t('stats.loading')} />
+       </div>
+     );
+   }
 
-  if (statsError) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <ErrorMessage
-          title="Ошибка загрузки"
-          message="Не удалось загрузить статистику чтения"
-        />
-      </div>
-    );
-  }
+   if (statsError) {
+     return (
+       <div className="flex items-center justify-center min-h-64">
+         <ErrorMessage
+           title={t('stats.error_title')}
+           message={t('stats.error_message')}
+         />
+       </div>
+     );
+   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <BarChart3 className="w-8 h-8 text-primary" />
-          <h1 className="fluid-h2 font-bold text-foreground">
-            Статистика чтения
-          </h1>
-        </div>
-        <p className="text-lg text-muted-foreground">
-          Ваш прогресс и достижения
-        </p>
-      </div>
+       {/* Header */}
+       <div className="mb-8">
+         <div className="flex items-center gap-3 mb-3">
+           <BarChart3 className="w-8 h-8 text-primary" />
+           <h1 className="fluid-h2 font-bold text-foreground">
+             {t('stats.title')}
+           </h1>
+         </div>
+         <p className="text-lg text-muted-foreground">
+           {t('stats.subtitle')}
+         </p>
+       </div>
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {/* Books */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <BookOpen className="w-10 h-10 text-primary" />
-            <div className="text-right">
-              <p className="text-4xl font-bold text-foreground">
-                {stats.totalBooks}
-              </p>
-              <p className="text-sm font-medium text-muted-foreground">
-                всего книг
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-medium text-green-600">
-              +{stats.booksThisMonth} в этом месяце
-            </span>
-          </div>
-        </div>
+         {/* Books */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
+           <div className="flex items-center justify-between mb-4">
+             <BookOpen className="w-10 h-10 text-primary" />
+             <div className="text-right">
+               <p className="text-4xl font-bold text-foreground">
+                 {stats.totalBooks}
+               </p>
+               <p className="text-sm font-medium text-muted-foreground">
+                 {t('stats.total_books')}
+               </p>
+             </div>
+           </div>
+           <div className="flex items-center gap-2">
+             <TrendingUp className="w-4 h-4 text-green-600" />
+             <span className="text-sm font-medium text-green-600">
+               +{stats.booksThisMonth} {t('stats.this_month')}
+             </span>
+           </div>
+         </div>
 
-        {/* Hours */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <Clock className="w-10 h-10 text-purple-600" />
-            <div className="text-right">
-              <p className="text-4xl font-bold text-foreground">
-                {stats.totalHours}
-              </p>
-              <p className="text-sm font-medium text-muted-foreground">
-                часов чтения
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-medium text-green-600">
-              +{stats.hoursThisMonth}ч в этом месяце
-            </span>
-          </div>
-        </div>
+         {/* Hours */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
+           <div className="flex items-center justify-between mb-4">
+             <Clock className="w-10 h-10 text-purple-600" />
+             <div className="text-right">
+               <p className="text-4xl font-bold text-foreground">
+                 {stats.totalHours}
+               </p>
+               <p className="text-sm font-medium text-muted-foreground">
+                 {t('stats.hours_reading')}
+               </p>
+             </div>
+           </div>
+           <div className="flex items-center gap-2">
+             <TrendingUp className="w-4 h-4 text-green-600" />
+             <span className="text-sm font-medium text-green-600">
+               +{stats.hoursThisMonth}ч {t('stats.this_month')}
+             </span>
+           </div>
+         </div>
 
-        {/* Pages */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <Award className="w-10 h-10 text-amber-600" />
-            <div className="text-right">
-              <p className="text-4xl font-bold text-foreground">
-                {stats.totalPages.toLocaleString()}
-              </p>
-              <p className="text-sm font-medium text-muted-foreground">
-                страниц прочитано
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-medium text-green-600">
-              +{stats.pagesThisMonth} в этом месяце
-            </span>
-          </div>
-        </div>
-      </div>
+         {/* Pages */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:shadow-xl">
+           <div className="flex items-center justify-between mb-4">
+             <Award className="w-10 h-10 text-amber-600" />
+             <div className="text-right">
+               <p className="text-4xl font-bold text-foreground">
+                 {stats.totalPages.toLocaleString()}
+               </p>
+               <p className="text-sm font-medium text-muted-foreground">
+                 {t('stats.pages_read')}
+               </p>
+             </div>
+           </div>
+           <div className="flex items-center gap-2">
+             <TrendingUp className="w-4 h-4 text-green-600" />
+             <span className="text-sm font-medium text-green-600">
+               +{stats.pagesThisMonth} {t('stats.this_month')}
+             </span>
+           </div>
+         </div>
+       </div>
 
       {/* Streak and Weekly Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-        {/* Reading Streak */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card">
-          <div className="flex items-center gap-3 mb-6">
-            <Flame className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold text-foreground">
-              Серия чтения
-            </h2>
-          </div>
+         {/* Reading Streak */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card">
+           <div className="flex items-center gap-3 mb-6">
+             <Flame className="w-6 h-6 text-primary" />
+             <h2 className="text-xl font-bold text-foreground">
+               {t('stats.streak_title')}
+             </h2>
+           </div>
 
-          <div className="flex items-center justify-around mb-6">
-            <div className="text-center">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 border-4 border-primary bg-muted">
-                <span className="text-3xl font-bold text-primary">
-                  {stats.currentStreak}
-                </span>
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Текущая серия
-              </p>
-            </div>
+           <div className="flex items-center justify-around mb-6">
+             <div className="text-center">
+               <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 border-4 border-primary bg-muted">
+                 <span className="text-3xl font-bold text-primary">
+                   {stats.currentStreak}
+                 </span>
+               </div>
+               <p className="text-sm font-medium text-muted-foreground">
+                 {t('stats.current_streak')}
+               </p>
+             </div>
 
-            <div className="text-center">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 border-4 border-border bg-muted">
-                <span className="text-3xl font-bold text-foreground">
-                  {stats.longestStreak}
-                </span>
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Лучшая серия
-              </p>
-            </div>
-          </div>
+             <div className="text-center">
+               <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3 border-4 border-border bg-muted">
+                 <span className="text-3xl font-bold text-foreground">
+                   {stats.longestStreak}
+                 </span>
+               </div>
+               <p className="text-sm font-medium text-muted-foreground">
+                 {t('stats.best_streak')}
+               </p>
+             </div>
+           </div>
 
-          <div className="p-4 rounded-xl bg-muted">
-            <p className="text-center font-medium text-foreground">
-              В среднем {stats.averagePerDay} минут в день
-            </p>
-          </div>
-        </div>
+           <div className="p-4 rounded-xl bg-muted">
+             <p className="text-center font-medium text-foreground">
+               {t('stats.avg_per_day', { count: stats.averagePerDay })}
+             </p>
+           </div>
+         </div>
 
-        {/* Weekly Activity Chart */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card">
-          <div className="flex items-center gap-3 mb-6">
-            <Calendar className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold text-foreground">
-              Активность за неделю
-            </h2>
-          </div>
+         {/* Weekly Activity Chart */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card">
+           <div className="flex items-center gap-3 mb-6">
+             <Calendar className="w-6 h-6 text-primary" />
+             <h2 className="text-xl font-bold text-foreground">
+               {t('stats.weekly_activity')}
+             </h2>
+           </div>
 
-          {weeklyActivity.every((d) => d.minutes === 0) ? (
-            // Empty state - no reading activity
-            <div className="h-48 flex flex-col items-center justify-center">
-              <Calendar className="w-12 h-12 mb-3 text-muted-foreground opacity-30" />
-              <p className="text-center font-medium text-muted-foreground">
-                Нет данных о чтении за последнюю неделю
-              </p>
-              <p className="text-sm text-center mt-2 text-muted-foreground opacity-70">
-                Начните читать, чтобы увидеть статистику
-              </p>
-            </div>
-          ) : (
+           {weeklyActivity.every((d) => d.minutes === 0) ? (
+             // Empty state - no reading activity
+             <div className="h-48 flex flex-col items-center justify-center">
+               <Calendar className="w-12 h-12 mb-3 text-muted-foreground opacity-30" />
+               <p className="text-center font-medium text-muted-foreground">
+                 {t('stats.no_weekly_data')}
+               </p>
+               <p className="text-sm text-center mt-2 text-muted-foreground opacity-70">
+                 {t('stats.no_weekly_hint')}
+               </p>
+             </div>
+           ) : (
             // Chart with data
             <div className="flex items-end justify-between gap-2 h-48" role="img" aria-label="Weekly reading activity chart">
               {weeklyActivity.map((day, index) => (
@@ -356,11 +358,11 @@ const StatsPage: React.FC = () => {
 
       {/* Genre Distribution and Top Books */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-        {/* Genre Distribution */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card">
-          <h2 className="text-xl font-bold mb-6 text-foreground">
-            Распределение по жанрам
-          </h2>
+         {/* Genre Distribution */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card">
+           <h2 className="text-xl font-bold mb-6 text-foreground">
+             {t('stats.genres_title')}
+           </h2>
 
           <div className="space-y-4">
             {genreDistribution.map((genre, index) => (
@@ -369,9 +371,9 @@ const StatsPage: React.FC = () => {
                   <span className="font-medium text-foreground">
                     {genre.genre}
                   </span>
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {genre.count} книг ({genre.percentage}%)
-                  </span>
+                   <span className="text-sm font-medium text-muted-foreground">
+                     {genre.count} {t('stats.books_unit')} ({genre.percentage}%)
+                   </span>
                 </div>
                 <div className="h-3 rounded-full overflow-hidden bg-muted">
                   <div
@@ -384,11 +386,11 @@ const StatsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Top Books */}
-        <div className="p-6 rounded-xl border-2 border-border bg-card">
-          <h2 className="text-xl font-bold mb-6 text-foreground">
-            Топ книг по времени чтения
-          </h2>
+         {/* Top Books */}
+         <div className="p-6 rounded-xl border-2 border-border bg-card">
+           <h2 className="text-xl font-bold mb-6 text-foreground">
+             {t('stats.top_books_title')}
+           </h2>
 
           <div className="space-y-4">
             {topBooks.map((book, index) => (
@@ -426,14 +428,14 @@ const StatsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Achievements */}
-      <div className="p-6 rounded-xl border-2 border-border bg-card">
-        <div className="flex items-center gap-3 mb-6">
-          <Award className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold text-foreground">
-            Достижения
-          </h2>
-        </div>
+       {/* Achievements */}
+       <div className="p-6 rounded-xl border-2 border-border bg-card">
+         <div className="flex items-center gap-3 mb-6">
+           <Award className="w-6 h-6 text-primary" />
+           <h2 className="text-xl font-bold text-foreground">
+             {t('stats.achievements_title')}
+           </h2>
+         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {achievements.map((achievement, index) => (

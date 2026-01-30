@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { isNoteSpoilerCFI } from '../../utils/entityUtils';
 
@@ -19,6 +20,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     currentCfi,
     forceReveal = false
 }) => {
+    const { t } = useTranslation();
     const isSpoiler = !forceReveal && isNoteSpoilerCFI(
         { text, chapter_index: chapterIndex, cfi: noteCfi, is_spoiler: false, type: '' },
         currentCfi ?? null,
@@ -42,7 +44,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
         <span
             onClick={() => setIsRevealed(true)}
             className="cursor-pointer select-none rounded bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
-            title="Spoiler! Click to reveal"
+            title={t('entities.spoiler_click_to_reveal', 'Спойлер! Нажмите, чтобы показать')}
         >
             {/* Render redacted blocks roughly matching text length */}
             {Array(Math.ceil(text.length / 8)).fill('████').join(' ')}

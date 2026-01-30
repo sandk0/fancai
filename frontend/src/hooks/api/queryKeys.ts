@@ -110,6 +110,18 @@ export const bookKeys = {
    * @param bookId - ID книги
    */
   fileUrl: (userId: string, bookId: string) => [...bookKeys.all(userId), bookId, 'file'] as const,
+
+  /**
+   * Книги для HomePage (recently accessed)
+   * 
+   * ВАЖНО: Этот ключ наследует от bookKeys.all(userId), поэтому
+   * автоматически инвалидируется при upload/delete книг.
+   * 
+   * @param userId - ID пользователя
+   * @param limit - Лимит записей (default: 20)
+   */
+  homepage: (userId: string, limit = 20) => 
+    [...bookKeys.all(userId), 'homepage', limit] as const,
 };
 
 /**

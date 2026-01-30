@@ -294,6 +294,7 @@ export function useBookProgressWS({
         } else {
             disconnect();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onComplete excluded to prevent reconnects on callback identity change
     }, [enabled, bookId, isAuthenticated, connect, disconnect]);
 
     return {

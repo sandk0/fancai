@@ -4,15 +4,16 @@ import { isEntityMetCFI } from '../../utils/entityUtils';
 import { isValidCFI, isCFIBefore } from '../../utils/cfiUtils';
 import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
 import { Badge } from '../UI/badge';
+import { Card } from '../UI/Card';
 import { ArrowLeftRight, Lock, Heart, Swords, Users, HelpCircle } from 'lucide-react';
 
 const RELATIONSHIP_TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-    KINSHIP: { label: 'Родство', icon: <Users className="w-4 h-4" />, color: 'text-blue-400' },
-    ALLY: { label: 'Союзник', icon: <Heart className="w-4 h-4" />, color: 'text-green-400' },
-    ENEMY: { label: 'Враг', icon: <Swords className="w-4 h-4" />, color: 'text-red-400' },
-    FRIEND: { label: 'Друг', icon: <Heart className="w-4 h-4" />, color: 'text-pink-400' },
-    MENTOR: { label: 'Наставник', icon: <Users className="w-4 h-4" />, color: 'text-purple-400' },
-    STUDENT: { label: 'Ученик', icon: <Users className="w-4 h-4" />, color: 'text-indigo-400' },
+    KINSHIP: { label: 'Родство', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-kinship)]' },
+    ALLY: { label: 'Союзник', icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-ally)]' },
+    ENEMY: { label: 'Враг', icon: <Swords className="w-4 h-4" />, color: 'text-[var(--color-relationship-enemy)]' },
+    FRIEND: { label: 'Друг', icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-friend)]' },
+    MENTOR: { label: 'Наставник', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-mentor)]' },
+    STUDENT: { label: 'Ученик', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-student)]' },
 };
 
 interface RelationshipCardProps {
@@ -69,7 +70,7 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
             className={`flex flex-col items-center gap-2 ${isClickable ? 'cursor-pointer' : ''}`}
             onClick={() => isClickable && onEntityClick?.(entity.id)}
         >
-            <Avatar className="h-16 w-16 border-2 border-[var(--color-border-default)]">
+            <Avatar className="h-16 w-16 border border-[var(--color-border-default)]">
                 <AvatarImage src={entity.avatar_url || undefined} />
                 <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] text-xl">
                     {entity.name[0]}
@@ -83,17 +84,17 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
 
     if (!isVisible) {
         return (
-            <div className="bg-[var(--color-bg-base)] p-6 rounded-lg border border-[var(--color-border-default)]">
+            <Card padding="lg">
                 <div className="flex items-center justify-center gap-4 mb-4">
                     <div className="flex flex-col items-center gap-2 opacity-50">
-                        <Avatar className="h-16 w-16 border-2 border-[var(--color-border-subtle)] grayscale">
+                        <Avatar className="h-16 w-16 border border-[var(--color-border-subtle)] grayscale">
                             <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-disabled)]">?</AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-[var(--color-text-disabled)]">???</span>
                     </div>
                     <ArrowLeftRight className="w-6 h-6 text-[var(--color-text-disabled)]" />
                     <div className="flex flex-col items-center gap-2 opacity-50">
-                        <Avatar className="h-16 w-16 border-2 border-[var(--color-border-subtle)] grayscale">
+                        <Avatar className="h-16 w-16 border border-[var(--color-border-subtle)] grayscale">
                             <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-disabled)]">?</AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-[var(--color-text-disabled)]">???</span>
@@ -107,12 +108,12 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
                         Продолжайте читать, чтобы узнать об этих отношениях.
                     </p>
                 </div>
-            </div>
+            </Card>
         );
     }
 
     return (
-        <div className="bg-[var(--color-bg-base)] p-6 rounded-lg border border-[var(--color-border-default)]">
+        <Card padding="lg">
             <div className="flex items-center justify-center gap-6 mb-6">
                 {renderEntityAvatar(sourceEntity, true)}
                 
@@ -141,11 +142,11 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
             </div>
 
             {edge.description && (
-                <div className="bg-[var(--color-bg-elevated)] p-4 rounded-lg border border-[var(--color-border-subtle)]">
+                <Card variant="subtle" padding="md">
                     <p className="text-[var(--color-text-muted)] text-sm italic text-center">
                         "{edge.description}"
                     </p>
-                </div>
+                </Card>
             )}
 
             {edge.first_interaction_chapter != null && (
@@ -153,6 +154,6 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
                     Первое взаимодействие: Глава {edge.first_interaction_chapter}
                 </div>
             )}
-        </div>
+        </Card>
     );
 };

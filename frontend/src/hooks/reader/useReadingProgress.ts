@@ -19,8 +19,10 @@
  * );
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { booksAPI } from '@/api/books';
+
+const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
 interface UseReadingProgressOptions {
   bookId: string;
@@ -47,6 +49,7 @@ export const useReadingProgress = ({
 }: UseReadingProgressOptions): UseReadingProgressReturn => {
   const [hasRestoredPosition, setHasRestoredPosition] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Restore reading position on initial load
@@ -112,33 +115,48 @@ export const useReadingProgress = ({
   }, [totalPages, currentChapter, initialChapter, bookId, hasRestoredPosition, onPositionRestored]);
 
   /**
-   * Auto-save progress when position changes
+   * Auto-save progress when position changes (debounced)
    */
   useEffect(() => {
-    // Don't save until position has been restored
     if (!hasRestoredPosition || totalPages === 0) {
       return;
     }
 
-    const positionPercent = (currentPage / totalPages) * 100;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
 
-    console.log('📊 [useReadingProgress] Auto-save:', {
-      currentChapter,
-      currentPage,
-      totalPages,
-      positionPercent: positionPercent.toFixed(2) + '%'
-    });
+    saveTimeoutRef.current = setTimeout(() => {
+      const positionPercent = (currentPage / totalPages) * 100;
 
-    booksAPI.updateReadingProgress(bookId, {
-      current_chapter: currentChapter,
-      current_position_percent: positionPercent
-    })
-      .then(() => {
-        console.log('📊 [useReadingProgress] ✅ Progress saved');
+      if (import.meta.env.DEV) {
+        console.log('📊 [useReadingProgress] Auto-save:', {
+          currentChapter,
+          currentPage,
+          totalPages,
+          positionPercent: positionPercent.toFixed(2) + '%'
+        });
+      }
+
+      booksAPI.updateReadingProgress(bookId, {
+        current_chapter: currentChapter,
+        current_position_percent: positionPercent
       })
-      .catch(err => {
-        console.error('❌ [useReadingProgress] Failed to update:', err);
-      });
+        .then(() => {
+          if (import.meta.env.DEV) {
+            console.log('📊 [useReadingProgress] ✅ Progress saved');
+          }
+        })
+        .catch(err => {
+          console.error('❌ [useReadingProgress] Failed to update:', err);
+        });
+    }, AUTO_SAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [bookId, currentChapter, currentPage, totalPages, hasRestoredPosition]);
 
   /**

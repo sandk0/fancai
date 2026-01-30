@@ -21,7 +21,7 @@ export const booksAPI = {
   },
 
   // Start book processing
-  async processBook(bookId: string) {
+  async processBook(bookId: string): Promise<{ status?: string; descriptions_found?: number }> {
     return apiClient.post(`/books/${bookId}/process`);
   },
 

@@ -27,18 +27,19 @@ const ChapterItem: React.FC<{ item: NavItem; currentHref: string | null; onChapt
 
   return (
     <div className={level > 0 ? 'ml-4' : ''}>
-      <div
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer ${isActive ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted'}`}
+      <button
+        type="button"
+        className={`flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl cursor-pointer w-full text-left ${isActive ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted'}`}
         onClick={() => onChapterClick(item.href)}
       >
         <span className="text-xs opacity-50 w-6">{index + 1}</span>
         <span className="flex-1 text-sm truncate">{item.label || t('reader.toc.untitled')}</span>
         {hasSubitems && (
-          <button onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} className="p-1">
+          <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setIsExpanded(!isExpanded); }}} className="p-1">
             <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-          </button>
+          </span>
         )}
-      </div>
+      </button>
       {hasSubitems && isExpanded && (
         <div className="space-y-1">
           {item.subitems!.map((sub, i) => <ChapterItem key={i} item={sub} currentHref={currentHref} onChapterClick={onChapterClick} level={level + 1} index={i} />)}
@@ -66,15 +67,15 @@ export const TocSidebar: React.FC<TocSidebarProps> = ({ toc, currentHref, onChap
       {isOpen && (
         <>
           <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm" style={{ zIndex: Z_INDEX.sidebar }} onClick={onClose} />
-          <m.div role="navigation" aria-label={t('reader.toc.aria_label', 'Table of contents')} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full md:w-96 bg-background shadow-xl flex flex-col" style={{ zIndex: Z_INDEX.modal }}>
+          <m.div role="navigation" aria-label={t('reader.toc.aria_label', 'Table of contents')} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full md:w-96 bg-background shadow-xl flex flex-col pt-safe pb-safe" style={{ zIndex: Z_INDEX.modal }}>
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h2 className="text-lg font-bold">{t('reader.toc.title')}</h2>
-              <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={onClose} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-4 border-b">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50" />
-                <input ref={inputRef} type="text" placeholder={t('reader.toc.search_placeholder')} value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-muted rounded-lg" />
+                <input ref={inputRef} type="text" placeholder={t('reader.toc.search_placeholder')} value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 min-h-[44px] bg-muted rounded-lg" />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2">

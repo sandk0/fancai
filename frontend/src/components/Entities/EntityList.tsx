@@ -6,16 +6,16 @@ import { EntityListSkeleton } from '../UI/Skeleton';
 import { Input } from '../UI/Input';
 import { Search, X } from 'lucide-react';
 
-type EntityType = 'CHARACTER' | 'LOCATION' | 'OBJECT';
+type EntityTypeFilter = 'character' | 'location' | 'object';
 
 const VIRTUALIZATION_THRESHOLD = 30;
 const ESTIMATED_ITEM_HEIGHT = 72;
 
-const TYPE_FILTERS: { type: EntityType | 'ALL'; label: string }[] = [
+const TYPE_FILTERS: { type: EntityTypeFilter | 'ALL'; label: string }[] = [
     { type: 'ALL', label: 'Все' },
-    { type: 'CHARACTER', label: entityTypeLabels.CHARACTER },
-    { type: 'LOCATION', label: entityTypeLabels.LOCATION },
-    { type: 'OBJECT', label: entityTypeLabels.OBJECT },
+    { type: 'character', label: entityTypeLabels.character },
+    { type: 'location', label: entityTypeLabels.location },
+    { type: 'object', label: entityTypeLabels.object },
 ];
 
 interface EntityListProps {
@@ -34,7 +34,7 @@ export const EntityList: React.FC<EntityListProps> = ({
     isLoading = false,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTypeFilter, setActiveTypeFilter] = useState<EntityType | 'ALL'>('ALL');
+    const [activeTypeFilter, setActiveTypeFilter] = useState<EntityTypeFilter | 'ALL'>('ALL');
     const parentRef = useRef<HTMLDivElement>(null);
 
     const filteredEntities = useMemo(() => {
@@ -66,7 +66,7 @@ export const EntityList: React.FC<EntityListProps> = ({
         setSearchQuery('');
     };
 
-    const handleTypeFilterChange = (type: EntityType | 'ALL') => {
+    const handleTypeFilterChange = (type: EntityTypeFilter | 'ALL') => {
         setActiveTypeFilter(type);
     };
 

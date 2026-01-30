@@ -311,6 +311,54 @@ async def get_current_user_info(
     return CurrentUserResponse(user=UserResponse.model_validate(current_user).model_dump())
 
 
+@router.put("/auth/profile", response_model=ProfileUpdateResponse)
+@rate_limit(**RATE_LIMIT_PRESETS["low_frequency"])
+async def update_user_profile(
+    profile_data: UserProfileUpdateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_database_session),
+    auth_svc: AuthService = Depends(get_auth_service_dep),
+) -> ProfileUpdateResponse:
+    """
+    Обновление профиля текущего пользователя.
+
+    Поддерживает изменение full_name и смену пароля.
+    Для смены пароля требуется current_password + new_password.
+    """
+    if profile_data.new_password:
+        if not profile_data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required to set new password",
+            )
+
+        from ..core.validation import validate_password_strength
+
+        is_valid, error_msg = validate_password_strength(profile_data.new_password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            )
+
+    success = await auth_svc.update_user_profile(
+        db=db,
+        user_id=current_user.id,
+        full_name=profile_data.full_name,
+        current_password=profile_data.current_password,
+        new_password=profile_data.new_password,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to update profile. Check your current password.",
+        )
+
+    return ProfileUpdateResponse(message="Profile updated successfully")
+
+
 @router.delete("/auth/deactivate", response_model=AccountDeactivationResponse)
 async def deactivate_account(
     current_user: User = Depends(get_current_active_user),

@@ -1,10 +1,14 @@
-/* eslint-disable react-hooks/exhaustive-deps */
- 
+/**
+ * WebSocket Service
+ * 
+ * @deprecated DISABLED - Backend doesn't support cookie authentication for WebSocket yet.
+ * All methods are no-ops until backend implements WS cookie auth.
+ * 
+ * TODO: Re-enable when backend adds WebSocket cookie authentication support.
+ * Previous implementation preserved in git history (commit before 2026-01-29).
+ */
+
 import React from 'react';
-import { useUIStore } from '@/stores/ui';
-import { useBooksStore } from '@/stores/books';
-import { useImagesStore } from '@/stores/images';
-import { useAuthStore } from '@/stores/auth';
 
 export type WebSocketEventType = 
   | 'book_processing_started'
@@ -25,233 +29,57 @@ export interface WebSocketMessage {
 }
 
 class WebSocketService {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 1000;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
-  private isConnected = false;
-
-  private getWebSocketUrl(): string {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const portSuffix = (import.meta.env.DEV || window.location.port === '') ? '' : `:${window.location.port}`;
-    
-    return `${protocol}//${host}${portSuffix}/ws`;
-  }
-
+  /**
+   * @deprecated WebSocket disabled - backend doesn't support cookie auth
+   */
   connect(): Promise<void> {
+    if (import.meta.env.DEV) {
+      console.warn('[WebSocket] connect() called but WebSocket is disabled. Backend cookie auth not implemented.');
+    }
     return Promise.resolve();
   }
 
-  private scheduleReconnect(): void {
-    this.reconnectAttempts++;
-    const delay = this.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1);
-    
-    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    
-    setTimeout(() => {
-      this.connect().catch(error => {
-        console.error('Reconnection failed:', error);
-      });
-    }, delay);
-  }
-
-  private startHeartbeat(): void {
-    this.heartbeatInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000); // Send ping every 30 seconds
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+  send(_message: unknown): void {
+    if (import.meta.env.DEV) {
+      console.warn('[WebSocket] send() called but WebSocket is disabled.');
     }
   }
 
-  private handleMessage(message: WebSocketMessage): void {
-    console.log('WebSocket message received:', message);
-    
-    const { notify } = useUIStore.getState();
-    const { refreshBooks } = useBooksStore.getState();
-    const { refreshImages } = useImagesStore.getState();
-
-    const messageData = message.data as Record<string, unknown>;
-    switch (message.type) {
-      case 'book_processing_started':
-        notify.info(
-          'Book Processing Started',
-          `Processing "${messageData.book_title as string}" - extracting chapters and descriptions`
-        );
-        break;
-
-      case 'book_processing_completed':
-        notify.success(
-          'Book Processing Complete',
-          `"${messageData.book_title as string}" is ready for reading with ${messageData.chapters_count as number} chapters`
-        );
-        refreshBooks();
-        break;
-
-      case 'book_processing_failed':
-        notify.error(
-          'Book Processing Failed',
-          `Failed to process "${messageData.book_title as string}": ${messageData.error as string}`
-        );
-        break;
-
-      case 'image_generation_started':
-        notify.info(
-          'Image Generation Started',
-          `Generating images for "${messageData.description_type as string}" descriptions`
-        );
-        break;
-
-      case 'image_generation_completed':
-        notify.success(
-          'New Images Generated',
-          `${messageData.images_count as number} new images generated for "${messageData.book_title as string}"`
-        );
-        refreshImages();
-        break;
-
-      case 'image_generation_failed':
-        notify.error(
-          'Image Generation Failed',
-          `Failed to generate image: ${messageData.error as string}`
-        );
-        break;
-
-      case 'chapter_descriptions_extracted':
-        notify.info(
-          'Descriptions Found',
-          `Extracted ${messageData.descriptions_count as number} descriptions from Chapter ${messageData.chapter_number as number}`
-        );
-        break;
-
-      case 'entities_updated':
-        notify.info(
-          'Entities Updated',
-          messageData.message as string || `Found ${messageData.entities_count as number} entities`
-        );
-        window.dispatchEvent(new CustomEvent('entities_updated', {
-          detail: { book_id: messageData.book_id }
-        }));
-        break;
-
-      case 'user_notification': {
-        const level = (messageData.level as string) || 'info';
-        const notifyMethod = notify[level as keyof typeof notify];
-        if (typeof notifyMethod === 'function') {
-          notifyMethod(messageData.title as string, messageData.message as string);
-        }
-        break;
-      }
-
-      default:
-        console.log('Unknown message type:', message.type);
-    }
-  }
-
-  send(message: unknown): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected, message not sent:', message);
-    }
-  }
-
-  disconnect(): void {
-    if (this.ws) {
-      this.stopHeartbeat();
-      this.ws.close(1000, 'Client disconnecting');
-      this.ws = null;
-      this.isConnected = false;
-    }
-  }
+  disconnect(): void {}
 
   getConnectionState(): string {
-    if (!this.ws) return 'CLOSED';
-    
-    switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'CONNECTING';
-      case WebSocket.OPEN: return 'OPEN';
-      case WebSocket.CLOSING: return 'CLOSING';
-      case WebSocket.CLOSED: return 'CLOSED';
-      default: return 'UNKNOWN';
-    }
+    return 'DISABLED';
   }
 
   isWebSocketConnected(): boolean {
-    return this.isConnected && this.ws?.readyState === WebSocket.OPEN;
+    return false;
   }
 }
 
-// Create singleton instance
 export const websocketService = new WebSocketService();
 
-// React hook for WebSocket connection management
 export const useWebSocket = () => {
-  const [connectionState, setConnectionState] = React.useState<string>('CLOSED');
-  
-  React.useEffect(() => {
-    const updateConnectionState = () => {
-      setConnectionState(websocketService.getConnectionState());
-    };
-    
-    // Update connection state periodically
-    const interval = setInterval(updateConnectionState, 1000);
-    updateConnectionState();
-    
-    return () => clearInterval(interval);
-  }, []);
-  
   return {
     connect: () => websocketService.connect(),
     disconnect: () => websocketService.disconnect(),
     send: (message: unknown) => websocketService.send(message),
-    isConnected: websocketService.isWebSocketConnected(),
-    connectionState,
+    isConnected: false,
+    connectionState: 'DISABLED',
   };
 };
 
+/**
+ * @deprecated WebSocket is disabled until backend implements cookie authentication
+ */
 export const useAutoWebSocket = () => {
-  const webSocket = useWebSocket();
-  const { isAuthenticated } = useAuthStore();
-  
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      webSocket.connect().catch(console.error);
-    }
-    return () => webSocket.disconnect();
-  }, [isAuthenticated]);
-  
-  return webSocket;
+  return useWebSocket();
 };
 
-// Connection status component
 export const WebSocketStatus: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { connectionState } = useWebSocket();
-  
-  const getStatusColor = () => {
-    switch (connectionState) {
-      case 'OPEN': return 'bg-green-500';
-      case 'CONNECTING': return 'bg-yellow-500';
-      case 'CLOSING': return 'bg-orange-500';
-      case 'CLOSED': return 'bg-red-500';
-      default: return 'bg-muted';
-    }
-  };
-  
   return (
     <div className={`flex items-center space-x-2 ${className}`}>
-      <div className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
-      <span className="text-xs text-muted-foreground">
-        {connectionState === 'OPEN' ? 'Connected' : connectionState}
-      </span>
+      <div className="w-2 h-2 rounded-full bg-gray-500" />
+      <span className="text-xs text-muted-foreground">Disabled</span>
     </div>
   );
 };

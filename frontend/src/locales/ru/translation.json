@@ -1,4 +1,81 @@
 {
+  "library": {
+    "title": "Моя библиотека",
+    "books_count_one": "{{count}} книга",
+    "books_count_few": "{{count}} книги",
+    "books_count_many": "{{count}} книг",
+    "processing": "({{count}} обрабатывается)",
+    "upload": "Загрузить книгу",
+    "search_placeholder": "Поиск по названию или автору...",
+    "sort": {
+      "label": "Сортировка",
+      "created_desc": "Сначала новые",
+      "created_asc": "Сначала старые",
+      "title_asc": "По названию А-Я",
+      "title_desc": "По названию Я-А",
+      "author_asc": "По автору А-Я",
+      "accessed_desc": "Недавно читал"
+    },
+    "filter": {
+      "toggle": "Фильтры",
+      "genre": "Жанр",
+      "progress": "Прогресс чтения",
+      "reset": "Сбросить фильтры",
+      "genres": {
+        "all": "Все жанры",
+        "fiction": "Художественная",
+        "non-fiction": "Документальная",
+        "fantasy": "Фэнтези",
+        "sci-fi": "Научная фантастика",
+        "romance": "Романтика",
+        "mystery": "Детектив",
+        "thriller": "Триллер"
+      },
+      "progress_opts": {
+        "all": "Все книги",
+        "not_started": "Не начаты",
+        "in_progress": "В процессе",
+        "completed": "Завершены"
+      }
+    },
+    "pagination": {
+      "prev": "Назад",
+      "next": "Далее",
+      "page": "Страница {{current}} из {{total}}"
+    },
+    "refresh": {
+      "success": "Библиотека обновлена",
+      "error": "Не удалось обновить библиотеку"
+    },
+    "delete": {
+      "success": "Книга удалена",
+      "error": "Ошибка удаления"
+    },
+    "deleteModal": {
+      "title": "Удалить книгу?",
+      "confirm_text": "Вы уверены, что хотите удалить книгу",
+      "warning": "Это действие необратимо. Все данные книги, включая прогресс чтения и сгенерированные изображения, будут удалены.",
+      "cancel": "Отмена",
+      "deleting": "Удаление...",
+      "delete": "Удалить"
+    },
+    "download": {
+      "offline_options": "Опции офлайн-книги",
+      "offline": "Офлайн",
+      "delete_offline": "Удалить офлайн-копию",
+      "cancel": "Отменить загрузку",
+      "retry": "Повторить",
+      "title": "Скачать для офлайн-чтения",
+      "download": "Скачать"
+    },
+    "empty": {
+      "title": "Ваша библиотека пуста",
+      "description": "Загрузите первую книгу, чтобы начать чтение с AI-иллюстрациями",
+      "search_title": "Книги не найдены",
+      "search_desc": "Нет результатов для \"{{query}}\". Попробуйте другой запрос.",
+      "clear_search": "Очистить поиск"
+    }
+  },
   "reader": {
     "loading": "Загрузка книги...",
     "preparing": "Подготовка книги...",
@@ -110,66 +187,170 @@
       "chapters_count": "{{count}} из {{total}} глав",
       "close_hint": "закрыть",
       "untitled": "Без названия"
-    },
-    "library": {
-      "title": "Моя библиотека",
-      "books_count_one": "{{count}} книга",
-      "books_count_few": "{{count}} книги",
-      "books_count_many": "{{count}} книг",
-      "processing": "({{count}} обрабатывается)",
-      "upload": "Загрузить книгу",
-      "search_placeholder": "Поиск по названию или автору...",
-      "sort": {
-        "label": "Сортировка",
-        "created_desc": "Сначала новые",
-        "created_asc": "Сначала старые",
-        "title_asc": "По названию А-Я",
-        "title_desc": "По названию Я-А",
-        "author_asc": "По автору А-Я",
-        "accessed_desc": "Недавно читал"
-      },
-      "filter": {
-        "toggle": "Фильтры",
-        "genre": "Жанр",
-        "progress": "Прогресс чтения",
-        "reset": "Сбросить фильтры",
-        "genres": {
-          "all": "Все жанры",
-          "fiction": "Художественная",
-          "non-fiction": "Документальная",
-          "fantasy": "Фэнтези",
-          "sci-fi": "Научная фантастика",
-          "romance": "Романтика",
-          "mystery": "Детектив",
-          "thriller": "Триллер"
-        },
-        "progress_opts": {
-          "all": "Все книги",
-          "not_started": "Не начаты",
-          "in_progress": "В процессе",
-          "completed": "Завершены"
-        }
-      },
-      "pagination": {
-        "prev": "Назад",
-        "next": "Далее",
-        "page": "Страница {{current}} из {{total}}"
-      },
-      "refresh": {
-        "success": "Библиотека обновлена",
-        "error": "Не удалось обновить библиотеку"
-      },
-      "delete": {
-        "success": "Книга удалена",
-        "error": "Ошибка удаления"
-      },
-      "empty": {
-        "title": "Ваша библиотека пуста",
-        "description": "Загрузите первую книгу, чтобы начать чтение с AI-иллюстрациями",
-        "search_title": "Книги не найдены",
-        "search_desc": "Нет результатов для \"{{query}}\". Попробуйте другой запрос.",
-        "clear_search": "Очистить поиск"
-      }
     }
-  }
-}
+  },
+  "bookCard": {
+    "read": "Читать",
+    "delete": "Удалить",
+    "close": "Закрыть",
+    "menu": "Меню книги",
+    "process": "Обработать",
+    "process_descriptions": "Обработать описания",
+    "reprocess": "Обновить",
+    "retry": "Повторить",
+    "retry_processing": "Повторить обработку",
+    "offline": "Офлайн",
+    "download_offline": "Скачать офлайн",
+    "remove_offline": "Удалить офлайн",
+    "available_offline": "Доступна офлайн",
+    "downloading": "Загрузка {{progress}}%",
+    "ai_processing": "AI обработка...",
+    "status": {
+      "processed": "Описания обработаны",
+      "not_processed": "Описания не обработаны",
+      "processing": "Обработка...",
+      "error": "Ошибка обработки"
+    }
+  },
+   "entities": {
+     "spoiler_click_to_reveal": "Спойлер! Нажмите, чтобы показать",
+     "type_character": "Персонаж",
+     "type_location": "Локация",
+     "type_object": "Объект",
+     "not_met": "Не встречен",
+     "appearance": "Внешность",
+     "relations": "Связи",
+     "history": "История",
+     "info_hidden": "Информация скрыта",
+     "info_hidden_desc": "История этого персонажа скрыта, чтобы не испортить вам впечатление от чтения. Продолжайте читать, и информация откроется автоматически.",
+     "no_notes": "Нет записей.",
+     "chapter": "Глава",
+     "search_placeholder": "Поиск...",
+     "clear_search": "Очистить поиск",
+     "filter_all": "Все",
+     "no_results": "Ничего не найдено",
+     "no_entities": "Персонажи не найдены"
+   },
+   "gallery": {
+     "title": "Галерея Персонажей",
+     "entities_count": "{{count}} сущностей",
+     "filter_all": "Все",
+     "filter_characters": "Персонажи",
+     "filter_locations": "Локации",
+     "no_results": "Ничего не найдено."
+   },
+   "imagesGallery": {
+     "loading": "Загрузка изображений...",
+     "loading_books": "Загрузка книг: {{current}} / {{total}}",
+     "completed": "завершено",
+     "title": "Галерея изображений",
+     "subtitle": "Все AI-сгенерированные изображения из ваших книг",
+     "stats": {
+       "total": "Всего изображений",
+       "locations": "Локации",
+       "characters": "Персонажи",
+       "atmosphere": "Атмосфера"
+     },
+     "search_placeholder": "Поиск по описанию...",
+     "filters": "Фильтры",
+     "filter_book": "Книга",
+     "all_books": "Все книги",
+     "filter_type": "Тип описания",
+     "all_types": "Все типы",
+     "sort": "Сортировка",
+     "sort_newest": "Новые первые",
+     "sort_oldest": "Старые первые",
+     "sort_book": "По книгам",
+     "found_count": "Найдено изображений: {{count}}",
+     "reset_filters": "Сбросить фильтры",
+     "no_results": "Изображений не найдено",
+     "no_results_hint": "Попробуйте изменить фильтры или загрузите новые книги",
+     "page_info": "Страница {{current}} из {{total}} ({{count}} изображений)",
+     "prev_page": "Предыдущая страница",
+     "next_page": "Следующая страница"
+   },
+   "stats": {
+     "loading": "Загрузка статистики...",
+     "error_title": "Ошибка загрузки",
+     "error_message": "Не удалось загрузить статистику чтения",
+     "title": "Статистика чтения",
+     "subtitle": "Ваш прогресс и достижения",
+     "total_books": "всего книг",
+     "this_month": "в этом месяце",
+     "hours_reading": "часов чтения",
+     "pages_read": "страниц прочитано",
+     "streak_title": "Серия чтения",
+     "current_streak": "Текущая серия",
+     "best_streak": "Лучшая серия",
+     "avg_per_day": "В среднем {{count}} минут в день",
+     "weekly_activity": "Активность за неделю",
+     "no_weekly_data": "Нет данных о чтении за последнюю неделю",
+     "no_weekly_hint": "Начните читать, чтобы увидеть статистику",
+     "genres_title": "Распределение по жанрам",
+     "books_unit": "книг",
+     "top_books_title": "Топ книг по времени чтения",
+     "achievements_title": "Достижения",
+     "achievement_first_book": "Первая книга",
+     "achievement_first_book_desc": "Прочитайте первую книгу",
+     "achievement_marathoner": "Марафонец",
+     "achievement_marathoner_desc": "7 дней подряд",
+     "achievement_bookworm": "Книжный червь",
+     "achievement_bookworm_desc": "10 книг прочитано",
+     "achievement_determined": "Целеустремленный",
+     "achievement_determined_desc": "Достигните месячной цели",
+     "achievement_sprinter": "Спринтер",
+     "achievement_sprinter_desc": "3 часа за день",
+     "achievement_legend": "Легенда",
+     "achievement_legend_desc": "50 книг прочитано",
+     "day_sun": "Вс",
+     "day_mon": "Пн",
+     "day_tue": "Вт",
+     "day_wed": "Ср",
+     "day_thu": "Чт",
+     "day_fri": "Пт",
+     "day_sat": "Сб"
+   },
+   "profile": {
+     "loading": "Загрузка профиля...",
+     "update_success": "Профиль успешно обновлен",
+     "update_error": "Ошибка при обновлении профиля",
+     "stats": {
+       "books_read": "Книг прочитано",
+       "hours_reading": "Часов чтения",
+       "achievements": "Достижений"
+     },
+     "goals": {
+       "monthly": "Цель на месяц",
+       "daily": "Минут в день"
+     },
+     "units": {
+       "books": "книг",
+       "minutes": "мин"
+     },
+     "registered": "Зарегистрирован:",
+     "plan_free": "Free Plan",
+     "admin": "Admin",
+     "goals_title": "Цели чтения",
+     "completed": "выполнено",
+     "info_title": "Информация профиля",
+     "full_name": "Полное имя",
+     "not_specified": "Не указано",
+     "email": "Email",
+     "account_type": "Тип аккаунта",
+     "admin_role": "Администратор",
+     "user_role": "Обычный пользователь",
+     "registration_date": "Дата регистрации"
+   },
+   "notFound": {
+     "home": "Главная",
+     "library": "Библиотека",
+     "upload": "Загрузить книгу",
+     "title": "Страница не найдена",
+     "description": "Кажется, вы заблудились в цифровой библиотеке. Страница, которую вы ищете, не существует или была перемещена.",
+     "search_placeholder": "Может быть, вы искали...",
+     "search_hint": "Нажмите Enter для поиска в библиотеке",
+     "go_home": "На главную",
+     "help_text": "Если проблема сохраняется, попробуйте обновить страницу или свяжитесь с поддержкой",
+     "contact_support": "свяжитесь с поддержкой"
+   }
+ }

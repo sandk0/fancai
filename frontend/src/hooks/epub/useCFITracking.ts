@@ -39,8 +39,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Rendition, Book, EpubLocationEvent, EpubLocations } from '@/types/epub';
 
-// Debug logging - ALWAYS ON for now to diagnose mobile issues
-const devLog = (...args: unknown[]) => console.log('[useCFITracking]', ...args);
+// Debug logging - enabled in development mode only
+const DEBUG = import.meta.env.DEV;
+const devLog = (...args: unknown[]) => {
+  if (DEBUG) console.log('[useCFITracking]', ...args);
+};
 
 /**
  * Validate CFI format

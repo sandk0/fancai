@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUIStore } from '@/stores/ui';
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
+import { bookKeys } from '@/hooks/api/queryKeys';
 import { cn } from '@/lib/utils';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import type { Book } from '@/types/api';
@@ -705,8 +706,9 @@ const HomePage: React.FC = () => {
   });
 
   // Fetch books for recent activity with polling for processing books
+  // ВАЖНО: Используем bookKeys.homepage() для автоматической инвалидации при upload/delete
   const { data: booksData, isLoading: booksLoading } = useQuery({
-    queryKey: ['books', 'homepage'],
+    queryKey: bookKeys.homepage(user?.id ?? '', 20),
     queryFn: () => booksAPI.getBooks({ limit: 20, sort_by: 'accessed_desc' }),
     staleTime: 60000, // 1 minute
     refetchOnMount: 'always',
@@ -714,7 +716,7 @@ const HomePage: React.FC = () => {
       const books = query.state.data?.books || [];
       return books.some((b) => b.is_processing) ? 5000 : false;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!user?.id,
   });
 
   // Fetch user images stats

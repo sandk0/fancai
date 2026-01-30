@@ -129,8 +129,8 @@ export const useReaderStore = create<ReaderState>()(
         set({ navigationMode: mode });
       },
 
-      // Reading progress actions
-      updateReadingProgress: async (bookId: string, chapter: number, progress: number, page?: number) => {
+      // Reading progress actions (optimistic update + background sync)
+      updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => {
         const currentProgress = get().readingProgress[bookId];
         const now = new Date();
         const actualPage = page || currentProgress?.currentPage || 1;
@@ -145,6 +145,7 @@ export const useReaderStore = create<ReaderState>()(
             (now.getTime() - new Date(currentProgress.lastReadAt).getTime()) / 1000 : 0),
         };
         
+        // Optimistic update - sync, immediate
         set(state => ({
           readingProgress: {
             ...state.readingProgress,
@@ -152,15 +153,13 @@ export const useReaderStore = create<ReaderState>()(
           },
         }));
         
-        // Sync with server
-        try {
-          await booksAPI.updateReadingProgress(bookId, {
-            current_chapter: chapter,
-            current_position_percent: 0, // Временное значение для совместимости
-          });
-        } catch (error) {
+        // Background sync with server (fire-and-forget)
+        booksAPI.updateReadingProgress(bookId, {
+          current_chapter: chapter,
+          current_position_percent: 0,
+        }).catch(error => {
           console.error('Failed to sync reading progress:', error);
-        }
+        });
       },
       
       // Bookmarks actions

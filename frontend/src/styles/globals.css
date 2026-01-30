@@ -60,6 +60,14 @@
     --color-info: #3B82F6;
     --color-info-muted: #DBEAFE;
 
+    /* Relationship type colors */
+    --color-relationship-kinship: #3B82F6;
+    --color-relationship-ally: #10B981;
+    --color-relationship-enemy: #EF4444;
+    --color-relationship-friend: #EC4899;
+    --color-relationship-mentor: #8B5CF6;
+    --color-relationship-student: #6366F1;
+
     /* shadcn/ui compatible variables (HSL format) */
     --background: 0 0% 100%;
     --foreground: 220 13% 9%;
@@ -134,6 +142,14 @@
     --color-info: #60A5FA;
     --color-info-muted: #1E3A5F;
 
+    /* Relationship type colors - brighter for dark */
+    --color-relationship-kinship: #60A5FA;
+    --color-relationship-ally: #34D399;
+    --color-relationship-enemy: #F87171;
+    --color-relationship-friend: #F472B6;
+    --color-relationship-mentor: #A78BFA;
+    --color-relationship-student: #818CF8;
+
     /* shadcn/ui compatible variables (HSL format) - NEUTRAL */
     --background: 0 0% 7%;
     --foreground: 0 0% 91%;
@@ -204,6 +220,14 @@
     --color-error-muted: #F5D5D5;
     --color-info: #2563EB;
     --color-info-muted: #D5E3F5;
+
+    /* Relationship type colors - sepia adapted */
+    --color-relationship-kinship: #2563EB;
+    --color-relationship-ally: #059669;
+    --color-relationship-enemy: #DC2626;
+    --color-relationship-friend: #DB2777;
+    --color-relationship-mentor: #7C3AED;
+    --color-relationship-student: #4F46E5;
 
     /* shadcn/ui compatible variables (HSL format) */
     --background: 43 65% 92%;

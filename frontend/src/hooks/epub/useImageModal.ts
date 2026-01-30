@@ -70,6 +70,9 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
   // Visibility tracking - pause polling when app is in background (P7 fix)
   const isVisibleRef = useRef(document.visibilityState === 'visible');
   const wasPollingRef = useRef(false); // Track if polling was active before visibility change
+  
+  // Ref for resumePolling to use in visibility effect (avoids forward reference)
+  const resumePollingRef = useRef<((taskId: string) => void) | null>(null);
 
   /**
    * Handle visibility changes - pause/resume polling (P7 fix for "Forever Broken Book")
@@ -113,7 +116,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           setTimeout(() => {
             // Double check we're still visible and should be polling
             if (document.visibilityState === 'visible' && currentTaskIdRef.current && isGenerating) {
-              resumePolling(currentTaskIdRef.current);
+              resumePollingRef.current?.(currentTaskIdRef.current);
             }
             wasPollingRef.current = false;
           }, 200);
@@ -125,7 +128,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isGenerating]); // Note: resumePolling will be defined below
+  }, [isGenerating]);
 
   /**
    * Cleanup polling interval and abort controller on unmount
@@ -318,6 +321,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
       }
     }, POLLING_INTERVAL);
   }, [cacheImage, selectedDescription]);
+
+  resumePollingRef.current = resumePolling;
 
   /**
    * Open modal with description and optional image

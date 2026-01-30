@@ -18,7 +18,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { STORAGE_KEYS } from '@/types/state';
+import { booksAPI } from '@/api/books';
 import { notify } from '@/stores/ui';
 import type { Description } from '@/types/api';
 
@@ -77,7 +77,6 @@ export const useAutoParser = (
       bookId,
       recentlyParsed: isRecentlyParsed,
       cooldownRemaining: isRecentlyParsed ? Math.max(0, COOLDOWN_MS - (Date.now() - recentParsing[bookId])) : 0,
-      authToken: localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) ? 'Present' : 'Missing',
     });
 
     if (isRecentlyParsed) {
@@ -89,22 +88,9 @@ export const useAutoParser = (
     console.log('📝 [useAutoParser] Auto-triggering parsing for book:', bookId);
     setIsAutoParsing(true);
 
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    fetch(`${apiUrl}/books/${bookId}/process`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(r => {
-        console.log('📝 [useAutoParser] Parse request status:', r.status);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
-        return r.json();
-      })
-      .then(data => {
+    booksAPI.processBook(bookId)
+      .then((response) => {
+        const data = response as { status?: string; descriptions_found?: number };
         console.log('📝 [useAutoParser] Parsing triggered:', data);
 
         // Mark as recently parsed
@@ -123,7 +109,7 @@ export const useAutoParser = (
           pollForCompletion(refetch, setParsingProgress);
         }
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error('❌ [useAutoParser] Failed to trigger parsing:', err);
         notify.error('Ошибка парсинга', 'Не удалось запустить обработку описаний');
         setIsAutoParsing(false);

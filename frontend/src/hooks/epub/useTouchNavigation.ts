@@ -35,8 +35,8 @@ const RIGHT_ZONE_START = 0.75;
 // Debounce time to prevent click after touch
 const TOUCH_CLICK_DEBOUNCE = 500; // ms
 
-// Debug logging - enabled to diagnose iOS issues
-const DEBUG = true;
+// Debug logging - enabled in development mode only
+const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => {
   if (DEBUG) console.log('[TouchNav]', ...args);
 };

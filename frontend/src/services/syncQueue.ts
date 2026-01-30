@@ -233,19 +233,16 @@ class SyncQueue {
       try {
         const data = JSON.parse(criticalData)
         if (data && data.length > 0) {
-          // Get auth token for the beacon request
-          const token = localStorage.getItem('auth_token')
-
-          // Create a blob with the data and content type
-          const blob = new Blob([JSON.stringify({ operations: data, token })], {
+          // SECURITY: Do NOT include token in sendBeacon payload
+          // sendBeacon requests use credentials: 'include' automatically for same-origin
+          // Backend should authenticate via HttpOnly cookies, not request body tokens
+          const blob = new Blob([JSON.stringify({ operations: data })], {
             type: 'application/json'
           })
 
-          // sendBeacon returns true if the browser successfully queued the data for transfer
           const queued = navigator.sendBeacon('/api/v1/sync/batch', blob)
 
           if (queued) {
-            // Clear the critical data cache since it's queued for sending
             localStorage.removeItem('syncQueue_critical')
             if (DEBUG) console.log('[SyncQueue] Critical data queued via sendBeacon')
           }

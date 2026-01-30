@@ -32,10 +32,10 @@ import { epubCache } from '@/services/epubCache';
 import { isOnline } from '@/hooks/useOnlineStatus';
 
 /**
- * Enable debug logging - ALWAYS ON for iOS debugging
- * Remove this after fixing the iOS navigation bug
+ * Enable debug logging in development mode only
+ * iOS navigation bug fixed in January 2026
  */
-const DEBUG = true; // import.meta.env.DEV;
+const DEBUG = import.meta.env.DEV;
 
 /**
  * Detect if running in PWA standalone mode

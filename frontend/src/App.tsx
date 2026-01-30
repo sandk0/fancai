@@ -8,7 +8,7 @@ import { Toaster } from 'react-hot-toast';
 import { queryClient } from '@/lib/queryClient';
 
 // Store initialization
-import { initializeStores } from '@/stores';
+import { initializeStores, cleanupStores } from '@/stores';
 
 // Layout components (always loaded)
 import Layout from '@/components/Layout/Layout';
@@ -62,7 +62,6 @@ const PageLoadingFallback = () => (
 
 function App() {
   useEffect(() => {
-    // Initialize stores when app starts
     if (DEBUG) console.log('[App] Starting, initializing stores...');
     try {
       initializeStores();
@@ -70,6 +69,12 @@ function App() {
     } catch (error) {
       console.warn('[App] Failed to initialize stores:', error);
     }
+
+    // TD-FRONT-131: Cleanup intervals on unmount to prevent memory leaks
+    return () => {
+      if (DEBUG) console.log('[App] Unmounting, cleaning up stores...');
+      cleanupStores();
+    };
   }, []);
 
   return (

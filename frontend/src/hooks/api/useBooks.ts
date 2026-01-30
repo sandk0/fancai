@@ -204,6 +204,7 @@ export function useBooks(
     if (query.data) {
       const currentSkip = params?.skip ?? 0;
       const currentLimit = params?.limit ?? 10;
+      const currentSortBy = params?.sort_by;
       const nextSkip = currentSkip + currentLimit;
       if (nextSkip < query.data.total) {
         queryClient.prefetchQuery({
@@ -211,12 +212,13 @@ export function useBooks(
             userId,
             nextSkip,
             currentLimit,
-            params?.sort_by
+            currentSortBy
           ),
           queryFn: () =>
             booksAPI.getBooks({
-              ...params,
               skip: nextSkip,
+              limit: currentLimit,
+              sort_by: currentSortBy,
             }),
         });
       }

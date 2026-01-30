@@ -244,13 +244,14 @@ export function useReadingSession({
       }
     }
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enabled,
     bookId,
     activeSession,
     isLoadingActive,
-    // REMOVED: currentPosition - causes infinite loop on scroll
-    // REMOVED: startMutation - object reference changes on every render
+    // Intentionally omitted: currentPosition (causes infinite loop on scroll),
+    // startMutation (object reference changes on every render)
   ]);
 
   /**

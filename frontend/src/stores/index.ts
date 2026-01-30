@@ -1,5 +1,6 @@
 // Store imports for initialization
-import { initializeStorageManagement } from '@/services/storageManager';
+import { initializeStorageManagement, stopStorageMonitoring } from '@/services/storageManager';
+import { imageCache } from '@/services/imageCache';
 import { registerPeriodicSync } from '@/utils/serviceWorker';
 
 const DEBUG = import.meta.env.DEV;
@@ -46,4 +47,21 @@ export const initializeStores = () => {
       if (DEBUG) console.log('[Stores] Periodic Sync registration failed:', error);
     }
   }, 2000);
+};
+
+/**
+ * Cleanup function to stop all intervals and release resources.
+ * Should be called on app unmount to prevent memory leaks.
+ * TD-FRONT-131: Fix memory leak risks
+ */
+export const cleanupStores = () => {
+  if (DEBUG) console.log('[Stores] Cleaning up...');
+  
+  // Stop storage monitoring interval
+  stopStorageMonitoring();
+  
+  // Destroy image cache (stops auto-cleanup interval + releases Object URLs)
+  imageCache.destroy();
+  
+  if (DEBUG) console.log('[Stores] Cleanup complete');
 };
