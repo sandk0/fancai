@@ -4,7 +4,21 @@ import { create } from 'zustand';
 import type { UIState, Notification, NotificationAction } from '@/types/state';
 
 export const useUIStore = create<UIState>((set, get) => ({
-  // ...
+  // Initial state
+  isLoading: false,
+  loadingMessage: '',
+  sidebarOpen: false,
+  mobileMenuOpen: false,
+  
+  // Modals
+  showUploadModal: false,
+  showSettingsModal: false,
+  showImageModal: false,
+  showProfileModal: false,
+  currentImageModal: null,
+  
+  // Notifications
+  notifications: [],
   
   // Notification helpers
   notify: {
