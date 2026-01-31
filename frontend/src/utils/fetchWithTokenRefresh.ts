@@ -40,6 +40,7 @@ async function refreshAccessToken(): Promise<string> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include', // Ensure cookies are sent/received
     });
 
     if (!response.ok) {
@@ -53,14 +54,21 @@ async function refreshAccessToken(): Promise<string> {
       throw new Error(`Token refresh failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    const { tokens } = data;
+    // Try to parse tokens if returned, otherwise assume cookie-based flow
+    try {
+      const data = await response.json();
+      if (data && data.tokens) {
+        const { tokens } = data;
+        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
+        return tokens.access_token;
+      }
+    } catch (e) {
+      // No JSON or invalid structure - likely cookie-only response, which is fine
+    }
 
-    // Store new tokens
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-
-    return tokens.access_token;
+    // If no token in body, return placeholder (cookie handles auth)
+    return '';
   })();
 
   try {
@@ -157,6 +165,7 @@ export async function fetchWithTokenRefresh(
       const response = await fetch(url, {
         ...fetchOptions,
         headers: buildHeaders(token),
+        credentials: 'include', // Ensure cookies are sent
       });
 
       // If 401 and we haven't exhausted retries, try to refresh token
