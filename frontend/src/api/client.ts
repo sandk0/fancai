@@ -78,9 +78,18 @@ class ApiClient {
             await this.refreshToken();
             if (import.meta.env.DEV) console.log('🌐 [AXIOS] Token refreshed, retrying request...');
             return this.client(originalRequest);
-          } catch (refreshError) {
-            // Refresh failed, clear auth data but don't redirect immediately
-            console.warn('🔄 Token refresh failed:', refreshError);
+          } catch (refreshError: any) {
+            // Refresh failed
+            
+            // Don't logout on 429 (Rate Limit) or Network Error
+            // Just fail the request and let the user try again later
+            const status = refreshError?.response?.status;
+            if (status === 429 || refreshError.code === 'ERR_NETWORK') {
+               console.warn('🔄 Token refresh failed (temporary):', status || 'Network Error');
+               return Promise.reject(refreshError);
+            }
+
+            console.warn('🔄 Token refresh failed (permanent):', refreshError);
             this.clearAuthData();
 
             // Only redirect to login if not already on login page
