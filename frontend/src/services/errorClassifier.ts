@@ -49,7 +49,7 @@ export function classifyError(error: any): ClassifiedError {
       isRecoverable: true,
       shouldRetry: true,
       shouldNotifyUser: true,
-      userMessage: 'Connection lost. Retrying...',
+      userMessage: 'Ошибка сети. Повторная попытка...',
     };
   }
 
@@ -67,7 +67,7 @@ export function classifyError(error: any): ClassifiedError {
         isRecoverable: false,
         shouldRetry: false,
         shouldNotifyUser: true,
-        userMessage: 'Session expired. Please log in again.',
+        userMessage: 'Сессия истекла. Пожалуйста, войдите снова.',
         statusCode: status,
       };
     }
@@ -84,7 +84,7 @@ export function classifyError(error: any): ClassifiedError {
         isRecoverable: isSessionError, // Session errors are recoverable via restart
         shouldRetry: false,
         shouldNotifyUser: true,
-        userMessage: typeof detail === 'string' ? detail : 'Invalid request data.',
+        userMessage: typeof detail === 'string' ? detail : 'Ошибка валидации данных.',
         statusCode: status,
       };
     }
@@ -98,7 +98,7 @@ export function classifyError(error: any): ClassifiedError {
         isRecoverable: true,
         shouldRetry: false,
         shouldNotifyUser: true,
-        userMessage: typeof detail === 'object' ? detail.message : 'Data conflict detected.',
+        userMessage: typeof detail === 'object' ? detail.message : 'Обнаружен конфликт данных.',
         statusCode: status,
       };
     }
@@ -112,7 +112,7 @@ export function classifyError(error: any): ClassifiedError {
         isRecoverable: true,
         shouldRetry: true,
         shouldNotifyUser: true,
-        userMessage: 'Server error. We are working on it.',
+        userMessage: 'Ошибка сервера. Мы уже работаем над этим.',
         statusCode: status,
       };
     }
@@ -127,7 +127,7 @@ export function classifyError(error: any): ClassifiedError {
       isRecoverable: false,
       shouldRetry: false,
       shouldNotifyUser: true,
-      userMessage: 'Something went wrong in the application.',
+      userMessage: 'Произошла ошибка в приложении.',
     };
   }
 
@@ -139,6 +139,6 @@ export function classifyError(error: any): ClassifiedError {
     isRecoverable: false,
     shouldRetry: false,
     shouldNotifyUser: true,
-    userMessage: 'An unexpected error occurred.',
+    userMessage: 'Произошла непредвиденная ошибка.',
   };
 }

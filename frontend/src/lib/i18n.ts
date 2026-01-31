@@ -14,6 +14,7 @@ i18n
   .use(initReactI18next)
   // Init i18next
   .init({
+    lng: 'ru', // Force Russian language by default (temporary until language switcher is ready)
     resources: {
       ru: {
         translation: ruTranslation,

@@ -103,10 +103,10 @@ export function useReadingSession({
         console.warn('⚠️ [useReadingSession] Split brain detected:', detail);
         
         notify.warning(
-          'Session Conflict',
-          `This book is open on another device (started ${new Date(detail.started_at).toLocaleTimeString()}).`,
+          'Конфликт сессии',
+          `Книга уже открыта на другом устройстве (начало: ${new Date(detail.started_at).toLocaleTimeString()}).`,
           {
-            label: 'Take Control Here',
+            label: 'Перехватить управление',
             onClick: () => {
               startMutation.mutate({ bookId, position: positionRef.current, force: true });
             }
