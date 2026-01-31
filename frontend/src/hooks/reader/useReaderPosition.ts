@@ -171,7 +171,7 @@ export const useReaderPosition = ({
         }
       }
 
-      // Sync local backup if chose server
+      // Sync choice to the other storage to prevent future conflicts
       if (choice === 'server') {
         const localBackupKey = `book_${bookId}_progress_backup`;
         localStorage.setItem(localBackupKey, JSON.stringify({
@@ -179,6 +179,19 @@ export const useReaderPosition = ({
           current_position: target.progress,
           savedAt: Date.now(),
         }));
+        if (import.meta.env.DEV) {
+          console.log('[useReaderPosition] Synced server position to localStorage');
+        }
+      } else {
+        // Sync local position to server immediately
+        await booksAPI.updateReadingProgress(bookId, {
+          reading_location_cfi: target.cfi,
+          current_position_percent: target.progress,
+          current_chapter: 0, // Backend should infer chapter if 0 or update later
+        });
+        if (import.meta.env.DEV) {
+          console.log('[useReaderPosition] Synced local position to server');
+        }
       }
 
       markPositionRestored();

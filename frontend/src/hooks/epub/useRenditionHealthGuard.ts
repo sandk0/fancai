@@ -24,6 +24,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { visibilityManager } from '@/services/visibilityManager';
 import type { Rendition } from '@/types/epub';
 
 /** Enable debug logging only in development */
@@ -106,9 +107,6 @@ export function useRenditionHealthGuard({
   const [wasResumed, setWasResumed] = useState(false);
   const [lastSavedCfi, setLastSavedCfi] = useState<string | null>(null);
 
-  const lastVisibilityRef = useRef<'visible' | 'hidden'>(
-    typeof document !== 'undefined' ? document.visibilityState : 'visible'
-  );
   const renditionRef = useRef<Rendition | null>(null);
   const hideTimeRef = useRef<number>(0);
 
@@ -180,63 +178,60 @@ export function useRenditionHealthGuard({
   }, [bookId]);
 
   /**
-   * Handle visibility change events.
+   * Handle application going to background.
+   */
+  const handleHidden = useCallback(() => {
+    // App is going to background - save position and record time
+    savePositionBeforeHide();
+    hideTimeRef.current = Date.now();
+
+    if (DEBUG) {
+      console.log('[RenditionHealthGuard] App going to background, position saved');
+    }
+  }, [savePositionBeforeHide]);
+
+  /**
+   * Handle application resuming from background.
    *
    * RELIABLE RELOAD STRATEGY:
    * Always reload when returning from background (after MIN_BACKGROUND_TIME_FOR_RELOAD).
    * This is the only reliable way to handle epub.js + PWA lifecycle.
    */
-  const handleVisibilityChange = useCallback(() => {
-    const newVisibility = document.visibilityState;
-    const wasHidden = lastVisibilityRef.current === 'hidden';
-    lastVisibilityRef.current = newVisibility;
+  const handleVisible = useCallback(() => {
+    if (!enabled) return;
 
-    if (newVisibility === 'hidden') {
-      // App is going to background - save position and record time
-      savePositionBeforeHide();
-      hideTimeRef.current = Date.now();
+    // Safety check: ignore if we never recorded a hide time (e.g. cold start)
+    if (hideTimeRef.current === 0) {
+      if (DEBUG) console.log('[RenditionHealthGuard] Cold resume detected, skipping reload');
+      return;
+    }
 
+    const timeInBackground = Date.now() - hideTimeRef.current;
+
+    if (DEBUG) {
+      console.log('[RenditionHealthGuard] App resumed after', Math.round(timeInBackground / 1000), 'seconds');
+    }
+
+    // Skip reload for very brief focus changes (< 500ms)
+    // These are usually just quick app switching without actual background
+    if (timeInBackground < MIN_BACKGROUND_TIME_FOR_RELOAD) {
       if (DEBUG) {
-        console.log('[RenditionHealthGuard] App going to background, position saved');
+        console.log('[RenditionHealthGuard] Very brief suspend, skipping reload');
       }
       return;
     }
 
-    // App became visible after being hidden
-    if (wasHidden && enabled) {
-      // Safety check: ignore if we never recorded a hide time (e.g. cold start)
-      if (hideTimeRef.current === 0) {
-        if (DEBUG) console.log('[RenditionHealthGuard] Cold resume detected, skipping reload');
-        return;
-      }
+    // Mark as resumed
+    setWasResumed(true);
 
-      const timeInBackground = Date.now() - hideTimeRef.current;
-
-      if (DEBUG) {
-        console.log('[RenditionHealthGuard] App resumed after', Math.round(timeInBackground / 1000), 'seconds');
-      }
-
-      // Skip reload for very brief focus changes (< 500ms)
-      // These are usually just quick app switching without actual background
-      if (timeInBackground < MIN_BACKGROUND_TIME_FOR_RELOAD) {
-        if (DEBUG) {
-          console.log('[RenditionHealthGuard] Very brief suspend, skipping reload');
-        }
-        return;
-      }
-
-      // Mark as resumed
-      setWasResumed(true);
-
-      if (DEBUG) {
-        console.log('[RenditionHealthGuard] Reloading page for fresh epub.js state...');
-      }
-
-      // Reload the page to get fresh epub.js state
-      // The position will be restored from localStorage on next load
-      window.location.reload();
+    if (DEBUG) {
+      console.log('[RenditionHealthGuard] Reloading page for fresh epub.js state...');
     }
-  }, [enabled, savePositionBeforeHide]);
+
+    // Reload the page to get fresh epub.js state
+    // The position will be restored from localStorage on next load
+    window.location.reload();
+  }, [enabled]);
 
   /**
    * Handle page hide event (before JS heap unload).
@@ -284,7 +279,16 @@ export function useRenditionHealthGuard({
   useEffect(() => {
     if (!enabled) return;
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Register with centralized visibility manager
+    visibilityManager.register({
+      id: 'rendition-health-guard',
+      priority: 0, // Highest priority - can reload page
+      delay: 0, // Logic handles timing
+      onHidden: handleHidden,
+      onVisible: handleVisible,
+      shouldRun: () => enabled,
+    });
+
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
@@ -293,7 +297,7 @@ export function useRenditionHealthGuard({
     }
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      visibilityManager.unregister('rendition-health-guard');
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
 
@@ -301,7 +305,7 @@ export function useRenditionHealthGuard({
         console.log('[RenditionHealthGuard] Cleanup complete');
       }
     };
-  }, [enabled, bookId, handleVisibilityChange, handlePageHide, handlePageShow]);
+  }, [enabled, bookId, handleHidden, handleVisible, handlePageHide, handlePageShow]);
 
   return {
     isHealthy,

@@ -1,25 +1,11 @@
 // UI State Store
 
 import { create } from 'zustand';
-import type { UIState, Notification } from '@/types/state';
+import type { UIState, Notification, NotificationAction } from '@/types/state';
 
 export const useUIStore = create<UIState>((set, get) => ({
-  // Initial state
-  isLoading: false,
-  loadingMessage: '',
-  sidebarOpen: false,
-  mobileMenuOpen: false,
+  // ...
   
-  // Modals
-  showUploadModal: false,
-  showSettingsModal: false,
-  showImageModal: false,
-  showProfileModal: false,
-  currentImageModal: null,
-  
-  // Notifications
-  notifications: [],
-
   // Notification helpers
   notify: {
     success: (title: string, message?: string) => {
@@ -27,6 +13,26 @@ export const useUIStore = create<UIState>((set, get) => ({
         type: 'success',
         title,
         message,
+      });
+    },
+
+    error: (title: string, message?: string, action?: NotificationAction) => {
+      get().addNotification({
+        type: 'error',
+        title,
+        message,
+        duration: action ? undefined : 10000, // Persistent if action required
+        action,
+      });
+    },
+
+    warning: (title: string, message?: string, action?: NotificationAction) => {
+      get().addNotification({
+        type: 'warning',
+        title,
+        message,
+        duration: action ? undefined : 7000,
+        action,
       });
     },
 
@@ -130,21 +136,23 @@ export const notify = {
     });
   },
 
-  error: (title: string, message?: string) => {
+  error: (title: string, message?: string, action?: NotificationAction) => {
     useUIStore.getState().addNotification({
       type: 'error',
       title,
       message,
-      duration: 10000, // Longer duration for errors
+      duration: action ? undefined : 10000,
+      action,
     });
   },
 
-  warning: (title: string, message?: string) => {
+  warning: (title: string, message?: string, action?: NotificationAction) => {
     useUIStore.getState().addNotification({
       type: 'warning',
       title,
       message,
-      duration: 7000,
+      duration: action ? undefined : 7000,
+      action,
     });
   },
 

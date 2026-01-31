@@ -32,17 +32,20 @@ export const readingSessionsAPI = {
    * @param bookId - Book ID
    * @param startPosition - Starting position (0-100%)
    * @param deviceType - Device type (desktop, mobile, tablet)
+   * @param force - Force start session (close existing)
    * @returns Created session
    */
   async startSession(
     bookId: string,
     startPosition: number,
-    deviceType?: string
+    deviceType?: string,
+    force = false
   ): Promise<ReadingSession> {
-    const data: StartSessionRequest = {
+    const data: StartSessionRequest & { force?: boolean } = {
       book_id: bookId,
       start_position: Math.round(Math.max(0, Math.min(100, startPosition))),
       device_type: deviceType || detectDeviceType(),
+      force,
     };
 
     try {

@@ -33,9 +33,9 @@ export const ReaderHeader = memo(function ReaderHeader({
     <div className="absolute left-0 right-0 z-10 backdrop-blur-md border-b bg-card/95 border-border top-0 mt-safe">
       <div className="flex items-center justify-between px-4 py-3 gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={onBack} className="min-h-[44px] min-w-[44px] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.back')} aria-label={t('reader.header.back')}><ArrowLeft className="w-5 h-5" /><span className="hidden sm:inline font-medium">{t('reader.header.back')}</span></button>
-          <button onClick={onTocToggle} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.toc')}><List className="w-5 h-5" /></button>
-          <button onClick={onInfoOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.info')}><Info className="w-5 h-5" /></button>
+          <button onClick={onBack} className="min-h-[44px] min-w-[44px] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.back')} aria-label={t('reader.header.back')}><ArrowLeft className="w-5 h-5" aria-hidden="true" /><span className="hidden sm:inline font-medium">{t('reader.header.back')}</span></button>
+          <button onClick={onTocToggle} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.toc')} aria-label={t('reader.header.toc')}><List className="w-5 h-5" aria-hidden="true" /></button>
+          <button onClick={onInfoOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.info')} aria-label={t('reader.header.info')}><Info className="w-5 h-5" aria-hidden="true" /></button>
         </div>
         <div className="hidden md:block flex-1 px-2 text-center min-w-0">
           <h1 className="text-lg font-semibold truncate text-foreground">{title}</h1>
@@ -51,8 +51,8 @@ export const ReaderHeader = memo(function ReaderHeader({
               <div className="h-full rounded-full bg-primary transition-[width] duration-150 ease-out" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
             </div>
           </div>
-          <button onClick={onEntitiesOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.entities')}><Library className="w-5 h-5" /></button>
-          <button onClick={onSettingsOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.settings')}><Settings className="w-5 h-5" /></button>
+          <button onClick={onEntitiesOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.entities')} aria-label={t('reader.header.entities')}><Library className="w-5 h-5" aria-hidden="true" /></button>
+          <button onClick={onSettingsOpen} className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground" title={t('reader.header.settings')} aria-label={t('reader.header.settings')}><Settings className="w-5 h-5" aria-hidden="true" /></button>
         </div>
       </div>
     </div>

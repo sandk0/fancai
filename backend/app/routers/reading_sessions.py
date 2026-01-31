@@ -9,7 +9,7 @@ Endpoints:
 - GET /reading-sessions/history - История сессий с пагинацией
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, case
 from pydantic import BaseModel, Field, validator
@@ -53,6 +53,9 @@ class StartSessionRequest(BaseModel):
     )
     device_type: Optional[str] = Field(
         None, max_length=50, description="Тип устройства"
+    )
+    force: bool = Field(
+        default=False, description="Принудительно завершить существующую активную сессию"
     )
 
     @validator("device_type")
@@ -265,6 +268,7 @@ def session_to_response(session: ReadingSession) -> ReadingSessionResponse:
         201: {"description": "Сессия чтения успешно создана"},
         400: {"description": "Невалидные параметры запроса"},
         404: {"description": "Книга не найдена"},
+        409: {"description": "Активная сессия уже существует (Split Brain)"},
     },
 )
 async def start_reading_session(
@@ -315,8 +319,21 @@ async def start_reading_session(
         active_session = active_session_result.scalar_one_or_none()
 
         if active_session:
+            if not request.force:
+                # Возвращаем 409 Conflict с информацией о сессии
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "message": "Active session already exists",
+                        "session_id": str(active_session.id),
+                        "started_at": active_session.started_at.isoformat(),
+                        "device_type": active_session.device_type,
+                    },
+                )
+
+            # Если force=True, завершаем предыдущую сессию
             active_session.end_session(
-                end_position=active_session.start_position,
+                end_position=active_session.start_position,  # Assume no progress if force closed?
                 ended_at=datetime.now(timezone.utc),
             )
 
@@ -430,6 +447,90 @@ async def update_reading_session(
         )
 
 
+@router.post(
+    "/reading-sessions/{session_id}/beacon",
+    response_model=ReadingSessionResponse,
+    summary="Обновить позицию через Beacon API (POST)",
+    description="Аналог update, но принимает POST запросы для navigator.sendBeacon.",
+    responses={
+        200: {"description": "Позиция успешно обновлена"},
+        400: {"description": "Сессия неактивна или невалидные параметры"},
+        404: {"description": "Сессия не найдена"},
+    },
+)
+async def update_reading_session_beacon(
+    session_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_database_session),
+    current_user: User = Depends(get_current_active_user),
+) -> ReadingSessionResponse:
+    """
+    Endpoint для Beacon API (всегда POST).
+    Парсит JSON из тела запроса и вызывает логику обновления.
+    """
+    try:
+        # Beacon API отправляет JSON, но Content-Type может варьироваться.
+        # Пытаемся получить JSON напрямую.
+        try:
+            body = await request.json()
+        except Exception:
+            # Fallback если content-type не application/json, но тело валидный json
+            body_bytes = await request.body()
+            import json
+            body = json.loads(body_bytes)
+
+        # Валидация через Pydantic
+        update_data = UpdateSessionRequest(**body)
+
+        # Переиспользуем логику обновления
+        # Ищем сессию пользователя
+        query = select(ReadingSession).where(
+            ReadingSession.id == session_id, ReadingSession.user_id == current_user.id
+        )
+        result = await db.execute(query)
+        session = result.scalar_one_or_none()
+
+        if not session:
+            logger.warning(f"Reading session {session_id} not found for user {current_user.id} in beacon update")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Reading session {session_id} not found",
+            )
+
+        if not session.is_active:
+            logger.info(f"Reading session {session_id} is inactive, cannot update via beacon")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot update inactive session",
+            )
+
+        # Обновляем позицию и рассчитываем текущую длительность
+        session.end_position = update_data.current_position
+        session.duration_minutes = int(
+            (datetime.now(timezone.utc) - session.started_at).total_seconds() / 60
+        )
+
+        await db.commit()
+        await db.refresh(session)
+
+        return session_to_response(session)
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid data format: {str(e)}",
+        )
+    except Exception as e:
+        logger.exception(f"Error updating reading session via beacon: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while updating the session",
+        )
+
+
 @router.put(
     "/reading-sessions/{session_id}/end",
     response_model=ReadingSessionResponse,
@@ -529,6 +630,93 @@ async def end_reading_session(
         raise
     except Exception as e:
         logger.exception(f"Error ending reading session: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while ending the session",
+        )
+
+
+@router.post(
+    "/reading-sessions/{session_id}/end-beacon",
+    response_model=ReadingSessionResponse,
+    summary="Завершить сессию через Beacon API (POST)",
+    description="Аналог end, но принимает POST запросы для navigator.sendBeacon.",
+    responses={
+        200: {"description": "Сессия успешно завершена"},
+        400: {"description": "Сессия уже завершена или невалидные параметры"},
+        404: {"description": "Сессия не найдена"},
+    },
+)
+async def end_reading_session_beacon(
+    session_id: UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_database_session),
+    current_user: User = Depends(get_current_active_user),
+) -> ReadingSessionResponse:
+    """
+    Endpoint для завершения сессии через Beacon API (всегда POST).
+    """
+    try:
+        try:
+            body = await request.json()
+        except Exception:
+            body_bytes = await request.body()
+            import json
+            body = json.loads(body_bytes)
+
+        # Валидация
+        end_data = EndSessionRequest(**body)
+
+        # Переиспользуем логику завершения
+        query = select(ReadingSession).where(
+            ReadingSession.id == session_id, ReadingSession.user_id == current_user.id
+        )
+        result = await db.execute(query)
+        session = result.scalar_one_or_none()
+
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Reading session {session_id} not found",
+            )
+
+        # Если сессия уже неактивна, просто возвращаем её (idempotency для beacon)
+        if not session.is_active:
+            return session_to_response(session)
+
+        # Завершаем сессию
+        session.end_session(
+            end_position=end_data.end_position, ended_at=datetime.now(timezone.utc)
+        )
+
+        await db.commit()
+        await db.refresh(session)
+
+        # Background Tasks
+        background_tasks.add_task(
+            reading_session_cache.invalidate_user_sessions, user_id=current_user.id
+        )
+        background_tasks.add_task(
+            _log_session_completion,
+            user_id=current_user.id,
+            session_id=session_id,
+            duration_minutes=session.duration_minutes,
+            progress_delta=session.get_progress_delta(),
+        )
+
+        return session_to_response(session)
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid data format: {str(e)}",
+        )
+    except Exception as e:
+        logger.exception(f"Error ending reading session via beacon: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

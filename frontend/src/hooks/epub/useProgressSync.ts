@@ -39,6 +39,7 @@ interface UseProgressSyncOptions {
   onSave: (cfi: string, progress: number, scrollOffset: number, chapter: number) => Promise<void>;
   debounceMs?: number;
   enabled?: boolean;
+  isRestoringPosition?: boolean;
 }
 
 interface UseProgressSyncReturn {
@@ -55,6 +56,7 @@ export const useProgressSync = ({
   onSave,
   debounceMs = 5000,
   enabled = true,
+  isRestoringPosition = false,
 }: UseProgressSyncOptions): UseProgressSyncReturn => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<number | null>(null);
@@ -101,6 +103,14 @@ export const useProgressSync = ({
   const saveImmediate = useCallback(async () => {
     if (!enabled || !currentCFI || !bookId) return;
 
+    // Skip save during restoration to prevent overwriting correct position
+    if (isRestoringPosition) {
+      if (import.meta.env.DEV) {
+        console.log('[useProgressSync] Skipping save during restoration');
+      }
+      return;
+    }
+
     // Skip if no changes
     if (
       lastSavedRef.current.cfi === currentCFI &&
@@ -129,7 +139,7 @@ export const useProgressSync = ({
     } finally {
       setIsSaving(false);
     }
-  }, [enabled, currentCFI, progress, scrollOffset, currentChapter, bookId, onSave]);
+  }, [enabled, currentCFI, progress, scrollOffset, currentChapter, bookId, onSave, isRestoringPosition]);
 
   // Ref to track if we had a pending save when backgrounded
   const pendingSaveOnBackgroundRef = useRef(false);

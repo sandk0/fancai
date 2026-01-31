@@ -214,8 +214,17 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               className="group relative bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
             >
               <div
-                className="aspect-square cursor-pointer overflow-hidden relative"
+                role="button"
+                tabIndex={0}
+                className="aspect-square cursor-pointer overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 onClick={() => handleImageClick(image)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleImageClick(image);
+                  }
+                }}
+                aria-label={`View image: ${image.description?.content || 'Generated image'}`}
               >
                 <LazyImage
                   src={image.image_url}
@@ -230,7 +239,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   "absolute inset-0 transition-colors flex items-center justify-center pointer-events-none",
                   "bg-black/0 md:group-hover:bg-black/40",
                   "opacity-0 md:group-hover:opacity-100"
-                )}>
+                )} aria-hidden="true">
                   <Eye className="h-8 w-8 text-white" />
                 </div>
               </div>
@@ -245,20 +254,20 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                     e.stopPropagation();
                     handleDownload(image);
                   }}
-                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors"
-                  title="Скачать"
+                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label="Download image"
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleShare(image);
                   }}
-                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors"
-                  title="Поделиться"
+                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label="Share image"
                 >
-                  <Share2 className="h-4 w-4" />
+                  <Share2 className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               

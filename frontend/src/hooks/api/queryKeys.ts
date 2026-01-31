@@ -276,6 +276,43 @@ export const imageKeys = {
 };
 
 /**
+ * Query keys для reading sessions (January 2026)
+ *
+ * Управление активными сессиями чтения и их состоянием.
+ * SECURITY: Все keys требуют userId для изоляции данных между пользователями
+ */
+export const sessionKeys = {
+  /**
+   * Базовый ключ для всех reading sessions конкретного пользователя
+   * @param userId - ID пользователя
+   */
+  all: (userId: string) => ['readingSessions', userId] as const,
+
+  /**
+   * Активная сессия чтения (только одна на пользователя)
+   * @param userId - ID пользователя
+   */
+  active: (userId: string) => [...sessionKeys.all(userId), 'active'] as const,
+
+  /**
+   * Детали конкретной сессии
+   * @param userId - ID пользователя
+   * @param sessionId - ID сессии
+   */
+  detail: (userId: string, sessionId: string) => [...sessionKeys.all(userId), sessionId] as const,
+
+  /**
+   * История сессий пользователя
+   * @param userId - ID пользователя
+   * @param bookId - Опциональная фильтрация по книге
+   */
+  history: (userId: string, bookId?: string) =>
+    bookId
+      ? [...sessionKeys.all(userId), 'history', bookId] as const
+      : [...sessionKeys.all(userId), 'history'] as const,
+};
+
+/**
  * Query keys для PWA функциональности (January 2026)
  *
  * Управление оффлайн-данными, push-уведомлениями и хранилищем.

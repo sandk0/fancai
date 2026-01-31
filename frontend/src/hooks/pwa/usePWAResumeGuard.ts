@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { focusManager } from '@/lib/queryClient';
+import { visibilityManager } from '@/services/visibilityManager';
 
 /**
  * Return type for usePWAResumeGuard hook
@@ -41,6 +42,40 @@ const RESUME_GRACE_PERIOD = 300;
  * With 1500ms, even brief suspends during book opening are now protected.
  */
 const MIN_IDLE_TIME_FOR_GUARD = 1500;
+
+/**
+ * Detect device type based on user agent.
+ * Same implementation as useRenditionHealthGuard for consistency.
+ */
+function detectDeviceType(): 'mobile' | 'tablet' | 'desktop' {
+  if (typeof navigator === 'undefined') return 'desktop';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
+/**
+ * Check if PWA resume guard should be enabled.
+ * Guard is only active on:
+ * - Mobile/tablet devices (where JS heap unload happens)
+ * - PWA standalone mode (installed apps)
+ *
+ * On desktop browsers, tab switching doesn't unload JS heap,
+ * so guard is unnecessary and causes unwanted unmounts.
+ */
+function shouldEnableGuard(): boolean {
+  // Check standalone PWA mode (most reliable indicator)
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as any).standalone === true;
+  
+  // Check mobile/tablet using same function as useRenditionHealthGuard
+  const deviceType = detectDeviceType();
+  const isMobileOrTablet = deviceType === 'mobile' || deviceType === 'tablet';
+  
+  // Guard активен если PWA ИЛИ мобильное устройство
+  return isPWA || isMobileOrTablet;
+}
 
 /**
  * Hook to guard against race conditions during PWA resume from background.
@@ -83,21 +118,21 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
-   * Handle visibility change event.
-   * When document becomes visible after being hidden, initiate resume guard.
+   * Handle application going to background
    */
-  const handleVisibilityChange = useCallback(async () => {
-    if (document.visibilityState === 'hidden') {
-      // Record when app was hidden
-      lastHiddenTimeRef.current = Date.now();
+  const handleHidden = useCallback(() => {
+    // Record when app was hidden
+    lastHiddenTimeRef.current = Date.now();
 
-      if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] App hidden at:', new Date().toISOString());
-      }
-
-      return;
+    if (import.meta.env.DEV) {
+      console.log('[PWAResumeGuard] App hidden at:', new Date().toISOString());
     }
+  }, []);
 
+  /**
+   * Handle application resuming from background
+   */
+  const handleVisible = useCallback(async () => {
     // Document became visible
     const now = Date.now();
     const idleTime = now - lastHiddenTimeRef.current;
@@ -110,6 +145,14 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     if (idleTime < MIN_IDLE_TIME_FOR_GUARD) {
       if (import.meta.env.DEV) {
         console.log('[PWAResumeGuard] Short idle time, skipping guard');
+      }
+      return;
+    }
+
+    // Skip guard on desktop browsers where JS heap is never unloaded
+    if (!shouldEnableGuard()) {
+      if (import.meta.env.DEV) {
+        console.log('[PWAResumeGuard] Desktop browser detected, skipping guard');
       }
       return;
     }
@@ -191,17 +234,25 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
   }, [loadUserFromStorage]);
 
   /**
-   * Set up visibility change listener
+   * Set up visibility manager registration
    */
   useEffect(() => {
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Register with centralized visibility manager
+    visibilityManager.register({
+      id: 'pwa-resume-guard',
+      priority: 1, // High priority (after reload guard)
+      delay: 0, // No extra delay, logic handles checks
+      onHidden: handleHidden,
+      onVisible: handleVisible,
+      shouldRun: () => true, // Check happens inside handleVisible
+    });
 
     if (import.meta.env.DEV) {
-      console.log('[PWAResumeGuard] Initialized with focusManager integration');
+      console.log('[PWAResumeGuard] Initialized with visibilityManager');
     }
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      visibilityManager.unregister('pwa-resume-guard');
 
       // Clean up timers
       if (resumeTimeoutRef.current) {
@@ -218,7 +269,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
         console.log('[PWAResumeGuard] Cleanup complete');
       }
     };
-  }, [handleVisibilityChange]);
+  }, [handleHidden, handleVisible]);
 
   // Calculate isReady: not resuming, not loading, and has user (or is intentionally unauthenticated)
   const isReady = !isResuming && !isLoading;

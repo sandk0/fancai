@@ -16,8 +16,13 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { readingSessionsAPI } from '@/api/readingSessions';
+import { sessionKeys, getCurrentUserId } from '@/hooks/api/queryKeys';
+import { visibilityManager } from '@/services/visibilityManager';
+import { QUERY_RETRY_PRESETS } from '@/lib/queryClient';
+import { notify } from '@/stores/ui';
 import type { ReadingSession } from '@/types/api';
 
 interface UseReadingSessionOptions {
@@ -38,8 +43,6 @@ interface UseReadingSessionReturn {
   endSession: () => Promise<void>;
 }
 
-const QUERY_KEY_ACTIVE_SESSION = 'activeSession';
-const QUERY_KEY_SESSION = (id: string) => ['readingSession', id];
 const UPDATE_DEBOUNCE_MS = 5000; // 5 seconds debounce for position updates
 const UPDATE_INTERVAL_MS = 30000; // 30 seconds interval for forced updates
 
@@ -53,6 +56,7 @@ export function useReadingSession({
   onError,
 }: UseReadingSessionOptions): UseReadingSessionReturn {
   const queryClient = useQueryClient();
+  const userId = getCurrentUserId();
   const [session, setSession] = useState<ReadingSession | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const lastUpdateRef = useRef<number>(0);
@@ -71,27 +75,46 @@ export function useReadingSession({
 
   // Query for active session (check if there's an existing session)
   const { data: activeSession, isLoading: isLoadingActive } = useQuery({
-    queryKey: [QUERY_KEY_ACTIVE_SESSION],
+    queryKey: sessionKeys.active(userId),
     queryFn: readingSessionsAPI.getActiveSession,
     enabled: enabled && !hasStartedRef.current,
-    staleTime: 60000, // 1 minute
+    staleTime: 0, // Always refetch to prevent reading closed session from cache
   });
 
   // Mutation to start session
   const startMutation = useMutation({
-    mutationFn: ({ bookId, position }: { bookId: string; position: number }) =>
-      readingSessionsAPI.startSession(bookId, position),
+    mutationFn: ({ bookId, position, force }: { bookId: string; position: number; force?: boolean }) =>
+      readingSessionsAPI.startSession(bookId, position, undefined, force),
     onSuccess: (newSession) => {
       console.log('✅ [useReadingSession] Session started:', newSession.id);
       setSession(newSession);
       sessionIdRef.current = newSession.id;
       hasStartedRef.current = true;
-      queryClient.setQueryData([QUERY_KEY_ACTIVE_SESSION], newSession);
-      queryClient.setQueryData(QUERY_KEY_SESSION(newSession.id), newSession);
+      queryClient.setQueryData(sessionKeys.active(userId), newSession);
+      queryClient.setQueryData(sessionKeys.detail(userId, newSession.id), newSession);
       onSessionStart?.(newSession);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('❌ [useReadingSession] Failed to start session:', error);
+      
+      // Handle Split Brain (409 Conflict)
+      if (error?.response?.status === 409) {
+        const detail = error.response.data.detail;
+        console.warn('⚠️ [useReadingSession] Split brain detected:', detail);
+        
+        notify.warning(
+          'Session Conflict',
+          `This book is open on another device (started ${new Date(detail.started_at).toLocaleTimeString()}).`,
+          {
+            label: 'Take Control Here',
+            onClick: () => {
+              startMutation.mutate({ bookId, position: positionRef.current, force: true });
+            }
+          }
+        );
+        return;
+      }
+
       onError?.(error);
     },
   });
@@ -100,15 +123,40 @@ export function useReadingSession({
   const updateMutation = useMutation({
     mutationFn: ({ sessionId, position }: { sessionId: string; position: number }) =>
       readingSessionsAPI.updateSession(sessionId, position),
+    ...QUERY_RETRY_PRESETS.api, // Retry on network errors
     onSuccess: (updatedSession) => {
       console.log('✅ [useReadingSession] Position updated:', updatedSession.end_position);
       setSession(updatedSession);
-      queryClient.setQueryData(QUERY_KEY_SESSION(updatedSession.id), updatedSession);
+      queryClient.setQueryData(sessionKeys.detail(userId, updatedSession.id), updatedSession);
       lastUpdateRef.current = Date.now();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('❌ [useReadingSession] Failed to update session:', error);
-      // Don't call onError for update failures (non-critical)
+      
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail || '';
+      
+      if (status === 400) {
+        if (detail.includes('inactive') || detail.includes('ended')) {
+          console.warn('[useReadingSession] Session inactive/ended, stopping updates');
+          
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          
+          queryClient.invalidateQueries({ queryKey: sessionKeys.active(userId) });
+          
+          if (enabled && bookId) {
+            console.log('[useReadingSession] Attempting to restart session...');
+            startMutation.mutate({ bookId, position: positionRef.current });
+          }
+          return;
+        }
+        
+        console.warn('[useReadingSession] Validation error:', detail);
+        return;
+      }
     },
   });
 
@@ -116,6 +164,7 @@ export function useReadingSession({
   const endMutation = useMutation({
     mutationFn: ({ sessionId, position }: { sessionId: string; position: number }) =>
       readingSessionsAPI.endSession(sessionId, position),
+    ...QUERY_RETRY_PRESETS.critical, // Retry aggressively to ensure session ends
     onSuccess: (endedSession) => {
       console.log('✅ [useReadingSession] Session ended:', {
         id: endedSession.id,
@@ -123,8 +172,8 @@ export function useReadingSession({
         pages_read: endedSession.pages_read,
       });
       setSession(endedSession);
-      queryClient.setQueryData(QUERY_KEY_SESSION(endedSession.id), endedSession);
-      queryClient.setQueryData([QUERY_KEY_ACTIVE_SESSION], null);
+      queryClient.setQueryData(sessionKeys.detail(userId, endedSession.id), endedSession);
+      queryClient.setQueryData(sessionKeys.active(userId), null);
       onSessionEnd?.(endedSession);
       isEndingRef.current = false;
     },
@@ -280,9 +329,12 @@ export function useReadingSession({
     // Start interval initially
     startInterval();
 
-    // Handle visibility changes to pause/resume interval
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
+    // Register with visibility manager
+    visibilityManager.register({
+      id: 'reading-session-manager',
+      priority: 2, // Medium priority (after guards)
+      delay: 300, // Debounce interval resume
+      onHidden: () => {
         // Stop interval when app goes to background
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -291,23 +343,21 @@ export function useReadingSession({
             console.log('[useReadingSession] Interval paused (background)');
           }
         }
-      } else if (document.visibilityState === 'visible') {
-        // Restart interval when app resumes (with delay for auth)
-        setTimeout(() => {
-          if (enabled && sessionIdRef.current && !isEndingRef.current) {
-            startInterval();
-            if (import.meta.env.DEV) {
-              console.log('[useReadingSession] Interval resumed');
-            }
+      },
+      onVisible: () => {
+        // Restart interval when app resumes
+        if (enabled && sessionIdRef.current && !isEndingRef.current) {
+          startInterval();
+          if (import.meta.env.DEV) {
+            console.log('[useReadingSession] Interval resumed');
           }
-        }, 300); // 300ms delay to allow auth to stabilize
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
+      },
+      shouldRun: () => enabled && !!sessionIdRef.current && !isEndingRef.current,
+    });
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      visibilityManager.unregister('reading-session-manager');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -415,7 +465,7 @@ export function useReadingSession({
           );
 
           navigator.sendBeacon(
-            `${apiUrl}/reading-sessions/${sessionIdRef.current}/end`,
+            `${apiUrl}/reading-sessions/${sessionIdRef.current}/end-beacon`,
             beaconData
           );
         } catch (error) {

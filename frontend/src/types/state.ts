@@ -180,10 +180,16 @@ export interface UIState {
   // Notification helpers
   notify: {
     success: (title: string, message?: string) => void;
-    error: (title: string, message?: string) => void;
-    warning: (title: string, message?: string) => void;
+    error: (title: string, message?: string, action?: NotificationAction) => void;
+    warning: (title: string, message?: string, action?: NotificationAction) => void;
     info: (title: string, message?: string) => void;
   };
+}
+
+// Notification Action
+export interface NotificationAction {
+  label: string;
+  onClick: () => void;
 }
 
 // Notification Type
@@ -194,6 +200,7 @@ export interface Notification {
   message?: string;
   timestamp: number;
   duration?: number; // auto-dismiss time in ms, undefined for persistent
+  action?: NotificationAction;
 }
 
 // Profile Store State

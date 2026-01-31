@@ -132,19 +132,7 @@ const BookReaderPage = () => {
     enabled: !!bookId && !!bookData && !isResuming,
   });
 
-  // Show loading spinner while resuming from background
-  if (isResuming || !isReady) {
-    return (
-      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Восстановление сессии...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (isLoading || !isReady) {
     return (
       <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
         <div className="text-center">
@@ -200,6 +188,16 @@ const BookReaderPage = () => {
       >
         <EpubReader book={bookData} />
       </ErrorBoundary>
+
+      {/* PWA Resume Overlay - shown on top without unmounting reader */}
+      {isResuming && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p className="text-muted-foreground">Восстановление сессии...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

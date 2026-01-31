@@ -102,7 +102,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
         <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <Drawer.Portal>
                 <Drawer.Overlay className="fixed inset-0 bg-[var(--color-bg-overlay)] backdrop-blur-sm z-50" />
-                <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-none border-t border-[var(--color-border-default)] shadow-2xl">
+                <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset border-t border-[var(--color-border-default)] shadow-2xl">
                     <div className="p-4 bg-[var(--color-bg-base)] rounded-t-[10px] flex-1 flex flex-col h-full">
                         <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-[var(--color-bg-hover)] mb-4" />
 

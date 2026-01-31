@@ -104,6 +104,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       });
     },
     enabled: renditionReady,
+    isRestoringPosition, // Prevent save during restoration
   });
 
   const { nextPage, prevPage } = useEpubNavigation(rendition);

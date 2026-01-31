@@ -163,16 +163,25 @@ const ReaderSettings: React.FC = () => {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" role="radiogroup" aria-label={t('readerSettings.themeSettings')}>
           {themeOptions.map((themeOption) => (
             <div
               key={themeOption.value}
-              className={`relative p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+              role="radio"
+              aria-checked={theme === themeOption.value}
+              tabIndex={0}
+              className={`relative p-4 border-2 rounded-lg cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 theme === themeOption.value
                   ? 'border-primary bg-primary/5 dark:bg-primary/20'
                   : 'border-input hover:border-muted-foreground'
               }`}
               onClick={() => updateTheme(themeOption.value as 'light' | 'dark' | 'sepia')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  updateTheme(themeOption.value as 'light' | 'dark' | 'sepia');
+                }
+              }}
             >
               <div className="flex items-center space-x-3">
                 <div className={`w-8 h-8 rounded-lg ${
@@ -190,7 +199,7 @@ const ReaderSettings: React.FC = () => {
                 </div>
               </div>
               {theme === themeOption.value && (
-                <div className="absolute top-2 right-2 w-4 h-4 bg-primary rounded-full" />
+                <div className="absolute top-2 right-2 w-4 h-4 bg-primary rounded-full" aria-hidden="true" />
               )}
             </div>
           ))}

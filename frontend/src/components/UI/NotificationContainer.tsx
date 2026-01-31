@@ -234,6 +234,27 @@ const Toast: React.FC<ToastProps> = ({
               {notification.message}
             </p>
           )}
+          
+          {/* Action Button */}
+          {notification.action && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                notification.action?.onClick();
+                // Don't auto-dismiss if persistent, let action handler decide
+              }}
+              className={cn(
+                'mt-3 px-3 py-1.5 text-xs font-medium rounded-md',
+                'bg-black/10 dark:bg-white/10',
+                'hover:bg-black/20 dark:hover:bg-white/20',
+                'transition-colors duration-200',
+                'focus:outline-none focus:ring-2 focus:ring-offset-1',
+                'focus:ring-[var(--color-accent-500)]'
+              )}
+            >
+              {notification.action.label}
+            </button>
+          )}
         </div>
 
         {/* Close button */}
