@@ -30,6 +30,7 @@ import ePub from 'epubjs';
 import type { Book, Rendition } from '@/types/epub';
 import { epubCache } from '@/services/epubCache';
 import { isOnline } from '@/hooks/useOnlineStatus';
+import { fetchWithTokenRefresh } from '@/utils/fetchWithTokenRefresh';
 
 /**
  * Enable debug logging in development mode only
@@ -308,8 +309,9 @@ export const useEpubLoader = ({
 
           if (DEBUG) console.log('[useEpubLoader] Fetching EPUB from network:', bookUrl);
 
-          // Download EPUB file with authorization and abort signal
-          const response = await fetch(bookUrl, {
+          // Download EPUB file with authorization and token refresh support
+          // Use fetchWithTokenRefresh instead of direct fetch to handle 401s
+          const response = await fetchWithTokenRefresh(bookUrl, {
             headers: authToken ? {
               'Authorization': `Bearer ${authToken}`,
             } : {},
