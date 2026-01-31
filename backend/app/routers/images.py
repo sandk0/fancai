@@ -186,15 +186,19 @@ async def get_generated_image_file(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ):
+    logger.info(f"Accessing image file: {filename} for user {current_user.id}")
+    
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
     
     file_path = GENERATED_IMAGES_DIR / filename
     if not file_path.exists():
+        logger.warning(f"File not found on disk: {file_path}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
     
     service = get_image_service(db)
     
+    # 1. Try GeneratedImage table
     image = await service.get_by_local_path(str(file_path))
     if not image:
         api_path = f"/api/v1/images/file/{filename}"
@@ -205,6 +209,8 @@ async def get_generated_image_file(
     if image:
         if service.verify_ownership(image, current_user.id):
             has_access = True
+        else:
+            logger.warning(f"Access denied for GeneratedImage: {image.id}")
     else:
         # Fallback: Check if it is a Master Reference in Entity table
         # Master references are stored in Entity.master_portrait_url, not in GeneratedImage table
@@ -222,11 +228,15 @@ async def get_generated_image_file(
         entity = result.scalar_one_or_none()
         
         if entity:
+            logger.info(f"Found matching Entity for image: {entity.id}")
             has_access = True
+        else:
+            logger.warning(f"No matching Entity found for image: {filename}")
     
     if not has_access:
         # If file exists but no DB record matches for user -> 404
         # We return 404 to avoid leaking file existence to unauthorized users
+        logger.warning(f"Access denied (404) for image: {filename}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found in database")
     
     should_304, etag, last_modified = check_conditional_request(
