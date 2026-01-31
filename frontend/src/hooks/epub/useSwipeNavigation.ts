@@ -293,7 +293,8 @@ export const useSwipeNavigation = (
         }
 
         // Prevent default to stop scrolling while swiping horizontally
-        if (absDeltaX > 10) {
+        // Check if event is cancelable to avoid passive event listener warning
+        if (absDeltaX > 10 && e.cancelable) {
           e.preventDefault();
         }
 

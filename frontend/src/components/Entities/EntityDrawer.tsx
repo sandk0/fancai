@@ -103,6 +103,11 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             <Drawer.Portal>
                 <Drawer.Overlay className="fixed inset-0 bg-[var(--color-bg-overlay)] backdrop-blur-sm z-50" />
                 <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset border-t border-[var(--color-border-default)] shadow-2xl">
+                    <div className="sr-only">
+                        <Drawer.Description>
+                            Детальная информация о персонажах, их связях и взаимодействиях в текущей главе.
+                        </Drawer.Description>
+                    </div>
                     <div className="p-4 bg-[var(--color-bg-base)] rounded-t-[10px] flex-1 flex flex-col h-full">
                         <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-[var(--color-bg-hover)] mb-4" />
 
@@ -114,11 +119,13 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                 >
                                     {getBackButtonText()}
                                 </button>
-                            ) : (
-                                <div className="flex items-center gap-3">
-                                    <h2 className="text-lg font-semibold text-[var(--color-text-default)]">{getTitle()}</h2>
-                                    <button
-                                        onClick={() => navigate(`/book/${bookId}/gallery`)}
+                                ) : (
+                                    <div className="flex items-center gap-3">
+                                        <Drawer.Title className="text-lg font-semibold text-[var(--color-text-default)]">
+                                            {getTitle()}
+                                        </Drawer.Title>
+                                        <button
+                                            onClick={() => navigate(`/book/${bookId}/gallery`)}
                                         className="p-1.5 bg-[var(--color-bg-elevated)] rounded-full text-[var(--color-accent-500)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-400)] transition-colors"
                                         title="Открыть галерею"
                                     >
