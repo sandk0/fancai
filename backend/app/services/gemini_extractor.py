@@ -222,7 +222,7 @@ class GeminiConfig:
     # Retry логика
     max_retries: int = 3
     retry_delay_seconds: float = 1.0
-    timeout_seconds: int = 30
+    timeout_seconds: int = 120  # Increased from 30s to 120s for 100k context extraction
 
 
 class RecursiveTextChunker:
