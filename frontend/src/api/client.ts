@@ -67,8 +67,10 @@ class ApiClient {
 
         // Skip token refresh for auth endpoints - they handle their own auth
         const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+        // Skip refresh for metrics/health endpoints to prevent loops
+        const isIgnoredEndpoint = originalRequest.url?.includes('/metrics') || originalRequest.url?.includes('/health');
         
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint && !isIgnoredEndpoint) {
           if (import.meta.env.DEV) console.log('🌐 [AXIOS] 401 error, attempting token refresh...');
           originalRequest._retry = true;
 
