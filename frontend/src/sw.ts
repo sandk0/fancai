@@ -109,7 +109,9 @@ registerRoute(
     // Exclude admin endpoints (privileged access)
     !url.pathname.startsWith('/api/v1/admin/') &&
     // Exclude parsing status (handled above)
-    !url.pathname.includes('/parsing-status'),
+    !url.pathname.includes('/parsing-status') &&
+    // Exclude generated images (handled separately)
+    !url.pathname.includes('/images/file/'),
   new StaleWhileRevalidate({
     cacheName: 'api-cache',
     plugins: [
@@ -117,6 +119,24 @@ registerRoute(
       new ExpirationPlugin({
         maxEntries: 100,
         maxAgeSeconds: 60 * 60, // 1 hour
+      }),
+    ],
+  })
+)
+
+// --- Generated Images (Secure) ---
+// NetworkFirst: Always try to fetch fresh (and verify auth), fallback to cache only if offline.
+// This prevents caching 403/404 errors permanently and ensures auth checks.
+registerRoute(
+  ({ url }) => url.pathname.includes('/api/v1/images/file/'),
+  new NetworkFirst({
+    cacheName: 'generated-images-cache',
+    networkTimeoutSeconds: 5,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }), // ONLY cache 200 OK
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
       }),
     ],
   })
