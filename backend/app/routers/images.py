@@ -24,6 +24,8 @@ from ..services.image_crud_service import ImageCRUDService
 from ..core.container import get_image_generator_service_dep
 from ..models.user import User, Subscription, SubscriptionPlan, SubscriptionStatus
 from ..models.description import DescriptionType
+from ..models.entity import Entity
+from ..models.book import Book
 from sqlalchemy import select
 from datetime import datetime, timezone
 from ..schemas.responses.images import (
@@ -198,11 +200,34 @@ async def get_generated_image_file(
         api_path = f"/api/v1/images/file/{filename}"
         image = await service.get_by_image_url(api_path)
     
-    if not image:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found in database")
+    has_access = False
     
-    if not service.verify_ownership(image, current_user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    if image:
+        if service.verify_ownership(image, current_user.id):
+            has_access = True
+    else:
+        # Fallback: Check if it is a Master Reference in Entity table
+        # Master references are stored in Entity.master_portrait_url, not in GeneratedImage table
+        api_path = f"/api/v1/images/file/{filename}"
+        stmt = (
+            select(Entity)
+            .join(Book, Entity.book_id == Book.id)
+            .where(
+                (Entity.master_portrait_url == api_path) | 
+                (Entity.master_portrait_url.like(f"%{filename}"))
+            )
+            .where(Book.user_id == current_user.id)
+        )
+        result = await db.execute(stmt)
+        entity = result.scalar_one_or_none()
+        
+        if entity:
+            has_access = True
+    
+    if not has_access:
+        # If file exists but no DB record matches for user -> 404
+        # We return 404 to avoid leaking file existence to unauthorized users
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found in database")
     
     should_304, etag, last_modified = check_conditional_request(
         file_path=file_path,
