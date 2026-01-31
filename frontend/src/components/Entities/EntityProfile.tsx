@@ -68,6 +68,11 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                         <Badge variant="outline" className="border-[var(--color-accent-500)]/50 text-[var(--color-accent-500)]">
                             {entityTypeLabels[entity.type] || entity.type}
                         </Badge>
+                        {entity.first_mention_chapter != null && !isUnknown && (
+                            <Badge variant="secondary" className="bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
+                                Появление: гл. {entity.first_mention_chapter}
+                            </Badge>
+                        )}
                         {isUnknown && (
                             <Badge variant="secondary" className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
                                 Не встречен

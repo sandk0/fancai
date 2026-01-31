@@ -9,6 +9,7 @@ Responsible for:
 
 import logging
 from typing import List, Dict, Optional
+from difflib import SequenceMatcher
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models.entity import Entity, EntityType
@@ -24,7 +25,75 @@ class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def process_chapter_analysis(self, book_id: str, result: ChapterAnalysisResult, chapter_id: Optional[str] = None) -> Dict[str, Entity]:
+    def _merge_visual_summaries(
+        self, 
+        existing: str, 
+        new: str, 
+        chapter_index: Optional[int] = None
+    ) -> str:
+        if not existing:
+            return new
+        if not new:
+            return existing
+        
+        existing_lower = existing.lower()
+        new_lower = new.lower()
+        
+        if SequenceMatcher(None, existing_lower, new_lower).ratio() > 0.8:
+            return existing if len(existing) >= len(new) else new
+        
+        if new_lower in existing_lower:
+            return existing
+        
+        if existing_lower in new_lower:
+            return new
+        
+        chapter_marker = f"[Глава {chapter_index}]" if chapter_index else ""
+        combined = f"{existing}\n\n{chapter_marker}: {new}" if chapter_marker else f"{existing}\n\n{new}"
+        
+        if len(combined) > 1500:
+            return existing if len(existing) >= len(new) else new
+        
+        return combined
+
+    def _resolve_entity_advanced(
+        self, 
+        name: str, 
+        existing_entities: Dict[str, "Entity"]
+    ) -> Optional["Entity"]:
+        name_lower = name.lower()
+        
+        if name_lower in existing_entities:
+            return existing_entities[name_lower]
+        
+        for entity in existing_entities.values():
+            aliases = entity.entity_metadata.get("aliases", []) if entity.entity_metadata else []
+            aliases_lower = [a.lower() for a in aliases if isinstance(a, str)]
+            if name_lower in aliases_lower:
+                return entity
+        
+        name_tokens = set(name_lower.split())
+        for key, entity in existing_entities.items():
+            entity_tokens = set(key.split())
+            overlap = name_tokens & entity_tokens
+            if overlap:
+                ratio = len(overlap) / max(len(name_tokens), len(entity_tokens))
+                if ratio > 0.5:
+                    return entity
+        
+        for key, entity in existing_entities.items():
+            if SequenceMatcher(None, name_lower, key).ratio() > 0.85:
+                return entity
+        
+        return None
+
+    async def process_chapter_analysis(
+        self, 
+        book_id: str, 
+        result: ChapterAnalysisResult, 
+        chapter_id: Optional[str] = None,
+        chapter_index: Optional[int] = None
+    ) -> Dict[str, Entity]:
         """
         Process the raw results from agentic parsing.
         1. Resolve Entities (get or create, merge aliases) - BATCH mode.
@@ -43,8 +112,7 @@ class ConsistencyManager:
 
         logger.info(f"Processing {len(result.entities)} entities for book {book_id}")
         
-        # 1. BATCH Entity Resolution & Upsert (Phase 2 optimization)
-        entity_map = await self._batch_resolve_entities(book_id, result.entities)
+        entity_map = await self._batch_resolve_entities(book_id, result.entities, chapter_index)
         
         # Flush to get IDs
         await self.db.flush()
@@ -101,11 +169,16 @@ class ConsistencyManager:
                 existing = await self.db.scalar(q)
                 
                 if existing:
-                    # Update weight (normalize input weight 1-10 to 0-1 range if needed, or just accumulate)
-                    # Input weight is 1-10. Existing weight default 0.5.
-                    # Let's average them? Or Max?
-                    # Let's just update metadata and weight
                     existing.weight = int((existing.weight + (rel.weight / 10.0)) / 2)
+                    if rel.context:
+                        current_context = ""
+                        if existing.relationship_metadata:
+                            current_context = existing.relationship_metadata.get("context", "")
+                        if len(rel.context) > len(current_context):
+                            existing.relationship_metadata = {
+                                **(existing.relationship_metadata or {}),
+                                "context": rel.context
+                            }
                     self.db.add(existing)
                 else:
                     new_rel = EntityRelationship(
@@ -118,7 +191,10 @@ class ConsistencyManager:
                     self.db.add(new_rel)
 
     async def _batch_resolve_entities(
-        self, book_id: str, raw_entities: List[ExtractedEntity]
+        self, 
+        book_id: str, 
+        raw_entities: List[ExtractedEntity],
+        chapter_index: Optional[int] = None
     ) -> Dict[str, Entity]:
         """
         Batch resolve entities with alias-aware deduplication.
@@ -160,19 +236,43 @@ class ConsistencyManager:
         for raw in raw_entities:
             name_lower = raw.name.lower()
             
-            if name_lower in existing_entities:
-                # Update existing entity if new summary is better
-                entity = existing_entities[name_lower]
-                if len(raw.visual_summary) > len(entity.visual_summary or ""):
-                    entity.visual_summary = raw.visual_summary
+            resolved = self._resolve_entity_advanced(raw.name, existing_entities)
+            
+            if resolved:
+                entity = resolved
+                merged_summary = self._merge_visual_summaries(
+                    entity.visual_summary or "",
+                    raw.visual_summary,
+                    chapter_index=raw.first_mention_offset
+                )
+                updated = False
+                if merged_summary != (entity.visual_summary or ""):
+                    entity.visual_summary = merged_summary
+                    updated = True
+                
+                if raw.aliases and chapter_index is not None:
+                    existing_aliases = entity.aliases_with_reveal or []
+                    existing_names = {a.get("name", "").lower() for a in existing_aliases}
+                    for alias in raw.aliases:
+                        if alias.lower() not in existing_names:
+                            existing_aliases.append({"name": alias, "reveal_chapter": chapter_index})
+                            updated = True
+                    if updated:
+                        entity.aliases_with_reveal = existing_aliases
+                
+                if updated:
                     self.db.add(entity)
             elif name_lower not in entity_map:
-                # Create new entity (avoiding duplicates within same batch)
                 type_enum = EntityType.OBJECT
                 if raw.type.lower() == "character":
                     type_enum = EntityType.CHARACTER
                 elif raw.type.lower() == "location":
                     type_enum = EntityType.LOCATION
+                
+                aliases_with_reveal = [
+                    {"name": alias, "reveal_chapter": chapter_index}
+                    for alias in raw.aliases
+                ] if raw.aliases else []
                     
                 entity = Entity(
                     book_id=book_id,
@@ -180,6 +280,8 @@ class ConsistencyManager:
                     type=type_enum.value,
                     visual_summary=raw.visual_summary,
                     importance=raw.importance if raw.importance else 5,
+                    first_mention_chapter=chapter_index,
+                    aliases_with_reveal=aliases_with_reveal,
                     entity_metadata={
                         "aliases": raw.aliases,
                         "confidence": raw.confidence,
@@ -358,25 +460,45 @@ class ConsistencyManager:
             logger.warning("LLM not available for optimization")
             return
             
-        REDUCE_PROMPT = f"""
-        You are a Data Consistency Expert. I have extracted entities from a book, but there are duplicates and unimportant items.
-        
-        INPUT DATA:
-        {entity_list_text}
-        
-        TASK:
-        1. IDENTIFY DUPLICATES: Regard "Harry", "Harry Potter", "Mr. Potter" as the SAME entity.
-        2. FILTER GARBAGE: Remove any entity with Importance < 3 (very minor background characters with no visual description). Keep all entities with Importance >= 3.
-        3. OUTPUT JSON: List of operations to clean the database.
-        
-        Output JSON Schema:
-        {{
-            "merge_operations": [
-                {{ "keep_id": "uuid", "merge_ids": ["uuid", "uuid"] }}
-            ],
-            "delete_operations": [ "uuid", "uuid" ] 
+        REDUCE_PROMPT = f"""You are a Data Consistency Expert for a book entity database.
+
+INPUT DATA:
+{entity_list_text}
+
+TASK:
+1. **MERGE DUPLICATES**: Identify entities that refer to the same person/place:
+   - "Harry", "Harry Potter", "Mr. Potter" → SAME entity
+   - Consider aliases, partial names, nicknames
+
+2. **DO NOT DELETE based on importance!** Keep ALL entities.
+   - Deletion criteria: ONLY if entity is clearly garbage (typo, parsing error)
+   - Example of garbage: "said", "ааааа", "Chapter 1"
+   - NEVER delete entities just because they have low importance
+
+3. **PRESERVE reveal_chapter for aliases:**
+   - If an alias appears only from chapter N, mark it:
+     {{ "alias": "Избранный", "reveal_chapter": 10 }}
+
+OUTPUT JSON:
+{{
+    "merge_operations": [
+        {{ 
+            "keep_id": "uuid-of-most-detailed", 
+            "merge_ids": ["uuid", "uuid"],
+            "merged_aliases": [
+                {{ "name": "Potter", "reveal_chapter": null }},
+                {{ "name": "The Chosen One", "reveal_chapter": 10 }}
+            ]
         }}
-        """
+    ],
+    "delete_operations": [ "uuid-only-if-garbage" ]
+}}
+
+CRITICAL RULES:
+- When merging, keep the entity with the LONGEST visual_summary
+- NEVER delete entities just because they have low importance
+- ALWAYS preserve chapter information for spoiler protection
+"""
         
         try:
             # We use the raw client to get JSON directly (or string parsing)
@@ -393,7 +515,8 @@ class ConsistencyManager:
             import google.genai.types as types
             # Use client from extractor
             client = extractor._client
-            model = extractor._model
+            # Model Tiering: use model_reduce for consistency tasks
+            model = extractor.config.model_reduce
             
             response = await client.aio.models.generate_content(
                 model=model,

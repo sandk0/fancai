@@ -81,6 +81,8 @@ export interface UseRenditionHealthGuardOptions {
   bookId: string;
   /** Whether the guard is enabled (disable during initial load) */
   enabled?: boolean;
+  /** Whether the reader is currently restoring position (skip guard) */
+  isRestoringPosition?: boolean;
   /** Not used - kept for API compatibility */
   isStable?: boolean;
   /** Not used - kept for API compatibility */
@@ -101,6 +103,7 @@ export function useRenditionHealthGuard({
   rendition,
   bookId,
   enabled = true,
+  isRestoringPosition = false,
 }: UseRenditionHealthGuardOptions): RenditionHealthGuardReturn {
   const [isHealthy] = useState(true);
   const [isChecking] = useState(false);
@@ -200,6 +203,13 @@ export function useRenditionHealthGuard({
   const handleVisible = useCallback(() => {
     if (!enabled) return;
 
+    // Skip reload if we are currently restoring position
+    // (This avoids infinite loops if restoring takes time)
+    if (isRestoringPosition) {
+      if (DEBUG) console.log('[RenditionHealthGuard] Skipping reload because position is restoring');
+      return;
+    }
+
     // Safety check: ignore if we never recorded a hide time (e.g. cold start)
     if (hideTimeRef.current === 0) {
       if (DEBUG) console.log('[RenditionHealthGuard] Cold resume detected, skipping reload');
@@ -231,7 +241,7 @@ export function useRenditionHealthGuard({
     // Reload the page to get fresh epub.js state
     // The position will be restored from localStorage on next load
     window.location.reload();
-  }, [enabled]);
+  }, [enabled, isRestoringPosition]);
 
   /**
    * Handle page hide event (before JS heap unload).

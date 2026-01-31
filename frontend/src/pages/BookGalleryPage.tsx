@@ -16,7 +16,6 @@ const BookGalleryPage: React.FC = () => {
      const { t } = useTranslation();
      const { bookId } = useParams<{ bookId: string }>();
      const navigate = useNavigate();
-     const { data: network, isLoading } = useEntityNetwork(bookId!);
 
     // Track reading progress for spoiler protection (CFI-based for accuracy)
     const [currentChapter, setCurrentChapter] = useState<number>(0);
@@ -32,6 +31,8 @@ const BookGalleryPage: React.FC = () => {
                 .catch(err => console.error("Failed to load progress for gallery:", err));
         }
     }, [bookId]);
+
+     const { data: network, isLoading } = useEntityNetwork(bookId!, currentChapter);
 
     const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<EntityType | 'ALL'>('ALL');

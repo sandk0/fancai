@@ -373,7 +373,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             # 4. Consistency & Logic (Map Phase)
                             # Use a local ConsistencyManager with this session
                             local_mgr = ConsistencyManager(session)
-                            entity_map = await local_mgr.process_chapter_analysis(str(book_id), result, chapter_id=str(local_chapter.id))
+                            entity_map = await local_mgr.process_chapter_analysis(
+                                str(book_id), 
+                                result, 
+                                chapter_id=str(local_chapter.id),
+                                chapter_index=idx
+                            )
 
                             # 5. Save Descriptions and create DescriptionEntity links
                             descriptions_data = result.descriptions or []

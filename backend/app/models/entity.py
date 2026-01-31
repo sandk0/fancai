@@ -59,6 +59,14 @@ class Entity(Base):
     
     entity_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
     
+    aliases_with_reveal: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, nullable=False, server_default='[]'
+    )
+    
+    first_mention_chapter: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, index=True
+    )
+    
     first_mention_cfi: Mapped[str | None] = mapped_column(
         String(500), nullable=True, index=True,
         comment="CFI of first mention for spoiler protection"

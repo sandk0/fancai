@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  "agents": {
+    "librarian": {
+      "model": "google/antigravity-gemini-3-pro"
+    },
+    "explore": {
+      "model": "google/antigravity-gemini-3-pro"
+    },
+    "oracle": {
+      "model": "google/antigravity-gemini-3-pro"
+    },
+    "frontend-ui-ux-engineer": {
+      "model": "google/antigravity-gemini-3-pro"
+    },
+    "document-writer": {
+      "model": "google/antigravity-gemini-3-pro"
+    },
+    "multimodal-looker": {
+      "model": "google/antigravity-gemini-3-pro"
+    }
+  }
+}

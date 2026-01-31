@@ -89,7 +89,7 @@ RULES:
 1. Focus ONLY on visual elements (appearance, colors, textures, lighting)
 2. Use vivid, descriptive adjectives
 3. Preserve the mood and atmosphere
-4. Use common English art and photography terms
+4. **ENHANCE style**: Include technical art/camera terms where appropriate (e.g., "cinematic lighting", "detailed texture", "8k resolution", "photorealistic", "depth of field")
 5. Keep the translation under 150 words
 6. Do NOT add interpretations - translate only what's written
 
@@ -101,7 +101,7 @@ English translation (visual elements only, no explanations):"""
     def __init__(self, api_key: str):
         self.api_key = api_key
         self._client = None
-        self._model = "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview
+        self._model = "gemini-2.0-flash-lite"  # Model Tiering: lightweight model for translation
         self._redis = None
         self._initialize()
 

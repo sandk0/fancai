@@ -19,6 +19,8 @@ export interface EntityDetail {
     mentions: number[];
     first_mention_cfi?: string | null;
     first_mention_offset?: number | null;
+    first_mention_chapter?: number | null;
+    aliases?: string[];
     notes: EntityNote[];
 }
 

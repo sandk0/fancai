@@ -38,6 +38,10 @@ from app.monitoring.metrics import (
     record_llm_request,
     record_llm_error,
     record_llm_rate_limit,
+    record_description_count,
+    record_visual_summary_length,
+    record_llm_cache_hit,
+    record_llm_cache_miss,
 )
 from app.core.json_utils import parse_model_safe
 from app.services.llm_cache_service import llm_cache, ChapterCacheKey
@@ -189,14 +193,20 @@ class GeminiConfig:
     model_id: str = "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
     api_key: Optional[str] = None
 
+    # Model Tiering: different models for different tasks (cost optimization)
+    model_extraction: str = "gemini-3-flash-preview"  # Complex: entity extraction, TSA
+    model_translation: str = "gemini-2.0-flash-lite"  # Simple: translation to English
+    model_reduce: str = "gemini-3-flash-preview"  # Complex: deduplication, merge
+
     # Чанкинг
     max_chunk_chars: int = 100000  # v16: 100k chars for Massive Context
     min_chunk_chars: int = 200
     chunk_overlap_percent: float = 0.15  # 15% перекрытие
 
     # Извлечение
-    max_descriptions_per_chunk: int = 10
-    min_description_chars: int = 50
+    max_descriptions_per_chunk: int = 20  # Increased: extract more per chunk
+    min_description_chars: int = 80  # Balanced: 80 chars minimum (was 50)
+    min_visual_summary_chars: int = 100  # NEW: minimum for entity visual_summary
     max_description_chars: int = 1000
     min_confidence: float = 0.4
 
@@ -346,35 +356,60 @@ class GeminiDirectExtractor:
     вместо коротких сущностей (NER).
     """
 
-    TSA_EXTRACTION_PROMPT = """Ты - литературный редактор. Анализируй текст и размечай визуальные описания.
+    TSA_EXTRACTION_PROMPT = """Ты - опытный литературный редактор, специализирующийся на подготовке книг к иллюстрированию.
 
-ЗАДАЧА:
-1. Верни ОРИГИНАЛЬНЫЙ текст с XML-тегами вокруг описаний
-2. Формат тегов: <desc type="TYPE" occurrence="N">точный текст из оригинала</desc>
-3. TYPE = location | character | object | atmosphere
-4. occurrence = номер вхождения если текст повторяется (по умолчанию 1)
+## ЗАДАЧА
+Разметь визуальные описания в тексте XML-тегами. Формат:
+<desc type="TYPE" occurrence="N">точный текст из оригинала</desc>
 
-КРИТЕРИИ ОПИСАНИЙ:
-- Минимум 50 символов
-- Создаёт визуальный образ (внешность, место, атмосфера)
-- Подходит для иллюстрации
+## ТИПЫ (TYPE)
+- location: места, интерьеры, пейзажи
+- character: внешность персонажей
+- atmosphere: освещение, погода, настроение
+- object: важные артефакты
 
-ПРИМЕР:
-Вход: "Иван вошёл в комнату. Комната была тёмной и пыльной, с высокими потолками и старинной мебелью."
-Выход в tagged_text: "Иван вошёл в комнату. <desc type=\"location\" occurrence=\"1\">Комната была тёмной и пыльной, с высокими потолками и старинной мебелью.</desc>"
+## КРИТЕРИИ КАЧЕСТВЕННОГО ОПИСАНИЯ
+✓ Минимум 50 символов (идеально 100-300)
+✓ Создаёт визуальный образ в воображении
+✓ Содержит конкретные детали (цвета, формы, текстуры)
+✓ Подходит для иллюстрации художником
 
-ПРАВИЛА:
-- Текст внутри тегов должен быть ТОЧНОЙ копией из оригинала
-- Сохраняй все пробелы и знаки препинания
-- Не изменяй текст вне тегов
-- Для персонажей: описание внешности, одежды, возраста
-- Для локаций: освещение, архитектура, атмосфера
-- Игнорируй обычные предметы (только сюжетно важные артефакты)
+## НЕГАТИВНЫЕ ПРИМЕРЫ (НЕ РАЗМЕЧАТЬ!)
+✗ "Он был высоким" — слишком коротко, нет деталей
+✗ "Она улыбнулась" — действие, не описание
+✗ "Комната была большой" — нет визуальных деталей
 
-ТАКЖЕ выдели:
-1. ГЛАВНЫХ персонажей (importance 7-10) с visual_summary и aliases
-2. КЛЮЧЕВЫЕ локации
-3. СВЯЗИ между сущностями
+## ПОЗИТИВНЫЕ ПРИМЕРЫ
+
+### Пример 1 (короткий, atmosphere):
+Вход: "Солнце садилось. Небо окрасилось в багряные и золотые тона, отражаясь в спокойной глади озера."
+Выход: "Солнце садилось. <desc type=\\"atmosphere\\" occurrence=\\"1\\">Небо окрасилось в багряные и золотые тона, отражаясь в спокойной глади озера.</desc>"
+
+### Пример 2 (средний, character):
+Вход: "В дверях стоял незнакомец лет сорока пяти. Его лицо было изборождено морщинами, седые волосы торчали во все стороны, а глаза — пронзительно-голубые — смотрели с насмешкой."
+Выход: "В дверях стоял <desc type=\\"character\\" occurrence=\\"1\\">незнакомец лет сорока пяти. Его лицо было изборождено морщинами, седые волосы торчали во все стороны, а глаза — пронзительно-голубые — смотрели с насмешкой.</desc>"
+
+### Пример 3 (длинный, location):
+Вход: "Библиотека занимала три этажа особняка. Высокие дубовые стеллажи уходили под самый потолок, украшенный лепниной с позолотой. Пыль танцевала в лучах света, проникающих сквозь витражные окна."
+Выход: "<desc type=\\"location\\" occurrence=\\"1\\">Библиотека занимала три этажа особняка. Высокие дубовые стеллажи уходили под самый потолок, украшенный лепниной с позолотой. Пыль танцевала в лучах света, проникающих сквозь витражные окна.</desc>"
+
+## ПРАВИЛА
+1. Текст внутри тегов = ТОЧНАЯ копия из оригинала
+2. Сохраняй пробелы и пунктуацию
+3. occurrence = порядковый номер при повторении (по умолчанию 1)
+4. НЕ изменяй текст вне тегов
+
+## ДОПОЛНИТЕЛЬНО ВЫДЕЛИ
+1. ВСЕХ персонажей с visual_summary и aliases
+   - importance 7-10: главные герои
+   - importance 4-6: второстепенные
+   - importance 1-3: эпизодические (ИЗВЛЕКАЙ, не игнорируй!)
+2. ВСЕ локации с visual_summary
+3. СВЯЗИ между сущностями (source, target, type, context)
+
+## QUALITY GATES
+- visual_summary < 80 символов → Дополни деталями из контекста
+- Нет описания внешности → "Внешность не описана в данном фрагменте"
 
 Текст для анализа:
 {text}
@@ -383,18 +418,23 @@ class GeminiDirectExtractor:
     EXTRACTION_PROMPT = """Ты - литературный редактор и визуальный директор. Твоя задача - подготовить детальные справки для художников и создать схему связей персонажей.
 
 ЗАДАЧА:
-1. Выдели ТОЛЬКО ГЛАВНЫХ персонажей и КЛЮЧЕВЫЕ локации (Top-15 для сюжета). Игнорируй обычные предметы и фоновых персонажей.
-2. Оцени ВАЖНОСТЬ (importance) каждой сущности от 1 до 10.
+1. Выдели ВСЕ визуально значимые персонажи и локации (без ограничений!).
+   - Даже эпизодические персонажи важны для атмосферы.
+   - Не пропускай никого — фильтрация будет позже.
+2. Оцени ВАЖНОСТЬ (importance) каждой сущности от 1 до 10, но ИЗВЛЕКАЙ всех.
    - 9-10: Протагонисты, Главные антагонисты, Основные локации.
    - 7-8: Значимые второстепенные персонажи, Частые локации.
-   - 1-6: ИГНОРИРОВАТЬ.
+   - 4-6: Эпизодические персонажи — ИЗВЛЕКАЙ для полноты картины.
+   - 1-3: Фоновые — ИЗВЛЕКАЙ, если есть хоть какое-то описание внешности.
 3. Для каждой сущности дай "visual_summary" (описание внешности одним абзацем).
+   - МИНИМУМ 100 символов для visual_summary.
+   - Если описания мало — напиши "Внешность не описана в данном фрагменте".
 4. КРИТИЧНО: Укажи ВСЕ АЛЬТЕРНАТИВНЫЕ ИМЕНА (aliases) персонажа!
    - Примеры: "Геральт" → aliases: ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]
    - Примеры: "Гарри Поттер" → aliases: ["Мальчик-который-выжил", "Избранный"]
    - Примеры: "Aragorn" → aliases: ["Strider", "Elessar", "Isildur's Heir"]
 5. Определи СВЯЗИ между сущностями.
-6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 50 символов.
+6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 80 символов.
 7. ВАЖНО: Для каждой сущности укажи "first_mention_offset" — позицию (номер символа от начала текста), где сущность ПЕРВЫЙ раз упоминается.
    - Пример: если "Геральт" впервые появляется на 150-м символе текста, то first_mention_offset: 150
 8. КРИТИЧНО для descriptions: Укажи "text_offset" — позицию (номер символа от начала текста), где начинается каждое описание.
@@ -452,11 +492,11 @@ class GeminiDirectExtractor:
 
             # Создаём клиент с новым SDK
             self._client = genai.Client(api_key=self.config.api_key)
-            self._model = self.config.model_id
+            self._model = self.config.model_extraction
             self._types = types
 
             self._available = True
-            logger.info(f"Gemini extractor initialized (model: {self.config.model_id}, SDK: google-genai)")
+            logger.info(f"Gemini extractor initialized (model: {self.config.model_extraction}, SDK: google-genai)")
 
         except ImportError:
             logger.error("google-genai not installed. Run: pip install google-genai")
@@ -469,7 +509,7 @@ class GeminiDirectExtractor:
 
     def _get_cache_key(self, text: str) -> str:
         text_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
-        return f"llm:gemini:{self.config.model_id}:{text_hash}"
+        return f"llm:gemini:{self.config.model_extraction}:{text_hash}"
 
     async def _get_cached_response(self, cache_key: str) -> Optional[GeminiResponseSchema]:
         if not self.config.enable_cache:
@@ -480,7 +520,10 @@ class GeminiDirectExtractor:
             logger.debug(f"LLM cache hit: {cache_key}")
             async with self._stats_lock:
                 self.stats["cache_hits"] = self.stats.get("cache_hits", 0) + 1
+            record_llm_cache_hit(self.config.model_extraction)
             return GeminiResponseSchema.model_validate(cached)
+        
+        record_llm_cache_miss(self.config.model_extraction)
         return None
 
     async def _set_cached_response(self, cache_key: str, response: GeminiResponseSchema) -> None:
@@ -568,6 +611,13 @@ class GeminiDirectExtractor:
         async with self._stats_lock:
             self.stats["total_time"] += time.time() - start_time
             self.stats["total_descriptions"] += len(unique_descriptions)
+        
+        # Record Prometheus Metrics
+        record_description_count(self.config.model_extraction, len(unique_descriptions))
+        
+        for ent in unique_entities:
+            if ent.visual_summary:
+                record_visual_summary_length(self.config.model_extraction, len(ent.visual_summary))
         
         logger.info(
             f"Parallel chunk processing complete: {len(unique_descriptions)} descriptions, "

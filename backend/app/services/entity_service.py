@@ -65,7 +65,46 @@ class EntityService:
         
         return min(cfi_list, key=parse_cfi_for_sort)
 
-    async def get_book_entity_network(self, book_id: UUID) -> EntityNetworkResponse:
+    def _filter_aliases_by_chapter(
+        self, 
+        entity: Entity, 
+        current_chapter: Optional[int]
+    ) -> List[str]:
+        """
+        Filter entity aliases based on current reading position.
+        
+        If current_chapter is None, return all aliases from metadata.
+        Otherwise, return only aliases revealed up to current_chapter.
+        """
+        if current_chapter is None:
+            # No filtering - return all aliases from metadata
+            metadata = entity.entity_metadata
+            if metadata and isinstance(metadata, dict):
+                return metadata.get("aliases", [])
+            return []
+        
+        # Filter by reveal_chapter
+        visible_aliases: List[str] = []
+        aliases_with_reveal = entity.aliases_with_reveal or []
+        
+        for alias_data in aliases_with_reveal:
+            if not isinstance(alias_data, dict):
+                continue
+            reveal_ch = alias_data.get("reveal_chapter")
+            alias_name = alias_data.get("name", "")
+            
+            # Include if reveal_chapter is None (always visible) or <= current_chapter
+            if reveal_ch is None or reveal_ch <= current_chapter:
+                if alias_name:
+                    visible_aliases.append(alias_name)
+        
+        return visible_aliases
+
+    async def get_book_entity_network(
+        self, 
+        book_id: UUID,
+        current_chapter: Optional[int] = None
+    ) -> EntityNetworkResponse:
         """
         Возвращает граф сущностей книги с примененной дедупликацией (Soft Merge).
         Результат кэшируется.
@@ -156,7 +195,7 @@ class EntityService:
         all_edges = edges_res.scalars().all()
 
         response = self._build_network_response(
-            list(all_entities), list(all_edges), hard_mentions_map, cfi_mentions_map, offset_mentions_map, entity_to_descriptions, description_cfi_map
+            list(all_entities), list(all_edges), hard_mentions_map, cfi_mentions_map, offset_mentions_map, entity_to_descriptions, description_cfi_map, current_chapter
         )
 
         # 6. Сохраняем в кэш
@@ -176,7 +215,8 @@ class EntityService:
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
         entity_to_descriptions: Dict[UUID, List[Description]],
-        description_cfi_map: Dict[UUID, str]
+        description_cfi_map: Dict[UUID, str],
+        current_chapter: Optional[int] = None
     ) -> EntityNetworkResponse:
         alias_to_canonical: Dict[str, str] = {}
         groups: Dict[str, List[Entity]] = {}
@@ -227,7 +267,7 @@ class EntityService:
                 related_descriptions.extend(entity_to_descriptions.get(entity.id, []))
             
             merged_detail = self._create_merged_detail(
-                master, related_descriptions, hard_mentions_map, cfi_mentions_map, offset_mentions_map, description_cfi_map
+                master, related_descriptions, hard_mentions_map, cfi_mentions_map, offset_mentions_map, description_cfi_map, current_chapter
             )
             master_entities[master.id] = merged_detail
             
@@ -281,7 +321,8 @@ class EntityService:
         hard_mentions_map: Dict[UUID, Set[int]],
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
-        description_cfi_map: Dict[UUID, str]
+        description_cfi_map: Dict[UUID, str],
+        current_chapter: Optional[int] = None
     ) -> EntityDetailSchema:
         all_notes: List[EntityNoteSchema] = []
         all_mentions: Set[int] = set(hard_mentions_map.get(master.id, set()))
@@ -330,6 +371,8 @@ class EntityService:
             mentions=final_mentions,
             first_mention_cfi=first_mention_cfi,
             first_mention_offset=first_mention_offset,
+            first_mention_chapter=master.first_mention_chapter,
+            aliases=self._filter_aliases_by_chapter(master, current_chapter),
             notes=all_notes
         )
 

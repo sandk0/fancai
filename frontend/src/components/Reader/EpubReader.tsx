@@ -112,7 +112,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   const hasActiveOperations = isGenerating;
   const { isHealthy: isRenditionHealthy, isChecking: isCheckingHealth, markHealthy } = useRenditionHealthGuard({
-    rendition, bookId: book.id, enabled: renditionReady && !!rendition, isStable: renditionReady && !isLoading && !isRestoringPosition, hasActiveOperations,
+    rendition, bookId: book.id, enabled: renditionReady && !!rendition, isStable: renditionReady && !isLoading && !isRestoringPosition, hasActiveOperations, isRestoringPosition,
   });
 
   useEffect(() => { if (renditionReady && isRenditionHealthy && !isCheckingHealth) markHealthy(); }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
@@ -140,7 +140,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
-  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(book.id);
+  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(book.id, currentChapter);
   const prefetchEntityNetwork = usePrefetchEntityNetwork();
   useEffect(() => { if (book.id) prefetchEntityNetwork(book.id); }, [book.id, prefetchEntityNetwork]);
 

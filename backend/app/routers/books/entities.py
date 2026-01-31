@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
+from typing import Optional
 from pydantic import BaseModel, Field
 from loguru import logger
 
@@ -35,19 +36,12 @@ router = APIRouter()
 )
 async def get_book_entity_network_endpoint(
     book_id: UUID,
-    # Security: Ensure user owns the book or is admin
+    current_chapter: Optional[int] = Query(None, description="Current chapter for spoiler filtering"),
     book: Book = Depends(get_user_book), 
     current_user: User = Depends(get_current_active_user),
     entity_service: EntityService = Depends(get_entity_service)
 ) -> EntityNetworkResponse:
-    """
-    Получает полный граф сущностей и связей для книги.
-    
-    Результат кэшируется на 1 час.
-    Данные автоматически дедуплицируются (Soft Merge).
-    Описания содержат привязку к главам (chapter_index) для спойлер-фильтра.
-    """
-    return await entity_service.get_book_entity_network(book_id)
+    return await entity_service.get_book_entity_network(book_id, current_chapter=current_chapter)
 
 
 @router.patch(

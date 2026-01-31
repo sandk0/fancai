@@ -332,6 +332,32 @@ llm_rate_limit_hits = Counter(
     ["model"],
 )
 
+llm_descriptions_extracted_count = Histogram(
+    "llm_descriptions_extracted_count",
+    "Number of descriptions extracted per chunk/chapter",
+    buckets=[0, 1, 5, 10, 20, 50, 100],
+    labelnames=["model"],
+)
+
+llm_visual_summary_length_chars = Histogram(
+    "llm_visual_summary_length_chars",
+    "Length of generated visual_summary in characters",
+    buckets=[0, 50, 100, 200, 300, 500, 1000],
+    labelnames=["model"],
+)
+
+llm_cache_hits_total = Counter(
+    "llm_cache_hits_total",
+    "Total LLM cache hits",
+    ["model"],
+)
+
+llm_cache_misses_total = Counter(
+    "llm_cache_misses_total",
+    "Total LLM cache misses",
+    ["model"],
+)
+
 
 def record_llm_request(model: str, status: str, duration: float):
     llm_requests_total.labels(model=model, status=status).inc()
@@ -349,6 +375,22 @@ def record_llm_error(model: str, error_type: str):
 
 def record_llm_rate_limit(model: str):
     llm_rate_limit_hits.labels(model=model).inc()
+
+
+def record_description_count(model: str, count: int):
+    llm_descriptions_extracted_count.labels(model=model).observe(count)
+
+
+def record_visual_summary_length(model: str, length: int):
+    llm_visual_summary_length_chars.labels(model=model).observe(length)
+
+
+def record_llm_cache_hit(model: str):
+    llm_cache_hits_total.labels(model=model).inc()
+
+
+def record_llm_cache_miss(model: str):
+    llm_cache_misses_total.labels(model=model).inc()
 
 
 # ============================================================================
@@ -385,4 +427,12 @@ __all__ = [
     "record_llm_tokens",
     "record_llm_error",
     "record_llm_rate_limit",
+    "llm_descriptions_extracted_count",
+    "llm_visual_summary_length_chars",
+    "llm_cache_hits_total",
+    "llm_cache_misses_total",
+    "record_description_count",
+    "record_visual_summary_length",
+    "record_llm_cache_hit",
+    "record_llm_cache_miss",
 ]

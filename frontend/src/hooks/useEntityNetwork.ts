@@ -5,14 +5,17 @@ import { EntityNetworkResponse } from '../types/entity';
 
 const ENTITY_NETWORK_STALE_TIME = 1000 * 60 * 60;
 
-export const entityNetworkQueryKey = (bookId: string) => ['book', bookId, 'entities'];
+export const entityNetworkQueryKey = (bookId: string, currentChapter?: number) => 
+    currentChapter != null 
+        ? ['book', bookId, 'entities', currentChapter] 
+        : ['book', bookId, 'entities'];
 
-export const useEntityNetwork = (bookId: string | undefined) => {
+export const useEntityNetwork = (bookId: string | undefined, currentChapter?: number) => {
     return useQuery<EntityNetworkResponse, Error>({
-        queryKey: entityNetworkQueryKey(bookId || ''),
+        queryKey: entityNetworkQueryKey(bookId || '', currentChapter),
         queryFn: () => {
             if (!bookId) throw new Error('Book ID is required');
-            return EntityService.getNetwork(bookId);
+            return EntityService.getNetwork(bookId, currentChapter);
         },
         enabled: !!bookId,
         staleTime: ENTITY_NETWORK_STALE_TIME,

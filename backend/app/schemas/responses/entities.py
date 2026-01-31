@@ -31,6 +31,9 @@ class EntityDetailSchema(BaseModel):
     mentions: List[int] = []
     first_mention_cfi: Optional[str] = None
     first_mention_offset: Optional[int] = None
+    first_mention_chapter: Optional[int] = None
+    
+    aliases: List[str] = []
     
     notes: List[EntityNoteSchema] = []
 
