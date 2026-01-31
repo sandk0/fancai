@@ -36,24 +36,6 @@ export const useUIStore = create<UIState>((set, get) => ({
       });
     },
 
-    error: (title: string, message?: string) => {
-      get().addNotification({
-        type: 'error',
-        title,
-        message,
-        duration: 10000, // Longer duration for errors
-      });
-    },
-
-    warning: (title: string, message?: string) => {
-      get().addNotification({
-        type: 'warning',
-        title,
-        message,
-        duration: 7000,
-      });
-    },
-
     info: (title: string, message?: string) => {
       get().addNotification({
         type: 'info',

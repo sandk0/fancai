@@ -115,7 +115,7 @@ export function useReadingSession({
         return;
       }
 
-      onError?.(error);
+      onError?.(error as Error);
     },
   });
 
@@ -180,7 +180,7 @@ export function useReadingSession({
     onError: (error) => {
       console.error('❌ [useReadingSession] Failed to end session:', error);
       isEndingRef.current = false;
-      onError?.(error);
+      onError?.(error as Error);
     },
   });
 
