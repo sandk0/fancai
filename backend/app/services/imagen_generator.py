@@ -410,10 +410,12 @@ Do not include any explanation, just the genre name.
         try:
             from google import genai
             from app.core.config import settings
+            import os
             
-            client = genai.Client(api_key=settings.LANGEXTRACT_API_KEY or settings.GOOGLE_API_KEY)
+            api_key = settings.GOOGLE_API_KEY or os.getenv("LANGEXTRACT_API_KEY")
+            client = genai.Client(api_key=api_key)
             response = await client.aio.models.generate_content(
-                model="gemini-3-flash",
+                model=settings.GEMINI_MODEL,
                 contents=prompt,
             )
             

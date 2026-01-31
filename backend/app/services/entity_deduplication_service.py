@@ -125,10 +125,13 @@ class EntityDeduplicationService:
     @retry_llm_extraction
     async def _call_gemini(self, entities: List[EntityForAnalysis]) -> DeduplicationResponse:
         import time
+        import os
         import google.genai as genai
         from google.genai import types
+        from app.core.config import settings
         
-        client = genai.Client()
+        api_key = settings.GOOGLE_API_KEY or os.getenv("LANGEXTRACT_API_KEY")
+        client = genai.Client(api_key=api_key)
         
         entities_json = "\n".join([
             f"- ID: {e.id}, Name: \"{e.name}\", Type: {e.type}, "
@@ -141,7 +144,7 @@ class EntityDeduplicationService:
         
         start_time = time.time()
         response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
+            model=settings.GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
