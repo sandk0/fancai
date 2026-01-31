@@ -12,6 +12,8 @@
 
 import { STORAGE_KEYS } from '@/types/state';
 
+let globalRefreshPromise: Promise<string> | null = null;
+
 /**
  * Refresh the access token using the refresh token
  *
@@ -19,35 +21,54 @@ import { STORAGE_KEYS } from '@/types/state';
  * @throws Error if refresh fails or no refresh token available
  */
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-
-  if (!refreshToken) {
-    throw new Error('No refresh token available');
+  // Return existing promise if refresh is already in progress (Mutex)
+  if (globalRefreshPromise) {
+    return globalRefreshPromise;
   }
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-  const response = await fetch(`${baseUrl}/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
+  globalRefreshPromise = (async () => {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
 
-  if (!response.ok) {
-    // Clear auth data on refresh failure
-    clearAuthData();
-    throw new Error(`Token refresh failed: ${response.status}`);
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const response = await fetch(`${baseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      // If 429 Too Many Requests, throw specific error to avoid logout
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded');
+      }
+      
+      // Clear auth data on permanent refresh failure
+      clearAuthData();
+      throw new Error(`Token refresh failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const { tokens } = data;
+
+    // Store new tokens
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
+    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
+
+    return tokens.access_token;
+  })();
+
+  try {
+    return await globalRefreshPromise;
+  } finally {
+    // Clear promise after completion (success or fail)
+    globalRefreshPromise = null;
   }
-
-  const data = await response.json();
-  const { tokens } = data;
-
-  // Store new tokens
-  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-  localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-
-  return tokens.access_token;
 }
 
 /**
@@ -147,8 +168,13 @@ export async function fetchWithTokenRefresh(
           console.log('[fetchWithTokenRefresh] Token refreshed successfully, retrying request...');
           retryCount++;
           continue; // Retry with new token
-        } catch (refreshError) {
+        } catch (refreshError: any) {
           console.warn('[fetchWithTokenRefresh] Token refresh failed:', refreshError);
+
+          // Don't logout on Rate Limit or Network Error
+          if (refreshError.message === 'Rate limit exceeded' || refreshError.name === 'TypeError') {
+             throw refreshError;
+          }
 
           // Only redirect if not already on login page
           if (!window.location.pathname.includes('/login')) {
