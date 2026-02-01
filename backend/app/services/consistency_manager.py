@@ -36,23 +36,40 @@ class ConsistencyManager:
         if not new:
             return existing
         
-        existing_lower = existing.lower()
+        # Smarter merge: compare with the LAST entry, not the whole history
+        parts = existing.split('\n\n')
+        last_entry = parts[-1]
+        
+        # Clean up last entry (remove [Глава N]: prefix)
+        if "]: " in last_entry:
+            last_content = last_entry.split("]: ", 1)[1].lower()
+        else:
+            last_content = last_entry.lower()
+            
         new_lower = new.lower()
         
-        if SequenceMatcher(None, existing_lower, new_lower).ratio() > 0.8:
-            return existing if len(existing) >= len(new) else new
-        
-        if new_lower in existing_lower:
+        # 1. Similarity check against LAST entry
+        if SequenceMatcher(None, last_content, new_lower).ratio() > 0.7:
+            # If very similar, keep the longer one (replace last entry if new is better)
+            # But simpler for now: just ignore new if it's similar to last
             return existing
         
-        if existing_lower in new_lower:
-            return new
+        # 2. Substring check
+        if new_lower in last_content:
+            return existing
+        
+        if last_content in new_lower:
+            # If new contains old, it's an expansion. 
+            # We could replace the last entry, but appending with new chapter is safer for history.
+            # Unless it's the SAME chapter.
+            # For now, append.
+            pass
         
         chapter_marker = f"[Глава {chapter_index}]" if chapter_index else ""
         combined = f"{existing}\n\n{chapter_marker}: {new}" if chapter_marker else f"{existing}\n\n{new}"
         
-        if len(combined) > 1500:
-            return existing if len(existing) >= len(new) else new
+        if len(combined) > 2000:
+            return existing
         
         return combined
 
@@ -243,7 +260,7 @@ class ConsistencyManager:
                 merged_summary = self._merge_visual_summaries(
                     entity.visual_summary or "",
                     raw.visual_summary,
-                    chapter_index=raw.first_mention_offset
+                    chapter_index=chapter_index
                 )
                 updated = False
                 if merged_summary != (entity.visual_summary or ""):
