@@ -135,7 +135,11 @@ export function PWAUpdatePrompt({
           aria-labelledby="pwa-update-title"
           aria-describedby="pwa-update-description"
         >
-          <Card variant="elevated" padding="md" className="relative">
+          <Card 
+            variant="elevated" 
+            padding="md" 
+            className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl backdrop-blur-none"
+          >
             {/* Close button in top-right corner */}
             <button
               onClick={handleDismiss}
