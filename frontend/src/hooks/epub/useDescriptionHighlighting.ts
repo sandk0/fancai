@@ -49,6 +49,7 @@ export const useDescriptionHighlighting = ({
 }: UseDescriptionHighlightingOptions) => {
   const processingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProcessedIds = useRef<string>('');
 
   // DEFENSIVE: Ensure input is array
   const safeDescriptions = useMemo(() => Array.isArray(descriptions) ? descriptions : [], [descriptions]);
@@ -63,14 +64,28 @@ export const useDescriptionHighlighting = ({
     return false;
   }, []);
 
-  const processContents = useCallback(async () => {
+  const processContents = useCallback(async (force = false) => {
     if (!rendition || !enabled || safeDescriptions.length === 0 || processingRef.current) return;
-    processingRef.current = true;
+    
+    // Check if we need to re-process
+    const currentIds = safeDescriptions.map(d => d.id).sort().join(',');
+    const idsChanged = currentIds !== lastProcessedIds.current;
+    
     try {
       const contents = rendition.getContents();
       if (!contents?.length) return;
       const doc = contents[0].document;
       if (!doc?.body) return;
+
+      // OPTIMIZATION: If descriptions haven't changed and we already have highlights in DOM, skip
+      // This prevents flashing/re-rendering on simple scroll/relocation events
+      const hasHighlights = doc.querySelector('.description-highlight') !== null;
+      if (!force && !idsChanged && hasHighlights) {
+        return;
+      }
+
+      processingRef.current = true;
+      lastProcessedIds.current = currentIds;
 
       // CLEANUP existing highlights to avoid duplicates
       const existing = doc.querySelectorAll('.description-highlight');
