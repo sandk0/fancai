@@ -314,6 +314,60 @@ class EntityService:
             edges=final_edges
         )
 
+    def _process_visual_summary(self, summary: Optional[str], current_chapter: Optional[int]) -> Optional[str]:
+        """
+        Filters and formats the visual summary based on reading progress.
+        1. Splits by [Глава N] markers.
+        2. Filters out parts from future chapters.
+        3. Removes the [Глава N] markers to return a clean, cohesive text.
+        """
+        if not summary:
+            return None
+            
+        import re
+        
+        # Split by the specific marker format we use in ConsistencyManager
+        # Pattern captures the delimiter so we can parse the chapter number
+        # We look for "\n\n[Глава N]: " or start of string
+        parts = re.split(r'(\[Глава \d+\]: )', summary)
+        
+        # parts[0] is the base text (before any marker)
+        # parts[1] is marker 1, parts[2] is text 1
+        # parts[3] is marker 2, parts[4] is text 2
+        
+        result_parts = []
+        
+        # Handle the base part (always visible)
+        base_text = parts[0].strip()
+        if base_text:
+            result_parts.append(base_text)
+            
+        # Iterate over marker/text pairs
+        for i in range(1, len(parts), 2):
+            if i + 1 >= len(parts):
+                break
+                
+            marker = parts[i]
+            text = parts[i+1].strip()
+            
+            # Extract chapter number
+            match = re.search(r'\[Глава (\d+)\]', marker)
+            if match:
+                chapter_num = int(match.group(1))
+                
+                # Filter logic
+                if current_chapter is None or chapter_num <= current_chapter:
+                    result_parts.append(text)
+            else:
+                # If marker parse fails, include it just in case (safe fallback)
+                result_parts.append(text)
+                
+        if not result_parts:
+            return None
+            
+        # Join with double newlines for paragraphs
+        return "\n\n".join(result_parts)
+
     def _create_merged_detail(
         self, 
         master: Entity, 
@@ -366,7 +420,7 @@ class EntityService:
             name=master.name,
             type=master.type,
             avatar_url=master.master_portrait_url,
-            visual_summary=master.visual_summary,
+            visual_summary=self._process_visual_summary(master.visual_summary, current_chapter),
             importance=master.importance or 5,
             mentions=final_mentions,
             first_mention_cfi=first_mention_cfi,
