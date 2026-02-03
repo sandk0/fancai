@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, Smartphone, Zap, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { m, LazyMotion, domAnimation } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/UI/button';
@@ -24,29 +25,30 @@ export interface IOSPushGuidanceProps {
   expanded?: boolean;
 }
 
-const benefits = [
-  {
-    icon: Bell,
-    title: 'Push-уведомления',
-    description: 'Узнавайте о готовности книг и новых изображениях',
-  },
-  {
-    icon: Smartphone,
-    title: 'Полноэкранный режим',
-    description: 'Читайте без элементов браузера',
-  },
-  {
-    icon: Zap,
-    title: 'Быстрый доступ',
-    description: 'Запускайте с главного экрана одним нажатием',
-  },
-];
-
 export function IOSPushGuidance({
   onInstallClick,
   className,
   expanded = false,
 }: IOSPushGuidanceProps) {
+  const { t } = useTranslation();
+
+  const benefits = [
+    {
+      icon: Bell,
+      title: t('ui.iosPush.push_notifications'),
+      description: t('ui.iosPush.push_desc'),
+    },
+    {
+      icon: Smartphone,
+      title: t('ui.iosPush.fullscreen'),
+      description: t('ui.iosPush.fullscreen_desc'),
+    },
+    {
+      icon: Zap,
+      title: t('ui.iosPush.quick_access'),
+      description: t('ui.iosPush.quick_access_desc'),
+    },
+  ];
   const [shouldShow, setShouldShow] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [iosVersionInfo, setIosVersionInfo] = useState<{
@@ -92,12 +94,12 @@ export function IOSPushGuidance({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  Push-уведомления недоступны в Safari
+                  {t('ui.iosPush.not_available')}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {iosVersionInfo.supportsWebPush
-                    ? 'Установите приложение на главный экран, чтобы получать уведомления.'
-                    : `Требуется iOS ${IOS_MIN_PUSH_VERSION}+ и установка приложения на главный экран.`}
+                    ? t('ui.iosPush.install_hint')
+                    : t('ui.iosPush.ios_required', { version: IOS_MIN_PUSH_VERSION })}
                 </p>
                 <button
                   type="button"
@@ -110,7 +112,7 @@ export function IOSPushGuidance({
                     'transition-colors'
                   )}
                 >
-                  Как установить
+                  {t('ui.iosPush.how_to_install')}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
@@ -145,10 +147,10 @@ export function IOSPushGuidance({
               </div>
               <div>
                 <CardTitle className="text-base">
-                  Установите приложение для Push-уведомлений
+                  {t('ui.iosPush.install_title')}
                 </CardTitle>
                 <CardDescription className="mt-0.5">
-                  iOS Safari не поддерживает Push в браузере
+                  {t('ui.iosPush.install_subtitle')}
                 </CardDescription>
               </div>
             </div>
@@ -158,15 +160,14 @@ export function IOSPushGuidance({
             {!iosVersionInfo.supportsWebPush && iosVersionInfo.version !== null && (
               <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
                 <p className="text-xs text-red-700 dark:text-red-400">
-                  Ваша версия iOS ({iosVersionInfo.version}) не поддерживает Web Push.
-                  Обновите устройство до iOS {IOS_MIN_PUSH_VERSION} или новее.
+                  {t('ui.iosPush.ios_version_warning', { version: iosVersionInfo.version, required: IOS_MIN_PUSH_VERSION })}
                 </p>
               </div>
             )}
 
             <div className="space-y-4">
               <p className="text-sm font-medium text-foreground">
-                Преимущества установленного приложения:
+                {t('ui.iosPush.benefits_title')}
               </p>
 
               <div className="space-y-3">
@@ -208,7 +209,7 @@ export function IOSPushGuidance({
                 className="w-full sm:w-auto"
               >
                 <Smartphone className="h-4 w-4 mr-2" aria-hidden="true" />
-                Установить приложение
+                {t('ui.iosPush.install_button')}
               </Button>
             </div>
           </CardContent>

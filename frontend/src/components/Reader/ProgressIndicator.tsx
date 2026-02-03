@@ -19,14 +19,14 @@ interface ProgressIndicatorProps {
   isVisible?: boolean;
 }
 
-export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
+export const ProgressIndicator: React.FC<ProgressIndicatorProps> = React.memo(function ProgressIndicator({
   progress,
   currentChapter,
   totalChapters,
   currentPage,
   totalPages,
   isVisible = true,
-}) => {
+}) {
   const { t } = useTranslation();
 
   if (!isVisible) return null;
@@ -73,4 +73,4 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
       </div>
     </div>
   );
-};
+});

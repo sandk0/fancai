@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import { logger } from '@/lib/logger';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -18,10 +19,10 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
   const location = useLocation();
 
   useEffect(() => {
-    console.log('🛡️ AuthGuard mounted:', { isAuthenticated, isLoading, userEmail: user?.email });
+    logger.debug('🛡️ AuthGuard mounted:', { isAuthenticated, isLoading, userEmail: user?.email });
     // ✅ FIX: Don't call loadUserFromStorage here - it's already called in onRehydrateStorage
     // This was causing infinite re-renders
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading, user?.email]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -45,7 +46,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // If authentication is not required but user is authenticated (login/register pages)
   if (!requireAuth && isAuthenticated) {
-    const from = (location.state as any)?.from || '/library';
+    const from = (location.state as { from?: string })?.from || '/library';
     return <Navigate to={from} replace />;
   }
 

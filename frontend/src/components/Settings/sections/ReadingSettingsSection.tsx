@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BookOpen, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/UI/button';
@@ -35,13 +36,13 @@ const readerThemeStyles: Record<ReaderTheme, { backgroundColor: string; textColo
   outdoor: { backgroundColor: '#FFFEF5', textColor: '#000000', label: 'Na ulice' },
 };
 
-// Russian labels
-const themeLabels: Record<ReaderTheme, string> = {
-  light: 'Светлая',
-  dark: 'Тёмная',
-  sepia: 'Сепия',
-  night: 'Ночная',
-  outdoor: 'На улице',
+// Theme label translation keys
+const themeLabelKeys: Record<ReaderTheme, string> = {
+  light: 'readingSettings.theme_light',
+  dark: 'readingSettings.theme_dark',
+  sepia: 'readingSettings.theme_sepia',
+  night: 'readingSettings.theme_night',
+  outdoor: 'readingSettings.theme_outdoor',
 };
 
 interface ReadingSettingsSectionProps {
@@ -52,6 +53,7 @@ interface ReadingSettingsSectionProps {
 export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
   compact = false,
 }) => {
+  const { t } = useTranslation();
   const {
     fontSize,
     fontFamily,
@@ -81,7 +83,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           }}
         >
           <p>
-            Пример текста для предпросмотра настроек читалки.
+            {t('readingSettings.preview_text')}
           </p>
         </div>
 
@@ -89,7 +91,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium text-foreground">
-              Размер шрифта
+              {t('readingSettings.font_size')}
             </label>
             <span className="text-sm font-semibold text-primary">
               {fontSize}px
@@ -107,7 +109,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
         {/* Font Family */}
         <div>
           <label className="block text-sm font-medium mb-2 text-foreground">
-            Шрифт
+            {t('readingSettings.font_family')}
           </label>
           <Select
             value={fontFamily}
@@ -120,7 +122,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium text-foreground">
-              Межстрочный интервал
+              {t('readingSettings.line_height')}
             </label>
             <span className="text-sm font-semibold text-primary">
               {lineHeight.toFixed(1)}
@@ -138,7 +140,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
         {/* Reader Theme - Compact Grid for Mobile */}
         <div>
           <label className="block text-sm font-medium mb-2 text-foreground">
-            Тема читалки
+            {t('readingSettings.reader_theme')}
           </label>
           <div className="grid grid-cols-3 gap-2">
             {themes.slice(0, 3).map((themeKey) => {
@@ -160,7 +162,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                     color: themeStyle.textColor,
                   }}
                 >
-                  {themeLabels[themeKey]}
+                  {t(themeLabelKeys[themeKey])}
                 </button>
               );
             })}
@@ -185,7 +187,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                     color: themeStyle.textColor,
                   }}
                 >
-                  {themeLabels[themeKey]}
+                  {t(themeLabelKeys[themeKey])}
                 </button>
               );
             })}
@@ -200,7 +202,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           className="w-full gap-2"
         >
           <RotateCcw className="w-4 h-4" />
-          Сбросить настройки
+          {t('readingSettings.reset')}
         </Button>
       </div>
     );
@@ -212,7 +214,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
         <div className="flex items-center gap-3 mb-6">
           <BookOpen className="w-6 h-6 text-primary" />
           <h3 className="text-xl font-bold text-foreground">
-            Настройки чтения
+            {t('readingSettings.title')}
           </h3>
         </div>
 
@@ -228,10 +230,10 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           }}
         >
           <p className="mb-2">
-            Пример текста для предпросмотра настроек читалки.
+            {t('readingSettings.preview_text')}
           </p>
           <p>
-            Здесь вы можете увидеть как будет выглядеть текст книги с текущими настройками шрифта, размера и темы.
+            {t('readingSettings.preview_text_full')}
           </p>
         </div>
 
@@ -241,7 +243,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-foreground">
-                Размер шрифта
+                {t('readingSettings.font_size')}
               </label>
               <span className="text-sm font-semibold text-primary">
                 {fontSize}px
@@ -263,7 +265,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           {/* Font Family */}
           <div>
             <label className="block text-sm font-medium mb-2 text-foreground">
-              Шрифт
+              {t('readingSettings.font_family')}
             </label>
             <Select
               value={fontFamily}
@@ -276,7 +278,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-foreground">
-                Межстрочный интервал
+                {t('readingSettings.line_height')}
               </label>
               <span className="text-sm font-semibold text-primary">
                 {lineHeight.toFixed(1)}
@@ -298,7 +300,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
           {/* Reader Theme */}
           <div>
             <label className="block text-sm font-medium mb-3 text-foreground">
-              Тема читалки
+              {t('readingSettings.reader_theme')}
             </label>
             <div className="flex flex-wrap gap-2">
               {themes.map((themeKey) => {
@@ -320,7 +322,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                       color: themeStyle.textColor,
                     }}
                   >
-                    {themeLabels[themeKey]}
+                    {t(themeLabelKeys[themeKey])}
                   </button>
                 );
               })}
@@ -335,10 +337,10 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
               className="gap-2"
             >
               <RotateCcw className="w-4 h-4" />
-              Сбросить настройки
+              {t('readingSettings.reset')}
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Вернуть все настройки чтения к значениям по умолчанию
+              {t('readingSettings.reset_desc')}
             </p>
           </div>
         </div>

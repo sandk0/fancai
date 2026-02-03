@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Rendition, Book } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 interface UseCFIGeneratorOptions {
   rendition: Rendition | null;
@@ -78,7 +79,7 @@ export const useCFIGenerator = ({
 
       return null;
     } catch (error) {
-      console.error('[useCFIGenerator] Error finding text CFI:', error);
+      logger.error('[useCFIGenerator] Error finding text CFI:', error);
       return null;
     }
   }, [rendition, book]);

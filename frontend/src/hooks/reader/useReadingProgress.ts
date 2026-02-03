@@ -21,6 +21,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { booksAPI } from '@/api/books';
+import { logger } from '@/lib/logger';
 
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
@@ -55,7 +56,7 @@ export const useReadingProgress = ({
    * Restore reading position on initial load
    */
   useEffect(() => {
-    console.log('📖 [useReadingProgress] Restore check:', {
+    logger.debug('📖 [useReadingProgress] Restore check:', {
       hasRestoredPosition,
       totalPages,
       currentChapter,
@@ -68,19 +69,19 @@ export const useReadingProgress = ({
       return;
     }
 
-    console.log('📖 [useReadingProgress] Attempting to restore position...');
+    logger.debug('📖 [useReadingProgress] Attempting to restore position...');
     setIsRestoring(true);
 
     booksAPI.getReadingProgress(bookId)
       .then(({ progress }) => {
         if (!progress) {
-          console.log('📖 [useReadingProgress] No saved progress found');
+          logger.debug('📖 [useReadingProgress] No saved progress found');
           setHasRestoredPosition(true);
           setIsRestoring(false);
           return;
         }
 
-        console.log('📖 [useReadingProgress] Loaded progress:', {
+        logger.debug('📖 [useReadingProgress] Loaded progress:', {
           currentChapter: progress.current_chapter,
           currentPosition: progress.current_position,
           savedChapter: progress.current_chapter,
@@ -92,7 +93,7 @@ export const useReadingProgress = ({
         if (progress.current_chapter === currentChapter && progress.current_position > 0) {
           const targetPage = Math.max(1, Math.ceil((progress.current_position / 100) * totalPages));
 
-          console.log('📖 [useReadingProgress] RESTORING:', {
+          logger.debug('📖 [useReadingProgress] RESTORING:', {
             chapter: progress.current_chapter,
             positionPercent: progress.current_position + '%',
             totalPages,
@@ -101,14 +102,14 @@ export const useReadingProgress = ({
 
           onPositionRestored?.(progress.current_chapter, targetPage);
         } else {
-          console.log('📖 [useReadingProgress] NOT restoring - chapter mismatch');
+          logger.debug('📖 [useReadingProgress] NOT restoring - chapter mismatch');
         }
 
         setHasRestoredPosition(true);
         setIsRestoring(false);
       })
       .catch(err => {
-        console.error('❌ [useReadingProgress] Failed to load progress:', err);
+        logger.error('❌ [useReadingProgress] Failed to load progress:', err);
         setHasRestoredPosition(true);
         setIsRestoring(false);
       });
@@ -130,7 +131,7 @@ export const useReadingProgress = ({
       const positionPercent = (currentPage / totalPages) * 100;
 
       if (import.meta.env.DEV) {
-        console.log('📊 [useReadingProgress] Auto-save:', {
+        logger.debug('📊 [useReadingProgress] Auto-save:', {
           currentChapter,
           currentPage,
           totalPages,
@@ -144,11 +145,11 @@ export const useReadingProgress = ({
       })
         .then(() => {
           if (import.meta.env.DEV) {
-            console.log('📊 [useReadingProgress] ✅ Progress saved');
+            logger.debug('📊 [useReadingProgress] ✅ Progress saved');
           }
         })
         .catch(err => {
-          console.error('❌ [useReadingProgress] Failed to update:', err);
+          logger.error('❌ [useReadingProgress] Failed to update:', err);
         });
     }, AUTO_SAVE_DEBOUNCE_MS);
 

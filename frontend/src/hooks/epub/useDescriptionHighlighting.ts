@@ -168,14 +168,14 @@ export const useDescriptionHighlighting = ({
 
     rendition.on('rendered', handle);
     rendition.on('relocated', handle);
-    rendition.on('click', handleClick as any);
+    rendition.on('click', handleClick as (e: unknown) => void);
     window.addEventListener('message', handleMessage);
     handle();
 
     return () => {
       rendition.off('rendered', handle);
       rendition.off('relocated', handle);
-      rendition.off('click', handleClick as any);
+      rendition.off('click', handleClick as (e: unknown) => void);
       window.removeEventListener('message', handleMessage);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };

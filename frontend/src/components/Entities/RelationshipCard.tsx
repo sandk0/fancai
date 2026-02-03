@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { isEntityMetCFI } from '../../utils/entityUtils';
 import { isValidCFI, isCFIBefore } from '../../utils/cfiUtils';
@@ -6,15 +7,6 @@ import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
 import { Badge } from '../UI/badge';
 import { Card } from '../UI/Card';
 import { ArrowLeftRight, Lock, Heart, Swords, Users, HelpCircle } from 'lucide-react';
-
-const RELATIONSHIP_TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-    KINSHIP: { label: 'Родство', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-kinship)]' },
-    ALLY: { label: 'Союзник', icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-ally)]' },
-    ENEMY: { label: 'Враг', icon: <Swords className="w-4 h-4" />, color: 'text-[var(--color-relationship-enemy)]' },
-    FRIEND: { label: 'Друг', icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-friend)]' },
-    MENTOR: { label: 'Наставник', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-mentor)]' },
-    STUDENT: { label: 'Ученик', icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-student)]' },
-};
 
 interface RelationshipCardProps {
     edge: NetworkEdge;
@@ -58,6 +50,16 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
     currentCFI,
     onEntityClick,
 }) => {
+    const { t } = useTranslation();
+    const RELATIONSHIP_TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+        KINSHIP: { label: t('entities.rel_kinship'), icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-kinship)]' },
+        ALLY: { label: t('entities.rel_ally'), icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-ally)]' },
+        ENEMY: { label: t('entities.rel_enemy'), icon: <Swords className="w-4 h-4" />, color: 'text-[var(--color-relationship-enemy)]' },
+        FRIEND: { label: t('entities.rel_friend'), icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-friend)]' },
+        MENTOR: { label: t('entities.rel_mentor'), icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-mentor)]' },
+        STUDENT: { label: t('entities.rel_student'), icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-student)]' },
+    };
+
     const isVisible = isRelationshipVisible(edge, sourceEntity, targetEntity, currentCFI ?? null, currentChapter);
     const typeConfig = RELATIONSHIP_TYPE_CONFIG[edge.type] || { 
         label: edge.type, 
@@ -103,9 +105,9 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
                 
                 <div className="text-center space-y-3">
                     <Lock className="w-8 h-8 text-[var(--color-text-disabled)] mx-auto" />
-                    <h4 className="text-[var(--color-text-default)] font-medium">Связь скрыта</h4>
+                    <h4 className="text-[var(--color-text-default)] font-medium">{t('entities.relationship_hidden')}</h4>
                     <p className="text-[var(--color-text-muted)] text-sm">
-                        Продолжайте читать, чтобы узнать об этих отношениях.
+                        {t('entities.relationship_hidden_desc')}
                     </p>
                 </div>
             </Card>
@@ -151,7 +153,7 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
 
             {edge.first_interaction_chapter != null && (
                 <div className="mt-4 text-center text-xs text-[var(--color-text-disabled)]">
-                    Первое взаимодействие: Глава {edge.first_interaction_chapter}
+                    {t('entities.first_interaction', { chapter: edge.first_interaction_chapter })}
                 </div>
             )}
         </Card>

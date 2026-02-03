@@ -22,6 +22,7 @@ import {
 import { useOfflineBook } from './useOfflineBook'
 import { useAuthStore } from '@/stores/auth'
 import { bookKeys } from './api/queryKeys'
+import { logger } from '@/lib/logger';
 
 /**
  * Hook for managing book downloads.
@@ -95,7 +96,7 @@ export function useDownloadBook(bookId: string) {
    */
   const startDownload = useCallback(async () => {
     if (!userId || !bookId) {
-      console.warn('[useDownloadBook] Cannot download: userId or bookId missing')
+      logger.warn('[useDownloadBook] Cannot download: userId or bookId missing')
       return
     }
 
@@ -104,13 +105,13 @@ export function useDownloadBook(bookId: string) {
     setProgress(null)
 
     try {
-      console.log(`[useDownloadBook] Starting download for book ${bookId}`)
+      logger.debug(`[useDownloadBook] Starting download for book ${bookId}`)
 
       await downloadManager.downloadBook(bookId, userId, {
         onProgress: setProgress,
       })
 
-      console.log(`[useDownloadBook] Download complete for book ${bookId}`)
+      logger.debug(`[useDownloadBook] Download complete for book ${bookId}`)
 
       // Invalidate queries to refresh UI
       queryClient.invalidateQueries({ queryKey: bookKeys.all(userId) })
@@ -119,7 +120,7 @@ export function useDownloadBook(bookId: string) {
       const errorMessage = (err as Error).message
 
       if (errorMessage !== 'Download cancelled') {
-        console.error('[useDownloadBook] Download failed:', err)
+        logger.error('[useDownloadBook] Download failed:', err)
         setError(errorMessage)
       }
     } finally {
@@ -133,7 +134,7 @@ export function useDownloadBook(bookId: string) {
   const cancelDownload = useCallback(() => {
     if (!userId || !bookId) return
 
-    console.log(`[useDownloadBook] Cancelling download for book ${bookId}`)
+    logger.debug(`[useDownloadBook] Cancelling download for book ${bookId}`)
     downloadManager.cancelDownload(userId, bookId)
     setIsDownloading(false)
     setProgress(null)
@@ -145,7 +146,7 @@ export function useDownloadBook(bookId: string) {
   const deleteOfflineBook = useCallback(async () => {
     if (!userId || !bookId) return
 
-    console.log(`[useDownloadBook] Deleting offline book ${bookId}`)
+    logger.debug(`[useDownloadBook] Deleting offline book ${bookId}`)
 
     try {
       await downloadManager.deleteOfflineBook(userId, bookId)
@@ -158,7 +159,7 @@ export function useDownloadBook(bookId: string) {
       setProgress(null)
       setError(null)
     } catch (err) {
-      console.error('[useDownloadBook] Failed to delete offline book:', err)
+      logger.error('[useDownloadBook] Failed to delete offline book:', err)
       setError((err as Error).message)
     }
   }, [userId, bookId, queryClient])

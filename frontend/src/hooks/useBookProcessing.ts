@@ -11,6 +11,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
 import { bookKeys, getCurrentUserId } from '@/hooks/api/queryKeys';
+import i18n from '@/lib/i18n';
 import type { Book } from '@/types/api';
 
 export type ProcessingState = 'not_processed' | 'processing' | 'processed' | 'error';
@@ -125,7 +126,7 @@ export function useBookProcessing(book: Book): UseBookProcessingResult {
             optimisticUpdate({
                 is_processing: false,
                 descriptions_extracted: false,
-                descriptions_processing_error: 'Отменено пользователем',
+                descriptions_processing_error: i18n.t('hooks.bookProcessing.cancelled'),
             });
         },
         onSuccess: () => {

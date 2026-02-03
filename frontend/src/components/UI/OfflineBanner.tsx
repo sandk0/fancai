@@ -15,8 +15,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { WifiOff, RefreshCw, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { getPendingCount, subscribeSyncQueue } from '@/services/syncQueue';
+import { logger } from '@/lib/logger';
 
 interface OfflineBannerProps {
   /** Auto-hide banner after sync complete (ms). Set to 0 to disable. */
@@ -52,7 +54,7 @@ export function OfflineBanner({
       const count = await getPendingCount();
       setPendingCount(count);
     } catch (error) {
-      console.warn('[OfflineBanner] Failed to get pending count:', error);
+      logger.warn('[OfflineBanner] Failed to get pending count:', error);
       setPendingCount(0);
     }
   }, []);
@@ -132,15 +134,17 @@ export function OfflineBanner({
   };
 
   // Determine banner state and styling
+  const { t } = useTranslation();
+
   const getBannerConfig = () => {
     if (!isOnline) {
       return {
         bgColor: 'bg-red-600 dark:bg-red-700',
         icon: <WifiOff className="h-4 w-4" />,
-        text: 'Нет подключения',
+        text: t('ui.offline.no_connection'),
         subtext: pendingCount > 0
-          ? `Ожидает синхронизации: ${pendingCount}`
-          : 'Изменения сохранятся локально',
+          ? t('ui.offline.pending_sync', { count: pendingCount })
+          : t('ui.offline.saved_locally'),
       };
     }
 
@@ -148,8 +152,8 @@ export function OfflineBanner({
       return {
         bgColor: 'bg-amber-500 dark:bg-amber-600',
         icon: <RefreshCw className="h-4 w-4 animate-spin" />,
-        text: 'Синхронизация...',
-        subtext: `Ожидает синхронизации: ${pendingCount}`,
+        text: t('ui.offline.syncing'),
+        subtext: t('ui.offline.pending_sync', { count: pendingCount }),
       };
     }
 
@@ -157,8 +161,8 @@ export function OfflineBanner({
       return {
         bgColor: 'bg-green-600 dark:bg-green-700',
         icon: <CheckCircle className="h-4 w-4" />,
-        text: 'Синхронизация завершена',
-        subtext: 'Все изменения сохранены',
+        text: t('ui.offline.sync_complete'),
+        subtext: t('ui.offline.all_saved'),
       };
     }
 

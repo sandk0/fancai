@@ -3,6 +3,9 @@
 import { create } from 'zustand';
 import type { UIState, Notification, NotificationAction } from '@/types/state';
 
+// Track notification auto-dismiss timers to prevent memory leaks
+const notificationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 export const useUIStore = create<UIState>((set, get) => ({
   // Initial state
   isLoading: false,
@@ -97,27 +100,35 @@ export const useUIStore = create<UIState>((set, get) => ({
     const notification: Notification = {
       id: `notification-${Date.now()}-${Math.random()}`,
       timestamp: Date.now(),
-      duration: 5000, // Default 5 seconds
+      duration: 5000,
       ...notificationData,
     };
 
     set({ notifications: [notification, ...get().notifications] });
 
-    // Auto-dismiss after duration
     if (notification.duration) {
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
+        notificationTimers.delete(notification.id);
         get().removeNotification(notification.id);
       }, notification.duration);
+      notificationTimers.set(notification.id, timerId);
     }
   },
 
   removeNotification: (id) => {
+    const timerId = notificationTimers.get(id);
+    if (timerId) {
+      clearTimeout(timerId);
+      notificationTimers.delete(id);
+    }
     set({ 
       notifications: get().notifications.filter(n => n.id !== id) 
     });
   },
 
   clearNotifications: () => {
+    notificationTimers.forEach(clearTimeout);
+    notificationTimers.clear();
     set({ notifications: [] });
   },
 }));

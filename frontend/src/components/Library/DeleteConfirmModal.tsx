@@ -16,6 +16,7 @@ import { X, AlertTriangle, Trash2 } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Z_INDEX } from '@/lib/zIndex';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -34,6 +35,9 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(isOpen, modalRef);
 
   // Handle Escape key press
   const handleKeyDown = useCallback(
@@ -77,6 +81,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         style={{ zIndex: Z_INDEX.modal }}
       >
         <m.div
+          ref={modalRef}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -106,8 +111,9 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               onClick={onCancel}
               className="p-2 rounded-lg transition-colors hover:bg-muted text-muted-foreground/70"
               disabled={isDeleting}
+              aria-label={t('library.deleteModal.cancel')}
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 

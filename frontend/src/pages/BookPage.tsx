@@ -10,9 +10,11 @@
  * - Fully theme-aware
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useTranslation } from 'react-i18next';
 import {
   Book,
   BookOpen,
@@ -27,10 +29,125 @@ import {
 } from 'lucide-react';
 import { booksAPI } from '@/api/books';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
+import { PageMeta } from '@/components/SEO/PageMeta';
+import type { ChapterInfo } from '@/types/api';
+
+const VIRTUALIZATION_THRESHOLD = 20;
+const ESTIMATED_CHAPTER_HEIGHT = 120;
+const CHAPTER_GAP = 12;
+
+interface ChaptersListProps {
+  chapters: ChapterInfo[];
+  bookId: string;
+  navigate: (path: string) => void;
+}
+
+const ChaptersList: React.FC<ChaptersListProps> = ({ chapters, bookId, navigate }) => {
+  const { t } = useTranslation();
+  const parentRef = useRef<HTMLDivElement>(null);
+  const useVirtual = chapters.length > VIRTUALIZATION_THRESHOLD;
+
+  const rowVirtualizer = useVirtualizer({
+    count: chapters.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_CHAPTER_HEIGHT,
+    overscan: 5,
+    gap: CHAPTER_GAP,
+    enabled: useVirtual,
+  });
+
+  const renderChapter = (chapter: ChapterInfo) => (
+    <div
+      onClick={() => navigate(`/book/${bookId}/chapter/${chapter.number}`)}
+      className="group p-3 sm:p-4 lg:p-6 rounded-xl border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg bg-background border-border"
+    >
+      <div className="flex items-start justify-between gap-2 sm:gap-4">
+        <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
+          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center font-bold text-sm sm:text-base bg-muted text-primary">
+            {chapter.number}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base lg:text-lg mb-1 sm:mb-2 line-clamp-2 text-foreground">
+              {chapter.title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-2 sm:mb-3 text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>{chapter.word_count.toLocaleString()} {t('book.words')}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>~{chapter.estimated_reading_time_minutes} {t('book.minutes_short')}</span>
+              </div>
+            </div>
+            {chapter.is_description_parsed && chapter.descriptions_found > 0 && (
+              <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-md bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs sm:text-sm font-medium">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>{chapter.descriptions_found} {t('book.ai_descriptions')}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex-shrink-0 text-muted-foreground group-hover:translate-x-1 transition-transform hidden sm:block">
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 className="fluid-h2 font-bold mb-4 sm:mb-6 text-foreground">
+        {t('book.chapters_title')} ({chapters.length})
+      </h2>
+      {useVirtual ? (
+        <div
+          ref={parentRef}
+          style={{ overflow: 'auto', maxHeight: '70vh' }}
+        >
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+              const chapter = chapters[virtualItem.index];
+              return (
+                <div
+                  key={virtualItem.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {renderChapter(chapter)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 sm:space-y-3">
+          {chapters.map((chapter) => (
+            <div key={chapter.id}>
+              {renderChapter(chapter)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const BookPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // FIX: Always get fresh progress data, even after quick reader exit
   const { data: book, isLoading, error } = useQuery({
@@ -47,7 +164,7 @@ const BookPage: React.FC = () => {
       <div className="flex items-center justify-center min-h-[60vh]" aria-busy="true" aria-live="polite">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 mb-4 border-primary" aria-hidden="true"></div>
-          <p className="text-muted-foreground">Загрузка книги...</p>
+          <p className="text-muted-foreground">{t('book.loading')}</p>
         </div>
       </div>
     );
@@ -61,17 +178,17 @@ const BookPage: React.FC = () => {
             <Book className="w-10 h-10 text-muted-foreground/70" />
           </div>
           <h1 className="text-3xl font-bold mb-3 text-foreground">
-            Книга не найдена
+            {t('book.not_found')}
           </h1>
           <p className="mb-6 max-w-sm mx-auto text-muted-foreground">
-            Запрошенная книга не существует или была удалена
+            {t('book.not_found_desc')}
           </p>
           <button
             onClick={() => navigate('/library')}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 bg-primary text-primary-foreground"
           >
             <ArrowLeft className="w-5 h-5" />
-            Вернуться в библиотеку
+            {t('book.back_to_library')}
           </button>
         </div>
       </div>
@@ -86,13 +203,14 @@ const BookPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <PageMeta title={t('book.page_title')} description={t('book.page_description')} />
       {/* Back Button */}
       <button
         onClick={() => navigate('/library')}
         className="inline-flex items-center gap-2 mb-6 min-h-[44px] py-2.5 px-4 -ml-4 rounded-lg transition-colors text-muted-foreground hover:bg-muted/50"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="hover:underline">Назад в библиотеку</span>
+        <span className="hover:underline">{t('book.back')}</span>
       </button>
 
       {/* Hero Section */}
@@ -135,16 +253,16 @@ const BookPage: React.FC = () => {
               <div className="flex flex-wrap justify-center lg:justify-start gap-2 sm:gap-4 mb-6 sm:mb-8 text-xs sm:text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4" />
-                  <span>{book.chapters.length} глав</span>
+                  <span>{book.chapters.length} {t('book.chapter_many')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   {/* FIX #6: Note that total_pages is estimated from parsing, not epub.js locations */}
-                  <span>~{book.total_pages} страниц</span>
+                  <span>~{book.total_pages} {t('book.pages')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  <span>~{book.estimated_reading_time_hours}ч</span>
+                  <span>~{book.estimated_reading_time_hours}{t('book.hours_short')}</span>
                 </div>
                 <div className="px-3 py-1 rounded-full text-xs uppercase font-semibold bg-background text-foreground">
                   {book.file_format}
@@ -156,7 +274,7 @@ const BookPage: React.FC = () => {
               {book.reading_progress.progress_percent >= 0.1 && (
                 <div className="mb-6 sm:mb-8">
                   <div className="flex items-center justify-between text-xs sm:text-sm mb-2 text-muted-foreground">
-                    <span>Прогресс чтения</span>
+                    <span>{t('book.reading_progress')}</span>
                     <span className="font-semibold text-primary">
                       {book.reading_progress.progress_percent.toFixed(1)}%
                     </span>
@@ -182,8 +300,8 @@ const BookPage: React.FC = () => {
                   {/* FIX #2: Change threshold from > 0 to >= 0.1 for "Continue Reading" button */}
                   {book.reading_progress.progress_percent >= 0.1 &&
                   book.reading_progress.progress_percent < 100
-                    ? 'Продолжить читать'
-                    : 'Начать читать'}
+                    ? t('book.continue_reading')
+                    : t('book.start_reading')}
                 </button>
 
                 <button
@@ -191,7 +309,7 @@ const BookPage: React.FC = () => {
                   className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-base transition-all hover:scale-105 border-2 bg-background border-border text-foreground"
                 >
                   <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  AI Галерея
+                  {t('book.ai_gallery')}
                 </button>
               </div>
             </div>
@@ -209,7 +327,7 @@ const BookPage: React.FC = () => {
             {book.chapters.length}
           </div>
           <div className="text-xs sm:text-sm text-muted-foreground">
-            {book.chapters.length === 1 ? 'Глава' : 'Глав'}
+            {book.chapters.length === 1 ? t('book.chapter_one') : t('book.chapter_many')}
           </div>
         </div>
 
@@ -221,7 +339,7 @@ const BookPage: React.FC = () => {
             {parsedChapters}
           </div>
           <div className="text-xs sm:text-sm text-muted-foreground">
-            Обработано AI
+            {t('book.processed_ai')}
           </div>
         </div>
 
@@ -233,7 +351,7 @@ const BookPage: React.FC = () => {
             {totalDescriptions}
           </div>
           <div className="text-xs sm:text-sm text-muted-foreground">
-            Описаний найдено
+            {t('book.descriptions_found')}
           </div>
         </div>
       </div>
@@ -242,7 +360,7 @@ const BookPage: React.FC = () => {
       {book.description && (
         <div className="p-4 sm:p-6 lg:p-8 rounded-xl border-2 mb-6 sm:mb-8 lg:mb-12 bg-background border-border">
           <h2 className="fluid-h3 font-bold mb-2 sm:mb-4 text-foreground">
-            Описание
+            {t('book.description')}
           </h2>
           <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
             {book.description}
@@ -251,61 +369,7 @@ const BookPage: React.FC = () => {
       )}
 
       {/* Chapters List */}
-      <div>
-        <h2 className="fluid-h2 font-bold mb-4 sm:mb-6 text-foreground">
-          Главы ({book.chapters.length})
-        </h2>
-
-        <div className="space-y-2 sm:space-y-3">
-          {book.chapters.map((chapter) => (
-            <div
-              key={chapter.id}
-              onClick={() => navigate(`/book/${book.id}/chapter/${chapter.number}`)}
-              className="group p-3 sm:p-4 lg:p-6 rounded-xl border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg bg-background border-border"
-            >
-              <div className="flex items-start justify-between gap-2 sm:gap-4">
-                <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
-                  {/* Chapter Number Badge */}
-                  <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center font-bold text-sm sm:text-base bg-muted text-primary">
-                    {chapter.number}
-                  </div>
-
-                  {/* Chapter Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base lg:text-lg mb-1 sm:mb-2 line-clamp-2 text-foreground">
-                      {chapter.title}
-                    </h3>
-
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-2 sm:mb-3 text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{chapter.word_count.toLocaleString()} слов</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>~{chapter.estimated_reading_time_minutes} мин</span>
-                      </div>
-                    </div>
-
-                    {/* Description Status */}
-                    {chapter.is_description_parsed && chapter.descriptions_found > 0 && (
-                      <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-md bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs sm:text-sm font-medium">
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{chapter.descriptions_found} описаний AI</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Arrow Icon */}
-                <div className="flex-shrink-0 text-muted-foreground group-hover:translate-x-1 transition-transform hidden sm:block">
-                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ChaptersList chapters={book.chapters} bookId={book.id} navigate={navigate} />
     </div>
   );
 };

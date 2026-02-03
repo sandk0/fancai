@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * Environment Configuration для fancai Frontend
  *
@@ -192,11 +193,11 @@ export type AppConfig = typeof config;
  */
 if (config.env.isDevelopment && config.debug.enabled) {
   console.group('🔧 Environment Configuration');
-  console.log('Environment:', config.app.environment);
-  console.log('API Base URL:', config.api.baseUrl);
-  console.log('WebSocket URL:', config.websocket.url);
-  console.log('Features:', config.features);
-  console.log('Debug Mode:', config.debug.enabled);
+  logger.debug('Environment:', config.app.environment);
+  logger.debug('API Base URL:', config.api.baseUrl);
+  logger.debug('WebSocket URL:', config.websocket.url);
+  logger.debug('Features:', config.features);
+  logger.debug('Debug Mode:', config.debug.enabled);
   console.groupEnd();
 }
 
@@ -204,7 +205,7 @@ if (config.env.isDevelopment && config.debug.enabled) {
  * Production warning if debug mode is enabled
  */
 if (config.env.isProduction && config.debug.enabled) {
-  console.warn(
+  logger.warn(
     '⚠️  WARNING: Debug mode is enabled in production! ' +
     'Set VITE_DEBUG=false in .env.production'
   );

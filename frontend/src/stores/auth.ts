@@ -6,6 +6,8 @@ import { authAPI } from '@/api/auth';
 import type { AuthState } from '@/types/state';
 import { STORAGE_KEYS } from '@/types/state';
 import { clearAllCaches, backupReadingProgress, restoreReadingProgress } from '@/utils/cacheManager';
+import { tabSync } from '@/services/tabSync';
+import { logger } from '@/lib/logger';
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -21,22 +23,22 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           // Clear any stale caches from previous session BEFORE login
-          console.log('🧹 Clearing stale caches before login...');
+          logger.debug('🧹 Clearing stale caches before login...');
           await clearAllCaches();
 
           const response = await authAPI.login({ email, password });
           const { user } = response; // Tokens are now in HttpOnly cookies
 
-          console.log('🔐 Login successful for:', user.email);
+          logger.debug('🔐 Login successful for:', user.email);
           
           // Store user data in localStorage for offline access
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
           // IMPORTANT: Restore reading progress AFTER successful login
-          console.log('📂 Checking for reading progress backup...');
+          logger.debug('📂 Checking for reading progress backup...');
           const restored = restoreReadingProgress(user.id);
           if (restored) {
-            console.log('✅ Reading progress restored successfully');
+            logger.debug('✅ Reading progress restored successfully');
           }
 
           set({
@@ -54,7 +56,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          console.log('🧹 Clearing stale caches before registration...');
+          logger.debug('🧹 Clearing stale caches before registration...');
           await clearAllCaches();
 
           const response = await authAPI.register({
@@ -78,20 +80,20 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        console.log('🚪 Logging out...');
+        logger.debug('🚪 Logging out...');
 
         const userId = get().user?.id;
         if (userId) {
-          console.log('💾 Backing up reading progress before logout...');
+          logger.debug('💾 Backing up reading progress before logout...');
           backupReadingProgress(userId);
         }
 
         // TD-FRONT-130: Properly await logout API call (clears cookies + blacklists token)
         try {
           await authAPI.logout();
-          console.log('✅ Logout API call successful');
+          logger.debug('✅ Logout API call successful');
         } catch (error) {
-          console.error('❌ Logout API call failed:', error);
+          logger.error('❌ Logout API call failed:', error);
         }
 
         // Clear localStorage
@@ -99,12 +101,12 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
 
-        console.log('🧹 Clearing all caches on logout...');
+        logger.debug('🧹 Clearing all caches on logout...');
         try {
           await clearAllCaches();
-          console.log('✅ All caches cleared on logout');
+          logger.debug('✅ All caches cleared on logout');
         } catch (error) {
-          console.error('❌ Failed to clear some caches on logout:', error);
+          logger.error('❌ Failed to clear some caches on logout:', error);
         }
 
         set({
@@ -112,6 +114,8 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
         });
+
+        tabSync.broadcast({ type: 'logout' });
       },
 
       refreshAccessToken: async () => {
@@ -130,7 +134,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loadUserFromStorage: async () => {
-        console.log('📱 Loading user session...');
+        logger.debug('📱 Loading user session...');
         set({ isLoading: true });
 
         try {
@@ -142,7 +146,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Verify session with API (checks HttpOnly cookies)
           const response = await authAPI.getCurrentUser();
-          console.log('✅ Session valid for:', response.user.email);
+          logger.debug('✅ Session valid for:', response.user.email);
           
           set({
             user: response.user,
@@ -154,7 +158,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
           
         } catch {
-          console.log('❌ Session invalid or expired');
+          logger.debug('❌ Session invalid or expired');
           set({
             user: null,
             isAuthenticated: false,
@@ -171,7 +175,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (_state) => {
-        console.log('🔄 Zustand rehydrating auth store...');
+        logger.debug('🔄 Zustand rehydrating auth store...');
         setTimeout(() => {
           useAuthStore.getState().loadUserFromStorage();
         }, 100);
@@ -179,3 +183,18 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Tab sync: when another tab logs out, clear local state and redirect
+tabSync.subscribe('logout', () => {
+  localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+  useAuthStore.setState({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+  });
+
+  window.location.href = '/login';
+});

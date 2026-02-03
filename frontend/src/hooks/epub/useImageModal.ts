@@ -18,12 +18,13 @@ import { imagesAPI } from '@/api/images';
 import { notify } from '@/stores/ui';
 import { imageCache } from '@/services/imageCache';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
+import { useVisibilityManager } from '@/hooks/shared/useVisibilityManager';
+
+import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 
 /** Polling interval for checking async task status (ms) */
 const POLLING_INTERVAL = 3000;
-
-/** Debug logging */
-const DEBUG = import.meta.env.DEV;
 
 export type GenerationStatus = 'idle' | 'generating' | 'completed' | 'error';
 
@@ -67,68 +68,37 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
   // Current task ID for async generation
   const currentTaskIdRef = useRef<string | null>(null);
 
-  // Visibility tracking - pause polling when app is in background (P7 fix)
-  const isVisibleRef = useRef(document.visibilityState === 'visible');
-  const wasPollingRef = useRef(false); // Track if polling was active before visibility change
-  
-  // Ref for resumePolling to use in visibility effect (avoids forward reference)
+  const wasPollingRef = useRef(false);
   const resumePollingRef = useRef<((taskId: string) => void) | null>(null);
 
-  /**
-   * Handle visibility changes - pause/resume polling (P7 fix for "Forever Broken Book")
-   *
-   * When app goes to background during image generation polling:
-   * - Pause polling to prevent state updates and IndexedDB writes
-   * - Resume polling when app returns to foreground
-   *
-   * This prevents the race condition where polling callbacks try to write
-   * to IndexedDB while the app is transitioning, which can corrupt data.
-   */
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const nowVisible = document.visibilityState === 'visible';
-      const wasVisible = isVisibleRef.current;
-      isVisibleRef.current = nowVisible;
-
-      if (DEBUG) {
-        console.log('[useImageModal] Visibility changed:', { wasVisible, nowVisible, hasPolling: !!pollingIntervalRef.current, wasPolling: wasPollingRef.current });
+  useVisibilityManager({
+    id: 'image-modal-polling',
+    priority: 20,
+    delay: 0,
+    enabled: isGenerating,
+    onHidden: () => {
+      if (pollingIntervalRef.current) {
+        wasPollingRef.current = true;
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+        logger.debug('[useImageModal] Paused polling due to background');
       }
-
-      // Going to background - pause polling
-      if (wasVisible && !nowVisible) {
-        if (pollingIntervalRef.current) {
-          wasPollingRef.current = true;
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-          if (DEBUG) {
-            console.log('[useImageModal] Paused polling due to background');
+    },
+    onVisible: () => {
+      if (wasPollingRef.current && currentTaskIdRef.current && isGenerating) {
+        logger.debug('[useImageModal] Resuming polling after foreground, taskId:', currentTaskIdRef.current);
+        setTimeout(() => {
+          if (document.visibilityState === 'visible' && currentTaskIdRef.current && isGenerating) {
+            resumePollingRef.current?.(currentTaskIdRef.current);
           }
-        }
-      }
-
-      // Returning to foreground - resume polling if it was active
-      if (!wasVisible && nowVisible) {
-        if (wasPollingRef.current && currentTaskIdRef.current && isGenerating) {
-          if (DEBUG) {
-            console.log('[useImageModal] Resuming polling after foreground, taskId:', currentTaskIdRef.current);
-          }
-          // Delay resume slightly to let other systems stabilize (200ms)
-          setTimeout(() => {
-            // Double check we're still visible and should be polling
-            if (document.visibilityState === 'visible' && currentTaskIdRef.current && isGenerating) {
-              resumePollingRef.current?.(currentTaskIdRef.current);
-            }
-            wasPollingRef.current = false;
-          }, 200);
-        } else {
           wasPollingRef.current = false;
-        }
+        }, 200);
+      } else {
+        wasPollingRef.current = false;
       }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isGenerating]);
+    },
+    shouldRun: () => isGenerating,
+  });
 
   /**
    * Cleanup polling interval and abort controller on unmount
@@ -173,9 +143,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
 
       // P7 fix: Skip caching if app is not visible to prevent IndexedDB corruption
       if (document.visibilityState !== 'visible') {
-        if (DEBUG) {
-          console.log('[useImageModal] Skipping cache write - app not visible');
-        }
+      logger.debug('[useImageModal] Skipping cache write - app not visible');
         return;
       }
 
@@ -183,7 +151,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
         const userId = getCurrentUserId();
         await imageCache.set(userId, descriptionId, imageUrl, bookId);
       } catch (err) {
-        console.warn('⚠️ [useImageModal] Failed to cache image:', err);
+        logger.warn('⚠️ [useImageModal] Failed to cache image:', err);
       }
     },
     [enableCache, bookId]
@@ -196,32 +164,24 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
   const resumePolling = useCallback((taskId: string) => {
     // Don't start new polling if one exists
     if (pollingIntervalRef.current) {
-      if (DEBUG) {
-        console.log('[useImageModal] resumePolling: polling already exists');
-      }
+      logger.debug('[useImageModal] resumePolling: polling already exists');
       return;
     }
 
     // Don't resume if aborted
     if (abortControllerRef.current?.signal.aborted) {
-      if (DEBUG) {
-        console.log('[useImageModal] resumePolling: aborted, not resuming');
-      }
+      logger.debug('[useImageModal] resumePolling: aborted, not resuming');
       return;
     }
 
     const signal = abortControllerRef.current?.signal;
 
-    if (DEBUG) {
-      console.log('[useImageModal] resumePolling: starting polling for task', taskId);
-    }
+    logger.debug('[useImageModal] resumePolling: starting polling for task', taskId);
 
     pollingIntervalRef.current = setInterval(async () => {
       // P7 fix: Don't poll if not visible
       if (document.visibilityState !== 'visible') {
-        if (DEBUG) {
-          console.log('[useImageModal] Skipping poll - app not visible');
-        }
+        logger.debug('[useImageModal] Skipping poll - app not visible');
         return;
       }
 
@@ -238,9 +198,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
 
         // P7 fix: Double-check visibility before updating state
         if (document.visibilityState !== 'visible') {
-          if (DEBUG) {
-            console.log('[useImageModal] Skipping state update - app not visible');
-          }
+          logger.debug('[useImageModal] Skipping state update - app not visible');
           return;
         }
 
@@ -256,9 +214,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           // Get the current description from state for creating the image object
           const currentDescription = selectedDescription;
           if (!currentDescription) {
-            if (DEBUG) {
-              console.warn('[useImageModal] No selected description for completed task');
-            }
+            logger.debug('[useImageModal] No selected description for completed task');
             return;
           }
 
@@ -296,8 +252,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           cacheImage(currentDescription.id, imageUrl);
 
           notify.success(
-            'Изображение создано',
-            `Сгенерировано за ${generationTime.toFixed(1)}с`
+            i18n.t('hooks.imageModal.image_created'),
+            i18n.t('hooks.imageModal.generated_in', { time: generationTime.toFixed(1) })
           );
         } else if (status.status === 'FAILURE') {
           if (pollingIntervalRef.current) {
@@ -305,19 +261,19 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
             pollingIntervalRef.current = null;
           }
 
-          const errorMessage = status.result?.error_message || status.message || 'Не удалось создать изображение';
+          const errorMessage = status.result?.error_message || status.message || i18n.t('hooks.imageModal.create_error');
 
           setGenerationError(errorMessage);
           setGenerationStatus('error');
           setIsGenerating(false);
           currentTaskIdRef.current = null;
-          notify.error('Ошибка генерации', errorMessage);
+          notify.error(i18n.t('hooks.imageModal.generation_error'), errorMessage);
         }
       } catch (pollError: unknown) {
         if (pollError instanceof Error && pollError.name === 'AbortError') {
           return;
         }
-        console.error('[useImageModal] Polling error:', pollError);
+        logger.error('[useImageModal] Polling error:', pollError);
       }
     }, POLLING_INTERVAL);
   }, [cacheImage, selectedDescription]);
@@ -409,9 +365,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
       pollingIntervalRef.current = setInterval(async () => {
         // P7 fix: Skip polling if app is not visible
         if (document.visibilityState !== 'visible') {
-          if (DEBUG) {
-            console.log('[useImageModal] Skipping poll tick - app not visible');
-          }
+          logger.debug('[useImageModal] Skipping poll tick - app not visible');
           return;
         }
 
@@ -426,11 +380,9 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
         try {
           const status = await imagesAPI.getTaskStatus(queueResult.task_id, signal);
 
-          // P7 fix: Double-check visibility before updating state
+           // P7 fix: Double-check visibility before updating state
           if (document.visibilityState !== 'visible') {
-            if (DEBUG) {
-              console.log('[useImageModal] Skipping state update after poll - app not visible');
-            }
+            logger.debug('[useImageModal] Skipping state update after poll - app not visible');
             return;
           }
 
@@ -478,8 +430,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
             cacheImage(description.id, imageUrl);
 
             notify.success(
-              'Изображение создано',
-              `Сгенерировано за ${generationTime.toFixed(1)}с`
+              i18n.t('hooks.imageModal.image_created'),
+              i18n.t('hooks.imageModal.generated_in', { time: generationTime.toFixed(1) })
             );
           } else if (status.status === 'FAILURE') {
             // Task failed
@@ -488,13 +440,13 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
               pollingIntervalRef.current = null;
             }
 
-            const errorMessage = status.result?.error_message || status.message || 'Не удалось создать изображение';
+            const errorMessage = status.result?.error_message || status.message || i18n.t('hooks.imageModal.create_error');
 
             setGenerationError(errorMessage);
             setGenerationStatus('error');
             setIsGenerating(false);
             currentTaskIdRef.current = null;
-            notify.error('Ошибка генерации', errorMessage);
+            notify.error(i18n.t('hooks.imageModal.generation_error'), errorMessage);
           }
           // For PENDING, STARTED, RETRY - continue polling
         } catch (pollError: unknown) {
@@ -502,7 +454,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           if (pollError instanceof Error && pollError.name === 'AbortError') {
             return;
           }
-          console.error('[useImageModal] Polling error:', pollError);
+          logger.error('[useImageModal] Polling error:', pollError);
         }
       }, POLLING_INTERVAL);
 
@@ -512,7 +464,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
         return;
       }
 
-      console.error('[useImageModal] Async generation failed:', error);
+      logger.error('[useImageModal] Async generation failed:', error);
 
       // Check for 409 - image already exists
       const err = error as { response?: { status?: number }; message?: string; details?: { detail?: string } };
@@ -532,17 +484,17 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           // Cache the fetched image (async, don't wait)
           cacheImage(description.id, existingImage.image_url);
         } catch (fetchError: unknown) {
-          console.error('[useImageModal] Failed to fetch existing image:', fetchError);
-          setGenerationError('Не удалось загрузить существующее изображение');
+          logger.error('[useImageModal] Failed to fetch existing image:', fetchError);
+          setGenerationError(i18n.t('hooks.imageModal.load_error'));
           setGenerationStatus('error');
-          notify.error('Ошибка', 'Не удалось загрузить изображение');
+          notify.error(i18n.t('hooks.imageModal.error_title'), i18n.t('hooks.imageModal.load_error_short'));
         }
       } else {
         // Handle other errors
-        const errorMessage = err.message || 'Не удалось создать изображение';
+        const errorMessage = err.message || i18n.t('hooks.imageModal.create_error');
         setGenerationError(errorMessage);
         setGenerationStatus('error');
-        notify.error('Ошибка генерации', errorMessage);
+        notify.error(i18n.t('hooks.imageModal.generation_error'), errorMessage);
       }
     } finally {
       if (!pollingIntervalRef.current) {

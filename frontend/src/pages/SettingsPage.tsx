@@ -25,9 +25,10 @@ import {
   BookOpen,
   type LucideIcon,
 } from 'lucide-react';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Accordion, type AccordionItem } from '@/components/UI/Accordion';
+import { PageMeta } from '@/components/SEO/PageMeta';
 
 // Unified section components
 import {
@@ -60,17 +61,17 @@ const SettingsPage: React.FC = () => {
   const tabs: TabConfig[] = [
     {
       id: 'account',
-      label: 'Аккаунт',
+      label: t('settings.tabs.account'),
       icon: User,
-      description: 'Профиль и настройки подписки',
+      description: t('settings.tabs.account_desc'),
       content: <AccountSettingsSection />,
       compactContent: <AccountSettingsSection compact />,
     },
     {
       id: 'reading',
-      label: 'Чтение',
+      label: t('settings.tabs.reading'),
       icon: BookOpen,
-      description: 'Шрифт, размер и тема читалки',
+      description: t('settings.tabs.reading_desc'),
       content: <ReadingSettingsSection />,
       compactContent: <ReadingSettingsSection compact />,
     },
@@ -78,7 +79,7 @@ const SettingsPage: React.FC = () => {
       id: 'notifications',
       label: t('settings.notifications'),
       icon: Bell,
-      description: 'Настройки уведомлений',
+      description: t('settings.tabs.notifications_desc'),
       content: <NotificationsSettingsSection />,
       compactContent: <NotificationsSettingsSection compact />,
     },
@@ -86,23 +87,23 @@ const SettingsPage: React.FC = () => {
       id: 'privacy',
       label: t('settings.privacy'),
       icon: Shield,
-      description: 'Конфиденциальность и безопасность',
+      description: t('settings.tabs.privacy_desc'),
       content: <PrivacySettingsSection />,
       compactContent: <PrivacySettingsSection compact />,
     },
     {
       id: 'pwa',
-      label: 'Приложение',
+      label: t('settings.tabs.pwa'),
       icon: Smartphone,
-      description: 'Установка, хранилище и уведомления',
+      description: t('settings.tabs.pwa_desc'),
       content: <PWASettingsSection />,
       compactContent: <PWASettingsSection compact />,
     },
     {
       id: 'about',
-      label: 'О программе',
+      label: t('settings.tabs.about'),
       icon: Info,
-      description: 'Версия приложения и информация',
+      description: t('settings.tabs.about_desc'),
       content: <AboutSettingsSection />,
       compactContent: <AboutSettingsSection compact />,
     },
@@ -122,13 +123,14 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-6 w-full box-border overflow-hidden">
+      <PageMeta title={t('settings.page_title')} description={t('settings.page_description')} />
       {/* Header */}
       <div className="mb-3 sm:mb-4 md:mb-6">
         <h1 className="fluid-h2 font-bold mb-1 text-foreground break-words">
           {t('settings.title')}
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground break-words">
-          Настройте ваш процесс чтения и управляйте настройками аккаунта
+          {t('settings.subtitle')}
         </p>
       </div>
 

@@ -66,6 +66,9 @@ export {
   useRegenerateImage,
   useGenerationStatus,
   useImageUserStats,
+  useAsyncImageGeneration,
+  type AsyncGenerationStatus,
+  type UseAsyncImageGenerationOptions,
 } from './useImages';
 
 // Parsing Status Hook

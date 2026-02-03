@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { booksAPI } from '@/api/books';
+import { tabSync } from '@/services/tabSync';
+import { logger } from '@/lib/logger';
 
 export interface ReadingProgress {
   bookId: string;
@@ -145,20 +147,27 @@ export const useReaderStore = create<ReaderState>()(
             (now.getTime() - new Date(currentProgress.lastReadAt).getTime()) / 1000 : 0),
         };
         
-        // Optimistic update - sync, immediate
         set(state => ({
           readingProgress: {
             ...state.readingProgress,
             [bookId]: updatedProgress,
           },
         }));
-        
+
+        tabSync.broadcast({
+          type: 'progress-update',
+          bookId,
+          chapter,
+          progress: updatedProgress.progress,
+          page: actualPage,
+        });
+
         // Background sync with server (fire-and-forget)
         booksAPI.updateReadingProgress(bookId, {
           current_chapter: chapter,
           current_position_percent: 0,
         }).catch(error => {
-          console.error('Failed to sync reading progress:', error);
+          logger.error('Failed to sync reading progress:', error);
         });
       },
       
@@ -232,7 +241,7 @@ export const useReaderStore = create<ReaderState>()(
 
       // Full reset - clears all data (for logout)
       reset: () => {
-        console.log('🧹 [ReaderStore] Resetting all data');
+        logger.debug('🧹 [ReaderStore] Resetting all data');
         set({
           // Reset settings to defaults
           fontSize: 18,
@@ -281,3 +290,23 @@ export const useReaderStore = create<ReaderState>()(
     }
   )
 );
+
+tabSync.subscribe('progress-update', (message) => {
+  if (message.type !== 'progress-update') return;
+
+  const existing = useReaderStore.getState().readingProgress[message.bookId];
+
+  useReaderStore.setState((state) => ({
+    readingProgress: {
+      ...state.readingProgress,
+      [message.bookId]: {
+        bookId: message.bookId,
+        currentChapter: message.chapter,
+        currentPage: message.page,
+        progress: message.progress,
+        lastReadAt: new Date(),
+        totalTimeRead: existing?.totalTimeRead ?? 0,
+      },
+    },
+  }));
+});

@@ -10,17 +10,18 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AboutSettingsSectionProps {
   /** Compact mode for mobile accordion */
   compact?: boolean;
 }
 
-const techStack = {
+const techStackData = {
   full: [
     { label: 'Frontend', value: 'React 18 + TypeScript' },
     { label: 'Backend', value: 'FastAPI + Python' },
-    { label: 'База данных', value: 'PostgreSQL 15+' },
+    { labelKey: 'about.database', value: 'PostgreSQL 15+' },
     { label: 'AI', value: 'Multi-NLP + pollinations.ai' },
   ],
   compact: [
@@ -32,19 +33,24 @@ const techStack = {
 export const AboutSettingsSection: React.FC<AboutSettingsSectionProps> = ({
   compact = false,
 }) => {
-  const stack = compact ? techStack.compact : techStack.full;
+  const { t } = useTranslation();
+  const rawStack = compact ? techStackData.compact : techStackData.full;
+  const stack = rawStack.map(item => ({
+    label: 'labelKey' in item ? t(item.labelKey as string) : item.label,
+    value: item.value,
+  }));
 
   if (compact) {
     return (
       <div className="space-y-4">
         <div>
-          <p className="font-semibold text-sm text-foreground">Версия</p>
-          <p className="text-xs text-muted-foreground">1.0.0 (Бета)</p>
+          <p className="font-semibold text-sm text-foreground">{t('about.version')}</p>
+          <p className="text-xs text-muted-foreground">{t('about.version_value')}</p>
         </div>
         <div>
-          <p className="font-semibold text-sm mb-1 text-foreground">Описание</p>
+          <p className="font-semibold text-sm mb-1 text-foreground">{t('about.description_title')}</p>
           <p className="text-xs text-muted-foreground">
-            AI-генерация изображений из описаний книг для улучшенного чтения.
+            {t('about.description_compact')}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -63,35 +69,33 @@ export const AboutSettingsSection: React.FC<AboutSettingsSectionProps> = ({
     <div className="space-y-6 max-w-full overflow-hidden">
       <div>
         <h3 className="text-xl font-bold mb-6 text-foreground break-words">
-          О fancai
+          {t('about.title')}
         </h3>
         <div className="space-y-6">
           {/* Version */}
           <div>
             <p className="font-semibold mb-2 text-foreground">
-              Версия
+              {t('about.version')}
             </p>
             <p className="text-sm text-muted-foreground">
-              1.0.0 (Бета)
+              {t('about.version_value')}
             </p>
           </div>
 
           {/* Description */}
           <div>
             <p className="font-semibold mb-2 text-foreground">
-              Описание
+              {t('about.description_title')}
             </p>
             <p className="text-sm text-muted-foreground break-words">
-              Преобразите ваше чтение с AI-генерацией изображений из описаний книг.
-              Умная система распознавания текста находит описания локаций, персонажей
-              и атмосферы, создавая уникальные визуализации для каждой книги.
+              {t('about.description_full')}
             </p>
           </div>
 
           {/* Tech Stack */}
           <div>
             <p className="font-semibold mb-3 text-foreground">
-              Технологический стек
+              {t('about.tech_stack')}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {stack.map((item, index) => (
@@ -123,13 +127,13 @@ export const AboutSettingsSection: React.FC<AboutSettingsSectionProps> = ({
                 href="#"
                 className="text-sm font-medium hover:underline text-primary"
               >
-                Документация
+                {t('about.documentation')}
               </a>
               <a
                 href="#"
                 className="text-sm font-medium hover:underline text-primary"
               >
-                Поддержка
+                {t('about.support')}
               </a>
             </div>
           </div>

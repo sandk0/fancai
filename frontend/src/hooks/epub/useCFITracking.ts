@@ -33,16 +33,15 @@
  * } = useCFITracking(rendition, locations, book);
  *
  * // Display: "Стр. 42/500 (8%)"
- * console.log(`Стр. ${currentPage}/${totalPages} (${progress}%)`);
+ * logger.debug(`Стр. ${currentPage}/${totalPages} (${progress}%)`);
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Rendition, Book, EpubLocationEvent, EpubLocations } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
-// Debug logging - enabled in development mode only
-const DEBUG = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
-  if (DEBUG) console.log('[useCFITracking]', ...args);
+  logger.debug('[useCFITracking]', ...args);
 };
 
 /**
@@ -178,7 +177,7 @@ export const useCFITracking = ({
       }
 
     } catch (err) {
-      console.error('[useCFITracking] Error navigating to CFI:', err);
+      logger.error('[useCFITracking] Error navigating to CFI:', err);
     }
   }, [rendition]);
 

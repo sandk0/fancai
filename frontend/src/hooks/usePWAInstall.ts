@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { logger } from '@/lib/logger';
 
 /**
  * Extended Event interface for beforeinstallprompt
@@ -240,7 +241,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
       }
     } catch (error) {
       // Handle any errors during the prompt
-      console.error('PWA installation error:', error)
+      logger.error('PWA installation error:', error)
       setIsInstalling(false)
 
       // Clear the prompt as it may be in an invalid state

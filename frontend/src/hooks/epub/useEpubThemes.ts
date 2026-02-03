@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Rendition } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 export type ThemeName = 'light' | 'dark' | 'sepia' | 'night' | 'outdoor';
 
@@ -178,7 +179,7 @@ export const useEpubThemes = (
 
       rendition.themes.default(styledTheme);
     } catch (err) {
-      console.error('[useEpubThemes] Error applying theme:', err);
+      logger.error('[useEpubThemes] Error applying theme:', err);
     }
   }, [rendition]);
 

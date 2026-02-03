@@ -3,6 +3,7 @@ import type { Rendition, Book } from '@/types/epub';
 import type { EntityDetail } from '@/types/entity';
 import { adminAPI } from '@/api/admin';
 import { useCFIGenerator } from './useCFIGenerator';
+import { logger } from '@/lib/logger';
 
 interface UseEntityCFIPopulationOptions {
   rendition: Rendition | null;
@@ -51,7 +52,7 @@ export const useEntityCFIPopulation = ({
           updatedCount++;
         }
       } catch (error) {
-        console.error(`[useEntityCFIPopulation] Failed to update CFI for ${entity.name}:`, error);
+        logger.error(`[useEntityCFIPopulation] Failed to update CFI for ${entity.name}:`, error);
       }
     }
 

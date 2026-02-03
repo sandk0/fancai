@@ -19,8 +19,9 @@ import { getErrorMessage } from "@/utils/errors";
 import { useState, useCallback } from 'react';
 import { imagesAPI } from '@/api/images';
 import { notify } from '@/stores/ui';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import type { Description } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface UseDescriptionManagementOptions {
   descriptions: Description[];
@@ -99,25 +100,25 @@ export const useDescriptionManagement = ({
    * Handle description click - show image or generate if missing
    */
   const handleDescriptionClick = useCallback(async (descriptionId: string) => {
-    console.log('🖱️ [useDescriptionManagement] Description clicked:', descriptionId);
+    logger.debug('🖱️ [useDescriptionManagement] Description clicked:', descriptionId);
     const description = highlightedDescriptions.find(d => d.id === descriptionId);
-    console.log('📋 [useDescriptionManagement] Found:', description);
+    logger.debug('📋 [useDescriptionManagement] Found:', description);
 
     if (!description) {
-      console.log('❌ [useDescriptionManagement] Description not found:', descriptionId);
+      logger.debug('❌ [useDescriptionManagement] Description not found:', descriptionId);
       notify.error(t('common.error'), t('reader.descriptionNotFound'));
       return;
     }
 
     if (description.generated_image) {
-      console.log('🖼️ [useDescriptionManagement] Has image, opening modal');
+      logger.debug('🖼️ [useDescriptionManagement] Has image, opening modal');
       onImageGenerated?.(
         description,
         description.generated_image.image_url,
         description.generated_image.id
       );
     } else {
-      console.log('🎨 [useDescriptionManagement] No image, generating...');
+      logger.debug('🎨 [useDescriptionManagement] No image, generating...');
       try {
         notify.info(t('reader.imageGeneration'), t('reader.generatingImageDesc'));
         const result = await imagesAPI.generateImageForDescription(descriptionId);
@@ -153,13 +154,13 @@ export const useDescriptionManagement = ({
                   number: 0,
                   title: '',
                 }
-              } as any
+              } as Description['generated_image']
             };
           }
           return d;
         });
 
-        setHighlightedDescriptions(updatedDescriptions as any);
+        setHighlightedDescriptions(updatedDescriptions);
         onImageGenerated?.(description, result.image_url, result.image_id);
 
         notify.success(
@@ -167,7 +168,7 @@ export const useDescriptionManagement = ({
           t('reader.imageCreated').replace('{time}', result.generation_time.toFixed(1))
         );
       } catch (error) {
-        console.error('[useDescriptionManagement] Image generation failed:', error);
+        logger.error('[useDescriptionManagement] Image generation failed:', error);
         const axiosError = error as { response?: { status?: number } };
         if (axiosError.response?.status === 409) {
           notify.warning(t('reader.imageExists'), t('reader.imageExistsDesc'));

@@ -16,6 +16,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { focusManager } from '@/lib/queryClient';
 import { visibilityManager } from '@/services/visibilityManager';
+import { logger } from '@/lib/logger';
 
 /**
  * Return type for usePWAResumeGuard hook
@@ -67,7 +68,7 @@ function detectDeviceType(): 'mobile' | 'tablet' | 'desktop' {
 function shouldEnableGuard(): boolean {
   // Check standalone PWA mode (most reliable indicator)
   const isPWA = window.matchMedia('(display-mode: standalone)').matches
-    || (window.navigator as any).standalone === true;
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
   
   // Check mobile/tablet using same function as useRenditionHealthGuard
   const deviceType = detectDeviceType();
@@ -125,7 +126,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     lastHiddenTimeRef.current = Date.now();
 
     if (import.meta.env.DEV) {
-      console.log('[PWAResumeGuard] App hidden at:', new Date().toISOString());
+      logger.debug('[PWAResumeGuard] App hidden at:', new Date().toISOString());
     }
   }, []);
 
@@ -138,13 +139,13 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     const idleTime = now - lastHiddenTimeRef.current;
 
     if (import.meta.env.DEV) {
-      console.log('[PWAResumeGuard] App resumed after', idleTime, 'ms idle');
+      logger.debug('[PWAResumeGuard] App resumed after', idleTime, 'ms idle');
     }
 
     // Only trigger guard if app was idle for significant time
     if (idleTime < MIN_IDLE_TIME_FOR_GUARD) {
       if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] Short idle time, skipping guard');
+        logger.debug('[PWAResumeGuard] Short idle time, skipping guard');
       }
       return;
     }
@@ -152,7 +153,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     // Skip guard on desktop browsers where JS heap is never unloaded
     if (!shouldEnableGuard()) {
       if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] Desktop browser detected, skipping guard');
+        logger.debug('[PWAResumeGuard] Desktop browser detected, skipping guard');
       }
       return;
     }
@@ -166,7 +167,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     focusManager.setFocused(false);
 
     if (import.meta.env.DEV) {
-      console.log('[PWAResumeGuard] Starting resume guard, disabled focusManager, waiting', RESUME_GRACE_PERIOD, 'ms');
+      logger.debug('[PWAResumeGuard] Starting resume guard, disabled focusManager, waiting', RESUME_GRACE_PERIOD, 'ms');
     }
 
     // Clear any existing timeout
@@ -177,7 +178,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     // Wait for grace period to allow Zustand rehydration
     resumeTimeoutRef.current = setTimeout(async () => {
       if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] Grace period complete, checking auth state');
+        logger.debug('[PWAResumeGuard] Grace period complete, checking auth state');
       }
 
       // Check if user is available after grace period
@@ -186,7 +187,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
 
       if (!currentUser && !currentIsLoading) {
         if (import.meta.env.DEV) {
-          console.log('[PWAResumeGuard] No user found, triggering loadUserFromStorage');
+          logger.debug('[PWAResumeGuard] No user found, triggering loadUserFromStorage');
         }
 
         // Attempt to reload user from storage
@@ -194,21 +195,21 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
           await loadUserFromStorage();
         } catch (error) {
           if (import.meta.env.DEV) {
-            console.error('[PWAResumeGuard] Failed to load user from storage:', error);
+            logger.error('[PWAResumeGuard] Failed to load user from storage:', error);
           }
         }
       }
 
       if (import.meta.env.DEV) {
         const finalUser = useAuthStore.getState().user;
-        console.log('[PWAResumeGuard] Resume complete, user:', finalUser?.email || 'none');
+        logger.debug('[PWAResumeGuard] Resume complete, user:', finalUser?.email || 'none');
       }
 
       // Re-enable focusManager - this will trigger refetches now that auth is ready
       focusManager.setFocused(true);
 
       if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] Re-enabled focusManager, refetches will proceed');
+        logger.debug('[PWAResumeGuard] Re-enabled focusManager, refetches will proceed');
       }
 
       setIsResuming(false);
@@ -248,7 +249,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     });
 
     if (import.meta.env.DEV) {
-      console.log('[PWAResumeGuard] Initialized with visibilityManager');
+      logger.debug('[PWAResumeGuard] Initialized with visibilityManager');
     }
 
     return () => {
@@ -266,7 +267,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
       focusManager.setFocused(true);
 
       if (import.meta.env.DEV) {
-        console.log('[PWAResumeGuard] Cleanup complete');
+        logger.debug('[PWAResumeGuard] Cleanup complete');
       }
     };
   }, [handleHidden, handleVisible]);

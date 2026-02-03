@@ -12,13 +12,14 @@
  * @component
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { m, AnimatePresence, PanInfo, useDragControls } from 'framer-motion';
 import { X, Type, Sun, Maximize2, RotateCcw, GripHorizontal, Smartphone, Hand } from 'lucide-react';
 import type { NavigationMode, ReaderTheme } from '@/stores/reader';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { Z_INDEX } from '@/lib/zIndex';
 import { Switch } from '@/components/UI/Switch';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 import { useIsMobile } from './hooks';
 import { themeConfigs, fontFamilyOptions, widthPresets, navigationModeOptions } from './config';
@@ -92,6 +93,9 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
   const [dragY, setDragY] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(isOpen, panelRef);
 
   // Handle escape key
   useEffect(() => {
@@ -134,7 +138,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
           </div>
         )}
         <h2 id="reader-settings-title" className="text-lg font-semibold text-foreground">
-          {t('reader.settings') || 'Reading Settings'}
+          {t('reader.readerSettings.title')}
         </h2>
         <button
           onClick={onClose}
@@ -150,7 +154,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
       <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-6 space-y-8">
         {/* Theme Section */}
         <section>
-          <SectionHeader icon={<Sun className="w-5 h-5" />} title={t('readerSettings.theme') || 'Theme'} />
+          <SectionHeader icon={<Sun className="w-5 h-5" />} title={t('reader.readerSettings.theme')} />
           <div className="grid grid-cols-5 gap-2">
             {(Object.keys(themeConfigs) as ReaderTheme[]).map((themeKey) => (
               <ThemeButton
@@ -165,11 +169,11 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
 
         {/* Typography Section */}
         <section>
-          <SectionHeader icon={<Type className="w-5 h-5" />} title={t('readerSettings.typography') || 'Typography'} />
+          <SectionHeader icon={<Type className="w-5 h-5" />} title={t('reader.readerSettings.typography')} />
           <div className="space-y-6">
             {/* Font Size */}
             <StepperControl
-              label={t('readerSettings.fontSize') || 'Font Size'}
+              label={t('reader.readerSettings.fontSize')}
               value={fontSize}
               min={12}
               max={32}
@@ -181,7 +185,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
             {/* Font Family */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground block">
-                {t('readerSettings.fontFamily') || 'Font Family'}
+                {t('reader.readerSettings.fontFamily')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {fontFamilyOptions.map((family) => (
@@ -197,7 +201,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
 
             {/* Line Height */}
             <SliderControl
-              label={t('readerSettings.lineHeight') || 'Line Height'}
+              label={t('reader.readerSettings.lineHeight')}
               value={lineHeight}
               min={1.2}
               max={2.5}
@@ -210,12 +214,12 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
 
         {/* Layout Section */}
         <section>
-          <SectionHeader icon={<Maximize2 className="w-5 h-5" />} title={t('readerSettings.layout') || 'Layout'} />
+          <SectionHeader icon={<Maximize2 className="w-5 h-5" />} title={t('reader.readerSettings.layout')} />
           <div className="space-y-6">
             {/* Text Width */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground block">
-                {t('readerSettings.textWidth') || 'Text Width'}
+                {t('reader.readerSettings.textWidth')}
               </label>
               <div className="flex gap-2">
                 {widthPresets.map((preset) => (
@@ -231,7 +235,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
 
             {/* Margins */}
             <SliderControl
-              label={t('readerSettings.margins') || 'Margins'}
+              label={t('reader.readerSettings.margins')}
               value={margin}
               min={20}
               max={80}
@@ -245,7 +249,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
         {/* Navigation Section - only shown on Android (iOS always uses swipe) */}
         {!isIOS && onNavigationModeChange && (
           <section>
-            <SectionHeader icon={<Hand className="w-5 h-5" />} title={t('readerSettings.navigation') || 'Navigation'} />
+            <SectionHeader icon={<Hand className="w-5 h-5" />} title={t('reader.readerSettings.navigation')} />
             <div className="space-y-4">
               <div className="flex gap-3">
                 {navigationModeOptions.map((option) => (
@@ -253,8 +257,8 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
                     key={option.value}
                     mode={option.value}
                     icon={option.icon}
-                    label={t(`readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`) || option.value}
-                    description={t(`readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}Desc`) || ''}
+                    label={t(`reader.readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`)}
+                    description={t(`reader.readerSettings.navigationMode${option.value.charAt(0).toUpperCase() + option.value.slice(1)}Desc`)}
                     isActive={navigationMode === option.value}
                     onClick={() => onNavigationModeChange(option.value)}
                   />
@@ -267,19 +271,19 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
         {/* Wake Lock Section - only shown if browser supports it */}
         {wakeLockSupported && onWakeLockChange && (
           <section>
-            <SectionHeader icon={<Smartphone className="w-5 h-5" />} title={t('readerSettings.display') || 'Display'} />
+            <SectionHeader icon={<Smartphone className="w-5 h-5" />} title={t('reader.readerSettings.display')} />
             <div className="bg-card rounded-xl border border-border p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1">
                   <div className="text-sm font-medium text-foreground">
-                    {t('readerSettings.keepScreenOn') || 'Не выключать экран'}
+                    {t('reader.readerSettings.keepScreenOn')}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {wakeLockActive
-                      ? (t('readerSettings.screenWillStayOn') || 'Экран не будет гаснуть')
+                      ? t('reader.readerSettings.screenWillStayOn')
                       : wakeLockEnabled
-                        ? (t('readerSettings.activatesWhileReading') || 'Активируется при чтении')
-                        : (t('readerSettings.screenWillTurnOff') || 'Экран будет гаснуть')}
+                        ? t('reader.readerSettings.activatesWhileReading')
+                        : t('reader.readerSettings.screenWillTurnOff')}
                   </div>
                 </div>
                 <Switch
@@ -297,7 +301,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
         <div className="px-6 py-4 border-t border-border pb-safe">
           <button
             onClick={onReset}
-            aria-label={t('readerSettings.resetToDefaults') || 'Reset to Defaults'}
+            aria-label={t('reader.readerSettings.resetToDefaults')}
             className="w-full flex items-center justify-center gap-2 py-3 px-4
                        rounded-xl border-2 border-border bg-card
                        hover:bg-muted hover:border-muted-foreground/30
@@ -306,7 +310,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
             <span className="text-sm font-medium">
-              {t('readerSettings.resetToDefaults') || 'Reset to Defaults'}
+              {t('reader.readerSettings.resetToDefaults')}
             </span>
           </button>
         </div>
@@ -317,6 +321,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
   // Mobile bottom sheet
   const mobileSheet = (
     <m.div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="reader-settings-title"
@@ -348,6 +353,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
   // Desktop side panel
   const desktopPanel = (
     <m.div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="reader-settings-title"

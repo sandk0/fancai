@@ -1,6 +1,7 @@
 // Books API methods
 
 import { apiClient } from './client';
+import { logger } from '@/lib/logger';
 import type {
   Book,
   BookDetail,
@@ -51,9 +52,9 @@ export const booksAPI = {
     formData: FormData,
     config?: { onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void }
   ): Promise<BookUploadResponse> {
-    console.log('📡 [API] uploadBook called');
-    console.log('📡 [API] FormData has entries:', Array.from(formData.entries()).length);
-    console.log('📡 [API] Config:', config);
+    logger.debug('📡 [API] uploadBook called');
+    logger.debug('📡 [API] FormData has entries:', Array.from(formData.entries()).length);
+    logger.debug('📡 [API] Config:', config);
 
     // ВАЖНО: НЕ устанавливаем Content-Type вообще!
     // Когда axios видит FormData, он автоматически удаляет Content-Type
@@ -66,13 +67,13 @@ export const booksAPI = {
     };
 
     try {
-      console.log('📡 [API] Making POST request to /books/upload...');
+      logger.debug('📡 [API] Making POST request to /books/upload...');
       const response = await apiClient.client.post('/books/upload', formData, requestConfig);
-      console.log('📡 [API] Response received:', response.status, response.statusText);
-      console.log('📡 [API] Response data:', response.data);
+      logger.debug('📡 [API] Response received:', response.status, response.statusText);
+      logger.debug('📡 [API] Response data:', response.data);
       return response.data;
     } catch (error) {
-      console.error('📡 [API] Upload request failed:', error);
+      logger.error('📡 [API] Upload request failed:', error);
       throw error;
     }
   },
@@ -164,25 +165,20 @@ export const booksAPI = {
     progress: ReadingProgress | null;
   }> {
     try {
-      const response = await apiClient.get<any>(`/books/${bookId}/progress`);
+      const response = await apiClient.get<ReadingProgress | { progress: ReadingProgress | null }>(`/books/${bookId}/progress`);
 
       // Handle both wrapped { progress: ... } and flat response
-      // Check if response has 'progress' key, otherwise treat response as progress object
-      let progress = null;
+      let progress: ReadingProgress | null = null;
 
-      if (response && 'progress' in response) {
-        progress = response.progress;
-      } else {
-        // Assume flat response is the progress object itself
-        // But verify it looks like a progress object (has id or other fields)
-        if (response && (response.reading_location_cfi !== undefined || response.current_chapter !== undefined)) {
-          progress = response;
-        }
+      if (response && typeof response === 'object' && 'progress' in response) {
+        progress = (response as { progress: ReadingProgress | null }).progress;
+      } else if (response && typeof response === 'object' && ('reading_location_cfi' in response || 'current_chapter' in response)) {
+        progress = response as ReadingProgress;
       }
 
       return { progress };
     } catch (error) {
-      console.error('Failed to fetch reading progress:', error);
+      logger.error('Failed to fetch reading progress:', error);
       return { progress: null };
     }
   },

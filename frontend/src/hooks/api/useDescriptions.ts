@@ -21,6 +21,7 @@ import { booksAPI } from '@/api/books';
 import { chapterCache } from '@/services/chapterCache';
 import { descriptionKeys, getCurrentUserId } from './queryKeys';
 import { TANSTACK_RETRY_OPTIONS } from '@/utils/retryWithBackoff';
+import { logger } from '@/lib/logger';
 import type {
   Description,
   NLPAnalysis,
@@ -52,8 +53,8 @@ interface ChapterDescriptionsResponse {
  * const { data, isLoading } = useChapterDescriptions('book-123', 5);
  *
  * if (data) {
- *   console.log('Total descriptions:', data.nlp_analysis.total_descriptions);
- *   console.log('By type:', data.nlp_analysis.by_type);
+ *   logger.debug('Total descriptions:', data.nlp_analysis.total_descriptions);
+ *   logger.debug('By type:', data.nlp_analysis.by_type);
  * }
  * ```
  */
@@ -70,14 +71,14 @@ export function useChapterDescriptions(
   return useQuery({
     queryKey: descriptionKeys.byChapter(userId, bookId, chapterNumber),
     queryFn: async () => {
-      console.log(
+      logger.debug(
         `📝 [useChapterDescriptions] Fetching descriptions for chapter ${chapterNumber}`
       );
 
       // 1. Проверяем chapterCache
       const cached = await chapterCache.get(userId, bookId, chapterNumber);
       if (cached && cached.descriptions.length > 0) {
-        console.log(
+        logger.debug(
           `✅ [useChapterDescriptions] Descriptions loaded from cache: ${cached.descriptions.length}`
         );
 
@@ -110,7 +111,7 @@ export function useChapterDescriptions(
       }
 
       // 2. Загружаем с API (сначала проверяем существующие)
-      console.log(
+      logger.debug(
         `📡 [useChapterDescriptions] Descriptions not in cache, fetching from API`
       );
       let response = await booksAPI.getChapterDescriptions(
@@ -121,7 +122,7 @@ export function useChapterDescriptions(
 
       // 3. Если описаний нет - извлекаем через LLM (on-demand extraction)
       if (response.nlp_analysis.descriptions.length === 0) {
-        console.log(
+        logger.debug(
           `🔄 [useChapterDescriptions] No descriptions found, extracting via LLM...`
         );
         response = await booksAPI.getChapterDescriptions(
@@ -129,7 +130,7 @@ export function useChapterDescriptions(
           chapterNumber,
           true // extract_new = true, запускаем LLM extraction
         );
-        console.log(
+        logger.debug(
           `✅ [useChapterDescriptions] LLM extracted ${response.nlp_analysis.descriptions.length} descriptions`
         );
       }
@@ -139,7 +140,7 @@ export function useChapterDescriptions(
         await chapterCache
           .set(userId, bookId, chapterNumber, response.nlp_analysis.descriptions, [])
           .catch((err) => {
-            console.warn(
+            logger.warn(
               `⚠️ [useChapterDescriptions] Failed to cache descriptions:`,
               err
             );
@@ -170,7 +171,7 @@ export function useChapterDescriptions(
  * const { data: descriptions } = useDescriptionsList('book-123', 5);
  *
  * descriptions?.forEach(desc => {
- *   console.log(`${desc.type}: ${desc.content}`);
+ *   logger.debug(`${desc.type}: ${desc.content}`);
  * });
  * ```
  */
@@ -287,9 +288,9 @@ export function useDescriptionsByType(
  * const { data: analysis } = useNLPAnalysis('book-123', 5);
  *
  * if (analysis) {
- *   console.log('Total:', analysis.total_descriptions);
- *   console.log('Locations:', analysis.by_type.location);
- *   console.log('Characters:', analysis.by_type.character);
+ *   logger.debug('Total:', analysis.total_descriptions);
+ *   logger.debug('Locations:', analysis.by_type.location);
+ *   logger.debug('Characters:', analysis.by_type.character);
  * }
  * ```
  */
@@ -357,7 +358,7 @@ export function useBookDescriptions(
       // Для этого нужен отдельный API endpoint
       // Пока возвращаем пустой массив
       // TODO: Добавить batch endpoint на backend
-      console.warn(
+      logger.warn(
         '⚠️ [useBookDescriptions] Not implemented - need batch API endpoint'
       );
       return [];
@@ -404,7 +405,7 @@ export function useReextractDescriptions(
       'reextract',
     ],
     queryFn: async () => {
-      console.log(
+      logger.debug(
         `🔄 [useReextractDescriptions] Re-extracting descriptions for chapter ${chapterNumber}`
       );
 
@@ -424,7 +425,7 @@ export function useReextractDescriptions(
       await chapterCache
         .set(userId, bookId, chapterNumber, response.nlp_analysis.descriptions, [])
         .catch((err) => {
-          console.warn('⚠️ [useReextractDescriptions] Failed to update cache:', err);
+          logger.warn('⚠️ [useReextractDescriptions] Failed to update cache:', err);
         });
 
       return response;

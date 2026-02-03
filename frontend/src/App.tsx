@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { LazyMotion, domAnimation } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
+import { HelmetProvider } from 'react-helmet-async';
 
 // Shared queryClient for cache management
 import { queryClient } from '@/lib/queryClient';
@@ -45,7 +46,7 @@ const AdminDashboard = lazy(() => import('@/pages/AdminDashboardEnhanced'));
 // Global styles with theme support
 import '@/styles/globals.css';
 
-const DEBUG = import.meta.env.DEV;
+import { logger } from '@/lib/logger';
 
 /**
  * Loading fallback component
@@ -62,22 +63,23 @@ const PageLoadingFallback = () => (
 
 function App() {
   useEffect(() => {
-    if (DEBUG) console.log('[App] Starting, initializing stores...');
+    logger.debug('[App] Starting, initializing stores...');
     try {
       initializeStores();
-      if (DEBUG) console.log('[App] Stores initialized successfully');
+      logger.debug('[App] Stores initialized successfully');
     } catch (error) {
-      console.warn('[App] Failed to initialize stores:', error);
+      logger.warn('[App] Failed to initialize stores:', error);
     }
 
     // TD-FRONT-131: Cleanup intervals on unmount to prevent memory leaks
     return () => {
-      if (DEBUG) console.log('[App] Unmounting, cleaning up stores...');
+      logger.debug('[App] Unmounting, cleaning up stores...');
       cleanupStores();
     };
   }, []);
 
   return (
+    <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <LazyMotion features={domAnimation}>
         <Router>
@@ -155,6 +157,7 @@ function App() {
         </Router>
       </LazyMotion>
     </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 

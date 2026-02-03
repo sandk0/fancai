@@ -10,30 +10,37 @@
  * - Uses CSS custom properties from Phase 1
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { Mail, Lock, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { getErrorMessage } from '@/utils/errors';
 import { notify } from '@/stores/ui';
 import { Input } from '@/components/UI/Input';
 import { Button } from '@/components/UI/button';
+import { PageMeta } from '@/components/SEO/PageMeta';
 
-const loginSchema = z.object({
-  email: z.string().email('Неправильный email адрес'),
-  password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
-});
+function createLoginSchema(t: (key: string) => string) {
+  return z.object({
+    email: z.string().email(t('login.validation.email_invalid')),
+    password: z.string().min(6, t('login.validation.password_min')),
+  });
+}
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = z.infer<ReturnType<typeof createLoginSchema>>;
 
 const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
+
+  const loginSchema = useMemo(() => createLoginSchema(t), [t]);
 
   const from = (location.state as { from?: string })?.from || '/library';
 
@@ -48,10 +55,10 @@ const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data.email, data.password);
-      notify.success('Добро пожаловать!', 'Вы успешно вошли в систему');
+      notify.success(t('login.success_title'), t('login.success_message'));
       navigate(from, { replace: true });
     } catch (error) {
-      notify.error('Ошибка входа', getErrorMessage(error, 'Проверьте email и пароль'));
+      notify.error(t('login.error_title'), getErrorMessage(error, t('login.error_fallback')));
     }
   };
 
@@ -63,6 +70,7 @@ const LoginPage: React.FC = () => {
     <div
       className="min-h-screen flex items-center justify-center px-4 py-8 bg-background pt-[max(env(safe-area-inset-top),2rem)] pb-[max(env(safe-area-inset-bottom),2rem)]"
     >
+      <PageMeta title={t('login.page_title')} description={t('login.page_description')} />
       <div className="w-full max-w-sm">
         {/* Logo/Brand */}
         <div className="flex flex-col items-center mb-8">
@@ -76,7 +84,7 @@ const LoginPage: React.FC = () => {
 
         {/* Title */}
         <h2 className="text-xl font-semibold text-center mb-6 text-foreground">
-          Вход в аккаунт
+          {t('login.title')}
         </h2>
 
         {/* Login Form */}
@@ -91,7 +99,7 @@ const LoginPage: React.FC = () => {
           <Input
             {...register('email')}
             type="email"
-            label="Email"
+            label={t('login.email_label')}
             placeholder="your@email.com"
             leftIcon={<Mail />}
             error={errors.email?.message}
@@ -104,7 +112,7 @@ const LoginPage: React.FC = () => {
           <Input
             {...register('password')}
             type={showPassword ? 'text' : 'password'}
-            label="Пароль"
+            label={t('login.password_label')}
             placeholder="********"
             leftIcon={<Lock />}
             error={errors.password?.message}
@@ -116,7 +124,7 @@ const LoginPage: React.FC = () => {
                 type="button"
                 onClick={togglePasswordVisibility}
                 className="flex items-center justify-center focus:outline-none text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                aria-label={showPassword ? t('login.hide_password') : t('login.show_password')}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -129,7 +137,7 @@ const LoginPage: React.FC = () => {
               to="/forgot-password"
               className="text-sm font-medium transition-colors hover:underline text-primary"
             >
-              Забыли пароль?
+              {t('login.forgot_password')}
             </Link>
           </div>
 
@@ -140,20 +148,20 @@ const LoginPage: React.FC = () => {
             size="lg"
             className="w-full"
             isLoading={isLoading}
-            loadingText="Вход..."
+            loadingText={t('login.submitting')}
           >
-            Войти
+            {t('login.submit')}
           </Button>
         </form>
 
         {/* Register Link */}
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Нет аккаунта?{' '}
+          {t('login.no_account')}{' '}
           <Link
             to="/register"
             className="font-semibold transition-colors hover:underline text-primary"
           >
-            Зарегистрироваться
+            {t('login.register_link')}
           </Link>
         </p>
       </div>

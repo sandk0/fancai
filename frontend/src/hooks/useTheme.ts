@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 export type AppTheme = 'light' | 'dark' | 'sepia' | 'system';
 export type ResolvedTheme = 'light' | 'dark' | 'sepia';
@@ -63,7 +64,7 @@ export const useTheme = () => {
     // Set color-scheme for native elements (scrollbars, inputs, etc.)
     root.style.colorScheme = resolved === 'dark' ? 'dark' : 'light';
 
-    console.log('[useTheme] Theme applied:', resolved);
+    logger.debug('[useTheme] Theme applied:', resolved);
   }, []);
 
   /**
@@ -77,7 +78,7 @@ export const useTheme = () => {
     setResolvedTheme(resolved);
     applyTheme(resolved);
 
-    console.log('[useTheme] Theme changed:', { preference: newTheme, resolved });
+    logger.debug('[useTheme] Theme changed:', { preference: newTheme, resolved });
   }, [applyTheme]);
 
   // Initial setup and system theme listener
@@ -95,7 +96,7 @@ export const useTheme = () => {
         const newResolved = getSystemTheme();
         setResolvedTheme(newResolved);
         applyTheme(newResolved);
-        console.log('[useTheme] System theme changed:', newResolved);
+        logger.debug('[useTheme] System theme changed:', newResolved);
       }
     };
 

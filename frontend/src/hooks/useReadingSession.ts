@@ -16,14 +16,15 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { readingSessionsAPI } from '@/api/readingSessions';
 import { sessionKeys, getCurrentUserId } from '@/hooks/api/queryKeys';
 import { visibilityManager } from '@/services/visibilityManager';
 import { QUERY_RETRY_PRESETS } from '@/lib/queryClient';
 import { notify } from '@/stores/ui';
+import i18n from '@/lib/i18n';
 import type { ReadingSession } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface UseReadingSessionOptions {
   bookId: string;
@@ -86,7 +87,7 @@ export function useReadingSession({
     mutationFn: ({ bookId, position, force }: { bookId: string; position: number; force?: boolean }) =>
       readingSessionsAPI.startSession(bookId, position, undefined, force),
     onSuccess: (newSession) => {
-      console.log('✅ [useReadingSession] Session started:', newSession.id);
+      logger.debug('✅ [useReadingSession] Session started:', newSession.id);
       setSession(newSession);
       sessionIdRef.current = newSession.id;
       hasStartedRef.current = true;
@@ -94,19 +95,20 @@ export function useReadingSession({
       queryClient.setQueryData(sessionKeys.detail(userId, newSession.id), newSession);
       onSessionStart?.(newSession);
     },
-    onError: (error: any) => {
-      console.error('❌ [useReadingSession] Failed to start session:', error);
+    onError: (error: unknown) => {
+      logger.error('❌ [useReadingSession] Failed to start session:', error);
       
       // Handle Split Brain (409 Conflict)
-      if (error?.response?.status === 409) {
-        const detail = error.response.data.detail;
-        console.warn('⚠️ [useReadingSession] Split brain detected:', detail);
+      const axiosError = error as { response?: { status?: number; data?: { detail?: { started_at?: string; message?: string } } } };
+      if (axiosError?.response?.status === 409) {
+        const detail = axiosError.response.data?.detail;
+        logger.warn('⚠️ [useReadingSession] Split brain detected:', detail);
         
         notify.warning(
-          'Конфликт сессии',
-          `Книга уже открыта на другом устройстве (начало: ${new Date(detail.started_at).toLocaleTimeString()}).`,
+          i18n.t('hooks.readingSession.conflict_title'),
+          i18n.t('hooks.readingSession.conflict_message', { time: new Date(detail?.started_at || '').toLocaleTimeString() }),
           {
-            label: 'Перехватить управление',
+            label: i18n.t('hooks.readingSession.take_over'),
             onClick: () => {
               startMutation.mutate({ bookId, position: positionRef.current, force: true });
             }
@@ -119,26 +121,30 @@ export function useReadingSession({
     },
   });
 
+  const startMutationRef = useRef(startMutation);
+  startMutationRef.current = startMutation;
+
   // Mutation to update session position
   const updateMutation = useMutation({
     mutationFn: ({ sessionId, position }: { sessionId: string; position: number }) =>
       readingSessionsAPI.updateSession(sessionId, position),
     ...QUERY_RETRY_PRESETS.api, // Retry on network errors
     onSuccess: (updatedSession) => {
-      console.log('✅ [useReadingSession] Position updated:', updatedSession.end_position);
+      logger.debug('✅ [useReadingSession] Position updated:', updatedSession.end_position);
       setSession(updatedSession);
       queryClient.setQueryData(sessionKeys.detail(userId, updatedSession.id), updatedSession);
       lastUpdateRef.current = Date.now();
     },
-    onError: (error: any) => {
-      console.error('❌ [useReadingSession] Failed to update session:', error);
+    onError: (error: unknown) => {
+      logger.error('❌ [useReadingSession] Failed to update session:', error);
       
-      const status = error?.response?.status;
-      const detail = error?.response?.data?.detail || '';
+      const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } };
+      const status = axiosErr?.response?.status;
+      const detail = axiosErr?.response?.data?.detail || '';
       
       if (status === 400) {
         if (detail.includes('inactive') || detail.includes('ended')) {
-          console.warn('[useReadingSession] Session inactive/ended, stopping updates');
+          logger.warn('[useReadingSession] Session inactive/ended, stopping updates');
           
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -148,13 +154,13 @@ export function useReadingSession({
           queryClient.invalidateQueries({ queryKey: sessionKeys.active(userId) });
           
           if (enabled && bookId) {
-            console.log('[useReadingSession] Attempting to restart session...');
+            logger.debug('[useReadingSession] Attempting to restart session...');
             startMutation.mutate({ bookId, position: positionRef.current });
           }
           return;
         }
         
-        console.warn('[useReadingSession] Validation error:', detail);
+        logger.warn('[useReadingSession] Validation error:', detail);
         return;
       }
     },
@@ -166,7 +172,7 @@ export function useReadingSession({
       readingSessionsAPI.endSession(sessionId, position),
     ...QUERY_RETRY_PRESETS.critical, // Retry aggressively to ensure session ends
     onSuccess: (endedSession) => {
-      console.log('✅ [useReadingSession] Session ended:', {
+      logger.debug('✅ [useReadingSession] Session ended:', {
         id: endedSession.id,
         duration: endedSession.duration_minutes,
         pages_read: endedSession.pages_read,
@@ -178,7 +184,7 @@ export function useReadingSession({
       isEndingRef.current = false;
     },
     onError: (error) => {
-      console.error('❌ [useReadingSession] Failed to end session:', error);
+      logger.error('❌ [useReadingSession] Failed to end session:', error);
       isEndingRef.current = false;
       onError?.(error as Error);
     },
@@ -209,7 +215,7 @@ export function useReadingSession({
           sessionIdRef.current &&
           !isEndingRef.current
         ) {
-          console.log('🔄 [useReadingSession] Updating position:', position.toFixed(2) + '%');
+          logger.debug('🔄 [useReadingSession] Updating position:', position.toFixed(2) + '%');
           updateMutation.mutate({
             sessionId: sessionIdRef.current,
             position,
@@ -242,7 +248,7 @@ export function useReadingSession({
       intervalRef.current = null;
     }
 
-    console.log('🛑 [useReadingSession] Ending session:', sessionIdRef.current);
+    logger.debug('🛑 [useReadingSession] Ending session:', sessionIdRef.current);
 
     try {
       await endMutation.mutateAsync({
@@ -250,7 +256,7 @@ export function useReadingSession({
         position: positionRef.current,
       });
     } catch (error) {
-      console.error('❌ [useReadingSession] Error ending session:', error);
+      logger.error('❌ [useReadingSession] Error ending session:', error);
     } finally {
       sessionIdRef.current = null;
       hasStartedRef.current = false;
@@ -274,11 +280,11 @@ export function useReadingSession({
       return;
     }
 
-    console.log('🚀 [useReadingSession] Initializing session for book:', bookId);
+    logger.debug('🚀 [useReadingSession] Initializing session for book:', bookId);
 
     // Check if there's an active session
     if (activeSession && activeSession.book_id === bookId) {
-      console.log('✅ [useReadingSession] Continuing existing session:', activeSession.id);
+      logger.debug('✅ [useReadingSession] Continuing existing session:', activeSession.id);
       setSession(activeSession);
       sessionIdRef.current = activeSession.id;
       hasStartedRef.current = true;
@@ -287,20 +293,16 @@ export function useReadingSession({
       // - No active session exists
       // - Not already starting a session
       // - Haven't started a session yet
-      if (!startMutation.isPending && !hasStartedRef.current) {
-        console.log('✅ [useReadingSession] Starting new session');
-        startMutation.mutate({ bookId, position: currentPosition });
+      if (!startMutationRef.current.isPending && !hasStartedRef.current) {
+        logger.debug('✅ [useReadingSession] Starting new session');
+        startMutationRef.current.mutate({ bookId, position: positionRef.current });
       }
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enabled,
     bookId,
     activeSession,
     isLoadingActive,
-    // Intentionally omitted: currentPosition (causes infinite loop on scroll),
-    // startMutation (object reference changes on every render)
   ]);
 
   /**
@@ -319,7 +321,7 @@ export function useReadingSession({
       intervalRef.current = setInterval(() => {
         if (sessionIdRef.current && !isEndingRef.current) {
           if (import.meta.env.DEV) {
-            console.log('[useReadingSession] Periodic update triggered');
+            logger.debug('[useReadingSession] Periodic update triggered');
           }
           updatePosition(positionRef.current);
         }
@@ -340,7 +342,7 @@ export function useReadingSession({
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           if (import.meta.env.DEV) {
-            console.log('[useReadingSession] Interval paused (background)');
+            logger.debug('[useReadingSession] Interval paused (background)');
           }
         }
       },
@@ -349,7 +351,7 @@ export function useReadingSession({
         if (enabled && sessionIdRef.current && !isEndingRef.current) {
           startInterval();
           if (import.meta.env.DEV) {
-            console.log('[useReadingSession] Interval resumed');
+            logger.debug('[useReadingSession] Interval resumed');
           }
         }
       },
@@ -400,7 +402,7 @@ export function useReadingSession({
     return () => {
       // End session on component unmount
       if (sessionIdRef.current && !isEndingRef.current) {
-        console.log('🧹 [useReadingSession] Component unmounting, ending session');
+        logger.debug('🧹 [useReadingSession] Component unmounting, ending session');
         // Use beacon API for guaranteed delivery even if page is closing
         const sessionId = sessionIdRef.current;
         const position = positionRef.current;
@@ -421,7 +423,7 @@ export function useReadingSession({
                   })
                 );
               } catch (err) {
-                console.error('❌ [useReadingSession] Beacon fallback failed:', err);
+                logger.error('❌ [useReadingSession] Beacon fallback failed:', err);
               }
             },
           }
@@ -449,7 +451,7 @@ export function useReadingSession({
 
     const handleBeforeUnload = () => {
       if (sessionIdRef.current && !isEndingRef.current) {
-        console.log('🚪 [useReadingSession] Page closing, ending session');
+        logger.debug('🚪 [useReadingSession] Page closing, ending session');
 
         // Try beacon API first (works even when page is closing)
         try {
@@ -469,7 +471,7 @@ export function useReadingSession({
             beaconData
           );
         } catch (error) {
-          console.error('❌ [useReadingSession] Beacon API failed:', error);
+          logger.error('❌ [useReadingSession] Beacon API failed:', error);
         }
       }
     };
@@ -484,7 +486,7 @@ export function useReadingSession({
   return {
     session,
     isLoading: isLoadingActive || startMutation.isPending,
-    error: startMutation.error || updateMutation.error || endMutation.error,
+    error: (startMutation.error || updateMutation.error || endMutation.error) as Error | null,
     updatePosition,
     endSession,
   };

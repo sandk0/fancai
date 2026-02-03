@@ -3,8 +3,7 @@ import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
 import { chapterCache } from '@/services/chapterCache';
 import type { Description, GeneratedImage } from '@/types/api';
-
-const DEBUG = import.meta.env.DEV;
+import { logger } from '@/lib/logger';
 
 interface UseChapterDataProps {
   bookId: string;
@@ -38,14 +37,14 @@ export const useChapterData = ({
 
     try {
       setIsLoading(true);
-      if (DEBUG) console.log(`[useChapterData] Loading chapter ${chapter}`);
+      logger.debug(`[useChapterData] Loading chapter ${chapter}`);
 
       // 1. Check Cache
       const cachedData = await chapterCache.get(userId, bookId, chapter);
       if (signal.aborted) return;
 
       if (cachedData && cachedData.descriptions.length > 0) {
-        if (DEBUG) console.log(`[useChapterData] Cache hit for chapter ${chapter}`);
+        logger.debug(`[useChapterData] Cache hit for chapter ${chapter}`);
         setDescriptions(cachedData.descriptions);
         setImages(cachedData.images);
         setIsLoading(false);
@@ -74,9 +73,9 @@ export const useChapterData = ({
 
       setDescriptions(loadedDescriptions);
       setImages(loadedImages);
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
-      console.error(`[useChapterData] Error loading chapter ${chapter}:`, error);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      logger.error(`[useChapterData] Error loading chapter ${chapter}:`, error);
       setDescriptions([]);
       setImages([]);
     } finally {

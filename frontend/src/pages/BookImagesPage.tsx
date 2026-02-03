@@ -20,7 +20,8 @@ import { ImageGallery } from '@/components/Images/ImageGallery';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { PageMeta } from '@/components/SEO/PageMeta';
 
 const BookImagesPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
@@ -66,6 +67,7 @@ const BookImagesPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <PageMeta title={t('bookImages.page_title')} description={t('bookImages.page_description')} />
       {/* Hero Section */}
       <div className="relative mb-12 overflow-hidden rounded-xl">
         {/* Gradient Background */}
@@ -166,7 +168,7 @@ const BookImagesPage: React.FC = () => {
       {book.description && (
         <div className="p-6 rounded-xl border-2 mb-12 bg-card border-border">
           <h3 className="text-lg font-semibold mb-3 text-foreground">
-            Описание
+            {t('bookImages.description')}
           </h3>
           <p className="leading-relaxed text-muted-foreground">
             {book.description}
@@ -178,7 +180,7 @@ const BookImagesPage: React.FC = () => {
       <div className="flex items-center gap-3 mb-6">
         <ImageIcon className="w-7 h-7 text-primary" />
         <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-          AI Галерея
+          {t('bookImages.ai_gallery')}
         </h2>
       </div>
 

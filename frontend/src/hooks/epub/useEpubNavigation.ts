@@ -16,10 +16,11 @@
  * const { nextPage, prevPage, canGoNext, canGoPrev } = useEpubNavigation(rendition);
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Rendition } from '@/types/epub';
+import { isIOS, isAndroid } from '@/utils/iosSupport';
+import { logger } from '@/lib/logger';
 
-// Layout type for internal use
 interface EpubLayout {
   delta?: number;
   columnWidth?: number;
@@ -27,25 +28,6 @@ interface EpubLayout {
   divisor?: number;
   pageWidth?: number;
 }
-
-// Detect iOS device
-export const isIOS = (): boolean => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false;
-  }
-  const ua = navigator.userAgent;
-  const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
-  const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  return isIOSDevice || isIPadOS;
-};
-
-// Detect Android device
-export const isAndroid = (): boolean => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false;
-  }
-  return /Android/i.test(navigator.userAgent);
-};
 
 /**
  * Wait for scroll to complete
@@ -151,7 +133,7 @@ const getMeasuredScrollUnit = (
         // CSS column-width is set and valid
         const unit = cssColumnWidth + cssColumnGap;
         if (isIOS()) {
-          console.log('[getMeasuredScrollUnit] Method 1 SUCCESS: CSS column-width', {
+          logger.debug('[getMeasuredScrollUnit] Method 1 SUCCESS: CSS column-width', {
             cssColumnWidth,
             cssColumnGap,
             unit,
@@ -174,7 +156,7 @@ const getMeasuredScrollUnit = (
           const estimatedGap = cssColumnGap || 20;
           const unit = blockWidth + estimatedGap;
           if (isIOS()) {
-            console.log('[getMeasuredScrollUnit] Method 2 SUCCESS: First block width', {
+            logger.debug('[getMeasuredScrollUnit] Method 2 SUCCESS: First block width', {
               blockWidth,
               estimatedGap,
               unit,
@@ -186,7 +168,7 @@ const getMeasuredScrollUnit = (
     }
   } catch (err) {
     if (isIOS()) {
-      console.warn('[getMeasuredScrollUnit] DOM measurement error:', err);
+      logger.warn('[getMeasuredScrollUnit] DOM measurement error:', err);
     }
   }
 
@@ -202,7 +184,7 @@ const getMeasuredScrollUnit = (
       // Calculate single page width
       const unit = Math.floor(scrollWidth / estimatedPages);
       if (isIOS()) {
-        console.log('[getMeasuredScrollUnit] Method 3 SUCCESS: scrollWidth/pages', {
+        logger.debug('[getMeasuredScrollUnit] Method 3 SUCCESS: scrollWidth/pages', {
           scrollWidth,
           viewportWidth,
           ratio,
@@ -218,7 +200,7 @@ const getMeasuredScrollUnit = (
   // Only use if delta is less than or equal to viewport width
   if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
     if (isIOS()) {
-      console.log('[getMeasuredScrollUnit] Method 4 FALLBACK: layout.delta', {
+      logger.debug('[getMeasuredScrollUnit] Method 4 FALLBACK: layout.delta', {
         layoutDelta: layout.delta,
         viewportWidth,
       });
@@ -230,7 +212,7 @@ const getMeasuredScrollUnit = (
   if (layout?.columnWidth && layout.columnWidth > 0 && layout.columnWidth <= viewportWidth) {
     const unit = layout.columnWidth + (layout.gap || 0);
     if (isIOS()) {
-      console.log('[getMeasuredScrollUnit] Method 5 FALLBACK: layout.columnWidth', {
+      logger.debug('[getMeasuredScrollUnit] Method 5 FALLBACK: layout.columnWidth', {
         columnWidth: layout.columnWidth,
         gap: layout.gap,
         unit,
@@ -241,7 +223,7 @@ const getMeasuredScrollUnit = (
 
   // Final fallback: viewport width
   if (isIOS()) {
-    console.warn('[getMeasuredScrollUnit] Method 6 FINAL FALLBACK: viewportWidth', {
+    logger.warn('[getMeasuredScrollUnit] Method 6 FINAL FALLBACK: viewportWidth', {
       viewportWidth,
       layoutDelta: layout?.delta,
       layoutColumnWidth: layout?.columnWidth,
@@ -316,7 +298,7 @@ export const useEpubNavigation = (
             measureSource: measured.source,
           });
         }
-        console.log('[useEpubNavigation] iOS directScroll START:', {
+        logger.debug('[useEpubNavigation] iOS directScroll START:', {
           direction,
           viewportWidth,
           scrollWidth: scrollWidthTotal,
@@ -346,7 +328,7 @@ export const useEpubNavigation = (
             measureSource: measured.source,
           });
         }
-        console.log('[useEpubNavigation] iOS scroll calculation:', {
+        logger.debug('[useEpubNavigation] iOS scroll calculation:', {
           scrollUnit,
           measureSource: measured.source,
           currentScroll,
@@ -405,7 +387,7 @@ export const useEpubNavigation = (
             measureSource: measured.source,
           });
         }
-        console.log('[useEpubNavigation] iOS directScroll COMPLETE:', {
+        logger.debug('[useEpubNavigation] iOS directScroll COMPLETE:', {
           expected: newScroll,
           actual: finalScroll,
           delta: finalScroll - currentScroll,
@@ -420,7 +402,7 @@ export const useEpubNavigation = (
 
       return true;
     } catch (err) {
-      console.warn('[useEpubNavigation] Direct scroll error:', err);
+      logger.warn('[useEpubNavigation] Direct scroll error:', err);
       return false;
     }
   }, [rendition]);
@@ -430,25 +412,25 @@ export const useEpubNavigation = (
 
     // iOS DEBUG
     if (isIOS()) {
-      console.log('[useEpubNavigation] nextPage() called at', new Date().toISOString());
+      logger.debug('[useEpubNavigation] nextPage() called at', new Date().toISOString());
     }
 
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('next', true);
       if (scrolled) {
-        if (isIOS()) console.log('[useEpubNavigation] iOS: directScroll handled navigation');
+        if (isIOS()) logger.debug('[useEpubNavigation] iOS: directScroll handled navigation');
         return; // Direct scroll worked
       }
       // Fall through to epub.js for chapter changes
-      if (isIOS()) console.log('[useEpubNavigation] iOS: Falling through to epub.js next()');
+      if (isIOS()) logger.debug('[useEpubNavigation] iOS: Falling through to epub.js next()');
     }
 
     try {
       await rendition.next();
-      if (isIOS()) console.log('[useEpubNavigation] iOS: epub.js next() completed');
+      if (isIOS()) logger.debug('[useEpubNavigation] iOS: epub.js next() completed');
     } catch (err) {
-      console.warn('[useEpubNavigation] Could not go to next page:', err);
+      logger.warn('[useEpubNavigation] Could not go to next page:', err);
     }
   }, [rendition, directScroll]);
 
@@ -457,25 +439,25 @@ export const useEpubNavigation = (
 
     // iOS DEBUG
     if (isIOS()) {
-      console.log('[useEpubNavigation] prevPage() called at', new Date().toISOString());
+      logger.debug('[useEpubNavigation] prevPage() called at', new Date().toISOString());
     }
 
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('prev', true);
       if (scrolled) {
-        if (isIOS()) console.log('[useEpubNavigation] iOS: directScroll handled navigation');
+        if (isIOS()) logger.debug('[useEpubNavigation] iOS: directScroll handled navigation');
         return; // Direct scroll worked
       }
       // Fall through to epub.js for chapter changes
-      if (isIOS()) console.log('[useEpubNavigation] iOS: Falling through to epub.js prev()');
+      if (isIOS()) logger.debug('[useEpubNavigation] iOS: Falling through to epub.js prev()');
     }
 
     try {
       await rendition.prev();
-      if (isIOS()) console.log('[useEpubNavigation] iOS: epub.js prev() completed');
+      if (isIOS()) logger.debug('[useEpubNavigation] iOS: epub.js prev() completed');
     } catch (err) {
-      console.warn('[useEpubNavigation] Could not go to prev page:', err);
+      logger.warn('[useEpubNavigation] Could not go to prev page:', err);
     }
   }, [rendition, directScroll]);
 
@@ -493,75 +475,4 @@ export const useEpubNavigation = (
   };
 };
 
-/**
- * useKeyboardNavigation - Keyboard shortcuts for EPUB navigation
- *
- * Listens on both the main window and the epub.js iframe document
- * to ensure keyboard events work when focus is inside the reader.
- *
- * @param nextPage - Function to go to next page
- * @param prevPage - Function to go to previous page
- * @param enabled - Whether keyboard navigation is enabled
- * @param rendition - Optional epub.js Rendition for iframe keyboard events
- *
- * @example
- * useKeyboardNavigation(nextPage, prevPage, true, rendition);
- */
-export const useKeyboardNavigation = (
-  nextPage: () => void,
-  prevPage: () => void,
-  enabled: boolean = true,
-  rendition?: Rendition | null
-): void => {
-  useEffect(() => {
-    if (!enabled) return;
 
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't intercept when typing in inputs
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowUp':
-          e.preventDefault();
-          prevPage();
-          break;
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case ' ': // Spacebar
-          e.preventDefault();
-          nextPage();
-          break;
-      }
-    };
-
-    // Listen on main window
-    window.addEventListener('keydown', handleKeyPress);
-
-    // Also listen in epub.js iframe for when focus is inside
-    const attachToIframe = () => {
-      const contents = rendition?.getContents();
-      if (contents && contents[0]?.document) {
-        contents[0].document.addEventListener('keydown', handleKeyPress);
-      }
-    };
-
-    // Attach on rendered event (iframe may reload on chapter change)
-    rendition?.on('rendered', attachToIframe);
-
-    // Attach immediately if already rendered
-    attachToIframe();
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-      rendition?.off('rendered', attachToIframe);
-      // Clean up iframe listener
-      const contents = rendition?.getContents();
-      if (contents && contents[0]?.document) {
-        contents[0].document.removeEventListener('keydown', handleKeyPress);
-      }
-    };
-  }, [nextPage, prevPage, enabled, rendition]);
-};

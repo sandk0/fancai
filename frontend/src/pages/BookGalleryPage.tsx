@@ -11,6 +11,8 @@ import { ScrollArea } from '@/components/UI/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/avatar';
 import { Drawer } from 'vaul';
 import { EntityProfile } from '@/components/Entities/EntityProfile';
+import { PageMeta } from '@/components/SEO/PageMeta';
+import { logger } from '@/lib/logger';
 
 const BookGalleryPage: React.FC = () => {
      const { t } = useTranslation();
@@ -28,7 +30,7 @@ const BookGalleryPage: React.FC = () => {
                     setCurrentChapter(res.progress?.current_chapter || 0);
                     setCurrentCFI(res.progress?.reading_location_cfi || null);
                 })
-                .catch(err => console.error("Failed to load progress for gallery:", err));
+                .catch(err => logger.error("Failed to load progress for gallery:", err));
         }
     }, [bookId]);
 
@@ -62,6 +64,7 @@ const BookGalleryPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[var(--color-bg-base)] text-[var(--color-text-default)] flex flex-col">
+            <PageMeta title={t('bookGallery.page_title')} description={t('bookGallery.page_description')} />
             {/* Header */}
             <header className="sticky top-0 z-10 bg-[var(--color-bg-base)]/80 backdrop-blur-md border-b border-[var(--color-border-default)] p-4">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">

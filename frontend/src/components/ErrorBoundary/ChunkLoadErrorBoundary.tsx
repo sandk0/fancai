@@ -12,6 +12,8 @@
  */
 
 import { Component, type ReactNode } from 'react';
+import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -57,8 +59,8 @@ export class ChunkLoadErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ChunkLoadErrorBoundary] Error caught:', error);
-    console.error('[ChunkLoadErrorBoundary] Error info:', errorInfo);
+    logger.error('[ChunkLoadErrorBoundary] Error caught:', error);
+    logger.error('[ChunkLoadErrorBoundary] Error info:', errorInfo);
 
     // If it's a chunk loading error and we haven't tried reloading yet
     if (isChunkLoadError(error) && !this.reloadAttempted) {
@@ -67,7 +69,7 @@ export class ChunkLoadErrorBoundary extends Component<Props, State> {
       // Store a flag to show a message after reload
       sessionStorage.setItem('chunk_reload_attempted', 'true');
 
-      console.log('[ChunkLoadErrorBoundary] Chunk loading error detected, reloading page...');
+      logger.debug('[ChunkLoadErrorBoundary] Chunk loading error detected, reloading page...');
 
       // Clear service worker cache to ensure fresh chunks
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -112,15 +114,15 @@ export class ChunkLoadErrorBoundary extends Component<Props, State> {
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold mb-3">Обновление приложения</h2>
+              <h2 className="text-xl font-semibold mb-3">{i18n.t('chunkError.update_title')}</h2>
               <p className="text-muted-foreground mb-6">
-                Вышла новая версия приложения. Пожалуйста, обновите страницу для продолжения работы.
+                {i18n.t('chunkError.update_desc')}
               </p>
               <button
                 onClick={this.handleRetry}
                 className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
               >
-                Обновить страницу
+                {i18n.t('chunkError.update_button')}
               </button>
             </div>
           </div>
@@ -150,15 +152,15 @@ export class ChunkLoadErrorBoundary extends Component<Props, State> {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold mb-3">Произошла ошибка</h2>
+            <h2 className="text-xl font-semibold mb-3">{i18n.t('chunkError.error_title')}</h2>
             <p className="text-muted-foreground mb-6">
-              Что-то пошло не так. Попробуйте обновить страницу.
+              {i18n.t('chunkError.error_desc')}
             </p>
             <button
               onClick={this.handleRetry}
               className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
             >
-              Обновить страницу
+              {i18n.t('chunkError.error_button')}
             </button>
           </div>
         </div>

@@ -15,6 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const distDir = path.join(__dirname, '..', 'dist', 'assets');
+const jsDir = path.join(distDir, 'js');
 
 // Size limits (in KB)
 const LIMITS = {
@@ -43,9 +44,13 @@ function analyzeBundle() {
     process.exit(1);
   }
 
-  const files = fs.readdirSync(distDir);
-  const jsFiles = files.filter(f => f.endsWith('.js'));
-  const cssFiles = files.filter(f => f.endsWith('.css'));
+  // JS files are in dist/assets/js/ subdirectory
+  const jsFiles = fs.existsSync(jsDir) 
+    ? fs.readdirSync(jsDir).filter(f => f.endsWith('.js'))
+    : [];
+  
+  // CSS files are directly in dist/assets/
+  const cssFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.css'));
 
   let totalJsSize = 0;
   let totalCssSize = 0;
@@ -56,7 +61,7 @@ function analyzeBundle() {
   jsFiles
     .map(file => ({
       name: file,
-      size: getFileSizeInKB(path.join(distDir, file))
+      size: getFileSizeInKB(path.join(jsDir, file))
     }))
     .sort((a, b) => b.size - a.size)
     .forEach(({ name, size }) => {

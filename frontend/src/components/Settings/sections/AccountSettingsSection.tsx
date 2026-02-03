@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { useAuthStore } from '@/stores/auth';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 
 interface AccountSettingsSectionProps {
   /** Compact mode for mobile accordion */
@@ -51,7 +51,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
         </div>
         <div className="p-3 rounded-xl border-2 bg-muted border-border">
           <p className="text-xs text-muted-foreground">
-            Настройки аккаунта доступны только для чтения.
+            {t('account.readonly_short')}
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export const AccountSettingsSection: React.FC<AccountSettingsSectionProps> = ({
         </div>
         <div className="mt-6 p-4 rounded-xl border-2 bg-muted border-border">
           <p className="text-sm text-muted-foreground">
-            Настройки аккаунта доступны только для чтения. Свяжитесь с поддержкой для изменений.
+            {t('account.readonly_full')}
           </p>
         </div>
       </div>

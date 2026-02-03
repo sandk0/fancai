@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Eye, Download, Share2, Image, Filter, Grid, List } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +12,7 @@ import { LazyImage } from '@/components/UI/LazyImage';
 import { downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { cn } from '@/utils/cn';
 import type { GeneratedImage } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface ImageGalleryProps {
   bookId: string;
@@ -32,6 +34,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   
   const { notify } = useUIStore();
+  const { t } = useTranslation();
 
   // Fetch images for the book
   const { 
@@ -45,8 +48,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const images = imagesResponse?.images || [];
+  const images = React.useMemo(() => imagesResponse?.images || [], [imagesResponse?.images]);
 
   // Filter images based on search and filter criteria
   const filteredImages = React.useMemo(() => {
@@ -87,7 +89,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       await downloadWithAuth(image.image_url, filename);
       notify.success('Download Started', 'Image download has begun');
     } catch (error) {
-      console.error('[ImageGallery] Download failed:', error);
+      logger.error('[ImageGallery] Download failed:', error);
       notify.error('Download Failed', 'Failed to download image');
     }
   };
@@ -101,7 +103,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           url: image.image_url,
         });
       } catch (error) {
-        console.error('Share failed:', error);
+        logger.error('Share failed:', error);
       }
     } else {
       // Fallback to clipboard
@@ -117,7 +119,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   if (isLoading) {
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
-        <LoadingSpinner size="lg" text="Загрузка изображений..." />
+        <LoadingSpinner size="lg" text={t('imageGallery.loading')} />
       </div>
     );
   }
@@ -126,9 +128,9 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
     return (
       <div className={className}>
         <ErrorMessage
-          title="Не удалось загрузить изображения"
-          message="Невозможно загрузить изображения для этой книги"
-          action={{ label: 'Повторить', onClick: () => refetch() }}
+          title={t('imageGallery.error_title')}
+          message={t('imageGallery.error_message')}
+          action={{ label: t('imageGallery.retry'), onClick: () => refetch() }}
         />
       </div>
     );
@@ -139,10 +141,10 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       <div className={`text-center py-12 ${className}`}>
         <Image className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-medium text-foreground mb-2">
-          Изображений пока нет
+          {t('imageGallery.empty_title')}
         </h3>
         <p className="text-muted-foreground max-w-sm mx-auto">
-          AI-изображения появятся здесь по мере создания
+          {t('imageGallery.empty_desc')}
         </p>
       </div>
     );
@@ -154,10 +156,10 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
           <h2 className="text-xl font-semibold text-foreground mb-1">
-            Созданные изображения
+            {t('imageGallery.title')}
           </h2>
           <p className="text-muted-foreground">
-            {filteredImages.length} из {images.length} изображений
+            {t('imageGallery.count', { filtered: filteredImages.length, total: images.length })}
           </p>
         </div>
         
@@ -181,7 +183,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
         <div className="flex-1">
           <input
             type="text"
-            placeholder="Поиск описаний..."
+            placeholder={t('imageGallery.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground"
@@ -193,7 +195,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           onChange={(e) => setFilter(e.target.value as FilterType)}
           className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground"
         >
-          <option value="all">Все типы</option>
+          <option value="all">{t('imageGallery.all_types')}</option>
           {availableTypes.map(type => (
             <option key={type} value={type}>
               {(type ?? '').charAt(0).toUpperCase() + (type ?? '').slice(1)}
@@ -323,21 +325,21 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                 <button
                   onClick={() => handleImageClick(image)}
                   className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                  title="Просмотр"
+                  title={t('imageGallery.view')}
                 >
                   <Eye className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleDownload(image)}
                   className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                  title="Скачать"
+                  title={t('imageGallery.download')}
                 >
                   <Download className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleShare(image)}
                   className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                  title="Поделиться"
+                  title={t('imageGallery.share')}
                 >
                   <Share2 className="h-4 w-4" />
                 </button>
@@ -352,10 +354,10 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
         <div className="text-center py-12">
           <Filter className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
-            Нет изображений по выбранным фильтрам
+            {t('imageGallery.no_filtered')}
           </h3>
           <p className="text-muted-foreground">
-            Попробуйте изменить параметры поиска или фильтры
+            {t('imageGallery.no_filtered_hint')}
           </p>
         </div>
       )}

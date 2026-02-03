@@ -28,7 +28,7 @@ export enum ErrorCategory {
 export interface ClassifiedError {
   category: ErrorCategory;
   message: string;
-  originalError: any;
+  originalError: unknown;
   isRecoverable: boolean;
   shouldRetry: boolean;
   shouldNotifyUser: boolean;
@@ -39,9 +39,10 @@ export interface ClassifiedError {
 /**
  * Classify any error into a structured format
  */
-export function classifyError(error: any): ClassifiedError {
+export function classifyError(error: unknown): ClassifiedError {
+  const err = error as { code?: string; message?: string; name?: string; response?: { status?: number; data?: { detail?: string | { message?: string } } } };
   // Network errors (Axios or Fetch)
-  if (error.code === 'ERR_NETWORK' || error.message?.includes('Network') || error.name === 'TypeError' && error.message.includes('fetch')) {
+  if (err.code === 'ERR_NETWORK' || err.message?.includes('Network') || err.name === 'TypeError' && err.message?.includes('fetch')) {
     return {
       category: ErrorCategory.NETWORK,
       message: 'Network error',
@@ -54,8 +55,8 @@ export function classifyError(error: any): ClassifiedError {
   }
 
   // Axios HTTP errors
-  const status = error?.response?.status;
-  const detail = error?.response?.data?.detail;
+  const status = err?.response?.status;
+  const detail = err?.response?.data?.detail;
   
   if (status) {
     // Auth errors
@@ -98,7 +99,7 @@ export function classifyError(error: any): ClassifiedError {
         isRecoverable: true,
         shouldRetry: false,
         shouldNotifyUser: true,
-        userMessage: typeof detail === 'object' ? detail.message : 'Обнаружен конфликт данных.',
+        userMessage: typeof detail === 'object' && detail !== null ? (detail as { message?: string }).message || 'Обнаружен конфликт данных.' : 'Обнаружен конфликт данных.',
         statusCode: status,
       };
     }
@@ -134,7 +135,7 @@ export function classifyError(error: any): ClassifiedError {
   // Unknown errors
   return {
     category: ErrorCategory.UNKNOWN,
-    message: String(error.message || error),
+    message: String(err.message || error),
     originalError: error,
     isRecoverable: false,
     shouldRetry: false,

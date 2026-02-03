@@ -2,13 +2,38 @@
 // NOTE: Service Worker registration is handled by VitePWA in main.tsx
 // This file provides utility functions for SW interaction
 import { useUIStore } from '@/stores/ui';
+import { logger } from '@/lib/logger';
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<{ userChoice: string }>;
+  readonly userChoice: Promise<{ outcome: string }>;
+}
+
+interface SyncManager {
+  register(tag: string): Promise<void>;
+}
+
+interface PeriodicSyncManager {
+  register(tag: string, options?: { minInterval: number }): Promise<void>;
+  unregister(tag: string): Promise<void>;
+  getTags(): Promise<string[]>;
+}
+
+interface SyncServiceWorkerRegistration extends ServiceWorkerRegistration {
+  sync: SyncManager;
+  periodicSync: PeriodicSyncManager;
+}
+
+interface NavigatorStandalone extends Navigator {
+  standalone?: boolean;
+}
 
 /**
  * @deprecated Use VitePWA registerSW in main.tsx instead
  * This function is kept for backward compatibility but does nothing
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  console.warn('[SW] registerServiceWorker is deprecated. SW is registered by VitePWA in main.tsx');
+  logger.warn('[SW] registerServiceWorker is deprecated. SW is registered by VitePWA in main.tsx');
 
   // Set up message listener for custom SW events
   if ('serviceWorker' in navigator) {
@@ -29,10 +54,10 @@ export async function unregisterServiceWorker(): Promise<boolean> {
         await registration.unregister();
       }
       
-      console.log('SW unregistered');
+      logger.debug('SW unregistered');
       return true;
     } catch (error) {
-      console.error('SW unregistration failed:', error);
+      logger.error('SW unregistration failed:', error);
       return false;
     }
   }
@@ -62,7 +87,7 @@ function handleServiceWorkerMessage(data: unknown): void {
 
   switch (messageData.type) {
     case 'CACHE_UPDATED':
-      console.log('[SW] Cache updated:', messageData.cacheName as string);
+      logger.debug('[SW] Cache updated:', messageData.cacheName as string);
       break;
 
     case 'OFFLINE_FALLBACK':
@@ -88,20 +113,20 @@ function handleServiceWorkerMessage(data: unknown): void {
 
     case 'SYNC_REQUESTED':
       // Background sync triggered - notify syncQueue to process
-      console.log('[SW] Sync requested:', messageData.tag);
+      logger.debug('[SW] Sync requested:', messageData.tag);
       window.dispatchEvent(new CustomEvent('sw-sync-requested', {
         detail: { tag: messageData.tag }
       }));
       break;
 
     default:
-      console.log('[SW] Unknown message:', messageData);
+      logger.debug('[SW] Unknown message:', messageData);
   }
 }
 
 // PWA Install Prompt Management
 export class PWAInstallPrompt {
-  private deferredPrompt: any = null;
+  private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private installed = false;
 
   constructor() {
@@ -110,16 +135,16 @@ export class PWAInstallPrompt {
   }
 
   private setupInstallPromptHandler(): void {
-    window.addEventListener('beforeinstallprompt', (event) => {
+    window.addEventListener('beforeinstallprompt', (event: Event) => {
       event.preventDefault();
-      this.deferredPrompt = event;
-      console.log('PWA install prompt available');
+      this.deferredPrompt = event as BeforeInstallPromptEvent;
+      logger.debug('PWA install prompt available');
     });
 
     window.addEventListener('appinstalled', () => {
       this.installed = true;
       this.deferredPrompt = null;
-      console.log('PWA installed');
+      logger.debug('PWA installed');
       
       const { notify } = useUIStore.getState();
       notify.success(
@@ -132,7 +157,7 @@ export class PWAInstallPrompt {
   private checkIfInstalled(): void {
     // Check if running in standalone mode (installed PWA)
     this.installed = window.matchMedia('(display-mode: standalone)').matches ||
-                    (window.navigator as any).standalone === true;
+                    (window.navigator as NavigatorStandalone).standalone === true;
   }
 
   public isInstallable(): boolean {
@@ -149,18 +174,18 @@ export class PWAInstallPrompt {
     }
 
     try {
-      const result = await this.deferredPrompt.prompt();
-      const userChoice = await result.userChoice;
+      await this.deferredPrompt.prompt();
+      const { outcome: userChoice } = await this.deferredPrompt.userChoice;
       
       if (userChoice === 'accepted') {
-        console.log('User accepted PWA install');
+        logger.debug('User accepted PWA install');
         return true;
       } else {
-        console.log('User dismissed PWA install');
+        logger.debug('User dismissed PWA install');
         return false;
       }
     } catch (error) {
-      console.error('PWA install prompt failed:', error);
+      logger.error('PWA install prompt failed:', error);
       return false;
     } finally {
       this.deferredPrompt = null;
@@ -172,11 +197,11 @@ export class PWAInstallPrompt {
 export function requestBackgroundSync(tag: string): void {
   if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
     navigator.serviceWorker.ready.then((registration) => {
-      return (registration as any).sync.register(tag);
+      return (registration as SyncServiceWorkerRegistration).sync.register(tag);
     }).then(() => {
-      console.log('Background sync registered:', tag);
+      logger.debug('Background sync registered:', tag);
     }).catch((error) => {
-      console.error('Background sync failed:', error);
+      logger.error('Background sync failed:', error);
     });
   }
 }
@@ -205,7 +230,7 @@ export async function registerPeriodicSync(
   minInterval: number = 24 * 60 * 60 * 1000 // 24 hours default
 ): Promise<boolean> {
   if (!('serviceWorker' in navigator)) {
-    console.log('[PeriodicSync] Service Worker not supported');
+    logger.debug('[PeriodicSync] Service Worker not supported');
     return false;
   }
 
@@ -214,7 +239,7 @@ export async function registerPeriodicSync(
 
     // Check if Periodic Background Sync is supported
     if (!('periodicSync' in registration)) {
-      console.log('[PeriodicSync] Periodic Background Sync not supported (iOS/Firefox)');
+      logger.debug('[PeriodicSync] Periodic Background Sync not supported (iOS/Firefox)');
       return false;
     }
 
@@ -224,19 +249,19 @@ export async function registerPeriodicSync(
     });
 
     if (status.state !== 'granted') {
-      console.log('[PeriodicSync] Permission not granted:', status.state);
+      logger.debug('[PeriodicSync] Permission not granted:', status.state);
       return false;
     }
 
     // Register for periodic sync
-    await (registration as any).periodicSync.register(tag, {
+    await (registration as unknown as SyncServiceWorkerRegistration).periodicSync.register(tag, {
       minInterval,
     });
 
-    console.log(`[PeriodicSync] Registered "${tag}" with minInterval ${minInterval}ms`);
+    logger.debug(`[PeriodicSync] Registered "${tag}" with minInterval ${minInterval}ms`);
     return true;
   } catch (error) {
-    console.log('[PeriodicSync] Registration failed:', error);
+    logger.debug('[PeriodicSync] Registration failed:', error);
     return false;
   }
 }
@@ -259,11 +284,11 @@ export async function unregisterPeriodicSync(tag: string = 'sync-reading-progres
       return false;
     }
 
-    await (registration as any).periodicSync.unregister(tag);
-    console.log(`[PeriodicSync] Unregistered "${tag}"`);
+    await (registration as unknown as SyncServiceWorkerRegistration).periodicSync.unregister(tag);
+    logger.debug(`[PeriodicSync] Unregistered "${tag}"`);
     return true;
   } catch (error) {
-    console.log('[PeriodicSync] Unregistration failed:', error);
+    logger.debug('[PeriodicSync] Unregistration failed:', error);
     return false;
   }
 }
@@ -303,7 +328,7 @@ export async function getPeriodicSyncTags(): Promise<string[]> {
       return [];
     }
 
-    const tags = await (registration as any).periodicSync.getTags();
+    const tags = await (registration as unknown as SyncServiceWorkerRegistration).periodicSync.getTags();
     return tags;
   } catch {
     return [];
@@ -313,7 +338,7 @@ export async function getPeriodicSyncTags(): Promise<string[]> {
 // Push notification subscription
 export async function subscribeToPushNotifications(): Promise<PushSubscription | null> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('Push notifications not supported');
+    logger.debug('Push notifications not supported');
     return null;
   }
 
@@ -326,7 +351,7 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
       applicationServerKey: vapidKey as unknown as ArrayBuffer,
     });
 
-    console.log('Push subscription:', subscription);
+    logger.debug('Push subscription:', subscription);
     
     // Send subscription to server
     await fetch('/api/v1/push/subscribe', {
@@ -340,7 +365,7 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 
     return subscription;
   } catch (error) {
-    console.error('Push subscription failed:', error);
+    logger.error('Push subscription failed:', error);
     return null;
   }
 }

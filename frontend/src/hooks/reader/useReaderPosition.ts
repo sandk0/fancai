@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Rendition, EpubLocations } from '@/types/epub';
 import { booksAPI } from '@/api/books';
+import { logger } from '@/lib/logger';
 
 interface PositionConflict {
   serverPosition: {
@@ -63,13 +64,13 @@ export const useReaderPosition = ({
     if (!rendition || !renditionReady) return;
 
     if (hasRestoredForCurrentBook()) {
-      console.log('[useReaderPosition] ⏭️ Skipping restoration - already restored for book:', bookId);
+      logger.debug('[useReaderPosition] ⏭️ Skipping restoration - already restored for book:', bookId);
       setIsRestoringPosition(false);
       return;
     }
 
     let isMounted = true;
-    console.log('[useReaderPosition] 🚀 Starting position restoration for book:', bookId);
+    logger.debug('[useReaderPosition] 🚀 Starting position restoration for book:', bookId);
 
     const initializePosition = async () => {
       if (isMounted) setIsRestoringPosition(true);
@@ -91,7 +92,7 @@ export const useReaderPosition = ({
             const diff = Math.abs(serverPercent - localPercent);
 
             if (diff > 5) {
-              console.log('[useReaderPosition] ⚠️ CONFLICT DETECTED');
+              logger.debug('[useReaderPosition] ⚠️ CONFLICT DETECTED');
               if (isMounted) {
                 setPositionConflict({
                   serverPosition: {
@@ -116,31 +117,31 @@ export const useReaderPosition = ({
 
         // Restore server position
         if (savedProgress?.reading_location_cfi) {
-          console.log('[useReaderPosition] 📖 Attempting CFI restoration:', savedProgress.reading_location_cfi.substring(0, 80));
+          logger.debug('[useReaderPosition] 📖 Attempting CFI restoration:', savedProgress.reading_location_cfi.substring(0, 80));
           try {
             skipNextRelocated();
             await goToCFI(savedProgress.reading_location_cfi, savedProgress.scroll_offset_percent || 0);
 
             if (!isMounted) return;
             setInitialProgress(savedProgress.reading_location_cfi, savedProgress.current_position);
-            console.log('[useReaderPosition] ✅ CFI restoration SUCCESS');
+            logger.debug('[useReaderPosition] ✅ CFI restoration SUCCESS');
           } catch (cfiError) {
-            console.log('[useReaderPosition] ❌ CFI restoration FAILED:', cfiError);
+            logger.debug('[useReaderPosition] ❌ CFI restoration FAILED:', cfiError);
             if (isMounted) await rendition.display();
           }
         } else {
-          console.log('[useReaderPosition] 🆕 No saved progress, displaying first page');
+          logger.debug('[useReaderPosition] 🆕 No saved progress, displaying first page');
           await rendition.display();
         }
 
       } catch (error) {
-        console.error('❌ [useReaderPosition] Failed to restore:', error);
-        if (isMounted) await rendition.display().catch(console.error);
+        logger.error('❌ [useReaderPosition] Failed to restore:', error);
+        if (isMounted) await rendition.display().catch((err: unknown) => logger.error(err));
       } finally {
         if (isMounted) {
           markPositionRestored();
           setIsRestoringPosition(false);
-          console.log('[useReaderPosition] 🏁 Position restoration complete');
+          logger.debug('[useReaderPosition] 🏁 Position restoration complete');
         }
       }
     };
@@ -180,7 +181,7 @@ export const useReaderPosition = ({
           savedAt: Date.now(),
         }));
         if (import.meta.env.DEV) {
-          console.log('[useReaderPosition] Synced server position to localStorage');
+          logger.debug('[useReaderPosition] Synced server position to localStorage');
         }
       } else {
         // Sync local position to server immediately
@@ -190,7 +191,7 @@ export const useReaderPosition = ({
           current_chapter: 0, // Backend should infer chapter if 0 or update later
         });
         if (import.meta.env.DEV) {
-          console.log('[useReaderPosition] Synced local position to server');
+          logger.debug('[useReaderPosition] Synced local position to server');
         }
       }
 
@@ -198,7 +199,7 @@ export const useReaderPosition = ({
       setPositionConflict(null);
       setIsRestoringPosition(false);
     } catch (err) {
-      console.error('[useReaderPosition] Error resolving conflict:', err);
+      logger.error('[useReaderPosition] Error resolving conflict:', err);
       setPositionConflict(null);
       setIsRestoringPosition(false);
     }

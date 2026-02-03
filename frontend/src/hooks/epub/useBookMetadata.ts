@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Book } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 /**
  * Book metadata interface
@@ -46,7 +47,7 @@ interface UseBookMetadataReturn {
  * const { metadata, isLoading } = useBookMetadata(epubBook);
  *
  * if (metadata) {
- *   console.log(`Reading: ${metadata.title} by ${metadata.creator}`);
+ *   logger.debug(`Reading: ${metadata.title} by ${metadata.creator}`);
  * }
  * ```
  */
@@ -88,7 +89,7 @@ export const useBookMetadata = (book: Book | null): UseBookMetadataReturn => {
 
         setIsLoading(false);
       } catch (err) {
-        console.error('[useBookMetadata] Error loading metadata:', err);
+        logger.error('[useBookMetadata] Error loading metadata:', err);
 
         if (!isMounted) return;
 

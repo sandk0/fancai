@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * iOS Support Utilities
  *
@@ -52,11 +53,13 @@ export const IOS_INSTALL_REMIND_DAYS = 7;
  * }
  */
 export function isIOS(): boolean {
-  if (typeof navigator === 'undefined') {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return false;
   }
-
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+  const ua = navigator.userAgent;
+  const isIOSDevice = /iPad|iPhone|iPod/.test(ua) && !('MSStream' in window);
+  const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return isIOSDevice || isIPadOS;
 }
 
 /**
@@ -117,6 +120,37 @@ export function isStandalone(): boolean {
   }
 
   return false;
+}
+
+/**
+ * Checks if the current device is running Android
+ *
+ * @returns true if the device is running Android
+ *
+ * @example
+ * if (isAndroid()) {
+ *   // Apply Android-specific workarounds
+ * }
+ */
+export function isAndroid(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  return /Android/i.test(navigator.userAgent);
+}
+
+/**
+ * Checks if the current device is a mobile device (iOS or Android)
+ *
+ * @returns true if the device is mobile
+ *
+ * @example
+ * if (isMobile()) {
+ *   // Apply mobile-specific UI adjustments
+ * }
+ */
+export function isMobile(): boolean {
+  return isIOS() || isAndroid();
 }
 
 /**
@@ -249,7 +283,7 @@ export function setupIOSSync(syncFn: () => Promise<void>): () => void {
     try {
       await syncFn();
     } catch (error) {
-      console.error('[IOSSync] Sync failed:', error);
+      logger.error('[IOSSync] Sync failed:', error);
     } finally {
       isProcessing = false;
     }
@@ -257,14 +291,14 @@ export function setupIOSSync(syncFn: () => Promise<void>): () => void {
 
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
-      console.log('[IOSSync] App visible and online, triggering sync');
+      logger.debug('[IOSSync] App visible and online, triggering sync');
       runSync();
     }
   };
 
   const handleOnline = () => {
     if (document.visibilityState === 'visible') {
-      console.log('[IOSSync] Network restored, triggering sync');
+      logger.debug('[IOSSync] Network restored, triggering sync');
       runSync();
     }
   };
@@ -296,12 +330,12 @@ export function setupIOSSync(syncFn: () => Promise<void>): () => void {
  * @example
  * const isPersisted = await setupIOSPersistence();
  * if (!isPersisted) {
- *   console.warn('Storage may be evicted after 7 days of inactivity');
+ *   logger.warn('Storage may be evicted after 7 days of inactivity');
  * }
  */
 export async function setupIOSPersistence(): Promise<boolean> {
   if (!canUsePersistentStorage()) {
-    console.warn('[IOSPersistence] Persistent storage API not available');
+    logger.warn('[IOSPersistence] Persistent storage API not available');
     return false;
   }
 
@@ -310,7 +344,7 @@ export async function setupIOSPersistence(): Promise<boolean> {
     const isPersisted = await navigator.storage.persisted();
 
     if (isPersisted) {
-      console.log('[IOSPersistence] Storage is already persistent');
+      logger.debug('[IOSPersistence] Storage is already persistent');
       return true;
     }
 
@@ -318,9 +352,9 @@ export async function setupIOSPersistence(): Promise<boolean> {
     const granted = await navigator.storage.persist();
 
     if (granted) {
-      console.log('[IOSPersistence] Persistent storage granted');
+      logger.debug('[IOSPersistence] Persistent storage granted');
     } else {
-      console.warn(
+      logger.warn(
         '[IOSPersistence] Persistent storage denied - data may be evicted after',
         IOS_STORAGE_EVICTION_DAYS,
         'days'
@@ -329,7 +363,7 @@ export async function setupIOSPersistence(): Promise<boolean> {
 
     return granted;
   } catch (error) {
-    console.error('[IOSPersistence] Failed to request persistent storage:', error);
+    logger.error('[IOSPersistence] Failed to request persistent storage:', error);
     return false;
   }
 }
@@ -345,7 +379,7 @@ export async function setupIOSPersistence(): Promise<boolean> {
  * @example
  * const steps = getIOSInstallInstructions();
  * steps.forEach((step, index) => {
- *   console.log(`${index + 1}. ${step}`);
+ *   logger.debug(`${index + 1}. ${step}`);
  * });
  */
 export function getIOSInstallInstructions(): string[] {
@@ -402,7 +436,7 @@ export function dismissIOSInstallPrompt(): void {
   try {
     localStorage.setItem(IOS_INSTALL_DISMISSED_KEY, Date.now().toString());
   } catch (error) {
-    console.warn('[IOSSupport] Failed to save dismissal state:', error);
+    logger.warn('[IOSSupport] Failed to save dismissal state:', error);
   }
 }
 
@@ -415,7 +449,7 @@ export function clearIOSInstallDismissal(): void {
   try {
     localStorage.removeItem(IOS_INSTALL_DISMISSED_KEY);
   } catch (error) {
-    console.warn('[IOSSupport] Failed to clear dismissal state:', error);
+    logger.warn('[IOSSupport] Failed to clear dismissal state:', error);
   }
 }
 

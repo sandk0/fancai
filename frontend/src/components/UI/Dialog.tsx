@@ -10,7 +10,7 @@
  * @component
  */
 
-import React, { useCallback, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
@@ -299,81 +299,6 @@ export function AlertDialog({
       {...props}
     />
   );
-}
-
-// --- useDialog Hook ---
-
-interface UseDialogState {
-  isOpen: boolean;
-  title: string;
-  description: string;
-  onConfirm?: () => void | Promise<void>;
-  variant: DialogVariant;
-}
-
-interface UseDialogReturn {
-  dialogProps: {
-    isOpen: boolean;
-    onClose: () => void;
-    title: string;
-    description: string;
-    onConfirm?: () => void | Promise<void>;
-    variant: DialogVariant;
-  };
-  showDialog: (options: {
-    title: string;
-    description: string;
-    onConfirm?: () => void | Promise<void>;
-    variant?: DialogVariant;
-  }) => void;
-  hideDialog: () => void;
-}
-
-/**
- * Hook for managing dialog state imperatively
- */
-export function useDialog(): UseDialogReturn {
-  const [state, setState] = React.useState<UseDialogState>({
-    isOpen: false,
-    title: '',
-    description: '',
-    variant: 'default',
-  });
-
-  const showDialog = useCallback(
-    (options: {
-      title: string;
-      description: string;
-      onConfirm?: () => void | Promise<void>;
-      variant?: DialogVariant;
-    }) => {
-      setState({
-        isOpen: true,
-        title: options.title,
-        description: options.description,
-        onConfirm: options.onConfirm,
-        variant: options.variant || 'default',
-      });
-    },
-    []
-  );
-
-  const hideDialog = useCallback(() => {
-    setState((prev) => ({ ...prev, isOpen: false }));
-  }, []);
-
-  return {
-    dialogProps: {
-      isOpen: state.isOpen,
-      onClose: hideDialog,
-      title: state.title,
-      description: state.description,
-      onConfirm: state.onConfirm,
-      variant: state.variant,
-    },
-    showDialog,
-    hideDialog,
-  };
 }
 
 // --- Exports ---

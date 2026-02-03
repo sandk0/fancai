@@ -3,6 +3,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { STORAGE_KEYS } from '@/types/state';
 import type { ApiError } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 class ApiClient {
   public client: AxiosInstance;
@@ -26,13 +27,13 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         if (import.meta.env.DEV) {
-          console.log(`🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`);
+          logger.debug(`🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`);
         }
 
         // КРИТИЧЕСКИ ВАЖНО: Если data это FormData, удаляем Content-Type
         // чтобы браузер сам установил multipart/form-data с boundary
         if (config.data instanceof FormData) {
-          if (import.meta.env.DEV) console.log('🌐 [AXIOS] Detected FormData, removing Content-Type header');
+          if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] Detected FormData, removing Content-Type header');
           if (config.headers) {
             delete config.headers['Content-Type'];
           }
@@ -42,7 +43,7 @@ class ApiClient {
         return config;
       },
       (error) => {
-        console.error('🌐 [AXIOS] Request interceptor error:', error);
+        logger.error('🌐 [AXIOS] Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
@@ -50,7 +51,7 @@ class ApiClient {
     // Response interceptor for token refresh
     this.client.interceptors.response.use(
       (response) => {
-        if (import.meta.env.DEV) console.log(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
+        if (import.meta.env.DEV) logger.debug(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
         return response;
       },
       async (error) => {
@@ -58,7 +59,7 @@ class ApiClient {
 
         // Skip logging for 401s that we're about to retry (reduces noise)
         if (error.response?.status !== 401 || originalRequest._retry) {
-          console.error('🌐 [AXIOS] Response error:', {
+          logger.error('🌐 [AXIOS] Response error:', {
             url: error.config?.url,
             status: error.response?.status,
             message: error.message,
@@ -71,25 +72,26 @@ class ApiClient {
         const isIgnoredEndpoint = originalRequest.url?.includes('/metrics') || originalRequest.url?.includes('/health');
         
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint && !isIgnoredEndpoint) {
-          if (import.meta.env.DEV) console.log('🌐 [AXIOS] 401 error, attempting token refresh...');
+          if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] 401 error, attempting token refresh...');
           originalRequest._retry = true;
 
           try {
             await this.refreshToken();
-            if (import.meta.env.DEV) console.log('🌐 [AXIOS] Token refreshed, retrying request...');
+            if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] Token refreshed, retrying request...');
             return this.client(originalRequest);
-          } catch (refreshError: any) {
+          } catch (refreshError: unknown) {
             // Refresh failed
             
             // Don't logout on 429 (Rate Limit) or Network Error
             // Just fail the request and let the user try again later
-            const status = refreshError?.response?.status;
-            if (status === 429 || refreshError.code === 'ERR_NETWORK') {
-               console.warn('🔄 Token refresh failed (temporary):', status || 'Network Error');
+            const isAxios = this.isAxiosError(refreshError);
+            const status = isAxios ? refreshError.response?.status : undefined;
+            if (status === 429 || (isAxios && refreshError.code === 'ERR_NETWORK')) {
+               logger.warn('🔄 Token refresh failed (temporary):', status || 'Network Error');
                return Promise.reject(refreshError);
             }
 
-            console.warn('🔄 Token refresh failed (permanent):', refreshError);
+            logger.warn('🔄 Token refresh failed (permanent):', refreshError);
             this.clearAuthData();
 
             // Only redirect to login if not already on login page
@@ -132,7 +134,7 @@ class ApiClient {
   }
 
   private clearAuthData() {
-    console.log('🧹 Clearing auth data...');
+    logger.debug('🧹 Clearing auth data...');
     // Clear legacy tokens if any
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -147,7 +149,7 @@ class ApiClient {
         useAuthStore.getState().logout();
       })
       .catch((error) => {
-        console.warn('Failed to clear auth store:', error);
+        logger.warn('Failed to clear auth store:', error);
       });
   }
 

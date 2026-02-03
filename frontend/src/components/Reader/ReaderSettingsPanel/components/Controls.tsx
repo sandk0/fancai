@@ -68,7 +68,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
         <div
           className="absolute left-0 right-0 h-2 rounded-full pointer-events-none"
           style={{
-            background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%, hsl(var(--secondary)) 100%)`,
+            background: `linear-gradient(to right, var(--color-accent-600) 0%, var(--color-accent-600) ${percentage}%, var(--color-bg-muted) ${percentage}%, var(--color-bg-muted) 100%)`,
           }}
         />
       </div>

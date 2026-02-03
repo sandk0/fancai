@@ -186,4 +186,4 @@ const SelectWrapper = React.forwardRef<HTMLDivElement, SelectWrapperProps>(
 );
 SelectWrapper.displayName = "SelectWrapper";
 
-export { Select, SelectWrapper, selectVariants };
+export { Select, SelectWrapper };

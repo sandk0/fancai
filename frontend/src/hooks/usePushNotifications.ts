@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pushManager } from '@/services/pushNotifications';
 import type { PushPermissionState } from '@/types/push';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Query Keys
@@ -183,13 +184,13 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       return pushManager.subscribe();
     },
     onSuccess: () => {
-      console.log('[usePushNotifications] Subscribed successfully');
+      logger.debug('[usePushNotifications] Subscribed successfully');
       // Invalidate both queries to refresh state
       queryClient.invalidateQueries({ queryKey: pushKeys.subscription() });
       queryClient.invalidateQueries({ queryKey: pushKeys.permission() });
     },
     onError: (err: Error) => {
-      console.error('[usePushNotifications] Subscribe error:', err);
+      logger.error('[usePushNotifications] Subscribe error:', err);
       setError(err.message);
     },
   });
@@ -204,12 +205,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       return pushManager.unsubscribe();
     },
     onSuccess: () => {
-      console.log('[usePushNotifications] Unsubscribed successfully');
+      logger.debug('[usePushNotifications] Unsubscribed successfully');
       // Invalidate subscription query
       queryClient.invalidateQueries({ queryKey: pushKeys.subscription() });
     },
     onError: (err: Error) => {
-      console.error('[usePushNotifications] Unsubscribe error:', err);
+      logger.error('[usePushNotifications] Unsubscribe error:', err);
       setError(err.message);
     },
   });
@@ -224,7 +225,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       return pushManager.testNotification();
     },
     onError: (err: Error) => {
-      console.error('[usePushNotifications] Test notification error:', err);
+      logger.error('[usePushNotifications] Test notification error:', err);
       setError(err.message);
     },
   });
@@ -266,7 +267,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           });
 
           const handleChange = () => {
-            console.log('[usePushNotifications] Permission changed:', status.state);
+            logger.debug('[usePushNotifications] Permission changed:', status.state);
             queryClient.invalidateQueries({ queryKey: pushKeys.permission() });
             queryClient.invalidateQueries({ queryKey: pushKeys.subscription() });
           };

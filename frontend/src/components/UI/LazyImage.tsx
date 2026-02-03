@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { cn } from '@/lib/utils';
 import { ImageOff } from 'lucide-react';
@@ -55,6 +56,7 @@ export function LazyImage({
   onError,
   onClick,
 }: LazyImageProps) {
+  const { t } = useTranslation();
   const { ref, isVisible } = useIntersectionObserver<HTMLDivElement>({
     rootMargin,
     triggerOnce: true,
@@ -116,7 +118,7 @@ export function LazyImage({
         >
           <ImageOff className="w-8 h-8 text-muted-foreground mb-2" />
           <span className="text-muted-foreground text-sm text-center px-2">
-            Ошибка загрузки
+            {t('ui.lazyImage.loadError')}
           </span>
         </div>
       )}
@@ -126,11 +128,11 @@ export function LazyImage({
         <div
           className="absolute inset-0 flex flex-col items-center justify-center bg-muted"
           role="img"
-          aria-label="Нет изображения"
+          aria-label={t('ui.lazyImage.noImageAria')}
         >
           <ImageOff className="w-8 h-8 text-muted-foreground mb-2" />
           <span className="text-muted-foreground text-sm text-center px-2">
-            Нет изображения
+            {t('ui.lazyImage.noImage')}
           </span>
         </div>
       )}

@@ -2,8 +2,7 @@ import { useCallback } from 'react';
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
 import { chapterCache } from '@/services/chapterCache';
-
-const DEBUG = import.meta.env.DEV;
+import { logger } from '@/lib/logger';
 
 interface UseChapterPrefetchProps {
   bookId: string;
@@ -18,7 +17,7 @@ export const useChapterPrefetch = ({ bookId, userId }: UseChapterPrefetchProps) 
       const cached = await chapterCache.get(userId, bookId, chapter);
       if (cached && cached.descriptions.length > 0) return true;
 
-      if (DEBUG) console.log(`[Prefetch] Loading chapter ${chapter}...`);
+      logger.debug(`[Prefetch] Loading chapter ${chapter}...`);
 
       const descriptionsResponse = await booksAPI.getChapterDescriptions(bookId, chapter, false);
       const descriptions = descriptionsResponse.nlp_analysis.descriptions || [];
@@ -32,7 +31,7 @@ export const useChapterPrefetch = ({ bookId, userId }: UseChapterPrefetchProps) 
 
       return true;
     } catch (e) {
-      console.warn(`[Prefetch] Failed for chapter ${chapter}:`, e);
+      logger.warn(`[Prefetch] Failed for chapter ${chapter}:`, e);
       return false;
     }
   }, [bookId, userId]);
@@ -65,7 +64,7 @@ export const useChapterPrefetch = ({ bookId, userId }: UseChapterPrefetchProps) 
     if (chaptersToFetch.length === 0) return;
 
     chaptersToFetch.sort((a, b) => a - b);
-    if (DEBUG) console.log(`[Prefetch] Batch prefetch: ${chaptersToFetch.join(', ')}`);
+    logger.debug(`[Prefetch] Batch prefetch: ${chaptersToFetch.join(', ')}`);
 
     try {
       const batchResponse = await booksAPI.getBatchDescriptions(bookId, chaptersToFetch);
@@ -89,7 +88,7 @@ export const useChapterPrefetch = ({ bookId, userId }: UseChapterPrefetchProps) 
         }
       }
     } catch (e) {
-      console.warn('[Prefetch] Batch failed, falling back to individual:', e);
+      logger.warn('[Prefetch] Batch failed, falling back to individual:', e);
       for (const ch of chaptersToFetch) {
         await prefetchSingleChapter(ch);
       }

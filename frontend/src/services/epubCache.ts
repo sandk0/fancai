@@ -15,14 +15,12 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie'
+import { MemoryTable } from './memoryFallbackCache'
+import { notifyFallbackOnce } from './db'
 
-/** Enable debug logging only in development */
-const DEBUG = import.meta.env.DEV
+import { logger } from '@/lib/logger'
 
-/** Maximum cache size in bytes (200 MB default) */
 const MAX_CACHE_SIZE_BYTES = 200 * 1024 * 1024
-
-/** TTL for cached EPUBs (30 days in ms) */
 const EPUB_CACHE_TTL = 30 * 24 * 60 * 60 * 1000
 
 // ============================================================================
@@ -67,10 +65,6 @@ export interface EpubCacheStorageInfo {
 // Database
 // ============================================================================
 
-/**
- * Dexie database for EPUB file caching.
- * Separate from main FancaiDB to keep EPUB blobs isolated.
- */
 class EpubCacheDatabase extends Dexie {
   epubs!: EntityTable<CachedEpub, 'id'>
 
@@ -83,27 +77,41 @@ class EpubCacheDatabase extends Dexie {
   }
 }
 
-/** Singleton database instance */
 const epubDb = new EpubCacheDatabase()
 
-// Handle database errors
 epubDb.on('blocked', () => {
-  console.warn('[EpubCache] Database blocked - please close other tabs')
+  logger.warn('[EpubCache] Database blocked - please close other tabs')
 })
 
 epubDb.on('versionchange', () => {
-  console.warn('[EpubCache] Database version change - reloading')
+  logger.warn('[EpubCache] Database version change - reloading')
   epubDb.close()
   window.location.reload()
 })
 
 epubDb.open().catch((err: Error & { name?: string }) => {
-  console.error('[EpubCache] Failed to open database:', err)
+  logger.error('[EpubCache] Failed to open database:', err)
   if (err.name === 'VersionError' || err.name === 'InvalidStateError') {
     indexedDB.deleteDatabase('EpubCacheDB')
     window.location.reload()
   }
 })
+
+const memoryFallback = new MemoryTable<CachedEpub>()
+let useMemoryFallback = false
+
+function getEpubsTable(): MemoryTable<CachedEpub> {
+  if (useMemoryFallback) return memoryFallback
+  return epubDb.epubs as unknown as MemoryTable<CachedEpub>
+}
+
+function switchToFallback(err: unknown): void {
+  if (!useMemoryFallback) {
+    useMemoryFallback = true
+    logger.warn('[EpubCache] Switching to in-memory fallback:', err)
+    notifyFallbackOnce()
+  }
+}
 
 // ============================================================================
 // Helper Functions
@@ -136,20 +144,18 @@ class EpubCacheService {
   async has(userId: string, bookId: string): Promise<boolean> {
     try {
       const id = createEpubId(userId, bookId)
-      const epub = await epubDb.epubs.get(id)
+      const epub = await getEpubsTable().get(id)
 
       if (!epub) return false
 
-      // Check expiration
       if (this.isExpired(epub.cachedAt)) {
-        // Delete expired entry asynchronously
         this.delete(userId, bookId).catch(() => {})
         return false
       }
 
       return true
     } catch (err) {
-      console.warn('[EpubCache] Error checking cache:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -164,32 +170,28 @@ class EpubCacheService {
   async get(userId: string, bookId: string): Promise<ArrayBuffer | null> {
     try {
       const id = createEpubId(userId, bookId)
-      const epub = await epubDb.epubs.get(id)
+      const epub = await getEpubsTable().get(id)
 
       if (!epub) {
-        if (DEBUG) console.log('[EpubCache] Cache miss for:', bookId)
+        logger.debug('[EpubCache] Cache miss for:', bookId)
         return null
       }
 
-      // Check expiration
       if (this.isExpired(epub.cachedAt)) {
-        if (DEBUG) console.log('[EpubCache] Cache expired for:', bookId)
+        logger.debug('[EpubCache] Cache expired for:', bookId)
         await this.delete(userId, bookId)
         return null
       }
 
-      // Update lastAccessedAt for LRU
-      await epubDb.epubs.update(id, { lastAccessedAt: Date.now() })
+      await getEpubsTable().update(id, { lastAccessedAt: Date.now() })
 
-      if (DEBUG) {
-        console.log('[EpubCache] Cache hit for:', bookId, {
-          size: (epub.size / 1024 / 1024).toFixed(2) + 'MB',
-        })
-      }
+      logger.debug('[EpubCache] Cache hit for:', bookId, {
+        size: (epub.size / 1024 / 1024).toFixed(2) + 'MB',
+      })
 
       return epub.data
     } catch (err) {
-      console.error('[EpubCache] Error reading cache:', err)
+      switchToFallback(err)
       return null
     }
   }
@@ -210,23 +212,21 @@ class EpubCacheService {
     try {
       // Skip cache writes when app is not visible (PWA corruption fix)
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        if (DEBUG) {
-          console.log('[EpubCache] Skipping set() - app not visible:', bookId)
-        }
+        logger.debug('[EpubCache] Skipping set() - app not visible:', bookId)
         return false
       }
 
       // Validate inputs
       if (!userId || typeof userId !== 'string') {
-        console.error('[EpubCache] Invalid userId:', userId)
+        logger.error('[EpubCache] Invalid userId:', userId)
         return false
       }
       if (!bookId || typeof bookId !== 'string') {
-        console.error('[EpubCache] Invalid bookId:', bookId)
+        logger.error('[EpubCache] Invalid bookId:', bookId)
         return false
       }
       if (!data || !(data instanceof ArrayBuffer)) {
-        console.error('[EpubCache] Invalid data: not an ArrayBuffer')
+        logger.error('[EpubCache] Invalid data: not an ArrayBuffer')
         return false
       }
 
@@ -248,18 +248,16 @@ class EpubCacheService {
         lastAccessedAt: now,
       }
 
-      await epubDb.epubs.put(cachedEpub)
+      await getEpubsTable().put(cachedEpub)
 
-      if (DEBUG) {
-        console.log('[EpubCache] EPUB cached:', {
-          bookId,
-          size: (size / 1024 / 1024).toFixed(2) + 'MB',
-        })
-      }
+      logger.debug('[EpubCache] EPUB cached:', {
+        bookId,
+        size: (size / 1024 / 1024).toFixed(2) + 'MB',
+      })
 
       return true
     } catch (err) {
-      console.error('[EpubCache] Error caching EPUB:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -274,12 +272,12 @@ class EpubCacheService {
   async delete(userId: string, bookId: string): Promise<boolean> {
     try {
       const id = createEpubId(userId, bookId)
-      await epubDb.epubs.delete(id)
+      await getEpubsTable().delete(id)
 
-      if (DEBUG) console.log('[EpubCache] Deleted:', bookId)
+      logger.debug('[EpubCache] Deleted:', bookId)
       return true
     } catch (err) {
-      console.warn('[EpubCache] Error deleting:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -292,24 +290,22 @@ class EpubCacheService {
    */
   async clearUser(userId: string): Promise<number> {
     try {
-      const epubs = await epubDb.epubs
+      const epubs = await getEpubsTable()
         .where('userId')
         .equals(userId)
         .toArray()
 
       const ids = epubs.map((epub) => epub.id)
-      await epubDb.epubs.bulkDelete(ids)
+      await getEpubsTable().bulkDelete(ids)
 
-      if (DEBUG) {
-        console.log('[EpubCache] Cleared user cache:', {
-          userId,
-          deletedCount: ids.length,
-        })
-      }
+      logger.debug('[EpubCache] Cleared user cache:', {
+        userId,
+        deletedCount: ids.length,
+      })
 
       return ids.length
     } catch (err) {
-      console.warn('[EpubCache] Error clearing user cache:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -325,12 +321,12 @@ class EpubCacheService {
       let epubs: CachedEpub[]
 
       if (userId) {
-        epubs = await epubDb.epubs
+        epubs = await getEpubsTable()
           .where('userId')
           .equals(userId)
           .toArray()
       } else {
-        epubs = await epubDb.epubs.toArray()
+        epubs = await getEpubsTable().toArray()
       }
 
       const info: EpubCacheStorageInfo = {
@@ -358,18 +354,16 @@ class EpubCacheService {
       info.totalSizeMB = info.totalSizeBytes / 1024 / 1024
       info.usagePercent = (info.totalSizeBytes / MAX_CACHE_SIZE_BYTES) * 100
 
-      if (DEBUG) {
-        console.log('[EpubCache] Storage info:', {
-          userId: userId || 'all',
-          epubs: info.totalEpubs,
-          size: info.totalSizeMB.toFixed(2) + 'MB',
-          usage: info.usagePercent.toFixed(1) + '%',
-        })
-      }
+      logger.debug('[EpubCache] Storage info:', {
+        userId: userId || 'all',
+        epubs: info.totalEpubs,
+        size: info.totalSizeMB.toFixed(2) + 'MB',
+        usage: info.usagePercent.toFixed(1) + '%',
+      })
 
       return info
     } catch (err) {
-      console.warn('[EpubCache] Error getting storage info:', err)
+      switchToFallback(err)
       return {
         totalEpubs: 0,
         totalSizeBytes: 0,
@@ -403,13 +397,13 @@ class EpubCacheService {
         totalDeleted += lruDeleted
       }
 
-      if (DEBUG && totalDeleted > 0) {
-        console.log('[EpubCache] Cleanup completed:', { deletedCount: totalDeleted })
+      if (totalDeleted > 0) {
+        logger.debug('[EpubCache] Cleanup completed:', { deletedCount: totalDeleted })
       }
 
       return totalDeleted
     } catch (err) {
-      console.warn('[EpubCache] Error during cleanup:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -422,14 +416,14 @@ class EpubCacheService {
    */
   async getCachedBookIds(userId: string): Promise<string[]> {
     try {
-      const epubs = await epubDb.epubs
+      const epubs = await getEpubsTable()
         .where('userId')
         .equals(userId)
         .toArray()
 
       return epubs.map((epub) => epub.bookId)
     } catch (err) {
-      console.warn('[EpubCache] Error getting cached book IDs:', err)
+      switchToFallback(err)
       return []
     }
   }
@@ -456,7 +450,7 @@ class EpubCacheService {
     const info = await this.getStorageInfo(userId)
 
     if (info.totalSizeBytes + newEntrySize > MAX_CACHE_SIZE_BYTES) {
-      if (DEBUG) console.log('[EpubCache] Cache size exceeded, cleaning...')
+      logger.debug('[EpubCache] Cache size exceeded, cleaning...')
 
       // First, clear expired
       await this.clearExpired(userId)
@@ -480,29 +474,27 @@ class EpubCacheService {
 
       let epubs: CachedEpub[]
       if (userId) {
-        epubs = await epubDb.epubs
+        epubs = await getEpubsTable()
           .where('userId')
           .equals(userId)
           .filter((epub) => epub.cachedAt < expirationTime)
           .toArray()
       } else {
-        epubs = await epubDb.epubs
+        epubs = await getEpubsTable()
           .filter((epub) => epub.cachedAt < expirationTime)
           .toArray()
       }
 
       if (epubs.length > 0) {
         const ids = epubs.map((epub) => epub.id)
-        await epubDb.epubs.bulkDelete(ids)
+        await getEpubsTable().bulkDelete(ids)
 
-        if (DEBUG) {
-          console.log('[EpubCache] Cleared expired entries:', ids.length)
-        }
+        logger.debug('[EpubCache] Cleared expired entries:', ids.length)
       }
 
       return epubs.length
     } catch (err) {
-      console.warn('[EpubCache] Error clearing expired:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -514,33 +506,29 @@ class EpubCacheService {
     try {
       let epubs: CachedEpub[]
       if (userId) {
-        epubs = await epubDb.epubs
+        epubs = await getEpubsTable()
           .where('userId')
           .equals(userId)
           .toArray()
       } else {
-        epubs = await epubDb.epubs.toArray()
+        epubs = await getEpubsTable().toArray()
       }
 
-      // Sort by lastAccessedAt (oldest first)
       epubs.sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)
 
-      // Delete oldest 20% to make room
       const countToDelete = Math.max(1, Math.ceil(epubs.length * 0.2))
       const toDelete = epubs.slice(0, countToDelete)
       const ids = toDelete.map((epub) => epub.id)
 
       if (ids.length > 0) {
-        await epubDb.epubs.bulkDelete(ids)
+        await getEpubsTable().bulkDelete(ids)
 
-        if (DEBUG) {
-          console.log('[EpubCache] LRU cleanup:', ids.length)
-        }
+        logger.debug('[EpubCache] LRU cleanup:', ids.length)
       }
 
       return ids.length
     } catch (err) {
-      console.warn('[EpubCache] Error during LRU cleanup:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -553,12 +541,11 @@ class EpubCacheService {
     bytesToFree: number
   ): Promise<void> {
     try {
-      const epubs = await epubDb.epubs
+      const epubs = await getEpubsTable()
         .where('userId')
         .equals(userId)
         .toArray()
 
-      // Sort by lastAccessedAt (oldest first)
       epubs.sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)
 
       let freedBytes = 0
@@ -571,17 +558,15 @@ class EpubCacheService {
       }
 
       if (idsToDelete.length > 0) {
-        await epubDb.epubs.bulkDelete(idsToDelete)
+        await getEpubsTable().bulkDelete(idsToDelete)
 
-        if (DEBUG) {
-          console.log('[EpubCache] Deleted to free space:', {
-            deleted: idsToDelete.length,
-            freed: (freedBytes / 1024 / 1024).toFixed(2) + 'MB',
-          })
-        }
+        logger.debug('[EpubCache] Deleted to free space:', {
+          deleted: idsToDelete.length,
+          freed: (freedBytes / 1024 / 1024).toFixed(2) + 'MB',
+        })
       }
     } catch (err) {
-      console.warn('[EpubCache] Error deleting by size:', err)
+      switchToFallback(err)
     }
   }
 }

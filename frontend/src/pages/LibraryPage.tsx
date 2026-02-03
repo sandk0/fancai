@@ -26,6 +26,7 @@ import { DeleteConfirmModal } from '@/components/Library/DeleteConfirmModal';
 import { useLibraryFilters } from '@/hooks/library/useLibraryFilters';
 import { cn } from '@/lib/utils';
 import type { Book } from '@/types/api';
+import { PageMeta } from '@/components/SEO/PageMeta';
 
 const BOOKS_PER_PAGE = 24;
 const SCROLL_KEY = 'library-scroll';
@@ -205,6 +206,7 @@ const LibraryPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <PageMeta title={t('library.page_title')} description={t('library.page_description')} />
       <AnimatePresence>
         {(isPulling || isRefreshing) && (
           <m.div className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 pt-safe pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ transform: `translateY(${isRefreshing ? 40 : pullDistance - 40}px)` }}>

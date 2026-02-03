@@ -23,6 +23,7 @@ import {
   type CachedDescription,
 } from './db'
 import { apiClient } from '@/api/client'
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // Types
@@ -94,7 +95,7 @@ interface ChapterContent {
  *
  * // Start download
  * await downloadManager.downloadBook(bookId, userId, {
- *   onProgress: (progress) => console.log(progress)
+ *   onProgress: (progress) => logger.debug(progress)
  * })
  *
  * // Cancel download
@@ -152,7 +153,7 @@ class DownloadManager {
 
     try {
       // 1. Get book metadata
-      console.log(`[DownloadManager] Starting download for book ${bookId}`)
+      logger.debug(`[DownloadManager] Starting download for book ${bookId}`)
       const book = await this.fetchBookDetails(bookId, controller.signal)
 
       // 2. Get chapters list
@@ -235,12 +236,12 @@ class DownloadManager {
         status: 'complete',
       })
 
-      console.log(`[DownloadManager] Book ${bookId} download complete`)
+      logger.debug(`[DownloadManager] Book ${bookId} download complete`)
     } catch (error) {
       const errorMessage = (error as Error).message
 
       if (errorMessage !== 'Download cancelled') {
-        console.error(`[DownloadManager] Download failed:`, error)
+        logger.error(`[DownloadManager] Download failed:`, error)
         await db.offlineBooks.update(key, { status: 'error' })
 
         this.notifyProgress(key, {
@@ -271,7 +272,7 @@ class DownloadManager {
     const controller = this.activeDownloads.get(key)
 
     if (controller) {
-      console.log(`[DownloadManager] Cancelling download for book ${bookId}`)
+      logger.debug(`[DownloadManager] Cancelling download for book ${bookId}`)
       controller.abort()
     }
   }
@@ -288,7 +289,7 @@ class DownloadManager {
     // Cancel if downloading
     this.cancelDownload(userId, bookId)
 
-    console.log(`[DownloadManager] Deleting offline book ${bookId}`)
+    logger.debug(`[DownloadManager] Deleting offline book ${bookId}`)
 
     // Delete all related data in a transaction
     await db.transaction(
@@ -308,7 +309,7 @@ class DownloadManager {
       }
     )
 
-    console.log(`[DownloadManager] Offline book ${bookId} deleted`)
+    logger.debug(`[DownloadManager] Offline book ${bookId} deleted`)
   }
 
   /**
@@ -371,7 +372,7 @@ class DownloadManager {
     // Check if already cached
     const existing = await db.chapters.get(chapterId)
     if (existing) {
-      console.log(
+      logger.debug(
         `[DownloadManager] Chapter ${chapterNumber} already cached, skipping`
       )
       return
@@ -412,7 +413,7 @@ class DownloadManager {
     }
 
     await db.chapters.put(chapter)
-    console.log(`[DownloadManager] Chapter ${chapterNumber} downloaded`)
+    logger.debug(`[DownloadManager] Chapter ${chapterNumber} downloaded`)
   }
 
   /**

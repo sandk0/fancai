@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { IOSPushGuidance, useIOSPushReadiness } from '@/components/UI/IOSInstallInstructions';
 
@@ -75,6 +76,7 @@ interface NotificationsSettingsSectionProps {
 export const NotificationsSettingsSection: React.FC<NotificationsSettingsSectionProps> = ({
   compact = false,
 }) => {
+  const { t } = useTranslation();
   // Notification settings state (could be moved to a store/hook)
   const [bookProcessing, setBookProcessing] = useState(true);
   const [imageGeneration, setImageGeneration] = useState(true);
@@ -87,26 +89,26 @@ export const NotificationsSettingsSection: React.FC<NotificationsSettingsSection
     {
       checked: bookProcessing,
       onChange: setBookProcessing,
-      label: 'Обработка книги',
+      label: t('notifications.book_processing'),
       description: compact
-        ? 'Уведомление о завершении обработки'
-        : 'Получать уведомление когда обработка книги завершена',
+        ? t('notifications.book_processing_desc_short')
+        : t('notifications.book_processing_desc'),
     },
     {
       checked: imageGeneration,
       onChange: setImageGeneration,
-      label: 'Генерация изображений',
+      label: t('notifications.image_generation'),
       description: compact
-        ? 'Уведомление о новых изображениях'
-        : 'Получать уведомление когда создаются новые изображения',
+        ? t('notifications.image_generation_desc_short')
+        : t('notifications.image_generation_desc'),
     },
     {
       checked: readingReminders,
       onChange: setReadingReminders,
-      label: 'Напоминания о чтении',
+      label: t('notifications.reading_reminders'),
       description: compact
-        ? 'Напоминания продолжить чтение'
-        : 'Получать напоминания продолжить чтение',
+        ? t('notifications.reading_reminders_desc_short')
+        : t('notifications.reading_reminders_desc'),
     },
   ];
 
@@ -141,7 +143,7 @@ export const NotificationsSettingsSection: React.FC<NotificationsSettingsSection
 
       <div>
         <h3 className="text-xl font-bold mb-6 text-foreground">
-          Настройки уведомлений
+          {t('notifications.title')}
         </h3>
         <div className="space-y-2">
           {notifications.map((notification, index) => (

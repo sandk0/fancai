@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { m } from 'framer-motion';
 import { X, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { booksAPI } from '@/api/books';
 import { useBookProgressWS } from '@/hooks/useBookProgressWS';
+import { logger } from '@/lib/logger';
 
 interface ParsingOverlayProps {
   bookId: string;
@@ -21,6 +23,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
   useWebSocket = true,  // Enable WebSocket by default (Phase 5)
   // forceBlock is reserved for future use (blocking navigation during parsing)
 }) => {
+  const { t } = useTranslation();
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [usePollingFallback, setUsePollingFallback] = useState(!useWebSocket);
@@ -63,13 +66,13 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     if (remainingTimeMs > 0 && isFinite(remainingTimeMs)) {
       const seconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
       if (seconds < 60) {
-        setEtr(`${seconds} сек`);
+        setEtr(`${seconds} ${t('ui.parsing.seconds')}`);
       } else {
         const minutes = Math.ceil(seconds / 60);
-        setEtr(`~${minutes} мин`);
+        setEtr(`~${minutes} ${t('ui.parsing.minutes')}`);
       }
     }
-  }, [progress, referenceTime, referenceProgress]);
+  }, [progress, referenceTime, referenceProgress, t]);
 
   // Phase 5: WebSocket connection for real-time updates
   const {
@@ -82,12 +85,12 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     onComplete: () => {
       setIsComplete(true);
       setProgress(100);
-      toast.success('Обработка завершена успешно!');
+      toast.success(t('ui.parsing.complete_success'));
       setTimeout(() => onParsingComplete?.(), 1000);
     },
     onError: (error) => {
-      console.warn('[ParsingOverlay] WebSocket error, falling back to polling:', error);
-      toast.error('Ошибка соединения. Переключаемся на резервный режим...');
+      logger.warn('[ParsingOverlay] WebSocket error, falling back to polling:', error);
+      toast.error(t('ui.parsing.connection_error'));
       setUsePollingFallback(true);
     },
     maxReconnectAttempts: 2,
@@ -105,7 +108,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     if (wsStatus === 'error' || wsStatus === 'disconnected') {
       // Give WebSocket 3 seconds to reconnect before falling back
       const fallbackTimer = setTimeout(() => {
-        console.log('[ParsingOverlay] WebSocket unavailable, using polling');
+        logger.debug('[ParsingOverlay] WebSocket unavailable, using polling');
         setUsePollingFallback(true);
       }, 3000);
       return () => clearTimeout(fallbackTimer);
@@ -139,7 +142,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
 
         intervalId = setTimeout(checkProgress, statusData.status === 'not_started' ? 500 : 300);
       } catch (error) {
-        console.error('[ParsingOverlay] Polling failed:', error);
+        logger.error('[ParsingOverlay] Polling failed:', error);
         if (isMounted && !isComplete) {
           intervalId = setTimeout(checkProgress, 1000);
         }
@@ -171,9 +174,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
       exit={{ opacity: 0 }}
       className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex flex-col items-center justify-center z-[100] rounded-lg gap-4"
     >
-      {/* Круговой прогресс */}
       <div className="relative">
-        {/* Фон круга */}
         <svg className="w-20 h-20 transform -rotate-90">
           <circle
             cx="40"
@@ -183,7 +184,6 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
             strokeWidth="8"
             fill="none"
           />
-          {/* Прогресс */}
           <m.circle
             cx="40"
             cy="40"
@@ -201,7 +201,6 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
           />
         </svg>
 
-        {/* Процент в центре */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-white font-bold text-lg">
             {Math.round(progress)}%
@@ -217,11 +216,10 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
           className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 text-xs text-white/80 font-medium z-50 backdrop-blur-sm"
         >
           <Clock className="w-3 h-3" />
-          <span>Осталось: {etr}</span>
+          <span>{t('ui.parsing.remaining', { time: etr })}</span>
         </m.div>
       )}
 
-      {/* Кнопка отмены (скрываем если завершено) */}
       {onCancel && !isComplete && (
         <m.button
           initial={{ opacity: 0 }}
@@ -233,7 +231,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-all duration-200 min-h-[40px] z-50 mt-4 backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto cursor-pointer"
         >
           <X className="w-4 h-4" />
-          <span>Отменить</span>
+          <span>{t('ui.parsing.cancel')}</span>
         </m.button>
       )}
     </m.div>

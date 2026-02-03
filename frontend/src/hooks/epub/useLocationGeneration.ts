@@ -20,10 +20,11 @@
 
 import { useState, useEffect } from 'react';
 import type { Book, EpubLocations } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 // Conditional logging - only in development mode
 const devLog = import.meta.env.DEV
-  ? (...args: unknown[]) => console.log('[useLocationGeneration]', ...args)
+  ? (...args: unknown[]) => logger.debug('[useLocationGeneration]', ...args)
   : () => {};
 
 interface UseLocationGenerationReturn {
@@ -53,7 +54,7 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-const getCachedLocations = async (bookId: string): Promise<any | null> => {
+const getCachedLocations = async (bookId: string): Promise<string | null> => {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -97,7 +98,7 @@ export const useLocationGeneration = (
   book: Book | null,
   bookId: string
 ): UseLocationGenerationReturn => {
-  const [locations, setLocations] = useState<any | null>(null);
+  const [locations, setLocations] = useState<EpubLocations | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,7 +159,7 @@ export const useLocationGeneration = (
 
             } catch (loadErr) {
               // AUTO-CLEANUP: Remove corrupted cache data and regenerate
-              console.warn('[useLocationGeneration] Corrupted cache detected, auto-cleaning:', loadErr);
+              logger.warn('[useLocationGeneration] Corrupted cache detected, auto-cleaning:', loadErr);
               devLog('Warning: Cached locations corrupted, clearing cache and regenerating...');
               await clearCachedLocations(bookId);
               // locationsLoaded stays false, will regenerate below
@@ -177,7 +178,7 @@ export const useLocationGeneration = (
         try {
           await book.locations.generate(1600); // 1600 characters per "page"
         } catch (genErr) {
-          console.error('[useLocationGeneration] Generate failed:', genErr);
+          logger.error('[useLocationGeneration] Generate failed:', genErr);
           // Try with smaller chunk size on mobile
           devLog('Retrying with smaller chunk size...');
           await book.locations.generate(800);
@@ -189,7 +190,7 @@ export const useLocationGeneration = (
         devLog('Success: Locations generated:', total);
 
         if (total === 0) {
-          console.error('[useLocationGeneration] Locations generated but total is 0');
+          logger.error('[useLocationGeneration] Locations generated but total is 0');
           throw new Error('Locations generation returned 0 total');
         }
 
@@ -206,7 +207,7 @@ export const useLocationGeneration = (
         setIsGenerating(false);
 
       } catch (err) {
-        console.error('[useLocationGeneration] Error generating locations:', err);
+        logger.error('[useLocationGeneration] Error generating locations:', err);
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to generate locations');
           setIsGenerating(false);

@@ -8,8 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-
-const DEBUG = import.meta.env.DEV;
+import { logger } from '@/lib/logger';
 
 export interface OnlineStatus {
   /** Whether the browser is currently online */
@@ -50,7 +49,7 @@ export function useOnlineStatus(): OnlineStatus {
       detail: { timestamp: Date.now() },
     }));
 
-    if (DEBUG) console.log('[useOnlineStatus] Network restored, dispatched app:online event');
+    logger.debug('[useOnlineStatus] Network restored, dispatched app:online event');
   }, []);
 
   const handleOffline = useCallback(() => {
@@ -65,7 +64,7 @@ export function useOnlineStatus(): OnlineStatus {
       detail: { timestamp: Date.now() },
     }));
 
-    if (DEBUG) console.log('[useOnlineStatus] Network lost, dispatched app:offline event');
+    logger.debug('[useOnlineStatus] Network lost, dispatched app:offline event');
   }, []);
 
   useEffect(() => {

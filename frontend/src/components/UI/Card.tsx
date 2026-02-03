@@ -262,5 +262,4 @@ export {
   CardContent,
   CardFooter,
   CardAccent,
-  cardVariants,
 }

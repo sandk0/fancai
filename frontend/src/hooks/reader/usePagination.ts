@@ -20,6 +20,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 
 interface PaginationOptions {
   fontSize: number;
@@ -64,13 +65,13 @@ export const usePagination = (
       const charsPerLine = Math.max(40, Math.floor(containerWidth / (fontSize * 0.55)));
       const charsPerPage = Math.max(800, Math.min(4000, linesPerPage * charsPerLine));
 
-      console.log(`[usePagination] Params: lines=${linesPerPage}, chars/line=${charsPerLine}, chars/page=${charsPerPage}`);
+      logger.debug(`[usePagination] Params: lines=${linesPerPage}, chars/line=${charsPerLine}, chars/page=${charsPerPage}`);
 
       // Calculate total pages needed
       const textLength = content.replace(/<[^>]*>/g, '').length;
       const totalPages = Math.max(1, Math.ceil(textLength / charsPerPage));
 
-      console.log(`[usePagination] Content: ${textLength} chars, ${totalPages} pages`);
+      logger.debug(`[usePagination] Content: ${textLength} chars, ${totalPages} pages`);
 
       const newPages: string[] = [];
 
@@ -116,7 +117,7 @@ export const usePagination = (
         newPages.push(content);
       }
 
-      console.log(`[usePagination] Final: ${newPages.length} pages created`);
+      logger.debug(`[usePagination] Final: ${newPages.length} pages created`);
       setPages(newPages);
     };
 

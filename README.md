@@ -48,7 +48,8 @@ fancai is a modern web application for reading fiction with **automatic AI-gener
 | 🎨 **AI Image Generation** | Google Imagen 4 creates high-quality illustrations |
 | 📍 **Smart Position Tracking** | CFI-based reading position with pixel-perfect restoration |
 | 🌙 **Dark Mode** | Comfortable reading day and night |
-| 📱 **PWA Ready** | Install as an app, works offline |
+| 📱 **PWA Ready** | Install as an app, works offline with IndexedDB |
+| 🌍 **Internationalization** | Full i18n support (Russian + English, 1000+ keys) |
 | 🔐 **Subscription Model** | FREE / PREMIUM / ULTIMATE tiers |
 | 🔄 **Offline Sync** | Queue operations offline, auto-sync when online |
 | 🛡️ **Resilient APIs** | Exponential backoff retry for all external services |
@@ -227,7 +228,7 @@ GET  /api/v1/images/{id}                       # Get generated image
 | Database Query Time | <5ms | 100x faster (vs 500ms) |
 | API Response (cached) | <50ms | 83% faster |
 | Frontend TTI | 1.2s | 66% faster |
-| Bundle Size | 386KB gzipped | 29% smaller |
+| Bundle Size | 202KB gzipped | 48% smaller |
 | Memory Usage | 2-3 GB RAM | 75% reduction |
 | Docker Image | 800 MB | 68% smaller |
 
@@ -318,19 +319,20 @@ npm run type-check                     # TypeScript check
 fancai/
 ├── frontend/                 # React + TypeScript frontend
 │   ├── src/
-│   │   ├── components/       # UI components (86 total)
+│   │   ├── components/       # UI components (126 total)
 │   │   │   ├── Reader/       # EPUB reader (15 components)
 │   │   │   ├── Settings/     # Settings (8 components)
 │   │   │   ├── Library/      # Book library (6 components)
 │   │   │   ├── Admin/        # Admin panel (5 components)
 │   │   │   └── UI/           # Shared UI (20+ components)
-│   │   ├── hooks/            # React hooks (56 total)
-│   │   │   ├── api/          # TanStack Query hooks (5 files)
+│   │   ├── hooks/            # React hooks (66 total)
+│   │   │   ├── api/          # TanStack Query hooks (9 files, 26+ hooks)
 │   │   │   ├── epub/         # EPUB reader hooks (22 files)
 │   │   │   ├── reader/       # Reader logic (9 files)
 │   │   │   └── [15 top-level hooks]
-│   │   ├── services/         # Caching services (9 files)
-│   │   ├── stores/           # Zustand stores (6 files)
+│   │   ├── services/         # IndexedDB caching (offline-first)
+│   │   ├── stores/           # Zustand stores (3: auth, reader, ui)
+│   │   ├── locales/          # i18n translations (1000+ keys, ru/en)
 │   │   ├── utils/            # Utilities (10 files)
 │   │   └── pages/            # Page components (13 pages)
 │   └── tests/                # Vitest tests

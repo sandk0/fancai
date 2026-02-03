@@ -30,6 +30,7 @@ import {
 import { isOnline } from '@/hooks/useOnlineStatus';
 import { chapterKeys, descriptionKeys, getCurrentUserId } from './queryKeys';
 import type { Chapter, Description } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 /**
  * Response типа для главы с навигацией
@@ -153,12 +154,12 @@ async function backgroundRefreshChapter(
   chapterNumber: number
 ): Promise<void> {
   try {
-    console.log(`🔄 [useChapter] Background refresh chapter ${chapterNumber}`);
+    logger.debug(`🔄 [useChapter] Background refresh chapter ${chapterNumber}`);
     const response = await booksAPI.getChapter(bookId, chapterNumber);
     await saveChapterToCache(userId, bookId, chapterNumber, response);
-    console.log(`✅ [useChapter] Background refresh complete for chapter ${chapterNumber}`);
+    logger.debug(`✅ [useChapter] Background refresh complete for chapter ${chapterNumber}`);
   } catch (error) {
-    console.warn(`⚠️ [useChapter] Background refresh failed for chapter ${chapterNumber}:`, error);
+    logger.warn(`⚠️ [useChapter] Background refresh failed for chapter ${chapterNumber}:`, error);
   }
 }
 
@@ -181,10 +182,10 @@ async function backgroundRefreshChapter(
  * const { data, isLoading } = useChapter('book-123', 5);
  *
  * if (data) {
- *   console.log('Chapter:', data.chapter.title);
- *   console.log('Descriptions:', data.descriptions?.length);
- *   console.log('Has next:', data.navigation.has_next);
- *   console.log('From cache:', data._cached);
+ *   logger.debug('Chapter:', data.chapter.title);
+ *   logger.debug('Descriptions:', data.descriptions?.length);
+ *   logger.debug('Has next:', data.navigation.has_next);
+ *   logger.debug('From cache:', data._cached);
  * }
  * ```
  */
@@ -199,7 +200,7 @@ export function useChapter(
   const query = useQuery({
     queryKey: chapterKeys.detail(userId, bookId, chapterNumber),
     queryFn: async (): Promise<ChapterResponse> => {
-      console.log(
+      logger.debug(
         `📖 [useChapter] Fetching chapter ${chapterNumber} for book ${bookId}`
       );
 
@@ -208,7 +209,7 @@ export function useChapter(
       const cached = await db.chapters.get(cacheId);
 
       if (cached) {
-        console.log(
+        logger.debug(
           `✅ [useChapter] Chapter ${chapterNumber} loaded from Dexie cache`
         );
 
@@ -246,7 +247,7 @@ export function useChapter(
       // 2. Пробуем старый chapterCache как fallback (для миграции)
       const legacyCached = await chapterCache.get(userId, bookId, chapterNumber).catch(() => null);
       if (legacyCached) {
-        console.log(
+        logger.debug(
           `✅ [useChapter] Chapter ${chapterNumber} loaded from legacy chapterCache`
         );
 
@@ -273,14 +274,14 @@ export function useChapter(
       }
 
       // 3. Загружаем с API
-      console.log(
+      logger.debug(
         `📡 [useChapter] Chapter ${chapterNumber} not in cache, fetching from API`
       );
       const response = await booksAPI.getChapter(bookId, chapterNumber);
 
       // 4. Сохраняем в Dexie IndexedDB кэш
       await saveChapterToCache(userId, bookId, chapterNumber, response).catch((err) => {
-        console.warn(
+        logger.warn(
           `⚠️ [useChapter] Failed to cache chapter ${chapterNumber} in Dexie:`,
           err
         );
@@ -291,7 +292,7 @@ export function useChapter(
         await chapterCache
           .set(userId, bookId, chapterNumber, response.descriptions, [])
           .catch((err) => {
-            console.warn(
+            logger.warn(
               `⚠️ [useChapter] Failed to cache chapter ${chapterNumber} in legacy cache:`,
               err
             );

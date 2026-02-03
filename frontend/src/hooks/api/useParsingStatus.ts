@@ -23,6 +23,8 @@ import { bookKeys, descriptionKeys } from './queryKeys';
 import { chapterCache } from '@/services/chapterCache';
 import { notify } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
+import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 
 interface UseParsingStatusOptions {
   /** Book ID to track */
@@ -102,7 +104,7 @@ export function useParsingStatus({
 
     // Detect transition from parsing to ready
     if (previousIsParsing.current === true && !isParsing && isReady) {
-      console.log('🎉 [useParsingStatus] Parsing complete! Invalidating caches...');
+      logger.debug('🎉 [useParsingStatus] Parsing complete! Invalidating caches...');
 
       // Invalidate TanStack Query caches
       queryClient.invalidateQueries({
@@ -111,13 +113,13 @@ export function useParsingStatus({
 
       // Clear IndexedDB cache for this book (force fresh data)
       chapterCache.clearBook(userId, bookId).catch((err) => {
-        console.warn('⚠️ [useParsingStatus] Failed to clear chapter cache:', err);
+        logger.warn('⚠️ [useParsingStatus] Failed to clear chapter cache:', err);
       });
 
       // Show success notification
       notify.success(
-        'Книга готова!',
-        `Описания извлечены для всех глав (${progress}%)`
+        i18n.t('hooks.parsingStatus.book_ready'),
+        i18n.t('hooks.parsingStatus.descriptions_extracted', { progress })
       );
     }
 

@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { Sun, Moon, FileText, Monitor } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,12 +22,13 @@ import { useTheme, type AppTheme } from '@/hooks/useTheme';
 
 export const ThemeSwitcher: React.FC = () => {
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   const themes: Array<{ value: AppTheme; label: string; icon: React.ReactNode }> = [
-    { value: 'system', label: 'Системная', icon: <Monitor className="w-4 h-4" /> },
-    { value: 'light', label: 'Светлая', icon: <Sun className="w-4 h-4" /> },
-    { value: 'dark', label: 'Тёмная', icon: <Moon className="w-4 h-4" /> },
-    { value: 'sepia', label: 'Сепия', icon: <FileText className="w-4 h-4" /> },
+    { value: 'system', label: t('ui.theme.system'), icon: <Monitor className="w-4 h-4" /> },
+    { value: 'light', label: t('ui.theme.light'), icon: <Sun className="w-4 h-4" /> },
+    { value: 'dark', label: t('ui.theme.dark'), icon: <Moon className="w-4 h-4" /> },
+    { value: 'sepia', label: t('ui.theme.sepia'), icon: <FileText className="w-4 h-4" /> },
   ];
 
   const currentTheme = themes.find(t => t.value === theme);
@@ -45,8 +47,8 @@ export const ThemeSwitcher: React.FC = () => {
             "h-[44px] min-w-[44px] px-3 sm:px-3",
             "bg-muted hover:bg-muted/80 text-foreground"
           )}
-          title="Сменить тему"
-          aria-label="Сменить тему оформления"
+          title={t('ui.theme.switch_title')}
+          aria-label={t('ui.theme.switch_aria')}
         >
           {displayIcon}
           <span className="hidden sm:inline text-sm font-medium whitespace-nowrap">{currentTheme?.label}</span>

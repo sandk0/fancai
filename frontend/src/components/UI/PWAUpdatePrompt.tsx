@@ -14,10 +14,12 @@
 
 import { useCallback } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useTranslation } from 'react-i18next';
 import { m, AnimatePresence } from 'framer-motion';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/UI/button';
 import { Card } from '@/components/UI/Card';
+import { logger } from '@/lib/logger';
 
 export interface PWAUpdatePromptProps {
   /** Title text shown in the prompt */
@@ -48,11 +50,16 @@ export interface PWAUpdatePromptProps {
  * ```
  */
 export function PWAUpdatePrompt({
-  title = 'Доступна новая версия',
-  description = 'Обновите приложение для получения новых функций и исправлений',
-  updateButtonText = 'Обновить',
-  dismissButtonText = 'Позже',
+  title,
+  description,
+  updateButtonText,
+  dismissButtonText,
 }: PWAUpdatePromptProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('ui.pwaUpdate.title');
+  const resolvedDescription = description ?? t('ui.pwaUpdate.description');
+  const resolvedUpdateText = updateButtonText ?? t('ui.pwaUpdate.update');
+  const resolvedDismissText = dismissButtonText ?? t('ui.pwaUpdate.dismiss');
   // useRegisterSW hook from VitePWA
   // Provides needRefresh state and updateServiceWorker function
   const {
@@ -63,35 +70,35 @@ export function PWAUpdatePrompt({
     immediate: true,
     // Check for updates every hour
     onRegisteredSW(swUrl, registration) {
-      console.log('[PWA] Service Worker registered via useRegisterSW:', swUrl);
+      logger.debug('[PWA] Service Worker registered via useRegisterSW:', swUrl);
       if (registration) {
         setInterval(() => {
-          console.log('[PWA] Checking for updates...');
+          logger.debug('[PWA] Checking for updates...');
           registration.update();
         }, 60 * 60 * 1000); // 1 hour
       }
     },
     onRegisterError(error) {
-      console.error('[PWA] Service Worker registration error:', error);
+      logger.error('[PWA] Service Worker registration error:', error);
     },
     onNeedRefresh() {
-      console.log('[PWA] New content available, showing update prompt');
+      logger.debug('[PWA] New content available, showing update prompt');
     },
     onOfflineReady() {
-      console.log('[PWA] App is ready to work offline');
+      logger.debug('[PWA] App is ready to work offline');
     },
   });
 
   // Handle update button click
   const handleUpdate = useCallback(() => {
-    console.log('[PWA] User initiated update');
+    logger.debug('[PWA] User initiated update');
     // Force update and reload
     updateServiceWorker(true);
   }, [updateServiceWorker]);
 
   // Handle dismiss button click
   const handleDismiss = useCallback(() => {
-    console.log('[PWA] User dismissed update prompt');
+    logger.debug('[PWA] User dismissed update prompt');
     setNeedRefresh(false);
   }, [setNeedRefresh]);
 
@@ -144,7 +151,7 @@ export function PWAUpdatePrompt({
             <button
               onClick={handleDismiss}
               className="absolute right-2 top-2 p-1.5 rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-default)] hover:bg-[var(--color-bg-subtle)] transition-colors"
-              aria-label="Закрыть уведомление"
+              aria-label={t('ui.pwaUpdate.close_aria')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -163,13 +170,13 @@ export function PWAUpdatePrompt({
                   id="pwa-update-title"
                   className="text-sm font-semibold text-[var(--color-text-default)]"
                 >
-                  {title}
+                  {resolvedTitle}
                 </h3>
                 <p
                   id="pwa-update-description"
                   className="mt-1 text-sm text-[var(--color-text-muted)]"
                 >
-                  {description}
+                  {resolvedDescription}
                 </p>
 
                 {/* Action buttons */}
@@ -181,7 +188,7 @@ export function PWAUpdatePrompt({
                     className="flex-1 sm:flex-none"
                   >
                     <RefreshCw className="h-4 w-4 mr-1" />
-                    {updateButtonText}
+                    {resolvedUpdateText}
                   </Button>
                   <Button
                     variant="ghost"
@@ -189,7 +196,7 @@ export function PWAUpdatePrompt({
                     onClick={handleDismiss}
                     className="flex-1 sm:flex-none"
                   >
-                    {dismissButtonText}
+                    {resolvedDismissText}
                   </Button>
                 </div>
               </div>

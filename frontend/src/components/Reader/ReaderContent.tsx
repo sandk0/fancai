@@ -12,6 +12,24 @@ import { m } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import type { Description } from '@/types/api';
 
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'span', 'div', 'br', 'strong', 'em', 'b', 'i', 'u', 's',
+    'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th',
+    'figure', 'figcaption', 'sup', 'sub', 'hr',
+  ],
+  ALLOWED_ATTR: [
+    'class', 'id', 'href', 'src', 'alt', 'title', 'target', 'rel',
+    'data-description-id', 'data-description-type', 'data-entity-id',
+    'width', 'height', 'colspan', 'rowspan',
+  ],
+  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button', 'style', 'link', 'meta'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onsubmit', 'onchange', 'onkeydown', 'onkeyup'],
+  ALLOW_DATA_ATTR: false,
+} satisfies Partial<DOMPurify.Config>;
+
 interface ReaderContentProps {
   pages: string[];
   currentPage: number;
@@ -45,7 +63,7 @@ export const ReaderContent: React.FC<ReaderContentProps> = React.memo(({
       content = highlightDescription(pageContent, highlightedDescriptions);
     }
 
-    return DOMPurify.sanitize(content);
+    return DOMPurify.sanitize(content, PURIFY_CONFIG);
   }, [pageContent, highlightedDescriptions, highlightDescription]);
 
   return (

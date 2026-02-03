@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, FileText, Minus, Plus, Hand, MousePointerClick, Settings } from 'lucide-react';
-import { isAndroid } from '@/hooks/epub/useEpubNavigation';
+import { isAndroid } from '@/utils/iosSupport';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/UI/dropdown-menu';
 import { Switch } from '@/components/UI/Switch';
 import { cn } from '@/lib/utils';
@@ -17,10 +17,10 @@ interface ReaderControlsProps {
   onNavigationModeChange?: (m: NavigationMode) => void;
 }
 
-export const ReaderControls: React.FC<ReaderControlsProps> = ({
+export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function ReaderControls({
   theme, fontSize, onThemeChange, onFontSizeIncrease, onFontSizeDecrease, isOpen, onOpenChange,
   className, wakeLockEnabled, wakeLockSupported, wakeLockActive, onWakeLockChange, navigationMode, onNavigationModeChange,
-}) => {
+}) {
   const { t } = useTranslation();
   const showNav = isAndroid() && onNavigationModeChange;
   return (
@@ -49,9 +49,9 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
           <div className="px-4 py-3 border-t">
             <label className="text-xs mb-2 block opacity-70">{t('reader.settings.font_size')}</label>
             <div className="flex items-center gap-3">
-              <button onClick={onFontSizeDecrease} disabled={fontSize <= 75} className="h-10 w-10 border rounded flex items-center justify-center"><Minus className="h-4 w-4" /></button>
+              <button onClick={onFontSizeDecrease} disabled={fontSize <= 75} className="h-10 w-10 border rounded flex items-center justify-center" aria-label={t('reader.settings.decrease_font_size')}><Minus className="h-4 w-4" aria-hidden="true" /></button>
               <span className="flex-1 text-center font-bold">{fontSize}%</span>
-              <button onClick={onFontSizeIncrease} disabled={fontSize >= 200} className="h-10 w-10 border rounded flex items-center justify-center"><Plus className="h-4 w-4" /></button>
+              <button onClick={onFontSizeIncrease} disabled={fontSize >= 200} className="h-10 w-10 border rounded flex items-center justify-center" aria-label={t('reader.settings.increase_font_size')}><Plus className="h-4 w-4" aria-hidden="true" /></button>
             </div>
           </div>
           {wakeLockSupported && onWakeLockChange && (
@@ -77,4 +77,4 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
       </DropdownMenu>
     </div>
   );
-};
+});

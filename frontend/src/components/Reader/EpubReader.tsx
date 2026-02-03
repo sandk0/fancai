@@ -25,7 +25,7 @@ import {
 } from '@/hooks/epub';
 import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
-import { isIOS } from '@/hooks/epub/useEpubNavigation';
+import { isIOS } from '@/utils/iosSupport';
 import { useReaderStore } from '@/stores/reader';
 import { useReaderPosition } from '@/hooks/reader/useReaderPosition';
 import { useWakeLock } from '@/hooks/useWakeLock';
@@ -37,6 +37,7 @@ import { getCurrentUserId } from '@/hooks/api/queryKeys';
 import { ReaderModals } from './Core/ReaderModals';
 import { ReaderOverlays } from './Core/ReaderOverlays';
 import { ReaderUI } from './Core/ReaderUI';
+import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
 
@@ -122,7 +123,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     onNavigate: async (dir) => { if (dir === 'next') await nextPage(); else await prevPage(); },
   });
 
-  useKeyboardNavigation(nextPage, prevPage, renditionReady && !isModalOpen, rendition);
+  useKeyboardNavigation({ onNext: nextPage, onPrev: prevPage, enabled: renditionReady && !isModalOpen, rendition });
   useTouchNavigation({ rendition, viewerRef, nextPage, prevPage, enabled: renditionReady && !isModalOpen && effectiveNavigationMode === 'tap' });
 
   const { theme, fontSize, setTheme, increaseFontSize, decreaseFontSize } = useEpubThemes(rendition);
@@ -133,6 +134,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   useResizeHandler({ rendition, enabled: renditionReady, onResized: () => {} });
   const { metadata: bookMetadata } = useBookMetadata(epubBook);
   const { selection, clearSelection } = useTextSelection(rendition, renditionReady && !isModalOpen);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   useReadingSession({
     bookId: book.id, currentPosition: progress, enabled: renditionReady && !isGenerating,
@@ -161,11 +164,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     localStorage.setItem(WAKE_LOCK_STORAGE_KEY, String(e));
   }, []);
 
-  useEffect(() => { if (currentCFI && selection) clearSelection(); }, [currentCFI]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (currentCFI && selectionRef.current) clearSelection(); }, [currentCFI, clearSelection]);
 
   const handleTocChapterClick = useCallback(async (href: string) => {
     if (!rendition) return;
-    try { await rendition.display(href); setCurrentHref(href); } catch (err) { console.error(err); }
+    try { await rendition.display(href); setCurrentHref(href); } catch (err) { logger.error(err); }
   }, [rendition, setCurrentHref]);
 
   const handleCopy = useCallback(async () => {
@@ -174,7 +177,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       await navigator.clipboard.writeText(selection.text);
       notify.success(t('reader.notification.copied'));
       clearSelection();
-    } catch (err) { console.error(err); }
+    } catch (err) { logger.error(err); }
   }, [selection, clearSelection, t]);
 
   const handleImageRegenerated = useCallback((url: string) => updateImage(url), [updateImage]);
@@ -202,7 +205,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         }
         target = target.parentElement;
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { logger.error(err); }
   }, [rendition, handleDescriptionClick]);
 
   const backgroundColor = useMemo(() => {

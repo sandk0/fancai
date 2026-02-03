@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * Centralized Visibility Manager (January 2026)
  *
@@ -29,7 +30,7 @@ class VisibilityManager {
     this.handlers.set(handler.id, handler);
     
     if (import.meta.env.DEV) {
-      console.log(`[VisibilityManager] Registered: ${handler.id} (priority ${handler.priority}, delay ${handler.delay}ms)`);
+      logger.debug(`[VisibilityManager] Registered: ${handler.id} (priority ${handler.priority}, delay ${handler.delay}ms)`);
     }
   }
 
@@ -43,7 +44,7 @@ class VisibilityManager {
     }
     
     if (import.meta.env.DEV) {
-      console.log(`[VisibilityManager] Unregistered: ${id}`);
+      logger.debug(`[VisibilityManager] Unregistered: ${id}`);
     }
   }
 
@@ -57,11 +58,11 @@ class VisibilityManager {
     this.lastVisibilityState = state;
     
     if (import.meta.env.DEV) {
-      console.log(`[VisibilityManager] State: ${state}, handlers: ${this.handlers.size}`);
+      logger.debug(`[VisibilityManager] State: ${state}, handlers: ${this.handlers.size}`);
     }
 
     if (this.isProcessing) {
-      console.warn('[VisibilityManager] Already processing, skipping');
+      logger.warn('[VisibilityManager] Already processing, skipping');
       return;
     }
 
@@ -74,7 +75,7 @@ class VisibilityManager {
       for (const handler of sorted) {
         if (handler.shouldRun && !handler.shouldRun()) {
           if (import.meta.env.DEV) {
-            console.log(`[VisibilityManager] Skipping ${handler.id} (precondition failed)`);
+            logger.debug(`[VisibilityManager] Skipping ${handler.id} (precondition failed)`);
           }
           continue;
         }
@@ -93,10 +94,10 @@ class VisibilityManager {
             }
             
             if (import.meta.env.DEV) {
-              console.log(`[VisibilityManager] Executed: ${handler.id}`);
+              logger.debug(`[VisibilityManager] Executed: ${handler.id}`);
             }
           } catch (error) {
-            console.error(`[VisibilityManager] Error in ${handler.id}:`, error);
+            logger.error(`[VisibilityManager] Error in ${handler.id}:`, error);
           } finally {
             this.timeouts.delete(handler.id);
           }
@@ -111,7 +112,7 @@ class VisibilityManager {
 
   start(): void {
     if (typeof document === 'undefined') {
-      console.warn('[VisibilityManager] Document not available, skipping');
+      logger.warn('[VisibilityManager] Document not available, skipping');
       return;
     }
 
@@ -119,7 +120,7 @@ class VisibilityManager {
     this.lastVisibilityState = document.visibilityState;
     
     if (import.meta.env.DEV) {
-      console.log('[VisibilityManager] Started');
+      logger.debug('[VisibilityManager] Started');
     }
   }
 
@@ -131,7 +132,7 @@ class VisibilityManager {
     this.handlers.clear();
     
     if (import.meta.env.DEV) {
-      console.log('[VisibilityManager] Stopped');
+      logger.debug('[VisibilityManager] Stopped');
     }
   }
 

@@ -17,13 +17,14 @@
  * @example
  * const { selection, clearSelection } = useTextSelection(rendition);
  * if (selection) {
- *   console.log('Selected text:', selection.text);
- *   console.log('CFI range:', selection.cfiRange);
+ *   logger.debug('Selected text:', selection.text);
+ *   logger.debug('CFI range:', selection.cfiRange);
  * }
  */
 
 import { useEffect, useState, useCallback } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 export interface Selection {
   text: string;
@@ -90,7 +91,7 @@ export const useTextSelection = (
           position: absolutePosition,
         });
       } catch (err) {
-        console.error('[useTextSelection] Error handling selection:', err);
+        logger.error('[useTextSelection] Error handling selection:', err);
       }
     };
 

@@ -11,6 +11,7 @@
 
 import { useState, useCallback } from 'react';
 import type { Description } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface SelectedImageState {
   imageUrl: string;
@@ -30,7 +31,7 @@ export const useReaderImageModal = (): UseReaderImageModalReturn => {
   const [selectedImage, setSelectedImage] = useState<SelectedImageState | null>(null);
 
   const openModal = useCallback((description: Description, imageUrl: string, imageId: string) => {
-    console.log('🖼️ [useReaderImageModal] Opening modal:', {
+    logger.debug('🖼️ [useReaderImageModal] Opening modal:', {
       descriptionId: description.id,
       imageId,
     });
@@ -43,12 +44,12 @@ export const useReaderImageModal = (): UseReaderImageModalReturn => {
   }, []);
 
   const closeModal = useCallback(() => {
-    console.log('🖼️ [useReaderImageModal] Closing modal');
+    logger.debug('🖼️ [useReaderImageModal] Closing modal');
     setSelectedImage(null);
   }, []);
 
   const updateImageUrl = useCallback((newUrl: string) => {
-    console.log('🖼️ [useReaderImageModal] Updating image URL');
+    logger.debug('🖼️ [useReaderImageModal] Updating image URL');
     setSelectedImage(prev => {
       if (!prev) return null;
       return {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Drawer } from 'vaul';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
@@ -40,6 +41,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     const [selectedRelationship, setSelectedRelationship] = useState<SelectedRelationship | null>(null);
     const navigate = useNavigate();
     const { bookId } = useParams();
+    const { t } = useTranslation();
 
     const effectiveChapter = Math.max(currentChapter, maxChapterReached || 0);
 
@@ -86,8 +88,8 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     };
 
     const getBackButtonText = () => {
-        if (selectedRelationship) return '← К профилю';
-        if (selectedEntityId) return '← К списку';
+        if (selectedRelationship) return t('entityDrawer.back_to_profile');
+        if (selectedEntityId) return t('entityDrawer.back_to_list');
         return null;
     };
 
@@ -95,7 +97,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
         if (selectedRelationship) {
             return `${selectedRelationship.sourceEntity.name} ↔ ${selectedRelationship.targetEntity.name}`;
         }
-        return 'Персонажи';
+        return t('entityDrawer.title');
     };
 
     return (
@@ -105,7 +107,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                 <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset border-t border-[var(--color-border-default)] shadow-2xl">
                     <div className="sr-only">
                         <Drawer.Description>
-                            Детальная информация о персонажах, их связях и взаимодействиях в текущей главе.
+                            {t('entityDrawer.description')}
                         </Drawer.Description>
                     </div>
                     <div className="p-4 bg-[var(--color-bg-base)] rounded-t-[10px] flex-1 flex flex-col h-full">
@@ -127,7 +129,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
                                         <button
                                             onClick={() => navigate(`/book/${bookId}/gallery`)}
                                         className="p-1.5 bg-[var(--color-bg-elevated)] rounded-full text-[var(--color-accent-500)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-400)] transition-colors"
-                                        title="Открыть галерею"
+                                        title={t('entityDrawer.open_gallery')}
                                     >
                                         <Grid size={16} />
                                     </button>

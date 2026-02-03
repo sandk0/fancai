@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * WebSocket Service
  * 
@@ -7,8 +8,6 @@
  * TODO: Re-enable when backend adds WebSocket cookie authentication support.
  * Previous implementation preserved in git history (commit before 2026-01-29).
  */
-
-import React from 'react';
 
 export type WebSocketEventType = 
   | 'book_processing_started'
@@ -34,14 +33,14 @@ class WebSocketService {
    */
   connect(): Promise<void> {
     if (import.meta.env.DEV) {
-      console.warn('[WebSocket] connect() called but WebSocket is disabled. Backend cookie auth not implemented.');
+      logger.warn('[WebSocket] connect() called but WebSocket is disabled. Backend cookie auth not implemented.');
     }
     return Promise.resolve();
   }
 
   send(_message: unknown): void {
     if (import.meta.env.DEV) {
-      console.warn('[WebSocket] send() called but WebSocket is disabled.');
+      logger.warn('[WebSocket] send() called but WebSocket is disabled.');
     }
   }
 
@@ -73,13 +72,4 @@ export const useWebSocket = () => {
  */
 export const useAutoWebSocket = () => {
   return useWebSocket();
-};
-
-export const WebSocketStatus: React.FC<{ className?: string }> = ({ className = '' }) => {
-  return (
-    <div className={`flex items-center space-x-2 ${className}`}>
-      <div className="w-2 h-2 rounded-full bg-gray-500" />
-      <span className="text-xs text-muted-foreground">Disabled</span>
-    </div>
-  );
 };

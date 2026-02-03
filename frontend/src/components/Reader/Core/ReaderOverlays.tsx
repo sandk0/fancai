@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { SwipeOverlay } from '../SwipeOverlay';
 import { IOSTapZones } from '../IOSTapZones';
-import { isIOS } from '@/hooks/epub/useEpubNavigation';
+import { isIOS } from '@/utils/iosSupport';
 import type { ThemeName } from '@/hooks/epub/useEpubThemes';
 import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
 

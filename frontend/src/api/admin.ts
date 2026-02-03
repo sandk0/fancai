@@ -8,6 +8,7 @@
  */
 
 import { apiClient } from './client';
+import { logger } from '@/lib/logger';
 
 export interface SystemStats {
   total_users: number;
@@ -148,7 +149,7 @@ export const adminAPI = {
    */
   async updateMultiNLPSettings(settings: MultiNLPSettings): Promise<{ message: string; settings: MultiNLPSettings }> {
     // NLP removed - return success without making API call
-    console.warn('[DEPRECATED] Multi-NLP settings are no longer used. Description extraction is via LLM API.');
+    logger.warn('[DEPRECATED] Multi-NLP settings are no longer used. Description extraction is via LLM API.');
     return Promise.resolve({
       message: 'NLP settings are deprecated. Using LLM-based extraction.',
       settings,

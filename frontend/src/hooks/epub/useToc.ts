@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Book, NavItem } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 export interface UseTocReturn {
   toc: NavItem[];
@@ -60,7 +61,7 @@ export const useToc = (book: Book | null): UseTocReturn => {
         setToc(tocData);
         setIsLoading(false);
       } catch (err) {
-        console.error('[useToc] Error loading TOC:', err);
+        logger.error('[useToc] Error loading TOC:', err);
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to load table of contents');
           setIsLoading(false);

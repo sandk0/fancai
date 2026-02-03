@@ -62,14 +62,14 @@ const ToolbarButton: React.FC<{
   </button>
 );
 
-export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
+export const ReaderToolbar: React.FC<ReaderToolbarProps> = React.memo(function ReaderToolbar({
   isVisible,
   bookTitle,
   onBack,
   onToggleToc,
   onToggleSettings,
   className,
-}) => {
+}) {
   const { resolvedTheme, setTheme } = useTheme();
 
   const handleThemeToggle = useCallback(() => {
@@ -149,6 +149,6 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});
 
 export default ReaderToolbar;

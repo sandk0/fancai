@@ -230,7 +230,7 @@ function sleep(ms: number): Promise<void> {
  *     backoffFactor: 2,
  *     jitter: true,
  *     onRetry: (attempt, error, delay) => {
- *       console.log(`Retry ${attempt} after ${delay}ms: ${error}`);
+ *       logger.debug(`Retry ${attempt} after ${delay}ms: ${error}`);
  *     }
  *   }
  * );

@@ -29,6 +29,7 @@ import { chapterCache } from '@/services/chapterCache';
 import { imageCache } from '@/services/imageCache';
 import { db } from '@/services/db';
 import { bookKeys, queryKeyUtils, getCurrentUserId } from './queryKeys';
+import { logger } from '@/lib/logger';
 import type {
   Book,
   BookDetail,
@@ -97,7 +98,7 @@ async function getOfflineBooksPlaceholder(
       limit: books.length,
     };
   } catch (error) {
-    console.warn('[useBooks] Failed to load offline placeholder:', error);
+    logger.warn('[useBooks] Failed to load offline placeholder:', error);
     return undefined;
   }
 }
@@ -193,7 +194,7 @@ export function useBooks(
             ),
             offlineData
           );
-          console.log('[useBooks] Loaded offline placeholder data:', offlineData.books.length, 'books');
+          logger.debug('[useBooks] Loaded offline placeholder data:', offlineData.books.length, 'books');
         }
       });
     }
@@ -428,9 +429,9 @@ export function useUserStatistics(
  * const handleUpload = async (file: File) => {
  *   try {
  *     const book = await uploadMutation.mutateAsync(file);
- *     console.log('Книга загружена:', book);
+ *     logger.debug('Книга загружена:', book);
  *   } catch (error) {
- *     console.error('Ошибка загрузки:', error);
+ *     logger.error('Ошибка загрузки:', error);
  *   }
  * };
  * ```
@@ -536,12 +537,12 @@ export function useDeleteBook(
     },
     onSuccess: async (_data, bookId) => {
       // Очистка кэшей глав и изображений
-      console.log('🗑️ [useDeleteBook] Clearing caches for book:', bookId);
+      logger.debug('🗑️ [useDeleteBook] Clearing caches for book:', bookId);
       await Promise.all([
         chapterCache.clearBook(userId, bookId),
         imageCache.clearBook(userId, bookId),
       ]).catch((err) => {
-        console.warn('⚠️ [useDeleteBook] Error clearing caches:', err);
+        logger.warn('⚠️ [useDeleteBook] Error clearing caches:', err);
       });
 
       // Инвалидация всех связанных запросов

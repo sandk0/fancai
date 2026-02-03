@@ -1,44 +1,23 @@
-/**
- * ImagesGalleryPage - Gallery of all AI-generated images
- *
- * Features:
- * - All generated images from all books
- * - Filter by book
- * - Filter by description type (location, character, atmosphere)
- * - Sort options (newest, oldest, book)
- * - Search functionality
- * - Masonry grid layout
- * - Image lightbox/modal
- * - Fully theme-aware (Light/Dark/Sepia)
- * - Responsive design
- */
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
-   Image as ImageIcon,
-   Filter,
-   Search,
-   BookOpen,
-   MapPin,
-   User as UserIcon,
-   Sparkles,
-   ChevronDown,
-   X,
-   ChevronLeft,
-   ChevronRight,
- } from 'lucide-react';
+  Image as ImageIcon,
+  Sparkles,
+  MapPin,
+  User as UserIcon,
+} from 'lucide-react';
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
-import { cn } from '@/lib/utils';
+import { PageMeta } from '@/components/SEO/PageMeta';
+import { ImageFilters } from '@/components/Images/ImageFilters';
+import { ImageGrid, ImageModalOverlay } from '@/components/Images/ImageGrid';
+import { ImagePagination } from '@/components/Images/ImagePagination';
+import { logger } from '@/lib/logger';
 import type { GeneratedImage, Book } from '@/types/api';
 
-/** Maximum concurrent requests for loading images */
 const CONCURRENCY_LIMIT = 3;
-/** Number of images per page */
 const IMAGES_PER_PAGE = 24;
 
 type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere';
@@ -55,10 +34,6 @@ interface LoadingProgress {
   phase: 'idle' | 'loading' | 'complete';
 }
 
-/**
- * Load images with concurrency limit to prevent browser connection exhaustion.
- * Processes books in batches of `concurrency` at a time.
- */
 async function loadImagesWithLimit(
   books: Book[],
   concurrency: number,
@@ -79,7 +54,7 @@ async function loadImagesWithLimit(
             book_id: book.id,
           } as ImageWithBookInfo));
         } catch (error) {
-          console.error(`Failed to fetch images for book ${book.id}:`, error);
+          logger.error(`Failed to fetch images for book ${book.id}:`, error);
           return [];
         }
       })
@@ -106,22 +81,18 @@ const ImagesGalleryPage: React.FC = () => {
      phase: 'idle',
    });
 
-  // Ref to track progress updates without triggering re-renders during loading
   const progressRef = useRef<LoadingProgress>({ current: 0, total: 0, phase: 'idle' });
 
-  // Progress callback for batch loading
   const handleProgress = useCallback((current: number, total: number) => {
     progressRef.current = { current, total, phase: 'loading' };
     setLoadingProgress({ current, total, phase: 'loading' });
   }, []);
 
-  // Fetch all books
   const { data: booksData, isLoading: booksLoading } = useQuery({
     queryKey: ['books'],
     queryFn: () => booksAPI.getBooks({ skip: 0, limit: 100 }),
   });
 
-  // Fetch images for all books with concurrency limit
   const { data: imagesData, isLoading: imagesLoading } = useQuery({
     queryKey: ['all-images', booksData?.books?.map((b) => b.id)],
     queryFn: async () => {
@@ -141,8 +112,7 @@ const ImagesGalleryPage: React.FC = () => {
     enabled: !!booksData?.books && booksData.books.length > 0,
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const allImages = imagesData || [];
+  const allImages = useMemo(() => imagesData || [], [imagesData]);
 
    const descriptionTypes = [
      { value: 'all', label: t('imagesGallery.all_types'), icon: Sparkles },
@@ -151,13 +121,6 @@ const ImagesGalleryPage: React.FC = () => {
      { value: 'atmosphere', label: t('imagesGallery.stats.atmosphere'), icon: Sparkles },
    ];
 
-   const sortOptions = [
-     { value: 'newest', label: t('imagesGallery.sort_newest') },
-     { value: 'oldest', label: t('imagesGallery.sort_oldest') },
-     { value: 'book', label: t('imagesGallery.sort_book') },
-   ];
-
-  // Filter and sort images
   const filteredImages = useMemo(() => {
     return allImages
       .filter((img) => {
@@ -174,21 +137,18 @@ const ImagesGalleryPage: React.FC = () => {
       });
   }, [allImages, selectedBook, descriptionType, searchQuery, sortBy]);
 
-  // Pagination calculations
   const totalPages = Math.ceil(filteredImages.length / IMAGES_PER_PAGE);
   const paginatedImages = useMemo(() => {
     const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
     return filteredImages.slice(startIndex, startIndex + IMAGES_PER_PAGE);
   }, [filteredImages, currentPage]);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedBook, descriptionType, searchQuery, sortBy]);
 
   const isLoading = booksLoading || imagesLoading;
 
-  // Handle Escape key to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelectedImage(null);
@@ -227,8 +187,11 @@ const ImagesGalleryPage: React.FC = () => {
      );
   }
 
+  const hasActiveFilters = selectedBook !== 'all' || descriptionType !== 'all' || !!searchQuery;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <PageMeta title={t('imagesGallery.page_title')} description={t('imagesGallery.page_description')} />
        {/* Header */}
        <div className="mb-8">
          <div className="flex items-center gap-3 mb-3">
@@ -281,318 +244,49 @@ const ImagesGalleryPage: React.FC = () => {
          </div>
        </div>
 
-      {/* Filters and Search */}
-      <div className="p-6 rounded-xl border-2 mb-8 bg-background border-border">
-         {/* Search Bar */}
-         <div className="mb-4">
-           <div className="relative">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-             <input
-               type="text"
-               value={searchQuery}
-               onChange={(e) => setSearchQuery(e.target.value)}
-               placeholder={t('imagesGallery.search_placeholder')}
-               className="w-full pl-12 pr-4 py-3 min-h-[44px] rounded-xl border-2 bg-muted border-border text-foreground text-base"
-             />
-           </div>
-         </div>
+       <ImageFilters
+         searchQuery={searchQuery}
+         onSearchChange={setSearchQuery}
+         selectedBook={selectedBook}
+         onBookChange={setSelectedBook}
+         descriptionType={descriptionType}
+         onDescriptionTypeChange={setDescriptionType}
+         sortBy={sortBy}
+         onSortChange={setSortBy}
+         showFilters={showFilters}
+         onToggleFilters={() => setShowFilters(!showFilters)}
+         books={booksData?.books}
+         filteredCount={filteredImages.length}
+         hasActiveFilters={hasActiveFilters}
+         onResetFilters={() => {
+           setSelectedBook('all');
+           setDescriptionType('all');
+           setSearchQuery('');
+         }}
+       />
 
-         {/* Filter Toggle Button */}
-         <button
-           onClick={() => setShowFilters(!showFilters)}
-           className={cn(
-             'flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg border-2 transition-all border-border',
-             showFilters ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-           )}
-         >
-           <Filter className="w-4 h-4" />
-           <span className="font-medium">{t('imagesGallery.filters')}</span>
-           <ChevronDown className={cn('w-4 h-4 transition-transform', showFilters && 'rotate-180')} />
-         </button>
+       <ImageGrid
+         images={paginatedImages}
+         descriptionTypes={descriptionTypes}
+         onImageClick={setSelectedImage}
+       />
 
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               {/* Book Filter */}
-               <div>
-                 <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                   {t('imagesGallery.filter_book')}
-                 </label>
-                 <select
-                   value={selectedBook}
-                   onChange={(e) => setSelectedBook(e.target.value)}
-                   className="w-full px-4 py-2 min-h-[44px] rounded-lg border-2 bg-muted border-border text-foreground"
-                 >
-                   <option value="all">{t('imagesGallery.all_books')}</option>
-                   {booksData?.books?.map((book) => (
-                     <option key={book.id} value={book.id}>
-                       {book.title}
-                     </option>
-                   ))}
-                 </select>
-               </div>
+       {filteredImages.length > 0 && (
+         <ImagePagination
+           currentPage={currentPage}
+           totalPages={totalPages}
+           totalItems={filteredImages.length}
+           onPageChange={setCurrentPage}
+         />
+       )}
 
-               {/* Type Filter */}
-               <div>
-                 <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                   {t('imagesGallery.filter_type')}
-                 </label>
-                 <select
-                   value={descriptionType}
-                   onChange={(e) => setDescriptionType(e.target.value as DescriptionType)}
-                   className="w-full px-4 py-2 min-h-[44px] rounded-lg border-2 bg-muted border-border text-foreground"
-                 >
-                   {descriptionTypes.map((type) => (
-                     <option key={type.value} value={type.value}>
-                       {type.label}
-                     </option>
-                   ))}
-                 </select>
-               </div>
-
-               {/* Sort */}
-               <div>
-                 <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                   {t('imagesGallery.sort')}
-                 </label>
-                 <select
-                   value={sortBy}
-                   onChange={(e) => setSortBy(e.target.value as SortOption)}
-                   className="w-full px-4 py-2 min-h-[44px] rounded-lg border-2 bg-muted border-border text-foreground"
-                 >
-                   {sortOptions.map((option) => (
-                     <option key={option.value} value={option.value}>
-                       {option.label}
-                     </option>
-                   ))}
-                 </select>
-               </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-       {/* Results Count */}
-       <div className="flex items-center justify-between mb-6">
-         <p className="text-sm font-medium text-muted-foreground">
-           {t('imagesGallery.found_count', { count: filteredImages.length })}
-         </p>
-         {(selectedBook !== 'all' || descriptionType !== 'all' || searchQuery) && (
-           <button
-             onClick={() => {
-               setSelectedBook('all');
-               setDescriptionType('all');
-               setSearchQuery('');
-             }}
-             className="flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg text-sm font-medium transition-colors bg-muted text-foreground"
-           >
-             <X className="w-4 h-4" />
-             {t('imagesGallery.reset_filters')}
-           </button>
-         )}
-       </div>
-
-       {/* Gallery Grid */}
-       {filteredImages.length === 0 ? (
-         <div className="text-center py-16 rounded-xl border-2 bg-background border-border">
-           <ImageIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-           <h3 className="text-xl font-bold mb-2 text-foreground">
-             {t('imagesGallery.no_results')}
-           </h3>
-           <p className="text-muted-foreground">
-             {t('imagesGallery.no_results_hint')}
-           </p>
-         </div>
-       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {paginatedImages.map((image) => (
-              <div
-                key={image.id}
-                onClick={() => setSelectedImage(image)}
-                className="group cursor-pointer rounded-xl overflow-hidden border-2 transition-all hover:-translate-y-1 hover:shadow-xl bg-background border-border"
-              >
-                {/* Image */}
-                <div className="aspect-[4/3] overflow-hidden bg-muted">
-                  <AuthenticatedImage
-                    src={image.image_url}
-                    alt={image.description?.text || 'Generated image'}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                    fallback={
-                      <div className="w-full h-full flex items-center justify-center bg-muted">
-                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                    }
-                  />
-                </div>
-
-                {/* Info */}
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BookOpen className="w-4 h-4 text-primary" />
-                    <p className="text-sm font-semibold truncate text-foreground">
-                      {image.book_title}
-                    </p>
-                  </div>
-                  <p className="text-sm line-clamp-2 mb-2 text-muted-foreground">
-                    {image.description?.text || image.description?.content}
-                  </p>
-                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-muted text-foreground">
-                    {descriptionTypes.find((t) => t.value === image.description?.type)?.label}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors',
-                  'border-border bg-background',
-                  currentPage === 1
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-muted cursor-pointer'
-                )}
-                 aria-label={t('imagesGallery.prev_page')}
-               >
-                 <ChevronLeft className="w-5 h-5 text-foreground" />
-               </button>
-
-              <div className="flex items-center gap-1">
-                {/* First page */}
-                {currentPage > 3 && (
-                  <>
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      className="w-10 h-10 rounded-lg border-2 border-border bg-background hover:bg-muted text-foreground font-medium"
-                    >
-                      1
-                    </button>
-                    {currentPage > 4 && (
-                      <span className="px-2 text-muted-foreground">...</span>
-                    )}
-                  </>
-                )}
-
-                {/* Page numbers around current */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(
-                    (page) =>
-                      page >= currentPage - 2 &&
-                      page <= currentPage + 2 &&
-                      page >= 1 &&
-                      page <= totalPages
-                  )
-                  .map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={cn(
-                        'w-10 h-10 rounded-lg border-2 font-medium transition-colors',
-                        page === currentPage
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'border-border bg-background hover:bg-muted text-foreground'
-                      )}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                {/* Last page */}
-                {currentPage < totalPages - 2 && (
-                  <>
-                    {currentPage < totalPages - 3 && (
-                      <span className="px-2 text-muted-foreground">...</span>
-                    )}
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      className="w-10 h-10 rounded-lg border-2 border-border bg-background hover:bg-muted text-foreground font-medium"
-                    >
-                      {totalPages}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors',
-                  'border-border bg-background',
-                  currentPage === totalPages
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-muted cursor-pointer'
-                )}
-                 aria-label={t('imagesGallery.next_page')}
-               >
-                 <ChevronRight className="w-5 h-5 text-foreground" />
-               </button>
-            </div>
-          )}
-
-           {/* Page info */}
-           {totalPages > 1 && (
-             <p className="text-center text-sm text-muted-foreground mt-4">
-               {t('imagesGallery.page_info', { current: currentPage, total: totalPages, count: filteredImages.length })}
-             </p>
-           )}
-        </>
-      )}
-
-      {/* Image Modal */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80"
-          onClick={() => setSelectedImage(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full max-h-[90vh] flex flex-col rounded-xl overflow-hidden bg-background"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg z-10 bg-muted"
-            >
-              <X className="w-6 h-6 text-foreground" />
-            </button>
-
-            <AuthenticatedImage
-              src={selectedImage.image_url}
-              alt={selectedImage.description?.text || 'Generated image'}
-              className="w-full max-h-[60vh] sm:max-h-[70vh] object-contain flex-shrink-0"
-              fallback={
-                <div className="w-full h-[40vh] flex items-center justify-center bg-muted">
-                  <ImageIcon className="w-16 h-16 text-muted-foreground" />
-                </div>
-              }
-            />
-
-            <div className="p-4 sm:p-6 overflow-y-auto">
-              <h3 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-3 text-foreground">
-                {selectedImage.book_title}
-              </h3>
-              <p className="text-sm sm:text-base mb-3 sm:mb-4 text-muted-foreground line-clamp-3 sm:line-clamp-none">
-                {selectedImage.description?.text || selectedImage.description?.content}
-              </p>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 rounded-lg text-sm font-medium bg-primary text-primary-foreground">
-                  {descriptionTypes.find((t) => t.value === selectedImage.description?.type)?.label}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(selectedImage.created_at).toLocaleDateString('ru-RU')}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+       {selectedImage && (
+         <ImageModalOverlay
+           image={selectedImage}
+           descriptionTypes={descriptionTypes}
+           onClose={() => setSelectedImage(null)}
+         />
+       )}
     </div>
   );
 };

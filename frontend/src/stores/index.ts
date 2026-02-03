@@ -1,36 +1,40 @@
-// Store imports for initialization
 import { initializeStorageManagement, stopStorageMonitoring } from '@/services/storageManager';
 import { imageCache } from '@/services/imageCache';
+import { retryPendingSync } from '@/services/syncQueue';
 import { registerPeriodicSync } from '@/utils/serviceWorker';
-
-const DEBUG = import.meta.env.DEV;
+import { tabSync } from '@/services/tabSync';
+import { logger } from '@/lib/logger';
 
 // Main store exports
 export { useAuthStore } from './auth';
-export { useBooksStore } from './books';
-export { useImagesStore } from './images';
 export { useReaderStore } from './reader';
 export { useUIStore, notify } from './ui';
 
 // Store initialization function
 export const initializeStores = () => {
-  // Apply saved theme
+  tabSync.init();
+
   try {
     const theme = localStorage.getItem('bookreader_theme') || 'light';
     const root = document.documentElement;
     root.classList.remove('light', 'dark', 'sepia');
     root.classList.add(theme);
   } catch (error) {
-    console.warn('Failed to initialize theme:', error);
+    logger.warn('Failed to initialize theme:', error);
   }
   
   // Auth store initialization is handled by Zustand persist's onRehydrateStorage
   // DO NOT call loadUserFromStorage here - it causes duplicate API calls and race conditions
 
-  // Initialize storage management for PWA (delay to ensure app is ready)
   setTimeout(() => {
     initializeStorageManagement();
   }, 1000);
+
+  setTimeout(() => {
+    retryPendingSync().catch(() => {
+      logger.debug('[Stores] retryPendingSync failed');
+    });
+  }, 3000);
 
   // Register for Periodic Background Sync (Android Chrome 80+ only)
   // This allows background sync of reading progress when app is closed
@@ -39,12 +43,12 @@ export const initializeStores = () => {
     try {
       const registered = await registerPeriodicSync('sync-reading-progress', 12 * 60 * 60 * 1000); // 12 hours
       if (registered) {
-        if (DEBUG) console.log('[Stores] Periodic Background Sync registered');
+        logger.debug('[Stores] Periodic Background Sync registered');
       } else {
-        if (DEBUG) console.log('[Stores] Periodic Background Sync not available (iOS/Firefox or not installed as PWA)');
+        logger.debug('[Stores] Periodic Background Sync not available (iOS/Firefox or not installed as PWA)');
       }
     } catch (error) {
-      if (DEBUG) console.log('[Stores] Periodic Sync registration failed:', error);
+      logger.debug('[Stores] Periodic Sync registration failed:', error);
     }
   }, 2000);
 };
@@ -55,13 +59,14 @@ export const initializeStores = () => {
  * TD-FRONT-131: Fix memory leak risks
  */
 export const cleanupStores = () => {
-  if (DEBUG) console.log('[Stores] Cleaning up...');
+  logger.debug('[Stores] Cleaning up...');
   
   // Stop storage monitoring interval
   stopStorageMonitoring();
   
-  // Destroy image cache (stops auto-cleanup interval + releases Object URLs)
   imageCache.destroy();
+
+  tabSync.destroy();
   
-  if (DEBUG) console.log('[Stores] Cleanup complete');
+  logger.debug('[Stores] Cleanup complete');
 };

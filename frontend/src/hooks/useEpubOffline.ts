@@ -21,9 +21,7 @@ import { booksAPI } from '@/api/books'
 import { useAuthStore } from '@/stores/auth'
 import { STORAGE_KEYS } from '@/types/state'
 import { isOnline } from './useOnlineStatus'
-
-/** Enable debug logging only in development */
-const DEBUG = import.meta.env.DEV
+import { logger } from '@/lib/logger'
 
 /**
  * Create composite ID for EPUB cache lookup
@@ -100,13 +98,13 @@ export function useEpubOffline(bookId: string) {
    */
   const downloadEpub = useCallback(async () => {
     if (!userId || !bookId) {
-      console.warn('[useEpubOffline] Cannot download: userId or bookId missing')
+      logger.warn('[useEpubOffline] Cannot download: userId or bookId missing')
       return false
     }
 
     // Check if already downloading
     if (isDownloading) {
-      console.warn('[useEpubOffline] Download already in progress')
+      logger.warn('[useEpubOffline] Download already in progress')
       return false
     }
 
@@ -120,7 +118,7 @@ export function useEpubOffline(bookId: string) {
     abortControllerRef.current = controller
 
     try {
-      if (DEBUG) console.log(`[useEpubOffline] Starting download for book ${bookId}`)
+      logger.debug(`[useEpubOffline] Starting download for book ${bookId}`)
 
       // Get book file URL
       const bookUrl = booksAPI.getBookFileUrl(bookId)
@@ -182,23 +180,21 @@ export function useEpubOffline(bookId: string) {
         throw new Error('Failed to cache EPUB file')
       }
 
-      if (DEBUG) {
-        console.log(`[useEpubOffline] Download complete for book ${bookId}`, {
-          size: (receivedBytes / 1024 / 1024).toFixed(2) + 'MB',
-        })
-      }
+      logger.debug(`[useEpubOffline] Download complete for book ${bookId}`, {
+        size: (receivedBytes / 1024 / 1024).toFixed(2) + 'MB',
+      })
 
       setDownloadProgress(100)
       return true
     } catch (err) {
       // Don't show error if request was aborted
       if (err instanceof Error && err.name === 'AbortError') {
-        if (DEBUG) console.log('[useEpubOffline] Download cancelled')
+        logger.debug('[useEpubOffline] Download cancelled')
         return false
       }
 
       const errorMessage = err instanceof Error ? err.message : 'Download failed'
-      console.error('[useEpubOffline] Download failed:', err)
+      logger.error('[useEpubOffline] Download failed:', err)
       setError(errorMessage)
       return false
     } finally {
@@ -215,7 +211,7 @@ export function useEpubOffline(bookId: string) {
       abortControllerRef.current.abort()
       setIsDownloading(false)
       setDownloadProgress(0)
-      if (DEBUG) console.log('[useEpubOffline] Download cancelled by user')
+      logger.debug('[useEpubOffline] Download cancelled by user')
     }
   }, [])
 
@@ -224,16 +220,16 @@ export function useEpubOffline(bookId: string) {
    */
   const removeEpub = useCallback(async () => {
     if (!userId || !bookId) {
-      console.warn('[useEpubOffline] Cannot remove: userId or bookId missing')
+      logger.warn('[useEpubOffline] Cannot remove: userId or bookId missing')
       return false
     }
 
     try {
       await epubCache.delete(userId, bookId)
-      if (DEBUG) console.log(`[useEpubOffline] Removed EPUB for book ${bookId}`)
+      logger.debug(`[useEpubOffline] Removed EPUB for book ${bookId}`)
       return true
     } catch (err) {
-      console.error('[useEpubOffline] Failed to remove EPUB:', err)
+      logger.error('[useEpubOffline] Failed to remove EPUB:', err)
       setError(err instanceof Error ? err.message : 'Failed to remove')
       return false
     }
@@ -245,20 +241,20 @@ export function useEpubOffline(bookId: string) {
    */
   const getEpubData = useCallback(async (): Promise<ArrayBuffer | null> => {
     if (!userId || !bookId) {
-      console.warn('[useEpubOffline] Cannot get EPUB: userId or bookId missing')
+      logger.warn('[useEpubOffline] Cannot get EPUB: userId or bookId missing')
       return null
     }
 
     // Try cache first - ALWAYS check cache regardless of network status
     const cached = await epubCache.get(userId, bookId)
     if (cached) {
-      if (DEBUG) console.log('[useEpubOffline] Cache HIT for:', bookId)
+      logger.debug('[useEpubOffline] Cache HIT for:', bookId)
       return cached
     }
 
     // If not in cache, check network connectivity
     if (!isOnline()) {
-      if (DEBUG) console.log('[useEpubOffline] Offline and no cache for:', bookId)
+      logger.debug('[useEpubOffline] Offline and no cache for:', bookId)
       return null
     }
 
@@ -279,11 +275,11 @@ export function useEpubOffline(bookId: string) {
 
       const arrayBuffer = await response.arrayBuffer()
 
-      if (DEBUG) console.log('[useEpubOffline] Fetched EPUB from network for:', bookId)
+      logger.debug('[useEpubOffline] Fetched EPUB from network for:', bookId)
 
       return arrayBuffer
     } catch (err) {
-      console.error('[useEpubOffline] Failed to fetch EPUB:', err)
+      logger.error('[useEpubOffline] Failed to fetch EPUB:', err)
       return null
     }
   }, [userId, bookId])

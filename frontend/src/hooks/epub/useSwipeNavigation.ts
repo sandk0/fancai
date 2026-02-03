@@ -19,11 +19,12 @@
 
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 // Debug logging - disabled in production
 const DEBUG = false;
 const log = (...args: unknown[]) => {
-  if (DEBUG) console.log('[SwipeNav]', ...args);
+  if (DEBUG) logger.debug('[SwipeNav]', ...args);
 };
 
 // Swipe configuration parameters

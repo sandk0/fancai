@@ -1,6 +1,7 @@
 // src/services/db.ts
 // Централизованная база данных Dexie.js для offline функциональности PWA
 import Dexie, { type EntityTable } from 'dexie'
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // Типы сущностей
@@ -105,6 +106,16 @@ export interface SyncOperation {
   status: SyncStatus
 }
 
+/** Failed sync request persisted for retry on next app start */
+export interface PendingSyncRequest {
+  id: string
+  url: string
+  method: string
+  body: string
+  timestamp: number
+  retryCount: number
+}
+
 /** Прогресс чтения для offline */
 export interface OfflineReadingProgress {
   /** Композитный ключ: `${userId}:${bookId}` */
@@ -141,28 +152,71 @@ class FancaiDatabase extends Dexie {
   images!: EntityTable<CachedImage, 'id'>
   syncQueue!: EntityTable<SyncOperation, 'id'>
   readingProgress!: EntityTable<OfflineReadingProgress, 'id'>
+  pendingSyncRequests!: EntityTable<PendingSyncRequest, 'id'>
 
   constructor() {
     super('FancaiDB')
 
     this.version(1).stores({
-      // Книги: поиск по userId, bookId, статусу, дате доступа
       offlineBooks: 'id, userId, bookId, status, lastAccessedAt',
-
-      // Главы: поиск по userId+bookId, полный ключ, дата доступа
       chapters: 'id, [userId+bookId], [userId+bookId+chapterNumber], lastAccessedAt',
-
-      // Изображения: поиск по userId, bookId, descriptionId, дате кэширования
       images: 'id, userId, bookId, descriptionId, cachedAt',
-
-      // Очередь синхронизации: поиск по userId, типу, приоритету, статусу, дате
       syncQueue: 'id, userId, type, priority, status, createdAt',
-
-      // Прогресс чтения: поиск по userId, bookId
       readingProgress: 'id, userId, bookId, updatedAt, synced',
+    })
+
+    this.version(2).stores({
+      offlineBooks: 'id, userId, bookId, status, lastAccessedAt',
+      chapters: 'id, [userId+bookId], [userId+bookId+chapterNumber], lastAccessedAt',
+      images: 'id, userId, bookId, descriptionId, cachedAt',
+      syncQueue: 'id, userId, type, priority, status, createdAt',
+      readingProgress: 'id, userId, bookId, updatedAt, synced',
+      pendingSyncRequests: 'id, timestamp',
     })
   }
 }
+
+// ============================================================================
+// IndexedDB availability check
+// ============================================================================
+
+export let isIndexedDBAvailable = true
+
+let fallbackNotified = false
+
+export function notifyFallbackOnce(): void {
+  if (fallbackNotified) return
+  fallbackNotified = true
+  import('@/stores/ui').then(({ notify }) => {
+    notify.warning(
+      'Хранилище недоступно',
+      'Данные не будут сохранены между сессиями',
+    )
+  })
+}
+
+export async function checkIndexedDB(): Promise<boolean> {
+  try {
+    const testDb = indexedDB.open('__idb_test')
+    return new Promise((resolve) => {
+      testDb.onsuccess = () => {
+        testDb.result.close()
+        indexedDB.deleteDatabase('__idb_test')
+        resolve(true)
+      }
+      testDb.onerror = () => resolve(false)
+    })
+  } catch {
+    return false
+  }
+}
+
+checkIndexedDB().then((available) => {
+  isIndexedDBAvailable = available
+  if (!available) {
+    notifyFallbackOnce()
+  }
+})
 
 // ============================================================================
 // Экспорт singleton
@@ -183,7 +237,7 @@ const isDev = import.meta.env.DEV
  * Occurs when another tab has an older version of the database open.
  */
 db.on('blocked', () => {
-  console.warn('[DB] Database blocked - please close other tabs with this app')
+  logger.warn('[DB] Database blocked - please close other tabs with this app')
   // In production, could show a toast notification to the user
 })
 
@@ -192,7 +246,7 @@ db.on('blocked', () => {
  * Occurs when another tab upgraded the database schema.
  */
 db.on('versionchange', () => {
-  console.warn('[DB] Database version change detected - reloading')
+  logger.warn('[DB] Database version change detected - reloading')
   db.close()
   window.location.reload()
 })
@@ -202,12 +256,12 @@ db.on('versionchange', () => {
  * This ensures the database is ready before use.
  */
 db.open().catch((err: Error & { name?: string }) => {
-  console.error('[DB] Failed to open database:', err)
+  logger.error('[DB] Failed to open database:', err)
 
   // Try to recover from version/state errors
   if (err.name === 'VersionError' || err.name === 'InvalidStateError') {
     if (isDev) {
-      console.warn('[DB] Attempting recovery by deleting and recreating database')
+      logger.warn('[DB] Attempting recovery by deleting and recreating database')
     }
     // Note: This is a last resort - user will lose local data
     indexedDB.deleteDatabase(DB_NAME)

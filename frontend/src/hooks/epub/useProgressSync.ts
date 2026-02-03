@@ -29,6 +29,8 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
+import { useVisibilityManager } from '@/hooks/shared/useVisibilityManager';
 
 interface UseProgressSyncOptions {
   bookId: string;
@@ -106,7 +108,7 @@ export const useProgressSync = ({
     // Skip save during restoration to prevent overwriting correct position
     if (isRestoringPosition) {
       if (import.meta.env.DEV) {
-        console.log('[useProgressSync] Skipping save during restoration');
+        logger.debug('[useProgressSync] Skipping save during restoration');
       }
       return;
     }
@@ -135,27 +137,21 @@ export const useProgressSync = ({
 
       setLastSaved(Date.now());
     } catch (err) {
-      console.error('[useProgressSync] Error saving progress:', err);
+      logger.error('[useProgressSync] Error saving progress:', err);
     } finally {
       setIsSaving(false);
     }
   }, [enabled, currentCFI, progress, scrollOffset, currentChapter, bookId, onSave, isRestoringPosition]);
 
-  // Ref to track if we had a pending save when backgrounded
   const pendingSaveOnBackgroundRef = useRef(false);
 
-  /**
-   * Debounced progress update
-   */
   useEffect(() => {
     if (!enabled || !currentCFI || !bookId) return;
 
-    // Clear existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    // Skip if no changes
     if (
       lastSavedRef.current.cfi === currentCFI &&
       lastSavedRef.current.progress === progress &&
@@ -165,7 +161,6 @@ export const useProgressSync = ({
       return;
     }
 
-    // Schedule save
     timeoutRef.current = setTimeout(async () => {
       await saveImmediate();
     }, debounceMs);
@@ -177,49 +172,43 @@ export const useProgressSync = ({
     };
   }, [currentCFI, progress, scrollOffset, currentChapter, enabled, bookId, debounceMs, saveImmediate]);
 
-  /**
-   * Handle visibility changes to pause/resume sync
-   * Prevents stale state issues when app goes to background
-   */
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        // App going to background - clear pending timeout and track state
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = undefined;
-          pendingSaveOnBackgroundRef.current = true;
-          if (import.meta.env.DEV) {
-            console.log('[useProgressSync] Timeout paused (background)');
-          }
+  useVisibilityManager({
+    id: 'progress-sync',
+    priority: 10,
+    delay: 0,
+    enabled,
+    onHidden: () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+        pendingSaveOnBackgroundRef.current = true;
+        if (import.meta.env.DEV) {
+          logger.debug('[useProgressSync] Timeout paused (background)');
         }
-      } else if (document.visibilityState === 'visible') {
-        // App resuming - reschedule save if there was a pending one
-        if (pendingSaveOnBackgroundRef.current && enabled && currentCFI && bookId) {
-          setTimeout(() => {
-            // Check if there are unsaved changes
-            if (
-              lastSavedRef.current.cfi !== currentCFI ||
-              lastSavedRef.current.progress !== progress ||
-              lastSavedRef.current.scrollOffset !== scrollOffset ||
-              lastSavedRef.current.chapter !== currentChapter
-            ) {
-              timeoutRef.current = setTimeout(async () => {
-                await saveImmediate();
-              }, debounceMs);
-              if (import.meta.env.DEV) {
-                console.log('[useProgressSync] Timeout resumed');
-              }
-            }
-          }, 300); // 300ms delay to allow auth to stabilize
-        }
-        pendingSaveOnBackgroundRef.current = false;
       }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [enabled, currentCFI, bookId, progress, scrollOffset, currentChapter, debounceMs, saveImmediate]);
+    },
+    onVisible: () => {
+      if (pendingSaveOnBackgroundRef.current && enabled && currentCFI && bookId) {
+        setTimeout(() => {
+          if (
+            lastSavedRef.current.cfi !== currentCFI ||
+            lastSavedRef.current.progress !== progress ||
+            lastSavedRef.current.scrollOffset !== scrollOffset ||
+            lastSavedRef.current.chapter !== currentChapter
+          ) {
+            timeoutRef.current = setTimeout(async () => {
+              await saveImmediate();
+            }, debounceMs);
+            if (import.meta.env.DEV) {
+              logger.debug('[useProgressSync] Timeout resumed');
+            }
+          }
+        }, 300);
+      }
+      pendingSaveOnBackgroundRef.current = false;
+    },
+    shouldRun: () => enabled && !!currentCFI && !!bookId,
+  });
 
   /**
    * Save on unmount or page close

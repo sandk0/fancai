@@ -13,7 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
 import { isActiveRoute } from '@/utils/navigation';
 import { Z_INDEX } from '@/lib/zIndex';
@@ -102,7 +102,7 @@ const Sidebar: React.FC = () => {
           {/* Navigation */}
           <nav
             role="navigation"
-            aria-label="Главное меню"
+            aria-label={t('sidebar.main_menu')}
             className="flex-1 py-4 overflow-y-auto"
           >
             <ul className="space-y-1 px-2">
@@ -171,14 +171,14 @@ const Sidebar: React.FC = () => {
                 'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-500)] focus:ring-offset-2',
                 isCollapsed && 'justify-center'
               )}
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={isCollapsed ? t('sidebar.expand_sidebar') : t('sidebar.collapse_sidebar')}
             >
               {isCollapsed ? (
                 <ChevronRight className="w-5 h-5 flex-shrink-0" />
               ) : (
                 <>
                   <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-                  <span className="ml-3 text-sm font-medium">Свернуть</span>
+                  <span className="ml-3 text-sm font-medium">{t('sidebar.collapse')}</span>
                 </>
               )}
             </button>
@@ -218,7 +218,7 @@ const Sidebar: React.FC = () => {
                 </p>
                 <p className="text-xs flex items-center text-[var(--color-text-subtle)]">
                   <Sparkles className="w-3 h-3 mr-1 text-[var(--color-accent-500)]" />
-                  Бесплатный план
+                  {t('sidebar.free_plan')}
                 </p>
               </div>
             </div>

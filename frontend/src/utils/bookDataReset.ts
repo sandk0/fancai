@@ -19,6 +19,7 @@ import { imageCache } from '@/services/imageCache'
 import { syncQueue } from '@/services/syncQueue'
 import { clearCachedLocations } from '@/hooks/epub/useLocationGeneration'
 import { queryClient } from '@/lib/queryClient'
+import { logger } from '@/lib/logger';
 import {
   bookKeys,
   chapterKeys,
@@ -68,9 +69,9 @@ export interface BookDataResetResult {
  *
  *   const result = await resetBookData(userId, bookId);
  *   if (result.success) {
- *     console.log('Book data reset complete');
+ *     logger.debug('Book data reset complete');
  *   } else {
- *     console.error('Reset completed with errors:', result.errors);
+ *     logger.error('Reset completed with errors:', result.errors);
  *   }
  * }
  * ```
@@ -79,7 +80,7 @@ export async function resetBookData(
   userId: string,
   bookId: string
 ): Promise<BookDataResetResult> {
-  console.log('[resetBookData] Starting reset for book:', bookId)
+  logger.debug('[resetBookData] Starting reset for book:', bookId)
 
   const errors: Error[] = []
   const cleared: BookDataResetResult['cleared'] = {
@@ -97,9 +98,9 @@ export async function resetBookData(
   try {
     localStorage.removeItem(`book_${bookId}_progress_backup`)
     cleared.localStorage = true
-    console.log('[resetBookData] Cleared localStorage backup')
+    logger.debug('[resetBookData] Cleared localStorage backup')
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear localStorage:', e)
+    logger.warn('[resetBookData] Failed to clear localStorage:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -107,27 +108,27 @@ export async function resetBookData(
   try {
     await clearCachedLocations(bookId)
     cleared.epubLocations = true
-    console.log('[resetBookData] Cleared epub locations cache')
+    logger.debug('[resetBookData] Cleared epub locations cache')
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear locations:', e)
+    logger.warn('[resetBookData] Failed to clear locations:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   // 3. Clear Dexie.js chapter cache
   try {
     cleared.chapters = await chapterCache.clearBook(userId, bookId)
-    console.log('[resetBookData] Cleared chapter cache:', cleared.chapters)
+    logger.debug('[resetBookData] Cleared chapter cache:', cleared.chapters)
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear chapters:', e)
+    logger.warn('[resetBookData] Failed to clear chapters:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   // 4. Clear Dexie.js image cache for book
   try {
     cleared.images = await imageCache.clearBook(userId, bookId)
-    console.log('[resetBookData] Cleared image cache:', cleared.images)
+    logger.debug('[resetBookData] Cleared image cache:', cleared.images)
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear images:', e)
+    logger.warn('[resetBookData] Failed to clear images:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -136,9 +137,9 @@ export async function resetBookData(
     const offlineBookId = createOfflineBookId(userId, bookId)
     await db.offlineBooks.delete(offlineBookId)
     cleared.offlineBook = true
-    console.log('[resetBookData] Cleared offline book record')
+    logger.debug('[resetBookData] Cleared offline book record')
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear offline book:', e)
+    logger.warn('[resetBookData] Failed to clear offline book:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -147,9 +148,9 @@ export async function resetBookData(
     const progressId = createProgressId(userId, bookId)
     await db.readingProgress.delete(progressId)
     cleared.readingProgress = true
-    console.log('[resetBookData] Cleared reading progress')
+    logger.debug('[resetBookData] Cleared reading progress')
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear reading progress:', e)
+    logger.warn('[resetBookData] Failed to clear reading progress:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -166,9 +167,9 @@ export async function resetBookData(
       await db.syncQueue.bulkDelete(syncIds)
       cleared.syncQueue = syncIds.length
     }
-    console.log('[resetBookData] Cleared sync queue:', cleared.syncQueue)
+    logger.debug('[resetBookData] Cleared sync queue:', cleared.syncQueue)
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear sync queue:', e)
+    logger.warn('[resetBookData] Failed to clear sync queue:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -185,9 +186,9 @@ export async function resetBookData(
     queryClient.removeQueries({ queryKey: pwaKeys.downloadStatus(userId, bookId) })
 
     cleared.queryCache = true
-    console.log('[resetBookData] Cleared TanStack Query cache')
+    logger.debug('[resetBookData] Cleared TanStack Query cache')
   } catch (e) {
-    console.warn('[resetBookData] Failed to clear query cache:', e)
+    logger.warn('[resetBookData] Failed to clear query cache:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -203,9 +204,9 @@ export async function resetBookData(
     cleared.queryCache
 
   if (errors.length > 0) {
-    console.warn('[resetBookData] Completed with errors:', errors.length, errors)
+    logger.warn('[resetBookData] Completed with errors:', errors.length, errors)
   } else {
-    console.log('[resetBookData] Reset complete for book:', bookId)
+    logger.debug('[resetBookData] Reset complete for book:', bookId)
   }
 
   return { success, errors, cleared }
@@ -230,7 +231,7 @@ export async function resetAllUserData(userId: string): Promise<{
     syncQueue: number
   }
 }> {
-  console.log('[resetAllUserData] Starting full reset for user:', userId)
+  logger.debug('[resetAllUserData] Starting full reset for user:', userId)
 
   const errors: Error[] = []
   const totalCleared = {
@@ -244,27 +245,27 @@ export async function resetAllUserData(userId: string): Promise<{
   // 1. Clear all chapters for user
   try {
     totalCleared.chapters = await chapterCache.clearAll(userId)
-    console.log('[resetAllUserData] Cleared chapters:', totalCleared.chapters)
+    logger.debug('[resetAllUserData] Cleared chapters:', totalCleared.chapters)
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear chapters:', e)
+    logger.warn('[resetAllUserData] Failed to clear chapters:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   // 2. Clear all images for user
   try {
     totalCleared.images = await imageCache.clearAll(userId)
-    console.log('[resetAllUserData] Cleared images:', totalCleared.images)
+    logger.debug('[resetAllUserData] Cleared images:', totalCleared.images)
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear images:', e)
+    logger.warn('[resetAllUserData] Failed to clear images:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   // 3. Clear all offline books for user
   try {
     totalCleared.offlineBooks = await db.offlineBooks.where({ userId }).delete()
-    console.log('[resetAllUserData] Cleared offline books:', totalCleared.offlineBooks)
+    logger.debug('[resetAllUserData] Cleared offline books:', totalCleared.offlineBooks)
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear offline books:', e)
+    logger.warn('[resetAllUserData] Failed to clear offline books:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -275,18 +276,18 @@ export async function resetAllUserData(userId: string): Promise<{
       await db.readingProgress.bulkDelete(progressDocs.map((p) => p.id))
       totalCleared.readingProgress = progressDocs.length
     }
-    console.log('[resetAllUserData] Cleared reading progress:', totalCleared.readingProgress)
+    logger.debug('[resetAllUserData] Cleared reading progress:', totalCleared.readingProgress)
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear reading progress:', e)
+    logger.warn('[resetAllUserData] Failed to clear reading progress:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   // 5. Clear sync queue for user
   try {
     totalCleared.syncQueue = await syncQueue.clearUserQueue(userId)
-    console.log('[resetAllUserData] Cleared sync queue:', totalCleared.syncQueue)
+    logger.debug('[resetAllUserData] Cleared sync queue:', totalCleared.syncQueue)
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear sync queue:', e)
+    logger.warn('[resetAllUserData] Failed to clear sync queue:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
@@ -297,18 +298,18 @@ export async function resetAllUserData(userId: string): Promise<{
     queryClient.removeQueries({ queryKey: descriptionKeys.all(userId) })
     queryClient.removeQueries({ queryKey: imageKeys.all(userId) })
     queryClient.removeQueries({ queryKey: pwaKeys.all(userId) })
-    console.log('[resetAllUserData] Cleared TanStack Query cache')
+    logger.debug('[resetAllUserData] Cleared TanStack Query cache')
   } catch (e) {
-    console.warn('[resetAllUserData] Failed to clear query cache:', e)
+    logger.warn('[resetAllUserData] Failed to clear query cache:', e)
     errors.push(e instanceof Error ? e : new Error(String(e)))
   }
 
   const success = errors.length === 0
 
   if (errors.length > 0) {
-    console.warn('[resetAllUserData] Completed with errors:', errors.length, errors)
+    logger.warn('[resetAllUserData] Completed with errors:', errors.length, errors)
   } else {
-    console.log('[resetAllUserData] Full reset complete for user:', userId)
+    logger.debug('[resetAllUserData] Full reset complete for user:', userId)
   }
 
   return { success, errors, totalCleared }

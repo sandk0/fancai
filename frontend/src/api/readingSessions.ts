@@ -1,6 +1,7 @@
 // Reading Sessions API methods
 
 import { apiClient } from './client';
+import { logger } from '@/lib/logger';
 import type {
   ReadingSession,
   StartSessionRequest,
@@ -9,6 +10,15 @@ import type {
   ReadingSessionHistory,
   PaginationParams,
 } from '@/types/api';
+
+interface SessionResponse extends ReadingSession {
+  session?: ReadingSession;
+}
+
+interface ActiveSessionResponse {
+  session?: ReadingSession | null;
+  id?: string;
+}
 
 /**
  * Reading Sessions API Client
@@ -49,8 +59,7 @@ export const readingSessionsAPI = {
     };
 
     try {
-      // Use any to handle both wrapped and unwrapped responses
-      const response = await apiClient.post<any>(
+      const response = await apiClient.post<SessionResponse>(
         '/reading-sessions/start',
         data
       );
@@ -64,7 +73,7 @@ export const readingSessionsAPI = {
 
       return session;
     } catch (error) {
-      console.error('❌ [ReadingSessions] Failed to start session:', error);
+      logger.error('❌ [ReadingSessions] Failed to start session:', error);
 
       // Fallback: save to localStorage for later sync
       savePendingSession('start', data);
@@ -90,7 +99,7 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.put<any>(
+      const response = await apiClient.put<SessionResponse>(
         `/reading-sessions/${sessionId}/update`,
         data
       );
@@ -103,7 +112,7 @@ export const readingSessionsAPI = {
 
       return session;
     } catch (error) {
-      console.error('❌ [ReadingSessions] Failed to update session:', error);
+      logger.error('❌ [ReadingSessions] Failed to update session:', error);
 
       // Fallback: save to localStorage
       savePendingSession('update', { session_id: sessionId, ...data });
@@ -128,7 +137,7 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.put<any>(
+      const response = await apiClient.put<SessionResponse>(
         `/reading-sessions/${sessionId}/end`,
         data
       );
@@ -141,7 +150,7 @@ export const readingSessionsAPI = {
 
       return session;
     } catch (error) {
-      console.error('❌ [ReadingSessions] Failed to end session:', error);
+      logger.error('❌ [ReadingSessions] Failed to end session:', error);
 
       // Fallback: save to localStorage
       savePendingSession('end', { session_id: sessionId, ...data });
@@ -157,18 +166,21 @@ export const readingSessionsAPI = {
    */
   async getActiveSession(): Promise<ReadingSession | null> {
     try {
-      const response = await apiClient.get<any>('/reading-sessions/active');
+      const response = await apiClient.get<ActiveSessionResponse>('/reading-sessions/active');
 
       if (!response) return null;
 
-      const session = response.session || response;
+      // Handle both { session: ... } and flat ReadingSession response
+      if (response.session !== undefined) {
+        return response.session;
+      }
 
-      // If response was empty object or null
-      if (!session || Object.keys(session).length === 0) return null;
+      // Flat response — check it looks like a session
+      if (!response.id) return null;
 
-      return session;
+      return response as unknown as ReadingSession;
     } catch (error) {
-      console.error('❌ [ReadingSessions] Failed to get active session:', error);
+      logger.error('❌ [ReadingSessions] Failed to get active session:', error);
       return null;
     }
   },
@@ -192,7 +204,7 @@ export const readingSessionsAPI = {
     try {
       return await apiClient.get<ReadingSessionHistory>(url);
     } catch (error) {
-      console.error('❌ [ReadingSessions] Failed to get history:', error);
+      logger.error('❌ [ReadingSessions] Failed to get history:', error);
       return {
         sessions: [],
         total: 0,
@@ -210,7 +222,7 @@ export const readingSessionsAPI = {
     const pending = getPendingSessions();
     if (pending.length === 0) return;
 
-    console.log('🔄 [ReadingSessions] Syncing pending sessions:', pending.length);
+    logger.debug('🔄 [ReadingSessions] Syncing pending sessions:', pending.length);
 
     for (const item of pending) {
       try {
@@ -242,12 +254,12 @@ export const readingSessionsAPI = {
             break;
         }
       } catch (error) {
-        console.error('❌ [ReadingSessions] Failed to sync session:', error);
+        logger.error('❌ [ReadingSessions] Failed to sync session:', error);
       }
     }
 
     clearPendingSessions();
-    console.log('✅ [ReadingSessions] Pending sessions synced');
+    logger.debug('✅ [ReadingSessions] Pending sessions synced');
   },
 };
 
@@ -322,7 +334,7 @@ function savePendingSession(type: 'start' | 'update' | 'end', data: PendingSessi
     });
     localStorage.setItem(PENDING_SESSIONS_KEY, JSON.stringify(pending));
   } catch (error) {
-    console.error('❌ [ReadingSessions] Failed to save pending session:', error);
+    logger.error('❌ [ReadingSessions] Failed to save pending session:', error);
   }
 }
 
@@ -334,7 +346,7 @@ function getPendingSessions(): PendingSession[] {
     const stored = localStorage.getItem(PENDING_SESSIONS_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error('❌ [ReadingSessions] Failed to get pending sessions:', error);
+    logger.error('❌ [ReadingSessions] Failed to get pending sessions:', error);
     return [];
   }
 }
@@ -346,6 +358,6 @@ function clearPendingSessions(): void {
   try {
     localStorage.removeItem(PENDING_SESSIONS_KEY);
   } catch (error) {
-    console.error('❌ [ReadingSessions] Failed to clear pending sessions:', error);
+    logger.error('❌ [ReadingSessions] Failed to clear pending sessions:', error);
   }
 }

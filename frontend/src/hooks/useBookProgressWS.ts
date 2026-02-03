@@ -16,6 +16,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { booksAPI } from '@/api/books';
+import { logger } from '@/lib/logger';
 
 /** Status of WebSocket connection */
 export type WSConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -96,6 +97,13 @@ export function useBookProgressWS({
     const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
     const pingInterval = useRef<NodeJS.Timeout | null>(null);
 
+    const onProgressRef = useRef(onProgress);
+    onProgressRef.current = onProgress;
+    const onCompleteRef = useRef(onComplete);
+    onCompleteRef.current = onComplete;
+    const onErrorRef = useRef(onError);
+    onErrorRef.current = onError;
+
     const { isAuthenticated } = useAuthStore();
 
     const buildWsUrl = useCallback((): string | null => {
@@ -159,13 +167,13 @@ export function useBookProgressWS({
         }
 
         setStatus('connecting');
-        if (import.meta.env.DEV) console.log('[useBookProgressWS] Connecting to WebSocket...');
+        if (import.meta.env.DEV) logger.debug('[useBookProgressWS] Connecting to WebSocket...');
 
         try {
             wsRef.current = new WebSocket(wsUrl);
 
             wsRef.current.onopen = () => {
-                console.log('[useBookProgressWS] Connected');
+                logger.debug('[useBookProgressWS] Connected');
                 setStatus('connected');
                 reconnectAttempts.current = 0;
 
@@ -184,7 +192,7 @@ export function useBookProgressWS({
                     }
 
                     const data: BookProgressUpdate = JSON.parse(rawData);
-                    console.log('[useBookProgressWS] Message:', data.type, data.progress);
+                    logger.debug('[useBookProgressWS] Message:', data.type, data.progress);
 
                     switch (data.type) {
                         case 'progress':
@@ -192,19 +200,19 @@ export function useBookProgressWS({
                             setCurrentChapter(data.chapter || 0);
                             setTotalChapters(data.total_chapters || 0);
                             setMessage(data.message || '');
-                            onProgress?.(data);
+                            onProgressRef.current?.(data);
                             break;
 
                         case 'completed':
                             setProgress(100);
                             setStatus('disconnected');
-                            onComplete?.();
+                            onCompleteRef.current?.();
                             disconnect();
                             break;
 
                         case 'error':
                             setMessage(data.message || 'Unknown error');
-                            onError?.(data.message || 'Unknown error');
+                            onErrorRef.current?.(data.message || 'Unknown error');
                             break;
 
                         case 'pong':
@@ -212,21 +220,21 @@ export function useBookProgressWS({
                             break;
 
                         case 'connected':
-                            console.log('[useBookProgressWS] Server confirmed connection');
+                            logger.debug('[useBookProgressWS] Server confirmed connection');
                             break;
                     }
                 } catch (e) {
-                    console.error('[useBookProgressWS] Failed to parse message:', e);
+                    logger.error('[useBookProgressWS] Failed to parse message:', e);
                 }
             };
 
             wsRef.current.onerror = (error) => {
-                console.error('[useBookProgressWS] Error:', error);
+                logger.error('[useBookProgressWS] Error:', error);
                 setStatus('error');
             };
 
             wsRef.current.onclose = (event) => {
-                console.log('[useBookProgressWS] Closed:', event.code, event.reason);
+                logger.debug('[useBookProgressWS] Closed:', event.code, event.reason);
 
                 if (pingInterval.current) {
                     clearInterval(pingInterval.current);
@@ -237,7 +245,7 @@ export function useBookProgressWS({
                 if (enabled && event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
                     reconnectAttempts.current++;
                     const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-                    console.log(`[useBookProgressWS] Reconnecting in ${delay}ms...`);
+                    logger.debug(`[useBookProgressWS] Reconnecting in ${delay}ms...`);
 
                     reconnectTimeout.current = setTimeout(() => {
                         connect();
@@ -247,11 +255,10 @@ export function useBookProgressWS({
                 }
             };
         } catch (e) {
-            console.error('[useBookProgressWS] Failed to create WebSocket:', e);
+            logger.error('[useBookProgressWS] Failed to create WebSocket:', e);
             setStatus('error');
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookId, isAuthenticated, buildWsUrl, enabled, maxReconnectAttempts]);
+    }, [bookId, buildWsUrl, enabled, maxReconnectAttempts, disconnect, sendMessage]);
 
     // Connect/disconnect based on enabled state
     useEffect(() => {
@@ -263,10 +270,10 @@ export function useBookProgressWS({
             const fetchInitialStatus = async () => {
                 try {
                     const response = await booksAPI.getParsingStatus(bookId);
-                    const data = response as any;
+                    const data = response as { progress?: number; status?: string; chapter?: number; total_chapters?: number };
 
                     if (data && typeof data.progress === 'number') {
-                        console.log('[useBookProgressWS] Initial status fetched:', data.progress, data.status);
+                        logger.debug('[useBookProgressWS] Initial status fetched:', data.progress, data.status);
                         setProgress(data.progress);
                         if (data.chapter) setCurrentChapter(data.chapter);
                         if (data.total_chapters) setTotalChapters(data.total_chapters);
@@ -274,12 +281,12 @@ export function useBookProgressWS({
                         // CRITICAL FIX: Close overlay if processing is done or not started
                         if (data.status === 'completed' || data.status === 'not_started') {
                             if (data.status === 'completed') setProgress(100);
-                            onComplete?.();
+                            onCompleteRef.current?.();
                             disconnect();
                         }
                     }
                 } catch (e) {
-                    console.error('[useBookProgressWS] Failed to fetch initial status:', e);
+                    logger.error('[useBookProgressWS] Failed to fetch initial status:', e);
                 }
             };
 
@@ -294,7 +301,6 @@ export function useBookProgressWS({
         } else {
             disconnect();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onComplete excluded to prevent reconnects on callback identity change
     }, [enabled, bookId, isAuthenticated, connect, disconnect]);
 
     return {

@@ -27,6 +27,7 @@
 
 import {
   db,
+  type PendingSyncRequest,
   type SyncOperation,
   type SyncOperationType,
   type SyncPriority,
@@ -66,11 +67,60 @@ interface SyncEventDetail {
 // iOS Safari Fallback Configuration
 // ============================================================================
 
-/** Periodic sync interval in milliseconds (30 seconds) */
 const PERIODIC_SYNC_INTERVAL = 30000
+const MAX_QUEUE_SIZE = 50
+const MAX_PENDING_RETRY_COUNT = 3
 
-/** Enable debug logging */
-const DEBUG = import.meta.env.DEV
+import { logger } from '@/lib/logger'
+
+function sendWithBeaconOrFetch(url: string, blob: Blob): boolean {
+  try {
+    if (navigator.sendBeacon) {
+      const queued = navigator.sendBeacon(url, blob)
+      if (queued) return true
+    }
+  } catch {
+    // sendBeacon threw — fall through to fetch
+  }
+
+  try {
+    fetch(url, {
+      method: 'POST',
+      body: blob,
+      keepalive: true,
+      credentials: 'include',
+    }).catch(() => {
+      // fire-and-forget during unload
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function persistFailedRequest(url: string, method: string, body: string): Promise<void> {
+  try {
+    const request: PendingSyncRequest = {
+      id: crypto.randomUUID(),
+      url,
+      method,
+      body,
+      timestamp: Date.now(),
+      retryCount: 0,
+    }
+    await db.pendingSyncRequests.add(request)
+
+    const count = await db.pendingSyncRequests.count()
+    if (count > MAX_QUEUE_SIZE) {
+      const oldest = await db.pendingSyncRequests.orderBy('timestamp').first()
+      if (oldest) {
+        await db.pendingSyncRequests.delete(oldest.id)
+      }
+    }
+  } catch {
+    // IndexedDB may be unavailable during unload
+  }
+}
 
 // ============================================================================
 // Badging API Support
@@ -93,9 +143,7 @@ async function updateBadge(count: number): Promise<void> {
     }
   } catch (err) {
     // Silently fail - badge is non-critical
-    if (DEBUG) {
-      console.log('[SyncQueue] Badge update failed:', err);
-    }
+    logger.debug('[SyncQueue] Badge update failed:', err);
   }
 }
 
@@ -121,7 +169,7 @@ class SyncQueue {
     // iOS does not support Background Sync - use visibilitychange as fallback
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        if (DEBUG) console.log('[SyncQueue] App visible, processing queue...')
+        logger.debug('[SyncQueue] App visible, processing queue...')
         this.startPeriodicSync()
         this.processQueue()
       } else {
@@ -132,7 +180,7 @@ class SyncQueue {
 
     // Process when network is restored
     window.addEventListener('online', async () => {
-      if (DEBUG) console.log('[SyncQueue] Online event - triggering sync')
+      logger.debug('[SyncQueue] Online event - triggering sync')
       // Immediate sync attempt when coming back online
       await this.processQueue()
     })
@@ -141,7 +189,7 @@ class SyncQueue {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data?.type === 'SYNC_SUCCESS') {
-          if (DEBUG) console.log('[SyncQueue] SW sync success:', event.data.url)
+          logger.debug('[SyncQueue] SW sync success:', event.data.url)
           window.dispatchEvent(
             new CustomEvent('sync:success', {
               detail: event.data,
@@ -150,7 +198,7 @@ class SyncQueue {
           this.notifyListeners()
         } else if (event.data?.type === 'SYNC_REQUESTED') {
           // Service Worker requested queue processing
-          if (DEBUG) console.log('[SyncQueue] SW requested sync:', event.data.tag)
+          logger.debug('[SyncQueue] SW requested sync:', event.data.tag)
           this.processQueue()
         }
       })
@@ -158,7 +206,7 @@ class SyncQueue {
 
     // Also listen to custom app:online event from useOnlineStatus
     window.addEventListener('app:online', () => {
-      if (DEBUG) console.log('[SyncQueue] App online event, processing queue...')
+      logger.debug('[SyncQueue] App online event, processing queue...')
       this.processQueue()
     })
   }
@@ -200,13 +248,13 @@ class SyncQueue {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         const pending = await this.getPendingCount()
         if (pending > 0) {
-          if (DEBUG) console.log('[SyncQueue] Periodic sync triggered, pending:', pending)
+          logger.debug('[SyncQueue] Periodic sync triggered, pending:', pending)
           await this.processQueue()
         }
       }
     }, PERIODIC_SYNC_INTERVAL)
 
-    if (DEBUG) console.log('[SyncQueue] Periodic sync started (interval:', PERIODIC_SYNC_INTERVAL, 'ms)')
+    logger.debug('[SyncQueue] Periodic sync started (interval:', PERIODIC_SYNC_INTERVAL, 'ms)')
   }
 
   /**
@@ -216,7 +264,7 @@ class SyncQueue {
     if (this.periodicSyncInterval !== null) {
       clearInterval(this.periodicSyncInterval)
       this.periodicSyncInterval = null
-      if (DEBUG) console.log('[SyncQueue] Periodic sync stopped')
+      logger.debug('[SyncQueue] Periodic sync stopped')
     }
   }
 
@@ -225,32 +273,28 @@ class SyncQueue {
    * sendBeacon is reliable for sending data when page is being unloaded
    */
   private handleBeforeUnload(): void {
-    // Get critical pending operations synchronously from IndexedDB is not possible,
-    // so we use a fallback localStorage cache for critical data
     const criticalData = localStorage.getItem('syncQueue_critical')
+    if (!criticalData) return
 
-    if (criticalData && navigator.sendBeacon) {
-      try {
-        const data = JSON.parse(criticalData)
-        if (data && data.length > 0) {
-          // SECURITY: Do NOT include token in sendBeacon payload
-          // sendBeacon requests use credentials: 'include' automatically for same-origin
-          // Backend should authenticate via HttpOnly cookies, not request body tokens
-          const blob = new Blob([JSON.stringify({ operations: data })], {
-            type: 'application/json'
-          })
+    try {
+      const data = JSON.parse(criticalData) as unknown
+      if (!Array.isArray(data) || data.length === 0) return
 
-          const queued = navigator.sendBeacon('/api/v1/sync/batch', blob)
+      const bodyStr = JSON.stringify({ operations: data })
+      const blob = new Blob([bodyStr], { type: 'application/json' })
+      const url = '/api/v1/sync/batch'
 
-          if (queued) {
-            localStorage.removeItem('syncQueue_critical')
-            if (DEBUG) console.log('[SyncQueue] Critical data queued via sendBeacon')
-          }
-        }
-      } catch (error) {
-        // Ignore errors during unload - nothing we can do
-        if (DEBUG) console.warn('[SyncQueue] sendBeacon failed:', error)
+      const sent = sendWithBeaconOrFetch(url, blob)
+
+      if (sent) {
+        localStorage.removeItem('syncQueue_critical')
+        logger.debug('[SyncQueue] Critical data sent during unload')
+      } else {
+        persistFailedRequest(url, 'POST', bodyStr)
+        logger.debug('[SyncQueue] Persisted failed unload request to IndexedDB')
       }
+    } catch {
+      logger.debug('[SyncQueue] handleBeforeUnload failed')
     }
   }
 
@@ -278,7 +322,7 @@ class SyncQueue {
         localStorage.removeItem('syncQueue_critical')
       }
     } catch (error) {
-      if (DEBUG) console.warn('[SyncQueue] Failed to cache critical data:', error)
+      logger.debug('[SyncQueue] Failed to cache critical data:', error)
     }
   }
 
@@ -331,8 +375,17 @@ class SyncQueue {
         .delete()
     }
 
+    const queueSize = await db.syncQueue.count()
+    if (queueSize >= MAX_QUEUE_SIZE) {
+      const oldest = await db.syncQueue.orderBy('createdAt').first()
+      if (oldest) {
+        await db.syncQueue.delete(oldest.id)
+        logger.debug('[SyncQueue] Queue full, dropped oldest:', oldest.type, oldest.endpoint)
+      }
+    }
+
     await db.syncQueue.add(operation)
-    if (DEBUG) console.log('[SyncQueue] Added operation:', operation.type, operation.endpoint)
+    logger.debug('[SyncQueue] Added operation:', operation.type, operation.endpoint)
 
     // Update badge with new pending count
     const pendingCount = await this.getPendingCount()
@@ -370,10 +423,10 @@ class SyncQueue {
       // Check if SyncManager is available (not on iOS)
       if ('sync' in registration) {
         await (registration as ServiceWorkerRegistration & { sync: { register: (tag: string) => Promise<void> } }).sync.register('fancai-sync')
-        if (DEBUG) console.log('[SyncQueue] Background Sync registered')
+        logger.debug('[SyncQueue] Background Sync registered')
       }
     } catch (error) {
-      if (DEBUG) console.warn('[SyncQueue] Background Sync registration failed:', error)
+      logger.debug('[SyncQueue] Background Sync registration failed:', error)
     }
   }
 
@@ -398,7 +451,7 @@ class SyncQueue {
 
   private async doProcessQueue(): Promise<void> {
     if (!navigator.onLine) {
-      if (DEBUG) console.log('[SyncQueue] Offline, skipping queue processing')
+      logger.debug('[SyncQueue] Offline, skipping queue processing')
       return
     }
 
@@ -423,7 +476,7 @@ class SyncQueue {
       return a.createdAt - b.createdAt
     })
 
-    if (DEBUG) console.log(`[SyncQueue] Processing ${operations.length} operations...`)
+    logger.debug(`[SyncQueue] Processing ${operations.length} operations...`)
 
     for (const op of operations) {
       await this.processOperation(op)
@@ -460,7 +513,7 @@ class SyncQueue {
 
       // Success - remove from queue
       await db.syncQueue.delete(op.id)
-      if (DEBUG) console.log('[SyncQueue] Operation completed:', op.type, op.endpoint)
+      logger.debug('[SyncQueue] Operation completed:', op.type, op.endpoint)
 
       // Update critical data cache after successful sync
       await this.cacheCriticalData()
@@ -475,7 +528,7 @@ class SyncQueue {
       const newRetries = op.retries + 1
       const errorMessage = (error as Error).message
 
-      if (DEBUG) console.warn('[SyncQueue] Operation failed:', op.type, errorMessage)
+      logger.debug('[SyncQueue] Operation failed:', op.type, errorMessage)
 
       if (newRetries >= op.maxRetries) {
         // Max retries exceeded
@@ -596,7 +649,7 @@ class SyncQueue {
     await updateBadge(0)
 
     this.notifyListeners()
-    if (DEBUG) console.log('[SyncQueue] Queue cleared')
+    logger.debug('[SyncQueue] Queue cleared')
   }
 
   /**
@@ -612,6 +665,45 @@ class SyncQueue {
 // ============================================================================
 
 export const syncQueue = new SyncQueue()
+
+export async function retryPendingSync(): Promise<void> {
+  let requests: PendingSyncRequest[]
+  try {
+    requests = await db.pendingSyncRequests.toArray()
+  } catch {
+    return
+  }
+
+  if (requests.length === 0) return
+
+  logger.debug(`[SyncQueue] Retrying ${requests.length} persisted requests`)
+
+  for (const req of requests) {
+    try {
+      const response = await fetch(req.url, {
+        method: req.method,
+        headers: { 'Content-Type': 'application/json' },
+        body: req.body,
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        await db.pendingSyncRequests.delete(req.id)
+        logger.debug('[SyncQueue] Persisted request retried successfully:', req.url)
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch {
+      const newRetryCount = req.retryCount + 1
+      if (newRetryCount > MAX_PENDING_RETRY_COUNT) {
+        await db.pendingSyncRequests.delete(req.id)
+        logger.debug('[SyncQueue] Persisted request exceeded max retries, dropped:', req.url)
+      } else {
+        await db.pendingSyncRequests.update(req.id, { retryCount: newRetryCount })
+      }
+    }
+  }
+}
 
 // ============================================================================
 // Convenience Functions (Backward Compatible API)
@@ -746,7 +838,7 @@ export async function queueReadingSession(
     endpoint = `/api/v1/reading-sessions/${data.sessionId}/end`;
   }
 
-  const body: Record<string, any> = {
+  const body: Record<string, unknown> = {
     book_id: bookId,
     action,
     ...data,

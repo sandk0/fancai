@@ -21,7 +21,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
 import { isActiveRoute } from '@/utils/navigation';
 import { Z_INDEX } from '@/lib/zIndex';

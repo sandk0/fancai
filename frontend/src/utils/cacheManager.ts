@@ -28,6 +28,7 @@ import { chapterCache } from '@/services/chapterCache';
 import { imageCache } from '@/services/imageCache';
 import { useReaderStore, ReadingProgress } from '@/stores/reader';
 import { STORAGE_KEYS } from '@/types/state';
+import { logger } from '@/lib/logger';
 
 /**
  * Result of cache clearing operation
@@ -55,7 +56,7 @@ interface ClearCacheResult {
  * @returns ClearCacheResult with status of each cache clearing operation
  */
 export async function clearAllCaches(): Promise<ClearCacheResult> {
-  console.log('🧹 [CacheManager] Clearing all caches...');
+  logger.debug('🧹 [CacheManager] Clearing all caches...');
 
   const result: ClearCacheResult = {
     success: true,
@@ -73,11 +74,11 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
   try {
     queryClient.clear();
     result.tanstackCleared = true;
-    console.log('✅ [CacheManager] TanStack Query cache cleared');
+    logger.debug('✅ [CacheManager] TanStack Query cache cleared');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`TanStack Query: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear TanStack Query cache:', error);
+    logger.error('❌ [CacheManager] Failed to clear TanStack Query cache:', error);
   }
 
   // 2. Clear IndexedDB chapter cache
@@ -89,16 +90,16 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
     if (userId) {
       await chapterCache.clearAll(userId);
       result.chapterCacheCleared = true;
-      console.log('✅ [CacheManager] Chapter cache cleared for user:', userId);
+      logger.debug('✅ [CacheManager] Chapter cache cleared for user:', userId);
     } else {
       // Если нет userId (уже разлогинились), пропускаем
       result.chapterCacheCleared = true;
-      console.log('ℹ️ [CacheManager] No userId available, skipping chapter cache clear');
+      logger.debug('ℹ️ [CacheManager] No userId available, skipping chapter cache clear');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`Chapter cache: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear chapter cache:', error);
+    logger.error('❌ [CacheManager] Failed to clear chapter cache:', error);
   }
 
   // 3. Clear IndexedDB image cache
@@ -111,27 +112,27 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
     if (userId) {
       await imageCache.clearAll(userId);
       result.imageCacheCleared = true;
-      console.log('✅ [CacheManager] Image cache cleared for user:', userId);
+      logger.debug('✅ [CacheManager] Image cache cleared for user:', userId);
     } else {
       // Если нет userId (уже разлогинились), пропускаем
       result.imageCacheCleared = true;
-      console.log('ℹ️ [CacheManager] No userId available, skipping image cache clear');
+      logger.debug('ℹ️ [CacheManager] No userId available, skipping image cache clear');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`Image cache: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear image cache:', error);
+    logger.error('❌ [CacheManager] Failed to clear image cache:', error);
   }
 
   // 4. Reset reader store state
   try {
     useReaderStore.getState().reset();
     result.readerStoreCleared = true;
-    console.log('✅ [CacheManager] Reader store cleared');
+    logger.debug('✅ [CacheManager] Reader store cleared');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`Reader store: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear reader store:', error);
+    logger.error('❌ [CacheManager] Failed to clear reader store:', error);
   }
 
   // 5. Clear Service Worker cache storage (CRITICAL for security)
@@ -140,47 +141,47 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map(name => caches.delete(name)));
       result.serviceWorkerCacheCleared = true;
-      console.log(`✅ [CacheManager] Service Worker cache cleared (${cacheNames.length} caches)`);
+      logger.debug(`✅ [CacheManager] Service Worker cache cleared (${cacheNames.length} caches)`);
     } else {
       // Browser doesn't support Cache API (not an error)
       result.serviceWorkerCacheCleared = true;
-      console.log('ℹ️ [CacheManager] Cache API not available (skipped)');
+      logger.debug('ℹ️ [CacheManager] Cache API not available (skipped)');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`Service Worker cache: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear Service Worker cache:', error);
+    logger.error('❌ [CacheManager] Failed to clear Service Worker cache:', error);
   }
 
   // 6. Clear epub_locations IndexedDB (CRITICAL for security)
   try {
     await clearEpubLocationsDB();
     result.epubLocationsCleared = true;
-    console.log('✅ [CacheManager] EPUB locations IndexedDB cleared');
+    logger.debug('✅ [CacheManager] EPUB locations IndexedDB cleared');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`EPUB locations: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear EPUB locations:', error);
+    logger.error('❌ [CacheManager] Failed to clear EPUB locations:', error);
   }
 
   // 7. Clear pending_sessions localStorage (HIGH priority)
   try {
     localStorage.removeItem('bookreader_pending_sessions');
     result.pendingSessionsCleared = true;
-    console.log('✅ [CacheManager] Pending sessions localStorage cleared');
+    logger.debug('✅ [CacheManager] Pending sessions localStorage cleared');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     result.errors.push(`Pending sessions: ${message}`);
-    console.error('❌ [CacheManager] Failed to clear pending sessions:', error);
+    logger.error('❌ [CacheManager] Failed to clear pending sessions:', error);
   }
 
   // Determine overall success
   result.success = result.errors.length === 0;
 
   if (result.success) {
-    console.log('✅ [CacheManager] All caches cleared successfully');
+    logger.debug('✅ [CacheManager] All caches cleared successfully');
   } else {
-    console.warn('⚠️ [CacheManager] Some caches failed to clear:', result.errors);
+    logger.warn('⚠️ [CacheManager] Some caches failed to clear:', result.errors);
   }
 
   return result;
@@ -193,9 +194,9 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
 export function clearQueryCache(): void {
   try {
     queryClient.clear();
-    console.log('✅ [CacheManager] TanStack Query cache cleared');
+    logger.debug('✅ [CacheManager] TanStack Query cache cleared');
   } catch (error) {
-    console.error('❌ [CacheManager] Failed to clear TanStack Query cache:', error);
+    logger.error('❌ [CacheManager] Failed to clear TanStack Query cache:', error);
     throw error;
   }
 }
@@ -209,9 +210,9 @@ export function clearQueryCache(): void {
 export function invalidateQueries(queryKey: string[]): void {
   try {
     queryClient.invalidateQueries({ queryKey });
-    console.log('✅ [CacheManager] Queries invalidated:', queryKey);
+    logger.debug('✅ [CacheManager] Queries invalidated:', queryKey);
   } catch (error) {
-    console.error('❌ [CacheManager] Failed to invalidate queries:', error);
+    logger.error('❌ [CacheManager] Failed to invalidate queries:', error);
     throw error;
   }
 }
@@ -233,7 +234,7 @@ async function clearEpubLocationsDB(): Promise<void> {
 
       request.onerror = () => {
         // Database doesn't exist or can't be opened - not an error
-        console.log('ℹ️ [CacheManager] EPUB locations DB does not exist (skipped)');
+        logger.debug('ℹ️ [CacheManager] EPUB locations DB does not exist (skipped)');
         resolve();
       };
 
@@ -242,7 +243,7 @@ async function clearEpubLocationsDB(): Promise<void> {
 
         // Check if the object store exists
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-          console.log('ℹ️ [CacheManager] EPUB locations store does not exist (skipped)');
+          logger.debug('ℹ️ [CacheManager] EPUB locations store does not exist (skipped)');
           db.close();
           resolve();
           return;
@@ -255,30 +256,30 @@ async function clearEpubLocationsDB(): Promise<void> {
           const clearRequest = store.clear();
 
           clearRequest.onsuccess = () => {
-            console.log('✅ [CacheManager] EPUB locations store cleared');
+            logger.debug('✅ [CacheManager] EPUB locations store cleared');
             db.close();
             resolve();
           };
 
           clearRequest.onerror = () => {
-            console.error('❌ [CacheManager] Failed to clear EPUB locations store:', clearRequest.error);
+            logger.error('❌ [CacheManager] Failed to clear EPUB locations store:', clearRequest.error);
             db.close();
             reject(clearRequest.error);
           };
 
           transaction.onerror = () => {
-            console.error('❌ [CacheManager] Transaction error:', transaction.error);
+            logger.error('❌ [CacheManager] Transaction error:', transaction.error);
             db.close();
             reject(transaction.error);
           };
         } catch (error) {
-          console.error('❌ [CacheManager] Error creating transaction:', error);
+          logger.error('❌ [CacheManager] Error creating transaction:', error);
           db.close();
           reject(error);
         }
       };
     } catch (error) {
-      console.error('❌ [CacheManager] Error opening EPUB locations DB:', error);
+      logger.error('❌ [CacheManager] Error opening EPUB locations DB:', error);
       reject(error);
     }
   });
@@ -307,7 +308,7 @@ export interface ReadingProgressBackup {
  * @returns Backup data object
  */
 export function backupReadingProgress(userId: string): ReadingProgressBackup {
-  console.log('💾 [CacheManager] Backing up reading progress for user:', userId);
+  logger.debug('💾 [CacheManager] Backing up reading progress for user:', userId);
 
   const readerState = useReaderStore.getState();
 
@@ -326,7 +327,7 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
   const bookmarkCount = Object.values(backup.data.bookmarks).reduce((sum, arr) => sum + arr.length, 0);
   const highlightCount = Object.values(backup.data.highlights).reduce((sum, arr) => sum + arr.length, 0);
 
-  console.log('💾 [CacheManager] Backup created:', {
+  logger.debug('💾 [CacheManager] Backup created:', {
     progressCount,
     bookmarkCount,
     highlightCount,
@@ -335,9 +336,9 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
   // Save to localStorage
   try {
     localStorage.setItem(STORAGE_KEYS.READING_PROGRESS_BACKUP, JSON.stringify(backup));
-    console.log('✅ [CacheManager] Reading progress backup saved to localStorage');
+    logger.debug('✅ [CacheManager] Reading progress backup saved to localStorage');
   } catch (error) {
-    console.error('❌ [CacheManager] Failed to save backup to localStorage:', error);
+    logger.error('❌ [CacheManager] Failed to save backup to localStorage:', error);
   }
 
   return backup;
@@ -353,13 +354,13 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
  * @returns true if restore was successful, false otherwise
  */
 export function restoreReadingProgress(userId: string): boolean {
-  console.log('📂 [CacheManager] Checking for reading progress backup for user:', userId);
+  logger.debug('📂 [CacheManager] Checking for reading progress backup for user:', userId);
 
   try {
     const backupStr = localStorage.getItem(STORAGE_KEYS.READING_PROGRESS_BACKUP);
 
     if (!backupStr) {
-      console.log('ℹ️ [CacheManager] No reading progress backup found');
+      logger.debug('ℹ️ [CacheManager] No reading progress backup found');
       return false;
     }
 
@@ -367,7 +368,7 @@ export function restoreReadingProgress(userId: string): boolean {
 
     // Verify user ID matches
     if (backup.userId !== userId) {
-      console.log('⚠️ [CacheManager] Backup belongs to different user, skipping restore');
+      logger.debug('⚠️ [CacheManager] Backup belongs to different user, skipping restore');
       // Remove stale backup from different user
       localStorage.removeItem(STORAGE_KEYS.READING_PROGRESS_BACKUP);
       return false;
@@ -376,7 +377,7 @@ export function restoreReadingProgress(userId: string): boolean {
     // Check backup age (max 30 days)
     const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
     if (Date.now() - backup.savedAt > maxAge) {
-      console.log('⚠️ [CacheManager] Backup is too old (>30 days), skipping restore');
+      logger.debug('⚠️ [CacheManager] Backup is too old (>30 days), skipping restore');
       localStorage.removeItem(STORAGE_KEYS.READING_PROGRESS_BACKUP);
       return false;
     }
@@ -405,7 +406,7 @@ export function restoreReadingProgress(userId: string): boolean {
     const bookmarkCount = Object.values(backup.data.bookmarks).reduce((sum, arr) => sum + arr.length, 0);
     const highlightCount = Object.values(backup.data.highlights).reduce((sum, arr) => sum + arr.length, 0);
 
-    console.log('✅ [CacheManager] Reading progress restored:', {
+    logger.debug('✅ [CacheManager] Reading progress restored:', {
       progressCount,
       bookmarkCount,
       highlightCount,
@@ -414,11 +415,11 @@ export function restoreReadingProgress(userId: string): boolean {
 
     // Clear backup after successful restore
     localStorage.removeItem(STORAGE_KEYS.READING_PROGRESS_BACKUP);
-    console.log('🧹 [CacheManager] Backup cleared after restore');
+    logger.debug('🧹 [CacheManager] Backup cleared after restore');
 
     return true;
   } catch (error) {
-    console.error('❌ [CacheManager] Failed to restore reading progress:', error);
+    logger.error('❌ [CacheManager] Failed to restore reading progress:', error);
     // Clear potentially corrupted backup
     localStorage.removeItem(STORAGE_KEYS.READING_PROGRESS_BACKUP);
     return false;

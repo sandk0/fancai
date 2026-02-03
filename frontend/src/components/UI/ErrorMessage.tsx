@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
 
 interface ErrorMessageProps {
@@ -15,13 +16,15 @@ interface ErrorMessageProps {
 }
 
 const ErrorMessage: React.FC<ErrorMessageProps> = ({
-  title = 'Ошибка',
+  title,
   message,
   onRetry,
   action,
   className,
   variant = 'default'
 }) => {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('ui.error.title');
   if (variant === 'compact') {
     return (
       <div className={cn(
@@ -52,7 +55,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
       </div>
       
       <h3 className="mb-2 text-lg font-semibold text-foreground">
-        {title}
+        {resolvedTitle}
       </h3>
 
       <p className="mb-6 text-muted-foreground max-w-md">
@@ -65,7 +68,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
           className="flex items-center space-x-2 px-4 py-2 text-destructive-foreground bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
         >
           <RefreshCw size={16} />
-          <span>Повторить</span>
+          <span>{t('ui.error.retry')}</span>
         </button>
       )}
       

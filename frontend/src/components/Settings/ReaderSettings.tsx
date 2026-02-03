@@ -2,7 +2,7 @@ import React from 'react';
 import { Type, Palette, Monitor, RotateCcw } from 'lucide-react';
 import { useReaderStore } from '@/stores/reader';
 import { useUIStore } from '@/stores/ui';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 
 const ReaderSettings: React.FC = () => {
   const {

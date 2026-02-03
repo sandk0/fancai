@@ -27,7 +27,7 @@
  * useResizeHandler({
  *   rendition,
  *   onResized: (dimensions) => {
- *     console.log('New size:', dimensions);
+ *     logger.debug('New size:', dimensions);
  *     updateUI();
  *   },
  *   enabled: true,

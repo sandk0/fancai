@@ -1,6 +1,6 @@
 // State Management Types for fancai
 
-import { User, Book, Chapter, GeneratedImage, UserProfile, GenerationStatus, Description } from './api';
+import { User, GeneratedImage, UserProfile } from './api';
 
 // Auth Store State
 export interface AuthState {
@@ -15,74 +15,6 @@ export interface AuthState {
   refreshAccessToken: () => Promise<void>;
   updateUser: (user: User) => void;
   loadUserFromStorage: () => void;
-}
-
-// Books Store State
-export interface BooksState {
-  // Books data
-  books: Book[];
-  currentBook: Book | null;
-  currentChapter: Chapter | null;
-  isLoading: boolean;
-  error: string | null;
-
-  // Pagination
-  totalBooks: number;
-  currentPage: number;
-  booksPerPage: number;
-  hasMore: boolean;
-  sortBy: string;
-
-  // Actions
-  fetchBooks: (page?: number, limit?: number, sortBy?: string) => Promise<void>;
-  fetchBook: (bookId: string) => Promise<void>;
-  fetchChapter: (bookId: string, chapterNumber: number) => Promise<{
-    chapter: Chapter;
-    descriptions?: Description[];
-    navigation: {
-      has_previous: boolean;
-      has_next: boolean;
-      previous_chapter?: number;
-      next_chapter?: number;
-    };
-  }>;
-  uploadBook: (file: File) => Promise<Book>;
-  deleteBook: (bookId: string) => Promise<void>;
-  updateReadingProgress: (bookId: string, currentPage: number, chapterNumber: number) => Promise<void>;
-  setCurrentBook: (book: Book | null) => void;
-  setCurrentChapter: (chapter: Chapter | null) => void;
-  clearError: () => void;
-
-  // Pagination methods
-  refreshBooks: () => Promise<void>;
-  goToPage: (page: number) => Promise<void>;
-  nextPage: () => Promise<void>;
-  prevPage: () => Promise<void>;
-
-  // Sort method
-  setSortBy: (sortBy: string) => Promise<void>;
-}
-
-// Images Store State
-export interface ImagesState {
-  // Images data
-  images: GeneratedImage[];
-  currentBookImages: GeneratedImage[];
-  generationStatus: GenerationStatus | null;
-  isGenerating: boolean;
-  isLoading: boolean;
-  error: string | null;
-  
-  // Actions
-  fetchGenerationStatus: () => Promise<void>;
-  generateImageForDescription: (descriptionId: string, params?: Record<string, unknown>) => Promise<GeneratedImage>;
-  generateImagesForChapter: (chapterId: string, params?: Record<string, unknown>) => Promise<GeneratedImage[]>;
-  fetchBookImages: (bookId: string) => Promise<void>;
-  deleteImage: (imageId: string) => Promise<void>;
-  clearError: () => void;
-  
-  // Additional methods for compatibility
-  refreshImages: () => Promise<void>;
 }
 
 export type ReaderTheme = 'light' | 'dark' | 'sepia' | 'night' | 'outdoor';
@@ -219,8 +151,6 @@ export interface ProfileState {
 // Combined App State (for providers/context if needed)
 export interface AppState {
   auth: AuthState;
-  books: BooksState;
-  images: ImagesState;
   reader: ReaderState;
   ui: UIState;
   profile: ProfileState;

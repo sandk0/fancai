@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { X, AlertTriangle, Trash2 } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { Button } from '@/components/UI/button';
 import { useFocusTrap } from '@/hooks/useFocusTrap';

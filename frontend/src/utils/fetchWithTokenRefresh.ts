@@ -11,6 +11,7 @@
  */
 
 import { STORAGE_KEYS } from '@/types/state';
+import { logger } from '@/lib/logger';
 
 let globalRefreshPromise: Promise<string> | null = null;
 
@@ -63,7 +64,7 @@ async function refreshAccessToken(): Promise<string> {
         localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
         return tokens.access_token;
       }
-    } catch (e) {
+    } catch {
       // No JSON or invalid structure - likely cookie-only response, which is fine
     }
 
@@ -83,7 +84,7 @@ async function refreshAccessToken(): Promise<string> {
  * Clear all authentication data from storage
  */
 function clearAuthData(): void {
-  console.log('[fetchWithTokenRefresh] Clearing auth data...');
+  logger.debug('[fetchWithTokenRefresh] Clearing auth data...');
   localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.USER_DATA);
@@ -94,7 +95,7 @@ function clearAuthData(): void {
       useAuthStore.getState().logout();
     })
     .catch((error) => {
-      console.warn('[fetchWithTokenRefresh] Failed to clear auth store:', error);
+      logger.warn('[fetchWithTokenRefresh] Failed to clear auth store:', error);
     });
 }
 
@@ -170,18 +171,19 @@ export async function fetchWithTokenRefresh(
 
       // If 401 and we haven't exhausted retries, try to refresh token
       if (response.status === 401 && retryCount < maxRetries) {
-        console.log('[fetchWithTokenRefresh] 401 received, attempting token refresh...');
+        logger.debug('[fetchWithTokenRefresh] 401 received, attempting token refresh...');
 
         try {
           token = await refreshAccessToken();
-          console.log('[fetchWithTokenRefresh] Token refreshed successfully, retrying request...');
+          logger.debug('[fetchWithTokenRefresh] Token refreshed successfully, retrying request...');
           retryCount++;
           continue; // Retry with new token
-        } catch (refreshError: any) {
-          console.warn('[fetchWithTokenRefresh] Token refresh failed:', refreshError);
+        } catch (refreshError: unknown) {
+          logger.warn('[fetchWithTokenRefresh] Token refresh failed:', refreshError);
 
           // Don't logout on Rate Limit or Network Error
-          if (refreshError.message === 'Rate limit exceeded' || refreshError.name === 'TypeError') {
+          const isErrorInstance = refreshError instanceof Error;
+          if (isErrorInstance && (refreshError.message === 'Rate limit exceeded' || refreshError.name === 'TypeError')) {
              throw refreshError;
           }
 
@@ -198,7 +200,7 @@ export async function fetchWithTokenRefresh(
     } catch (error) {
       // Network errors - don't retry token refresh for these
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('[fetchWithTokenRefresh] Network error:', error);
+        logger.warn('[fetchWithTokenRefresh] Network error:', error);
         throw error;
       }
 
@@ -246,14 +248,14 @@ export async function fetchImageWithAuth(url: string): Promise<string | null> {
     });
 
     if (!response.ok) {
-      console.warn('[fetchImageWithAuth] Failed to fetch image:', response.status);
+      logger.warn('[fetchImageWithAuth] Failed to fetch image:', response.status);
       return null;
     }
 
     const blob = await response.blob();
     return URL.createObjectURL(blob);
   } catch (error) {
-    console.warn('[fetchImageWithAuth] Error fetching image:', error);
+    logger.warn('[fetchImageWithAuth] Error fetching image:', error);
     return null;
   }
 }

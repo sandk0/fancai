@@ -20,7 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Activity, Cpu, Database, Image, Server, Users, GitMerge } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { notify } from '@/stores/ui';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import { AdminHeader } from '@/components/Admin/AdminHeader';
@@ -28,6 +28,7 @@ import { AdminTabNavigation, type AdminTab } from '@/components/Admin/AdminTabNa
 import { AdminStats } from '@/components/Admin/AdminStats';
 import { AdminMultiNLPSettings } from '@/components/Admin/AdminMultiNLPSettings';
 import { AdminParsingSettings } from '@/components/Admin/AdminParsingSettings';
+import { PageMeta } from '@/components/SEO/PageMeta';
 import { AdminEntityMerge } from '@/components/Admin/AdminEntityMerge';
 import { Accordion, type AccordionItem } from '@/components/UI/Accordion';
 import {
@@ -142,7 +143,7 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'overview',
       title: t('admin.overview'),
-      description: 'Системная статистика',
+      description: t('admin.overviewDesc'),
       icon: Activity,
       content: statsError ? (
         <ErrorMessage
@@ -160,7 +161,7 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'nlp',
       title: t('admin.multiNlpSettings'),
-      description: 'Настройки NLP-движков',
+      description: t('admin.nlpDesc'),
       icon: Cpu,
       content: (
         <AdminMultiNLPSettings
@@ -176,7 +177,7 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'parsing',
       title: t('admin.parsing'),
-      description: 'Настройки парсинга книг',
+      description: t('admin.parsingDesc'),
       icon: Database,
       content: (
         <AdminParsingSettings
@@ -192,14 +193,14 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'entities',
       title: t('admin.entities'),
-      description: 'Entity deduplication',
+      description: t('admin.entitiesDesc'),
       icon: GitMerge,
       content: <AdminEntityMerge t={t} />,
     },
     {
       id: 'images',
       title: t('admin.images'),
-      description: 'Генерация изображений',
+      description: t('admin.imagesDesc'),
       icon: Image,
       content: (
         <div className="text-center py-8">
@@ -211,7 +212,7 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'system',
       title: t('admin.system'),
-      description: 'Системные настройки',
+      description: t('admin.systemDesc'),
       icon: Server,
       content: (
         <div className="text-center py-8">
@@ -223,7 +224,7 @@ const AdminDashboard: React.FC = () => {
     {
       id: 'users',
       title: t('admin.users'),
-      description: 'Управление пользователями',
+      description: t('admin.usersDesc'),
       icon: Users,
       content: (
         <div className="text-center py-8">
@@ -236,6 +237,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta title={t('admin.pageTitle')} description={t('admin.pageDescription')} />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-6 w-full max-w-full box-border">
         {/* Header */}
         <AdminHeader

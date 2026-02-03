@@ -18,5 +18,6 @@ export { usePagination } from './usePagination';
 export { useReadingProgress } from './useReadingProgress';
 export { useAutoParser } from './useAutoParser';
 export { useDescriptionManagement } from './useDescriptionManagement';
-export { useChapterNavigation, useKeyboardNavigation } from './useChapterNavigation';
+export { useChapterNavigation } from './useChapterNavigation';
+export { useKeyboardNavigation } from '../shared/useKeyboardNavigation';
 export { useReaderImageModal } from './useReaderImageModal';

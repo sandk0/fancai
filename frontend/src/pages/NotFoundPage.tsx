@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Library, Upload, Search, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageMeta } from '@/components/SEO/PageMeta';
 
 const NotFoundPage: React.FC = () => {
    const { t } = useTranslation();
@@ -45,6 +46,7 @@ const NotFoundPage: React.FC = () => {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <PageMeta title={t('notFound.page_title')} description={t('notFound.page_description')} />
       <div className="max-w-2xl mx-auto text-center">
         {/* 404 Animation */}
         <div className="relative mb-8">

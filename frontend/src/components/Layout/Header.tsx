@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useUIStore } from '@/stores/ui';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { ThemeSwitcher } from '@/components/UI/ThemeSwitcher';
 import { isActiveRoute } from '@/utils/navigation';
 import { cn } from '@/utils/cn';
@@ -79,7 +79,7 @@ const Header: React.FC = () => {
             <Link
               to="/"
               className="flex items-center gap-2 min-h-[44px] min-w-[44px] justify-center transition-opacity hover:opacity-80 touch-target"
-              aria-label="fancai - На главную"
+              aria-label={t('header.home_aria')}
             >
               <div className="flex items-center justify-center w-11 h-11 rounded-lg bg-primary">
                 <BookOpen className="w-6 h-6 text-primary-foreground" />
@@ -92,7 +92,7 @@ const Header: React.FC = () => {
             {/* Desktop Navigation */}
             <nav
               role="navigation"
-              aria-label="Навигация по сайту"
+              aria-label={t('header.site_nav')}
               className="hidden md:flex items-center gap-1 ml-6"
             >
               {navLinks.map((link) => {

@@ -20,7 +20,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
 import { useReaderStore } from '@/stores/reader';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import type { BookDetail, Description } from '@/types/api';
 
 // Import custom hooks
@@ -45,6 +45,7 @@ import { ImageModal } from '@/components/Images/ImageModal';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import { STORAGE_KEYS } from '@/types/state';
+import { logger } from '@/lib/logger';
 
 interface BookReaderProps {
   bookId?: string;
@@ -145,7 +146,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
   });
 
   // Hook 7: Keyboard navigation
-  useKeyboardNavigation(nextPage, prevPage);
+  useKeyboardNavigation({ onNext: nextPage, onPrev: prevPage });
 
   /**
    * Update highlighted descriptions when chapter data changes
@@ -181,7 +182,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
         current_chapter: currentChapter,
         current_position_percent: 0
       }).catch(err => {
-        console.error('[BookReader] Failed to update progress:', err);
+        logger.error('[BookReader] Failed to update progress:', err);
       });
     }
   }, [currentChapter, book, bookId, hasRestoredPosition, setCurrentPage]);

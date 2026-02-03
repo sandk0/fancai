@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useTranslation } from 'react-i18next';
 import { EntityDetail } from '../../types/entity';
-import { EntityCard, entityTypeLabels } from './EntityCard';
+import { EntityCard } from './EntityCard';
+import { entityTypeLabels } from './entityTypeLabels';
 import { EntityListSkeleton } from '../UI/Skeleton';
 import { Input } from '../UI/Input';
 import { Search, X } from 'lucide-react';
@@ -10,13 +12,6 @@ type EntityTypeFilter = 'character' | 'location' | 'object';
 
 const VIRTUALIZATION_THRESHOLD = 30;
 const ESTIMATED_ITEM_HEIGHT = 72;
-
-const TYPE_FILTERS: { type: EntityTypeFilter | 'ALL'; label: string }[] = [
-    { type: 'ALL', label: 'Все' },
-    { type: 'character', label: entityTypeLabels.character },
-    { type: 'location', label: entityTypeLabels.location },
-    { type: 'object', label: entityTypeLabels.object },
-];
 
 interface EntityListProps {
     entities: Record<string, EntityDetail>;
@@ -33,9 +28,17 @@ export const EntityList: React.FC<EntityListProps> = ({
     onEntitySelect,
     isLoading = false,
 }) => {
+    const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTypeFilter, setActiveTypeFilter] = useState<EntityTypeFilter | 'ALL'>('ALL');
     const parentRef = useRef<HTMLDivElement>(null);
+
+    const TYPE_FILTERS: { type: EntityTypeFilter | 'ALL'; label: string }[] = [
+        { type: 'ALL', label: t('entities.filter_all') },
+        { type: 'character', label: entityTypeLabels.character },
+        { type: 'location', label: entityTypeLabels.location },
+        { type: 'object', label: entityTypeLabels.object },
+    ];
 
     const filteredEntities = useMemo(() => {
         let result = Object.values(entities).sort((a, b) => (b.importance || 0) - (a.importance || 0));
@@ -83,7 +86,7 @@ export const EntityList: React.FC<EntityListProps> = ({
             <div className="px-2 pb-3">
                 <Input
                     inputSize="sm"
-                    placeholder="Поиск..."
+                    placeholder={t('entities.search_placeholder')}
                     value={searchQuery}
                     onChange={handleSearchChange}
                     leftIcon={<Search className="w-4 h-4" />}
@@ -92,7 +95,7 @@ export const EntityList: React.FC<EntityListProps> = ({
                             <button
                                 onClick={clearSearch}
                                 className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
-                                aria-label="Очистить поиск"
+                                aria-label={t('entities.clear_search')}
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -121,8 +124,8 @@ export const EntityList: React.FC<EntityListProps> = ({
             {filteredEntities.length === 0 ? (
                 <div className="text-center py-10 text-[var(--color-text-muted)]">
                     {searchQuery || activeTypeFilter !== 'ALL'
-                        ? 'Ничего не найдено'
-                        : 'Персонажи не найдены'
+                        ? t('entities.no_results')
+                        : t('entities.no_entities')
                     }
                 </div>
             ) : useVirtualization ? (

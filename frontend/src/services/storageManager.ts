@@ -7,6 +7,7 @@
  * @module services/storageManager
  */
 
+import { logger } from '@/lib/logger';
 import {
   db,
   MAX_CACHE_SIZE,
@@ -183,13 +184,13 @@ class StorageManager {
   startMonitoring(): void {
     if (this.monitoringInterval) {
       if (import.meta.env.DEV) {
-        console.log(`${this.LOG_PREFIX} Monitoring already active`)
+        logger.debug(`${this.LOG_PREFIX} Monitoring already active`)
       }
       return
     }
 
     if (import.meta.env.DEV) {
-      console.log(`${this.LOG_PREFIX} Starting storage monitoring`)
+      logger.debug(`${this.LOG_PREFIX} Starting storage monitoring`)
     }
 
     // Initial check
@@ -211,7 +212,7 @@ class StorageManager {
       this.monitoringInterval = null
 
       if (import.meta.env.DEV) {
-        console.log(`${this.LOG_PREFIX} Storage monitoring stopped`)
+        logger.debug(`${this.LOG_PREFIX} Storage monitoring stopped`)
       }
     }
   }
@@ -246,7 +247,7 @@ class StorageManager {
       // Prevent division by zero - likely private browsing with 0 quota
       if (quota <= 0) {
         if (import.meta.env.DEV) {
-          console.warn(
+          logger.warn(
             `${this.LOG_PREFIX} Zero quota detected - likely private browsing mode`
           )
         }
@@ -264,7 +265,7 @@ class StorageManager {
           try {
             callback(criticalEvent)
           } catch (err) {
-            console.error(`${this.LOG_PREFIX} Pressure callback error:`, err)
+            logger.error(`${this.LOG_PREFIX} Pressure callback error:`, err)
           }
         })
         return criticalEvent
@@ -275,7 +276,7 @@ class StorageManager {
       const isCritical = usagePercent >= STORAGE_CRITICAL_THRESHOLD * 100
 
       if (import.meta.env.DEV) {
-        console.log(
+        logger.debug(
           `${this.LOG_PREFIX} Storage usage: ${usagePercent.toFixed(1)}%`,
           `(${this.formatBytes(usage)} / ${this.formatBytes(quota)})`
         )
@@ -285,13 +286,13 @@ class StorageManager {
 
       // Trigger cleanup if thresholds exceeded
       if (isCritical && !this.isCleanupInProgress) {
-        console.warn(
+        logger.warn(
           `${this.LOG_PREFIX} Critical storage pressure: ${usagePercent.toFixed(1)}%`
         )
         cleanupTriggered = true
         await this.performLRUCleanup(true)
       } else if (isWarning && !this.isCleanupInProgress) {
-        console.warn(
+        logger.warn(
           `${this.LOG_PREFIX} High storage usage: ${usagePercent.toFixed(1)}%`
         )
         cleanupTriggered = true
@@ -312,13 +313,13 @@ class StorageManager {
         try {
           callback(event)
         } catch (err) {
-          console.error(`${this.LOG_PREFIX} Pressure callback error:`, err)
+          logger.error(`${this.LOG_PREFIX} Pressure callback error:`, err)
         }
       })
 
       return event
     } catch (err) {
-      console.warn(`${this.LOG_PREFIX} Failed to check storage:`, err)
+      logger.warn(`${this.LOG_PREFIX} Failed to check storage:`, err)
       return null
     }
   }
@@ -330,7 +331,7 @@ class StorageManager {
   private async performLRUCleanup(aggressive: boolean): Promise<void> {
     if (this.isCleanupInProgress) {
       if (import.meta.env.DEV) {
-        console.log(`${this.LOG_PREFIX} Cleanup already in progress, skipping`)
+        logger.debug(`${this.LOG_PREFIX} Cleanup already in progress, skipping`)
       }
       return
     }
@@ -343,7 +344,7 @@ class StorageManager {
         : NORMAL_CLEANUP_TARGET
 
       if (import.meta.env.DEV) {
-        console.log(
+        logger.debug(
           `${this.LOG_PREFIX} Starting ${aggressive ? 'aggressive' : 'normal'} LRU cleanup,`,
           `target: ${this.formatBytes(targetBytes)}`
         )
@@ -360,7 +361,7 @@ class StorageManager {
       }
 
       if (import.meta.env.DEV) {
-        console.log(
+        logger.debug(
           `${this.LOG_PREFIX} Cleanup complete: freed ${this.formatBytes(result.freedBytes)},`,
           `removed ${result.itemsRemoved} items`
         )
@@ -395,13 +396,13 @@ class StorageManager {
       }
 
       if (itemsRemoved > 0 && import.meta.env.DEV) {
-        console.log(
+        logger.debug(
           `${this.LOG_PREFIX} Removed ${itemsRemoved} expired images,`,
           `freed ${this.formatBytes(freedBytes)}`
         )
       }
     } catch (err) {
-      console.warn(`${this.LOG_PREFIX} Failed to clean expired images:`, err)
+      logger.warn(`${this.LOG_PREFIX} Failed to clean expired images:`, err)
     }
 
     return { freedBytes, itemsRemoved }
@@ -428,7 +429,7 @@ class StorageManager {
       // Safari may return undefined quota
       if (estimate.quota === undefined) {
         if (import.meta.env.DEV) {
-          console.log(
+          logger.debug(
             `${this.LOG_PREFIX} Safari: quota undefined, using fallback (${this.formatBytes(SAFARI_FALLBACK_QUOTA)})`
           )
         }
@@ -441,7 +442,7 @@ class StorageManager {
 
       return estimate
     } catch (error) {
-      console.warn(`${this.LOG_PREFIX} Failed to get storage estimate:`, error)
+      logger.warn(`${this.LOG_PREFIX} Failed to get storage estimate:`, error)
       // Fallback if API call fails
       return { quota: MAX_CACHE_SIZE, usage: 0 }
     }
@@ -456,7 +457,7 @@ class StorageManager {
     // Safari doesn't support persist() in many cases
     if (!navigator.storage?.persist) {
       if (import.meta.env.DEV) {
-        console.log(`${this.LOG_PREFIX} Persistent storage API not available`)
+        logger.debug(`${this.LOG_PREFIX} Persistent storage API not available`)
       }
       return false
     }
@@ -466,7 +467,7 @@ class StorageManager {
       const isPersisted = await navigator.storage.persisted?.()
       if (isPersisted) {
         if (import.meta.env.DEV) {
-          console.log(`${this.LOG_PREFIX} Storage already persistent`)
+          logger.debug(`${this.LOG_PREFIX} Storage already persistent`)
         }
         return true
       }
@@ -474,7 +475,7 @@ class StorageManager {
       // Request persistence
       const granted = await navigator.storage.persist()
       if (import.meta.env.DEV) {
-        console.log(
+        logger.debug(
           `${this.LOG_PREFIX} Persistent storage:`,
           granted ? 'granted' : 'denied'
         )
@@ -483,7 +484,7 @@ class StorageManager {
     } catch (error) {
       // Safari may throw in private browsing mode
       if (import.meta.env.DEV) {
-        console.warn(`${this.LOG_PREFIX} Persist request failed (may be Safari private browsing):`, error)
+        logger.warn(`${this.LOG_PREFIX} Persist request failed (may be Safari private browsing):`, error)
       }
       return false
     }
@@ -586,7 +587,7 @@ class StorageManager {
     let itemsRemoved = 0
 
     if (import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Starting cleanup, target: ${this.formatBytes(targetFreeBytes)}`
       )
     }
@@ -618,7 +619,7 @@ class StorageManager {
     await this.updateOfflineBooksStatus()
 
     if (import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Cleanup complete: freed ${this.formatBytes(freedBytes)}, removed ${itemsRemoved} items`
       )
     }
@@ -649,7 +650,7 @@ class StorageManager {
     }
 
     if (itemsRemoved > 0 && import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Removed ${itemsRemoved} images, freed ${this.formatBytes(freedBytes)}`
       )
     }
@@ -684,7 +685,7 @@ class StorageManager {
     }
 
     if (itemsRemoved > 0 && import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Removed ${itemsRemoved} chapters, freed ${this.formatBytes(freedBytes)}`
       )
     }
@@ -717,7 +718,7 @@ class StorageManager {
     }
 
     if (itemsRemoved > 0 && import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Removed ${itemsRemoved} failed sync operations`
       )
     }
@@ -731,7 +732,7 @@ class StorageManager {
    */
   async clearAllOfflineData(): Promise<void> {
     if (import.meta.env.DEV) {
-      console.log(`${this.LOG_PREFIX} Clearing all offline data`)
+      logger.debug(`${this.LOG_PREFIX} Clearing all offline data`)
     }
 
     await db.transaction(
@@ -753,7 +754,7 @@ class StorageManager {
     await this.clearServiceWorkerCaches()
 
     if (import.meta.env.DEV) {
-      console.log(`${this.LOG_PREFIX} All offline data cleared`)
+      logger.debug(`${this.LOG_PREFIX} All offline data cleared`)
     }
   }
 
@@ -794,7 +795,7 @@ class StorageManager {
     )
 
     if (import.meta.env.DEV) {
-      console.log(
+      logger.debug(
         `${this.LOG_PREFIX} Cleared book ${bookId}, freed ${this.formatBytes(freedBytes)}`
       )
     }
@@ -889,7 +890,7 @@ class StorageManager {
           .map((name) => caches.delete(name))
       )
     } catch (error) {
-      console.warn(`${this.LOG_PREFIX} Failed to clear SW caches:`, error)
+      logger.warn(`${this.LOG_PREFIX} Failed to clear SW caches:`, error)
     }
   }
 
@@ -969,7 +970,7 @@ export const initializeStorageManagement = async (): Promise<{
   isSafari: boolean
 }> => {
   if (import.meta.env.DEV) {
-    console.log('[StorageManager] Initializing...')
+    logger.debug('[StorageManager] Initializing...')
   }
 
   // Check for Safari and private browsing
@@ -977,7 +978,7 @@ export const initializeStorageManagement = async (): Promise<{
   const privateBrowsingDetected = await isPrivateBrowsing()
 
   if (privateBrowsingDetected) {
-    console.warn(
+    logger.warn(
       '[StorageManager] Private browsing detected - storage is limited.',
       'Offline features may not work properly.'
     )
@@ -991,7 +992,7 @@ export const initializeStorageManagement = async (): Promise<{
   }
 
   if (safariDetected && import.meta.env.DEV) {
-    console.log('[StorageManager] Safari detected - using fallback quota handling')
+    logger.debug('[StorageManager] Safari detected - using fallback quota handling')
   }
 
   // Request persistent storage (important for Safari/iOS)
@@ -1004,7 +1005,7 @@ export const initializeStorageManagement = async (): Promise<{
   const initialCheck = await storageManager.checkStoragePressure()
 
   if (import.meta.env.DEV) {
-    console.log('[StorageManager] Initialized:', {
+    logger.debug('[StorageManager] Initialized:', {
       isPersistent,
       initialCheck,
       isSafari: safariDetected,

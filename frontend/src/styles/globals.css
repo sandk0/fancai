@@ -23,7 +23,6 @@
        LIGHT THEME - Clean & Modern
        ======================================== */
 
-    /* New semantic color system */
     --color-bg-base: #FFFFFF;
     --color-bg-subtle: #F9FAFB;
     --color-bg-muted: #F3F4F6;
@@ -68,26 +67,6 @@
     --color-relationship-mentor: #8B5CF6;
     --color-relationship-student: #6366F1;
 
-    /* shadcn/ui compatible variables (HSL format) */
-    --background: 0 0% 100%;
-    --foreground: 220 13% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 13% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 9%;
-    --primary: 38 92% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 13% 9%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 220 13% 9%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 38 92% 50%;
     --radius: 0.5rem;
 
     /* Highlight colors - warm amber for light theme */
@@ -102,7 +81,6 @@
        Using Material Design dark surface colors
        ======================================== */
 
-    /* New semantic color system - NEUTRAL GRAYS */
     --color-bg-base: #121212;
     --color-bg-subtle: #1A1A1A;
     --color-bg-muted: #1E1E1E;
@@ -150,27 +128,6 @@
     --color-relationship-mentor: #A78BFA;
     --color-relationship-student: #818CF8;
 
-    /* shadcn/ui compatible variables (HSL format) - NEUTRAL */
-    --background: 0 0% 7%;
-    --foreground: 0 0% 91%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 91%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 91%;
-    --primary: 45 93% 58%;
-    --primary-foreground: 0 0% 7%;
-    --secondary: 0 0% 17%;
-    --secondary-foreground: 0 0% 91%;
-    --muted: 0 0% 17%;
-    --muted-foreground: 0 0% 70%;
-    --accent: 0 0% 17%;
-    --accent-foreground: 0 0% 91%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 45 93% 58%;
-
     /* Highlight colors - warm amber for dark theme */
     --highlight-bg: 45 93% 58% / 0.25;
     --highlight-border: 45 93% 58% / 0.5;
@@ -182,7 +139,6 @@
        SEPIA THEME - Kindle-inspired warm tones
        ======================================== */
 
-    /* New semantic color system - Kindle-like */
     --color-bg-base: #FBF0D9;
     --color-bg-subtle: #F7EBCF;
     --color-bg-muted: #F5E6C8;
@@ -229,27 +185,6 @@
     --color-relationship-mentor: #7C3AED;
     --color-relationship-student: #4F46E5;
 
-    /* shadcn/ui compatible variables (HSL format) */
-    --background: 43 65% 92%;
-    --foreground: 28 48% 16%;
-    --card: 41 55% 89%;
-    --card-foreground: 28 48% 16%;
-    --popover: 41 55% 89%;
-    --popover-foreground: 28 48% 16%;
-    --primary: 32 95% 37%;
-    --primary-foreground: 43 65% 96%;
-    --secondary: 36 40% 83%;
-    --secondary-foreground: 28 48% 16%;
-    --muted: 36 40% 83%;
-    --muted-foreground: 24 26% 40%;
-    --accent: 36 40% 83%;
-    --accent-foreground: 28 48% 16%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 43 65% 96%;
-    --border: 30 35% 80%;
-    --input: 35 40% 86%;
-    --ring: 32 95% 37%;
-
     /* Highlight colors - warm orange for sepia */
     --highlight-bg: 32 95% 44% / 0.25;
     --highlight-border: 32 95% 44% / 0.5;
@@ -262,7 +197,6 @@
        Maximum readability in bright conditions
        ======================================== */
 
-    /* Semantic color system - maximum contrast */
     --color-bg-base: #FFFEF5;
     --color-bg-subtle: #FFFDF0;
     --color-bg-muted: #FFFCEB;
@@ -300,27 +234,6 @@
     --color-error-muted: #FEE2E2;
     --color-info: #1E40AF;
     --color-info-muted: #DBEAFE;
-
-    /* shadcn/ui compatible variables (HSL format) */
-    --background: 50 100% 98%;
-    --foreground: 0 0% 0%;
-    --card: 50 100% 97%;
-    --card-foreground: 0 0% 0%;
-    --popover: 50 100% 97%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 224 64% 40%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 0 0% 10%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 85%;
-    --input: 220 13% 85%;
-    --ring: 224 64% 40%;
 
     /* Highlight colors - blue for outdoor visibility */
     --highlight-bg: 224 64% 40% / 0.2;

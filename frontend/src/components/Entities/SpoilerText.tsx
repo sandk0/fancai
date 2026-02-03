@@ -44,7 +44,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
         <span
             onClick={() => setIsRevealed(true)}
             className="cursor-pointer select-none rounded bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
-            title={t('entities.spoiler_click_to_reveal', 'Спойлер! Нажмите, чтобы показать')}
+            title={t('entities.spoiler_click_to_reveal')}
         >
             {/* Render redacted blocks roughly matching text length */}
             {Array(Math.ceil(text.length / 8)).fill('████').join(' ')}

@@ -1,18 +1,14 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityDetail } from '../../types/entity';
 import { isEntityMetCFI, getFirstMeetingChapter } from '../../utils/entityUtils';
 import { ChevronRight, Lock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
 import { Card } from '../UI/Card';
 import { cn } from '@/lib/utils';
+import { entityTypeLabels } from './entityTypeLabels';
 
 const DEBUG_MODE = import.meta.env.DEV;
-
-export const entityTypeLabels: Record<string, string> = {
-    character: 'Персонаж',
-    location: 'Локация',
-    object: 'Объект',
-};
 
 interface EntityCardProps {
     entity: EntityDetail;
@@ -27,6 +23,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
     currentCFI,
     onClick,
 }) => {
+    const { t } = useTranslation();
     const isMet = isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
     const typeLabel = entityTypeLabels[entity.type] || entity.type;
 
@@ -45,7 +42,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
             <button
                 type="button"
                 onClick={onClick}
-                aria-label={isMet ? entity.name : `${entity.name} — ещё не встречен`}
+                aria-label={isMet ? entity.name : `${entity.name} — ${t('entities.not_met')}`}
                 className="flex items-center text-left"
             >
                 <Avatar className={cn(

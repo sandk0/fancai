@@ -1,0 +1,106 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  "agents": {
+    "build": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "plan": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "general": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "explore": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "sisyphus": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "prometheus": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "sisyphus-junior": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "oracle": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "librarian": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "multimodal-looker": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "metis": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "momus": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "hephaestus": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "atlas": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "code-reviewer": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "frontend-ui-ux-engineer": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "document-writer": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "ultrabrain": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "deep": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "artistry": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "quick": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "unspecified-low": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "unspecified-high": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "visual-engineering": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "writing": {
+      "model": "kimi-for-coding/k2p5"
+    }
+  },
+  "categories": {
+    "quick": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "visual-engineering": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "ultrabrain": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "artistry": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "unspecified-low": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "unspecified-high": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "writing": {
+      "model": "kimi-for-coding/k2p5"
+    },
+    "deep": {
+      "model": "kimi-for-coding/k2p5"
+    }
+  }
+}

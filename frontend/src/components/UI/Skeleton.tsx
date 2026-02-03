@@ -453,7 +453,6 @@ EntityListSkeleton.displayName = "EntityListSkeleton"
 
 export {
   Skeleton,
-  skeletonVariants,
   BookCardSkeleton,
   TableRowSkeleton,
   TextBlockSkeleton,

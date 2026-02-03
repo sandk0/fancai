@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Share, Plus, X } from 'lucide-react';
 import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Z_INDEX } from '@/lib/zIndex';
 import { Button } from '@/components/UI/button';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   shouldShowIOSInstallPrompt,
   dismissIOSInstallPrompt,
@@ -33,6 +34,9 @@ export function IOSInstallInstructions({
 }: IOSInstallInstructionsProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(mode === 'modal' && isVisible, modalRef);
 
   useEffect(() => {
     if (forceShow) {
@@ -215,6 +219,7 @@ export function IOSInstallInstructions({
               onTouchEnd={handleDismiss}
             >
               <m.div
+                ref={modalRef}
                 className={cn(
                   'relative w-full max-w-md',
                   'bg-popover text-popover-foreground',

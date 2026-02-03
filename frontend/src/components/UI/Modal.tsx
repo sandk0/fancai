@@ -407,4 +407,4 @@ Modal.Header = ModalHeader;
 Modal.Body = ModalBody;
 Modal.Footer = ModalFooter;
 
-export { useModalContext };
+

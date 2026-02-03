@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 
 interface Props {
   children: ReactNode;
@@ -79,7 +80,7 @@ class ErrorBoundary extends Component<Props, State> {
     };
 
     // Логируем с информацией об уровне границы
-    console.error(`[ErrorBoundary:${level}] Caught error:`, errorDetails);
+    logger.error(`[ErrorBoundary:${level}] Caught error:`, errorDetails);
 
     // Сохраняем ошибку в localStorage для PWA отладки
     // Это позволяет получить детали ошибки даже после перезагрузки

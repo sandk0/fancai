@@ -26,9 +26,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { visibilityManager } from '@/services/visibilityManager';
 import type { Rendition } from '@/types/epub';
-
-/** Enable debug logging only in development */
-const DEBUG = import.meta.env.DEV;
+import { logger } from '@/lib/logger';
 
 /**
  * Minimum time in background before triggering reload.
@@ -169,14 +167,10 @@ export function useRenditionHealthGuard({
         // Also save a timestamp so we know this is fresh
         localStorage.setItem(`book_${bookId}_resume_time`, Date.now().toString());
 
-        if (DEBUG) {
-          console.log('[RenditionHealthGuard] Saved position before hide:', cfi.slice(0, 50));
-        }
+        logger.debug('[RenditionHealthGuard] Saved position before hide:', cfi.slice(0, 50));
       }
     } catch (e) {
-      if (DEBUG) {
-        console.error('[RenditionHealthGuard] Failed to save position:', e);
-      }
+      logger.debug('[RenditionHealthGuard] Failed to save position:', e);
     }
   }, [bookId]);
 
@@ -188,9 +182,7 @@ export function useRenditionHealthGuard({
     savePositionBeforeHide();
     hideTimeRef.current = Date.now();
 
-    if (DEBUG) {
-      console.log('[RenditionHealthGuard] App going to background, position saved');
-    }
+    logger.debug('[RenditionHealthGuard] App going to background, position saved');
   }, [savePositionBeforeHide]);
 
   /**
@@ -206,37 +198,31 @@ export function useRenditionHealthGuard({
     // Skip reload if we are currently restoring position
     // (This avoids infinite loops if restoring takes time)
     if (isRestoringPosition) {
-      if (DEBUG) console.log('[RenditionHealthGuard] Skipping reload because position is restoring');
+      logger.debug('[RenditionHealthGuard] Skipping reload because position is restoring');
       return;
     }
 
     // Safety check: ignore if we never recorded a hide time (e.g. cold start)
     if (hideTimeRef.current === 0) {
-      if (DEBUG) console.log('[RenditionHealthGuard] Cold resume detected, skipping reload');
+      logger.debug('[RenditionHealthGuard] Cold resume detected, skipping reload');
       return;
     }
 
     const timeInBackground = Date.now() - hideTimeRef.current;
 
-    if (DEBUG) {
-      console.log('[RenditionHealthGuard] App resumed after', Math.round(timeInBackground / 1000), 'seconds');
-    }
+    logger.debug('[RenditionHealthGuard] App resumed after', Math.round(timeInBackground / 1000), 'seconds');
 
     // Skip reload for very brief focus changes (< 500ms)
     // These are usually just quick app switching without actual background
     if (timeInBackground < MIN_BACKGROUND_TIME_FOR_RELOAD) {
-      if (DEBUG) {
-        console.log('[RenditionHealthGuard] Very brief suspend, skipping reload');
-      }
+      logger.debug('[RenditionHealthGuard] Very brief suspend, skipping reload');
       return;
     }
 
     // Mark as resumed
     setWasResumed(true);
 
-    if (DEBUG) {
-      console.log('[RenditionHealthGuard] Reloading page for fresh epub.js state...');
-    }
+    logger.debug('[RenditionHealthGuard] Reloading page for fresh epub.js state...');
 
     // Reload the page to get fresh epub.js state
     // The position will be restored from localStorage on next load
@@ -258,9 +244,7 @@ export function useRenditionHealthGuard({
     (event: PageTransitionEvent) => {
       // If page was restored from bfcache, always reload
       if (event.persisted && enabled) {
-        if (DEBUG) {
-          console.log('[RenditionHealthGuard] Page restored from bfcache, reloading...');
-        }
+        logger.debug('[RenditionHealthGuard] Page restored from bfcache, reloading...');
         window.location.reload();
       }
     },
@@ -276,9 +260,7 @@ export function useRenditionHealthGuard({
       if (saved) {
         setLastSavedCfi(saved);
 
-        if (DEBUG) {
-          console.log('[RenditionHealthGuard] Found saved CFI:', saved.slice(0, 50));
-        }
+        logger.debug('[RenditionHealthGuard] Found saved CFI:', saved.slice(0, 50));
       }
     }
   }, [bookId]);
@@ -302,18 +284,14 @@ export function useRenditionHealthGuard({
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
-    if (DEBUG) {
-      console.log('[RenditionHealthGuard] Initialized for book:', bookId);
-    }
+    logger.debug('[RenditionHealthGuard] Initialized for book:', bookId);
 
     return () => {
       visibilityManager.unregister('rendition-health-guard');
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
 
-      if (DEBUG) {
-        console.log('[RenditionHealthGuard] Cleanup complete');
-      }
+      logger.debug('[RenditionHealthGuard] Cleanup complete');
     };
   }, [enabled, bookId, handleHidden, handleVisible, handlePageHide, handlePageShow]);
 

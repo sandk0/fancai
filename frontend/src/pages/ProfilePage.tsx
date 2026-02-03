@@ -38,6 +38,8 @@ import { booksAPI } from '@/api/books';
 import { authAPI } from '@/api/auth';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { PageMeta } from '@/components/SEO/PageMeta';
+import { logger } from '@/lib/logger';
 
 // Helper function to calculate achievements
 function calculateAchievements(totalBooks: number, streak: number) {
@@ -140,6 +142,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <PageMeta title={t('profile.page_title')} description={t('profile.page_description')} />
       {/* Hero Section with Avatar */}
       <div className="relative mb-12 overflow-hidden rounded-xl">
         {/* Gradient Background */}
@@ -159,7 +162,7 @@ const ProfilePage: React.FC = () => {
               {/* Upload Avatar Button */}
               <button
                 className="absolute bottom-0 right-0 p-2 rounded-full bg-card border border-border shadow-lg transition-all hover:scale-110 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={() => console.log('Upload avatar')}
+                onClick={() => logger.debug('Upload avatar')}
                 aria-label="Upload profile photo"
               >
                 <Camera className="w-5 h-5 text-primary" aria-hidden="true" />
@@ -194,7 +197,7 @@ const ProfilePage: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-3 mb-3 justify-center md:justify-start">
                   <h1 className="fluid-h2 font-bold text-primary-foreground">
-                    {user?.full_name || 'User'}
+                    {user?.full_name || t('profile.default_name')}
                   </h1>
                   <button
                     onClick={() => setIsEditing(true)}
@@ -213,7 +216,7 @@ const ProfilePage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 justify-center md:justify-start">
                   <Calendar className="w-4 h-4" />
-                  <span>Зарегистрирован: {new Date().toLocaleDateString('ru-RU')}</span>
+                  <span>{t('profile.registered_date', { date: new Date().toLocaleDateString('ru-RU') })}</span>
                 </div>
               </div>
 

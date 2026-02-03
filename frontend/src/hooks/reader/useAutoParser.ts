@@ -20,7 +20,9 @@
 import { useState, useEffect } from 'react';
 import { booksAPI } from '@/api/books';
 import { notify } from '@/stores/ui';
+import i18n from '@/lib/i18n';
 import type { Description } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface UseAutoParserReturn {
   isAutoParsing: boolean;
@@ -35,7 +37,7 @@ const POLL_INTERVAL_MS = 10000; // 10 seconds
 export const useAutoParser = (
   bookId: string | undefined,
   chapter: unknown,
-  refetch: () => Promise<any>
+  refetch: () => Promise<unknown>
 ): UseAutoParserReturn => {
   const [isAutoParsing, setIsAutoParsing] = useState(false);
   const [parsingProgress, setParsingProgress] = useState(0);
@@ -58,14 +60,14 @@ export const useAutoParser = (
       descriptions = chapter as unknown as Description[];
     }
 
-    console.log('📖 [useAutoParser] Chapter analysis:', {
+    logger.debug('📖 [useAutoParser] Chapter analysis:', {
       hasDescriptions: descriptions.length > 0,
       descriptionsCount: descriptions.length,
     });
 
     // Exit if descriptions exist
     if (descriptions.length > 0) {
-      console.log('✅ [useAutoParser] Descriptions already loaded:', descriptions.length);
+      logger.debug('✅ [useAutoParser] Descriptions already loaded:', descriptions.length);
       return;
     }
 
@@ -73,25 +75,25 @@ export const useAutoParser = (
     const recentParsing = JSON.parse(localStorage.getItem(RECENT_PARSING_KEY) || '{}');
     const isRecentlyParsed = recentParsing[bookId] && (Date.now() - recentParsing[bookId] < COOLDOWN_MS);
 
-    console.log('🔍 [useAutoParser] Status check:', {
+    logger.debug('🔍 [useAutoParser] Status check:', {
       bookId,
       recentlyParsed: isRecentlyParsed,
       cooldownRemaining: isRecentlyParsed ? Math.max(0, COOLDOWN_MS - (Date.now() - recentParsing[bookId])) : 0,
     });
 
     if (isRecentlyParsed) {
-      console.log('📝 [useAutoParser] Cooldown active, skipping');
+      logger.debug('📝 [useAutoParser] Cooldown active, skipping');
       return;
     }
 
     // Trigger parsing
-    console.log('📝 [useAutoParser] Auto-triggering parsing for book:', bookId);
+    logger.debug('📝 [useAutoParser] Auto-triggering parsing for book:', bookId);
     setIsAutoParsing(true);
 
     booksAPI.processBook(bookId)
       .then((response) => {
         const data = response as { status?: string; descriptions_found?: number };
-        console.log('📝 [useAutoParser] Parsing triggered:', data);
+        logger.debug('📝 [useAutoParser] Parsing triggered:', data);
 
         // Mark as recently parsed
         recentParsing[bookId] = Date.now();
@@ -99,19 +101,19 @@ export const useAutoParser = (
 
         if (data.status === 'completed') {
           // Synchronous processing completed
-          notify.success('Описания обработаны!', `Найдено ${data.descriptions_found || 0} описаний. Перезагружаем...`);
+          notify.success(i18n.t('hooks.autoParser.success_title'), i18n.t('hooks.autoParser.success_message', { count: data.descriptions_found || 0 }));
           setTimeout(() => {
             window.location.reload();
           }, 2000);
         } else {
           // Asynchronous processing - start polling
-          notify.info('Парсинг запущен', 'Обрабатываем описания в фоновом режиме...');
+          notify.info(i18n.t('hooks.autoParser.started_title'), i18n.t('hooks.autoParser.started_message'));
           pollForCompletion(refetch, setParsingProgress);
         }
       })
       .catch((err: Error) => {
-        console.error('❌ [useAutoParser] Failed to trigger parsing:', err);
-        notify.error('Ошибка парсинга', 'Не удалось запустить обработку описаний');
+        logger.error('❌ [useAutoParser] Failed to trigger parsing:', err);
+        notify.error(i18n.t('hooks.autoParser.error_title'), i18n.t('hooks.autoParser.error_message'));
         setIsAutoParsing(false);
       });
   }, [chapter, bookId, refetch]);
@@ -120,7 +122,7 @@ export const useAutoParser = (
    * Poll for parsing completion
    */
   const pollForCompletion = (
-    refetchFn: () => Promise<any>,
+    refetchFn: () => Promise<unknown>,
     setProgress: (progress: number) => void
   ) => {
     let attempts = 0;
@@ -130,22 +132,23 @@ export const useAutoParser = (
       const progress = Math.min(95, (attempts / MAX_POLL_ATTEMPTS) * 100);
       setProgress(progress);
 
-      console.log(`🔄 [useAutoParser] Polling (${attempts}/${MAX_POLL_ATTEMPTS})`);
+      logger.debug(`🔄 [useAutoParser] Polling (${attempts}/${MAX_POLL_ATTEMPTS})`);
 
       refetchFn().then((result) => {
-        const newDescriptions = result?.data?.descriptions || [];
+        const resultData = result as { data?: { descriptions?: Description[] } } | undefined;
+        const newDescriptions = resultData?.data?.descriptions || [];
         if (newDescriptions.length > 0) {
-          console.log('✅ [useAutoParser] Parsing completed!');
+          logger.debug('✅ [useAutoParser] Parsing completed!');
           setProgress(100);
-          notify.success('Парсинг завершен!', `Найдено ${newDescriptions.length} описаний. Перезагружаем...`);
+          notify.success(i18n.t('hooks.autoParser.complete_title'), i18n.t('hooks.autoParser.complete_message', { count: newDescriptions.length }));
           setTimeout(() => {
             window.location.reload();
           }, 2000);
         } else if (attempts < MAX_POLL_ATTEMPTS) {
           setTimeout(checkCompletion, POLL_INTERVAL_MS);
         } else {
-          console.log('⏰ [useAutoParser] Polling timed out');
-          notify.warning('Парсинг займет время', 'Обновите страницу через несколько минут');
+          logger.debug('⏰ [useAutoParser] Polling timed out');
+          notify.warning(i18n.t('hooks.autoParser.timeout_title'), i18n.t('hooks.autoParser.timeout_message'));
           setProgress(0);
         }
       }).catch(() => {

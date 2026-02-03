@@ -14,6 +14,7 @@
  * @module services/pushNotifications
  */
 
+import { logger } from '@/lib/logger';
 import type {
   PushSubscriptionPayload,
   PushSubscriptionKeys,
@@ -176,7 +177,7 @@ class PushNotificationManager {
 
     // Request permission
     const result = await Notification.requestPermission();
-    console.log('[PushManager] Permission requested:', result);
+    logger.debug('[PushManager] Permission requested:', result);
 
     return result;
   }
@@ -234,7 +235,7 @@ class PushNotificationManager {
     const data: VapidPublicKeyResponse = await response.json();
     this.vapidPublicKey = data.publicKey;
 
-    console.log('[PushManager] VAPID public key fetched');
+    logger.debug('[PushManager] VAPID public key fetched');
     return this.vapidPublicKey;
   }
 
@@ -281,7 +282,7 @@ class PushNotificationManager {
       const registration = await this.getServiceWorkerRegistration();
       return await registration.pushManager.getSubscription();
     } catch (error) {
-      console.error('[PushManager] Failed to get subscription:', error);
+      logger.error('[PushManager] Failed to get subscription:', error);
       return null;
     }
   }
@@ -324,9 +325,9 @@ class PushNotificationManager {
         // Cast to BufferSource for TypeScript compatibility
         applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
       });
-      console.log('[PushManager] Created new subscription');
+      logger.debug('[PushManager] Created new subscription');
     } else {
-      console.log('[PushManager] Using existing subscription');
+      logger.debug('[PushManager] Using existing subscription');
     }
 
     // Step 4: Send subscription to backend
@@ -347,7 +348,7 @@ class PushNotificationManager {
     const subscription = await this.getSubscription();
 
     if (!subscription) {
-      console.log('[PushManager] No subscription to unsubscribe');
+      logger.debug('[PushManager] No subscription to unsubscribe');
       return true;
     }
 
@@ -356,7 +357,7 @@ class PushNotificationManager {
 
     // Step 2: Unsubscribe from push manager
     const success = await subscription.unsubscribe();
-    console.log('[PushManager] Unsubscribed:', success);
+    logger.debug('[PushManager] Unsubscribed:', success);
 
     return success;
   }
@@ -407,7 +408,7 @@ class PushNotificationManager {
     }
 
     const data: PushSubscribeResponse = await response.json();
-    console.log('[PushManager] Subscription registered:', data.message);
+    logger.debug('[PushManager] Subscription registered:', data.message);
   }
 
   /**
@@ -432,7 +433,7 @@ class PushNotificationManager {
     }
 
     const data: PushUnsubscribeResponse = await response.json();
-    console.log('[PushManager] Subscription removed:', data.message);
+    logger.debug('[PushManager] Subscription removed:', data.message);
   }
 
   // ===========================================================================
@@ -484,7 +485,7 @@ class PushNotificationManager {
       },
     });
 
-    console.log('[PushManager] Test notification shown');
+    logger.debug('[PushManager] Test notification shown');
   }
 }
 

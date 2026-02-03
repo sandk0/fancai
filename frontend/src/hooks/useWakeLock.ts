@@ -15,6 +15,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logger } from '@/lib/logger';
+import { useVisibilityManager } from '@/hooks/shared/useVisibilityManager';
 
 interface UseWakeLockReturn {
   /** Whether wake lock is currently active */
@@ -28,8 +30,6 @@ interface UseWakeLockReturn {
   /** Error if wake lock request failed */
   error: Error | null;
 }
-
-const DEBUG = import.meta.env.DEV;
 
 /**
  * Hook to prevent screen from turning off while reading
@@ -75,13 +75,13 @@ export function useWakeLock(): UseWakeLockReturn {
    */
   const request = useCallback(async () => {
     if (!isSupported) {
-      if (DEBUG) console.log('[useWakeLock] Wake Lock API not supported');
+      logger.debug('[useWakeLock] Wake Lock API not supported');
       return;
     }
 
     // Already have an active wake lock
     if (wakeLockRef.current && !wakeLockRef.current.released) {
-      if (DEBUG) console.log('[useWakeLock] Wake Lock already active');
+      logger.debug('[useWakeLock] Wake Lock already active');
       return;
     }
 
@@ -91,12 +91,12 @@ export function useWakeLock(): UseWakeLockReturn {
       setIsActive(true);
       setError(null);
 
-      if (DEBUG) console.log('[useWakeLock] Wake Lock acquired successfully');
+      logger.debug('[useWakeLock] Wake Lock acquired successfully');
 
       // Listen for release events (e.g., when tab becomes hidden, low battery)
       wakeLockRef.current.addEventListener('release', () => {
         setIsActive(false);
-        if (DEBUG) console.log('[useWakeLock] Wake Lock released by system');
+        logger.debug('[useWakeLock] Wake Lock released by system');
       });
     } catch (err) {
       const wakeLockError = err instanceof Error ? err : new Error(String(err));
@@ -106,7 +106,7 @@ export function useWakeLock(): UseWakeLockReturn {
       // Common errors:
       // - NotAllowedError: Document is not fully active or visible
       // - AbortError: Wake lock request was interrupted
-      if (DEBUG) console.warn('[useWakeLock] Failed to acquire wake lock:', wakeLockError.message);
+      logger.debug('[useWakeLock] Failed to acquire wake lock:', wakeLockError.message);
     }
   }, [isSupported]);
 
@@ -118,7 +118,7 @@ export function useWakeLock(): UseWakeLockReturn {
     wasRequestedRef.current = false;
 
     if (!wakeLockRef.current) {
-      if (DEBUG) console.log('[useWakeLock] No wake lock to release');
+      logger.debug('[useWakeLock] No wake lock to release');
       return;
     }
 
@@ -126,34 +126,26 @@ export function useWakeLock(): UseWakeLockReturn {
       await wakeLockRef.current.release();
       wakeLockRef.current = null;
       setIsActive(false);
-      if (DEBUG) console.log('[useWakeLock] Wake Lock manually released');
+      logger.debug('[useWakeLock] Wake Lock manually released');
     } catch (err) {
-      if (DEBUG) console.warn('[useWakeLock] Failed to release wake lock:', err);
+      logger.debug('[useWakeLock] Failed to release wake lock:', err);
     }
   }, []);
 
-  /**
-   * Re-acquire wake lock when page becomes visible again
-   * The system releases wake locks when the page is hidden (tab switch, minimize)
-   * We need to re-request when the user returns to the page
-   */
-  useEffect(() => {
-    if (!isSupported) return;
-
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        // Only re-acquire if user previously requested wake lock
-        // and it was released by the system (not manually)
-        if (wasRequestedRef.current && (!wakeLockRef.current || wakeLockRef.current.released)) {
-          if (DEBUG) console.log('[useWakeLock] Page visible, re-acquiring wake lock');
-          await request();
-        }
+  useVisibilityManager({
+    id: 'wake-lock',
+    priority: 30,
+    delay: 0,
+    enabled: isSupported,
+    onHidden: () => {},
+    onVisible: async () => {
+      if (wasRequestedRef.current && (!wakeLockRef.current || wakeLockRef.current.released)) {
+        logger.debug('[useWakeLock] Page visible, re-acquiring wake lock');
+        await request();
       }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isSupported, request]);
+    },
+    shouldRun: () => isSupported,
+  });
 
   /**
    * Cleanup on unmount - release wake lock

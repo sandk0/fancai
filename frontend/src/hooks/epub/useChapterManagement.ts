@@ -4,14 +4,15 @@ import { chapterCache } from '@/services/chapterCache'; // Still needed for main
 import { useAuthStore } from '@/stores/auth';
 import { useChapterData } from './useChapterData';
 import { useChapterPrefetch } from './useChapterPrefetch';
+import { logger } from '@/lib/logger';
 
 // Conditional logging
 const devLog = import.meta.env.DEV
-  ? (...args: unknown[]) => console.log('[useChapterManagement]', ...args)
+  ? (...args: unknown[]) => logger.debug('[useChapterManagement]', ...args)
   : () => { };
 
 const devWarn = import.meta.env.DEV
-  ? (...args: unknown[]) => console.warn('[useChapterManagement]', ...args)
+  ? (...args: unknown[]) => logger.warn('[useChapterManagement]', ...args)
   : () => { };
 
 interface UseChapterManagementOptions {

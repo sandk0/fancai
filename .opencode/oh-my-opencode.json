@@ -1,23 +1,103 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
   "agents": {
-    "librarian": {
-      "model": "google/antigravity-gemini-3-pro"
+    "build": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "plan": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "general": {
+      "model": "anthropic/claude-sonnet-4-5"
     },
     "explore": {
-      "model": "google/antigravity-gemini-3-pro"
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "prometheus": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "sisyphus-junior": {
+      "model": "anthropic/claude-sonnet-4-5"
     },
     "oracle": {
-      "model": "google/antigravity-gemini-3-pro"
+      "model": "anthropic/claude-opus-4-5"
     },
-    "frontend-ui-ux-engineer": {
-      "model": "google/antigravity-gemini-3-pro"
-    },
-    "document-writer": {
-      "model": "google/antigravity-gemini-3-pro"
+    "librarian": {
+      "model": "anthropic/claude-sonnet-4-5"
     },
     "multimodal-looker": {
-      "model": "google/antigravity-gemini-3-pro"
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "metis": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "momus": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "hephaestus": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "atlas": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "code-reviewer": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "frontend-ui-ux-engineer": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "document-writer": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "ultrabrain": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "deep": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "artistry": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "quick": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "unspecified-low": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "unspecified-high": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "visual-engineering": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "writing": {
+      "model": "anthropic/claude-sonnet-4-5"
+    }
+  },
+  "categories": {
+    "quick": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "visual-engineering": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "ultrabrain": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "artistry": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "unspecified-low": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "unspecified-high": {
+      "model": "anthropic/claude-opus-4-5"
+    },
+    "writing": {
+      "model": "anthropic/claude-sonnet-4-5"
+    },
+    "deep": {
+      "model": "anthropic/claude-opus-4-5"
     }
   }
 }

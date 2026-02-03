@@ -20,6 +20,10 @@
  */
 
 import { useCallback, useRef, memo, useState, useEffect } from 'react';
+import { isIOS } from '@/utils/iosSupport';
+import { logger } from '@/lib/logger';
+import { TapZone } from './TapZone';
+import { TapFeedback } from './TapFeedback';
 
 const TAP_MAX_DURATION = 350; // ms
 
@@ -39,20 +43,6 @@ const ZONE_WIDTH_PERCENT = 8;
 const SWIPE_MIN_DISTANCE = 30; // px - minimum horizontal movement for swipe
 const SWIPE_MAX_VERTICAL_RATIO = 2.0; // if deltaY/deltaX > this, it's vertical scroll
 
-// Detect iOS device (iPhone, iPad, iPod)
-const isIOS = (): boolean => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false;
-  }
-
-  const ua = navigator.userAgent;
-  const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
-  const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-
-  return isIOSDevice || isIPadOS;
-};
-
-// Check if running as PWA (standalone mode)
 const isStandalone = (): boolean => {
   if (typeof window === 'undefined') return false;
 
@@ -92,7 +82,6 @@ export const IOSTapZones = memo(function IOSTapZones({
   headerHeight = 70,
   navigationEnabled = true, // When false (swipe mode), only center zone is rendered
 }: IOSTapZonesProps) {
-  // All hooks MUST be called before any early returns (Rules of Hooks)
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastNavTimeRef = useRef<number>(0);
   const lastDescClickTimeRef = useRef<number>(0);
@@ -255,33 +244,28 @@ export const IOSTapZones = memo(function IOSTapZones({
 
     // SWIPE DETECTION (only in swipe mode - when navigationEnabled is false)
     if (!navigationEnabled) {
-      // Check if it's a horizontal swipe (not vertical scroll)
       const isVerticalScroll = deltaY > 10 && deltaY / deltaX > SWIPE_MAX_VERTICAL_RATIO;
       const isSwipe = deltaX >= SWIPE_MIN_DISTANCE && !isVerticalScroll;
 
       if (isSwipe) {
-        // Swipe detected - navigate!
         const swipeDirection = rawDeltaX > 0 ? 'prev' : 'next';
 
         if (import.meta.env.DEV) {
-          console.log('[IOSTapZones] Swipe detected!', { deltaX, direction: swipeDirection });
+          logger.debug('[IOSTapZones] Swipe detected!', { deltaX, direction: swipeDirection });
         }
 
-        // Navigation lock check
         if (isNavigatingRef.current) {
           setDebugTapInfo('SWIPE LOCKED');
           setTimeout(() => setDebugTapInfo(null), 1000);
           return;
         }
 
-        // Debounce navigation
         const now = Date.now();
         if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) {
           return;
         }
         lastNavTimeRef.current = now;
 
-        // Set navigation lock
         isNavigatingRef.current = true;
         navCountRef.current += 1;
         const navNum = navCountRef.current;
@@ -311,21 +295,19 @@ export const IOSTapZones = memo(function IOSTapZones({
       }
     }
 
-    // Check if it's a tap (not swipe or long press)
     const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
 
     if (!isTap) {
       if (import.meta.env.DEV) {
-        console.log('[IOSTapZones] Center: Not a tap - ignoring', { deltaX, deltaY, duration });
+        logger.debug('[IOSTapZones] Center: Not a tap - ignoring', { deltaX, deltaY, duration });
       }
       return;
     }
 
-    // Debounce
     const now = Date.now();
     if (now - lastDescClickTimeRef.current < 300) {
       if (import.meta.env.DEV) {
-        console.log('[IOSTapZones] Center: Debounced - ignoring');
+        logger.debug('[IOSTapZones] Center: Debounced - ignoring');
       }
       return;
     }
@@ -344,11 +326,9 @@ export const IOSTapZones = memo(function IOSTapZones({
     }
 
     // Use iframe rect for coordinate calculation
-    // This ensures coordinates match the iframe's coordinate system for elementFromPoint()
+    // These are the exact coordinates needed for elementFromPoint inside iframe
     const iframeRect = iframe.getBoundingClientRect();
 
-    // Calculate coordinates relative to iframe's visible area
-    // These are the exact coordinates needed for elementFromPoint inside iframe
     const viewportX = touch.clientX - iframeRect.left;
     const viewportY = touch.clientY - iframeRect.top;
 
@@ -373,7 +353,7 @@ export const IOSTapZones = memo(function IOSTapZones({
   }
 
   if (import.meta.env.DEV) {
-    console.log('[IOSTapZones] Rendering overlay zones on iOS', {
+    logger.debug('[IOSTapZones] Rendering overlay zones on iOS', {
       isStandalone: isStandalone(),
       zoneWidth: `${ZONE_WIDTH_PERCENT}%`,
     });
@@ -396,8 +376,8 @@ export const IOSTapZones = memo(function IOSTapZones({
     <>
       {/* Left tap zone - only when navigation is enabled (tap mode) */}
       {navigationEnabled && (
-        <div
-          data-testid="ios-tap-zone-left"
+        <TapZone
+          testId="ios-tap-zone-left"
           style={{
             ...baseStyle,
             left: 'env(safe-area-inset-left)',
@@ -406,16 +386,14 @@ export const IOSTapZones = memo(function IOSTapZones({
           onTouchStart={handleTouchStart}
           onTouchEnd={(e) => handleTouchEnd(e, 'prev')}
           onClick={(e) => handleClick(e, 'prev')}
-          aria-label="Previous page"
-          role="button"
-          tabIndex={-1}
+          ariaLabel="Previous page"
         />
       )}
 
       {/* Right tap zone - only when navigation is enabled (tap mode) */}
       {navigationEnabled && (
-        <div
-          data-testid="ios-tap-zone-right"
+        <TapZone
+          testId="ios-tap-zone-right"
           style={{
             ...baseStyle,
             right: 'env(safe-area-inset-right)',
@@ -424,17 +402,15 @@ export const IOSTapZones = memo(function IOSTapZones({
           onTouchStart={handleTouchStart}
           onTouchEnd={(e) => handleTouchEnd(e, 'next')}
           onClick={(e) => handleClick(e, 'next')}
-          aria-label="Next page"
-          role="button"
-          tabIndex={-1}
+          ariaLabel="Next page"
         />
       )}
 
       {/* Center tap zone - for description clicks via bidirectional postMessage */}
       {/* Always rendered - sends tap coordinates to iframe, iframe finds description */}
       {/* When navigation is disabled (swipe mode), covers entire width except safe areas */}
-      <div
-        data-testid="ios-tap-zone-center"
+      <TapZone
+        testId="ios-tap-zone-center"
         style={{
           ...baseStyle,
           left: navigationEnabled
@@ -446,53 +422,16 @@ export const IOSTapZones = memo(function IOSTapZones({
         }}
         onTouchStart={handleCenterTouchStart}
         onTouchEnd={handleCenterTouchEnd}
-        aria-label="Content area"
+        ariaLabel="Content area"
         role="region"
-        tabIndex={-1}
       />
 
-      {/* Debug tap indicator - only shown in development */}
-      {import.meta.env.DEV && debugTapInfo && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: debugTapInfo.startsWith('ERROR') ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 128, 0, 0.9)',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: 8,
-            fontSize: 16,
-            fontWeight: 'bold',
-            zIndex: 99999,
-            pointerEvents: 'none',
-          }}
-        >
-          {debugTapInfo}
-        </div>
-      )}
-
-      {/* Debug indicator - only shown in development */}
-      {import.meta.env.DEV && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: navigationEnabled ? 'rgba(0, 128, 0, 0.8)' : 'rgba(59, 130, 246, 0.8)',
-            color: 'white',
-            padding: '6px 12px',
-            borderRadius: 4,
-            fontSize: 11,
-            zIndex: 9999,
-            pointerEvents: 'none',
-          }}
-        >
-          iOS {navigationEnabled ? `${ZONE_WIDTH_PERCENT}%+Tap` : 'Swipe+Center'} {isStandalone() ? '[PWA]' : '[Safari]'}
-        </div>
-      )}
+      <TapFeedback
+        debugTapInfo={debugTapInfo}
+        navigationEnabled={navigationEnabled}
+        zoneWidthPercent={ZONE_WIDTH_PERCENT}
+        isStandalone={isStandalone()}
+      />
     </>
   );
 });

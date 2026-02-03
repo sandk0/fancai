@@ -26,6 +26,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
+import { logger } from '@/lib/logger';
 
 const TAP_MAX_DURATION = 350; // ms - max duration to be considered a tap
 const TAP_MAX_MOVEMENT = 20; // px - increased for mobile tolerance
@@ -35,10 +36,8 @@ const RIGHT_ZONE_START = 0.75;
 // Debounce time to prevent click after touch
 const TOUCH_CLICK_DEBOUNCE = 500; // ms
 
-// Debug logging - enabled in development mode only
-const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => {
-  if (DEBUG) console.log('[TouchNav]', ...args);
+  logger.debug('[TouchNav]', ...args);
 };
 
 /**

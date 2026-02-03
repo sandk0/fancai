@@ -23,7 +23,8 @@
  * );
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 interface UseChapterNavigationOptions {
   currentChapter: number;
@@ -52,34 +53,34 @@ export const useChapterNavigation = ({
 }: UseChapterNavigationOptions): UseChapterNavigationReturn => {
 
   const nextPage = useCallback(() => {
-    console.log(`[useChapterNavigation] Next: page=${currentPage}, total=${totalPages}, chapter=${currentChapter}`);
+    logger.debug(`[useChapterNavigation] Next: page=${currentPage}, total=${totalPages}, chapter=${currentChapter}`);
 
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
       setCurrentPage(newPage);
     } else if (currentChapter < totalChapters) {
-      console.log('[useChapterNavigation] Moving to next chapter');
+      logger.debug('[useChapterNavigation] Moving to next chapter');
       setCurrentChapter(currentChapter + 1);
       setCurrentPage(1);
     }
   }, [currentPage, totalPages, currentChapter, totalChapters, setCurrentPage, setCurrentChapter]);
 
   const prevPage = useCallback(() => {
-    console.log(`[useChapterNavigation] Prev: page=${currentPage}, total=${totalPages}, chapter=${currentChapter}`);
+    logger.debug(`[useChapterNavigation] Prev: page=${currentPage}, total=${totalPages}, chapter=${currentChapter}`);
 
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
     } else if (currentChapter > 1) {
-      console.log('[useChapterNavigation] Moving to previous chapter');
+      logger.debug('[useChapterNavigation] Moving to previous chapter');
       setCurrentChapter(currentChapter - 1);
       setCurrentPage(1);
     }
-  }, [currentPage, currentChapter, setCurrentPage, setCurrentChapter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, totalPages, currentChapter, setCurrentPage, setCurrentChapter]);
 
   const jumpToChapter = useCallback((chapterNum: number) => {
     if (chapterNum >= 1 && chapterNum <= totalChapters) {
-      console.log(`[useChapterNavigation] Jumping to chapter ${chapterNum}`);
+      logger.debug(`[useChapterNavigation] Jumping to chapter ${chapterNum}`);
       setCurrentChapter(chapterNum);
       setCurrentPage(1);
     }
@@ -97,41 +98,4 @@ export const useChapterNavigation = ({
   };
 };
 
-/**
- * useKeyboardNavigation - Keyboard shortcuts for navigation
- *
- * @param nextPage - Function to go to next page
- * @param prevPage - Function to go to previous page
- *
- * @example
- * useKeyboardNavigation(nextPage, prevPage);
- */
-export const useKeyboardNavigation = (
-  nextPage: () => void,
-  prevPage: () => void
-): void => {
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return; // Don't intercept when typing in inputs
-      }
 
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowUp':
-          e.preventDefault();
-          prevPage();
-          break;
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case ' ': // Spacebar
-          e.preventDefault();
-          nextPage();
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [nextPage, prevPage]);
-};

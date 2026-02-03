@@ -1,8 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { isEntityMetCFI } from '../../utils/entityUtils';
 import { SpoilerText } from './SpoilerText';
-import { entityTypeLabels } from './EntityCard';
+import { entityTypeLabels } from './entityTypeLabels';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
 import { Badge } from '../UI/badge';
@@ -34,6 +35,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
     onEntityClick,
     onRelationshipClick
 }) => {
+    const { t } = useTranslation();
     const isUnknown = !isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
 
     return (
@@ -70,12 +72,12 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                         </Badge>
                         {entity.first_mention_chapter != null && !isUnknown && (
                             <Badge variant="secondary" className="bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                                Появление: гл. {entity.first_mention_chapter}
+                                {t('entities.first_appearance', { chapter: entity.first_mention_chapter })}
                             </Badge>
                         )}
                         {isUnknown && (
                             <Badge variant="secondary" className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
-                                Не встречен
+                                {t('entities.not_met')}
                             </Badge>
                         )}
                     </div>
@@ -87,7 +89,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                     {entity.visual_summary && (
                         <Card variant="elevated" padding="md">
                             <h3 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-                                Внешность
+                                {t('entities.appearance')}
                             </h3>
                             <p className="text-[var(--color-text-muted)] italic text-sm">
                                 {entity.visual_summary}
@@ -98,7 +100,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                     {!isUnknown && relatedEntities.length > 0 && (
                         <section aria-labelledby="relations-heading">
                             <h3 id="relations-heading" className="text-lg font-semibold mb-3 border-b border-[var(--color-border-default)] pb-2">
-                                Связи
+                                {t('entities.relations')}
                             </h3>
                             <div className="grid grid-cols-1 gap-2" role="list">
                                 {relatedEntities.map((rel, idx) => {
@@ -175,21 +177,20 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
 
                     <section aria-labelledby="history-heading">
                         <h3 id="history-heading" className="text-lg font-semibold mb-4 border-b border-[var(--color-border-default)] pb-2">
-                            История
+                            {t('entities.history')}
                         </h3>
 
                         {isUnknown ? (
                             <Card variant="elevated" padding="lg" className="text-center space-y-3">
                                 <Lock className="w-8 h-8 text-[var(--color-text-disabled)] mx-auto mb-2" aria-hidden="true" />
-                                <h4 className="text-[var(--color-text-default)] font-medium">Информация скрыта</h4>
+                                <h4 className="text-[var(--color-text-default)] font-medium">{t('entities.info_hidden')}</h4>
                                 <p className="text-[var(--color-text-muted)] text-sm">
-                                    История этого персонажа скрыта, чтобы не испортить вам впечатление от чтения.
-                                    Продолжайте читать, и информация откроется автоматически.
+                                    {t('entities.info_hidden_desc')}
                                 </p>
                             </Card>
                         ) : (
                             entity.notes.length === 0 ? (
-                                <p className="text-[var(--color-text-muted)]">Нет записей.</p>
+                                <p className="text-[var(--color-text-muted)]">{t('entities.no_notes')}</p>
                             ) : (
                                 <div className="space-y-4" role="list">
                                     {entity.notes.map((note, idx) => (
@@ -202,7 +203,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                                 currentCfi={currentCFI}
                                             />
                                             <div className="text-xs text-right mt-1 text-[var(--color-text-disabled)]">
-                                                Глава {note.chapter_index} • {note.type}
+                                                {t('entities.chapter')} {note.chapter_index} • {note.type}
                                             </div>
                                         </CardAccent>
                                     ))}

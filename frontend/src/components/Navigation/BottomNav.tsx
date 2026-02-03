@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Library, Image, Settings, User } from 'lucide-react';
 import { isActiveRoute } from '@/utils/navigation';
 import { Z_INDEX } from '@/lib/zIndex';
@@ -24,20 +25,21 @@ interface NavItem {
 export function BottomNav() {
   const location = useLocation();
   const haptics = useHaptics();
+  const { t } = useTranslation();
 
   const navItems: NavItem[] = [
-    { path: '/', label: 'Главная', icon: Home },
-    { path: '/library', label: 'Библиотека', icon: Library },
-    { path: '/images', label: 'Галерея', icon: Image },
-    { path: '/settings', label: 'Настройки', icon: Settings },
-    { path: '/profile', label: 'Профиль', icon: User },
+    { path: '/', label: t('bottomNav.home'), icon: Home },
+    { path: '/library', label: t('bottomNav.library'), icon: Library },
+    { path: '/images', label: t('bottomNav.gallery'), icon: Image },
+    { path: '/settings', label: t('bottomNav.settings'), icon: Settings },
+    { path: '/profile', label: t('bottomNav.profile'), icon: User },
   ];
 
   return (
     <nav
       className="fixed bottom-0 inset-x-0 md:hidden"
       role="navigation"
-      aria-label="Мобильная навигация"
+      aria-label={t('bottomNav.aria_label')}
       style={{ zIndex: Z_INDEX.bottomNav }}
     >
       {/* Background with blur - pointer-events: none to allow touch pass-through */}

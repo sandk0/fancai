@@ -12,6 +12,7 @@
 
 import { useState, useEffect, memo } from 'react';
 import { fetchImageWithAuth } from '@/utils/fetchWithTokenRefresh';
+import { logger } from '@/lib/logger';
 
 interface AuthenticatedImageProps {
   src: string | null;
@@ -83,7 +84,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
           }
         }
       } catch (error) {
-        console.warn('[AuthenticatedImage] Failed to load image:', src, error);
+        logger.warn('[AuthenticatedImage] Failed to load image:', src, error);
         if (isMounted) {
           setIsLoading(false);
           setHasError(true);

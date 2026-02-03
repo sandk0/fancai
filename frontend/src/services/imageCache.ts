@@ -14,13 +14,29 @@
  * @module services/imageCache
  */
 
-import { db, createImageId, IMAGE_CACHE_TTL, type CachedImage } from './db'
+import { db, createImageId, IMAGE_CACHE_TTL, notifyFallbackOnce, type CachedImage } from './db'
+import { MemoryTable } from './memoryFallbackCache'
 
-/** Enable debug logging only in development */
-const DEBUG = import.meta.env.DEV
+import { logger } from '@/lib/logger'
 
-const MAX_CACHE_SIZE_MB = 100 // Maximum cache size in MB
-const MAX_CACHED_URLS = 100 // Maximum number of Object URLs to keep in memory
+const MAX_CACHE_SIZE_MB = 100
+const MAX_CACHED_URLS = 100
+
+const memoryFallback = new MemoryTable<CachedImage>()
+let useMemoryFallback = false
+
+function getImagesTable(): MemoryTable<CachedImage> {
+  if (useMemoryFallback) return memoryFallback
+  return db.images as unknown as MemoryTable<CachedImage>
+}
+
+function switchToFallback(err: unknown): void {
+  if (!useMemoryFallback) {
+    useMemoryFallback = true
+    logger.warn('[ImageCache] Switching to in-memory fallback:', err)
+    notifyFallbackOnce()
+  }
+}
 
 interface CacheStats {
   totalImages: number
@@ -68,20 +84,18 @@ class ImageCacheService {
   async has(userId: string, descriptionId: string): Promise<boolean> {
     try {
       const id = createImageId(userId, descriptionId)
-      const image = await db.images.get(id)
+      const image = await getImagesTable().get(id)
 
       if (!image) return false
 
-      // Check expiration
       if (this.isExpired(image.cachedAt)) {
-        // Delete expired entry asynchronously
         this.delete(userId, descriptionId).catch(() => {})
         return false
       }
 
       return true
     } catch (err) {
-      console.warn('[ImageCache] Error checking cache:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -96,14 +110,14 @@ class ImageCacheService {
 
     // Check if URL starts with blob:
     if (!urlData.url.startsWith('blob:')) {
-      if (DEBUG) console.log('[ImageCache] Invalid Object URL format for:', descriptionId)
+      logger.debug('[ImageCache] Invalid Object URL format for:', descriptionId)
       return false
     }
 
     // Check age of URL
     const age = Date.now() - urlData.createdAt
     if (age >= this.MAX_OBJECT_URL_AGE_MS) {
-      if (DEBUG) console.log('[ImageCache] Object URL expired for:', descriptionId, `(age: ${Math.round(age / 1000 / 60)}min)`)
+      logger.debug('[ImageCache] Object URL expired for:', descriptionId, `(age: ${Math.round(age / 1000 / 60)}min)`)
       return false
     }
 
@@ -132,7 +146,7 @@ class ImageCacheService {
       const old = this.objectURLs.get(oldestKey)
       if (old) {
         URL.revokeObjectURL(old.url)
-        if (DEBUG) console.log('[ImageCache] Evicted oldest URL due to limit:', oldestKey)
+        logger.debug('[ImageCache] Evicted oldest URL due to limit:', oldestKey)
       }
       this.objectURLs.delete(oldestKey)
     }
@@ -152,27 +166,26 @@ class ImageCacheService {
       if (existing) {
         // Validate the existing URL
         if (this.isObjectURLValid(descriptionId)) {
-          if (DEBUG) console.log('[ImageCache] Reusing existing Object URL for:', descriptionId)
+          logger.debug('[ImageCache] Reusing existing Object URL for:', descriptionId)
           return existing.url
         } else {
           // URL is invalid - remove it and create a new one
-          if (DEBUG) console.log('[ImageCache] Removing invalid Object URL for:', descriptionId)
+          logger.debug('[ImageCache] Removing invalid Object URL for:', descriptionId)
           URL.revokeObjectURL(existing.url)
           this.objectURLs.delete(descriptionId)
         }
       }
 
       const id = createImageId(userId, descriptionId)
-      const image = await db.images.get(id)
+      const image = await getImagesTable().get(id)
 
       if (!image) {
-        if (DEBUG) console.log('[ImageCache] Cache miss for:', descriptionId)
+        logger.debug('[ImageCache] Cache miss for:', descriptionId)
         return null
       }
 
-      // Check expiration
       if (this.isExpired(image.cachedAt)) {
-        if (DEBUG) console.log('[ImageCache] Cache expired for:', descriptionId)
+        logger.debug('[ImageCache] Cache expired for:', descriptionId)
         await this.delete(userId, descriptionId)
         return null
       }
@@ -189,10 +202,10 @@ class ImageCacheService {
         createdAt: Date.now(),
       })
 
-      if (DEBUG) console.log('[ImageCache] Cache hit for:', descriptionId, `(tracked: ${this.objectURLs.size} URLs)`)
+      logger.debug('[ImageCache] Cache hit for:', descriptionId, `(tracked: ${this.objectURLs.size} URLs)`)
       return objectUrl
     } catch (err) {
-      console.warn('[ImageCache] Error reading cache:', err)
+      switchToFallback(err)
       return null
     }
   }
@@ -208,7 +221,7 @@ class ImageCacheService {
     if (tracker) {
       URL.revokeObjectURL(tracker.url)
       this.objectURLs.delete(descriptionId)
-      if (DEBUG) console.log('[ImageCache] Released Object URL for:', descriptionId, `(tracked: ${this.objectURLs.size} URLs)`)
+      logger.debug('[ImageCache] Released Object URL for:', descriptionId, `(tracked: ${this.objectURLs.size} URLs)`)
       return true
     }
     return false
@@ -245,20 +258,18 @@ class ImageCacheService {
       // P7 FIX: Skip cache writes when app is not visible to prevent corruption
       // during background/foreground transitions (PWA "Forever Broken Book" bug)
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        if (DEBUG) {
-          console.log('[ImageCache] Skipping set() - app not visible:', descriptionId)
-        }
+        logger.debug('[ImageCache] Skipping set() - app not visible:', descriptionId)
         return false
       }
 
       // Download image as blob using HttpOnly cookies for auth (TD-FRONT-102)
-      if (DEBUG) console.log('[ImageCache] Downloading image for caching:', descriptionId)
+      logger.debug('[ImageCache] Downloading image for caching:', descriptionId)
       const response = await fetch(imageUrl, {
         credentials: 'include',
       })
 
       if (!response.ok) {
-        console.warn('[ImageCache] Failed to download image:', response.status)
+        logger.warn('[ImageCache] Failed to download image:', response.status)
         return false
       }
 
@@ -281,19 +292,17 @@ class ImageCacheService {
         cachedAt: Date.now(),
       }
 
-      await db.images.put(cachedImage)
+      await getImagesTable().put(cachedImage)
 
-      if (DEBUG) {
-        console.log('[ImageCache] Image cached:', {
-          userId,
-          descriptionId,
-          size: (blob.size / 1024).toFixed(1) + 'KB',
-        })
-      }
+      logger.debug('[ImageCache] Image cached:', {
+        userId,
+        descriptionId,
+        size: (blob.size / 1024).toFixed(1) + 'KB',
+      })
 
       return true
     } catch (err) {
-      console.warn('[ImageCache] Error caching image:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -308,12 +317,12 @@ class ImageCacheService {
       this.release(descriptionId)
 
       const id = createImageId(userId, descriptionId)
-      await db.images.delete(id)
+      await getImagesTable().delete(id)
 
-      if (DEBUG) console.log('[ImageCache] Deleted:', descriptionId)
+      logger.debug('[ImageCache] Deleted:', descriptionId)
       return true
     } catch (err) {
-      console.warn('[ImageCache] Error deleting:', err)
+      switchToFallback(err)
       return false
     }
   }
@@ -324,33 +333,28 @@ class ImageCacheService {
    */
   async clearBook(userId: string, bookId: string): Promise<number> {
     try {
-      // Get images for this book and user
-      const images = await db.images
+      const images = await getImagesTable()
         .where({ userId, bookId })
         .toArray()
 
       const descriptionIds = images.map(img => img.descriptionId)
       const ids = images.map(img => img.id)
 
-      // Delete from database
-      await db.images.bulkDelete(ids)
+      await getImagesTable().bulkDelete(ids)
 
-      // Release Object URLs
       if (descriptionIds.length > 0) {
         this.releaseMany(descriptionIds)
       }
 
-      if (DEBUG) {
-        console.log('[ImageCache] Cleared book cache:', {
-          userId,
-          bookId,
-          deletedCount: ids.length,
-        })
-      }
+      logger.debug('[ImageCache] Cleared book cache:', {
+        userId,
+        bookId,
+        deletedCount: ids.length,
+      })
 
       return ids.length
     } catch (err) {
-      console.warn('[ImageCache] Error clearing book cache:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -362,8 +366,7 @@ class ImageCacheService {
     try {
       const expirationTime = Date.now() - IMAGE_CACHE_TTL
 
-      // Get expired images for this user
-      const images = await db.images
+      const images = await getImagesTable()
         .where('userId')
         .equals(userId)
         .filter(img => img.cachedAt < expirationTime)
@@ -373,20 +376,18 @@ class ImageCacheService {
       const descriptionIds = images.map(img => img.descriptionId)
 
       if (ids.length > 0) {
-        await db.images.bulkDelete(ids)
+        await getImagesTable().bulkDelete(ids)
         this.releaseMany(descriptionIds)
       }
 
-      if (DEBUG) {
-        console.log('[ImageCache] Cleared expired entries:', {
-          userId,
-          deletedCount: ids.length,
-        })
-      }
+      logger.debug('[ImageCache] Cleared expired entries:', {
+        userId,
+        deletedCount: ids.length,
+      })
 
       return ids.length
     } catch (err) {
-      console.warn('[ImageCache] Error clearing expired:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -396,7 +397,7 @@ class ImageCacheService {
    */
   async clearAll(userId: string): Promise<number> {
     try {
-      const images = await db.images
+      const images = await getImagesTable()
         .where('userId')
         .equals(userId)
         .toArray()
@@ -405,20 +406,18 @@ class ImageCacheService {
       const descriptionIds = images.map(img => img.descriptionId)
 
       if (ids.length > 0) {
-        await db.images.bulkDelete(ids)
+        await getImagesTable().bulkDelete(ids)
         this.releaseMany(descriptionIds)
       }
 
-      if (DEBUG) {
-        console.log('[ImageCache] All cache cleared for user:', {
-          userId,
-          deletedCount: ids.length,
-        })
-      }
+      logger.debug('[ImageCache] All cache cleared for user:', {
+        userId,
+        deletedCount: ids.length,
+      })
 
       return ids.length
     } catch (err) {
-      console.warn('[ImageCache] Error clearing all:', err)
+      switchToFallback(err)
       return 0
     }
   }
@@ -431,12 +430,12 @@ class ImageCacheService {
       let images: CachedImage[]
 
       if (userId) {
-        images = await db.images
+        images = await getImagesTable()
           .where('userId')
           .equals(userId)
           .toArray()
       } else {
-        images = await db.images.toArray()
+        images = await getImagesTable().toArray()
       }
 
       const stats: CacheStats = {
@@ -458,17 +457,15 @@ class ImageCacheService {
         }
       }
 
-      if (DEBUG) {
-        console.log('[ImageCache] Stats:', {
-          userId: userId || 'all',
-          images: stats.totalImages,
-          size: (stats.totalSizeBytes / 1024 / 1024).toFixed(2) + 'MB',
-        })
-      }
+      logger.debug('[ImageCache] Stats:', {
+        userId: userId || 'all',
+        images: stats.totalImages,
+        size: (stats.totalSizeBytes / 1024 / 1024).toFixed(2) + 'MB',
+      })
 
       return stats
     } catch (err) {
-      console.warn('[ImageCache] Error getting stats:', err)
+      switchToFallback(err)
       return {
         totalImages: 0,
         totalSizeBytes: 0,
@@ -494,7 +491,7 @@ class ImageCacheService {
     const maxSizeBytes = MAX_CACHE_SIZE_MB * 1024 * 1024
 
     if (stats.totalSizeBytes + newEntrySize > maxSizeBytes) {
-      if (DEBUG) console.log('[ImageCache] Cache size exceeded, cleaning oldest entries...')
+      logger.debug('[ImageCache] Cache size exceeded, cleaning oldest entries...')
 
       // Clear expired first
       await this.clearExpired(userId)
@@ -514,12 +511,11 @@ class ImageCacheService {
    */
   private async deleteOldest(userId: string, count: number): Promise<void> {
     try {
-      const images = await db.images
+      const images = await getImagesTable()
         .where('userId')
         .equals(userId)
         .toArray()
 
-      // Sort by cachedAt (oldest first)
       images.sort((a, b) => a.cachedAt - b.cachedAt)
 
       const toDelete = images.slice(0, count)
@@ -527,18 +523,16 @@ class ImageCacheService {
       const descriptionIds = toDelete.map(img => img.descriptionId)
 
       if (ids.length > 0) {
-        await db.images.bulkDelete(ids)
+        await getImagesTable().bulkDelete(ids)
         this.releaseMany(descriptionIds)
 
-        if (DEBUG) {
-          console.log('[ImageCache] Deleted oldest entries:', {
-            userId,
-            deleted: ids.length,
-          })
-        }
+        logger.debug('[ImageCache] Deleted oldest entries:', {
+          userId,
+          deleted: ids.length,
+        })
       }
     } catch (err) {
-      console.warn('[ImageCache] Error deleting oldest:', err)
+      switchToFallback(err)
     }
   }
 
@@ -559,7 +553,7 @@ class ImageCacheService {
     })
 
     if (staleIds.length > 0) {
-      if (DEBUG) console.log('[ImageCache] Cleaning up stale Object URLs:', staleIds.length)
+      logger.debug('[ImageCache] Cleaning up stale Object URLs:', staleIds.length)
       return this.releaseMany(staleIds)
     }
 
@@ -571,7 +565,7 @@ class ImageCacheService {
    */
   startAutoCleanup(): void {
     if (this.cleanupIntervalId !== null) {
-      if (DEBUG) console.log('[ImageCache] Auto-cleanup already started')
+      logger.debug('[ImageCache] Auto-cleanup already started')
       return
     }
 
@@ -580,7 +574,7 @@ class ImageCacheService {
       this.cleanupStaleObjectURLs()
     }, 60 * 1000)
 
-    if (DEBUG) console.log('[ImageCache] Auto-cleanup started (interval: 1 minute)')
+    logger.debug('[ImageCache] Auto-cleanup started (interval: 1 minute)')
   }
 
   /**
@@ -590,7 +584,7 @@ class ImageCacheService {
     if (this.cleanupIntervalId !== null) {
       clearInterval(this.cleanupIntervalId)
       this.cleanupIntervalId = null
-      if (DEBUG) console.log('[ImageCache] Auto-cleanup stopped')
+      logger.debug('[ImageCache] Auto-cleanup stopped')
     }
   }
 
@@ -603,7 +597,7 @@ class ImageCacheService {
    * - Stops auto-cleanup interval
    */
   destroy(): void {
-    if (DEBUG) console.log('[ImageCache] Destroying service...')
+    logger.debug('[ImageCache] Destroying service...')
 
     // Release all Object URLs
     const urlCount = this.objectURLs.size
@@ -615,11 +609,9 @@ class ImageCacheService {
     // Stop auto-cleanup
     this.stopAutoCleanup()
 
-    if (DEBUG) {
-      console.log('[ImageCache] Service destroyed', {
-        releasedURLs: urlCount,
-      })
-    }
+    logger.debug('[ImageCache] Service destroyed', {
+      releasedURLs: urlCount,
+    })
   }
 
   /**

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/stores/ui';
 import { useAutoWebSocket } from '@/services/websocket';
 import Header from './Header';
@@ -13,6 +14,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { showUploadModal, setShowUploadModal } = useUIStore();
+  const { t } = useTranslation();
 
   // Auto-connect WebSocket for real-time updates
   useAutoWebSocket();
@@ -24,7 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-[900] focus:top-4 focus:left-4 focus:p-4 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        Перейти к основному контенту
+        {t('layout.skip_to_content')}
       </a>
 
       {/* Header */}
