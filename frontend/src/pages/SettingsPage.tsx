@@ -85,7 +85,7 @@ const SettingsPage: React.FC = () => {
     },
     {
       id: 'privacy',
-      label: t('settings.privacy'),
+      label: t('settings.privacy_label'),
       icon: Shield,
       description: t('settings.tabs.privacy_desc'),
       content: <PrivacySettingsSection />,

@@ -86,7 +86,7 @@ export const ReaderNavigationControls: React.FC<ReaderNavigationControlsProps> =
       {/* Progress Bar */}
       <div className="mt-6">
         <div className="flex justify-between text-sm text-muted-foreground mb-2">
-          <span>{t('reader.progress')}</span>
+          <span>{t('reader.progress_label')}</span>
           <span>{overallProgress}%</span>
         </div>
         <div className="w-full bg-muted rounded-full h-2">
