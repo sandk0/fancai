@@ -20,6 +20,7 @@ from ..core.database import Base
 if TYPE_CHECKING:
     from .user import User
     from .chapter import Chapter
+    from .entity import Entity
     from .reading_session import ReadingSession
 
 
@@ -105,6 +106,12 @@ class Book(Base):
     )
     reading_sessions: Mapped[list["ReadingSession"]] = relationship(
         "ReadingSession",
+        back_populates="book",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+    entities: Mapped[list["Entity"]] = relationship(
+        "Entity",
         back_populates="book",
         cascade="all, delete-orphan",
         lazy="raise",

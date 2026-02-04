@@ -89,7 +89,7 @@ class Entity(Base):
         onupdate=func.now(),
     )
 
-    book: Mapped["Book"] = relationship("Book", backref="entities", lazy="raise")
+    book: Mapped["Book"] = relationship("Book", back_populates="entities", lazy="raise")
 
     mentions: Mapped[list["EntityMention"]] = relationship(
         "EntityMention",
