@@ -5,7 +5,6 @@ import { useAutoWebSocket } from '@/services/websocket';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { BottomNav } from '@/components/Navigation/BottomNav';
-import NotificationContainer from '@/components/UI/NotificationContainer';
 import { BookUploadModal } from '@/components/Books/BookUploadModal';
 
 interface LayoutProps {
@@ -52,9 +51,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Bottom navigation for mobile */}
       <BottomNav />
-
-      {/* Global Notifications */}
-      <NotificationContainer />
 
       {/* Upload Modal */}
       <BookUploadModal

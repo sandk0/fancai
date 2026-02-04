@@ -9,8 +9,6 @@ export type { PWAUpdatePromptProps } from './PWAUpdatePrompt';
 export { ThemeSwitcher } from './ThemeSwitcher';
 export { AuthenticatedImage } from './AuthenticatedImage';
 export { ParsingOverlay } from './ParsingOverlay';
-export { default as NotificationContainer } from './NotificationContainer';
-export type { ToastVariant, ToastProps } from './NotificationContainer';
 export { Card } from './Card';
 export type { CardProps } from './Card';
 export { Skeleton } from './Skeleton';

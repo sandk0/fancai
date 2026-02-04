@@ -72,7 +72,7 @@ vi.mock('@/stores/ui', () => ({
     warning: vi.fn(),
   },
   useUIStore: Object.assign(vi.fn(() => ({})), {
-    getState: vi.fn(() => ({ notifications: [] })),
+    getState: vi.fn(() => ({})),
     subscribe: vi.fn(),
     setState: vi.fn(),
     destroy: vi.fn(),

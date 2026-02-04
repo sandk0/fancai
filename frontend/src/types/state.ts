@@ -93,11 +93,7 @@ export interface UIState {
   showImageModal: boolean;
   showProfileModal: boolean;
   currentImageModal: GeneratedImage | null;
-  
-  // Notifications
-  notifications: Notification[];
-  
-  // Actions
+
   setLoading: (loading: boolean, message?: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setMobileMenuOpen: (open: boolean) => void;
@@ -105,34 +101,12 @@ export interface UIState {
   setShowSettingsModal: (show: boolean) => void;
   setShowImageModal: (show: boolean, image?: GeneratedImage | null) => void;
   setShowProfileModal: (show: boolean) => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
-  removeNotification: (id: string) => void;
-  clearNotifications: () => void;
-  
-  // Notification helpers
-  notify: {
-    success: (title: string, message?: string) => void;
-    error: (title: string, message?: string, action?: NotificationAction) => void;
-    warning: (title: string, message?: string, action?: NotificationAction) => void;
-    info: (title: string, message?: string) => void;
-  };
 }
 
 // Notification Action
 export interface NotificationAction {
   label: string;
   onClick: () => void;
-}
-
-// Notification Type
-export interface Notification {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  timestamp: number;
-  duration?: number; // auto-dismiss time in ms, undefined for persistent
-  action?: NotificationAction;
 }
 
 // Profile Store State

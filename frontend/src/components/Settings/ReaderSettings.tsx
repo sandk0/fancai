@@ -1,7 +1,7 @@
 import React from 'react';
 import { Type, Palette, Monitor, RotateCcw } from 'lucide-react';
 import { useReaderStore } from '@/stores/reader';
-import { useUIStore } from '@/stores/ui';
+import { notify } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';
 
 const ReaderSettings: React.FC = () => {
@@ -21,7 +21,6 @@ const ReaderSettings: React.FC = () => {
     resetSettings,
   } = useReaderStore();
 
-  const { notify } = useUIStore();
   const { t } = useTranslation();
 
   const fontFamilyOptions = [

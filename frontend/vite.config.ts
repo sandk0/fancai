@@ -135,7 +135,7 @@ export default defineConfig({
             'tailwind-merge',
             'class-variance-authority',
             'dompurify',
-            'react-hot-toast',
+            'sonner',
           ],
         },
 

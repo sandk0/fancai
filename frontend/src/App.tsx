@@ -2,7 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { LazyMotion, domAnimation } from 'motion/react';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 import { HelmetProvider } from 'react-helmet-async';
 
 // Shared queryClient for cache management
@@ -141,16 +141,11 @@ function App() {
 
             {/* Global notifications */}
             <Toaster
-              position="top-right"
+              position="top-center"
+              richColors
+              closeButton
               toastOptions={{
-                duration: 4000,
-                className: 'bg-popover text-popover-foreground border border-border',
-                success: {
-                  className: 'bg-green-500 text-white border-green-600',
-                },
-                error: {
-                  className: 'bg-destructive text-destructive-foreground border-destructive',
-                },
+                className: 'font-sans',
               }}
             />
           </div>

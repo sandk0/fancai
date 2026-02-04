@@ -3,7 +3,7 @@ import { X, BookOpen } from 'lucide-react';
 import { m, AnimatePresence } from 'motion/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
-import { useUIStore } from '@/stores/ui';
+import { notify } from '@/stores/ui';
 import { bookKeys, getCurrentUserId } from '@/hooks/api/queryKeys';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@/utils/errors';
@@ -43,7 +43,6 @@ export const BookUploadModal: React.FC<BookUploadModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const { notify } = useUIStore();
   const { t } = useTranslation();
 
   useFocusTrap(isOpen, modalRef);

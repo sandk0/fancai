@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 import { booksAPI } from '@/api/books';
 import { authAPI } from '@/api/auth';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import toast from 'react-hot-toast';
+import { notify } from '@/stores/ui';
 import { PageMeta } from '@/components/SEO/PageMeta';
 import { logger } from '@/lib/logger';
 
@@ -68,12 +68,12 @@ const ProfilePage: React.FC = () => {
    const updateProfileMutation = useMutation({
      mutationFn: (data: { full_name?: string }) => authAPI.updateProfile(data),
      onSuccess: () => {
-       toast.success(t('profile.update_success'));
+       notify.success(t('profile.update_success'));
        queryClient.invalidateQueries({ queryKey: ['current-user'] });
        setIsEditing(false);
      },
      onError: (error: Error | { response?: { data?: { detail?: string } } }) => {
-       toast.error(getErrorMessage(error, t('profile.update_error')));
+       notify.error(getErrorMessage(error, t('profile.update_error')));
      },
    });
 

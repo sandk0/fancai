@@ -55,11 +55,9 @@ const LibraryPage: React.FC = () => {
     return () => { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); };
   }, []);
 
-  // Block body scroll when filters are open
+  // Close sort dropdown when filters panel opens
   useEffect(() => {
-    if (showFilters) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
-    return () => { document.body.style.overflow = ''; };
+    if (showFilters) setShowSortDropdown(false);
   }, [showFilters]);
 
   // Debounce search

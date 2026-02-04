@@ -1,12 +1,10 @@
 // UI State Store
 
 import { create } from 'zustand';
-import type { UIState, Notification, NotificationAction } from '@/types/state';
+import { toast } from 'sonner';
+import type { UIState, NotificationAction } from '@/types/state';
 
-// Track notification auto-dismiss timers to prevent memory leaks
-const notificationTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-export const useUIStore = create<UIState>((set, get) => ({
+export const useUIStore = create<UIState>((set) => ({
   // Initial state
   isLoading: false,
   loadingMessage: '',
@@ -19,48 +17,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   showImageModal: false,
   showProfileModal: false,
   currentImageModal: null,
-  
-  // Notifications
-  notifications: [],
-  
-  // Notification helpers
-  notify: {
-    success: (title: string, message?: string) => {
-      get().addNotification({
-        type: 'success',
-        title,
-        message,
-      });
-    },
-
-    error: (title: string, message?: string, action?: NotificationAction) => {
-      get().addNotification({
-        type: 'error',
-        title,
-        message,
-        duration: action ? undefined : 10000, // Persistent if action required
-        action,
-      });
-    },
-
-    warning: (title: string, message?: string, action?: NotificationAction) => {
-      get().addNotification({
-        type: 'warning',
-        title,
-        message,
-        duration: action ? undefined : 7000,
-        action,
-      });
-    },
-
-    info: (title: string, message?: string) => {
-      get().addNotification({
-        type: 'info',
-        title,
-        message,
-      });
-    },
-  },
 
   // Actions
   setLoading: (loading, message = '') => {
@@ -95,94 +51,31 @@ export const useUIStore = create<UIState>((set, get) => ({
   setShowProfileModal: (show) => {
     set({ showProfileModal: show });
   },
-
-  addNotification: (notificationData) => {
-    const notification: Notification = {
-      id: `notification-${Date.now()}-${Math.random()}`,
-      timestamp: Date.now(),
-      duration: 5000,
-      ...notificationData,
-    };
-
-    set({ notifications: [notification, ...get().notifications] });
-
-    if (notification.duration) {
-      const timerId = setTimeout(() => {
-        notificationTimers.delete(notification.id);
-        get().removeNotification(notification.id);
-      }, notification.duration);
-      notificationTimers.set(notification.id, timerId);
-    }
-  },
-
-  removeNotification: (id) => {
-    const timerId = notificationTimers.get(id);
-    if (timerId) {
-      clearTimeout(timerId);
-      notificationTimers.delete(id);
-    }
-    set({ 
-      notifications: get().notifications.filter(n => n.id !== id) 
-    });
-  },
-
-  clearNotifications: () => {
-    notificationTimers.forEach(clearTimeout);
-    notificationTimers.clear();
-    set({ notifications: [] });
-  },
 }));
 
-// Utility functions for common notification types
+// Standalone notify utility using Sonner
 export const notify = {
   success: (title: string, message?: string) => {
-    useUIStore.getState().addNotification({
-      type: 'success',
-      title,
-      message,
-    });
+    toast.success(title, { description: message, duration: 5000 });
   },
 
   error: (title: string, message?: string, action?: NotificationAction) => {
-    useUIStore.getState().addNotification({
-      type: 'error',
-      title,
-      message,
-      duration: action ? undefined : 10000,
-      action,
+    toast.error(title, {
+      description: message,
+      duration: action ? Infinity : 10000,
+      action: action ? { label: action.label, onClick: action.onClick } : undefined,
     });
   },
 
   warning: (title: string, message?: string, action?: NotificationAction) => {
-    useUIStore.getState().addNotification({
-      type: 'warning',
-      title,
-      message,
-      duration: action ? undefined : 7000,
-      action,
+    toast.warning(title, {
+      description: message,
+      duration: action ? Infinity : 7000,
+      action: action ? { label: action.label, onClick: action.onClick } : undefined,
     });
   },
 
   info: (title: string, message?: string) => {
-    useUIStore.getState().addNotification({
-      type: 'info',
-      title,
-      message,
-    });
-  },
-
-  loading: (title: string, message?: string) => {
-    const { setLoading, addNotification } = useUIStore.getState();
-    setLoading(true, message);
-    addNotification({
-      type: 'info',
-      title,
-      message,
-      duration: undefined, // Persistent until manually removed
-    });
-  },
-
-  stopLoading: () => {
-    useUIStore.getState().setLoading(false);
+    toast.info(title, { description: message, duration: 5000 });
   },
 };

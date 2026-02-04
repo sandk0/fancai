@@ -4,7 +4,7 @@ import { Eye, Download, Share2, Image, Filter, Grid, List } from 'lucide-react';
 import { m, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { imagesAPI } from '@/api/images';
-import { useUIStore } from '@/stores/ui';
+import { notify } from '@/stores/ui';
 import { ImageModal } from './ImageModal';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
@@ -33,7 +33,6 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { notify } = useUIStore();
   const { t } = useTranslation();
 
   // Fetch images for the book

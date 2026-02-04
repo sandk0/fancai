@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { m } from 'motion/react';
 import { X, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { notify } from '@/stores/ui';
 import { booksAPI } from '@/api/books';
 import { useBookProgressWS } from '@/hooks/useBookProgressWS';
 import { logger } from '@/lib/logger';
@@ -95,12 +95,12 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     onComplete: () => {
       setIsComplete(true);
       setProgress(100);
-      toast.success(t('ui.parsing.complete_success'));
+      notify.success(t('ui.parsing.complete_success'));
       setTimeout(() => onParsingComplete?.(), 1000);
     },
     onError: (error) => {
       logger.warn('[ParsingOverlay] WebSocket error, falling back to polling:', error);
-      toast.error(t('ui.parsing.connection_error'));
+      notify.error(t('ui.parsing.connection_error'));
       setUsePollingFallback(true);
     },
     maxReconnectAttempts: 2,

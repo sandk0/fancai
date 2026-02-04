@@ -1,7 +1,7 @@
 // Service Worker Utilities
 // NOTE: Service Worker registration is handled by VitePWA in main.tsx
 // This file provides utility functions for SW interaction
-import { useUIStore } from '@/stores/ui';
+import { notify } from '@/stores/ui';
 import { logger } from '@/lib/logger';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -82,7 +82,6 @@ export function skipWaiting(): void {
 }
 
 function handleServiceWorkerMessage(data: unknown): void {
-  const { notify } = useUIStore.getState();
   const messageData = data as Record<string, unknown>;
 
   switch (messageData.type) {
@@ -146,7 +145,6 @@ export class PWAInstallPrompt {
       this.deferredPrompt = null;
       logger.debug('PWA installed');
       
-      const { notify } = useUIStore.getState();
       notify.success(
         'App Installed',
         'fancai has been installed successfully!'

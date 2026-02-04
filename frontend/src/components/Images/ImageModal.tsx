@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { m } from 'motion/react';
 import { imagesAPI } from '@/api/images';
-import { useUIStore } from '@/stores/ui';
+import { notify } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';
 import { fetchImageWithAuth, downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -40,7 +40,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const blobUrlRef = useRef<string | null>(null);
-  const { notify } = useUIStore();
   const { t } = useTranslation();
 
   useFocusTrap(isOpen, modalRef);
