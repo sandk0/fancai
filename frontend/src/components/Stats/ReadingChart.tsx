@@ -183,7 +183,7 @@ export function TopBooks({ topBooks }: TopBooksProps) {
         {topBooks.map((book, index) => (
           <div
             key={index}
-            className="p-4 rounded-xl transition-all hover:scale-[1.02] bg-muted"
+            className="p-4 rounded-xl transition-all hover:scale-[102%] bg-muted"
           >
             <div className="flex items-start gap-3">
               <span className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-primary-foreground bg-primary">

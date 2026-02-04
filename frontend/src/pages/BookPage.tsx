@@ -59,7 +59,7 @@ const ChaptersList: React.FC<ChaptersListProps> = ({ chapters, bookId, navigate 
   const renderChapter = (chapter: ChapterInfo) => (
     <div
       onClick={() => navigate(`/book/${bookId}/chapter/${chapter.number}`)}
-      className="group p-3 sm:p-4 lg:p-6 rounded-xl border-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg bg-background border-border"
+      className="group p-3 sm:p-4 lg:p-6 rounded-xl border-2 cursor-pointer transition-all hover:scale-[102%] hover:shadow-lg bg-background border-border"
     >
       <div className="flex items-start justify-between gap-2 sm:gap-4">
         <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">

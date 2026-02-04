@@ -126,7 +126,7 @@ const Header: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 min-h-[44px] min-w-[44px] text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98] touch-target"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 min-h-[44px] min-w-[44px] text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 transition-all hover:scale-[102%] active:scale-[98%] touch-target"
               aria-label={t('nav.uploadBook')}
             >
               <Upload className="w-4 h-4" />

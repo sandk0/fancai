@@ -519,6 +519,10 @@
     color: var(--color-foreground);
   }
 
+  button, [role="button"] {
+    cursor: pointer;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     * {
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
