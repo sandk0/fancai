@@ -13,6 +13,7 @@ from ..core.database import Base
 if TYPE_CHECKING:
     from .book import Book
     from .entity_mention import EntityMention
+    from .entity_relationship import EntityRelationship
     from .description_entity import DescriptionEntity
 
 
@@ -100,6 +101,20 @@ class Entity(Base):
     linked_descriptions: Mapped[list["DescriptionEntity"]] = relationship(
         "DescriptionEntity",
         back_populates="entity",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+    outgoing_relations: Mapped[list["EntityRelationship"]] = relationship(
+        "EntityRelationship",
+        foreign_keys="[EntityRelationship.source_id]",
+        back_populates="source",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+    incoming_relations: Mapped[list["EntityRelationship"]] = relationship(
+        "EntityRelationship",
+        foreign_keys="[EntityRelationship.target_id]",
+        back_populates="target",
         cascade="all, delete-orphan",
         lazy="raise",
     )
