@@ -53,11 +53,12 @@ interface UseBookMetadataReturn {
  */
 export const useBookMetadata = (book: Book | null): UseBookMetadataReturn => {
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
-  const [isLoading, setIsLoading] = useState(!!book);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!book) {
+      setIsLoading(false);
       return;
     }
 

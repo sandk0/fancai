@@ -52,17 +52,25 @@ export const useReadingProgress = ({
   const [isRestoring, setIsRestoring] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const shouldRestore = !hasRestoredPosition && totalPages > 0 && currentChapter === initialChapter;
-  const [prevShouldRestore, setPrevShouldRestore] = useState(false);
-  if (shouldRestore && !prevShouldRestore) {
-    setPrevShouldRestore(true);
-    setIsRestoring(true);
-  }
-
+  /**
+   * Restore reading position on initial load
+   */
   useEffect(() => {
+    logger.debug('📖 [useReadingProgress] Restore check:', {
+      hasRestoredPosition,
+      totalPages,
+      currentChapter,
+      initialChapter,
+      willRestore: !hasRestoredPosition && totalPages > 0 && currentChapter === initialChapter
+    });
+
+    // Only restore once, for initial chapter, after pages are calculated
     if (hasRestoredPosition || totalPages === 0 || currentChapter !== initialChapter) {
       return;
     }
+
+    logger.debug('📖 [useReadingProgress] Attempting to restore position...');
+    setIsRestoring(true);
 
     booksAPI.getReadingProgress(bookId)
       .then(({ progress }) => {

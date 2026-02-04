@@ -33,12 +33,13 @@ export interface UseTocReturn {
 
 export const useToc = (book: Book | null): UseTocReturn => {
   const [toc, setToc] = useState<NavItem[]>([]);
-  const [isLoading, setIsLoading] = useState(!!book);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentHref, setCurrentHref] = useState<string | null>(null);
 
   useEffect(() => {
     if (!book) {
+      setIsLoading(false);
       return;
     }
 

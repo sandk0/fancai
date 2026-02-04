@@ -81,8 +81,12 @@ export const useTheme = () => {
     logger.debug('[useTheme] Theme changed:', { preference: newTheme, resolved });
   }, [applyTheme]);
 
+  // Initial setup and system theme listener
   useEffect(() => {
-    applyTheme(resolveTheme(theme));
+    // Apply initial theme
+    const resolved = resolveTheme(theme);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
 
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

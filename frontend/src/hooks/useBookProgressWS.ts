@@ -98,13 +98,11 @@ export function useBookProgressWS({
     const pingInterval = useRef<NodeJS.Timeout | null>(null);
 
     const onProgressRef = useRef(onProgress);
+    onProgressRef.current = onProgress;
     const onCompleteRef = useRef(onComplete);
+    onCompleteRef.current = onComplete;
     const onErrorRef = useRef(onError);
-    const connectRef = useRef<() => void>(() => {});
-
-    useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
-    useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
-    useEffect(() => { onErrorRef.current = onError; }, [onError]);
+    onErrorRef.current = onError;
 
     const { isAuthenticated } = useAuthStore();
 
@@ -250,7 +248,7 @@ export function useBookProgressWS({
                     logger.debug(`[useBookProgressWS] Reconnecting in ${delay}ms...`);
 
                     reconnectTimeout.current = setTimeout(() => {
-                        connectRef.current();
+                        connect();
                     }, delay);
                 } else {
                     setStatus('disconnected');
@@ -262,13 +260,13 @@ export function useBookProgressWS({
         }
     }, [bookId, buildWsUrl, enabled, maxReconnectAttempts, disconnect, sendMessage]);
 
-    useEffect(() => { connectRef.current = connect; }, [connect]);
-
     // Connect/disconnect based on enabled state
     useEffect(() => {
         if (enabled && bookId && isAuthenticated) {
-            const connectTimer = setTimeout(connect, 0);
+            connect();
 
+            // Initial fetch to get current state immediately (in case WS is silent initially)
+            // This prevents the "0% stuck" issue if the backend is between updates
             const fetchInitialStatus = async () => {
                 try {
                     const response = await booksAPI.getParsingStatus(bookId);
@@ -297,13 +295,11 @@ export function useBookProgressWS({
             }, 1000);
 
             return () => {
-                clearTimeout(connectTimer);
                 clearTimeout(timeoutId);
                 disconnect();
             };
         } else {
-            const disconnectTimer = setTimeout(disconnect, 0);
-            return () => clearTimeout(disconnectTimer);
+            disconnect();
         }
     }, [enabled, bookId, isAuthenticated, connect, disconnect]);
 

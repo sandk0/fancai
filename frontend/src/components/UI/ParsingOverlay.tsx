@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { m } from 'motion/react';
 import { X, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -27,62 +27,52 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [usePollingFallback, setUsePollingFallback] = useState(!useWebSocket);
+  // Track reference point for ETR calculation (to handle page reloads/mid-process joins)
+  const [referenceTime, setReferenceTime] = useState<number | null>(null);
+  const [referenceProgress, setReferenceProgress] = useState<number | null>(null);
   const [etr, setEtr] = useState<string | null>(null);
 
-  const referenceTimeRef = useRef<number | null>(null);
-  const referenceProgressRef = useRef<number | null>(null);
-  const progressRef = useRef(progress);
-
+  // Initialize reference point on first valid progress update
   useEffect(() => {
-    progressRef.current = progress;
-
-    if (referenceTimeRef.current === null && progress >= 0) {
-      referenceTimeRef.current = Date.now();
-      referenceProgressRef.current = progress;
-    } else if (progress < (referenceProgressRef.current || 0)) {
-      referenceTimeRef.current = Date.now();
-      referenceProgressRef.current = progress;
+    if (referenceTime === null && progress >= 0) {
+      setReferenceTime(Date.now());
+      setReferenceProgress(progress);
+    } else if (progress < (referenceProgress || 0)) {
+      // Progress reset (started over)
+      setReferenceTime(Date.now());
+      setReferenceProgress(progress);
     }
-  }, [progress]);
+  }, [progress, referenceTime, referenceProgress]);
 
+  // Update ETR based on rate of change since reference point
   useEffect(() => {
-    const computeEtr = () => {
-      const currentProgress = progressRef.current;
-      const referenceTime = referenceTimeRef.current;
-      const referenceProgress = referenceProgressRef.current;
-      if (!referenceTime || referenceProgress === null || currentProgress >= 100) {
-        return null;
+    if (!referenceTime || referenceProgress === null || progress >= 100) {
+      if (progress >= 100) setEtr(null);
+      return;
+    }
+
+    const elapsed = Date.now() - referenceTime;
+    const progressDelta = progress - referenceProgress;
+
+    // Need minimal time and progress sample to calculate accurate rate
+    if (elapsed < 2000 || progressDelta <= 0) {
+      return;
+    }
+
+    const rate = progressDelta / elapsed; // progress points per ms
+    const remainingProgress = 100 - progress;
+    const remainingTimeMs = remainingProgress / rate;
+
+    if (remainingTimeMs > 0 && isFinite(remainingTimeMs)) {
+      const seconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
+      if (seconds < 60) {
+        setEtr(`${seconds} ${t('ui.parsing.seconds')}`);
+      } else {
+        const minutes = Math.ceil(seconds / 60);
+        setEtr(`~${minutes} ${t('ui.parsing.minutes')}`);
       }
-
-      const elapsed = Date.now() - referenceTime;
-      const progressDelta = currentProgress - referenceProgress;
-
-      if (elapsed < 2000 || progressDelta <= 0) {
-        return null;
-      }
-
-      const rate = progressDelta / elapsed;
-      const remainingProgress = 100 - currentProgress;
-      const remainingTimeMs = remainingProgress / rate;
-
-      if (remainingTimeMs > 0 && isFinite(remainingTimeMs)) {
-        const seconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
-        if (seconds < 60) {
-          return `${seconds} ${t('ui.parsing.seconds')}`;
-        } else {
-          const minutes = Math.ceil(seconds / 60);
-          return `~${minutes} ${t('ui.parsing.minutes')}`;
-        }
-      }
-      return null;
-    };
-
-    const interval = setInterval(() => {
-      setEtr(computeEtr());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [t]);
+    }
+  }, [progress, referenceTime, referenceProgress, t]);
 
   // Phase 5: WebSocket connection for real-time updates
   const {
@@ -106,13 +96,12 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
     maxReconnectAttempts: 2,
   });
 
-  const [prevWsProgress, setPrevWsProgress] = useState(wsProgress);
-  if (prevWsProgress !== wsProgress) {
-    setPrevWsProgress(wsProgress);
+  // Update progress from WebSocket
+  useEffect(() => {
     if (!usePollingFallback && wsStatus === 'connected') {
       setProgress(wsProgress);
     }
-  }
+  }, [wsProgress, wsStatus, usePollingFallback]);
 
   // Fallback to polling if WebSocket fails after 3 seconds of disconnect
   useEffect(() => {

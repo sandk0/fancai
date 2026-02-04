@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
@@ -31,13 +31,6 @@ export const BookGrid = memo(function BookGrid({
   const { t } = useTranslation();
   const columns = useColumns();
   const parentRef = useRef<HTMLDivElement>(null);
-  const [scrollMargin, setScrollMargin] = useState(0);
-
-  useEffect(() => {
-    if (parentRef.current) {
-      setScrollMargin(parentRef.current.offsetTop);
-    }
-  }, []);
 
   const rows = useMemo(() => {
     const result = [];
@@ -51,7 +44,7 @@ export const BookGrid = memo(function BookGrid({
     count: rows.length,
     estimateSize: () => 450,
     overscan: 2,
-    scrollMargin,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
 
   if (isLoading) {

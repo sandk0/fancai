@@ -54,8 +54,9 @@ export function useVisibilityManager(options: UseVisibilityManagerOptions): void
     enabled = true,
   } = options;
 
-  const stableOnVisible = useCallback(() => onVisible(), [onVisible]);
-  const stableOnHidden = useCallback(() => onHidden(), [onHidden]);
+  // Wrap callbacks to ensure they're stable references
+  const stableOnVisible = useCallback(onVisible, [onVisible]);
+  const stableOnHidden = useCallback(onHidden, [onHidden]);
   const stableShouldRun = useCallback(() => {
     if (!shouldRun) return true;
     return shouldRun();

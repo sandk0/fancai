@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from 'vaul';
@@ -45,11 +45,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
     const effectiveChapter = Math.max(currentChapter, maxChapterReached || 0);
 
-    const [prevOpen, setPrevOpen] = useState(isOpen);
-    const [prevEntityId, setPrevEntityId] = useState(initialEntityId);
-    if (prevOpen !== isOpen || prevEntityId !== initialEntityId) {
-        setPrevOpen(isOpen);
-        setPrevEntityId(initialEntityId);
+    useEffect(() => {
         if (isOpen && initialEntityId) {
             setSelectedEntityId(initialEntityId);
             setSelectedRelationship(null);
@@ -57,7 +53,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             setSelectedEntityId(null);
             setSelectedRelationship(null);
         }
-    }
+    }, [isOpen, initialEntityId]);
 
     const relationships = React.useMemo(() => {
         if (!selectedEntityId || !edges) return [];

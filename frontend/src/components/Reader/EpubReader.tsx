@@ -135,7 +135,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const { metadata: bookMetadata } = useBookMetadata(epubBook);
   const { selection, clearSelection } = useTextSelection(rendition, renditionReady && !isModalOpen);
   const selectionRef = useRef(selection);
-  useEffect(() => { selectionRef.current = selection; }, [selection]);
+  selectionRef.current = selection;
 
   useReadingSession({
     bookId: book.id, currentPosition: progress, enabled: renditionReady && !isGenerating,
