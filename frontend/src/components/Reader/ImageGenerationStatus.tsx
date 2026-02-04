@@ -28,24 +28,28 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
-  // Handle visibility transitions
+  const [prevStatus, setPrevStatus] = useState(status);
+  if (prevStatus !== status) {
+    setPrevStatus(status);
+    if (status === 'generating' || status === 'completed' || status === 'error') {
+      setShouldRender(true);
+      if (status === 'completed' || status === 'error') {
+        setIsVisible(true);
+      }
+    } else {
+      setIsVisible(false);
+    }
+  }
+
   useEffect(() => {
     if (status === 'generating') {
-      setShouldRender(true);
-      // Small delay for enter animation
       requestAnimationFrame(() => {
         setIsVisible(true);
       });
     } else if (status === 'completed' || status === 'error') {
-      // Show completed/error state briefly
-      setShouldRender(true);
-      setIsVisible(true);
-
-      // Auto-hide after 3 seconds for completed, 5 seconds for error
       const hideDelay = status === 'error' ? 5000 : 3000;
       const timer = setTimeout(() => {
         setIsVisible(false);
-        // Remove from DOM after animation
         setTimeout(() => {
           setShouldRender(false);
         }, 300);
@@ -53,11 +57,10 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
 
       return () => clearTimeout(timer);
     } else {
-      // idle - hide
-      setIsVisible(false);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setShouldRender(false);
       }, 300);
+      return () => clearTimeout(timer);
     }
   }, [status]);
 

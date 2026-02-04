@@ -10,13 +10,18 @@ export function ProgressSaveIndicator({ lastSaved, isSaving }: Props) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
+  const [prevLastSaved, setPrevLastSaved] = useState(lastSaved);
+  if (prevLastSaved !== lastSaved && lastSaved) {
+    setPrevLastSaved(lastSaved);
+    setVisible(true);
+  }
+
   useEffect(() => {
-    if (lastSaved) {
-      setVisible(true);
+    if (visible) {
       const timer = setTimeout(() => setVisible(false), 2000);
       return () => clearTimeout(timer);
     }
-  }, [lastSaved]);
+  }, [visible]);
 
   if (!visible && !isSaving) return null;
 

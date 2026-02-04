@@ -205,13 +205,10 @@ export function Modal({
   titleId,
   descriptionId,
 }: ModalProps) {
-  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const [portalContainer] = useState<HTMLElement | null>(() =>
+    typeof document !== 'undefined' ? document.body : null
+  );
   const modalRef = useRef<HTMLDivElement>(null);
-
-  // Set up portal container
-  useEffect(() => {
-    setPortalContainer(document.body);
-  }, []);
 
   // Lock body scroll when modal is open
   useLockBodyScroll(isOpen);

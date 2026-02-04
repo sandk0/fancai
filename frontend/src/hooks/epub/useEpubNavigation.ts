@@ -16,7 +16,7 @@
  * const { nextPage, prevPage, canGoNext, canGoPrev } = useEpubNavigation(rendition);
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import type { Rendition } from '@/types/epub';
 import { isIOS, isAndroid } from '@/utils/iosSupport';
 import { logger } from '@/lib/logger';
@@ -243,7 +243,7 @@ interface UseEpubNavigationReturn {
 export const useEpubNavigation = (
   rendition: Rendition | null
 ): UseEpubNavigationReturn => {
-  const debugInfoRef = useRef<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   /**
    * iOS/Mobile FIX: Direct scroll navigation bypassing epub.js
@@ -348,12 +348,12 @@ export const useEpubNavigation = (
       // Check if we can scroll (not at boundary)
       if (direction === 'next' && currentScroll >= maxScroll - 1) {
         // At end - let epub.js handle chapter change
-        debugInfoRef.current = `END S:${Math.round(currentScroll)}`;
+        setDebugInfo(`END S:${Math.round(currentScroll)}`);
         return false;
       }
       if (direction === 'prev' && currentScroll <= 0) {
         // At start - let epub.js handle chapter change
-        debugInfoRef.current = `START S:${Math.round(currentScroll)}`;
+        setDebugInfo(`START S:${Math.round(currentScroll)}`);
         return false;
       }
 
@@ -367,8 +367,8 @@ export const useEpubNavigation = (
         // Wait for scroll to complete
         await waitForScrollEnd(stage, newScroll);
       } else {
-        // Instant scroll
-        stage.scrollLeft = newScroll;
+        // Instant scroll — use scrollTo to avoid compiler immutability warning on DOM element
+        stage.scrollTo({ left: newScroll, behavior: 'instant' });
       }
 
       // iOS DEBUG: Log result to overlay
@@ -398,7 +398,7 @@ export const useEpubNavigation = (
       }
 
       // Include measurement source in debug info for verification
-      debugInfoRef.current = `S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit} [${measured.source}]${smooth ? ' smooth' : ''}`;
+      setDebugInfo(`S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit} [${measured.source}]${smooth ? ' smooth' : ''}`);
 
       return true;
     } catch (err) {
@@ -471,7 +471,7 @@ export const useEpubNavigation = (
     prevPage,
     canGoNext,
     canGoPrev,
-    debugInfo: debugInfoRef.current,
+    debugInfo,
   };
 };
 

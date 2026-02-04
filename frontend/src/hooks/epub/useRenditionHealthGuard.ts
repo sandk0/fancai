@@ -106,7 +106,12 @@ export function useRenditionHealthGuard({
   const [isHealthy] = useState(true);
   const [isChecking] = useState(false);
   const [wasResumed, setWasResumed] = useState(false);
-  const [lastSavedCfi, setLastSavedCfi] = useState<string | null>(null);
+  const [lastSavedCfi, setLastSavedCfi] = useState<string | null>(() => {
+    if (bookId) {
+      return localStorage.getItem(`book_${bookId}_resume_cfi`);
+    }
+    return null;
+  });
 
   const renditionRef = useRef<Rendition | null>(null);
   const hideTimeRef = useRef<number>(0);
@@ -251,19 +256,17 @@ export function useRenditionHealthGuard({
     [enabled]
   );
 
-  /**
-   * Try to load saved CFI from localStorage on mount.
-   */
-  useEffect(() => {
+  const [prevBookId, setPrevBookId] = useState(bookId);
+  if (prevBookId !== bookId) {
+    setPrevBookId(bookId);
     if (bookId) {
       const saved = localStorage.getItem(`book_${bookId}_resume_cfi`);
       if (saved) {
         setLastSavedCfi(saved);
-
         logger.debug('[RenditionHealthGuard] Found saved CFI:', saved.slice(0, 50));
       }
     }
-  }, [bookId]);
+  }
 
   /**
    * Set up event listeners.

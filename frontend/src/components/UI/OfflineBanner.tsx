@@ -59,14 +59,14 @@ export function OfflineBanner({
     }
   }, []);
 
-  // Initial load and periodic updates
   useEffect(() => {
-    updatePendingCount();
-
-    // Update pending count periodically (every 5 seconds)
+    const timer = setTimeout(updatePendingCount, 0);
     const interval = setInterval(updatePendingCount, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [updatePendingCount]);
 
   // Subscribe to queue changes for immediate updates
@@ -78,34 +78,37 @@ export function OfflineBanner({
     return unsubscribe;
   }, [updatePendingCount]);
 
-  // Manage visibility state
-  useEffect(() => {
+  const [prevDerived, setPrevDerived] = useState({ isOnline, wasOffline, pendingCount });
+  if (
+    prevDerived.isOnline !== isOnline ||
+    prevDerived.wasOffline !== wasOffline ||
+    prevDerived.pendingCount !== pendingCount
+  ) {
+    setPrevDerived({ isOnline, wasOffline, pendingCount });
+
     if (!isOnline) {
-      // Always show when offline
       setIsVisible(true);
       setShowSyncSuccess(false);
     } else if (wasOffline && pendingCount > 0) {
-      // Show while syncing after being offline
       setIsVisible(true);
       setShowSyncSuccess(false);
     } else if (wasOffline && pendingCount === 0) {
-      // Show success message briefly, then hide
       setShowSyncSuccess(true);
       setIsVisible(true);
-
-      if (autoHideDelay > 0) {
-        const timer = setTimeout(() => {
-          setIsVisible(false);
-        }, autoHideDelay);
-        return () => clearTimeout(timer);
-      }
     } else if (pendingCount > 0) {
-      // Show if there are pending items even if never went offline
       setIsVisible(true);
       setShowSyncSuccess(false);
     } else {
-      // Online with no pending items - hide
       setIsVisible(false);
+    }
+  }
+
+  useEffect(() => {
+    if (wasOffline && pendingCount === 0 && isOnline && autoHideDelay > 0) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, autoHideDelay);
+      return () => clearTimeout(timer);
     }
   }, [isOnline, wasOffline, pendingCount, autoHideDelay]);
 

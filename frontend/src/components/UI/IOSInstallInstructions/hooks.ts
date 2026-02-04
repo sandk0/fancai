@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   isIOSSafari,
   isStandalone,
@@ -10,11 +10,7 @@ import {
 } from '@/utils/iosSupport';
 
 export function useIOSInstallPrompt() {
-  const [shouldShow, setShouldShow] = useState(false);
-
-  useEffect(() => {
-    setShouldShow(shouldShowIOSInstallPrompt());
-  }, []);
+  const [shouldShow, setShouldShow] = useState(() => shouldShowIOSInstallPrompt());
 
   const dismiss = useCallback(() => {
     dismissIOSInstallPrompt();
@@ -25,38 +21,26 @@ export function useIOSInstallPrompt() {
 }
 
 export function useIsIOSPWA() {
-  const [isIOSPWA, setIsIOSPWA] = useState(false);
-
-  useEffect(() => {
-    setIsIOSPWA(isIOSSafari() && isStandalone());
-  }, []);
+  const [isIOSPWA] = useState(() => isIOSSafari() && isStandalone());
 
   return isIOSPWA;
 }
 
 export function useIOSPushReadiness() {
-  const [state, setState] = useState({
-    needsGuidance: false,
-    isIOSSafariDevice: false,
-    isStandaloneMode: false,
-    canReceivePush: false,
-    iosVersion: null as number | null,
-  });
-
-  useEffect(() => {
+  const [state] = useState(() => {
     const isiOSSafari = isIOSSafari();
     const inStandalone = isStandalone();
     const version = getIOSVersion();
     const supportsWebPush = version !== null && version >= IOS_MIN_PUSH_VERSION;
 
-    setState({
+    return {
       needsGuidance: isiOSSafari && !inStandalone,
       isIOSSafariDevice: isiOSSafari,
       isStandaloneMode: inStandalone,
       canReceivePush: isIOS() ? (supportsWebPush && inStandalone) : true,
       iosVersion: version,
-    });
-  }, []);
+    };
+  });
 
   return state;
 }

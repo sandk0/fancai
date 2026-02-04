@@ -15,7 +15,7 @@
  * - Placeholder для Images, System, Users табов
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Activity, Cpu, Database, Image, Server, Users, GitMerge } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
@@ -36,8 +36,6 @@ import {
   type SystemStats,
   type MultiNLPSettings,
   type ParsingSettings,
-  type ImageGenerationSettings,
-  type SystemSettings
 } from '@/api/admin';
 
 const AdminDashboard: React.FC = () => {
@@ -45,10 +43,8 @@ const AdminDashboard: React.FC = () => {
   const { user, isLoading } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [multiNlpSettings, setMultiNlpSettings] = useState<MultiNLPSettings | null>(null);
-  const [parsingSettings, setParsingSettings] = useState<ParsingSettings | null>(null);
-  const [_imageSettings, setImageSettings] = useState<ImageGenerationSettings | null>(null);
-  const [_systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [multiNlpOverrides, setMultiNlpOverrides] = useState<MultiNLPSettings | null>(null);
+  const [parsingOverrides, setParsingOverrides] = useState<ParsingSettings | null>(null);
 
   // Always call hooks regardless of user state
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<SystemStats>({
@@ -70,33 +66,12 @@ const AdminDashboard: React.FC = () => {
     enabled: !!(user && user.is_admin)
   });
 
-  const { data: imageData, isLoading: _imageLoading } = useQuery<ImageGenerationSettings>({
-    queryKey: ['admin', 'image-settings'],
-    queryFn: () => adminAPI.getImageGenerationSettings(),
-    enabled: !!(user && user.is_admin)
-  });
+  // Derive effective settings: local overrides take precedence over query data
+  const multiNlpSettings = multiNlpOverrides ?? multiNlpData ?? null;
+  const parsingSettings = parsingOverrides ?? parsingData ?? null;
 
-  const { data: systemData, isLoading: _systemLoading } = useQuery<SystemSettings>({
-    queryKey: ['admin', 'system-settings'],
-    queryFn: () => adminAPI.getSystemSettings(),
-    enabled: !!(user && user.is_admin)
-  });
-
-  useEffect(() => {
-    if (multiNlpData) setMultiNlpSettings(multiNlpData);
-  }, [multiNlpData]);
-
-  useEffect(() => {
-    if (parsingData) setParsingSettings(parsingData);
-  }, [parsingData]);
-
-  useEffect(() => {
-    if (imageData) setImageSettings(imageData);
-  }, [imageData]);
-
-  useEffect(() => {
-    if (systemData) setSystemSettings(systemData);
-  }, [systemData]);
+  const setMultiNlpSettings = setMultiNlpOverrides;
+  const setParsingSettings = setParsingOverrides;
 
   const saveMultiNlpSettings = useMutation({
     mutationFn: (settings: MultiNLPSettings) => adminAPI.updateMultiNLPSettings(settings),
