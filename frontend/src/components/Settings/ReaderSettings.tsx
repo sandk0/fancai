@@ -170,7 +170,7 @@ const ReaderSettings: React.FC = () => {
               role="radio"
               aria-checked={theme === themeOption.value}
               tabIndex={0}
-              className={`relative p-4 border-2 rounded-lg cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              className={`relative p-4 border-2 rounded-lg cursor-pointer transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 theme === themeOption.value
                   ? 'border-primary bg-primary/5 dark:bg-primary/20'
                   : 'border-input hover:border-muted-foreground'
@@ -316,7 +316,7 @@ const ReaderSettings: React.FC = () => {
       <div className="flex justify-end pt-6 border-t border-border">
         <button
           onClick={handleReset}
-          className="inline-flex items-center px-4 py-2 min-h-[44px] border border-input rounded-lg text-sm font-medium text-foreground bg-background hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+          className="inline-flex items-center px-4 py-2 min-h-[44px] border border-input rounded-lg text-sm font-medium text-foreground bg-background hover:bg-muted focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
         >
           <RotateCcw className="h-4 w-4 mr-2" />
           {t('readerSettings.resetToDefaults')}

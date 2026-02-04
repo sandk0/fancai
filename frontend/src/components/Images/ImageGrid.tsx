@@ -83,7 +83,7 @@ export function ImageGrid({ images, descriptionTypes, onImageClick }: ImageGridP
             <p className="text-sm line-clamp-2 mb-2 text-muted-foreground">
               {image.description?.text || image.description?.content}
             </p>
-            <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-muted text-foreground">
+            <span className="inline-block px-2 py-1 rounded-sm text-xs font-medium bg-muted text-foreground">
               {descriptionTypes.find((t) => t.value === image.description?.type)?.label}
             </span>
           </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { BookOpen, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
@@ -67,7 +67,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
           'border border-border',
           isClickable && 'hover:border-primary/50',
           'transition-all duration-300',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+          'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
         )}
         whileHover={isClickable ? { scale: 1.01 } : undefined}
         whileTap={isClickable ? { scale: 0.99 } : undefined}

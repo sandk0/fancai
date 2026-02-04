@@ -77,9 +77,9 @@ export const StorageQuotaInfo: React.FC<StorageQuotaInfoProps> = ({
     return (
       <Card className={cn('animate-pulse', className)} padding={compact ? 'sm' : 'md'}>
         <div className="space-y-3">
-          <div className="h-4 w-1/3 bg-muted rounded" />
-          <div className="h-3 w-full bg-muted rounded" />
-          <div className="h-3 w-1/2 bg-muted rounded" />
+          <div className="h-4 w-1/3 bg-muted rounded-sm" />
+          <div className="h-3 w-full bg-muted rounded-sm" />
+          <div className="h-3 w-1/2 bg-muted rounded-sm" />
         </div>
       </Card>
     );

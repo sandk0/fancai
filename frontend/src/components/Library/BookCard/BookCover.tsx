@@ -1,4 +1,4 @@
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { Book, CheckCircle2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -58,13 +58,13 @@ export function BookCover({
       {book.is_parsed && !book.is_processing && (
         <div className="absolute top-2 left-2 pointer-events-none">
           {isDownloading ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/90 text-primary-foreground text-xs font-medium backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/90 text-primary-foreground text-xs font-medium backdrop-blur-sm shadow-xs">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               <span>{downloadProgress}%</span>
             </div>
           ) : isAvailableOffline ? (
             <div
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500/90 text-white text-xs font-medium backdrop-blur-sm shadow-sm"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500/90 text-white text-xs font-medium backdrop-blur-sm shadow-xs"
               title={t('bookCard.available_offline')}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />

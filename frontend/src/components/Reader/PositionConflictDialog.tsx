@@ -54,12 +54,12 @@ export const PositionConflictDialog: React.FC<PositionConflictDialogProps> = ({
         <h3 className="text-lg font-semibold text-popover-foreground mb-4">{t('reader.conflict.title')}</h3>
         <p className="text-muted-foreground text-sm mb-4">{t('reader.conflict.description')}</p>
         <div className="space-y-3 mb-6">
-          <div className="p-3 bg-muted rounded">
+          <div className="p-3 bg-muted rounded-sm">
             <div className="text-sm text-muted-foreground">{t('reader.conflict.server')}</div>
             <div className="text-popover-foreground text-lg font-medium">{Math.round(serverPosition.progress)}%</div>
             <div className="text-xs text-muted-foreground/70">{t('reader.conflict.time_ago', { time: formatDistanceToNow(serverPosition.lastReadAt) })}</div>
           </div>
-          <div className="p-3 bg-muted rounded">
+          <div className="p-3 bg-muted rounded-sm">
             <div className="text-sm text-muted-foreground">{t('reader.conflict.local')}</div>
             <div className="text-popover-foreground text-lg font-medium">{Math.round(localPosition.progress)}%</div>
             <div className="text-xs text-muted-foreground/70">{t('reader.conflict.time_ago', { time: formatDistanceToNow(localPosition.savedAt) })}</div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Share, Plus, X } from 'lucide-react';
-import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
+import { m, AnimatePresence, LazyMotion, domAnimation } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Z_INDEX } from '@/lib/zIndex';
 import { Button } from '@/components/UI/button';
@@ -246,7 +246,7 @@ export function IOSInstallInstructions({
                     'flex h-8 w-8 items-center justify-center rounded-md',
                     'text-[var(--color-text-muted)] hover:text-[var(--color-text-default)]',
                     'hover:bg-[var(--color-bg-muted)] transition-colors',
-                    'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-500)]'
+                    'focus:outline-hidden focus:ring-2 focus:ring-[var(--color-accent-500)]'
                   )}
                   aria-label="Close"
                 >

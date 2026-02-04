@@ -146,7 +146,7 @@ async def check_redis() -> ComponentHealthResponse:
     try:
         start_time = time.time()
         # Create a connection to Redis
-        r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
         # Perform PING
         is_connected = await r.ping()
         latency = (time.time() - start_time) * 1000  # ms

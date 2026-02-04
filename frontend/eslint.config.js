@@ -46,6 +46,14 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // New rules in react-hooks v7 — demote to warnings for gradual adoption
+      // These are React Compiler compatibility rules that require significant refactoring
+      'react-hooks/set-state-in-effect': 'warn',    // setState in useEffect (common pattern)
+      'react-hooks/refs': 'warn',                    // ref access during render
+      'react-hooks/purity': 'warn',                  // impure function calls in render
+      'react-hooks/use-memo': 'warn',                // non-inline useCallback arguments
+      'react-hooks/immutability': 'warn',            // prop/argument mutation
+      'react-hooks/incompatible-library': 'off',     // third-party library warnings (noise)
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

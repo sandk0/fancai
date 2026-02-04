@@ -152,7 +152,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                   onClick={() => updateTheme(themeKey)}
                   className={cn(
                     'px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all min-h-[44px]',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                     isActive
                       ? 'border-primary ring-2 ring-primary/20'
                       : 'border-border'
@@ -177,7 +177,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                   onClick={() => updateTheme(themeKey)}
                   className={cn(
                     'px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all min-h-[44px]',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                     isActive
                       ? 'border-primary ring-2 ring-primary/20'
                       : 'border-border'
@@ -312,7 +312,7 @@ export const ReadingSettingsSection: React.FC<ReadingSettingsSectionProps> = ({
                     onClick={() => updateTheme(themeKey)}
                     className={cn(
                       'px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all min-h-[44px]',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                      'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       isActive
                         ? 'border-primary ring-2 ring-primary/20'
                         : 'border-border hover:border-primary/50'

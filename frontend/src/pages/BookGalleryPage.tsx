@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ArrowLeft, Users, Lock } from 'lucide-react';
 import { useEntityNetwork } from '@/hooks/useEntityNetwork';
 import { booksAPI } from '@/api/books';
@@ -180,7 +180,7 @@ const BookGalleryPage: React.FC = () => {
             <Drawer.Root open={!!selectedEntityId} onOpenChange={(open) => !open && setSelectedEntityId(null)}>
                 <Drawer.Portal>
                     <Drawer.Overlay className="fixed inset-0 bg-[var(--color-bg-overlay)] backdrop-blur-sm z-50" />
-                    <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[20px] h-[90vh] mt-24 fixed bottom-0 left-0 right-0 z-50 outline-none border-t border-[var(--color-border-default)]">
+                    <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[20px] h-[90vh] mt-24 fixed bottom-0 left-0 right-0 z-50 outline-hidden border-t border-[var(--color-border-default)]">
                         <div className="flex-1 relative rounded-t-[20px] overflow-hidden bg-[var(--color-bg-base)]">
                             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-[var(--color-text-disabled)] rounded-full z-20" />
                             {selectedEntityId && network && network.entities[selectedEntityId] && (

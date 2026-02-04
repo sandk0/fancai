@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, Smartphone, Zap, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { m, LazyMotion, domAnimation } from 'framer-motion';
+import { m, LazyMotion, domAnimation } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/UI/button';
 import {
@@ -108,7 +108,7 @@ export function IOSPushGuidance({
                     'mt-2 inline-flex items-center gap-1 text-sm font-medium',
                     'text-amber-700 dark:text-amber-400',
                     'hover:text-amber-800 dark:hover:text-amber-300',
-                    'focus:outline-none focus:underline',
+                    'focus:outline-hidden focus:underline',
                     'transition-colors'
                   )}
                 >

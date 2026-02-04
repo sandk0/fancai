@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { ArrowLeft, List, Settings, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme, type AppTheme } from '@/hooks/useTheme';
@@ -54,7 +54,7 @@ const ToolbarButton: React.FC<{
       'hover:bg-foreground/10 active:bg-foreground/15',
       'transition-colors duration-200',
       // Focus states
-      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       className
     )}
   >
@@ -90,7 +90,7 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = React.memo(function R
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}
           transition={{
-            type: 'spring',
+            type: 'spring' as const,
             stiffness: 300,
             damping: 30,
           }}
@@ -104,7 +104,7 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = React.memo(function R
             // Border
             'border-b border-border/50',
             // Shadow for depth
-            'shadow-sm',
+            'shadow-xs',
             className
           )}
         >

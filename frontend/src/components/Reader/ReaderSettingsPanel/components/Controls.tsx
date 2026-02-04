@@ -1,4 +1,4 @@
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { Minus, Plus, Hand } from 'lucide-react';
 import type { ReaderTheme, NavigationMode } from '@/stores/reader';
 import { themeConfigs, fontFamilyOptions, widthPresets } from '../config';
@@ -154,7 +154,7 @@ export const ThemeButton: React.FC<ThemeButtonProps> = ({ theme, isActive, onCli
       aria-pressed={isActive}
     >
       <div
-        className="w-8 h-8 rounded-full border-2 border-border mb-1 flex items-center justify-center shadow-sm"
+        className="w-8 h-8 rounded-full border-2 border-border mb-1 flex items-center justify-center shadow-xs"
         style={{ backgroundColor: config.bg }}
       >
         <span style={{ color: config.text }} className="text-xs font-bold">
@@ -167,7 +167,7 @@ export const ThemeButton: React.FC<ThemeButtonProps> = ({ theme, isActive, onCli
           layoutId="activeTheme"
           className="absolute inset-0 rounded-xl border-2 border-primary"
           initial={false}
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          transition={{ type: 'spring' as const, stiffness: 500, damping: 30 }}
         />
       )}
     </button>

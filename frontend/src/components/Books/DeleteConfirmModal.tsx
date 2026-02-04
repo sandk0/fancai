@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { X, AlertTriangle, Trash2 } from 'lucide-react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { Button } from '@/components/UI/button';

@@ -49,9 +49,9 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
           <div className="px-4 py-3 border-t">
             <label className="text-xs mb-2 block opacity-70">{t('reader.settings.font_size')}</label>
             <div className="flex items-center gap-3">
-              <button onClick={onFontSizeDecrease} disabled={fontSize <= 75} className="h-10 w-10 border rounded flex items-center justify-center" aria-label={t('reader.settings.decrease_font_size')}><Minus className="h-4 w-4" aria-hidden="true" /></button>
+              <button onClick={onFontSizeDecrease} disabled={fontSize <= 75} className="h-10 w-10 border rounded-sm flex items-center justify-center" aria-label={t('reader.settings.decrease_font_size')}><Minus className="h-4 w-4" aria-hidden="true" /></button>
               <span className="flex-1 text-center font-bold">{fontSize}%</span>
-              <button onClick={onFontSizeIncrease} disabled={fontSize >= 200} className="h-10 w-10 border rounded flex items-center justify-center" aria-label={t('reader.settings.increase_font_size')}><Plus className="h-4 w-4" aria-hidden="true" /></button>
+              <button onClick={onFontSizeIncrease} disabled={fontSize >= 200} className="h-10 w-10 border rounded-sm flex items-center justify-center" aria-label={t('reader.settings.increase_font_size')}><Plus className="h-4 w-4" aria-hidden="true" /></button>
             </div>
           </div>
           {wakeLockSupported && onWakeLockChange && (
@@ -64,10 +64,10 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
             <div className="px-4 py-3 border-t">
               <label className="text-xs mb-2 block opacity-70">{t('reader.settings.navigation')}</label>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => onNavigationModeChange?.('swipe')} className={cn("p-2 rounded flex flex-col items-center", navigationMode === 'swipe' ? "bg-primary text-primary-foreground" : "bg-card border")}>
+                <button onClick={() => onNavigationModeChange?.('swipe')} className={cn("p-2 rounded-sm flex flex-col items-center", navigationMode === 'swipe' ? "bg-primary text-primary-foreground" : "bg-card border")}>
                   <Hand className="h-4 w-4" /><span>{t('reader.settings.nav_swipe')}</span>
                 </button>
-                <button onClick={() => onNavigationModeChange?.('tap')} className={cn("p-2 rounded flex flex-col items-center", navigationMode === 'tap' ? "bg-primary text-primary-foreground" : "bg-card border")}>
+                <button onClick={() => onNavigationModeChange?.('tap')} className={cn("p-2 rounded-sm flex flex-col items-center", navigationMode === 'tap' ? "bg-primary text-primary-foreground" : "bg-card border")}>
                   <MousePointerClick className="h-4 w-4" /><span>{t('reader.settings.nav_tap')}</span>
                 </button>
               </div>

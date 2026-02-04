@@ -36,7 +36,7 @@ class ParsingManager:
         """Получить Redis клиент."""
         if not self.redis_client:
             self.redis_client = await redis.from_url(
-                settings.REDIS_URL, encoding="utf-8", decode_responses=True
+                settings.REDIS_URL, decode_responses=True
             )
         return self.redis_client
 

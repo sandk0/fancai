@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { BookOpen, ArrowRight, Sparkles, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { scaleOnHover } from '@/components/Home/constants';

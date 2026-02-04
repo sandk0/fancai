@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { imagesAPI } from '@/api/images';
 import { useUIStore } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';

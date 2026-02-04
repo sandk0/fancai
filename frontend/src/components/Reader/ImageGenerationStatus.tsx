@@ -125,7 +125,7 @@ export const ImageGenerationStatus: React.FC<ImageGenerationStatusProps> = ({
         {showCancel && onCancel && (
           <button
             onClick={onCancel}
-            className="min-h-[44px] min-w-[44px] p-2 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="min-h-[44px] min-w-[44px] p-2 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title={t('reader.image_generation.cancel')}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

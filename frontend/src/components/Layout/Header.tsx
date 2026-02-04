@@ -105,7 +105,7 @@ const Header: React.FC = () => {
                     aria-current={isActive ? 'page' : undefined}
                     className={`
                       flex items-center gap-2 px-3 min-h-[44px] rounded-lg text-sm font-medium transition-colors
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                      focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
                       ${isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -140,7 +140,7 @@ const Header: React.FC = () => {
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                className="flex items-center gap-2 p-1 min-w-[44px] min-h-[44px] rounded-full transition-all hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+                className="flex items-center gap-2 p-1 min-w-[44px] min-h-[44px] rounded-full transition-all hover:bg-muted focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 aria-expanded={showUserMenu}
                 aria-haspopup="true"

@@ -224,7 +224,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
       <div
         ref={viewerRef} id="epub-viewer" tabIndex={-1}
-        className={`h-full w-full ${backgroundColor} outline-none`}
+        className={`h-full w-full ${backgroundColor} outline-hidden`}
         style={{
           paddingTop: 'calc(70px + env(safe-area-inset-top))',
           paddingLeft: 'env(safe-area-inset-left)',

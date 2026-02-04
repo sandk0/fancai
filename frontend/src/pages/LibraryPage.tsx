@@ -2,7 +2,7 @@ import React, { useState, useMemo, useDeferredValue, useEffect, useRef } from 'r
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import {
   Search,
   Filter,

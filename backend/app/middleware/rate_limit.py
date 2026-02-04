@@ -59,7 +59,6 @@ class RateLimiter:
             try:
                 self._redis = await redis.from_url(
                     self.redis_url,
-                    encoding="utf-8",
                     decode_responses=True,
                     max_connections=10,
                 )

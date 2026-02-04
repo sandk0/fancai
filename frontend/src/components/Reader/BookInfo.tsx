@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { X, Book as BookIcon, User, Calendar, Globe, Copyright } from 'lucide-react';
 import { Z_INDEX } from '@/lib/zIndex';
 import { useFocusTrap } from '@/hooks/useFocusTrap';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye, Download, Share2, Image, Filter, Grid, List } from 'lucide-react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { imagesAPI } from '@/api/images';
 import { useUIStore } from '@/stores/ui';
@@ -213,12 +213,12 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="group relative bg-card rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+              className="group relative bg-card rounded-lg overflow-hidden shadow-xs hover:shadow-lg transition-shadow"
             >
               <div
                 role="button"
                 tabIndex={0}
-                className="aspect-square cursor-pointer overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                className="aspect-square cursor-pointer overflow-hidden relative focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 onClick={() => handleImageClick(image)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -256,7 +256,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                     e.stopPropagation();
                     handleDownload(image);
                   }}
-                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                   aria-label="Download image"
                 >
                   <Download className="h-4 w-4" aria-hidden="true" />
@@ -266,7 +266,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                     e.stopPropagation();
                     handleShare(image);
                   }}
-                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 active:bg-black/80 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                   aria-label="Share image"
                 >
                   <Share2 className="h-4 w-4" aria-hidden="true" />
@@ -295,7 +295,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="flex items-center space-x-4 bg-card rounded-lg p-4 shadow-sm hover:shadow-lg transition-shadow"
+              className="flex items-center space-x-4 bg-card rounded-lg p-4 shadow-xs hover:shadow-lg transition-shadow"
             >
               <div
                 className="w-20 h-20 flex-shrink-0 cursor-pointer rounded-lg overflow-hidden"

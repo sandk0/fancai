@@ -120,7 +120,7 @@ export const ImageControls: React.FC<ImageControlsProps> = ({
                 value={customPrompt}
                 onChange={(e) => onCustomPromptChange(e.target.value)}
                 placeholder={t('images.stylePlaceholder')}
-                className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-lg text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-lg text-white placeholder-white/40 focus:border-blue-500 focus:outline-hidden"
                 disabled={isRegenerating}
               />
             </div>

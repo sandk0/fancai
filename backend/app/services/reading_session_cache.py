@@ -135,7 +135,6 @@ class ReadingSessionCache:
         if self._redis is None:
             self._redis = await redis.from_url(
                 self.redis_url,
-                encoding="utf-8",
                 decode_responses=True,
                 max_connections=50,  # Connection pool для высокой нагрузки
             )

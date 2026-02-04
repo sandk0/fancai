@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -7,6 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     react(),
     // Bundle analyzer - generates stats.html
     visualizer({
@@ -107,7 +109,7 @@ export default defineConfig({
           'vendor-data': ['@tanstack/react-query', 'axios', 'zustand'],
 
           // UI libraries (heavy animations)
-          'vendor-ui': ['framer-motion', 'lucide-react'],
+          'vendor-ui': ['motion', 'lucide-react'],
 
           // Form & validation
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],

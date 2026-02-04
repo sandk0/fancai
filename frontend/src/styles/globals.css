@@ -1,6 +1,201 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import "tailwindcss";
+
+/* ========================================
+   TAILWIND CSS v4 THEME CONFIGURATION
+   Migrated from tailwind.config.js
+   ======================================== */
+
+@theme {
+  /* Breakpoints */
+  --breakpoint-xs: 375px;
+
+  /* Colors - semantic mappings to CSS variables */
+  --color-background: var(--color-bg-base);
+  --color-foreground: var(--color-text-default);
+
+  --color-card: var(--color-bg-muted);
+  --color-card-foreground: var(--color-text-default);
+
+  --color-popover: var(--color-bg-subtle);
+  --color-popover-foreground: var(--color-text-default);
+
+  --color-primary: var(--color-accent-600);
+  --color-primary-foreground: #FFFFFF;
+
+  --color-secondary: var(--color-bg-muted);
+  --color-secondary-foreground: var(--color-text-default);
+
+  --color-muted: var(--color-bg-subtle);
+  --color-muted-foreground: var(--color-text-muted);
+
+  --color-accent: var(--color-accent-500);
+  --color-accent-foreground: #FFFFFF;
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: #FFFFFF;
+
+  --color-success: var(--color-success);
+  --color-success-foreground: #FFFFFF;
+
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: #FFFFFF;
+
+  --color-info: var(--color-info);
+  --color-info-foreground: #FFFFFF;
+
+  --color-border: var(--color-border-default);
+  --color-input: var(--color-border-default);
+  --color-ring: var(--color-accent-500);
+
+  --color-highlight: hsl(var(--highlight-bg));
+  --color-highlight-border: hsl(var(--highlight-border));
+  --color-highlight-active: hsl(var(--highlight-active));
+
+  /* Border radius */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Font families */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Crimson Text', serif;
+  --font-mono: 'Fira Code', monospace;
+
+  /* Custom animations */
+  --animate-fade-in: fadeIn 0.3s ease-in-out;
+  --animate-slide-up: slideUp 0.3s ease-out;
+  --animate-slide-down: slideDown 0.3s ease-out;
+  --animate-spin-slow: spin 2s linear infinite;
+  --animate-progress-bar: progressBar 2s ease-in-out infinite;
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    0% { transform: translateY(100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes slideDown {
+    0% { transform: translateY(-100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes progressBar {
+    0% { width: 0%; margin-left: 0%; }
+    50% { width: 50%; margin-left: 25%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  /* Custom spacing */
+  --spacing-18: 4.5rem;
+  --spacing-88: 22rem;
+
+  /* Custom min-height (as spacing token) */
+  /* min-h-screen-minus-nav uses arbitrary value: min-h-[calc(100vh-4rem)] */
+}
+
+/* ========================================
+   CUSTOM VARIANTS
+   Migrated from tailwind.config.js plugins
+   ======================================== */
+
+/* Dark mode: class-based with data-theme support */
+@custom-variant dark (&:where(.dark, [data-theme="dark"] *));
+
+/* Sepia theme variant */
+@custom-variant sepia-theme (&:where(.sepia, .sepia *));
+
+/* PWA standalone mode variant for iOS safe-area handling */
+@custom-variant standalone (@media all and (display-mode: standalone));
+
+/* ========================================
+   CUSTOM CONTAINER UTILITY
+   Migrated from tailwind.config.js theme.container
+   ======================================== */
+@utility container {
+  margin-inline: auto;
+  padding-inline: 1rem;
+  width: 100%;
+
+  @media (width >= 640px) {
+    max-width: 640px;
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 768px) {
+    max-width: 768px;
+  }
+  @media (width >= 1024px) {
+    max-width: 1024px;
+    padding-inline: 2rem;
+  }
+  @media (width >= 1280px) {
+    max-width: 1280px;
+  }
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+/* ========================================
+   SAFE AREA UTILITIES
+   Migrated from tailwind.config.js plugin addUtilities
+   ======================================== */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility py-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility p-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility mt-safe {
+  margin-top: env(safe-area-inset-top);
+}
+
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+@utility bottom-safe {
+  bottom: env(safe-area-inset-bottom);
+}
+
+@utility touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
 
 /* Google Fonts - loaded via preload in index.html for better performance */
 
@@ -305,13 +500,13 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--color-border);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 
-  /* Theme transition (respects reduced-motion) */
   @media (prefers-reduced-motion: no-preference) {
     * {
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
@@ -462,7 +657,11 @@ body.reader-active {
 
 /* Focus styles */
 .focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  &:focus {
+    outline: hidden;
+    box-shadow: var(--ring-offset-shadow, 0 0 #0000), 0 0 0 2px var(--color-ring), var(--shadow, 0 0 #0000);
+    --ring-offset-shadow: 0 0 0 2px var(--color-background);
+  }
 }
 
 /* Custom animations */
@@ -664,33 +863,11 @@ body.reader-active {
   overscroll-behavior: contain;
 }
 
-/* Safe area utilities */
-.p-safe {
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-}
-
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
 /* PWA Standalone mode - extra padding for iOS Dynamic Island/notch */
 @media all and (display-mode: standalone) {
   .standalone\:pt-safe-extra {
     padding-top: calc(env(safe-area-inset-top) + 0.5rem);
   }
-}
-
-/* Better touch targets */
-.touch-target {
-  min-height: 44px;
-  min-width: 44px;
 }
 
 /* Disable double-tap zoom on interactive elements */

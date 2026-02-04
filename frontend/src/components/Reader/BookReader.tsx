@@ -16,7 +16,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
 import { useReaderStore } from '@/stores/reader';
@@ -363,7 +363,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
         </div>
 
         {/* Keyboard Navigation Hint */}
-        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-card px-3 py-2 rounded-lg shadow-sm border border-border">
+        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-card px-3 py-2 rounded-lg shadow-xs border border-border">
           {t('reader.navigationHint')}
         </div>
 

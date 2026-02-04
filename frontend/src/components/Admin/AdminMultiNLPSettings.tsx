@@ -65,7 +65,7 @@ export const AdminMultiNLPSettings: React.FC<AdminMultiNLPSettingsProps> = ({
       </div>
 
       {/* LLM Extraction Info */}
-      <div className="bg-card rounded-lg p-4 sm:p-6 shadow-sm border border-border">
+      <div className="bg-card rounded-lg p-4 sm:p-6 shadow-xs border border-border">
         <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4 flex items-center gap-2">
           <Cpu className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
           {t('admin.llmExtractionTitle') || 'LLM-Based Extraction'}
@@ -98,7 +98,7 @@ export const AdminMultiNLPSettings: React.FC<AdminMultiNLPSettingsProps> = ({
       {/* Configuration Note */}
       <div className="bg-muted/50 rounded-lg p-3 sm:p-4 border border-border">
         <p className="text-xs sm:text-sm text-muted-foreground">
-          <strong>Configuration:</strong> Set <code className="bg-secondary px-1 rounded">GOOGLE_API_KEY</code> environment variable to enable LLM extraction.
+          <strong>Configuration:</strong> Set <code className="bg-secondary px-1 rounded-sm">GOOGLE_API_KEY</code> environment variable to enable LLM extraction.
         </p>
       </div>
     </div>

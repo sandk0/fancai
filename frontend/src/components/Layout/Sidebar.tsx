@@ -168,7 +168,7 @@ const Sidebar: React.FC = () => {
                 'text-[var(--color-text-muted)]',
                 'hover:bg-[var(--color-bg-emphasis)] hover:text-[var(--color-text-default)]',
                 'transition-all duration-200',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-500)] focus:ring-offset-2',
+                'focus:outline-hidden focus:ring-2 focus:ring-[var(--color-accent-500)] focus:ring-offset-2',
                 isCollapsed && 'justify-center'
               )}
               aria-label={isCollapsed ? t('sidebar.expand_sidebar') : t('sidebar.collapse_sidebar')}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { X, CheckCircle, XCircle, AlertTriangle, Info, Bell } from 'lucide-react';
 import { useUIStore } from '@/stores/ui';
 import { cn } from '@/utils/cn';
@@ -197,7 +197,7 @@ const Toast: React.FC<ToastProps> = ({
       animate={animationVariant.animate}
       exit={animationVariant.exit}
       transition={{
-        type: 'spring',
+        type: 'spring' as const,
         stiffness: 400,
         damping: 30,
         mass: 1,
@@ -248,7 +248,7 @@ const Toast: React.FC<ToastProps> = ({
                 'bg-black/10 dark:bg-white/10',
                 'hover:bg-black/20 dark:hover:bg-white/20',
                 'transition-colors duration-200',
-                'focus:outline-none focus:ring-2 focus:ring-offset-1',
+                'focus:outline-hidden focus:ring-2 focus:ring-offset-1',
                 'focus:ring-[var(--color-accent-500)]'
               )}
             >
@@ -266,7 +266,7 @@ const Toast: React.FC<ToastProps> = ({
             'opacity-60 hover:opacity-100',
             'transition-all duration-200',
             'hover:bg-black/10 dark:hover:bg-white/10',
-            'focus:outline-none focus:ring-2 focus:ring-offset-2',
+            'focus:outline-hidden focus:ring-2 focus:ring-offset-2',
             'focus:ring-[var(--color-accent-500)]'
           )}
           aria-label="Close notification"

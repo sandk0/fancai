@@ -54,7 +54,7 @@ const cardVariants = cva(
           "cursor-pointer",
           "hover:bg-[var(--color-bg-hover)]",
           "hover:border-[var(--color-border-default)]",
-          "focus-visible:outline-none",
+          "focus-visible:outline-hidden",
           "focus-visible:ring-2",
           "focus-visible:ring-[var(--color-accent-500)]",
           "focus-visible:ring-offset-2",

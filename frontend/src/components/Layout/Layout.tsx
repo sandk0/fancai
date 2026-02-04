@@ -24,7 +24,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Skip Link for Keyboard Navigation */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[900] focus:top-4 focus:left-4 focus:p-4 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[900] focus:top-4 focus:left-4 focus:p-4 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:outline-hidden focus:ring-2 focus:ring-ring"
       >
         {t('layout.skip_to_content')}
       </a>
@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-w-0 overflow-x-hidden min-h-screen pt-4 pb-20 md:pb-0 px-safe mb-safe md:mb-0 outline-none"
+          className="flex-1 min-w-0 overflow-x-hidden min-h-screen pt-4 pb-20 md:pb-0 px-safe mb-safe md:mb-0 outline-hidden"
         >
           {children}
         </main>

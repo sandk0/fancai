@@ -53,7 +53,7 @@ function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => voi
         'text-muted-foreground',
         'hover:text-foreground',
         'transition-colors duration-200',
-        'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+        'focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2',
         'rounded-md'
       )}
       aria-label={show ? t('register.hide_password') : t('register.show_password')}

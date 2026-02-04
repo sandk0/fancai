@@ -9,7 +9,7 @@
  */
 
 import React, { memo } from 'react';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SwipeIndicatorProps {
@@ -60,7 +60,7 @@ export const SwipeIndicator: React.FC<SwipeIndicatorProps> = memo(({
         scale,
       }}
       transition={{
-        type: 'spring',
+        type: 'spring' as const,
         stiffness: 400,
         damping: 25,
       }}

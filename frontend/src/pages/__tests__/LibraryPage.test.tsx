@@ -247,8 +247,8 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Mock framer-motion to avoid animation issues in tests
-vi.mock('framer-motion', () => ({
+// Mock motion/react to avoid animation issues in tests
+vi.mock('motion/react', () => ({
   m: {
     div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
       const { initial: _i, animate: _a, exit: _e, whileHover: _wh, whileTap: _wt, ...rest } = props;

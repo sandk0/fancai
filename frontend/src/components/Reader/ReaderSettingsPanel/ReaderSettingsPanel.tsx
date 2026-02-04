@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { m, AnimatePresence, PanInfo, useDragControls } from 'framer-motion';
+import { m, AnimatePresence, PanInfo, useDragControls } from 'motion/react';
 import { X, Type, Sun, Maximize2, RotateCcw, GripHorizontal, Smartphone, Hand } from 'lucide-react';
 import type { NavigationMode, ReaderTheme } from '@/stores/reader';
 import { useTranslation } from 'react-i18next';
@@ -306,7 +306,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
                        rounded-xl border-2 border-border bg-card
                        hover:bg-muted hover:border-muted-foreground/30
                        transition-colors touch-target text-muted-foreground
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                       focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
             <span className="text-sm font-medium">
@@ -328,7 +328,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
       initial={{ y: '100%' }}
       animate={{ y: dragY }}
       exit={{ y: '100%' }}
-      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      transition={{ type: 'spring' as const, damping: 30, stiffness: 300 }}
       drag="y"
       dragControls={dragControls}
       dragConstraints={{ top: 0, bottom: 0 }}
@@ -360,7 +360,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = React.mem
       initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
-      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      transition={{ type: 'spring' as const, damping: 30, stiffness: 300 }}
       className="fixed right-0 top-0 bottom-0 w-[380px] bg-background shadow-2xl
                  border-l border-border flex flex-col pointer-events-auto"
       style={{ zIndex: Z_INDEX.modal }}

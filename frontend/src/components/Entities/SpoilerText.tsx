@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { isNoteSpoilerCFI } from '../../utils/entityUtils';
 
 interface SpoilerTextProps {
@@ -43,7 +43,7 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     return (
         <span
             onClick={() => setIsRevealed(true)}
-            className="cursor-pointer select-none rounded bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
+            className="cursor-pointer select-none rounded-sm bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
             title={t('entities.spoiler_click_to_reveal')}
         >
             {/* Render redacted blocks roughly matching text length */}

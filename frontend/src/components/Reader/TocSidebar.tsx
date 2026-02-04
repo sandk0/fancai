@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { X, ChevronRight, Search } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Z_INDEX } from '@/lib/zIndex';

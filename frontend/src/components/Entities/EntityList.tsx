@@ -94,7 +94,7 @@ export const EntityList: React.FC<EntityListProps> = ({
                         searchQuery ? (
                             <button
                                 onClick={clearSearch}
-                                className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
+                                className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded-sm transition-colors"
                                 aria-label={t('entities.clear_search')}
                             >
                                 <X className="w-4 h-4" />

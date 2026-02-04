@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -74,7 +74,7 @@ export const Accordion: React.FC<AccordionProps> = ({
               className={cn(
                 'w-full flex items-center justify-between gap-3 p-4 text-left',
                 'min-h-[56px] transition-colors',
-                'hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                'hover:bg-muted/50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                 open && 'bg-muted/30'
               )}
             >

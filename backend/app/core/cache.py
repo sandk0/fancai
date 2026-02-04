@@ -114,7 +114,6 @@ class CacheManager:
             # Create connection pool (configurable for different deployment scenarios)
             self._pool = ConnectionPool.from_url(
                 redis_url,
-                encoding="utf-8",
                 decode_responses=True,
                 max_connections=settings.REDIS_MAX_CONNECTIONS,  # Configurable: 50 (staging) or 100 (production)
                 socket_connect_timeout=5,

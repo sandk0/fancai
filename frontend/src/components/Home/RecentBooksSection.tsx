@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { BookOpen, ArrowRight, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
@@ -93,7 +93,7 @@ export const RecentBooksSection: React.FC<RecentBooksSectionProps> = ({
             <m.div
               key={book.id}
               className={cn(
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg relative',
+                'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg relative',
                 book.is_processing ? 'cursor-default' : 'cursor-pointer'
               )}
               onClick={() => !book.is_processing && navigate(`/book/${book.id}`)}
@@ -104,7 +104,7 @@ export const RecentBooksSection: React.FC<RecentBooksSectionProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <div className="aspect-[2/3] rounded-lg mb-1.5 overflow-hidden border border-border shadow-sm relative">
+              <div className="aspect-[2/3] rounded-lg mb-1.5 overflow-hidden border border-border shadow-xs relative">
                 {book.has_cover ? (
                   <AuthenticatedImage
                     src={`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/books/${book.id}/cover`}
@@ -164,7 +164,7 @@ export const RecentBooksSection: React.FC<RecentBooksSectionProps> = ({
             <m.div
               key={book.id}
               className={cn(
-                'flex-shrink-0 w-32 md:w-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl',
+                'flex-shrink-0 w-32 md:w-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl',
                 book.is_processing ? 'cursor-default' : 'cursor-pointer'
               )}
               onClick={() => !book.is_processing && navigate(`/book/${book.id}`)}
@@ -181,7 +181,7 @@ export const RecentBooksSection: React.FC<RecentBooksSectionProps> = ({
                   'aspect-[2/3] rounded-xl mb-2 overflow-hidden relative',
                   'border border-border',
                   !book.is_processing && 'hover:border-primary/30',
-                  'transition-all duration-200 shadow-sm',
+                  'transition-all duration-200 shadow-xs',
                   !book.is_processing && 'hover:shadow-md'
                 )}
               >

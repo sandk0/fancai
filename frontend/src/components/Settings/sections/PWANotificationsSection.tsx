@@ -153,7 +153,7 @@ export const PWANotificationsSection: React.FC<PWANotificationsSectionProps> = (
             disabled={isPushLoading}
             className={cn(
               'relative inline-flex flex-shrink-0 items-center rounded-full transition-colors',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               isSubscribed ? 'bg-green-500' : 'bg-zinc-600',
               compact ? 'h-6 w-10' : 'h-7 w-12'
@@ -161,7 +161,7 @@ export const PWANotificationsSection: React.FC<PWANotificationsSectionProps> = (
           >
             <span
               className={cn(
-                'inline-block transform rounded-full bg-white shadow-sm transition-transform',
+                'inline-block transform rounded-full bg-white shadow-xs transition-transform',
                 compact
                   ? cn('h-4 w-4', isSubscribed ? 'translate-x-5' : 'translate-x-1')
                   : cn('h-5 w-5', isSubscribed ? 'translate-x-6' : 'translate-x-1')

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { X, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';

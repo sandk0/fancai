@@ -1,5 +1,4 @@
-/// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
@@ -15,15 +14,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
-    reporter: ['verbose'],
-    // Exclude Playwright tests from Vitest
+    reporters: ['verbose'],
     exclude: [
       'node_modules',
       'dist',
       '.idea',
       '.git',
       '.cache',
-      'tests/**',  // Playwright E2E tests
+      'tests/**',
     ],
     coverage: {
       provider: 'v8',
@@ -39,10 +37,6 @@ export default defineConfig({
         '**/*.spec.ts',
         '**/*.spec.tsx',
       ],
-      lines: 40,
-      functions: 40,
-      branches: 40,
-      statements: 40,
       thresholds: {
         lines: 40,
         functions: 40,

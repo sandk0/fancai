@@ -15,7 +15,7 @@
 
 import React, { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
 import SwipeIndicator from './SwipeIndicator';
 
@@ -152,7 +152,7 @@ export const SwipeOverlay: React.FC<SwipeOverlayProps> = memo(({
           {import.meta.env.DEV && (
             <div
               className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1
-                         bg-black/80 text-white text-xs font-mono rounded"
+                         bg-black/80 text-white text-xs font-mono rounded-sm"
             >
               {swipeState.direction || 'idle'} |
               {Math.round(swipeState.offset)}px |

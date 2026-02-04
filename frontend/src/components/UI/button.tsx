@@ -50,7 +50,7 @@ const buttonVariants = cva(
     "text-sm font-medium",
     "transition-all duration-200",
     // Focus styles with ring
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2",
     "focus-visible:ring-[var(--color-accent-500)]",
     "ring-offset-[var(--color-bg-base)]",
     // Disabled state
@@ -70,7 +70,7 @@ const buttonVariants = cva(
           "bg-[var(--color-accent-600)] text-white",
           "hover:bg-[var(--color-accent-700)]",
           "active:bg-[var(--color-accent-700)]",
-          "shadow-sm hover:shadow-md",
+          "shadow-xs hover:shadow-md",
         ],
         /**
          * Secondary - Less prominent actions
@@ -96,7 +96,7 @@ const buttonVariants = cva(
           "bg-[var(--color-error)] text-white",
           "hover:bg-[var(--color-error)]/90",
           "active:bg-[var(--color-error)]/80",
-          "shadow-sm",
+          "shadow-xs",
         ],
         /**
          * Outline - Bordered button with transparent background

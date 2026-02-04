@@ -170,7 +170,7 @@ export const AdminEntityMerge: React.FC<AdminEntityMergeProps> = ({ t }) => {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{entity.name}</span>
                           <span
-                            className={`text-xs px-1.5 py-0.5 rounded ${
+                            className={`text-xs px-1.5 py-0.5 rounded-sm ${
                               entity.type === 'character'
                                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                                 : entity.type === 'location'

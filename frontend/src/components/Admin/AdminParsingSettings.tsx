@@ -46,7 +46,7 @@ export const AdminParsingSettings: React.FC<AdminParsingSettingsProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="bg-card rounded-lg p-4 sm:p-6 shadow-sm border border-border">
+      <div className="bg-card rounded-lg p-4 sm:p-6 shadow-xs border border-border">
         <h3 className="text-base sm:text-lg font-medium text-foreground mb-4 sm:mb-6">
           {t('admin.parsingConfig')}
         </h3>

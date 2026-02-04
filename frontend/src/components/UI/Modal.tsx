@@ -23,7 +23,7 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Z_INDEX } from '@/lib/zIndex';
 
@@ -282,7 +282,7 @@ export function Modal({
               aria-describedby={descriptionId}
               tabIndex={-1}
               className={cn(
-                'relative flex flex-col bg-popover text-popover-foreground shadow-xl outline-none pointer-events-auto',
+                'relative flex flex-col bg-popover text-popover-foreground shadow-xl outline-hidden pointer-events-auto',
                 // Default variant: full width on mobile, constrained on desktop
                 variant === 'default' && [
                   'w-full rounded-lg',
@@ -308,7 +308,7 @@ export function Modal({
               animate="visible"
               exit="exit"
               transition={{
-                type: 'spring',
+                type: 'spring' as const,
                 damping: 25,
                 stiffness: 300,
                 duration: 0.2,
@@ -351,7 +351,7 @@ export function ModalHeader({
             'flex h-11 w-11 items-center justify-center rounded-md',
             'text-muted-foreground hover:text-foreground',
             'hover:bg-accent transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-popover'
+            'focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-popover'
           )}
           aria-label="Close modal"
         >

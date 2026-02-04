@@ -15,7 +15,7 @@
 import { useCallback } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useTranslation } from 'react-i18next';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/UI/button';
 import { Card } from '@/components/UI/Card';
@@ -114,7 +114,7 @@ export function PWAUpdatePrompt({
       opacity: 1,
       scale: 1,
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         damping: 25,
         stiffness: 300,
       },

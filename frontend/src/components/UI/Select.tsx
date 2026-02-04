@@ -18,7 +18,7 @@ const selectVariants = cva(
     // Padding with space for chevron icon
     "pl-3 pr-10",
     // Focus states - visible ring
-    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+    "focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
     // Disabled state
     "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted",
     // Placeholder styling (first option with empty value)

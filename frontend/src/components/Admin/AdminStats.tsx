@@ -61,7 +61,7 @@ export const AdminStats: React.FC<AdminStatsProps> = ({ stats, isLoading, t }) =
         return (
           <div
             key={index}
-            className="bg-card rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-5 shadow-sm border border-border min-w-0 overflow-hidden"
+            className="bg-card rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-5 shadow-xs border border-border min-w-0 overflow-hidden"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">

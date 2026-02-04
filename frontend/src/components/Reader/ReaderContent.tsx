@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import DOMPurify from 'dompurify';
 import type { Description } from '@/types/api';
 

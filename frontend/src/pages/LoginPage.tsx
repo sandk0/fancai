@@ -123,7 +123,7 @@ const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
-                className="flex items-center justify-center focus:outline-none text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center justify-center focus:outline-hidden text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={showPassword ? t('login.hide_password') : t('login.show_password')}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

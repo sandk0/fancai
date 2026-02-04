@@ -28,7 +28,7 @@ const radioCircleVariants = cva(
     "relative flex items-center justify-center",
     "size-5 rounded-full",
     "border-2 transition-all duration-200",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2",
     "focus-visible:ring-[var(--color-accent-500)]",
     "ring-offset-[var(--color-bg-base)]",
   ],

@@ -76,7 +76,7 @@ const NotFoundPage: React.FC = () => {
              <input
                type="text"
                placeholder={t('notFound.search_placeholder')}
-               className="w-full pl-12 pr-4 py-3 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 bg-background border-border text-foreground focus:ring-ring"
+               className="w-full pl-12 pr-4 py-3 rounded-xl border-2 transition-all focus:outline-hidden focus:ring-2 bg-background border-border text-foreground focus:ring-ring"
                onKeyDown={(e) => {
                  if (e.key === 'Enter' && e.currentTarget.value) {
                    navigate(`/library?search=${encodeURIComponent(e.currentTarget.value)}`);

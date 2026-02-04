@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import {
   Home,
   Library,
@@ -170,7 +170,7 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) => {
     visible: {
       x: 0,
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         damping: 25,
         stiffness: 300,
       },
@@ -178,7 +178,7 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) => {
     exit: {
       x: '-100%',
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         damping: 30,
         stiffness: 400,
       },
@@ -245,7 +245,7 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) => {
                   'p-2 rounded-lg',
                   'text-muted-foreground',
                   'hover:bg-muted',
-                  'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+                  'focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2',
                   'transition-colors'
                 )}
                 aria-label={t('common.close')}
@@ -323,7 +323,7 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) => {
                     'w-full flex items-center px-3 py-3 text-base font-medium rounded-lg min-h-[44px]',
                     'text-red-600 dark:text-red-400',
                     'hover:bg-red-50 dark:hover:bg-red-900/20',
-                    'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                    'focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
                     'transition-colors'
                   )}
                 >

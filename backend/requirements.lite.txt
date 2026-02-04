@@ -10,81 +10,80 @@
 # Total image size reduction: ~1.7GB smaller than full version
 # =============================================================================
 
-# FastAPI и веб-фреймворк (December 2025)
-fastapi==0.125.0
-uvicorn[standard]==0.34.0
-gunicorn==23.0.0
-python-multipart==0.0.19
-python-jose[cryptography]==3.4.0
+# FastAPI и веб-фреймворк (February 2026)
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+gunicorn==25.0.1
+python-multipart==0.0.22
+python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 
 # База данных (December 2025)
-sqlalchemy==2.0.45
-alembic==1.14.0
-asyncpg==0.30.0
+sqlalchemy==2.0.46
+alembic==1.18.3
+asyncpg==0.31.0
 
 # Redis и кэширование (December 2025)
-redis==5.2.1
-celery==5.4.0
-kombu==5.4.2
-psutil==6.1.1
+redis==7.1.0
+celery==5.6.2
+kombu==5.6.2
+psutil==7.2.2
 
 # Google AI SDK (December 2025 - replaces langextract)
-google-genai==1.56.0  # Latest Google GenAI SDK (Gemini 3.0 Flash + Imagen 4)
-google-api-core==2.24.0 # Required for exception handling
+google-genai==1.61.0  # Latest Google GenAI SDK (Gemini 3.0 Flash + Imagen 4)
+google-api-core==2.29.0 # Required for exception handling
 
 # Парсинг HTML (для book_parser.py - извлечение текста из EPUB)
-beautifulsoup4==4.12.3
+beautifulsoup4==4.14.3
 
 # Парсинг книг
-ebooklib==0.19
-lxml==5.3.0
+ebooklib==0.20
+lxml==6.0.2
 
 # HTTP клиенты и запросы (December 2025)
 httpx==0.28.1
-requests==2.32.3
-aiofiles==24.1.0
-aiohttp==3.11.11
+requests==2.32.5
+aiofiles==25.1.0
+aiohttp==3.13.3
 
 # Валидация и настройки (December 2025)
-pydantic[email]==2.10.4
-pydantic-settings==2.7.1
+pydantic[email]==2.12.5
+pydantic-settings==2.12.0
 
 # Логирование и мониторинг (December 2025)
 loguru==0.7.3
-sentry-sdk[fastapi]==2.19.2
-prometheus-client==0.21.1
-prometheus-fastapi-instrumentator==7.0.0
+sentry-sdk[fastapi]==2.51.0
+prometheus-client==0.24.1
+prometheus-fastapi-instrumentator==7.1.0
 
 # Безопасность (December 2025)
 python-decouple==3.8
-cryptography==44.0.0
+cryptography==46.0.4
 ecdsa>=0.19.0
 
 # Тестирование (December 2025)
-pytest==8.3.4
-pytest-asyncio==0.25.2
-pytest-cov==6.0.0
-aiosqlite==0.20.0
+pytest==9.0.2
+pytest-asyncio==1.3.0
+pytest-cov==7.0.0
+aiosqlite==0.22.1
 
 # Форматирование и линтинг (December 2025)
-black==25.12.0
-ruff==0.8.6
-mypy==1.14.1
+black==26.1.0
+ruff==0.15.0
+mypy==1.19.1
 
 # Type stubs для mypy
-types-redis==4.6.0.20241004
-types-requests==2.32.0.20241016
-types-aiofiles==24.1.0.20241221
-sqlalchemy[mypy]==2.0.45
+types-requests==2.32.4.20260107
+types-aiofiles==25.1.0.20251011
+sqlalchemy[mypy]==2.0.46
 
 # Web Push Notifications (January 2026)
-pywebpush==2.0.1
+pywebpush==2.2.0
 
 # Утилиты
 python-dateutil==2.9.0.post0
-pillow>=11.0.0
-tenacity==9.0.0  # Retry library with exponential backoff
+pillow==12.1.0
+tenacity==9.1.2  # Retry library with exponential backoff
 
 # Graph Analysis & Map-Reduce (Phase 6)
-networkx==3.4.2
+networkx==3.6.1

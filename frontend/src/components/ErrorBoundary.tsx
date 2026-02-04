@@ -193,7 +193,7 @@ class ErrorBoundary extends Component<Props, State> {
                   <p className="font-semibold mb-2 text-sm">
                     Error:
                   </p>
-                  <pre className="bg-background p-3 rounded text-xs overflow-auto border border-border mb-4">
+                  <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border mb-4">
                     {error.toString()}
                   </pre>
 
@@ -202,7 +202,7 @@ class ErrorBoundary extends Component<Props, State> {
                       <p className="font-semibold mb-2 text-sm">
                         Message:
                       </p>
-                      <pre className="bg-background p-3 rounded text-xs overflow-auto border border-border mb-4">
+                      <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border mb-4">
                         {error.message}
                       </pre>
                     </>
@@ -213,7 +213,7 @@ class ErrorBoundary extends Component<Props, State> {
                       <p className="font-semibold mb-2 text-sm">
                         Component Stack:
                       </p>
-                      <pre className="bg-background p-3 rounded text-xs overflow-auto border border-border max-h-[200px]">
+                      <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border max-h-[200px]">
                         {errorInfo.componentStack}
                       </pre>
                     </>
@@ -232,7 +232,7 @@ class ErrorBoundary extends Component<Props, State> {
                       navigator.clipboard.writeText(JSON.stringify(errorData, null, 2));
                       alert('Error details copied to clipboard');
                     }}
-                    className="mt-4 px-4 py-2 bg-secondary text-foreground rounded text-sm hover:bg-muted transition-colors"
+                    className="mt-4 px-4 py-2 bg-secondary text-foreground rounded-sm text-sm hover:bg-muted transition-colors"
                   >
                     Copy error details
                   </button>

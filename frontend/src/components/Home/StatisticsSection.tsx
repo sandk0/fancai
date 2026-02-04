@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { m } from 'framer-motion';
+import { m } from 'motion/react';
 import { Clock, BarChart3, Library, FileText, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fadeInUp, staggerContainer } from '@/components/Home/constants';
@@ -85,7 +85,7 @@ export const StatisticsSection: React.FC<StatisticsSectionProps> = ({ stats, isL
             key={item.label}
             className={cn(
               'p-2.5 sm:p-3 md:p-4 rounded-lg sm:rounded-xl border border-border bg-card min-w-0 overflow-hidden',
-              'hover:border-primary/30 hover:shadow-sm',
+              'hover:border-primary/30 hover:shadow-xs',
               'transition-all duration-200'
             )}
             variants={fadeInUp}
