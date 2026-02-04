@@ -500,9 +500,21 @@
 
 @layer base {
   * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     border-color: var(--color-border);
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
@@ -514,23 +526,9 @@
   }
 }
 
-/* Base styles */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* Base styles - MUST be inside @layer base for TailwindCSS v4 compatibility.
+   Unlayered styles override all layered styles (including Tailwind utilities),
+   which would break padding/margin/gap utilities like p-4, m-6, gap-4 etc. */
 
 /* Root container - no overflow-x: hidden to preserve position:fixed on iOS Safari */
 #root {
