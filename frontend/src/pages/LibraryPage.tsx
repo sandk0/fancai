@@ -240,17 +240,17 @@ const LibraryPage: React.FC = () => {
           </div>
 
           <div className="flex gap-3">
-            <div className="relative flex-1 sm:flex-initial">
-              <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border bg-card text-foreground w-full sm:w-auto sm:min-w-[160px]">
-                {currentSortOption && <currentSortOption.icon className="w-4 h-4 text-muted-foreground" />}
-                <span className="flex-1 text-left text-sm">{currentSortOption?.label || t('library.sort.label')}</span>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showSortDropdown && 'rotate-180')} />
+            <div className="relative">
+              <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border bg-card text-foreground h-[48px] min-w-[160px]">
+                {currentSortOption && <currentSortOption.icon className="w-4 h-4 shrink-0 text-muted-foreground" />}
+                <span className="flex-1 text-left text-sm truncate">{currentSortOption?.label || t('library.sort.label')}</span>
+                <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform", showSortDropdown && 'rotate-180')} />
               </button>
               <AnimatePresence>
                 {showSortDropdown && (
                   <>
                     <m.div className="fixed inset-0 z-40" onClick={() => setShowSortDropdown(false)} />
-                    <m.div className="absolute top-full mt-2 right-0 w-48 bg-card border border-border rounded-xl shadow-xl z-[100]" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                    <m.div className="absolute top-full mt-2 right-0 w-48 bg-card border border-border rounded-xl shadow-xl z-[100] overflow-hidden" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                       {sortOptions.map(o => (
                         <button key={o.value} onClick={() => handleSortChange(o.value)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted", sortBy === o.value && "bg-primary/10 text-primary")}>
                           <o.icon className="w-4 h-4" />
@@ -262,8 +262,8 @@ const LibraryPage: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors", showFilters || activeFiltersCount > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
-              <Filter className="w-5 h-5" />
+            <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors h-[48px]", showFilters || activeFiltersCount > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+              <Filter className="w-5 h-5 shrink-0" />
               <span className="hidden sm:inline">{t('library.filter.toggle')}</span>
               {activeFiltersCount > 0 && <span className="ml-1 px-2 py-0.5 rounded-full bg-primary-foreground/20 text-xs font-semibold">{activeFiltersCount}</span>}
             </button>
@@ -272,11 +272,11 @@ const LibraryPage: React.FC = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <m.div className="mb-6 p-4 sm:p-6 rounded-xl border-2 border-border bg-card" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <m.div className="mb-6 p-4 sm:p-6 rounded-xl border-2 border-border bg-card overflow-hidden" initial={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }} animate={{ opacity: 1, height: 'auto', marginBottom: 24, paddingTop: undefined, paddingBottom: undefined }} exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }}>
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-2">{t('library.filter.genre')}</label>
-                  <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 border-border bg-background">
+                  <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border-2 border-border bg-background bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[right_12px_center] bg-no-repeat">
                     {genreOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
