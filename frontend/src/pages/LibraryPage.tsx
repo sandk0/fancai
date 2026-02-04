@@ -46,6 +46,7 @@ const LibraryPage: React.FC = () => {
   const [progressFilter, setProgressFilter] = useState('all');
   const [selectedBookForDelete, setSelectedBookForDelete] = useState<Book | null>(null);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // Scroll restoration
   useEffect(() => {
@@ -241,9 +242,9 @@ const LibraryPage: React.FC = () => {
 
           <div className="flex gap-3">
             <div className="relative">
-              <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border bg-card text-foreground h-[48px] min-w-[160px]">
+              <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-2 px-4 rounded-xl border-2 border-border bg-card text-foreground text-sm h-[44px] min-w-[160px]">
                 {currentSortOption && <currentSortOption.icon className="w-4 h-4 shrink-0 text-muted-foreground" />}
-                <span className="flex-1 text-left text-sm truncate">{currentSortOption?.label || t('library.sort.label')}</span>
+                <span className="flex-1 text-left truncate">{currentSortOption?.label || t('library.sort.label')}</span>
                 <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform", showSortDropdown && 'rotate-180')} />
               </button>
               <AnimatePresence>
@@ -262,8 +263,8 @@ const LibraryPage: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors h-[48px]", showFilters || activeFiltersCount > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
-              <Filter className="w-5 h-5 shrink-0" />
+            <button onClick={() => setShowFilters(!showFilters)} className={cn("flex items-center gap-2 px-4 rounded-xl border-2 transition-colors text-sm h-[44px]", showFilters || activeFiltersCount > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+              <Filter className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">{t('library.filter.toggle')}</span>
               {activeFiltersCount > 0 && <span className="ml-1 px-2 py-0.5 rounded-full bg-primary-foreground/20 text-xs font-semibold">{activeFiltersCount}</span>}
             </button>
@@ -272,7 +273,8 @@ const LibraryPage: React.FC = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <m.div className="mb-6 p-4 sm:p-6 rounded-xl border-2 border-border bg-card overflow-hidden" initial={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }} animate={{ opacity: 1, height: 'auto', marginBottom: 24, paddingTop: undefined, paddingBottom: undefined }} exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }}>
+            <m.div className={cn("mb-6 rounded-xl border-2 border-border bg-card", filtersExpanded ? 'overflow-visible' : 'overflow-hidden')} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }} onAnimationComplete={(def) => { if (def === 'animate' || (typeof def === 'object' && 'height' in def && def.height === 'auto')) setFiltersExpanded(true); }} onAnimationStart={() => setFiltersExpanded(false)}>
+              <div className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-2">{t('library.filter.genre')}</label>
@@ -293,6 +295,7 @@ const LibraryPage: React.FC = () => {
                 </div>
               </div>
               {activeFiltersCount > 0 && <div className="mt-4 pt-4 border-t border-border"><button onClick={handleClearFilters} className="text-sm text-primary font-medium">{t('library.filter.reset')}</button></div>}
+              </div>
             </m.div>
           )}
         </AnimatePresence>
