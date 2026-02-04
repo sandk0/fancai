@@ -279,8 +279,9 @@ describe('useProgressSync (simplified)', () => {
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/books/book-1/progress'),
         expect.objectContaining({
-          method: 'PUT',
+          method: 'POST',
           keepalive: true,
+          credentials: 'include',
         })
       );
 

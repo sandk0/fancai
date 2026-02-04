@@ -59,16 +59,13 @@ class NLPAnalysisResult(BaseModel):
     total_descriptions: int = Field(ge=0, description="Total descriptions found")
     by_type: Dict[str, int] = Field(
         default_factory=dict,
-        description="Counts by DescriptionType (LOCATION, CHARACTER, ATMOSPHERE, etc.)"
+        description="Counts by DescriptionType (LOCATION, CHARACTER, ATMOSPHERE, etc.)",
     )
     descriptions: List[DescriptionResponse] = Field(
-        default_factory=list,
-        description="List of extracted descriptions with metadata"
+        default_factory=list, description="List of extracted descriptions with metadata"
     )
     processing_time_seconds: Optional[float] = Field(
-        None,
-        ge=0.0,
-        description="NLP processing time in seconds (if available)"
+        None, ge=0.0, description="NLP processing time in seconds (if available)"
     )
 
 
@@ -111,8 +108,7 @@ class ChapterAnalysisPreview(BaseModel):
     title: str = Field(description="Chapter title")
     word_count: int = Field(ge=0, description="Word count in chapter")
     preview_text: str = Field(
-        max_length=500,
-        description="First 200 chars of content (preview)"
+        max_length=500, description="First 200 chars of content (preview)"
     )
 
 
@@ -139,8 +135,7 @@ class ChapterAnalysisResponse(BaseModel):
     nlp_analysis: NLPAnalysisResult
     message: str = Field(default="Chapter analyzed successfully")
     test_mode: bool = Field(
-        default=False,
-        description="True if analysis was not saved to database"
+        default=False, description="True if analysis was not saved to database"
     )
 
 
@@ -162,7 +157,7 @@ class BatchDescriptionsRequest(BaseModel):
     chapter_numbers: List[int] = Field(
         min_length=1,
         max_length=10,  # Limit to prevent abuse
-        description="List of chapter numbers to fetch (1-indexed, max 10)"
+        description="List of chapter numbers to fetch (1-indexed, max 10)",
     )
 
 
@@ -199,8 +194,7 @@ class BatchDescriptionsResponse(BaseModel):
 
     book_id: UUID
     chapters: List[ChapterDescriptionsResult] = Field(
-        default_factory=list,
-        description="Results for each requested chapter"
+        default_factory=list, description="Results for each requested chapter"
     )
     total_requested: int = Field(ge=0)
     total_success: int = Field(ge=0)
@@ -215,9 +209,13 @@ class BatchDescriptionsResponse(BaseModel):
 class BackgroundExtractionResponse(BaseModel):
     """Response for POST /descriptions/{book_id}/chapters/{chapter_number}/extract-background."""
 
-    status: str = Field(description="extraction_started | skipped | already_extracted | unavailable")
+    status: str = Field(
+        description="extraction_started | skipped | already_extracted | unavailable"
+    )
     chapter_number: int
-    reason: Optional[str] = Field(None, description="Reason for skip/unavailable status")
+    reason: Optional[str] = Field(
+        None, description="Reason for skip/unavailable status"
+    )
 
 
 # ============================================================================

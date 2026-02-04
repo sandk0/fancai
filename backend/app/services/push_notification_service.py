@@ -130,9 +130,7 @@ class PushNotificationService:
             existing.is_active = True
             await db.commit()
             await db.refresh(existing)
-            logger.info(
-                f"Updated push subscription {existing.id} for user {user_id}"
-            )
+            logger.info(f"Updated push subscription {existing.id} for user {user_id}")
             return existing
 
         # Create new subscription

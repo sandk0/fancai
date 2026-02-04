@@ -45,7 +45,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_extract_chapter_descriptions_success(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест успешного извлечения описаний из главы."""
         # Arrange
@@ -61,15 +64,17 @@ class TestBookParsingServiceIntegration:
                 "confidence_score": 0.95,
                 "position": 10,
                 "word_count": 3,
-                "priority_score": 0.9
+                "priority_score": 0.9,
             }
         ]
 
         # Act
-        with patch("app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions", return_value=mock_result):
+        with patch(
+            "app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions",
+            return_value=mock_result,
+        ):
             descriptions = await parsing_service.extract_chapter_descriptions(
-                db=db_session,
-                chapter_id=chapter.id
+                db=db_session, chapter_id=chapter.id
             )
 
         # Assert
@@ -79,7 +84,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_extract_chapter_descriptions_marks_parsed(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест что глава отмечается как обработанная."""
         # Arrange
@@ -94,15 +102,17 @@ class TestBookParsingServiceIntegration:
                 "confidence_score": 0.9,
                 "position": 0,
                 "word_count": 1,
-                "priority_score": 0.8
+                "priority_score": 0.8,
             }
         ]
 
         # Act
-        with patch("app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions", return_value=mock_result):
+        with patch(
+            "app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions",
+            return_value=mock_result,
+        ):
             await parsing_service.extract_chapter_descriptions(
-                db=db_session,
-                chapter_id=chapter.id
+                db=db_session, chapter_id=chapter.id
             )
 
         # Assert
@@ -119,13 +129,15 @@ class TestBookParsingServiceIntegration:
         # Act & Assert
         with pytest.raises(ValueError, match="not found"):
             await parsing_service.extract_chapter_descriptions(
-                db=db_session,
-                chapter_id=uuid4()
+                db=db_session, chapter_id=uuid4()
             )
 
     @pytest.mark.asyncio
     async def test_extract_chapter_descriptions_already_parsed(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест что уже обработанная глава не обрабатывается повторно."""
         # Arrange
@@ -141,15 +153,14 @@ class TestBookParsingServiceIntegration:
             confidence_score=0.9,
             position_in_chapter=0,
             word_count=2,
-            priority_score=0.8
+            priority_score=0.8,
         )
         db_session.add(existing_desc)
         await db_session.commit()
 
         # Act
         descriptions = await parsing_service.extract_chapter_descriptions(
-            db=db_session,
-            chapter_id=chapter.id
+            db=db_session, chapter_id=chapter.id
         )
 
         # Assert
@@ -160,7 +171,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_success(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест получения описаний из всех глав книги."""
         # Arrange
@@ -174,15 +188,14 @@ class TestBookParsingServiceIntegration:
                 confidence_score=0.9,
                 position_in_chapter=i * 10,
                 word_count=2,
-                priority_score=0.8 - (i * 0.1)
+                priority_score=0.8 - (i * 0.1),
             )
             db_session.add(description)
         await db_session.commit()
 
         # Act
         descriptions = await parsing_service.get_book_descriptions(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert
@@ -192,7 +205,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_filtered_by_type(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест получения описаний конкретного типа."""
         # Arrange
@@ -207,7 +223,7 @@ class TestBookParsingServiceIntegration:
             confidence_score=0.9,
             position_in_chapter=0,
             word_count=1,
-            priority_score=0.8
+            priority_score=0.8,
         )
         char_desc = Description(
             chapter_id=chapter.id,
@@ -217,7 +233,7 @@ class TestBookParsingServiceIntegration:
             confidence_score=0.85,
             position_in_chapter=10,
             word_count=1,
-            priority_score=0.7
+            priority_score=0.7,
         )
         db_session.add(loc_desc)
         db_session.add(char_desc)
@@ -227,7 +243,7 @@ class TestBookParsingServiceIntegration:
         descriptions = await parsing_service.get_book_descriptions(
             db=db_session,
             book_id=test_book.id,
-            description_type=DescriptionType.LOCATION
+            description_type=DescriptionType.LOCATION,
         )
 
         # Assert
@@ -236,13 +252,15 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_empty_book(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест получения описаний для книги без описаний."""
         # Act
         descriptions = await parsing_service.get_book_descriptions(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert
@@ -250,7 +268,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_limit(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест лимита на количество описаний."""
         # Arrange
@@ -264,16 +285,14 @@ class TestBookParsingServiceIntegration:
                 confidence_score=0.9,
                 position_in_chapter=i * 10,
                 word_count=2,
-                priority_score=0.9 - (i * 0.01)
+                priority_score=0.9 - (i * 0.01),
             )
             db_session.add(description)
         await db_session.commit()
 
         # Act
         descriptions = await parsing_service.get_book_descriptions(
-            db=db_session,
-            book_id=test_book.id,
-            limit=5
+            db=db_session, book_id=test_book.id, limit=5
         )
 
         # Assert
@@ -283,14 +302,15 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_update_parsing_progress_success(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест обновления прогресса парсинга."""
         # Act
         updated_book = await parsing_service.update_parsing_progress(
-            db=db_session,
-            book_id=test_book.id,
-            progress_percent=50
+            db=db_session, book_id=test_book.id, progress_percent=50
         )
 
         # Assert
@@ -299,14 +319,15 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_update_parsing_progress_completion(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест что завершение парсинга обновляет флаг is_parsed."""
         # Act
         updated_book = await parsing_service.update_parsing_progress(
-            db=db_session,
-            book_id=test_book.id,
-            progress_percent=100
+            db=db_session, book_id=test_book.id, progress_percent=100
         )
 
         # Assert
@@ -315,22 +336,21 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_update_parsing_progress_clamp_values(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест что прогресс ограничивается от 0 до 100."""
         # Act - test negative clamping
         updated_book = await parsing_service.update_parsing_progress(
-            db=db_session,
-            book_id=test_book.id,
-            progress_percent=-50
+            db=db_session, book_id=test_book.id, progress_percent=-50
         )
         assert updated_book.parsing_progress == 0
 
         # Act - test upper clamping
         updated_book = await parsing_service.update_parsing_progress(
-            db=db_session,
-            book_id=test_book.id,
-            progress_percent=150
+            db=db_session, book_id=test_book.id, progress_percent=150
         )
         assert updated_book.parsing_progress == 100
 
@@ -342,22 +362,22 @@ class TestBookParsingServiceIntegration:
         # Act & Assert
         with pytest.raises(ValueError, match="not found"):
             await parsing_service.update_parsing_progress(
-                db=db_session,
-                book_id=uuid4(),
-                progress_percent=50
+                db=db_session, book_id=uuid4(), progress_percent=50
             )
 
     # ==================== PARSING STATUS TESTS ====================
 
     @pytest.mark.asyncio
     async def test_get_parsing_status_initial(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест получения статуса парсинга изначально."""
         # Act
         status = await parsing_service.get_parsing_status(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert
@@ -369,7 +389,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_parsing_status_partially_parsed(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест статуса при частичном парсинге."""
         # Arrange
@@ -385,15 +408,14 @@ class TestBookParsingServiceIntegration:
             confidence_score=0.9,
             position_in_chapter=0,
             word_count=1,
-            priority_score=0.8
+            priority_score=0.8,
         )
         db_session.add(description)
         await db_session.commit()
 
         # Act
         status = await parsing_service.get_parsing_status(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert
@@ -403,7 +425,10 @@ class TestBookParsingServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_parsing_status_fully_parsed(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест статуса при полном парсинге."""
         # Arrange
@@ -418,8 +443,7 @@ class TestBookParsingServiceIntegration:
 
         # Act
         status = await parsing_service.get_parsing_status(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert
@@ -434,16 +458,16 @@ class TestBookParsingServiceIntegration:
         """Тест получения статуса для несуществующей книги."""
         # Act & Assert
         with pytest.raises(ValueError, match="not found"):
-            await parsing_service.get_parsing_status(
-                db=db_session,
-                book_id=uuid4()
-            )
+            await parsing_service.get_parsing_status(db=db_session, book_id=uuid4())
 
     # ==================== MULTIPLE CHAPTERS TESTS ====================
 
     @pytest.mark.asyncio
     async def test_parsing_multiple_chapters_tracking(
-        self, parsing_service: BookParsingService, db_session: AsyncSession, test_book: Book
+        self,
+        parsing_service: BookParsingService,
+        db_session: AsyncSession,
+        test_book: Book,
     ):
         """Тест отслеживания прогресса парсинга нескольких глав."""
         # Arrange
@@ -457,15 +481,12 @@ class TestBookParsingServiceIntegration:
             # Update book progress
             progress = int((i / total_chapters) * 100)
             await parsing_service.update_parsing_progress(
-                db=db_session,
-                book_id=test_book.id,
-                progress_percent=progress
+                db=db_session, book_id=test_book.id, progress_percent=progress
             )
 
         # Act
         status = await parsing_service.get_parsing_status(
-            db=db_session,
-            book_id=test_book.id
+            db=db_session, book_id=test_book.id
         )
 
         # Assert

@@ -137,15 +137,18 @@ const ImagesGalleryPage: React.FC = () => {
       });
   }, [allImages, selectedBook, descriptionType, searchQuery, sortBy]);
 
+  const filterKey = `${selectedBook}|${descriptionType}|${searchQuery}|${sortBy}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
+    setCurrentPage(1);
+  }
+
   const totalPages = Math.ceil(filteredImages.length / IMAGES_PER_PAGE);
   const paginatedImages = useMemo(() => {
     const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
     return filteredImages.slice(startIndex, startIndex + IMAGES_PER_PAGE);
   }, [filteredImages, currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedBook, descriptionType, searchQuery, sortBy]);
 
   const isLoading = booksLoading || imagesLoading;
 

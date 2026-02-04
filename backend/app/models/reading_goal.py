@@ -36,6 +36,7 @@ class GoalType(enum.Enum):
     PAGES: Прочитать N страниц
     STREAK: Читать N дней подряд (без пропусков)
     """
+
     BOOKS = "books"
     MINUTES = "minutes"
     PAGES = "pages"
@@ -51,6 +52,7 @@ class GoalPeriod(enum.Enum):
     MONTHLY: Ежемесячная цель
     YEARLY: Годовая цель
     """
+
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
@@ -177,7 +179,9 @@ class ReadingGoal(Base):
 
     # Relationships
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    user: Mapped["User"] = relationship("User", back_populates="reading_goals", lazy="raise")
+    user: Mapped["User"] = relationship(
+        "User", back_populates="reading_goals", lazy="raise"
+    )
 
     # Constraints & Indexes
     __table_args__ = (
@@ -205,9 +209,7 @@ class ReadingGoal(Base):
             name="ck_reading_goals_end_after_start",
         ),
         # Composite index: поиск активных целей пользователя
-        Index(
-            "idx_reading_goals_user_active", "user_id", "is_active", "start_date"
-        ),
+        Index("idx_reading_goals_user_active", "user_id", "is_active", "start_date"),
         # Composite index: поиск по типу и периоду
         Index("idx_reading_goals_type_period", "goal_type", "goal_period"),
         # Partial index: только активные цели
@@ -226,9 +228,7 @@ class ReadingGoal(Base):
             postgresql_where=(is_completed.is_(True)),
         ),
         # Composite index: period filtering (start_date, end_date)
-        Index(
-            "idx_reading_goals_period_range", "user_id", "start_date", "end_date"
-        ),
+        Index("idx_reading_goals_period_range", "user_id", "start_date", "end_date"),
         # Composite index: progress updates
         Index(
             "idx_reading_goals_progress_update",

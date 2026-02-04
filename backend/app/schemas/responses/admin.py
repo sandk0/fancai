@@ -38,39 +38,21 @@ class CacheStatsResponse(BaseModel):
         cache_ttl_config: Конфигурация TTL для разных типов данных (опционально)
     """
 
-    total_keys: int = Field(
-        ge=0,
-        description="Total number of keys in Redis"
-    )
-    memory_usage_mb: float = Field(
-        ge=0.0,
-        description="Memory usage in megabytes"
-    )
+    total_keys: int = Field(ge=0, description="Total number of keys in Redis")
+    memory_usage_mb: float = Field(ge=0.0, description="Memory usage in megabytes")
     hit_rate: float = Field(
-        ge=0.0,
-        le=100.0,
-        description="Cache hit rate percentage (0-100%)"
+        ge=0.0, le=100.0, description="Cache hit rate percentage (0-100%)"
     )
-    total_hits: int = Field(
-        ge=0,
-        description="Total cache hits"
-    )
-    total_misses: int = Field(
-        ge=0,
-        description="Total cache misses"
-    )
+    total_hits: int = Field(ge=0, description="Total cache hits")
+    total_misses: int = Field(ge=0, description="Total cache misses")
     uptime_seconds: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Redis uptime in seconds"
+        None, ge=0, description="Redis uptime in seconds"
     )
     cache_patterns: Optional[Dict[str, str]] = Field(
-        None,
-        description="Cache key patterns in use"
+        None, description="Cache key patterns in use"
     )
     cache_ttl_config: Optional[Dict[str, int]] = Field(
-        None,
-        description="TTL configuration for different data types (in seconds)"
+        None, description="TTL configuration for different data types (in seconds)"
     )
 
 
@@ -92,22 +74,16 @@ class CacheClearResponse(BaseModel):
     """
 
     success: bool = Field(description="Whether the operation was successful")
-    keys_deleted: int = Field(
-        ge=0,
-        description="Number of keys deleted from cache"
-    )
+    keys_deleted: int = Field(ge=0, description="Number of keys deleted from cache")
     message: str = Field(description="Human-readable result message")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Operation timestamp"
+        default_factory=datetime.utcnow, description="Operation timestamp"
     )
     pattern: Optional[str] = Field(
-        None,
-        description="Redis key pattern used for deletion (if pattern-based clear)"
+        None, description="Redis key pattern used for deletion (if pattern-based clear)"
     )
     admin_email: Optional[str] = Field(
-        None,
-        description="Email of the admin who performed the operation"
+        None, description="Email of the admin who performed the operation"
     )
 
 
@@ -125,18 +101,15 @@ class QueueInfo(BaseModel):
         scheduled: Количество запланированных задач (отложенные)
     """
 
-    name: str = Field(description="Queue name (e.g., 'default', 'parsing', 'image_generation')")
-    pending: int = Field(
-        ge=0,
-        description="Number of pending tasks in queue"
+    name: str = Field(
+        description="Queue name (e.g., 'default', 'parsing', 'image_generation')"
     )
+    pending: int = Field(ge=0, description="Number of pending tasks in queue")
     active: int = Field(
-        ge=0,
-        description="Number of active tasks (currently processing)"
+        ge=0, description="Number of active tasks (currently processing)"
     )
     scheduled: int = Field(
-        ge=0,
-        description="Number of scheduled tasks (delayed execution)"
+        ge=0, description="Number of scheduled tasks (delayed execution)"
     )
 
 
@@ -160,24 +133,16 @@ class QueueStatusResponse(BaseModel):
     """
 
     queues: List[QueueInfo] = Field(
-        default_factory=list,
-        description="Information about each queue"
+        default_factory=list, description="Information about each queue"
     )
     total_pending: int = Field(
-        ge=0,
-        description="Total pending tasks across all queues"
+        ge=0, description="Total pending tasks across all queues"
     )
-    total_active: int = Field(
-        ge=0,
-        description="Total active tasks across all queues"
-    )
-    workers_online: int = Field(
-        ge=0,
-        description="Number of online Celery workers"
-    )
+    total_active: int = Field(ge=0, description="Total active tasks across all queues")
+    workers_online: int = Field(ge=0, description="Number of online Celery workers")
     message: str = Field(
         default="Queue status retrieved successfully",
-        description="Human-readable status message"
+        description="Human-readable status message",
     )
 
 
@@ -204,29 +169,28 @@ class ParsingSettingsResponse(BaseModel):
     """
 
     max_concurrent_parsings: int = Field(
-        ge=1,
-        description="Maximum concurrent book parsing operations"
+        ge=1, description="Maximum concurrent book parsing operations"
     )
     default_priority: str = Field(
         description="Default parsing priority: low | normal | high",
-        pattern="^(low|normal|high)$"
+        pattern="^(low|normal|high)$",
     )
     auto_generate_images: bool = Field(
         description="Automatically generate images after parsing completion"
     )
     nlp_mode: str = Field(
         description="NLP processing mode: SINGLE | PARALLEL | SEQUENTIAL | ENSEMBLE | ADAPTIVE",
-        pattern="^(SINGLE|PARALLEL|SEQUENTIAL|ENSEMBLE|ADAPTIVE)$"
+        pattern="^(SINGLE|PARALLEL|SEQUENTIAL|ENSEMBLE|ADAPTIVE)$",
     )
     enabled_processors: List[str] = Field(
         default_factory=list,
-        description="List of enabled NLP processors (spacy, natasha, stanza, gliner)"
+        description="List of enabled NLP processors (spacy, natasha, stanza, gliner)",
     )
     ensemble_consensus_threshold: Optional[float] = Field(
         None,
         ge=0.0,
         le=1.0,
-        description="Consensus threshold for ENSEMBLE mode (0.0-1.0)"
+        description="Consensus threshold for ENSEMBLE mode (0.0-1.0)",
     )
 
 
@@ -246,13 +210,10 @@ class CacheWarmResponse(BaseModel):
     success: bool = Field(description="Whether the operation was successful")
     message: str = Field(description="Human-readable result message")
     keys_cached: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Number of keys cached during warm-up"
+        None, ge=0, description="Number of keys cached during warm-up"
     )
     cache_types: Optional[List[str]] = Field(
-        None,
-        description="Types of data loaded into cache (e.g., 'books', 'users')"
+        None, description="Types of data loaded into cache (e.g., 'books', 'users')"
     )
 
 
@@ -275,21 +236,11 @@ class FeatureFlagBulkUpdateResponse(BaseModel):
     results: Dict[str, bool] = Field(
         description="Update results for each flag {flag_name: success}"
     )
-    total: int = Field(
-        ge=0,
-        description="Total flags processed"
-    )
-    success_count: int = Field(
-        ge=0,
-        description="Number of successful updates"
-    )
-    failed_count: int = Field(
-        ge=0,
-        description="Number of failed updates"
-    )
+    total: int = Field(ge=0, description="Total flags processed")
+    success_count: int = Field(ge=0, description="Number of successful updates")
+    failed_count: int = Field(ge=0, description="Number of failed updates")
     admin_email: Optional[str] = Field(
-        None,
-        description="Email of the admin who performed the operation"
+        None, description="Email of the admin who performed the operation"
     )
 
 
@@ -311,15 +262,11 @@ class MultiNLPSettingsUpdateResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Multi-NLP settings updated successfully",
-        description="Success message"
+        default="Multi-NLP settings updated successfully", description="Success message"
     )
-    settings: Dict[str, Any] = Field(
-        description="Updated Multi-NLP settings"
-    )
+    settings: Dict[str, Any] = Field(description="Updated Multi-NLP settings")
     processors_reloaded: bool = Field(
-        default=True,
-        description="Whether NLP processors were reloaded"
+        default=True, description="Whether NLP processors were reloaded"
     )
 
 
@@ -335,16 +282,9 @@ class NLPProcessorStatusResponse(BaseModel):
         timestamp: Временная метка запроса
     """
 
-    status: str = Field(
-        default="success",
-        description="Operation status"
-    )
-    data: Dict[str, Any] = Field(
-        description="NLP processor status data"
-    )
-    timestamp: str = Field(
-        description="Request timestamp (ISO 8601)"
-    )
+    status: str = Field(default="success", description="Operation status")
+    data: Dict[str, Any] = Field(description="NLP processor status data")
+    timestamp: str = Field(description="Request timestamp (ISO 8601)")
 
 
 class NLPProcessorTestResponse(BaseModel):
@@ -416,12 +356,9 @@ class ParsingSettingsUpdateResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Parsing settings updated successfully",
-        description="Success message"
+        default="Parsing settings updated successfully", description="Success message"
     )
-    settings: Dict[str, Any] = Field(
-        description="Updated parsing settings"
-    )
+    settings: Dict[str, Any] = Field(description="Updated parsing settings")
 
 
 class ParsingQueueStatusResponse(BaseModel):
@@ -438,24 +375,16 @@ class ParsingQueueStatusResponse(BaseModel):
         error: Сообщение об ошибке (опционально)
     """
 
-    is_parsing_active: bool = Field(
-        description="Whether parsing is currently active"
-    )
+    is_parsing_active: bool = Field(description="Whether parsing is currently active")
     current_parsing: Optional[Any] = Field(
-        None,
-        description="Information about current parsing job"
+        None, description="Information about current parsing job"
     )
-    queue_size: int = Field(
-        ge=0,
-        description="Number of items in parsing queue"
-    )
+    queue_size: int = Field(ge=0, description="Number of items in parsing queue")
     queue_items: List[Any] = Field(
-        default_factory=list,
-        description="First 10 items in queue"
+        default_factory=list, description="First 10 items in queue"
     )
     error: Optional[str] = Field(
-        None,
-        description="Error message if queue check failed"
+        None, description="Error message if queue check failed"
     )
 
 
@@ -470,8 +399,7 @@ class ClearQueueResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Parsing queue cleared successfully",
-        description="Success message"
+        default="Parsing queue cleared successfully", description="Success message"
     )
 
 
@@ -486,8 +414,7 @@ class UnlockParsingResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Parsing lock removed successfully",
-        description="Success message"
+        default="Parsing lock removed successfully", description="Success message"
     )
 
 
@@ -508,12 +435,9 @@ class SystemSettingsUpdateResponse(BaseModel):
     """
 
     message: str = Field(
-        default="System settings saved successfully",
-        description="Success message"
+        default="System settings saved successfully", description="Success message"
     )
-    settings: Dict[str, Any] = Field(
-        description="Updated system settings"
-    )
+    settings: Dict[str, Any] = Field(description="Updated system settings")
 
 
 class InitializeSettingsResponse(BaseModel):
@@ -526,9 +450,7 @@ class InitializeSettingsResponse(BaseModel):
         message: Сообщение о результате инициализации
     """
 
-    message: str = Field(
-        description="Result message (initialized | already exist)"
-    )
+    message: str = Field(description="Result message (initialized | already exist)")
 
 
 class ImageGenerationSettingsUpdateResponse(BaseModel):
@@ -544,11 +466,9 @@ class ImageGenerationSettingsUpdateResponse(BaseModel):
 
     message: str = Field(
         default="Image generation settings saved successfully",
-        description="Success message"
+        description="Success message",
     )
-    settings: Dict[str, Any] = Field(
-        description="Updated image generation settings"
-    )
+    settings: Dict[str, Any] = Field(description="Updated image generation settings")
 
 
 # ============================================================================

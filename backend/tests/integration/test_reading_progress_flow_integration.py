@@ -29,21 +29,23 @@ def create_minimal_epub() -> io.BytesIO:
     """
     epub_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(epub_buffer, 'w', zipfile.ZIP_DEFLATED) as epub:
+    with zipfile.ZipFile(epub_buffer, "w", zipfile.ZIP_DEFLATED) as epub:
         # mimetype file (must be first and uncompressed)
-        epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+        epub.writestr(
+            "mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED
+        )
 
         # META-INF/container.xml
-        container_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
     <rootfiles>
         <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
     </rootfiles>
-</container>'''
-        epub.writestr('META-INF/container.xml', container_xml)
+</container>"""
+        epub.writestr("META-INF/container.xml", container_xml)
 
         # OEBPS/content.opf
-        content_opf = '''<?xml version="1.0" encoding="UTF-8"?>
+        content_opf = """<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
     <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:title>Reading Progress Test Book</dc:title>
@@ -62,11 +64,11 @@ def create_minimal_epub() -> io.BytesIO:
         <itemref idref="chapter2"/>
         <itemref idref="chapter3"/>
     </spine>
-</package>'''
-        epub.writestr('OEBPS/content.opf', content_opf)
+</package>"""
+        epub.writestr("OEBPS/content.opf", content_opf)
 
         # OEBPS/toc.ncx
-        toc_ncx = '''<?xml version="1.0" encoding="UTF-8"?>
+        toc_ncx = """<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
     <head>
         <meta name="dtb:uid" content="progress-book-001"/>
@@ -86,11 +88,11 @@ def create_minimal_epub() -> io.BytesIO:
             <content src="chapter3.xhtml"/>
         </navPoint>
     </navMap>
-</ncx>'''
-        epub.writestr('OEBPS/toc.ncx', toc_ncx)
+</ncx>"""
+        epub.writestr("OEBPS/toc.ncx", toc_ncx)
 
         # OEBPS/chapter1.xhtml
-        chapter1 = '''<?xml version="1.0" encoding="UTF-8"?>
+        chapter1 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -100,11 +102,11 @@ def create_minimal_epub() -> io.BytesIO:
     <h1>Chapter 1: Beginning the Journey</h1>
     <p>This is the first chapter of the book.</p>
 </body>
-</html>'''
-        epub.writestr('OEBPS/chapter1.xhtml', chapter1)
+</html>"""
+        epub.writestr("OEBPS/chapter1.xhtml", chapter1)
 
         # OEBPS/chapter2.xhtml
-        chapter2 = '''<?xml version="1.0" encoding="UTF-8"?>
+        chapter2 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -114,11 +116,11 @@ def create_minimal_epub() -> io.BytesIO:
     <h1>Chapter 2: Continuing Forward</h1>
     <p>This is the second chapter where the story develops.</p>
 </body>
-</html>'''
-        epub.writestr('OEBPS/chapter2.xhtml', chapter2)
+</html>"""
+        epub.writestr("OEBPS/chapter2.xhtml", chapter2)
 
         # OEBPS/chapter3.xhtml
-        chapter3 = '''<?xml version="1.0" encoding="UTF-8"?>
+        chapter3 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -128,8 +130,8 @@ def create_minimal_epub() -> io.BytesIO:
     <h1>Chapter 3: The Conclusion</h1>
     <p>This is the final chapter where everything comes together.</p>
 </body>
-</html>'''
-        epub.writestr('OEBPS/chapter3.xhtml', chapter3)
+</html>"""
+        epub.writestr("OEBPS/chapter3.xhtml", chapter3)
 
     epub_buffer.seek(0)
     return epub_buffer
@@ -166,10 +168,13 @@ class TestReadingProgressFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -180,15 +185,14 @@ class TestReadingProgressFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("progress_book.epub", epub_file, "application/epub+zip")}
+            files={"file": ("progress_book.epub", epub_file, "application/epub+zip")},
         )
 
         book_id = upload_response.json()["book"]["id"]
 
         # Step 3: Get initial progress (should be None or empty)
         initial_progress_response = await client.get(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers
+            f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
         assert initial_progress_response.status_code == 200
@@ -209,21 +213,18 @@ class TestReadingProgressFlowIntegration:
             "current_position": 100,
             "current_position_percent": 10.0,
             "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50",
-            "scroll_offset_percent": 15.5
+            "scroll_offset_percent": 15.5,
         }
 
         update_response_1 = await client.post(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers,
-            json=progress_update_1
+            f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_1
         )
 
         assert update_response_1.status_code in [200, 201]
 
         # Step 5: Get progress (verify saved)
         progress_response_1 = await client.get(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers
+            f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
         assert progress_response_1.status_code == 200
@@ -232,11 +233,16 @@ class TestReadingProgressFlowIntegration:
         assert progress_data_1["progress"] is not None
         assert progress_data_1["progress"]["current_chapter"] == 1
         assert progress_data_1["progress"]["current_position_percent"] == 10.0
-        assert progress_data_1["progress"]["reading_location_cfi"] == "/6/4[chapter1]!/4/2/1:50"
+        assert (
+            progress_data_1["progress"]["reading_location_cfi"]
+            == "/6/4[chapter1]!/4/2/1:50"
+        )
         assert progress_data_1["progress"]["scroll_offset_percent"] == 15.5
 
         # Verify in database
-        progress_query_1 = select(ReadingProgress).where(ReadingProgress.book_id == book_id)
+        progress_query_1 = select(ReadingProgress).where(
+            ReadingProgress.book_id == book_id
+        )
         progress_result_1 = await db_session.execute(progress_query_1)
         progress_db_1 = progress_result_1.scalar_one_or_none()
 
@@ -251,13 +257,11 @@ class TestReadingProgressFlowIntegration:
             "current_position": 250,
             "current_position_percent": 45.0,
             "reading_location_cfi": "/6/6[chapter2]!/4/2/1:100",
-            "scroll_offset_percent": 30.0
+            "scroll_offset_percent": 30.0,
         }
 
         update_response_2 = await client.post(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers,
-            json=progress_update_2
+            f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_2
         )
 
         assert update_response_2.status_code in [200, 201]
@@ -265,8 +269,7 @@ class TestReadingProgressFlowIntegration:
         # Step 7: Simulate closing and reopening book (verify progress restored)
         # Get progress again to simulate reopening
         restored_progress_response = await client.get(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers
+            f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
         assert restored_progress_response.status_code == 200
@@ -274,7 +277,10 @@ class TestReadingProgressFlowIntegration:
 
         assert restored_progress_data["progress"]["current_chapter"] == 2
         assert restored_progress_data["progress"]["current_position_percent"] == 45.0
-        assert restored_progress_data["progress"]["reading_location_cfi"] == "/6/6[chapter2]!/4/2/1:100"
+        assert (
+            restored_progress_data["progress"]["reading_location_cfi"]
+            == "/6/6[chapter2]!/4/2/1:100"
+        )
         assert restored_progress_data["progress"]["scroll_offset_percent"] == 30.0
 
         # Step 8: Update to final chapter
@@ -284,28 +290,24 @@ class TestReadingProgressFlowIntegration:
             "current_position": 500,
             "current_position_percent": 95.0,
             "reading_location_cfi": "/6/8[chapter3]!/4/2/1:200",
-            "scroll_offset_percent": 85.0
+            "scroll_offset_percent": 85.0,
         }
 
         update_response_3 = await client.post(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers,
-            json=progress_update_3
+            f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_3
         )
 
         assert update_response_3.status_code in [200, 201]
 
         # Step 9: Verify complete reading flow
         final_progress_response = await client.get(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers
+            f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
         final_progress_data = final_progress_response.json()
 
         assert final_progress_data["progress"]["current_chapter"] == 3
         assert final_progress_data["progress"]["current_position_percent"] == 95.0
-
 
     async def test_progress_sync_across_updates(
         self, client: AsyncClient, db_session: AsyncSession
@@ -327,10 +329,13 @@ class TestReadingProgressFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -340,7 +345,7 @@ class TestReadingProgressFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("sync_book.epub", epub_file, "application/epub+zip")}
+            files={"file": ("sync_book.epub", epub_file, "application/epub+zip")},
         )
 
         book_id = upload_response.json()["book"]["id"]
@@ -350,38 +355,37 @@ class TestReadingProgressFlowIntegration:
             {
                 "current_chapter": 1,
                 "current_position_percent": 10.0,
-                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:10"
+                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:10",
             },
             {
                 "current_chapter": 1,
                 "current_position_percent": 20.0,
-                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50"
+                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50",
             },
             {
                 "current_chapter": 1,
                 "current_position_percent": 30.0,
-                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:100"
+                "reading_location_cfi": "/6/4[chapter1]!/4/2/1:100",
             },
         ]
 
         for update in updates:
             await client.post(
-                f"/api/v1/books/{book_id}/progress",
-                headers=headers,
-                json=update
+                f"/api/v1/books/{book_id}/progress", headers=headers, json=update
             )
 
         # Step 3: Verify latest update is preserved
         final_response = await client.get(
-            f"/api/v1/books/{book_id}/progress",
-            headers=headers
+            f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
         final_data = final_response.json()
 
         assert final_data["progress"]["current_position_percent"] == 30.0
-        assert final_data["progress"]["reading_location_cfi"] == "/6/4[chapter1]!/4/2/1:100"
-
+        assert (
+            final_data["progress"]["reading_location_cfi"]
+            == "/6/4[chapter1]!/4/2/1:100"
+        )
 
     async def test_progress_isolation_between_users(
         self, client: AsyncClient, db_session: AsyncSession
@@ -404,10 +408,13 @@ class TestReadingProgressFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user1_data)
 
-        login1_response = await client.post("/api/v1/auth/login", json={
-            "email": user1_data["email"],
-            "password": user1_data["password"],
-        })
+        login1_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user1_data["email"],
+                "password": user1_data["password"],
+            },
+        )
 
         user1_token = login1_response.json()["tokens"]["access_token"]
         user1_headers = {"Authorization": f"Bearer {user1_token}"}
@@ -417,7 +424,7 @@ class TestReadingProgressFlowIntegration:
         upload1_response = await client.post(
             "/api/v1/books/upload",
             headers=user1_headers,
-            files={"file": ("book.epub", epub_file_1, "application/epub+zip")}
+            files={"file": ("book.epub", epub_file_1, "application/epub+zip")},
         )
 
         book1_id = upload1_response.json()["book"]["id"]
@@ -426,13 +433,13 @@ class TestReadingProgressFlowIntegration:
         user1_progress = {
             "current_chapter": 1,
             "current_position_percent": 25.0,
-            "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50"
+            "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50",
         }
 
         await client.post(
             f"/api/v1/books/{book1_id}/progress",
             headers=user1_headers,
-            json=user1_progress
+            json=user1_progress,
         )
 
         # Step 2: User 2 setup
@@ -444,10 +451,13 @@ class TestReadingProgressFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user2_data)
 
-        login2_response = await client.post("/api/v1/auth/login", json={
-            "email": user2_data["email"],
-            "password": user2_data["password"],
-        })
+        login2_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user2_data["email"],
+                "password": user2_data["password"],
+            },
+        )
 
         user2_token = login2_response.json()["tokens"]["access_token"]
         user2_headers = {"Authorization": f"Bearer {user2_token}"}
@@ -457,7 +467,7 @@ class TestReadingProgressFlowIntegration:
         upload2_response = await client.post(
             "/api/v1/books/upload",
             headers=user2_headers,
-            files={"file": ("book.epub", epub_file_2, "application/epub+zip")}
+            files={"file": ("book.epub", epub_file_2, "application/epub+zip")},
         )
 
         book2_id = upload2_response.json()["book"]["id"]
@@ -466,19 +476,18 @@ class TestReadingProgressFlowIntegration:
         user2_progress = {
             "current_chapter": 3,
             "current_position_percent": 75.0,
-            "reading_location_cfi": "/6/8[chapter3]!/4/2/1:100"
+            "reading_location_cfi": "/6/8[chapter3]!/4/2/1:100",
         }
 
         await client.post(
             f"/api/v1/books/{book2_id}/progress",
             headers=user2_headers,
-            json=user2_progress
+            json=user2_progress,
         )
 
         # Step 4: Verify each user sees only their own progress
         user1_check = await client.get(
-            f"/api/v1/books/{book1_id}/progress",
-            headers=user1_headers
+            f"/api/v1/books/{book1_id}/progress", headers=user1_headers
         )
 
         user1_check_data = user1_check.json()
@@ -486,25 +495,20 @@ class TestReadingProgressFlowIntegration:
         assert user1_check_data["progress"]["current_position_percent"] == 25.0
 
         user2_check = await client.get(
-            f"/api/v1/books/{book2_id}/progress",
-            headers=user2_headers
+            f"/api/v1/books/{book2_id}/progress", headers=user2_headers
         )
 
         user2_check_data = user2_check.json()
         assert user2_check_data["progress"]["current_chapter"] == 3
         assert user2_check_data["progress"]["current_position_percent"] == 75.0
 
-
-    async def test_progress_without_authentication(
-        self, client: AsyncClient
-    ):
+    async def test_progress_without_authentication(self, client: AsyncClient):
         """Test accessing progress without authentication fails."""
         fake_book_id = "00000000-0000-0000-0000-000000000000"
 
         response = await client.get(f"/api/v1/books/{fake_book_id}/progress")
 
         assert response.status_code == 401
-
 
     async def test_update_progress_for_nonexistent_book(
         self, client: AsyncClient, db_session: AsyncSession
@@ -519,10 +523,13 @@ class TestReadingProgressFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -533,13 +540,13 @@ class TestReadingProgressFlowIntegration:
         progress_update = {
             "current_chapter": 1,
             "current_position_percent": 50.0,
-            "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50"
+            "reading_location_cfi": "/6/4[chapter1]!/4/2/1:50",
         }
 
         response = await client.post(
             f"/api/v1/books/{fake_book_id}/progress",
             headers=headers,
-            json=progress_update
+            json=progress_update,
         )
 
         assert response.status_code == 404

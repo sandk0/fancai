@@ -33,9 +33,7 @@ async def get_image_generation_settings(
 
         return ImageGenerationSettings(
             primary_service=img_settings.get("primary_service", "imagen"),
-            fallback_services=img_settings.get(
-                "fallback_services", []
-            ),
+            fallback_services=img_settings.get("fallback_services", []),
             enable_caching=img_settings.get("enable_caching", True),
             image_quality=img_settings.get("image_quality", "high"),
             max_generation_time=img_settings.get("max_generation_time", 60),
@@ -51,7 +49,9 @@ async def get_image_generation_settings(
         )
 
 
-@router.put("/image-generation-settings", response_model=ImageGenerationSettingsUpdateResponse)
+@router.put(
+    "/image-generation-settings", response_model=ImageGenerationSettingsUpdateResponse
+)
 async def update_image_generation_settings(
     settings: ImageGenerationSettings,
     admin_user: User = Depends(get_current_admin_user),

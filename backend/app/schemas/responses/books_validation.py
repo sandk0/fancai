@@ -30,19 +30,12 @@ class ParserStatusResponse(BaseModel):
     supported_formats: List[str] = Field(
         description="List of supported book formats (.epub, .fb2)"
     )
-    nlp_available: bool = Field(
-        description="Whether NLP processor is available"
-    )
-    parser_ready: bool = Field(
-        description="Whether parser is ready to process books"
-    )
+    nlp_available: bool = Field(description="Whether NLP processor is available")
+    parser_ready: bool = Field(description="Whether parser is ready to process books")
     max_file_size_mb: int = Field(
-        default=50,
-        description="Maximum file size in megabytes"
+        default=50, description="Maximum file size in megabytes"
     )
-    message: str = Field(
-        description="Human-readable status message"
-    )
+    message: str = Field(description="Human-readable status message")
 
     class Config:
         json_schema_extra = {
@@ -51,7 +44,7 @@ class ParserStatusResponse(BaseModel):
                 "nlp_available": True,
                 "parser_ready": True,
                 "max_file_size_mb": 50,
-                "message": "Book parser supports: .epub, .fb2"
+                "message": "Book parser supports: .epub, .fb2",
             }
         }
 
@@ -87,23 +80,13 @@ class BookFileValidationResponse(BaseModel):
         message: Человекочитаемое сообщение о результате
     """
 
-    filename: str = Field(
-        description="Original filename"
-    )
-    file_size_bytes: int = Field(
-        ge=0,
-        description="File size in bytes"
-    )
+    filename: str = Field(description="Original filename")
+    file_size_bytes: int = Field(ge=0, description="File size in bytes")
     file_size_mb: float = Field(
-        ge=0.0,
-        description="File size in megabytes (rounded to 2 decimals)"
+        ge=0.0, description="File size in megabytes (rounded to 2 decimals)"
     )
-    validation: ValidationResult = Field(
-        description="Detailed validation results"
-    )
-    message: str = Field(
-        description="Human-readable validation result message"
-    )
+    validation: ValidationResult = Field(description="Detailed validation results")
+    message: str = Field(description="Human-readable validation result message")
 
     class Config:
         json_schema_extra = {
@@ -115,9 +98,9 @@ class BookFileValidationResponse(BaseModel):
                     "is_valid": True,
                     "format": "epub",
                     "errors": [],
-                    "warnings": []
+                    "warnings": [],
                 },
-                "message": "File validated successfully"
+                "message": "File validated successfully",
             }
         }
 
@@ -136,13 +119,10 @@ class ChapterPreview(BaseModel):
 
     number: int = Field(ge=1)
     title: str
-    content_preview: str = Field(
-        description="First 500 characters of chapter content"
-    )
+    content_preview: str = Field(description="First 500 characters of chapter content")
     word_count: int = Field(ge=0)
     estimated_reading_time_minutes: int = Field(
-        ge=1,
-        description="Estimated reading time in minutes (word_count / 200)"
+        ge=1, description="Estimated reading time in minutes (word_count / 200)"
     )
 
 
@@ -166,14 +146,11 @@ class BookMetadataPreview(BaseModel):
     language: Optional[str] = None
     genre: Optional[str] = None
     description: Optional[str] = Field(
-        None,
-        description="Book description (first 1000 characters)"
+        None, description="Book description (first 1000 characters)"
     )
     publisher: Optional[str] = None
     publish_date: Optional[str] = None
-    has_cover: bool = Field(
-        description="Whether book has a cover image"
-    )
+    has_cover: bool = Field(description="Whether book has a cover image")
 
 
 class BookStatisticsPreview(BaseModel):
@@ -191,16 +168,10 @@ class BookStatisticsPreview(BaseModel):
     total_chapters: int = Field(ge=0)
     total_pages: int = Field(ge=0)
     estimated_reading_time_hours: float = Field(
-        ge=0.0,
-        description="Estimated reading time in hours"
+        ge=0.0, description="Estimated reading time in hours"
     )
-    file_format: str = Field(
-        description="File format (epub, fb2)"
-    )
-    file_size_mb: float = Field(
-        ge=0.0,
-        description="File size in megabytes"
-    )
+    file_format: str = Field(description="File format (epub, fb2)")
+    file_size_mb: float = Field(ge=0.0, description="File size in megabytes")
 
 
 class BookParsePreviewResponse(BaseModel):
@@ -216,19 +187,12 @@ class BookParsePreviewResponse(BaseModel):
         message: Человекочитаемое сообщение о результате
     """
 
-    metadata: BookMetadataPreview = Field(
-        description="Book metadata preview"
-    )
-    statistics: BookStatisticsPreview = Field(
-        description="Book statistics preview"
-    )
+    metadata: BookMetadataPreview = Field(description="Book metadata preview")
+    statistics: BookStatisticsPreview = Field(description="Book statistics preview")
     chapters_preview: List[ChapterPreview] = Field(
-        default_factory=list,
-        description="Preview of first 3 chapters"
+        default_factory=list, description="Preview of first 3 chapters"
     )
-    message: str = Field(
-        description="Human-readable result message"
-    )
+    message: str = Field(description="Human-readable result message")
 
     class Config:
         json_schema_extra = {
@@ -239,14 +203,14 @@ class BookParsePreviewResponse(BaseModel):
                     "language": "ru",
                     "genre": "роман",
                     "description": "Великий роман о войне 1812 года...",
-                    "has_cover": True
+                    "has_cover": True,
                 },
                 "statistics": {
                     "total_chapters": 365,
                     "total_pages": 1200,
                     "estimated_reading_time_hours": 40.0,
                     "file_format": "epub",
-                    "file_size_mb": 2.5
+                    "file_size_mb": 2.5,
                 },
                 "chapters_preview": [
                     {
@@ -254,10 +218,10 @@ class BookParsePreviewResponse(BaseModel):
                         "title": "Часть первая, глава I",
                         "content_preview": "— Eh bien, mon prince...",
                         "word_count": 1500,
-                        "estimated_reading_time_minutes": 8
+                        "estimated_reading_time_minutes": 8,
                     }
                 ],
-                "message": "Book parsed successfully: 365 chapters found"
+                "message": "Book parsed successfully: 365 chapters found",
             }
         }
 

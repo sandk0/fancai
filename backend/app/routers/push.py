@@ -45,7 +45,6 @@ from ..schemas.push import (
     PushNotificationPayload,
 )
 
-
 router = APIRouter(tags=["push"])
 
 
@@ -242,9 +241,7 @@ async def list_subscriptions(
         PushSubscriptionResponse(
             id=sub.id,
             endpoint=(
-                sub.endpoint[:50] + "..."
-                if len(sub.endpoint) > 50
-                else sub.endpoint
+                sub.endpoint[:50] + "..." if len(sub.endpoint) > 50 else sub.endpoint
             ),
             created_at=sub.created_at,
             is_active=sub.is_active,
@@ -291,7 +288,7 @@ async def send_test_notification(
         )
 
     # Use custom or default notification content
-    title = (request.title if request and request.title else "Test Notification")
+    title = request.title if request and request.title else "Test Notification"
     body = (
         request.body
         if request and request.body

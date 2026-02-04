@@ -30,21 +30,23 @@ def create_minimal_epub() -> io.BytesIO:
     """
     epub_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(epub_buffer, 'w', zipfile.ZIP_DEFLATED) as epub:
+    with zipfile.ZipFile(epub_buffer, "w", zipfile.ZIP_DEFLATED) as epub:
         # mimetype file (must be first and uncompressed)
-        epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+        epub.writestr(
+            "mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED
+        )
 
         # META-INF/container.xml
-        container_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
     <rootfiles>
         <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
     </rootfiles>
-</container>'''
-        epub.writestr('META-INF/container.xml', container_xml)
+</container>"""
+        epub.writestr("META-INF/container.xml", container_xml)
 
         # OEBPS/content.opf
-        content_opf = '''<?xml version="1.0" encoding="UTF-8"?>
+        content_opf = """<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
     <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:title>Test Book for Integration</dc:title>
@@ -61,11 +63,11 @@ def create_minimal_epub() -> io.BytesIO:
         <itemref idref="chapter1"/>
         <itemref idref="chapter2"/>
     </spine>
-</package>'''
-        epub.writestr('OEBPS/content.opf', content_opf)
+</package>"""
+        epub.writestr("OEBPS/content.opf", content_opf)
 
         # OEBPS/toc.ncx
-        toc_ncx = '''<?xml version="1.0" encoding="UTF-8"?>
+        toc_ncx = """<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
     <head>
         <meta name="dtb:uid" content="test-book-001"/>
@@ -81,11 +83,11 @@ def create_minimal_epub() -> io.BytesIO:
             <content src="chapter2.xhtml"/>
         </navPoint>
     </navMap>
-</ncx>'''
-        epub.writestr('OEBPS/toc.ncx', toc_ncx)
+</ncx>"""
+        epub.writestr("OEBPS/toc.ncx", toc_ncx)
 
         # OEBPS/chapter1.xhtml
-        chapter1 = '''<?xml version="1.0" encoding="UTF-8"?>
+        chapter1 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -96,11 +98,11 @@ def create_minimal_epub() -> io.BytesIO:
     <p>In a beautiful forest with tall trees, there was a mysterious castle on the hill. The hero walked through the dark corridors filled with ancient artifacts.</p>
     <p>The landscape was breathtaking, with mountains in the distance and a crystal-clear lake nearby.</p>
 </body>
-</html>'''
-        epub.writestr('OEBPS/chapter1.xhtml', chapter1)
+</html>"""
+        epub.writestr("OEBPS/chapter1.xhtml", chapter1)
 
         # OEBPS/chapter2.xhtml
-        chapter2 = '''<?xml version="1.0" encoding="UTF-8"?>
+        chapter2 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -111,8 +113,8 @@ def create_minimal_epub() -> io.BytesIO:
     <p>The hero continued through a dense forest with towering oak trees. In the clearing ahead, an old cottage with a thatched roof came into view.</p>
     <p>The character was wearing a long red cloak and carried a wooden staff.</p>
 </body>
-</html>'''
-        epub.writestr('OEBPS/chapter2.xhtml', chapter2)
+</html>"""
+        epub.writestr("OEBPS/chapter2.xhtml", chapter2)
 
     epub_buffer.seek(0)
     return epub_buffer
@@ -146,10 +148,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -160,7 +165,7 @@ class TestBookUploadFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("test_book.epub", epub_file, "application/epub+zip")}
+            files={"file": ("test_book.epub", epub_file, "application/epub+zip")},
         )
 
         assert upload_response.status_code == 200
@@ -186,10 +191,7 @@ class TestBookUploadFlowIntegration:
         assert book.is_parsed is True
 
         # Step 4: Get book details
-        detail_response = await client.get(
-            f"/api/v1/books/{book_id}",
-            headers=headers
-        )
+        detail_response = await client.get(f"/api/v1/books/{book_id}", headers=headers)
 
         assert detail_response.status_code == 200
         detail_data = detail_response.json()
@@ -200,7 +202,11 @@ class TestBookUploadFlowIntegration:
 
         # Step 5: Get book chapters
         # First, verify chapters were created in database
-        chapters_query = select(Chapter).where(Chapter.book_id == book_id).order_by(Chapter.chapter_number)
+        chapters_query = (
+            select(Chapter)
+            .where(Chapter.book_id == book_id)
+            .order_by(Chapter.chapter_number)
+        )
         chapters_result = await db_session.execute(chapters_query)
         chapters = chapters_result.scalars().all()
 
@@ -209,8 +215,7 @@ class TestBookUploadFlowIntegration:
         # Get first chapter via API
         first_chapter = chapters[0]
         chapter_response = await client.get(
-            f"/api/v1/chapters/{first_chapter.id}",
-            headers=headers
+            f"/api/v1/chapters/{first_chapter.id}", headers=headers
         )
 
         assert chapter_response.status_code == 200
@@ -220,10 +225,7 @@ class TestBookUploadFlowIntegration:
         assert "content" in chapter_data or "html_content" in chapter_data
 
         # Step 6: Verify book appears in library list
-        library_response = await client.get(
-            "/api/v1/books",
-            headers=headers
-        )
+        library_response = await client.get("/api/v1/books", headers=headers)
 
         assert library_response.status_code == 200
         library_data = library_response.json()
@@ -233,13 +235,11 @@ class TestBookUploadFlowIntegration:
 
         # Find our uploaded book in the list
         uploaded_book = next(
-            (b for b in library_data["books"] if b["id"] == book_id),
-            None
+            (b for b in library_data["books"] if b["id"] == book_id), None
         )
 
         assert uploaded_book is not None
         assert uploaded_book["title"] == "Test Book for Integration"
-
 
     async def test_upload_invalid_file_format(
         self, client: AsyncClient, db_session: AsyncSession
@@ -254,10 +254,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -268,29 +271,28 @@ class TestBookUploadFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("test.txt", invalid_file, "text/plain")}
+            files={"file": ("test.txt", invalid_file, "text/plain")},
         )
 
         assert upload_response.status_code == 400
         error_data = upload_response.json()
 
         assert "detail" in error_data
-        assert "format" in error_data["detail"].lower() or "invalid" in error_data["detail"].lower()
+        assert (
+            "format" in error_data["detail"].lower()
+            or "invalid" in error_data["detail"].lower()
+        )
 
-
-    async def test_upload_without_authentication(
-        self, client: AsyncClient
-    ):
+    async def test_upload_without_authentication(self, client: AsyncClient):
         """Test uploading book without authentication fails."""
         epub_file = create_minimal_epub()
 
         upload_response = await client.post(
             "/api/v1/books/upload",
-            files={"file": ("test_book.epub", epub_file, "application/epub+zip")}
+            files={"file": ("test_book.epub", epub_file, "application/epub+zip")},
         )
 
         assert upload_response.status_code == 401
-
 
     async def test_upload_corrupted_epub(
         self, client: AsyncClient, db_session: AsyncSession
@@ -305,10 +307,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -319,12 +324,11 @@ class TestBookUploadFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("corrupted.epub", corrupted_epub, "application/epub+zip")}
+            files={"file": ("corrupted.epub", corrupted_epub, "application/epub+zip")},
         )
 
         # Should fail with appropriate error (400 or 500)
         assert upload_response.status_code in [400, 500]
-
 
     async def test_get_book_chapters_flow(
         self, client: AsyncClient, db_session: AsyncSession
@@ -347,10 +351,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -361,13 +368,17 @@ class TestBookUploadFlowIntegration:
         upload_response = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("test_book.epub", epub_file, "application/epub+zip")}
+            files={"file": ("test_book.epub", epub_file, "application/epub+zip")},
         )
 
         book_id = upload_response.json()["book"]["id"]
 
         # Step 3: Get all chapters from database
-        chapters_query = select(Chapter).where(Chapter.book_id == book_id).order_by(Chapter.chapter_number)
+        chapters_query = (
+            select(Chapter)
+            .where(Chapter.book_id == book_id)
+            .order_by(Chapter.chapter_number)
+        )
         chapters_result = await db_session.execute(chapters_query)
         chapters = chapters_result.scalars().all()
 
@@ -377,13 +388,15 @@ class TestBookUploadFlowIntegration:
         # Verify first chapter
         chapter1 = chapters[0]
         assert chapter1.chapter_number == 1
-        assert "forest" in chapter1.content.lower() or "forest" in (chapter1.html_content or "").lower()
+        assert (
+            "forest" in chapter1.content.lower()
+            or "forest" in (chapter1.html_content or "").lower()
+        )
 
         # Verify second chapter
         chapter2 = chapters[1]
         assert chapter2.chapter_number == 2
         assert "journey" in chapter2.title.lower()
-
 
     async def test_upload_multiple_books(
         self, client: AsyncClient, db_session: AsyncSession
@@ -407,10 +420,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -421,7 +437,7 @@ class TestBookUploadFlowIntegration:
         upload_response_1 = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("book1.epub", epub_file_1, "application/epub+zip")}
+            files={"file": ("book1.epub", epub_file_1, "application/epub+zip")},
         )
 
         book_id_1 = upload_response_1.json()["book"]["id"]
@@ -432,7 +448,7 @@ class TestBookUploadFlowIntegration:
         upload_response_2 = await client.post(
             "/api/v1/books/upload",
             headers=headers,
-            files={"file": ("book2.epub", epub_file_2, "application/epub+zip")}
+            files={"file": ("book2.epub", epub_file_2, "application/epub+zip")},
         )
 
         book_id_2 = upload_response_2.json()["book"]["id"]
@@ -457,7 +473,6 @@ class TestBookUploadFlowIntegration:
 
         assert len(books) == 2
 
-
     async def test_get_nonexistent_book(
         self, client: AsyncClient, db_session: AsyncSession
     ):
@@ -471,10 +486,13 @@ class TestBookUploadFlowIntegration:
 
         await client.post("/api/v1/auth/register", json=user_data)
 
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
-            "password": user_data["password"],
-        })
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
+        )
 
         access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -482,9 +500,6 @@ class TestBookUploadFlowIntegration:
         # Try to get non-existent book (using a random UUID)
         fake_book_id = "00000000-0000-0000-0000-000000000000"
 
-        response = await client.get(
-            f"/api/v1/books/{fake_book_id}",
-            headers=headers
-        )
+        response = await client.get(f"/api/v1/books/{fake_book_id}", headers=headers)
 
         assert response.status_code == 404

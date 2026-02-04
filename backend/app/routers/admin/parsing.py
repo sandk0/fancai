@@ -101,13 +101,14 @@ async def update_parsing_settings(
     )
 
     return ParsingSettingsUpdateResponse(
-        message="Parsing settings updated successfully",
-        settings=settings.model_dump()
+        message="Parsing settings updated successfully", settings=settings.model_dump()
     )
 
 
 @router.get("/queue-status", response_model=ParsingQueueStatusResponse)
-async def get_queue_status(admin_user: User = Depends(get_current_admin_user)) -> ParsingQueueStatusResponse:
+async def get_queue_status(
+    admin_user: User = Depends(get_current_admin_user),
+) -> ParsingQueueStatusResponse:
     """Get detailed parsing queue status."""
 
     try:
@@ -138,7 +139,9 @@ async def get_queue_status(admin_user: User = Depends(get_current_admin_user)) -
 
 
 @router.post("/clear-queue", response_model=ClearQueueResponse)
-async def clear_parsing_queue(admin_user: User = Depends(get_current_admin_user)) -> ClearQueueResponse:
+async def clear_parsing_queue(
+    admin_user: User = Depends(get_current_admin_user),
+) -> ClearQueueResponse:
     """Clear all items from parsing queue (emergency function)."""
 
     try:
@@ -156,7 +159,9 @@ async def clear_parsing_queue(admin_user: User = Depends(get_current_admin_user)
 
 
 @router.post("/unlock-parsing", response_model=UnlockParsingResponse)
-async def unlock_parsing(admin_user: User = Depends(get_current_admin_user)) -> UnlockParsingResponse:
+async def unlock_parsing(
+    admin_user: User = Depends(get_current_admin_user),
+) -> UnlockParsingResponse:
     """Force unlock parsing (emergency function)."""
 
     try:
@@ -170,6 +175,4 @@ async def unlock_parsing(admin_user: User = Depends(get_current_admin_user)) -> 
         return UnlockParsingResponse(message="Parsing lock removed successfully")
     except Exception as e:
         logger.exception(f"Failed to unlock parsing: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to unlock parsing"
-        )
+        raise HTTPException(status_code=500, detail="Failed to unlock parsing")

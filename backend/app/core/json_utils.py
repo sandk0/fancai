@@ -19,7 +19,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     """
@@ -29,6 +30,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
     - dataclasses -> dict
     - sets -> list
     """
+
     def default(self, o: Any) -> Any:
         if isinstance(o, (datetime, date)):
             return o.isoformat()
@@ -40,10 +42,11 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return list(o)
         return super().default(o)
 
+
 def clean_json_text(text: str) -> str:
     """
     Remove markdown code blocks and extra whitespace from potential JSON string.
-    
+
     Example:
         ```json
         {"foo": "bar"}
@@ -51,7 +54,7 @@ def clean_json_text(text: str) -> str:
         -> {"foo": "bar"}
     """
     text = text.strip()
-    
+
     # Remove ```json ... ``` or ``` ... ```
     if text.startswith("```"):
         # Match ```<optional_lang> ... ```
@@ -59,12 +62,12 @@ def clean_json_text(text: str) -> str:
         match = re.search(r"^```(?:\w+)?\s*(.*?)\s*```$", text, re.DOTALL)
         if match:
             text = match.group(1)
-    
+
     return text.strip()
 
+
 def parse_json_safe(
-    text: str, 
-    log_error: bool = True
+    text: str, log_error: bool = True
 ) -> Union[Dict[str, Any], List[Any], None]:
     """
     Parse JSON string with markdown cleanup.
@@ -78,11 +81,8 @@ def parse_json_safe(
             logger.error(f"Failed to parse JSON: {e}. Text preview: {cleaned[:100]}...")
         return None
 
-def parse_model_safe(
-    text: str, 
-    model: Type[T],
-    strict: bool = False
-) -> T:
+
+def parse_model_safe(text: str, model: Type[T], strict: bool = False) -> T:
     """
     Parse JSON string to Pydantic model with markdown cleanup.
     Raises pydantic.ValidationError on failure.
@@ -90,18 +90,15 @@ def parse_model_safe(
     cleaned = clean_json_text(text)
     return model.model_validate_json(cleaned, strict=strict)
 
-def dump_json(
-    data: Any, 
-    indent: Optional[int] = None, 
-    sort_keys: bool = False
-) -> str:
+
+def dump_json(data: Any, indent: Optional[int] = None, sort_keys: bool = False) -> str:
     """
     Serialize data to JSON string with enhanced encoder.
     """
     return json.dumps(
-        data, 
-        cls=EnhancedJSONEncoder, 
-        indent=indent, 
+        data,
+        cls=EnhancedJSONEncoder,
+        indent=indent,
         sort_keys=sort_keys,
-        ensure_ascii=False
+        ensure_ascii=False,
     )

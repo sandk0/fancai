@@ -42,39 +42,28 @@ class BookProcessingResponse(BaseModel):
     book_id: UUID = Field(description="UUID of the book being processed")
     status: str = Field(
         description="Processing status: queued | processing | completed | failed",
-        pattern="^(queued|processing|completed|failed)$"
+        pattern="^(queued|processing|completed|failed)$",
     )
     message: str = Field(description="Human-readable status message")
     progress: Optional[int] = Field(
-        None,
-        ge=0,
-        le=100,
-        description="Processing progress percentage (0-100)"
+        None, ge=0, le=100, description="Processing progress percentage (0-100)"
     )
     position: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Position in processing queue (0-indexed)"
+        None, ge=0, description="Position in processing queue (0-indexed)"
     )
     descriptions_found: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Number of descriptions found so far"
+        None, ge=0, description="Number of descriptions found so far"
     )
     priority: Optional[str] = Field(
         None,
         description="Processing priority: low | normal | high",
-        pattern="^(low|normal|high)$"
+        pattern="^(low|normal|high)$",
     )
     total_in_queue: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Total tasks in processing queue"
+        None, ge=0, description="Total tasks in processing queue"
     )
     estimated_wait_time: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Estimated wait time in seconds"
+        None, ge=0, description="Estimated wait time in seconds"
     )
 
 
@@ -104,32 +93,23 @@ class ParsingStatusResponse(BaseModel):
     book_id: UUID = Field(description="UUID of the book")
     status: str = Field(
         description="Parsing status: not_started | processing | completed | failed",
-        pattern="^(not_started|processing|completed|failed)$"
+        pattern="^(not_started|processing|completed|failed)$",
     )
     progress: int = Field(
-        ge=0,
-        le=100,
-        description="Parsing progress percentage (0-100)"
+        ge=0, le=100, description="Parsing progress percentage (0-100)"
     )
     message: str = Field(description="Human-readable status message")
     descriptions_found: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Total descriptions found across all chapters"
+        None, ge=0, description="Total descriptions found across all chapters"
     )
     current_chapter: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Currently processing chapter number (0-indexed)"
+        None, ge=0, description="Currently processing chapter number (0-indexed)"
     )
     total_chapters: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Total chapters in the book"
+        None, ge=0, description="Total chapters in the book"
     )
     error_message: Optional[str] = Field(
-        None,
-        description="Error details if parsing failed"
+        None, description="Error details if parsing failed"
     )
 
 

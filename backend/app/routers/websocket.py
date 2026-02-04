@@ -37,38 +37,41 @@ router = APIRouter(prefix="/ws", tags=["websocket"])
 class ConnectionManager:
     """
     Manages active WebSocket connections per book.
-    
+
     Uses Redis PubSub for cross-worker communication.
     """
-    
+
     def __init__(self):
         self.active_connections: Dict[str, list[WebSocket]] = {}
         self._redis_client = None
         self._pubsub = None
         self._pubsub_task = None
-    
+
     async def _get_redis(self):
         """Lazy initialization of Redis client."""
         if self._redis_client is None:
             import redis.asyncio as aioredis
+
             self._redis_client = await aioredis.from_url(settings.REDIS_URL)
         return self._redis_client
-    
+
     async def connect(self, book_id: str, websocket: WebSocket) -> bool:
         """Accept and register a WebSocket connection."""
         try:
             await websocket.accept()
-            
+
             if book_id not in self.active_connections:
                 self.active_connections[book_id] = []
             self.active_connections[book_id].append(websocket)
-            
-            logger.info(f"WebSocket connected for book {book_id}, total: {len(self.active_connections[book_id])}")
+
+            logger.info(
+                f"WebSocket connected for book {book_id}, total: {len(self.active_connections[book_id])}"
+            )
             return True
         except Exception as e:
             logger.error(f"WebSocket connection failed: {e}")
             return False
-    
+
     def disconnect(self, book_id: str, websocket: WebSocket):
         """Remove WebSocket from active connections."""
         if book_id in self.active_connections:
@@ -77,15 +80,15 @@ class ConnectionManager:
             if not self.active_connections[book_id]:
                 del self.active_connections[book_id]
         logger.info(f"WebSocket disconnected for book {book_id}")
-    
+
     async def send_progress(self, book_id: str, data: Dict[str, Any]):
         """Send progress update to all connected clients for this book."""
         if book_id not in self.active_connections:
             return
-        
+
         message = json.dumps(data)
         disconnected = []
-        
+
         for connection in self.active_connections[book_id]:
             try:
                 if connection.client_state == WebSocketState.CONNECTED:
@@ -93,17 +96,17 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Failed to send to WebSocket: {e}")
                 disconnected.append(connection)
-        
+
         # Cleanup disconnected sockets
         for conn in disconnected:
             self.disconnect(book_id, conn)
-    
+
     async def broadcast_via_redis(self, book_id: str, data: Dict[str, Any]):
         """Publish progress to Redis for cross-worker distribution."""
         redis = await self._get_redis()
         channel = f"book_progress:{book_id}"
         await redis.publish(channel, json.dumps(data))
-    
+
     async def subscribe_to_book(self, book_id: str):
         """Subscribe to Redis channel for book progress."""
         redis = await self._get_redis()
@@ -111,7 +114,7 @@ class ConnectionManager:
         channel = f"book_progress:{book_id}"
         await pubsub.subscribe(channel)
         return pubsub
-    
+
     async def listen_to_pubsub(self, pubsub, websocket: WebSocket, book_id: str):
         """Listen to Redis PubSub and forward messages to WebSocket."""
         try:
@@ -122,9 +125,11 @@ class ConnectionManager:
                             # Redis PubSub returns bytes, decode to str
                             data = message["data"]
                             if isinstance(data, bytes):
-                                data = data.decode('utf-8')
-                            
-                            logger.info(f"Forwarding PubSub message to WebSocket: {data[:100]}...")
+                                data = data.decode("utf-8")
+
+                            logger.info(
+                                f"Forwarding PubSub message to WebSocket: {data[:100]}..."
+                            )
                             await websocket.send_text(data)
                     except Exception as e:
                         logger.error(f"Error forwarding message: {e}")
@@ -140,21 +145,20 @@ manager = ConnectionManager()
 
 
 async def get_user_from_websocket(
-    websocket: WebSocket,
-    query_token: Optional[str] = None
+    websocket: WebSocket, query_token: Optional[str] = None
 ) -> Optional[User]:
     """
     Authenticate WebSocket connection using HttpOnly cookie or query param fallback.
-    
+
     Priority:
     1. HttpOnly cookie 'access_token' (secure, recommended)
     2. Query parameter 'token' (backward compatibility, logs warning)
-    
+
     Also checks token blacklist for revoked tokens (logout support).
     """
     token = None
     auth_source = None
-    
+
     # Priority 1: Try HttpOnly cookie (secure method)
     cookie_token = websocket.cookies.get("access_token")
     if cookie_token:
@@ -164,39 +168,47 @@ async def get_user_from_websocket(
     elif query_token:
         token = query_token
         auth_source = "query_param"
-        logger.warning(f"WebSocket auth via query param (deprecated) - use cookies instead")
-    
+        logger.warning(
+            f"WebSocket auth via query param (deprecated) - use cookies instead"
+        )
+
     if not token:
         logger.warning("WebSocket auth failed: no token provided")
         return None
-    
+
     try:
         # Check token blacklist (logout support)
         if await token_blacklist.is_blacklisted(token, require_online=False):
-            logger.warning(f"WebSocket auth failed: token revoked (source={auth_source})")
+            logger.warning(
+                f"WebSocket auth failed: token revoked (source={auth_source})"
+            )
             return None
-        
+
         # Verify JWT token
         payload = auth_service.verify_token(token, "access")
         if not payload:
-            logger.warning(f"WebSocket auth failed: invalid token (source={auth_source})")
+            logger.warning(
+                f"WebSocket auth failed: invalid token (source={auth_source})"
+            )
             return None
-        
+
         user_id_str = payload.get("sub")
         if not user_id_str:
             return None
-        
+
         user_id = UUID(user_id_str)
-        
+
         # Fetch user from database
         async with AsyncSessionLocal() as session:
             user = await auth_service.get_user_by_id(session, user_id)
             if user and user.is_active:
-                logger.info(f"WebSocket auth success: user={user.email}, source={auth_source}")
+                logger.info(
+                    f"WebSocket auth success: user={user.email}, source={auth_source}"
+                )
                 return user
-        
+
         return None
-        
+
     except Exception as e:
         logger.warning(f"WebSocket auth failed: {e}")
         return None
@@ -204,16 +216,14 @@ async def get_user_from_websocket(
 
 @router.websocket("/book-progress/{book_id}")
 async def websocket_book_progress(
-    websocket: WebSocket,
-    book_id: str,
-    token: str = Query(None)
+    websocket: WebSocket, book_id: str, token: str = Query(None)
 ):
     """
     WebSocket endpoint for real-time book processing progress.
-    
+
     Query params:
         token: JWT access token for authentication
-    
+
     Message format (server -> client):
         {
             "type": "progress" | "completed" | "error" | "ping",
@@ -224,7 +234,7 @@ async def websocket_book_progress(
             "status": "processing" | "completed" | "failed",
             "message": "Optional status message"
         }
-    
+
     Message format (client -> server):
         {
             "type": "ping" | "cancel"
@@ -236,56 +246,59 @@ async def websocket_book_progress(
     except ValueError:
         await websocket.close(code=4000, reason="Invalid book ID")
         return
-    
+
     # Authenticate via cookie (priority) or query param (fallback)
     user = await get_user_from_websocket(websocket, token)
     if not user:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
+        )
         return
-    
+
     # Connect
     if not await manager.connect(book_id, websocket):
         return
-    
+
     # Subscribe to Redis PubSub for this book
     pubsub = await manager.subscribe_to_book(book_id)
-    
+
     # Create listener task
     listener_task = asyncio.create_task(
         manager.listen_to_pubsub(pubsub, websocket, book_id)
     )
-    
+
     try:
         # Send initial connection confirmation
-        await websocket.send_json({
-            "type": "connected",
-            "book_id": book_id,
-            "message": "Subscribed to progress updates"
-        })
-        
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "book_id": book_id,
+                "message": "Subscribed to progress updates",
+            }
+        )
+
         # Handle incoming messages (ping/pong, cancel)
         while True:
             try:
                 data = await asyncio.wait_for(
                     websocket.receive_json(),
-                    timeout=30.0  # Send ping every 30s
+                    timeout=30.0,  # Send ping every 30s
                 )
-                
+
                 if data.get("type") == "ping":
                     await websocket.send_json({"type": "pong"})
                 elif data.get("type") == "cancel":
                     # Forward cancel request (implementation in tasks.py)
                     logger.info(f"Cancel request received for book {book_id}")
-                    await websocket.send_json({
-                        "type": "cancel_ack",
-                        "message": "Cancel request received"
-                    })
-                    
+                    await websocket.send_json(
+                        {"type": "cancel_ack", "message": "Cancel request received"}
+                    )
+
             except asyncio.TimeoutError:
                 # Send keepalive ping
                 if websocket.client_state == WebSocketState.CONNECTED:
                     await websocket.send_json({"type": "ping"})
-                    
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected normally for book {book_id}")
     except Exception as e:
@@ -306,13 +319,13 @@ async def publish_book_progress(
     chapter: int = 0,
     total_chapters: int = 0,
     status: str = "processing",
-    message: str = ""
+    message: str = "",
 ):
     """
     Publish book processing progress to Redis PubSub.
-    
+
     Called from tasks.py during book processing.
-    
+
     Args:
         book_id: Book UUID string
         progress: 0-100 percent
@@ -324,8 +337,9 @@ async def publish_book_progress(
     redis_client = None
     try:
         import redis.asyncio as aioredis
+
         redis_client = await aioredis.from_url(settings.REDIS_URL)
-        
+
         data = {
             "type": "progress",
             "book_id": book_id,
@@ -333,12 +347,12 @@ async def publish_book_progress(
             "chapter": chapter,
             "total_chapters": total_chapters,
             "status": status,
-            "message": message
+            "message": message,
         }
-        
+
         channel = f"book_progress:{book_id}"
         await redis_client.publish(channel, json.dumps(data))
-        
+
     except Exception as e:
         logger.warning(f"Failed to publish progress: {e}")
     finally:

@@ -388,10 +388,7 @@ describe('EpubReader Component', () => {
       renderEpubReader();
 
       await waitFor(() => {
-        expect(screen.getByTestId('loading-overlay')).toBeInTheDocument();
-        // Match any of the loading messages
-        const loadingText = screen.getByTestId('loading-text');
-        expect(loadingText.textContent).toMatch(/Загрузка книги|Восстановление позиции|Подготовка книги/);
+        expect(screen.getByText(/Загрузка книги|Восстановление позиции|Подготовка книги/)).toBeInTheDocument();
       });
     });
 
@@ -409,8 +406,7 @@ describe('EpubReader Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Не удалось загрузить книгу/)).toBeInTheDocument();
-        // Technical error is now in a details element
-        expect(screen.getByText('Failed to load EPUB file')).toBeInTheDocument();
+        expect(screen.getByText(/Не удалось открыть файл книги/)).toBeInTheDocument();
       });
     });
 
@@ -547,7 +543,7 @@ describe('EpubReader Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Не удалось загрузить книгу/)).toBeInTheDocument();
-        expect(screen.getByText('Corrupt EPUB file')).toBeInTheDocument();
+        expect(screen.getByText(/Не удалось открыть файл книги/)).toBeInTheDocument();
       });
     });
 
@@ -565,7 +561,8 @@ describe('EpubReader Component', () => {
       renderEpubReader();
 
       await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument();
+        expect(screen.getByText(/Не удалось загрузить книгу/)).toBeInTheDocument();
+        expect(screen.getByText(/Проверьте подключение к интернету/)).toBeInTheDocument();
       });
     });
 

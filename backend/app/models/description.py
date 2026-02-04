@@ -10,7 +10,17 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, ForeignKey, Float, DateTime, Enum as SQLEnum, func, Index
+from sqlalchemy import (
+    Integer,
+    String,
+    Text,
+    ForeignKey,
+    Float,
+    DateTime,
+    Enum as SQLEnum,
+    func,
+    Index,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -43,7 +53,9 @@ class Description(Base):
         PG_UUID(as_uuid=True), ForeignKey("chapters.id"), nullable=False, index=True
     )
 
-    type: Mapped[DescriptionType] = mapped_column(SQLEnum(DescriptionType), nullable=False, index=True)
+    type: Mapped[DescriptionType] = mapped_column(
+        SQLEnum(DescriptionType), nullable=False, index=True
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -51,7 +63,9 @@ class Description(Base):
     position_in_chapter: Mapped[int] = mapped_column(Integer, nullable=False)
     word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    is_suitable_for_generation: Mapped[bool] = mapped_column(default=True, nullable=False)
+    is_suitable_for_generation: Mapped[bool] = mapped_column(
+        default=True, nullable=False
+    )
     priority_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     emotional_tone: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -60,17 +74,30 @@ class Description(Base):
     image_generated: Mapped[bool] = mapped_column(default=False, nullable=False)
     generation_requested: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
-    chapter: Mapped["Chapter"] = relationship("Chapter", back_populates="descriptions", lazy="raise")
+    chapter: Mapped["Chapter"] = relationship(
+        "Chapter", back_populates="descriptions", lazy="raise"
+    )
     generated_images: Mapped[list["GeneratedImage"]] = relationship(
-        "GeneratedImage", back_populates="description", cascade="all, delete-orphan", lazy="raise"
+        "GeneratedImage",
+        back_populates="description",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     linked_entities: Mapped[list["DescriptionEntity"]] = relationship(
-        "DescriptionEntity", back_populates="description", cascade="all, delete-orphan", lazy="raise"
+        "DescriptionEntity",
+        back_populates="description",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     def __repr__(self) -> str:

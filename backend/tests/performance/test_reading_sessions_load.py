@@ -25,21 +25,27 @@ import pytest
 try:
     from locust import HttpUser, task, between, events
     from locust.env import Environment
+
     LOCUST_AVAILABLE = True
 except ImportError:
     LOCUST_AVAILABLE = False
     # Если locust не установлен, пропускаем все тесты в этом модуле
-    pytestmark = pytest.mark.skip(reason="Locust не установлен. Установите: pip install locust")
+    pytestmark = pytest.mark.skip(
+        reason="Locust не установлен. Установите: pip install locust"
+    )
 
     # Заглушки для классов Locust, чтобы избежать NameError при импорте модуля
     class HttpUser:
         """Заглушка для Locust HttpUser."""
+
         pass
 
     def task(weight=1):
         """Заглушка для Locust task decorator."""
+
         def decorator(func):
             return func
+
         return decorator
 
     def between(min_wait, max_wait):
@@ -48,6 +54,7 @@ except ImportError:
 
     class events:
         """Заглушка для Locust events."""
+
         class test_start:
             @staticmethod
             def add_listener(func):
@@ -60,7 +67,9 @@ except ImportError:
 
     class Environment:
         """Заглушка для Locust Environment."""
+
         pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +313,9 @@ def on_test_start(environment: Environment, **kwargs):
     print("🚀 READING SESSIONS LOAD TEST STARTED")
     print("=" * 80)
     print(f"Target: {environment.host}")
-    print(f"Users: {environment.runner.user_count if hasattr(environment.runner, 'user_count') else 'N/A'}")
+    print(
+        f"Users: {environment.runner.user_count if hasattr(environment.runner, 'user_count') else 'N/A'}"
+    )
     print("=" * 80 + "\n")
 
 
@@ -326,9 +337,15 @@ def on_test_stop(environment: Environment, **kwargs):
     print(f"Total Failures: {stats.total.num_failures}")
     print(f"Failure Rate: {stats.total.fail_ratio * 100:.2f}%")
     print(f"\nAverage Response Time: {stats.total.avg_response_time:.2f}ms")
-    print(f"Median Response Time (p50): {stats.total.get_response_time_percentile(0.5):.2f}ms")
-    print(f"95th Percentile (p95): {stats.total.get_response_time_percentile(0.95):.2f}ms")
-    print(f"99th Percentile (p99): {stats.total.get_response_time_percentile(0.99):.2f}ms")
+    print(
+        f"Median Response Time (p50): {stats.total.get_response_time_percentile(0.5):.2f}ms"
+    )
+    print(
+        f"95th Percentile (p95): {stats.total.get_response_time_percentile(0.95):.2f}ms"
+    )
+    print(
+        f"99th Percentile (p99): {stats.total.get_response_time_percentile(0.99):.2f}ms"
+    )
     print(f"\nRequests/sec: {stats.total.total_rps:.2f}")
 
     print("=" * 80 + "\n")

@@ -5,7 +5,7 @@ Common utilities for Celery tasks.
 import asyncio
 from typing import TypeVar, Coroutine, Any
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def run_async(coro: Coroutine[Any, Any, T]) -> T:

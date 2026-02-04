@@ -184,8 +184,8 @@ class TestProtocols:
         parser = BookParser()
 
         # Check required methods exist
-        assert hasattr(parser, 'parse_book')
-        assert hasattr(parser, 'detect_format')
+        assert hasattr(parser, "parse_book")
+        assert hasattr(parser, "detect_format")
         assert callable(parser.parse_book)
         assert callable(parser.detect_format)
 
@@ -196,11 +196,11 @@ class TestProtocols:
         auth = AuthService()
 
         # Check required methods exist
-        assert hasattr(auth, 'verify_password')
-        assert hasattr(auth, 'get_password_hash')
-        assert hasattr(auth, 'create_access_token')
-        assert hasattr(auth, 'create_refresh_token')
-        assert hasattr(auth, 'verify_token')
+        assert hasattr(auth, "verify_password")
+        assert hasattr(auth, "get_password_hash")
+        assert hasattr(auth, "create_access_token")
+        assert hasattr(auth, "create_refresh_token")
+        assert hasattr(auth, "verify_token")
 
 
 # Example integration test using DI mocks
@@ -227,12 +227,14 @@ class TestExampleDIUsage:
         """
         # Create mock
         mock_gen = MagicMock()
-        mock_gen.get_generation_stats = AsyncMock(return_value={
-            "queue_size": 5,
-            "is_processing": True,
-            "supported_types": ["location", "character"],
-            "api_status": "operational",
-        })
+        mock_gen.get_generation_stats = AsyncMock(
+            return_value={
+                "queue_size": 5,
+                "is_processing": True,
+                "supported_types": ["location", "character"],
+                "api_status": "operational",
+            }
+        )
 
         # Set override
         app.dependency_overrides[get_image_generator_service_dep] = lambda: mock_gen

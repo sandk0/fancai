@@ -23,12 +23,11 @@ class PrometheusMetricsResponse(BaseModel):
     """
 
     metrics_format: str = Field(
-        default="prometheus",
-        description="Формат метрик (prometheus)"
+        default="prometheus", description="Формат метрик (prometheus)"
     )
     content_type: str = Field(
         default="text/plain; version=0.0.4",
-        description="Content-Type для Prometheus scraping"
+        description="Content-Type для Prometheus scraping",
     )
     metrics_available: Dict[str, str] = Field(
         default_factory=lambda: {
@@ -37,7 +36,7 @@ class PrometheusMetricsResponse(BaseModel):
             "concurrent_users_total": "Gauge - Current concurrent users",
             "active_sessions_by_device": "Gauge - Active sessions by device type",
         },
-        description="Список доступных метрик в Prometheus формате"
+        description="Список доступных метрик в Prometheus формате",
     )
 
     class Config:
@@ -48,7 +47,7 @@ class PrometheusMetricsResponse(BaseModel):
                 "metrics_available": {
                     "active_sessions_total": "Gauge - Total active reading sessions",
                     "abandoned_sessions_total": "Gauge - Total abandoned sessions",
-                    "concurrent_users_total": "Gauge - Current concurrent users"
-                }
+                    "concurrent_users_total": "Gauge - Current concurrent users",
+                },
             }
         }

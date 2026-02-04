@@ -23,7 +23,6 @@ from app.models.book import Book
 from app.core.auth import create_access_token
 from app.tasks.reading_sessions_tasks import _close_abandoned_sessions_impl
 
-
 # ============================================================================
 # Test Suite 1: Full Reading Session Flow
 # ============================================================================

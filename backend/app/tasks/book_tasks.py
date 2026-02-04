@@ -24,40 +24,38 @@ from app.services.push_notification_service import push_notification_service
 
 
 def find_entity_fuzzy(
-    entity_name: str, 
-    entity_map: Dict[str, Entity], 
-    cutoff: float = 0.7
+    entity_name: str, entity_map: Dict[str, Entity], cutoff: float = 0.7
 ) -> Optional[Entity]:
     """
     Find entity with fuzzy matching fallback.
-    
+
     Strategy:
     1. Exact match (lowercase)
     2. Close string match (difflib, cutoff=0.7)
     3. Substring containment (either direction)
     """
     name_lower = entity_name.lower().strip()
-    
+
     if name_lower in entity_map:
         return entity_map[name_lower]
-    
+
     matches = get_close_matches(name_lower, entity_map.keys(), n=1, cutoff=cutoff)
     if matches:
         logger.debug(f"Fuzzy match: '{entity_name}' -> '{matches[0]}'")
         return entity_map[matches[0]]
-    
+
     for key, entity in entity_map.items():
         if name_lower in key or key in name_lower:
             logger.debug(f"Substring match: '{entity_name}' -> '{key}'")
             return entity
-    
+
     return None
 
 
 @celery_app.task(
-    name="process_book", 
-    bind=True, 
-    max_retries=3, 
+    name="process_book",
+    bind=True,
+    max_retries=3,
     default_retry_delay=60,
     time_limit=10800,  # 3 hours hard limit
     soft_time_limit=10500,  # 2 hours 55 minutes soft limit
@@ -76,7 +74,7 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     - SoftTimeLimitExceeded handling for graceful timeout
     - Finally block for atomic state cleanup
     - Redis lock cleanup on all exit paths
-    
+
     Phase 4 Improvements:
     - Redis distributed lock to prevent duplicate processing
 
@@ -89,27 +87,29 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     from celery.exceptions import SoftTimeLimitExceeded
     import redis
     from app.core.config import settings
-    
+
     book_id = None
     redis_lock = None
     lock_key = f"book:processing:{book_id_str}"
-    
+
     # Define async wrapper to keep everything in ONE event loop
     async def task_wrapper():
         nonlocal book_id, redis_lock
-        
+
         try:
             # Phase 4: Acquire distributed lock
             # Note: redis-py is sync here, but that's fine inside async wrapper
             # provided we don't block for long.
-            # Ideally we'd use redis.asyncio, but we are reusing the existing sync client pattern 
+            # Ideally we'd use redis.asyncio, but we are reusing the existing sync client pattern
             # for the lock acquisition part which is fast.
             # Or better: keep sync lock logic outside, only run async process inside.
             # BUT: cleanup needs async DB session. So cleanup must be in the loop.
-            
+
             # Since Redis Lock logic is sync, let's keep it here.
-            
-            logger.info("Starting book processing", book_id=book_id_str, task="process_book")
+
+            logger.info(
+                "Starting book processing", book_id=book_id_str, task="process_book"
+            )
             book_id = UUID(book_id_str)
 
             # RUN MAIN PROCESSING
@@ -128,13 +128,15 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
             logger.warning(
                 "Book processing soft time limit exceeded",
                 book_id=book_id_str,
-                timeout_seconds=10500
+                timeout_seconds=10500,
             )
             if book_id:
                 try:
-                    await _atomic_cleanup_book_state(book_id, "Timeout: soft limit exceeded (2h 55m)")
+                    await _atomic_cleanup_book_state(
+                        book_id, "Timeout: soft limit exceeded (2h 55m)"
+                    )
                 except Exception as cleanup_e:
-                     logger.error(f"Cleanup failed during timeout: {cleanup_e}")
+                    logger.error(f"Cleanup failed during timeout: {cleanup_e}")
             raise  # Re-raise so Celery marks task as failed
 
         except Exception as e:
@@ -151,11 +153,11 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
                     await _atomic_cleanup_book_state(book_id, str(e))
                 except Exception as db_e:
                     logger.error(
-                        "Failed to update book error state", 
-                        book_id=book_id_str, 
-                        error=str(db_e)
+                        "Failed to update book error state",
+                        book_id=book_id_str,
+                        error=str(db_e),
                     )
-            
+
             return {"book_id": book_id_str, "status": "failed", "error": str(e)}
 
     # Acquire lock first (SYNC)
@@ -165,31 +167,30 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
         redis_client = redis.from_url(settings.REDIS_URL)
         redis_lock = redis_client.lock(
             lock_key,
-            timeout=10800,  # 3 hours (match task time limit)
-            blocking=False
+            timeout=10800,
+            blocking=False,  # 3 hours (match task time limit)
         )
-        
+
         if not redis_lock.acquire(blocking=False):
             logger.warning(
                 "Book already being processed (lock exists)",
                 book_id=book_id_str,
-                lock_key=lock_key
+                lock_key=lock_key,
             )
             return {
                 "book_id": book_id_str,
                 "status": "skipped",
-                "error": "Book is already being processed by another worker"
+                "error": "Book is already being processed by another worker",
             }
-            
+
         # Run everything in ONE loop
         return asyncio.run(task_wrapper())
-        
+
     except Exception as outer_e:
         # If redis fails or asyncio.run fails totally
         logger.error(f"Critical task failure: {outer_e}")
         raise outer_e
 
-    
     finally:
         if redis_lock is not None:
             try:
@@ -207,46 +208,49 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
 async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
     """
     Atomic cleanup of book processing state.
-    
+
     Guaranteed to:
     1. Set is_processing=False
     2. Set error message
     3. Invalidate user cache
     4. Clear Redis processing lock
-    
+
     Phase 2: Replaces _handle_book_processing_error_async with more robust handling.
     """
     try:
         async with AsyncSessionLocal() as db:
             book_result = await db.execute(select(Book).where(Book.id == book_id))
             book = book_result.scalar_one_or_none()
-            
+
             if book:
                 book.is_processing = False
                 book.descriptions_processing_error = error_msg
                 await db.commit()
-                
+
                 # Invalidate cache
                 try:
                     from app.core.cache import cache_manager
+
                     pattern = f"user:{book.user_id}:books:*"
                     await cache_manager.delete_pattern(pattern)
                 except Exception as cache_e:
                     logger.warning(f"Cache invalidation failed: {cache_e}")
-        
+
         # Clear Redis processing lock
         try:
             import redis.asyncio as aioredis
             from app.core.config import settings
+
             redis_client = await aioredis.from_url(settings.REDIS_URL)
             await redis_client.delete(f"book:processing:{str(book_id)}")
             await redis_client.close()
         except Exception as redis_e:
             logger.warning(f"Redis lock cleanup failed: {redis_e}")
-                
-    except Exception as e:
-        logger.error("Error in _atomic_cleanup_book_state", book_id=str(book_id), error=str(e))
 
+    except Exception as e:
+        logger.error(
+            "Error in _atomic_cleanup_book_state", book_id=str(book_id), error=str(e)
+        )
 
 
 async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
@@ -260,11 +264,11 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     """
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async processing", book_id=str(book_id))
-        
+
         # Initialize services
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
-        
+
         # Import DescriptionType for DB mapping
         from app.models.description import DescriptionType
 
@@ -282,7 +286,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             logger.error("Book not found", book_id=str(book_id))
             raise ValueError(f"Book with id {book_id} not found")
 
-        logger.info("Found book", book_id=str(book_id), title=book.title, author=book.author)
+        logger.info(
+            "Found book", book_id=str(book_id), title=book.title, author=book.author
+        )
 
         # Получаем главы
         chapters_result = await db.execute(
@@ -292,7 +298,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         )
         chapters = chapters_result.scalars().all()
 
-        logger.info("Found chapters", book_id=str(book_id), chapters_count=len(chapters))
+        logger.info(
+            "Found chapters", book_id=str(book_id), chapters_count=len(chapters)
+        )
 
         # ИЗМЕНЕНО: Обрабатываем ВСЕ главы книги (ранее было только 5)
         # Теперь обработка запускается вручную, поэтому обрабатываем полностью
@@ -301,18 +309,21 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_chapters = len(chapters)
 
         if llm_available and chapters:
-            logger.info("Starting parallel chapter processing (v16 Async Architecture)", book_id=str(book_id))
-            
+            logger.info(
+                "Starting parallel chapter processing (v16 Async Architecture)",
+                book_id=str(book_id),
+            )
+
             # Semaphore to limit massive concurrency
-            chapter_semaphore = asyncio.Semaphore(10) 
-            
+            chapter_semaphore = asyncio.Semaphore(10)
+
             # Import TaskGroup safely (Python 3.11+)
             try:
                 from asyncio import TaskGroup
             except ImportError:
-                 # Fallback for older python if needed, though we are on 3.12
-                 logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
-                 raise
+                # Fallback for older python if needed, though we are on 3.12
+                logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
+                raise
 
             # Progress tracking
             chapters_done_count = 0
@@ -329,34 +340,62 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             stmt = select(Chapter).where(Chapter.id == chapter_id)
                             res = await session.execute(stmt)
                             local_chapter = res.scalar_one_or_none()
-                            
+
                             if not local_chapter:
                                 return
-                            
+
                             # Skip if already parsed
                             if local_chapter.is_description_parsed:
                                 return
 
                             # 2. Check Service Page (Table of Contents, etc)
                             SERVICE_PAGE_KEYWORDS = [
-                                "содержание", "оглавление", "table of contents", "contents",
-                                "от автора", "слово автора", "предисловие", "послесловие",
-                                "аннотация", "annotation", "synopsis",
-                                "эпиграф", "epigraph", "цитата",
-                                "посвящение", "dedication",
-                                "благодарности", "acknowledgments",
-                                "примечания", "notes", "сноски",
-                                "библиография", "bibliography", "references",
-                                "об авторе", "about the author", "биография",
-                                "copyright", "издательство", "publisher",
-                                "isbn", "все права защищены", "all rights reserved",
+                                "содержание",
+                                "оглавление",
+                                "table of contents",
+                                "contents",
+                                "от автора",
+                                "слово автора",
+                                "предисловие",
+                                "послесловие",
+                                "аннотация",
+                                "annotation",
+                                "synopsis",
+                                "эпиграф",
+                                "epigraph",
+                                "цитата",
+                                "посвящение",
+                                "dedication",
+                                "благодарности",
+                                "acknowledgments",
+                                "примечания",
+                                "notes",
+                                "сноски",
+                                "библиография",
+                                "bibliography",
+                                "references",
+                                "об авторе",
+                                "about the author",
+                                "биография",
+                                "copyright",
+                                "издательство",
+                                "publisher",
+                                "isbn",
+                                "все права защищены",
+                                "all rights reserved",
                             ]
-                            
+
                             content_lower = (local_chapter.content or "")[:500].lower()
                             title_lower = (local_chapter.title or "").lower()
-                            
-                            is_service = any(k in title_lower or k in content_lower for k in SERVICE_PAGE_KEYWORDS)
-                            if local_chapter.word_count and local_chapter.word_count < 100: 
+
+                            is_service = any(
+                                k in title_lower or k in content_lower
+                                for k in SERVICE_PAGE_KEYWORDS
+                            )
+                            if (
+                                local_chapter.word_count
+                                and local_chapter.word_count < 100
+                            ):
                                 is_service = True
 
                             if is_service:
@@ -368,48 +407,71 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                             # 3. Analyze with Gemini
                             # Extractor has its own internal semaphore/rate-limiting too
-                            result = await gemini_extractor.analyze_chapter(local_chapter.content)
-                            
+                            result = await gemini_extractor.analyze_chapter(
+                                local_chapter.content
+                            )
+
                             # 4. Consistency & Logic (Map Phase)
                             # Use a local ConsistencyManager with this session
                             local_mgr = ConsistencyManager(session)
                             entity_map = await local_mgr.process_chapter_analysis(
-                                str(book_id), 
-                                result, 
+                                str(book_id),
+                                result,
                                 chapter_id=str(local_chapter.id),
-                                chapter_index=idx
+                                chapter_index=idx,
                             )
 
                             # 5. Save Descriptions and create DescriptionEntity links
                             descriptions_data = result.descriptions or []
-                            from app.models.description import Description as DescriptionModel
+                            from app.models.description import (
+                                Description as DescriptionModel,
+                            )
                             from app.models.description_entity import DescriptionEntity
-                            
+
                             for i, d in enumerate(descriptions_data):
-                                d_dict = cast(Dict[str, Any], d.to_dict() if hasattr(d, 'to_dict') else dict(d) if isinstance(d, dict) else {"content": str(d)})
+                                d_dict = cast(
+                                    Dict[str, Any],
+                                    (
+                                        d.to_dict()
+                                        if hasattr(d, "to_dict")
+                                        else (
+                                            dict(d)
+                                            if isinstance(d, dict)
+                                            else {"content": str(d)}
+                                        )
+                                    ),
+                                )
                                 try:
-                                    d_type = DescriptionType(d_dict.get("type", "location"))
+                                    d_type = DescriptionType(
+                                        d_dict.get("type", "location")
+                                    )
                                 except ValueError:
-                                    logger.warning(f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION")
+                                    logger.warning(
+                                        f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
+                                    )
                                     d_type = DescriptionType.LOCATION
-                                
+
                                 new_desc = DescriptionModel(
                                     chapter_id=local_chapter.id,
                                     type=d_type,
                                     content=d_dict.get("content", ""),
-                                    confidence_score=d_dict.get("confidence_score", 0.8),
+                                    confidence_score=d_dict.get(
+                                        "confidence_score", 0.8
+                                    ),
                                     priority_score=d_dict.get("priority_score", 0.5),
                                     position_in_chapter=i,
-                                    word_count=d_dict.get("word_count", 0)
+                                    word_count=d_dict.get("word_count", 0),
                                 )
                                 session.add(new_desc)
                                 await session.flush()  # Get new_desc.id
-                                
+
                                 # Create DescriptionEntity links for spoiler protection
-                                entities_mentioned = d_dict.get("entities_mentioned", [])
+                                entities_mentioned = d_dict.get(
+                                    "entities_mentioned", []
+                                )
                                 entities_linked = 0
                                 entities_not_found = []
-                                
+
                                 for entity_name in entities_mentioned:
                                     if not entity_name:
                                         continue
@@ -418,18 +480,20 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                         desc_entity = DescriptionEntity(
                                             description_id=new_desc.id,
                                             entity_id=entity.id,
-                                            confidence=d_dict.get("confidence_score", 0.8),
-                                            mention_text=entity_name
+                                            confidence=d_dict.get(
+                                                "confidence_score", 0.8
+                                            ),
+                                            mention_text=entity_name,
                                         )
                                         session.add(desc_entity)
                                         entities_linked += 1
                                     else:
                                         entities_not_found.append(entity_name)
-                                
+
                                 # Diagnostic logging for entity lookup
                                 if entities_mentioned:
                                     logger.debug(
-                                        f"Description {i+1}: entities_mentioned={entities_mentioned}, "
+                                        f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
                                         f"linked={entities_linked}, not_found={entities_not_found}, "
                                         f"entity_map_keys={list(entity_map.keys())[:10]}..."
                                     )
@@ -444,30 +508,36 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             local_chapter.parsed_at = datetime.now(timezone.utc)
                             local_chapter.parsing_error = None
                             local_chapter.parse_attempts += 1
-                            
+
                             await session.commit()
-                            
+
                             num_descriptions = len(descriptions_data)
-                            logger.info(f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions")
+                            logger.info(
+                                f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
+                            )
 
                             # Update progress
                             nonlocal chapters_done_count, total_descriptions
                             async with progress_lock:
                                 chapters_done_count += 1
                                 total_descriptions += num_descriptions
-                                current_progress = int((chapters_done_count / total_chapters) * 80)
-                            
+                                current_progress = int(
+                                    (chapters_done_count / total_chapters) * 80
+                                )
+
                             await publish_book_progress(
                                 book_id=str(book_id),
                                 progress=current_progress,
                                 chapter=local_chapter.chapter_number,
                                 total_chapters=total_chapters,
                                 status="processing",
-                                message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}"
+                                message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}",
                             )
-                            
+
                         except Exception as e:
-                            logger.error(f"Error parsing chapter {idx+1}: {e}", exc_info=True)
+                            logger.error(
+                                f"Error parsing chapter {idx + 1}: {e}", exc_info=True
+                            )
                             if local_chapter:
                                 local_chapter.parsing_error = str(e)[:1000]
                                 local_chapter.parse_attempts += 1
@@ -483,51 +553,58 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 logger.error(f"Chapter processing: {failed_count} tasks failed")
                 for exc in excgroup.exceptions:
                     logger.error(f"  - {type(exc).__name__}: {exc}")
-            
+
             logger.info("Parallel processing complete.")
 
             # Update book progress to 100% (approximate)
             book.parsing_progress = 100
 
-
         # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
         # Executed once after all chapters are extracted.
-        
+
         # A. Reduce Phase: Merge Duplicates & Filter Garbage
         try:
             async with db.begin_nested():
-                logger.info("Running Entity Optimization (Reduce Phase)...", book_id=str(book_id))
+                logger.info(
+                    "Running Entity Optimization (Reduce Phase)...",
+                    book_id=str(book_id),
+                )
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=85,
                 status="processing",
-                message="Оптимизация сущностей..."
+                message="Оптимизация сущностей...",
             )
             await consistency_manager.optimize_book_entities(str(book_id))
-            
+
             from app.models.entity import Entity
+
             entities_count_result = await db.execute(
                 select(func.count(Entity.id)).where(Entity.book_id == book_id)
             )
             entities_count = entities_count_result.scalar() or 0
-            
+
             await publish_entities_updated(
                 book_id=str(book_id),
                 entities_count=entities_count,
-                message=f"Обнаружено {entities_count} сущностей"
+                message=f"Обнаружено {entities_count} сущностей",
             )
         except Exception as e:
             logger.error(f"Reduce phase failed: {e}")
-        
+
         # C. LLM-based Deduplication Phase (EC-1.2)
         try:
-            from app.services.entity_deduplication_service import EntityDeduplicationService
+            from app.services.entity_deduplication_service import (
+                EntityDeduplicationService,
+            )
+
             logger.info("Running LLM Entity Deduplication...", book_id=str(book_id))
             dedup_service = EntityDeduplicationService(db=db)
             dedup_response = await dedup_service.suggest_merges(book_id)
-            
+
             if dedup_response.merge_groups:
                 from app.routers.admin.entities import _merge_entities_internal
+
                 auto_merged = 0
                 for group in dedup_response.merge_groups:
                     if group.confidence >= 0.85:
@@ -535,18 +612,25 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                             await _merge_entities_internal(
                                 db=db,
                                 master_id=UUID(group.master_id),
-                                duplicate_ids=[UUID(did) for did in group.duplicate_ids],
+                                duplicate_ids=[
+                                    UUID(did) for did in group.duplicate_ids
+                                ],
                             )
                             auto_merged += len(group.duplicate_ids)
-                            logger.info(f"Auto-merged {len(group.duplicate_ids)} entities (conf={group.confidence})")
+                            logger.info(
+                                f"Auto-merged {len(group.duplicate_ids)} entities (conf={group.confidence})"
+                            )
                         except Exception as merge_err:
                             logger.warning(f"Auto-merge failed: {merge_err}")
-                
+
                 if auto_merged > 0:
-                    logger.info(f"LLM Dedup: auto-merged {auto_merged} entities", book_id=str(book_id))
+                    logger.info(
+                        f"LLM Dedup: auto-merged {auto_merged} entities",
+                        book_id=str(book_id),
+                    )
         except Exception as e:
             logger.warning(f"LLM deduplication phase failed (non-critical): {e}")
-            
+
         # B. Graph Phase: PageRank & Importance
         try:
             async with db.begin_nested():
@@ -557,7 +641,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 book_id=str(book_id),
                 progress=90,
                 status="processing",
-                message="Анализ связей графа..."
+                message="Анализ связей графа...",
             )
             await graph_service.calculate_pagerank(str(book_id))
         except Exception as e:
@@ -567,17 +651,18 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # This is done once after all chapters are processed to ensure global consistency
         try:
             async with db.begin_nested():
-                logger.info("Generating Master References for entities...", book_id=str(book_id))
+                logger.info(
+                    "Generating Master References for entities...", book_id=str(book_id)
+                )
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=95,
                 status="processing",
-                message="Финальная сборка..."
+                message="Финальная сборка...",
             )
             await consistency_manager.generate_master_references(str(book_id))
         except Exception as e:
             logger.error("Failed to generate master references", error=str(e))
-
 
         # Помечаем книгу как готовую с извлечёнными описаниями
         book.is_processing = False
@@ -586,7 +671,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         book.descriptions_extracted = True  # НОВОЕ: флаг успешного извлечения
         book.descriptions_processing_error = None  # Сбрасываем ошибку
         await db.commit()
-        
+
         # Публикуем завершение через WebSocket
         try:
             await publish_book_progress(
@@ -595,7 +680,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 chapter=total_chapters,
                 total_chapters=total_chapters,
                 status="completed",
-                message="Обработка завершена успешно!"
+                message="Обработка завершена успешно!",
             )
         except Exception as ws_err:
             logger.warning("Failed to publish WebSocket completion", error=str(ws_err))
@@ -603,6 +688,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Инвалидируем кэш
         try:
             from app.core.cache import cache_manager
+
             logger.debug("Invalidating book list cache", user_id=str(book.user_id))
             pattern = f"user:{book.user_id}:books:*"
             deleted_count = await cache_manager.delete_pattern(pattern)
@@ -615,14 +701,16 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             .where(Chapter.book_id == book_id)
             .where(Chapter.parsing_error.isnot(None))
         )
-        failed_chapters = [(r[0], r[1][:100]) for r in failed_chapters_result.fetchall()]
-        
+        failed_chapters = [
+            (r[0], r[1][:100]) for r in failed_chapters_result.fetchall()
+        ]
+
         if failed_chapters:
             logger.warning(
                 f"Book {book_id} has {len(failed_chapters)} failed chapters: "
                 f"{[c[0] for c in failed_chapters]}"
             )
-        
+
         result = {
             "book_id": str(book_id),
             "status": "completed" if not failed_chapters else "completed_with_errors",
@@ -633,7 +721,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             "descriptions_extracted": total_descriptions,
             "llm_available": llm_available,
             "extraction_mode": "full_book",
-            "message": f"Book processed. {chapters_parsed} chapters, {len(failed_chapters)} failed."
+            "message": f"Book processed. {chapters_parsed} chapters, {len(failed_chapters)} failed.",
         }
 
         logger.info(

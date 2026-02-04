@@ -97,11 +97,16 @@ class TestUserSchemas:
         subscription_response = SubscriptionResponse(**subscription_data)
 
         statistics = UserStatistics(
-            total_books=5, total_descriptions=50, total_images=25, total_reading_time_minutes=120
+            total_books=5,
+            total_descriptions=50,
+            total_images=25,
+            total_reading_time_minutes=120,
         )
 
         profile = UserProfileResponse(
-            user=user_response, subscription=subscription_response, statistics=statistics
+            user=user_response,
+            subscription=subscription_response,
+            statistics=statistics,
         )
 
         assert profile.user.email == "test@example.com"
@@ -126,7 +131,9 @@ class TestUserSchemas:
         subscription = SubscriptionResponse(**subscription_data)
 
         usage = UsageInfo(
-            books_uploaded=2, images_generated_month=30, last_reset_date=datetime.utcnow()
+            books_uploaded=2,
+            images_generated_month=30,
+            last_reset_date=datetime.utcnow(),
         )
 
         limits = LimitsInfo(books=3, generations_month=50)
@@ -134,7 +141,10 @@ class TestUserSchemas:
         within_limits = WithinLimitsInfo(books=True, generations=True)
 
         detail = SubscriptionDetailResponse(
-            subscription=subscription, usage=usage, limits=limits, within_limits=within_limits
+            subscription=subscription,
+            usage=usage,
+            limits=limits,
+            within_limits=within_limits,
         )
 
         assert detail.subscription.plan == SubscriptionPlan.FREE
@@ -261,7 +271,10 @@ class TestChapterSchemas:
         )
 
         detail = ChapterDetailResponse(
-            chapter=chapter, descriptions=[description], navigation=navigation, book_info=book_info
+            chapter=chapter,
+            descriptions=[description],
+            navigation=navigation,
+            book_info=book_info,
         )
 
         assert detail.chapter.chapter_number == 3

@@ -2,11 +2,13 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Optional
 from uuid import UUID
 
+
 class EntityNoteSchema(BaseModel):
     """
     Описание или упоминание сущности.
     Содержит номер главы для фильтрации спойлеров на фронтенде.
     """
+
     model_config = ConfigDict(from_attributes=True)
 
     text: str
@@ -15,10 +17,12 @@ class EntityNoteSchema(BaseModel):
     is_spoiler: bool = False
     type: str
 
+
 class EntityDetailSchema(BaseModel):
     """
     Детальная информация о сущности (смерженная).
     """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -27,15 +31,16 @@ class EntityDetailSchema(BaseModel):
     avatar_url: Optional[str] = None
     visual_summary: Optional[str] = None
     importance: int = 5
-    
+
     mentions: List[int] = []
     first_mention_cfi: Optional[str] = None
     first_mention_offset: Optional[int] = None
     first_mention_chapter: Optional[int] = None
-    
+
     aliases: List[str] = []
-    
+
     notes: List[EntityNoteSchema] = []
+
 
 class NetworkEdgeSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -48,11 +53,13 @@ class NetworkEdgeSchema(BaseModel):
     first_interaction_cfi: Optional[str] = None
     first_interaction_chapter: Optional[int] = None
 
+
 class EntityNetworkResponse(BaseModel):
     """
     Полный граф сущностей книги.
     """
+
     model_config = ConfigDict(from_attributes=True)
 
-    entities: Dict[UUID, EntityDetailSchema] # Key = Entity ID
+    entities: Dict[UUID, EntityDetailSchema]  # Key = Entity ID
     edges: List[NetworkEdgeSchema]

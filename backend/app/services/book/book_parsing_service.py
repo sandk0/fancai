@@ -84,12 +84,11 @@ class BookParsingService:
 
         try:
             descriptions = await gemini_extractor.extract_descriptions(
-                text=chapter.content,
-                chapter_id=str(chapter_id)
+                text=chapter.content, chapter_id=str(chapter_id)
             )
             converted: List[Dict[str, Any]] = []
             for d in descriptions:
-                if hasattr(d, 'to_dict'):
+                if hasattr(d, "to_dict"):
                     converted.append(d.to_dict())
                 elif isinstance(d, dict):
                     converted.append(d)
@@ -148,12 +147,11 @@ class BookParsingService:
 
             try:
                 descriptions = await gemini_extractor.extract_descriptions(
-                    text=chapter.content,
-                    chapter_id=str(chapter.id)
+                    text=chapter.content, chapter_id=str(chapter.id)
                 )
 
                 for desc in descriptions:
-                    if hasattr(desc, 'to_dict'):
+                    if hasattr(desc, "to_dict"):
                         desc_dict = desc.to_dict()
                     elif isinstance(desc, dict):
                         desc_dict = desc
@@ -165,7 +163,9 @@ class BookParsingService:
                     if len(all_descriptions) >= limit:
                         break
             except Exception as e:
-                logger.error(f"Error extracting descriptions for chapter {chapter.id}: {e}")
+                logger.error(
+                    f"Error extracting descriptions for chapter {chapter.id}: {e}"
+                )
                 continue
 
         all_descriptions.sort(key=lambda x: x.get("priority_score", 0), reverse=True)
@@ -209,7 +209,7 @@ class BookParsingService:
             "total_chapters": total_chapters,
             "llm_available": llm_available,
             "extraction_mode": "on_demand",
-            "message": "Descriptions are extracted on-demand via Gemini API"
+            "message": "Descriptions are extracted on-demand via Gemini API",
         }
 
 

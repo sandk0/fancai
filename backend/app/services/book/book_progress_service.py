@@ -225,7 +225,9 @@ class BookProgressService:
                 book_id=book_id,
                 current_chapter=valid_chapter,
                 current_page=valid_page,
-                current_position=int(valid_position),  # Теперь хранит процент 0-100 (int)
+                current_position=int(
+                    valid_position
+                ),  # Теперь хранит процент 0-100 (int)
                 reading_location_cfi=reading_location_cfi,  # CFI для epub.js
                 scroll_offset_percent=scroll_offset_percent,  # Точный скролл внутри страницы
             )
@@ -278,7 +280,9 @@ class BookProgressService:
             # Обновляем существующий
             progress.current_chapter = valid_chapter
             progress.current_page = valid_page
-            progress.current_position = int(valid_position)  # Теперь хранит процент 0-100 (int)
+            progress.current_position = int(
+                valid_position
+            )  # Теперь хранит процент 0-100 (int)
             progress.reading_location_cfi = reading_location_cfi  # CFI для epub.js
             progress.scroll_offset_percent = (
                 scroll_offset_percent  # Точный скролл внутри страницы

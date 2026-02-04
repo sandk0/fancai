@@ -23,9 +23,7 @@ class EntityType(enum.Enum):
 
 
 entity_type_pg_enum = PG_ENUM(
-    'character', 'location', 'object',
-    name='entitytype',
-    create_type=False
+    "character", "location", "object", name="entitytype", create_type=False
 )
 
 
@@ -44,46 +42,66 @@ class Entity(Base):
         PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
     )
     book_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+        PG_UUID(as_uuid=True),
+        ForeignKey("books.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    
+
     type: Mapped[str] = mapped_column(entity_type_pg_enum, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     visual_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     master_portrait_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     importance: Mapped[int | None] = mapped_column(Integer, default=5, nullable=True)
-    linked_entity_ids: Mapped[list[Any] | None] = mapped_column(JSONB, default=[], nullable=True)
-    
-    entity_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
-    
-    aliases_with_reveal: Mapped[list[dict[str, Any]]] = mapped_column(
-        JSONB, default=list, nullable=False, server_default='[]'
+    linked_entity_ids: Mapped[list[Any] | None] = mapped_column(
+        JSONB, default=[], nullable=True
     )
-    
+
+    entity_metadata: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default={}, nullable=False
+    )
+
+    aliases_with_reveal: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, nullable=False, server_default="[]"
+    )
+
     first_mention_chapter: Mapped[int | None] = mapped_column(
         Integer, nullable=True, index=True
     )
-    
+
     first_mention_cfi: Mapped[str | None] = mapped_column(
-        String(500), nullable=True, index=True,
-        comment="CFI of first mention for spoiler protection"
+        String(500),
+        nullable=True,
+        index=True,
+        comment="CFI of first mention for spoiler protection",
     )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     book: Mapped["Book"] = relationship("Book", backref="entities", lazy="raise")
-    
+
     mentions: Mapped[list["EntityMention"]] = relationship(
-        "EntityMention", back_populates="entity", cascade="all, delete-orphan", lazy="raise"
+        "EntityMention",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     linked_descriptions: Mapped[list["DescriptionEntity"]] = relationship(
-        "DescriptionEntity", back_populates="entity", cascade="all, delete-orphan", lazy="raise"
+        "DescriptionEntity",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     def __repr__(self) -> str:

@@ -17,7 +17,9 @@ class TestChaptersRouter:
         """Test listing chapters without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters")
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_list_chapters_book_not_found(
@@ -36,7 +38,9 @@ class TestChaptersRouter:
         """Test getting chapter without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters/1")
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_get_chapter_not_found(
@@ -80,10 +84,13 @@ class TestChaptersRouter:
             navigation = data["navigation"]
             assert "has_previous" in navigation
             assert "has_next" in navigation
-            assert "previous_chapter" in navigation or navigation.get(
-                "previous_chapter"
-            ) is None
-            assert "next_chapter" in navigation or navigation.get("next_chapter") is None
+            assert (
+                "previous_chapter" in navigation
+                or navigation.get("previous_chapter") is None
+            )
+            assert (
+                "next_chapter" in navigation or navigation.get("next_chapter") is None
+            )
 
 
 class TestChaptersBackwardCompatibility:

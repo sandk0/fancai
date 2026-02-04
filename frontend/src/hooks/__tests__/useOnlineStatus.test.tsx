@@ -9,6 +9,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOnlineStatus, ONLINE_EVENT, OFFLINE_EVENT, isOnline } from '../useOnlineStatus';
 
+// Mock the logger module since logger.debug is console.log.bind(console)
+// which creates a new function reference that can't be intercepted by spying on console.log
+const { mockLoggerDebug } = vi.hoisted(() => ({
+  mockLoggerDebug: vi.fn(),
+}));
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    debug: mockLoggerDebug,
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 describe('useOnlineStatus', () => {
   let onlineSpy: ReturnType<typeof vi.spyOn>;
   let offlineSpy: ReturnType<typeof vi.spyOn>;
@@ -314,7 +328,7 @@ describe('useOnlineStatus', () => {
         window.dispatchEvent(new Event('online'));
       });
 
-      expect(onlineSpy).toHaveBeenCalledWith(
+      expect(mockLoggerDebug).toHaveBeenCalledWith(
         expect.stringContaining('[useOnlineStatus] Network restored')
       );
     });
@@ -326,7 +340,7 @@ describe('useOnlineStatus', () => {
         window.dispatchEvent(new Event('offline'));
       });
 
-      expect(onlineSpy).toHaveBeenCalledWith(
+      expect(mockLoggerDebug).toHaveBeenCalledWith(
         expect.stringContaining('[useOnlineStatus] Network lost')
       );
     });

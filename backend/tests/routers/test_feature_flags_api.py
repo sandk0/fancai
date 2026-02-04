@@ -31,7 +31,9 @@ class TestFeatureFlagsListEndpoint:
         assert all("name" in item for item in data)
         assert all("enabled" in item for item in data)
 
-    async def test_get_feature_flags_by_category(self, client: AsyncClient, admin_auth_headers):
+    async def test_get_feature_flags_by_category(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест получения флагов с фильтром по категории."""
         response = await client.get(
             "/api/v1/admin/feature-flags?category=nlp",
@@ -44,7 +46,9 @@ class TestFeatureFlagsListEndpoint:
         assert len(data) == 4  # 4 NLP флага
         assert all(item["category"] == "nlp" for item in data)
 
-    async def test_get_feature_flags_enabled_only(self, client: AsyncClient, admin_auth_headers):
+    async def test_get_feature_flags_enabled_only(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест получения только включенных флагов."""
         response = await client.get(
             "/api/v1/admin/feature-flags?enabled_only=true",
@@ -58,7 +62,9 @@ class TestFeatureFlagsListEndpoint:
         assert len(data) == 4
         assert all(item["enabled"] is True for item in data)
 
-    async def test_get_feature_flags_category_and_enabled_filter(self, client: AsyncClient, admin_auth_headers):
+    async def test_get_feature_flags_category_and_enabled_filter(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест комбинированный фильтр категория и enabled."""
         response = await client.get(
             "/api/v1/admin/feature-flags?category=nlp&enabled_only=true",
@@ -71,7 +77,9 @@ class TestFeatureFlagsListEndpoint:
         assert all(item["category"] == "nlp" for item in data)
         assert all(item["enabled"] is True for item in data)
 
-    async def test_get_feature_flags_requires_admin(self, client: AsyncClient, auth_headers):
+    async def test_get_feature_flags_requires_admin(
+        self, client: AsyncClient, auth_headers
+    ):
         """Тест что endpoint требует admin доступа."""
         response = await client.get(
             "/api/v1/admin/feature-flags",
@@ -84,9 +92,14 @@ class TestFeatureFlagsListEndpoint:
         """Тест что endpoint требует авторизацию."""
         response = await client.get("/api/v1/admin/feature-flags")
 
-        assert response.status_code in [401, 403]  # Может быть 401 (no auth) или 403 (forbidden)
+        assert response.status_code in [
+            401,
+            403,
+        ]  # Может быть 401 (no auth) или 403 (forbidden)
 
-    async def test_get_feature_flags_response_structure(self, client: AsyncClient, admin_auth_headers):
+    async def test_get_feature_flags_response_structure(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест структура ответа."""
         response = await client.get(
             "/api/v1/admin/feature-flags",
@@ -208,7 +221,9 @@ class TestUpdateFeatureFlagEndpoint:
         assert response.status_code == 200
         assert response.json()["flag"]["enabled"] is False
 
-    async def test_update_nonexistent_flag(self, client: AsyncClient, admin_auth_headers):
+    async def test_update_nonexistent_flag(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест обновления несуществующего флага."""
         response = await client.put(
             "/api/v1/admin/feature-flags/NONEXISTENT_FLAG",
@@ -228,7 +243,9 @@ class TestUpdateFeatureFlagEndpoint:
 
         assert response.status_code in [401, 403]
 
-    async def test_update_flag_response_contains_admin_email(self, client: AsyncClient, admin_auth_headers):
+    async def test_update_flag_response_contains_admin_email(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что ответ содержит email администратора."""
         response = await client.put(
             "/api/v1/admin/feature-flags/ENABLE_IMAGE_CACHING",
@@ -242,7 +259,9 @@ class TestUpdateFeatureFlagEndpoint:
         assert "admin" in data
         assert "@" in data["admin"]  # email формат
 
-    async def test_update_flag_invalid_json(self, client: AsyncClient, admin_auth_headers):
+    async def test_update_flag_invalid_json(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что invalid JSON возвращает 400."""
         response = await client.put(
             "/api/v1/admin/feature-flags/USE_NEW_NLP_ARCHITECTURE",
@@ -279,7 +298,9 @@ class TestCreateFeatureFlagEndpoint:
         assert data["category"] == "experimental"
         assert data["description"] == "New test flag"
 
-    async def test_create_flag_duplicate_fails(self, client: AsyncClient, admin_auth_headers):
+    async def test_create_flag_duplicate_fails(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что создание дубликата флага не удается."""
         response = await client.post(
             "/api/v1/admin/feature-flags",
@@ -293,7 +314,9 @@ class TestCreateFeatureFlagEndpoint:
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"].lower()
 
-    async def test_create_flag_minimal_data(self, client: AsyncClient, admin_auth_headers):
+    async def test_create_flag_minimal_data(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест создание флага с минимальными данными."""
         response = await client.post(
             "/api/v1/admin/feature-flags",
@@ -318,7 +341,9 @@ class TestCreateFeatureFlagEndpoint:
 
         assert response.status_code in [401, 403]
 
-    async def test_create_flag_invalid_category(self, client: AsyncClient, admin_auth_headers):
+    async def test_create_flag_invalid_category(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест создание флага с невалидной категорией (но не обязательно ошибка)."""
         response = await client.post(
             "/api/v1/admin/feature-flags",
@@ -338,7 +363,9 @@ class TestCreateFeatureFlagEndpoint:
 class TestBulkUpdateEndpoint:
     """Тесты endpoint POST /admin/feature-flags/bulk-update."""
 
-    async def test_bulk_update_multiple_flags(self, client: AsyncClient, admin_auth_headers):
+    async def test_bulk_update_multiple_flags(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест массового обновления флагов."""
         response = await client.post(
             "/api/v1/admin/feature-flags/bulk-update",
@@ -360,7 +387,9 @@ class TestBulkUpdateEndpoint:
         assert data["total"] == 3
         assert all(data["results"].values())
 
-    async def test_bulk_update_partial_failure(self, client: AsyncClient, admin_auth_headers):
+    async def test_bulk_update_partial_failure(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест массового обновления с частичным отказом."""
         response = await client.post(
             "/api/v1/admin/feature-flags/bulk-update",
@@ -405,7 +434,9 @@ class TestBulkUpdateEndpoint:
 
         assert response.status_code in [401, 403]
 
-    async def test_bulk_update_response_contains_admin_email(self, client: AsyncClient, admin_auth_headers):
+    async def test_bulk_update_response_contains_admin_email(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что ответ содержит email администратора."""
         response = await client.post(
             "/api/v1/admin/feature-flags/bulk-update",
@@ -434,7 +465,9 @@ class TestClearCacheEndpoint:
         assert response.status_code == 200
         data = response.json()
 
-        assert "success" in data["message"].lower() or "cleared" in data["message"].lower()
+        assert (
+            "success" in data["message"].lower() or "cleared" in data["message"].lower()
+        )
 
     async def test_clear_cache_requires_admin(self, client: AsyncClient, auth_headers):
         """Тест что очистка кэша требует admin доступа."""
@@ -445,7 +478,9 @@ class TestClearCacheEndpoint:
 
         assert response.status_code in [401, 403]
 
-    async def test_clear_cache_response_contains_admin(self, client: AsyncClient, admin_auth_headers):
+    async def test_clear_cache_response_contains_admin(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что ответ содержит информацию об администраторе."""
         response = await client.delete(
             "/api/v1/admin/feature-flags/cache",
@@ -462,7 +497,9 @@ class TestClearCacheEndpoint:
 class TestInitializeDefaultFlagsEndpoint:
     """Тесты endpoint POST /admin/feature-flags/initialize."""
 
-    async def test_initialize_default_flags(self, client: AsyncClient, admin_auth_headers):
+    async def test_initialize_default_flags(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест инициализации дефолтных флагов."""
         response = await client.post(
             "/api/v1/admin/feature-flags/initialize",
@@ -524,7 +561,9 @@ class TestGetCategoriesEndpoint:
         assert "total" in data
         assert len(data["categories"]) == 5  # 5 категорий
 
-    async def test_categories_have_required_fields(self, client: AsyncClient, admin_auth_headers):
+    async def test_categories_have_required_fields(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что категории имеют все требуемые поля."""
         response = await client.get(
             "/api/v1/admin/feature-flags/categories/list",
@@ -539,7 +578,9 @@ class TestGetCategoriesEndpoint:
             for field in required_fields:
                 assert field in category
 
-    async def test_categories_include_nlp(self, client: AsyncClient, admin_auth_headers):
+    async def test_categories_include_nlp(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что список включает категорию NLP."""
         response = await client.get(
             "/api/v1/admin/feature-flags/categories/list",
@@ -551,7 +592,9 @@ class TestGetCategoriesEndpoint:
 
         assert "nlp" in category_values
 
-    async def test_categories_include_all_expected(self, client: AsyncClient, admin_auth_headers):
+    async def test_categories_include_all_expected(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что список включает все ожидаемые категории."""
         response = await client.get(
             "/api/v1/admin/feature-flags/categories/list",
@@ -619,7 +662,9 @@ class TestFeatureFlagsIntegration:
         )
         assert final_response.json()["enabled"] is True
 
-    async def test_bulk_and_individual_operations_consistent(self, client: AsyncClient, admin_auth_headers):
+    async def test_bulk_and_individual_operations_consistent(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что bulk и individual операции дают одинаковый результат."""
         # Делаем bulk update
         bulk_response = await client.post(
@@ -647,7 +692,9 @@ class TestFeatureFlagsIntegration:
         )
         assert parallel_response.json()["enabled"] is False
 
-    async def test_cache_invalidation_after_update(self, client: AsyncClient, admin_auth_headers):
+    async def test_cache_invalidation_after_update(
+        self, client: AsyncClient, admin_auth_headers
+    ):
         """Тест что кэш инвалидируется после обновления."""
         flag_name = "USE_LLM_ENRICHMENT"
 

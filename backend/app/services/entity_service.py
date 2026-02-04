@@ -19,7 +19,7 @@ from app.schemas.responses.entities import (
     EntityNetworkResponse,
     EntityDetailSchema,
     NetworkEdgeSchema,
-    EntityNoteSchema
+    EntityNoteSchema,
 )
 from app.core.cache import cache_manager
 from app.core.database import get_database_session
@@ -40,39 +40,37 @@ class EntityService:
     def _get_earliest_cfi(self, cfi_list: List[str]) -> Optional[str]:
         if not cfi_list:
             return None
-        
+
         def parse_cfi_for_sort(cfi: str) -> tuple:
-            match = re.match(r'^epubcfi\((.+)\)$', cfi)
+            match = re.match(r"^epubcfi\((.+)\)$", cfi)
             if not match:
-                return (float('inf'),)
-            
+                return (float("inf"),)
+
             inner = match.group(1)
-            parts = inner.split('!')
-            
+            parts = inner.split("!")
+
             numbers = []
             for part in parts:
-                segments = part.split('/')
+                segments = part.split("/")
                 for seg in segments:
-                    num_match = re.match(r'^(\d+)', seg)
+                    num_match = re.match(r"^(\d+)", seg)
                     if num_match:
                         numbers.append(int(num_match.group(1)))
-            
-            offset_match = re.search(r':(\d+)', inner)
+
+            offset_match = re.search(r":(\d+)", inner)
             if offset_match:
                 numbers.append(int(offset_match.group(1)))
-            
-            return tuple(numbers) if numbers else (float('inf'),)
-        
+
+            return tuple(numbers) if numbers else (float("inf"),)
+
         return min(cfi_list, key=parse_cfi_for_sort)
 
     def _filter_aliases_by_chapter(
-        self, 
-        entity: Entity, 
-        current_chapter: Optional[int]
+        self, entity: Entity, current_chapter: Optional[int]
     ) -> List[str]:
         """
         Filter entity aliases based on current reading position.
-        
+
         If current_chapter is None, return all aliases from metadata.
         Otherwise, return only aliases revealed up to current_chapter.
         """
@@ -82,49 +80,51 @@ class EntityService:
             if metadata and isinstance(metadata, dict):
                 return metadata.get("aliases", [])
             return []
-        
+
         # Filter by reveal_chapter
         visible_aliases: List[str] = []
         aliases_with_reveal = entity.aliases_with_reveal or []
-        
+
         for alias_data in aliases_with_reveal:
             if not isinstance(alias_data, dict):
                 continue
             reveal_ch = alias_data.get("reveal_chapter")
             alias_name = alias_data.get("name", "")
-            
+
             # Include if reveal_chapter is None (always visible) or <= current_chapter
             if reveal_ch is None or reveal_ch <= current_chapter:
                 if alias_name:
                     visible_aliases.append(alias_name)
-        
+
         return visible_aliases
 
     async def get_book_entity_network(
-        self, 
-        book_id: UUID,
-        current_chapter: Optional[int] = None
+        self, book_id: UUID, current_chapter: Optional[int] = None
     ) -> EntityNetworkResponse:
         """
         Возвращает граф сущностей книги с примененной дедупликацией (Soft Merge).
         Результат кэшируется.
         """
         logger.info(f"[EntityService] Loading entity network for book_id={book_id}")
-        
+
         # 1. Проверяем кэш
-        cache_key = f"book:{book_id}:entity_network_v3" # v3 cache key for Hard Links
+        cache_key = f"book:{book_id}:entity_network_v3"  # v3 cache key for Hard Links
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
             logger.debug(f"[EntityService] Cache HIT for book_id={book_id}")
             return EntityNetworkResponse.model_validate(cached_data)
 
-        logger.debug(f"[EntityService] Cache MISS for book_id={book_id}, loading from DB")
-        
+        logger.debug(
+            f"[EntityService] Cache MISS for book_id={book_id}, loading from DB"
+        )
+
         # 2. Загружаем Сущности
         q_entities = select(Entity).where(Entity.book_id == book_id)
         entities_res = await self.db.execute(q_entities)
         all_entities = entities_res.scalars().all()
-        logger.info(f"[EntityService] Loaded {len(all_entities)} entities for book_id={book_id}")
+        logger.info(
+            f"[EntityService] Loaded {len(all_entities)} entities for book_id={book_id}"
+        )
 
         q_descriptions = (
             select(Description)
@@ -135,16 +135,22 @@ class EntityService:
         desc_res = await self.db.execute(q_descriptions)
         all_descriptions = desc_res.scalars().all()
         descriptions_by_id = {d.id: d for d in all_descriptions}
-        logger.info(f"[EntityService] Loaded {len(all_descriptions)} descriptions for book_id={book_id}")
-        
+        logger.info(
+            f"[EntityService] Loaded {len(all_descriptions)} descriptions for book_id={book_id}"
+        )
+
         q_desc_entities = (
-            select(DescriptionEntity.description_id, DescriptionEntity.entity_id, DescriptionEntity.mention_cfi)
+            select(
+                DescriptionEntity.description_id,
+                DescriptionEntity.entity_id,
+                DescriptionEntity.mention_cfi,
+            )
             .join(Description)
             .join(Chapter)
             .where(Chapter.book_id == book_id)
         )
         desc_entities_res = await self.db.execute(q_desc_entities)
-        
+
         entity_to_descriptions: Dict[UUID, List[Description]] = {}
         description_cfi_map: Dict[UUID, str] = {}
         for desc_id, entity_id, mention_cfi in desc_entities_res.all():
@@ -154,22 +160,29 @@ class EntityService:
                 entity_to_descriptions[entity_id].append(descriptions_by_id[desc_id])
             if mention_cfi:
                 description_cfi_map[desc_id] = mention_cfi
-        
-        logger.info(f"[EntityService] Loaded description_entities links for {len(entity_to_descriptions)} entities")
-        
+
+        logger.info(
+            f"[EntityService] Loaded description_entities links for {len(entity_to_descriptions)} entities"
+        )
+
         # 3.1. Загружаем Hard Link Mentions с CFI и offset
         q_mentions = (
-            select(EntityMention.entity_id, Chapter.chapter_number, EntityMention.mention_cfi, EntityMention.start_index)
+            select(
+                EntityMention.entity_id,
+                Chapter.chapter_number,
+                EntityMention.mention_cfi,
+                EntityMention.start_index,
+            )
             .join(Chapter)
             .where(Chapter.book_id == book_id)
         )
         mentions_res = await self.db.execute(q_mentions)
-        
+
         hard_mentions_map: Dict[UUID, Set[int]] = {}
         cfi_mentions_map: Dict[UUID, List[str]] = {}
         offset_mentions_map: Dict[UUID, List[int]] = {}
         mentions_count = 0
-        
+
         for eid, cnum, cfi, start_idx in mentions_res.all():
             if eid not in hard_mentions_map:
                 hard_mentions_map[eid] = set()
@@ -181,7 +194,9 @@ class EntityService:
             if start_idx is not None:
                 offset_mentions_map[eid].append(start_idx)
             mentions_count += 1
-        logger.info(f"[EntityService] Loaded {mentions_count} hard mentions for {len(hard_mentions_map)} entities")
+        logger.info(
+            f"[EntityService] Loaded {mentions_count} hard mentions for {len(hard_mentions_map)} entities"
+        )
 
         # 4. Загружаем Связи
         entity_ids = [e.id for e in all_entities]
@@ -195,60 +210,63 @@ class EntityService:
         all_edges = edges_res.scalars().all()
 
         response = self._build_network_response(
-            list(all_entities), list(all_edges), hard_mentions_map, cfi_mentions_map, offset_mentions_map, entity_to_descriptions, description_cfi_map, current_chapter
+            list(all_entities),
+            list(all_edges),
+            hard_mentions_map,
+            cfi_mentions_map,
+            offset_mentions_map,
+            entity_to_descriptions,
+            description_cfi_map,
+            current_chapter,
         )
 
         # 6. Сохраняем в кэш
-        await cache_manager.set(
-            cache_key, 
-            response.model_dump(mode='json'), 
-            ttl=3600 
-        )
+        await cache_manager.set(cache_key, response.model_dump(mode="json"), ttl=3600)
 
         return response
 
     def _build_network_response(
-        self, 
-        entities: List[Entity], 
+        self,
+        entities: List[Entity],
         edges: List[EntityRelationship],
         hard_mentions_map: Dict[UUID, Set[int]],
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
         entity_to_descriptions: Dict[UUID, List[Description]],
         description_cfi_map: Dict[UUID, str],
-        current_chapter: Optional[int] = None
+        current_chapter: Optional[int] = None,
     ) -> EntityNetworkResponse:
         alias_to_canonical: Dict[str, str] = {}
         groups: Dict[str, List[Entity]] = {}
-        
+
         for e in entities:
             norm_name = self._normalize_name(str(e.name))
-            
+
             found_canonical = alias_to_canonical.get(norm_name)
-            
+
             if not found_canonical:
                 stored_aliases = []
                 metadata = e.entity_metadata
                 if metadata and isinstance(metadata, dict):
                     stored_aliases = metadata.get("aliases", [])
-                
+
                 for alias in stored_aliases:
                     if isinstance(alias, str):
                         norm_alias = self._normalize_name(alias)
                         if norm_alias in alias_to_canonical:
                             found_canonical = alias_to_canonical[norm_alias]
                             break
-            
+
             canonical = found_canonical if found_canonical else norm_name
-            
+
             alias_to_canonical[norm_name] = canonical
-            
+
             metadata = e.entity_metadata
             if metadata and isinstance(metadata, dict):
                 for alias in metadata.get("aliases", []):
                     if isinstance(alias, str):
                         alias_to_canonical[self._normalize_name(alias)] = canonical
-            
+
             if canonical not in groups:
                 groups[canonical] = []
             groups[canonical].append(e)
@@ -257,20 +275,25 @@ class EntityService:
         master_entities: Dict[UUID, EntityDetailSchema] = {}
 
         for _norm_name, group in groups.items():
-            master = max(group, key=lambda x: (
-                100 if x.visual_summary else 0,
-                x.importance or 0
-            ))
-            
+            master = max(
+                group, key=lambda x: (100 if x.visual_summary else 0, x.importance or 0)
+            )
+
             related_descriptions: List[Description] = []
             for entity in group:
                 related_descriptions.extend(entity_to_descriptions.get(entity.id, []))
-            
+
             merged_detail = self._create_merged_detail(
-                master, related_descriptions, hard_mentions_map, cfi_mentions_map, offset_mentions_map, description_cfi_map, current_chapter
+                master,
+                related_descriptions,
+                hard_mentions_map,
+                cfi_mentions_map,
+                offset_mentions_map,
+                description_cfi_map,
+                current_chapter,
             )
             master_entities[master.id] = merged_detail
-            
+
             for entity in group:
                 id_remap[entity.id] = master.id
 
@@ -280,7 +303,7 @@ class EntityService:
         for edge in edges:
             source_id = edge.source_id
             target_id = edge.target_id
-            
+
             if source_id not in id_remap or target_id not in id_remap:
                 continue
 
@@ -293,28 +316,33 @@ class EntityService:
             edge_key = (new_source, new_target, str(edge.type))
             if edge_key in processed_edges:
                 continue
-            
+
             processed_edges.add(edge_key)
 
             edge_metadata = edge.relationship_metadata
-            context = edge_metadata.get("context") if isinstance(edge_metadata, dict) else None
+            context = (
+                edge_metadata.get("context")
+                if isinstance(edge_metadata, dict)
+                else None
+            )
 
-            final_edges.append(NetworkEdgeSchema(
-                source=new_source,
-                target=new_target,
-                type=str(edge.type),
-                weight=int(edge.weight or 0),
-                description=context,
-                first_interaction_cfi=edge.first_interaction_cfi,
-                first_interaction_chapter=edge.first_interaction_chapter
-            ))
+            final_edges.append(
+                NetworkEdgeSchema(
+                    source=new_source,
+                    target=new_target,
+                    type=str(edge.type),
+                    weight=int(edge.weight or 0),
+                    description=context,
+                    first_interaction_cfi=edge.first_interaction_cfi,
+                    first_interaction_chapter=edge.first_interaction_chapter,
+                )
+            )
 
-        return EntityNetworkResponse(
-            entities=master_entities,
-            edges=final_edges
-        )
+        return EntityNetworkResponse(entities=master_entities, edges=final_edges)
 
-    def _process_visual_summary(self, summary: Optional[str], current_chapter: Optional[int]) -> Optional[str]:
+    def _process_visual_summary(
+        self, summary: Optional[str], current_chapter: Optional[int]
+    ) -> Optional[str]:
         """
         Filters and formats the visual summary based on reading progress.
         1. Splits by [Глава N] markers.
@@ -323,69 +351,69 @@ class EntityService:
         """
         if not summary:
             return None
-            
+
         import re
-        
+
         # Split by the specific marker format we use in ConsistencyManager
         # Pattern captures the delimiter so we can parse the chapter number
         # We look for "\n\n[Глава N]: " or start of string
-        parts = re.split(r'(\[Глава \d+\]: )', summary)
-        
+        parts = re.split(r"(\[Глава \d+\]: )", summary)
+
         # parts[0] is the base text (before any marker)
         # parts[1] is marker 1, parts[2] is text 1
         # parts[3] is marker 2, parts[4] is text 2
-        
+
         result_parts = []
-        
+
         # Handle the base part (always visible)
         base_text = parts[0].strip()
         if base_text:
             result_parts.append(base_text)
-            
+
         # Iterate over marker/text pairs
         for i in range(1, len(parts), 2):
             if i + 1 >= len(parts):
                 break
-                
+
             marker = parts[i]
-            text = parts[i+1].strip()
-            
+            text = parts[i + 1].strip()
+
             # Extract chapter number
-            match = re.search(r'\[Глава (\d+)\]', marker)
+            match = re.search(r"\[Глава (\d+)\]", marker)
             if match:
                 chapter_num = int(match.group(1))
-                
+
                 # Filter logic
                 if current_chapter is None or chapter_num <= current_chapter:
                     result_parts.append(text)
             else:
                 # If marker parse fails, include it just in case (safe fallback)
                 result_parts.append(text)
-                
+
         if not result_parts:
             return None
-            
+
         # Join with double newlines for paragraphs
         return "\n\n".join(result_parts)
 
     def _create_merged_detail(
-        self, 
-        master: Entity, 
+        self,
+        master: Entity,
         descriptions: List[Description],
         hard_mentions_map: Dict[UUID, Set[int]],
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
         description_cfi_map: Dict[UUID, str],
-        current_chapter: Optional[int] = None
+        current_chapter: Optional[int] = None,
     ) -> EntityDetailSchema:
         all_notes: List[EntityNoteSchema] = []
         all_mentions: Set[int] = set(hard_mentions_map.get(master.id, set()))
-        
+
         cfi_list = cfi_mentions_map.get(master.id, [])
         first_mention_cfi: Optional[str] = None
         if cfi_list:
             first_mention_cfi = self._get_earliest_cfi(cfi_list)
-        
+
         offset_list = offset_mentions_map.get(master.id, [])
         first_mention_offset: Optional[int] = min(offset_list) if offset_list else None
 
@@ -393,20 +421,22 @@ class EntityService:
             chapter_idx = 0
             if d.chapter:
                 chapter_idx = d.chapter.chapter_number
-            
+
             all_mentions.add(chapter_idx)
 
             note_cfi = description_cfi_map.get(d.id)
-            all_notes.append(EntityNoteSchema(
-                text=d.content,
-                chapter_index=chapter_idx,
-                cfi=note_cfi,
-                is_spoiler=False,
-                type=d.type.value if d.type else "UNKNOWN"
-            ))
+            all_notes.append(
+                EntityNoteSchema(
+                    text=d.content,
+                    chapter_index=chapter_idx,
+                    cfi=note_cfi,
+                    is_spoiler=False,
+                    type=d.type.value if d.type else "UNKNOWN",
+                )
+            )
 
         all_notes.sort(key=lambda x: x.chapter_index)
-        
+
         final_mentions = sorted(list(all_mentions))
         if not final_mentions:
             logger.warning(
@@ -414,22 +444,26 @@ class EntityService:
                 f"hard_mentions={len(hard_mentions_map.get(master.id, set()))}, "
                 f"soft_links={len(descriptions)}"
             )
-        
+
         return EntityDetailSchema(
             id=master.id,
             name=master.name,
             type=master.type,
             avatar_url=master.master_portrait_url,
-            visual_summary=self._process_visual_summary(master.visual_summary, current_chapter),
+            visual_summary=self._process_visual_summary(
+                master.visual_summary, current_chapter
+            ),
             importance=master.importance or 5,
             mentions=final_mentions,
             first_mention_cfi=first_mention_cfi,
             first_mention_offset=first_mention_offset,
             first_mention_chapter=master.first_mention_chapter,
             aliases=self._filter_aliases_by_chapter(master, current_chapter),
-            notes=all_notes
+            notes=all_notes,
         )
 
 
-def get_entity_service(db: AsyncSession = Depends(get_database_session)) -> EntityService:
+def get_entity_service(
+    db: AsyncSession = Depends(get_database_session),
+) -> EntityService:
     return EntityService(db)

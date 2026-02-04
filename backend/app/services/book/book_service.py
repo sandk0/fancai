@@ -394,6 +394,7 @@ class BookService:
 
         # Сохраняем файл (async to avoid blocking event loop)
         import aiofiles
+
         async with aiofiles.open(cover_path, "wb") as f:
             await f.write(image_data)
 

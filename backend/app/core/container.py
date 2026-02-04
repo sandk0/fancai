@@ -22,7 +22,6 @@ from fastapi import Depends
 from .database import get_database_session
 from .config import settings
 
-
 # ============================================================================
 # PROTOCOLS (Interfaces) - Абстракции для сервисов
 # ============================================================================
@@ -62,7 +61,7 @@ class IImageGenerator(Protocol):
         description: str,
         description_type: str,
         genre: Optional[str],
-        custom_style: Optional[str]
+        custom_style: Optional[str],
     ) -> Any:
         """Генерирует изображение по описанию."""
         ...
@@ -80,11 +79,7 @@ class IGeminiExtractor(Protocol):
         """Проверяет доступность экстрактора."""
         ...
 
-    async def extract(
-        self,
-        text: str,
-        chapter_id: Optional[str]
-    ) -> List[Any]:
+    async def extract(self, text: str, chapter_id: Optional[str]) -> List[Any]:
         """Извлекает описания из текста."""
         ...
 
@@ -118,20 +113,13 @@ class IAuthService(Protocol):
         ...
 
     async def create_user(
-        self,
-        db: AsyncSession,
-        email: str,
-        password: str,
-        full_name: Optional[str]
+        self, db: AsyncSession, email: str, password: str, full_name: Optional[str]
     ) -> Any:
         """Создает пользователя."""
         ...
 
     async def authenticate_user(
-        self,
-        db: AsyncSession,
-        email: str,
-        password: str
+        self, db: AsyncSession, email: str, password: str
     ) -> Optional[Any]:
         """Аутентифицирует пользователя."""
         ...
@@ -147,37 +135,24 @@ class IBookService(Protocol):
         user_id: Any,
         file_path: str,
         original_filename: str,
-        parsed_book: Any
+        parsed_book: Any,
     ) -> Any:
         """Создает книгу из загруженного файла."""
         ...
 
     async def get_user_books(
-        self,
-        db: AsyncSession,
-        user_id: Any,
-        skip: int,
-        limit: int,
-        sort_by: str
+        self, db: AsyncSession, user_id: Any, skip: int, limit: int, sort_by: str
     ) -> List[Any]:
         """Получает список книг пользователя."""
         ...
 
     async def get_book_by_id(
-        self,
-        db: AsyncSession,
-        book_id: Any,
-        user_id: Optional[Any]
+        self, db: AsyncSession, book_id: Any, user_id: Optional[Any]
     ) -> Optional[Any]:
         """Получает книгу по ID."""
         ...
 
-    async def delete_book(
-        self,
-        db: AsyncSession,
-        book_id: Any,
-        user_id: Any
-    ) -> bool:
+    async def delete_book(self, db: AsyncSession, book_id: Any, user_id: Any) -> bool:
         """Удаляет книгу."""
         ...
 
@@ -191,7 +166,7 @@ class IImageGeneratorService(Protocol):
         description: Any,
         user_id: str,
         book_genre: Optional[str],
-        custom_style: Optional[str]
+        custom_style: Optional[str],
     ) -> Any:
         """Генерирует изображение для описания."""
         ...
@@ -207,7 +182,7 @@ class IImageGeneratorService(Protocol):
         description_content: str,
         description_type: str,
         book_genre: Optional[str],
-        custom_style: Optional[str]
+        custom_style: Optional[str],
     ) -> Dict[str, Any]:
         """Добавляет задачу генерации в очередь."""
         ...
@@ -230,6 +205,7 @@ def get_book_parser() -> "BookParser":
         BookParser: Экземпляр парсера книг
     """
     from ..services.book_parser import BookParser
+
     return BookParser()
 
 
@@ -245,6 +221,7 @@ def get_imagen_service() -> "ImagenService":
         ImagenService: Экземпляр сервиса генерации изображений
     """
     from ..services.imagen_generator import ImagenService
+
     return ImagenService()
 
 
@@ -260,6 +237,7 @@ def get_gemini_extractor() -> "GeminiDirectExtractor":
         GeminiDirectExtractor: Экземпляр экстрактора описаний
     """
     from ..services.gemini_extractor import GeminiDirectExtractor
+
     return GeminiDirectExtractor()
 
 
@@ -275,6 +253,7 @@ def get_auth_service() -> "AuthService":
         AuthService: Экземпляр сервиса аутентификации
     """
     from ..services.auth_service import AuthService
+
     return AuthService()
 
 
@@ -290,6 +269,7 @@ def get_book_service() -> "BookService":
         BookService: Экземпляр сервиса книг
     """
     from ..services.book.book_service import BookService
+
     return BookService()
 
 
@@ -302,6 +282,7 @@ def get_book_progress_service() -> "BookProgressService":
         BookProgressService: Экземпляр сервиса прогресса чтения
     """
     from ..services.book.book_progress_service import BookProgressService
+
     return BookProgressService()
 
 
@@ -317,6 +298,7 @@ def get_image_generator_service() -> "ImageGeneratorService":
         ImageGeneratorService: Экземпляр сервиса генерации изображений
     """
     from ..services.image_generator import ImageGeneratorService
+
     return ImageGeneratorService()
 
 
@@ -329,6 +311,7 @@ def get_token_blacklist() -> "TokenBlacklist":
         TokenBlacklist: Экземпляр сервиса черного списка токенов
     """
     from ..services.token_blacklist import TokenBlacklist
+
     return TokenBlacklist()
 
 
@@ -344,6 +327,7 @@ def get_feature_flag_manager_singleton() -> "FeatureFlagManager":
         FeatureFlagManager: Экземпляр менеджера feature flags
     """
     from ..services.feature_flag_manager import FeatureFlagManager
+
     # FeatureFlagManager requires db session, return class for factory pattern
     return FeatureFlagManager
 
@@ -543,8 +527,12 @@ def create_test_overrides() -> Dict[Any, Any]:
         get_gemini_extractor_dep: lambda: DependencyContainer.get(get_gemini_extractor),
         get_auth_service_dep: lambda: DependencyContainer.get(get_auth_service),
         get_book_service_dep: lambda: DependencyContainer.get(get_book_service),
-        get_book_progress_service_dep: lambda: DependencyContainer.get(get_book_progress_service),
-        get_image_generator_service_dep: lambda: DependencyContainer.get(get_image_generator_service),
+        get_book_progress_service_dep: lambda: DependencyContainer.get(
+            get_book_progress_service
+        ),
+        get_image_generator_service_dep: lambda: DependencyContainer.get(
+            get_image_generator_service
+        ),
         get_token_blacklist_dep: lambda: DependencyContainer.get(get_token_blacklist),
     }
 

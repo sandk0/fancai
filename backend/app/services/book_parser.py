@@ -64,7 +64,7 @@ class BookChapter:
     content: str
     html_content: str = ""
     word_count: int = 0
-    file_path: str = "" # Internal EPUB path (href) for exact mapping
+    file_path: str = ""  # Internal EPUB path (href) for exact mapping
 
     def __post_init__(self):
         """Автоматический подсчёт слов если не указан."""
@@ -299,7 +299,7 @@ class EPUBParser:
                 metadata.genre = self._guess_genre_from_text(
                     title=metadata.title or "",
                     description=metadata.description or "",
-                    author=metadata.author or ""
+                    author=metadata.author or "",
                 )
 
             # ISBN
@@ -368,40 +368,145 @@ class EPUBParser:
         # Словарь ключевых слов для каждого жанра (русский + английский)
         genre_keywords = {
             "fantasy": [
-                "фантаз", "fantasy", "магия", "magic", "волшебн", "ведьмак", "witcher",
-                "дракон", "dragon", "эльф", "elf", "гном", "dwarf", "орк", "orc",
-                "маг", "wizard", "колдун", "sorcerer", "заклинание", "spell"
+                "фантаз",
+                "fantasy",
+                "магия",
+                "magic",
+                "волшебн",
+                "ведьмак",
+                "witcher",
+                "дракон",
+                "dragon",
+                "эльф",
+                "elf",
+                "гном",
+                "dwarf",
+                "орк",
+                "orc",
+                "маг",
+                "wizard",
+                "колдун",
+                "sorcerer",
+                "заклинание",
+                "spell",
             ],
             "science_fiction": [
-                "фантасти", "science fiction", "sci-fi", "космос", "space", "робот", "robot",
-                "киберпанк", "cyberpunk", "будущее", "future", "звезд", "star",
-                "галактик", "galactic", "андроид", "android", "космическ", "cosmic"
+                "фантасти",
+                "science fiction",
+                "sci-fi",
+                "космос",
+                "space",
+                "робот",
+                "robot",
+                "киберпанк",
+                "cyberpunk",
+                "будущее",
+                "future",
+                "звезд",
+                "star",
+                "галактик",
+                "galactic",
+                "андроид",
+                "android",
+                "космическ",
+                "cosmic",
             ],
             "detective": [
-                "детектив", "detective", "расследован", "investigation", "убийство", "murder",
-                "преступлен", "crime", "полиц", "police", "инспектор", "inspector",
-                "тайна", "mystery", "загадк", "puzzle", "следствие", "inquiry"
+                "детектив",
+                "detective",
+                "расследован",
+                "investigation",
+                "убийство",
+                "murder",
+                "преступлен",
+                "crime",
+                "полиц",
+                "police",
+                "инспектор",
+                "inspector",
+                "тайна",
+                "mystery",
+                "загадк",
+                "puzzle",
+                "следствие",
+                "inquiry",
             ],
             "romance": [
-                "роман", "romance", "любов", "love", "страст", "passion", "сердце", "heart",
-                "чувств", "feeling", "отношен", "relationship", "свадьб", "wedding"
+                "роман",
+                "romance",
+                "любов",
+                "love",
+                "страст",
+                "passion",
+                "сердце",
+                "heart",
+                "чувств",
+                "feeling",
+                "отношен",
+                "relationship",
+                "свадьб",
+                "wedding",
             ],
             "thriller": [
-                "триллер", "thriller", "саспенс", "suspense", "напряжен", "tension",
-                "опасност", "danger", "погон", "chase", "шпион", "spy"
+                "триллер",
+                "thriller",
+                "саспенс",
+                "suspense",
+                "напряжен",
+                "tension",
+                "опасност",
+                "danger",
+                "погон",
+                "chase",
+                "шпион",
+                "spy",
             ],
             "horror": [
-                "ужас", "horror", "страх", "fear", "кошмар", "nightmare", "монстр", "monster",
-                "вампир", "vampire", "зомби", "zombie", "призрак", "ghost"
+                "ужас",
+                "horror",
+                "страх",
+                "fear",
+                "кошмар",
+                "nightmare",
+                "монстр",
+                "monster",
+                "вампир",
+                "vampire",
+                "зомби",
+                "zombie",
+                "призрак",
+                "ghost",
             ],
             "historical": [
-                "истори", "historical", "век", "century", "война", "war", "империя", "empire",
-                "королев", "king", "царь", "tsar", "рыцар", "knight"
+                "истори",
+                "historical",
+                "век",
+                "century",
+                "война",
+                "war",
+                "империя",
+                "empire",
+                "королев",
+                "king",
+                "царь",
+                "tsar",
+                "рыцар",
+                "knight",
             ],
             "adventure": [
-                "приключен", "adventure", "путешеств", "journey", "поход", "expedition",
-                "остров", "island", "сокровищ", "treasure", "пират", "pirate"
-            ]
+                "приключен",
+                "adventure",
+                "путешеств",
+                "journey",
+                "поход",
+                "expedition",
+                "остров",
+                "island",
+                "сокровищ",
+                "treasure",
+                "пират",
+                "pirate",
+            ],
         }
 
         # Подсчитываем совпадения для каждого жанра
@@ -414,7 +519,9 @@ class EPUBParser:
         # Возвращаем жанр с максимальным score
         if genre_scores:
             best_genre = max(genre_scores, key=genre_scores.get)
-            logger.info(f"Detected genre '{best_genre}' from text analysis (score: {genre_scores[best_genre]})")
+            logger.info(
+                f"Detected genre '{best_genre}' from text analysis (score: {genre_scores[best_genre]})"
+            )
             return best_genre
 
         # Если ничего не нашли - возвращаем "other"
@@ -481,7 +588,7 @@ class EPUBParser:
                         title=title,
                         content=content,
                         html_content=html_content,
-                        file_path=link.split('#')[0], # Store internal href
+                        file_path=link.split("#")[0],  # Store internal href
                     )
 
                     chapters.append(chapter)
@@ -896,7 +1003,7 @@ class BookParser:
             # Проверяем размер файла
             if file_size > self.config.max_file_size:
                 result["error"] = (
-                    f"File too large (max {self.config.max_file_size // (1024*1024)}MB)"
+                    f"File too large (max {self.config.max_file_size // (1024 * 1024)}MB)"
                 )
                 return result
 

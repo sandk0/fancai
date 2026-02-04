@@ -158,7 +158,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as e:
             # Log the error but don't crash - let FastAPI handle it
-            logger.warning(f"Error in security headers middleware: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Error in security headers middleware: {type(e).__name__}: {e}"
+            )
             raise
 
         # ========================================================================

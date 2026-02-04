@@ -195,7 +195,9 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception as e:
-            logger.warning(f"Error in cache control middleware: {type(e).__name__}: {e}")
+            logger.warning(
+                f"Error in cache control middleware: {type(e).__name__}: {e}"
+            )
             raise
 
         # Пропускаем middleware если отключен
@@ -236,9 +238,7 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 # ============================================================================
 
 
-def add_cache_control_header(
-    response: Response, cache_control: str
-) -> Response:
+def add_cache_control_header(response: Response, cache_control: str) -> Response:
     """
     Utility function для ручного добавления Cache-Control header к response.
 
@@ -364,6 +364,4 @@ def get_all_cache_policies() -> dict:
         "/api/v1/unknown": "no-cache, must-revalidate",
     }
 
-    return {
-        path: get_cache_control_header(path) for path in test_paths.keys()
-    }
+    return {path: get_cache_control_header(path) for path in test_paths.keys()}

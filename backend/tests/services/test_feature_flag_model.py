@@ -43,7 +43,7 @@ class TestFeatureFlagModel:
             name="MINIMAL_FLAG",
             enabled=False,
             category=FeatureFlagCategory.SYSTEM.value,
-            default_value=False
+            default_value=False,
         )
 
         assert flag.enabled is False
@@ -122,7 +122,9 @@ class TestFeatureFlagModel:
         # Проверяем что это строка в ISO формате
         assert isinstance(flag_dict["created_at"], str)
         assert isinstance(flag_dict["updated_at"], str)
-        assert "T" in flag_dict["created_at"]  # ISO format имеет T между датой и временем
+        assert (
+            "T" in flag_dict["created_at"]
+        )  # ISO format имеет T между датой и временем
 
     def test_feature_flag_category_enum_values(self):
         """Тест всех категорий feature flags."""
@@ -159,11 +161,19 @@ class TestFeatureFlagModel:
 
     def test_default_feature_flags_required_fields(self):
         """Тест что каждый дефолтный флаг имеет требуемые поля."""
-        required_fields = {"name", "enabled", "category", "description", "default_value"}
+        required_fields = {
+            "name",
+            "enabled",
+            "category",
+            "description",
+            "default_value",
+        }
 
         for default_flag in DEFAULT_FEATURE_FLAGS:
             flag_fields = set(default_flag.keys())
-            assert required_fields.issubset(flag_fields), f"Flag {default_flag.get('name')} missing fields"
+            assert required_fields.issubset(flag_fields), (
+                f"Flag {default_flag.get('name')} missing fields"
+            )
 
     def test_default_feature_flags_names(self):
         """Тест что дефолтные флаги имеют ожидаемые имена."""
@@ -198,21 +208,27 @@ class TestFeatureFlagModel:
 
     def test_default_feature_flags_use_new_nlp_architecture_enabled(self):
         """Тест что USE_NEW_NLP_ARCHITECTURE включен по умолчанию."""
-        flag = next(f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_NEW_NLP_ARCHITECTURE")
+        flag = next(
+            f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_NEW_NLP_ARCHITECTURE"
+        )
 
         assert flag["enabled"] is True
         assert flag["default_value"] is True
 
     def test_default_feature_flags_use_advanced_parser_disabled(self):
         """Тест что USE_ADVANCED_PARSER отключен по умолчанию."""
-        flag = next(f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_ADVANCED_PARSER")
+        flag = next(
+            f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_ADVANCED_PARSER"
+        )
 
         assert flag["enabled"] is False
         assert flag["default_value"] is False
 
     def test_default_feature_flags_use_llm_enrichment_disabled(self):
         """Тест что USE_LLM_ENRICHMENT отключен по умолчанию."""
-        flag = next(f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_LLM_ENRICHMENT")
+        flag = next(
+            f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_LLM_ENRICHMENT"
+        )
 
         assert flag["enabled"] is False
         assert flag["default_value"] is False

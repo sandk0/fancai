@@ -16,6 +16,7 @@ from .config import settings
 class Base(DeclarativeBase):
     pass
 
+
 # Настройка логирования SQL запросов
 logging.basicConfig()
 logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)

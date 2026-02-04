@@ -19,7 +19,6 @@ from ...models.book import Book
 from ...core.tasks import process_book_task
 from ...schemas.responses import BookProcessingResponse, ParsingStatusResponse
 
-
 router = APIRouter()
 
 
@@ -81,13 +80,12 @@ async def process_book_descriptions(
                         progress=0,
                         message="Starting book parsing...",
                     )
-                    
+
                     # Prevent race condition: Mark as processing in DB immediately
                     book.is_processing = True
                     book.parsing_progress = 0
                     book.descriptions_extracted = False
                     await db.commit()
-
 
                     # Запускаем задачу
                     process_book_task.delay(book_id)
@@ -162,16 +160,16 @@ async def get_parsing_status(
         book_id = book.id
 
         # Определяем статус парсинга на основе данных книги
-        
+
         # Если идет обработка (независимо от того, распаршена книга или нет - например, идет генерация описаний)
         if book.is_processing:
-             return {
+            return {
                 "book_id": book_id,
                 "status": "processing",
                 "progress": book.parsing_progress,
                 "message": f"Parsing in progress: {book.parsing_progress}%",
             }
-            
+
         # Если не обрабатывается, но распаршена (начальный парсинг структуры)
         if book.is_parsed:
             # Если описания еще не извлечены, значит мы в состоянии "ожидания" или "готовности к старту"
@@ -183,7 +181,7 @@ async def get_parsing_status(
                     "progress": 0,
                     "message": "Content parsed, AI descriptions pending",
                 }
-                
+
             return {
                 "book_id": book_id,
                 "status": "completed",
@@ -195,7 +193,7 @@ async def get_parsing_status(
                     else 0
                 ),
             }
-        
+
         # Если есть частичный прогресс (на всякий случай)
         elif book.parsing_progress > 0:
             return {

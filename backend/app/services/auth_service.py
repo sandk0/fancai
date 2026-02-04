@@ -385,27 +385,27 @@ auth_service = AuthService()
 async def get_current_user_from_token(token: str) -> Optional[User]:
     """
     Retrieves the current user from a JWT token (e.g. for WebSocket auth).
-    
+
     Creates a new database session scope to fetch the user.
     """
     from ..core.database import AsyncSessionLocal
-    
+
     payload = auth_service.verify_token(token, "access")
     if not payload:
         return None
-    
+
     user_id_str = payload.get("sub")
     if not user_id_str:
         return None
-        
+
     try:
         user_id = UUID(user_id_str)
     except ValueError:
         return None
-        
+
     async with AsyncSessionLocal() as session:
         user = await auth_service.get_user_by_id(session, user_id)
         if user and user.is_active:
             return user
-            
+
     return None

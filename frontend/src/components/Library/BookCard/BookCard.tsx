@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { m, AnimatePresence } from 'motion/react';
 import { AlertCircle } from 'lucide-react';
@@ -49,9 +49,11 @@ export const BookCard = memo(function BookCard({
       : null;
   }, [book.has_cover, book.id]);
 
-  useEffect(() => {
+  const prevCoverUrlRef = useRef(coverUrl);
+  if (prevCoverUrlRef.current !== coverUrl) {
+    prevCoverUrlRef.current = coverUrl;
     setImageLoaded(false);
-  }, [coverUrl]);
+  }
 
   const isClickable = book.is_parsed && !book.is_processing;
   const progressPercent = book.reading_progress_percent ?? 0;

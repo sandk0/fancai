@@ -17,7 +17,6 @@ from ..services.auth_service import auth_service
 from ..services.token_blacklist import token_blacklist
 from ..models.user import User
 
-
 # Создаем схему безопасности для Bearer токенов (auto_error=False to allow checking cookies)
 security = HTTPBearer(auto_error=False)
 

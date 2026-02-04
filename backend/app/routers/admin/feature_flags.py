@@ -33,7 +33,6 @@ from ...schemas.responses.admin import (
     FeatureFlagCategoriesResponse,
 )
 
-
 router = APIRouter(prefix="/feature-flags", tags=["admin", "feature-flags"])
 
 
@@ -67,7 +66,8 @@ class FeatureFlagCreateRequest(BaseModel):
     name: str = Field(max_length=100, description="Unique flag name")
     enabled: bool = Field(default=False, description="Initial enabled state")
     category: str = Field(
-        default="system", description="Flag category (nlp, parser, images, system, experimental)"
+        default="system",
+        description="Flag category (nlp, parser, images, system, experimental)",
     )
     description: Optional[str] = Field(None, description="Human-readable description")
     default_value: bool = Field(default=False, description="Default fallback value")
@@ -79,7 +79,9 @@ class BulkUpdateRequest(BaseModel):
     updates: Dict[str, bool] = Field(
         ...,
         description="Dictionary of {flag_name: enabled}",
-        json_schema_extra={"example": {"USE_ADVANCED_PARSER": True, "USE_LLM_ENRICHMENT": False}},
+        json_schema_extra={
+            "example": {"USE_ADVANCED_PARSER": True, "USE_LLM_ENRICHMENT": False}
+        },
     )
 
 
@@ -267,9 +269,7 @@ async def create_feature_flag(
     )
 
     if not flag:
-        raise HTTPException(
-            status_code=500, detail="Failed to create feature flag"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create feature flag")
 
     return FeatureFlagResponse(
         id=str(flag.id),

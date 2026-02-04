@@ -33,7 +33,6 @@ from ..schemas.responses.auth import (
     AccountDeactivationResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -71,7 +70,11 @@ class UserProfileUpdateRequest(BaseModel):
 # Дублирующий класс удален (lines 59-70) - использовался неправильный schema без updated_at
 
 
-@router.post("/auth/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/auth/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 @rate_limit(**RATE_LIMIT_PRESETS["registration"])
 async def register_user(
     user_request: UserRegistrationRequest,
@@ -247,9 +250,9 @@ async def refresh_token(
     # Rotation of refresh token? If create_tokens_for_user logic is used inside refresh service.
     # auth_svc.refresh_access_token returns access_token only usually?
     # Let's check auth_service.py. If it returns new refresh token, we should set it too.
-    
+
     if "refresh_token" in tokens:
-         response.set_cookie(
+        response.set_cookie(
             key="refresh_token",
             value=tokens["refresh_token"],
             httponly=True,
@@ -308,7 +311,9 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
 ) -> CurrentUserResponse:
     """Получение информации о текущем пользователе."""
-    return CurrentUserResponse(user=UserResponse.model_validate(current_user).model_dump())
+    return CurrentUserResponse(
+        user=UserResponse.model_validate(current_user).model_dump()
+    )
 
 
 @router.put("/auth/profile", response_model=ProfileUpdateResponse)

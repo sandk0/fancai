@@ -16,7 +16,6 @@ from prometheus_client import Counter, Histogram, Gauge, Info
 from typing import Optional
 import time
 
-
 # ============================================================================
 # Counters - монотонно растущие счетчики
 # ============================================================================

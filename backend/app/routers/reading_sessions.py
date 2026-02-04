@@ -9,7 +9,15 @@ Endpoints:
 - GET /reading-sessions/history - История сессий с пагинацией
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    Query,
+    BackgroundTasks,
+    Request,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, case
 from pydantic import BaseModel, Field, validator
@@ -27,7 +35,6 @@ from ..models.book import Book
 from ..core.exceptions import BookNotFoundException
 from ..services.reading_session_cache import reading_session_cache
 from ..services.reading_session_service import reading_session_service
-
 
 router = APIRouter()
 
@@ -55,7 +62,8 @@ class StartSessionRequest(BaseModel):
         None, max_length=50, description="Тип устройства"
     )
     force: bool = Field(
-        default=False, description="Принудительно завершить существующую активную сессию"
+        default=False,
+        description="Принудительно завершить существующую активную сессию",
     )
 
     @validator("device_type")
@@ -412,7 +420,9 @@ async def update_reading_session(
         session = result.scalar_one_or_none()
 
         if not session:
-            logger.warning(f"Reading session {session_id} not found for user {current_user.id} in update_reading_session")
+            logger.warning(
+                f"Reading session {session_id} not found for user {current_user.id} in update_reading_session"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Reading session {session_id} not found",
@@ -477,6 +487,7 @@ async def update_reading_session_beacon(
             # Fallback если content-type не application/json, но тело валидный json
             body_bytes = await request.body()
             import json
+
             body = json.loads(body_bytes)
 
         # Валидация через Pydantic
@@ -491,14 +502,18 @@ async def update_reading_session_beacon(
         session = result.scalar_one_or_none()
 
         if not session:
-            logger.warning(f"Reading session {session_id} not found for user {current_user.id} in beacon update")
+            logger.warning(
+                f"Reading session {session_id} not found for user {current_user.id} in beacon update"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Reading session {session_id} not found",
             )
 
         if not session.is_active:
-            logger.info(f"Reading session {session_id} is inactive, cannot update via beacon")
+            logger.info(
+                f"Reading session {session_id} is inactive, cannot update via beacon"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot update inactive session",
@@ -664,6 +679,7 @@ async def end_reading_session_beacon(
         except Exception:
             body_bytes = await request.body()
             import json
+
             body = json.loads(body_bytes)
 
         # Валидация
@@ -1013,22 +1029,32 @@ async def batch_update_sessions(
         now = datetime.now(timezone.utc)
 
         # Создаем словарь session_id -> started_at для расчета duration
-        session_started_at = {session.id: session.started_at for session in verified_sessions}
+        session_started_at = {
+            session.id: session.started_at for session in verified_sessions
+        }
 
         position_case_conditions = []
         duration_case_conditions = []
         for session_id in verified_ids:
             new_position = update_map[session_id]
-            position_case_conditions.append((ReadingSession.id == session_id, new_position))
+            position_case_conditions.append(
+                (ReadingSession.id == session_id, new_position)
+            )
 
             # Рассчитываем duration_minutes для каждой сессии
             started_at = session_started_at[session_id]
             duration_minutes = int((now - started_at).total_seconds() / 60)
-            duration_case_conditions.append((ReadingSession.id == session_id, duration_minutes))
+            duration_case_conditions.append(
+                (ReadingSession.id == session_id, duration_minutes)
+            )
 
         # SQL CASE WHEN statements
-        position_update_case = case(*position_case_conditions, else_=ReadingSession.end_position)
-        duration_update_case = case(*duration_case_conditions, else_=ReadingSession.duration_minutes)
+        position_update_case = case(
+            *position_case_conditions, else_=ReadingSession.end_position
+        )
+        duration_update_case = case(
+            *duration_case_conditions, else_=ReadingSession.duration_minutes
+        )
 
         # Выполняем batch UPDATE
         from sqlalchemy import update
@@ -1036,7 +1062,9 @@ async def batch_update_sessions(
         stmt = (
             update(ReadingSession)
             .where(ReadingSession.id.in_(verified_ids))
-            .values(end_position=position_update_case, duration_minutes=duration_update_case)
+            .values(
+                end_position=position_update_case, duration_minutes=duration_update_case
+            )
         )
 
         await db.execute(stmt)

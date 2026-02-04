@@ -42,18 +42,26 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_count_user_books_empty(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест подсчета книг при пустой библиотеке."""
         # Act
-        count = await statistics_service.count_user_books(db=db_session, user_id=test_user.id)
+        count = await statistics_service.count_user_books(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert count == 0
 
     @pytest.mark.asyncio
     async def test_count_user_books_multiple(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест подсчета нескольких книг."""
         # Arrange
@@ -67,27 +75,30 @@ class TestBookStatisticsServiceIntegration:
                 file_path=f"/tmp/book{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book)
         await db_session.commit()
 
         # Act
-        count = await statistics_service.count_user_books(db=db_session, user_id=test_user.id)
+        count = await statistics_service.count_user_books(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert count == 5
 
     @pytest.mark.asyncio
     async def test_count_user_books_ignores_other_users(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест что подсчет не включает книги других пользователей."""
         # Arrange
         other_user = User(
-            email="other@example.com",
-            full_name="Other User",
-            password_hash="hashed"
+            email="other@example.com", full_name="Other User", password_hash="hashed"
         )
         db_session.add(other_user)
         await db_session.commit()
@@ -103,7 +114,7 @@ class TestBookStatisticsServiceIntegration:
                 file_path=f"/tmp/book{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             book2 = Book(
                 user_id=other_user.id,
@@ -114,14 +125,16 @@ class TestBookStatisticsServiceIntegration:
                 file_path=f"/tmp/other{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book1)
             db_session.add(book2)
         await db_session.commit()
 
         # Act
-        count = await statistics_service.count_user_books(db=db_session, user_id=test_user.id)
+        count = await statistics_service.count_user_books(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert count == 3
@@ -130,11 +143,16 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_empty_user(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест получения статистики для пользователя без книг."""
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["total_books"] == 0
@@ -144,7 +162,10 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_with_books(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест получения статистики с несколькими книгами."""
         # Arrange
@@ -159,14 +180,16 @@ class TestBookStatisticsServiceIntegration:
                 file_path=f"/tmp/book{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book)
             books.append(book)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["total_books"] == 3
@@ -174,7 +197,11 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_includes_pages_read(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест что статистика включает прочитанные страницы."""
         # Arrange
@@ -183,20 +210,26 @@ class TestBookStatisticsServiceIntegration:
             book_id=test_book.id,
             current_chapter=2,
             current_page=10,
-            current_position=50.0
+            current_position=50.0,
         )
         db_session.add(progress)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["total_pages_read"] >= 10
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_includes_reading_time(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест что статистика включает время чтения.
 
@@ -212,7 +245,7 @@ class TestBookStatisticsServiceIntegration:
             current_chapter=1,
             current_page=1,
             current_position=25.0,
-            reading_time_minutes=60  # 1 час (устаревшее поле, больше не используется)
+            reading_time_minutes=60,  # 1 час (устаревшее поле, больше не используется)
         )
         db_session.add(progress)
 
@@ -225,13 +258,15 @@ class TestBookStatisticsServiceIntegration:
             duration_minutes=60,  # 1 час чтения
             start_position=0,
             end_position=25,
-            is_active=False  # Завершенная сессия
+            is_active=False,  # Завершенная сессия
         )
         db_session.add(session)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["total_reading_time_hours"] >= 1.0
@@ -240,7 +275,11 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_count_descriptions(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест подсчета всех извлеченных описаний."""
         # Arrange
@@ -253,20 +292,26 @@ class TestBookStatisticsServiceIntegration:
                 description_type=DescriptionType.LOCATION.value,
                 confidence_score=0.9,
                 priority_score=0.8,
-                chapter_position=i * 10
+                chapter_position=i * 10,
             )
             db_session.add(description)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["descriptions_extracted"] == 5
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_descriptions_by_type(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест распределения описаний по типам."""
         # Arrange
@@ -280,7 +325,7 @@ class TestBookStatisticsServiceIntegration:
             description_type=DescriptionType.LOCATION.value,
             confidence_score=0.9,
             priority_score=0.8,
-            chapter_position=10
+            chapter_position=10,
         )
         character_desc = Description(
             book_id=test_book.id,
@@ -289,7 +334,7 @@ class TestBookStatisticsServiceIntegration:
             description_type=DescriptionType.CHARACTER.value,
             confidence_score=0.85,
             priority_score=0.8,
-            chapter_position=20
+            chapter_position=20,
         )
         atmosphere_desc = Description(
             book_id=test_book.id,
@@ -298,7 +343,7 @@ class TestBookStatisticsServiceIntegration:
             description_type=DescriptionType.ATMOSPHERE.value,
             confidence_score=0.8,
             priority_score=0.7,
-            chapter_position=30
+            chapter_position=30,
         )
 
         db_session.add(location_desc)
@@ -307,7 +352,9 @@ class TestBookStatisticsServiceIntegration:
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["descriptions_extracted"] == 3
@@ -316,11 +363,17 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_no_descriptions(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест статистики при отсутствии описаний."""
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["descriptions_extracted"] == 0
@@ -330,7 +383,11 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_statistics_multiple_chapters_with_descriptions(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест статистики описаний из нескольких глав."""
         # Arrange
@@ -346,13 +403,15 @@ class TestBookStatisticsServiceIntegration:
                     description_type=DescriptionType.LOCATION.value,
                     confidence_score=0.9,
                     priority_score=0.8,
-                    chapter_position=i * 10
+                    chapter_position=i * 10,
                 )
                 db_session.add(description)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         expected_count = len(chapters) * 3
@@ -360,7 +419,10 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_statistics_multiple_books_with_descriptions(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест статистики описаний из нескольких книг."""
         # Arrange
@@ -375,7 +437,7 @@ class TestBookStatisticsServiceIntegration:
                 file_path=f"/tmp/book{book_idx}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book)
             books.append(book)
@@ -388,7 +450,7 @@ class TestBookStatisticsServiceIntegration:
                 chapter_number=1,
                 title="Chapter 1",
                 content="Content",
-                word_count=100
+                word_count=100,
             )
             db_session.add(chapter)
             await db_session.flush()
@@ -401,13 +463,15 @@ class TestBookStatisticsServiceIntegration:
                     description_type=DescriptionType.LOCATION.value,
                     confidence_score=0.9,
                     priority_score=0.8,
-                    chapter_position=i * 10
+                    chapter_position=i * 10,
                 )
                 db_session.add(description)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         expected_count = 3 * 3  # 3 books * 3 descriptions each
@@ -416,7 +480,11 @@ class TestBookStatisticsServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_statistics_description_type_distribution(
-        self, statistics_service: BookStatisticsService, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        statistics_service: BookStatisticsService,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Тест распределения типов описаний в статистике."""
         # Arrange
@@ -438,13 +506,15 @@ class TestBookStatisticsServiceIntegration:
                     description_type=desc_type.value,
                     confidence_score=0.9,
                     priority_score=0.8,
-                    chapter_position=i * 10
+                    chapter_position=i * 10,
                 )
                 db_session.add(description)
         await db_session.commit()
 
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=test_user.id)
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=test_user.id
+        )
 
         # Assert
         assert stats["descriptions_extracted"] == 10
@@ -459,7 +529,9 @@ class TestBookStatisticsServiceIntegration:
     ):
         """Тест статистики для несуществующего пользователя."""
         # Act
-        stats = await statistics_service.get_book_statistics(db=db_session, user_id=uuid4())
+        stats = await statistics_service.get_book_statistics(
+            db=db_session, user_id=uuid4()
+        )
 
         # Assert
         assert stats["total_books"] == 0

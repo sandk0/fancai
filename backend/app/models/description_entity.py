@@ -25,41 +25,48 @@ if TYPE_CHECKING:
 class DescriptionEntity(Base):
     """
     Связь между Description и Entity.
-    
+
     Позволяет точно знать какие сущности упоминаются в каком описании,
     с confidence score и текстом упоминания.
     """
+
     __tablename__ = "description_entities"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True
     )
-    
+
     description_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), 
-        ForeignKey("descriptions.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
+        PG_UUID(as_uuid=True),
+        ForeignKey("descriptions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     entity_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), 
-        ForeignKey("entities.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
+        PG_UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    
+
     confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     mention_cfi: Mapped[str | None] = mapped_column(String(500), nullable=True)
     mention_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    __table_args__ = (
-        UniqueConstraint('description_id', 'entity_id', name='uq_description_entity'),
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    description: Mapped["Description"] = relationship("Description", back_populates="linked_entities")
-    entity: Mapped["Entity"] = relationship("Entity", back_populates="linked_descriptions")
+    __table_args__ = (
+        UniqueConstraint("description_id", "entity_id", name="uq_description_entity"),
+    )
+
+    description: Mapped["Description"] = relationship(
+        "Description", back_populates="linked_entities"
+    )
+    entity: Mapped["Entity"] = relationship(
+        "Entity", back_populates="linked_descriptions"
+    )
 
     def __repr__(self) -> str:
         return f"<DescriptionEntity(description={self.description_id}, entity={self.entity_id})>"

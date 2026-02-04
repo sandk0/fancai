@@ -77,7 +77,7 @@ def generate_image_task(
         logger.info(
             "Image generation task completed",
             task_id=task_id,
-            success=result.get('success', False),
+            success=result.get("success", False),
         )
         return result
 
@@ -157,7 +157,8 @@ async def _generate_image_async(
 
             filename = (
                 os.path.basename(generation_result.local_path)
-                if generation_result.local_path else None
+                if generation_result.local_path
+                else None
             )
             http_url = f"/api/v1/images/file/{filename}" if filename else None
 
@@ -184,6 +185,7 @@ async def _generate_image_async(
 
             try:
                 from app.models.description import Description
+
                 desc_result = await db.execute(
                     select(Description).where(Description.id == description_id)
                 )
@@ -203,9 +205,13 @@ async def _generate_image_async(
                             description_id=description_id,
                             image_count=1,
                         )
-                        logger.debug("Push notification sent for image ready", task_id=task_id)
+                        logger.debug(
+                            "Push notification sent for image ready", task_id=task_id
+                        )
             except Exception as e:
-                logger.warning("Failed to send image ready push notification", error=str(e))
+                logger.warning(
+                    "Failed to send image ready push notification", error=str(e)
+                )
 
             return {
                 "task_id": task_id,
@@ -284,8 +290,8 @@ def generate_image_batch_task(
         logger.info(
             "Batch image generation completed",
             task_id=task_id,
-            successful=result.get('successful', 0),
-            total=result.get('total', 0),
+            successful=result.get("successful", 0),
+            total=result.get("total", 0),
         )
         return result
 
@@ -357,7 +363,8 @@ async def _generate_batch_async(
                 if generation_result.success:
                     filename = (
                         os.path.basename(generation_result.local_path)
-                        if generation_result.local_path else None
+                        if generation_result.local_path
+                        else None
                     )
                     http_url = f"/api/v1/images/file/{filename}" if filename else None
 
@@ -374,20 +381,24 @@ async def _generate_batch_async(
 
                     db.add(generated_image)
 
-                    results.append({
-                        "description_id": str(description_id),
-                        "description_type": description_type,
-                        "image_url": http_url or generation_result.image_url,
-                        "generation_time": generation_result.generation_time_seconds,
-                        "success": True,
-                    })
+                    results.append(
+                        {
+                            "description_id": str(description_id),
+                            "description_type": description_type,
+                            "image_url": http_url or generation_result.image_url,
+                            "generation_time": generation_result.generation_time_seconds,
+                            "success": True,
+                        }
+                    )
                     successful += 1
                 else:
-                    results.append({
-                        "description_id": str(description_id),
-                        "error": generation_result.error_message,
-                        "success": False,
-                    })
+                    results.append(
+                        {
+                            "description_id": str(description_id),
+                            "error": generation_result.error_message,
+                            "success": False,
+                        }
+                    )
                     failed += 1
 
                 await asyncio.sleep(2)
@@ -398,11 +409,13 @@ async def _generate_batch_async(
                     description_id=desc_data.get("id", "unknown"),
                     error=str(e),
                 )
-                results.append({
-                    "description_id": desc_data.get("id", "unknown"),
-                    "error": str(e),
-                    "success": False,
-                })
+                results.append(
+                    {
+                        "description_id": desc_data.get("id", "unknown"),
+                        "error": str(e),
+                        "success": False,
+                    }
+                )
                 failed += 1
 
         await db.commit()

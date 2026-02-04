@@ -21,7 +21,6 @@ from app.models.user import User
 from app.models.book import Book
 from app.models.reading_session import ReadingSession
 
-
 # ============================================================================
 # Test Suite 1: Start Session Endpoint
 # ============================================================================
@@ -152,7 +151,11 @@ class TestStartSession:
 
     @pytest.mark.asyncio
     async def test_start_session_invalid_position(
-        self, client: AsyncClient, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Test starting session with invalid position fails validation."""
         # Arrange
@@ -176,7 +179,11 @@ class TestStartSession:
 
     @pytest.mark.asyncio
     async def test_start_session_invalid_device_type(
-        self, client: AsyncClient, db_session: AsyncSession, test_user: User, test_book: Book
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_user: User,
+        test_book: Book,
     ):
         """Test starting session with invalid device type fails validation."""
         # Arrange
@@ -216,7 +223,9 @@ class TestStartSession:
         )
 
         # Assert
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_start_session_other_user_book(
@@ -319,9 +328,7 @@ class TestUpdateSession:
         assert active_session.end_position == 45
 
     @pytest.mark.asyncio
-    async def test_update_session_not_found(
-        self, client: AsyncClient, test_user: User
-    ):
+    async def test_update_session_not_found(self, client: AsyncClient, test_user: User):
         """Test updating non-existent session returns 404."""
         # Arrange
         non_existent_session_id = uuid4()
@@ -667,9 +674,7 @@ class TestGetActiveSession:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Act
-        response = await client.get(
-            "/api/v1/reading-sessions/active", headers=headers
-        )
+        response = await client.get("/api/v1/reading-sessions/active", headers=headers)
 
         # Assert
         assert response.status_code == 200
@@ -683,9 +688,7 @@ class TestGetActiveSession:
         assert data["device_type"] == "mobile"
 
     @pytest.mark.asyncio
-    async def test_get_active_session_none(
-        self, client: AsyncClient, test_user: User
-    ):
+    async def test_get_active_session_none(self, client: AsyncClient, test_user: User):
         """Test getting active session when none exists returns null."""
         # Arrange
         from app.core.auth import create_access_token
@@ -694,9 +697,7 @@ class TestGetActiveSession:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Act
-        response = await client.get(
-            "/api/v1/reading-sessions/active", headers=headers
-        )
+        response = await client.get("/api/v1/reading-sessions/active", headers=headers)
 
         # Assert
         assert response.status_code == 200
@@ -850,9 +851,7 @@ class TestGetHistory:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Act
-        response = await client.get(
-            "/api/v1/reading-sessions/history", headers=headers
-        )
+        response = await client.get("/api/v1/reading-sessions/history", headers=headers)
 
         # Assert
         assert response.status_code == 200

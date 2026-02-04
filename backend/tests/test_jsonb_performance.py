@@ -33,7 +33,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.book import Book
 from app.models.image import GeneratedImage
 
-
 # ============================================================================
 # JSONB Query Tests
 # ============================================================================
@@ -52,9 +51,7 @@ async def test_jsonb_containment_query(db_session: AsyncSession):
     Expected: Query uses idx_books_metadata_gin index
     """
     # Query books with 'fantasy' tag
-    query = select(Book).where(
-        Book.book_metadata.op('@>')({"tags": ["fantasy"]})
-    )
+    query = select(Book).where(Book.book_metadata.op("@>")({"tags": ["fantasy"]}))
 
     result = await db_session.execute(query)
     books = result.scalars().all()
@@ -75,9 +72,7 @@ async def test_jsonb_nested_field_access(db_session: AsyncSession):
     Expected: Query uses GIN index for filtering
     """
     # Query books by publisher
-    query = select(Book).where(
-        Book.book_metadata['publisher'].astext == 'АСТ'
-    )
+    query = select(Book).where(Book.book_metadata["publisher"].astext == "АСТ")
 
     result = await db_session.execute(query)
     books = result.scalars().all()
@@ -96,9 +91,7 @@ async def test_jsonb_array_element_query(db_session: AsyncSession):
     - Filter by array membership
     """
     # Query books with ANY of the specified tags
-    query = select(Book).where(
-        Book.book_metadata['tags'].astext.like('%fantasy%')
-    )
+    query = select(Book).where(Book.book_metadata["tags"].astext.like("%fantasy%"))
 
     result = await db_session.execute(query)
     books = result.scalars().all()
@@ -117,9 +110,7 @@ async def test_jsonb_existence_query(db_session: AsyncSession):
     - Filter by presence of optional fields
     """
     # Query books that have ISBN metadata
-    query = select(Book).where(
-        Book.book_metadata.op('?')('isbn')
-    )
+    query = select(Book).where(Book.book_metadata.op("?")("isbn"))
 
     result = await db_session.execute(query)
     books = result.scalars().all()
@@ -140,7 +131,7 @@ async def test_generated_images_jsonb_queries(db_session: AsyncSession):
     """
     # Query images by model
     query = select(GeneratedImage).where(
-        GeneratedImage.generation_parameters['model'].astext == 'pollinations-ai'
+        GeneratedImage.generation_parameters["model"].astext == "pollinations-ai"
     )
 
     result = await db_session.execute(query)
@@ -151,7 +142,7 @@ async def test_generated_images_jsonb_queries(db_session: AsyncSession):
 
     # Query images by safety status
     query = select(GeneratedImage).where(
-        GeneratedImage.moderation_result['safe'].astext == 'true'
+        GeneratedImage.moderation_result["safe"].astext == "true"
     )
 
     result = await db_session.execute(query)
@@ -186,8 +177,9 @@ async def test_gin_index_usage_books(db_session: AsyncSession):
 
     # Check that GIN index is mentioned in the plan
     plan_str = str(plan)
-    assert 'idx_books_metadata_gin' in plan_str or 'Bitmap Index Scan' in plan_str, \
+    assert "idx_books_metadata_gin" in plan_str or "Bitmap Index Scan" in plan_str, (
         "GIN index not being used for JSONB query"
+    )
 
     print(f"   ✓ GIN index is being used for books.book_metadata")
     print(f"   Query plan: {plan[0]['Plan']['Node Type']}")
@@ -209,8 +201,9 @@ async def test_gin_index_usage_images(db_session: AsyncSession):
     plan = result.scalar()
     plan_str = str(plan)
 
-    assert 'idx_generated_images_params_gin' in plan_str or 'Bitmap Index Scan' in plan_str, \
-        "GIN index not being used for generation_parameters"
+    assert (
+        "idx_generated_images_params_gin" in plan_str or "Bitmap Index Scan" in plan_str
+    ), "GIN index not being used for generation_parameters"
 
     print(f"   ✓ GIN index is being used for generation_parameters")
 
@@ -225,8 +218,10 @@ async def test_gin_index_usage_images(db_session: AsyncSession):
     plan = result.scalar()
     plan_str = str(plan)
 
-    assert 'idx_generated_images_moderation_gin' in plan_str or 'Bitmap Index Scan' in plan_str, \
-        "GIN index not being used for moderation_result"
+    assert (
+        "idx_generated_images_moderation_gin" in plan_str
+        or "Bitmap Index Scan" in plan_str
+    ), "GIN index not being used for moderation_result"
 
     print(f"   ✓ GIN index is being used for moderation_result")
 
@@ -257,9 +252,7 @@ async def test_jsonb_query_performance_benchmark(db_session: AsyncSession):
     iterations = 100
 
     for _ in range(iterations):
-        query = select(Book).where(
-            Book.book_metadata.op('@>')({"tags": ["fantasy"]})
-        )
+        query = select(Book).where(Book.book_metadata.op("@>")({"tags": ["fantasy"]}))
         await db_session.execute(query)
 
     end_time = time.perf_counter()
@@ -273,7 +266,9 @@ async def test_jsonb_query_performance_benchmark(db_session: AsyncSession):
     print(f"   - QPS: {iterations / elapsed:.2f} queries/second")
 
     # Assert performance target
-    assert avg_time_ms < 100, f"JSONB query too slow: {avg_time_ms:.2f}ms (expected <100ms)"
+    assert avg_time_ms < 100, (
+        f"JSONB query too slow: {avg_time_ms:.2f}ms (expected <100ms)"
+    )
 
     if avg_time_ms < 10:
         print(f"   ✅ EXCELLENT: Query time <10ms (target achieved)")
@@ -298,10 +293,10 @@ async def test_complex_jsonb_query_performance(db_session: AsyncSession):
     iterations = 50
 
     for _ in range(iterations):
-        query = select(Book).where(
-            Book.book_metadata['tags'].astext.like('%fantasy%')
-        ).where(
-            Book.book_metadata['publication_year'].astext.cast(int) >= 2020
+        query = (
+            select(Book)
+            .where(Book.book_metadata["tags"].astext.like("%fantasy%"))
+            .where(Book.book_metadata["publication_year"].astext.cast(int) >= 2020)
         )
         await db_session.execute(query)
 
@@ -339,8 +334,9 @@ async def test_jsonb_data_integrity(db_session: AsyncSession):
     for book in books:
         if book.book_metadata is not None:
             # Verify it's a dict (JSONB parsed correctly)
-            assert isinstance(book.book_metadata, dict), \
+            assert isinstance(book.book_metadata, dict), (
                 f"book_metadata should be dict, got {type(book.book_metadata)}"
+            )
 
     print(f"   ✓ All {len(books)} books have valid JSONB metadata")
 
@@ -370,17 +366,17 @@ async def test_jsonb_insert_update_operations(db_session: AsyncSession):
     """
     # Create a test book with JSONB metadata
     test_book = Book(
-        user_id='00000000-0000-0000-0000-000000000001',  # Dummy user ID
-        title='Test Book for JSONB',
-        file_path='/tmp/test.epub',
-        file_format='epub',
+        user_id="00000000-0000-0000-0000-000000000001",  # Dummy user ID
+        title="Test Book for JSONB",
+        file_path="/tmp/test.epub",
+        file_format="epub",
         file_size=1024,
         book_metadata={
-            'publisher': 'Test Publisher',
-            'isbn': '978-0-00-000000-0',
-            'tags': ['test', 'jsonb'],
-            'publication_year': 2025
-        }
+            "publisher": "Test Publisher",
+            "isbn": "978-0-00-000000-0",
+            "tags": ["test", "jsonb"],
+            "publication_year": 2025,
+        },
     )
 
     db_session.add(test_book)
@@ -388,16 +384,16 @@ async def test_jsonb_insert_update_operations(db_session: AsyncSession):
 
     # Verify insert
     assert test_book.id is not None
-    assert test_book.book_metadata['publisher'] == 'Test Publisher'
+    assert test_book.book_metadata["publisher"] == "Test Publisher"
     print(f"   ✓ INSERT with JSONB data successful")
 
     # Update JSONB field
-    test_book.book_metadata['tags'].append('performance')
+    test_book.book_metadata["tags"].append("performance")
     await db_session.flush()
 
     # Verify update
     await db_session.refresh(test_book)
-    assert 'performance' in test_book.book_metadata['tags']
+    assert "performance" in test_book.book_metadata["tags"]
     print(f"   ✓ UPDATE of JSONB data successful")
 
     # Rollback test data
@@ -426,33 +422,25 @@ async def test_jsonb_operators_comprehensive(db_session: AsyncSession):
     print(f"\n   Testing JSONB operators:")
 
     # @> (contains)
-    query = select(Book).where(
-        Book.book_metadata.op('@>')({"publisher": "АСТ"})
-    )
+    query = select(Book).where(Book.book_metadata.op("@>")({"publisher": "АСТ"}))
     result = await db_session.execute(query)
     books = result.scalars().all()
     print(f"   ✓ @> (contains) operator: {len(books)} results")
 
     # ? (key exists)
-    query = select(Book).where(
-        Book.book_metadata.op('?')('isbn')
-    )
+    query = select(Book).where(Book.book_metadata.op("?")("isbn"))
     result = await db_session.execute(query)
     books = result.scalars().all()
     print(f"   ✓ ? (key exists) operator: {len(books)} results")
 
     # ?| (any key exists)
-    query = select(Book).where(
-        Book.book_metadata.op('?|')(['isbn', 'publisher'])
-    )
+    query = select(Book).where(Book.book_metadata.op("?|")(["isbn", "publisher"]))
     result = await db_session.execute(query)
     books = result.scalars().all()
     print(f"   ✓ ?| (any key exists) operator: {len(books)} results")
 
     # -> (get JSON object field)
-    query = select(Book).where(
-        Book.book_metadata['publisher'].astext.ilike('%аст%')
-    )
+    query = select(Book).where(Book.book_metadata["publisher"].astext.ilike("%аст%"))
     result = await db_session.execute(query)
     books = result.scalars().all()
     print(f"   ✓ -> (get field) operator: {len(books)} results")
@@ -483,8 +471,8 @@ async def test_backward_compatibility(db_session: AsyncSession):
     # Test relationship loading
     if books:
         book = books[0]
-        assert hasattr(book, 'chapters')
-        assert hasattr(book, 'user')
+        assert hasattr(book, "chapters")
+        assert hasattr(book, "user")
         print(f"   ✓ Relationships still work")
 
     # Test metadata access
@@ -504,13 +492,15 @@ async def test_jsonb_migration_summary(db_session: AsyncSession):
     """
     Print comprehensive summary of JSONB migration tests.
     """
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("📊 JSONB Migration Test Summary")
-    print("="*70)
+    print("=" * 70)
 
     # Count migrated records
     book_count = await db_session.scalar(select(text("COUNT(*)")).select_from(Book))
-    image_count = await db_session.scalar(select(text("COUNT(*)")).select_from(GeneratedImage))
+    image_count = await db_session.scalar(
+        select(text("COUNT(*)")).select_from(GeneratedImage)
+    )
 
     print(f"\n✅ Database Statistics:")
     print(f"   - Books: {book_count}")
@@ -535,4 +525,4 @@ async def test_jsonb_migration_summary(db_session: AsyncSession):
     print(f"   - GIN indexes created and active")
     print(f"   - Query performance significantly improved")
     print(f"   - Data integrity maintained")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")

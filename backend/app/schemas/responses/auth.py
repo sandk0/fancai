@@ -8,7 +8,6 @@ Response schemas для auth endpoints в fancai.
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-
 # ============================================================================
 # AUTH RESPONSE SCHEMAS
 # ============================================================================
@@ -45,9 +44,7 @@ class CurrentUserResponse(BaseModel):
         user: Объект пользователя с полными данными
     """
 
-    user: dict = Field(
-        description="Current user object with all fields"
-    )
+    user: dict = Field(description="Current user object with all fields")
 
     class Config:
         json_schema_extra = {
@@ -61,7 +58,7 @@ class CurrentUserResponse(BaseModel):
                     "is_admin": False,
                     "created_at": "2025-01-01T00:00:00",
                     "updated_at": "2025-11-29T10:30:00",
-                    "last_login": "2025-11-29T10:00:00"
+                    "last_login": "2025-11-29T10:00:00",
                 }
             }
         }
@@ -78,8 +75,7 @@ class ProfileUpdateResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Profile updated successfully",
-        description="Success message"
+        default="Profile updated successfully", description="Success message"
     )
 
 
@@ -95,12 +91,10 @@ class AccountDeactivationResponse(BaseModel):
     """
 
     message: str = Field(
-        default="Account deactivated successfully",
-        description="Success message"
+        default="Account deactivated successfully", description="Success message"
     )
     deactivated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Deactivation timestamp"
+        default_factory=datetime.utcnow, description="Deactivation timestamp"
     )
 
 

@@ -57,7 +57,6 @@ from ...schemas.responses import (
     BookSummary,
 )
 
-
 router = APIRouter()
 
 
@@ -184,7 +183,9 @@ async def upload_book(
             total_pages=book.total_pages,
             estimated_reading_time=book.estimated_reading_time,
             is_parsed=book.is_parsed,
-            is_processing=book.is_processing if hasattr(book, 'is_processing') else True,
+            is_processing=(
+                book.is_processing if hasattr(book, "is_processing") else True
+            ),
             parsing_progress=book.parsing_progress,
             parsing_error=book.parsing_error,
             created_at=book.created_at,
@@ -250,7 +251,12 @@ async def get_user_books(
     )
 
     cache_key_str = cache_key(
-        "user", current_user.id, "books", f"skip:{skip}", f"limit:{limit}", f"sort:{sort_by}"
+        "user",
+        current_user.id,
+        "books",
+        f"skip:{skip}",
+        f"limit:{limit}",
+        f"sort:{sort_by}",
     )
     cached_result = await cache_manager.get(cache_key_str)
     if cached_result is not None:
@@ -281,28 +287,44 @@ async def get_user_books(
                         file_size=book.file_size,
                         total_pages=book.total_pages,
                         estimated_reading_time=reading_time,
-                        estimated_reading_time_hours=round(reading_time / 60, 1) if reading_time > 0 else 0.0,
-                        chapters_count=len(book.chapters) if hasattr(book, "chapters") and book.chapters else 0,
+                        estimated_reading_time_hours=(
+                            round(reading_time / 60, 1) if reading_time > 0 else 0.0
+                        ),
+                        chapters_count=(
+                            len(book.chapters)
+                            if hasattr(book, "chapters") and book.chapters
+                            else 0
+                        ),
                         reading_progress_percent=round(progress_percent, 1),
                         has_cover=bool(book.cover_image),
                         is_parsed=book.is_parsed,
                         parsing_progress=book.parsing_progress,
-                        is_processing=book.is_processing if hasattr(book, "is_processing") else not book.is_parsed,
+                        is_processing=(
+                            book.is_processing
+                            if hasattr(book, "is_processing")
+                            else not book.is_parsed
+                        ),
                         created_at=book.created_at,
                         last_accessed=book.last_accessed,
                     )
                 )
             except Exception as e:
-                logger.warning("Error processing book", book_id=str(book.id), error=str(e))
+                logger.warning(
+                    "Error processing book", book_id=str(book.id), error=str(e)
+                )
 
         total_result = await db.execute(
             select(func.count(Book.id)).where(Book.user_id == current_user.id)
         )
         total_books = total_result.scalar() or 0
 
-        response = BookListResponse(books=books_list, total=total_books, skip=skip, limit=limit)
+        response = BookListResponse(
+            books=books_list, total=total_books, skip=skip, limit=limit
+        )
 
-        await cache_manager.set(cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_list"])
+        await cache_manager.set(
+            cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_list"]
+        )
 
         return response
 
@@ -347,7 +369,12 @@ async def get_book(
     try:
         progress_percent = await book.get_reading_progress_percent(db, current_user.id)
 
-        current_chapter, current_page, current_position, reading_location_cfi = 1, 1, 0, None
+        current_chapter, current_page, current_position, reading_location_cfi = (
+            1,
+            1,
+            0,
+            None,
+        )
         if book.reading_progress:
             progress = book.reading_progress[0]
             current_chapter = progress.current_chapter
@@ -385,13 +412,19 @@ async def get_book(
             total_pages=book.total_pages,
             estimated_reading_time=reading_time,
             is_parsed=book.is_parsed,
-            is_processing=book.is_processing if hasattr(book, "is_processing") else not book.is_parsed,
+            is_processing=(
+                book.is_processing
+                if hasattr(book, "is_processing")
+                else not book.is_parsed
+            ),
             parsing_progress=book.parsing_progress,
             parsing_error=book.parsing_error,
             created_at=book.created_at,
             updated_at=book.updated_at,
             last_accessed=book.last_accessed,
-            estimated_reading_time_hours=round(reading_time / 60, 1) if reading_time > 0 else 0.0,
+            estimated_reading_time_hours=(
+                round(reading_time / 60, 1) if reading_time > 0 else 0.0
+            ),
             file_size_mb=round(book.file_size / (1024 * 1024), 2),
             has_cover=bool(book.cover_image),
             chapters=chapters_data,
@@ -404,7 +437,11 @@ async def get_book(
             },
         )
 
-        await cache_manager.set(cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_metadata"])
+        await cache_manager.set(
+            cache_key_str,
+            response.model_dump(mode="json"),
+            ttl=CACHE_TTL["book_metadata"],
+        )
 
         return response
 
@@ -523,53 +560,55 @@ async def process_book_descriptions(
 ) -> dict:
     """
     Запускает обработку описаний для книги.
-    
+
     Книга блокируется на время обработки (is_processing=True).
     Пользователь может отменить обработку через cancel-processing endpoint.
-    
+
     Returns:
         dict: task_id и статус
-        
+
     Raises:
         HTTPException: 409 если книга уже обрабатывается
     """
     if book.is_processing:
         raise HTTPException(
             status_code=409,
-            detail="Книга уже обрабатывается. Дождитесь завершения или отмените."
+            detail="Книга уже обрабатывается. Дождитесь завершения или отмените.",
         )
-    
+
     # Блокируем книгу для обработки
     book.is_processing = True
     book.parsing_progress = 0
     book.descriptions_extracted = False
     book.descriptions_processing_error = None
     await db.commit()
-    
+
     # Запускаем Celery task
     task_id = None
     try:
         logger.info("Starting description processing", book_id=str(book.id))
         task = process_book_task.delay(str(book.id))
         task_id = task.id if task else None
-        
+
         # Store task_id in Redis for cancellation
         if task_id:
             import redis.asyncio as aioredis
             from app.core.config import settings
+
             try:
                 redis_client = aioredis.from_url(settings.REDIS_URL)
                 await redis_client.set(
-                    f"book:task_id:{book.id}", 
-                    task_id, 
-                    ex=14400  # 4 hours TTL
+                    f"book:task_id:{book.id}",
+                    task_id,
+                    ex=14400,  # 4 hours TTL
                 )
                 await redis_client.close()
             except Exception as redis_err:
                 logger.warning("Failed to store task_id in Redis", error=str(redis_err))
-        
-        logger.info("Description processing task started", 
-                    book_id=str(book.id), task_id=task_id)
+
+        logger.info(
+            "Description processing task started", book_id=str(book.id), task_id=task_id
+        )
     except Exception as e:
         # Если Celery не доступен, откатываем состояние
         logger.error("Failed to start processing task", error=str(e))
@@ -577,10 +616,9 @@ async def process_book_descriptions(
         book.descriptions_processing_error = f"Ошибка запуска: {str(e)}"
         await db.commit()
         raise HTTPException(
-            status_code=503,
-            detail="Сервис обработки недоступен. Попробуйте позже."
+            status_code=503, detail="Сервис обработки недоступен. Попробуйте позже."
         )
-    
+
     return {
         "message": "Обработка описаний запущена",
         "task_id": task_id,
@@ -596,15 +634,15 @@ async def cancel_book_processing(
 ) -> dict:
     """
     Отменяет обработку описаний.
-    
+
     При отмене:
     - Celery task revoke'd через Redis
     - Книга разблокируется (is_processing=False)
     - descriptions_extracted остаётся False
-    
+
     Returns:
         dict: Статус отмены
-        
+
     Raises:
         HTTPException: 400 если книга не обрабатывается
     """
@@ -612,59 +650,59 @@ async def cancel_book_processing(
     from celery.result import AsyncResult
     from app.core.celery_app import celery_app
     from app.core.config import settings
-    
+
     if not book.is_processing:
-        raise HTTPException(
-            status_code=400,
-            detail="Книга не обрабатывается"
-        )
-    
+        raise HTTPException(status_code=400, detail="Книга не обрабатывается")
+
     # Получить task_id из Redis и отменить Celery task
     task_revoked = False
     try:
         redis_client = aioredis.from_url(settings.REDIS_URL)
         task_id_key = f"book:task_id:{book.id}"
         task_id = await redis_client.get(task_id_key)
-        
+
         if task_id:
             task_id = task_id.decode() if isinstance(task_id, bytes) else task_id
             logger.info("Revoking Celery task", task_id=task_id, book_id=str(book.id))
-            
+
             # Revoke task with terminate=True to interrupt immediately
             result = AsyncResult(task_id, app=celery_app)
-            result.revoke(terminate=True, signal='SIGTERM')
-            
+            result.revoke(terminate=True, signal="SIGTERM")
+
             # Clear task_id from Redis
             await redis_client.delete(task_id_key)
             task_revoked = True
-            
+
         await redis_client.close()
     except Exception as e:
         logger.warning("Failed to revoke Celery task", error=str(e))
-    
+
     # Разблокируем книгу
     book.is_processing = False
     book.descriptions_extracted = False
     book.descriptions_processing_error = "Отменено пользователем"
     book.parsing_progress = 0
     await db.commit()
-    
+
     # Публикуем отмену через WebSocket
     try:
         from app.core.pubsub import publish_book_progress
+
         await publish_book_progress(
             book_id=str(book.id),
             progress=0,
             chapter=0,
             total_chapters=0,
             status="cancelled",
-            message="Обработка отменена пользователем"
+            message="Обработка отменена пользователем",
         )
     except Exception as ws_err:
         logger.warning("Failed to publish cancellation", error=str(ws_err))
-    
-    logger.info("Processing cancelled by user", book_id=str(book.id), task_revoked=task_revoked)
-    
+
+    logger.info(
+        "Processing cancelled by user", book_id=str(book.id), task_revoked=task_revoked
+    )
+
     return {
         "message": "Обработка отменена",
         "book_id": str(book.id),
@@ -680,34 +718,34 @@ async def reprocess_book_descriptions(
 ) -> dict:
     """
     Переобработка описаний для уже обработанной книги.
-    
+
     При переобработке:
     - Удаляются все существующие описания
     - Запускается новый процесс извлечения
-    
+
     Returns:
         dict: task_id и статус
-        
+
     Raises:
         HTTPException: 409 если книга уже обрабатывается
     """
     if book.is_processing:
         raise HTTPException(
             status_code=409,
-            detail="Книга уже обрабатывается. Дождитесь завершения или отмените."
+            detail="Книга уже обрабатывается. Дождитесь завершения или отмените.",
         )
-    
+
     # TODO: Удалить существующие описания
     # from ...models.description import Description
     # await db.execute(delete(Description).where(Description.book_id == book.id))
-    
+
     # Сбрасываем статус и блокируем
     book.is_processing = True
     book.parsing_progress = 0
     book.descriptions_extracted = False
     book.descriptions_processing_error = None
     await db.commit()
-    
+
     # Запускаем Celery task
     task_id = None
     try:
@@ -720,10 +758,9 @@ async def reprocess_book_descriptions(
         book.descriptions_processing_error = f"Ошибка запуска: {str(e)}"
         await db.commit()
         raise HTTPException(
-            status_code=503,
-            detail="Сервис обработки недоступен. Попробуйте позже."
+            status_code=503, detail="Сервис обработки недоступен. Попробуйте позже."
         )
-    
+
     return {
         "message": "Переобработка описаний запущена",
         "task_id": task_id,

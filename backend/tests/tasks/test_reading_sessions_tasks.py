@@ -24,7 +24,6 @@ from app.models.reading_session import ReadingSession
 from app.models.user import User
 from app.models.book import Book
 
-
 # ============================================================================
 # Test Suite 1: close_abandoned_sessions Task
 # ============================================================================
@@ -89,9 +88,7 @@ class TestCloseAbandonedSessions:
         assert recent_session.ended_at is None
 
     @pytest.mark.asyncio
-    async def test_close_abandoned_sessions_no_sessions(
-        self, db_session: AsyncSession
-    ):
+    async def test_close_abandoned_sessions_no_sessions(self, db_session: AsyncSession):
         """Test task when no abandoned sessions exist."""
         # Act
         deadline = datetime.now(timezone.utc) - timedelta(hours=2)
@@ -571,7 +568,9 @@ class TestTaskPerformance:
                 end_position=(i + 20) % 100,
                 is_active=is_active,
                 started_at=now - timedelta(hours=i % 24),
-                ended_at=None if is_active else now - timedelta(hours=i % 24, minutes=-30),
+                ended_at=(
+                    None if is_active else now - timedelta(hours=i % 24, minutes=-30)
+                ),
                 duration_minutes=30 if not is_active else 0,
             )
             db_session.add(session)

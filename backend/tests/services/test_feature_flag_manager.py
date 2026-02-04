@@ -53,7 +53,9 @@ class TestFeatureFlagManagerInitialization:
         assert manager._initialized is False
 
     @pytest.mark.asyncio
-    async def test_initialize_creates_default_flags(self, db_session: AsyncSession, clean_feature_flags):
+    async def test_initialize_creates_default_flags(
+        self, db_session: AsyncSession, clean_feature_flags
+    ):
         """Тест что initialize создает дефолтные флаги."""
         manager = FeatureFlagManager(db_session)
 
@@ -82,7 +84,9 @@ class TestFeatureFlagManagerInitialization:
         assert manager._initialized is True
 
     @pytest.mark.asyncio
-    async def test_initialize_idempotent(self, db_session: AsyncSession, clean_feature_flags):
+    async def test_initialize_idempotent(
+        self, db_session: AsyncSession, clean_feature_flags
+    ):
         """Тест что initialize можно вызывать несколько раз без дубликатов."""
         manager = FeatureFlagManager(db_session)
 
@@ -105,7 +109,9 @@ class TestFeatureFlagManagerInitialization:
         assert count_after_first == len(DEFAULT_FEATURE_FLAGS)
 
     @pytest.mark.asyncio
-    async def test_initialize_with_existing_flags(self, db_session: AsyncSession, clean_feature_flags):
+    async def test_initialize_with_existing_flags(
+        self, db_session: AsyncSession, clean_feature_flags
+    ):
         """Тест что initialize не перезаписывает существующие флаги."""
         # Создаем один флаг с другим значением
         custom_flag = FeatureFlag(
@@ -160,10 +166,14 @@ class TestFeatureFlagManagerIsEnabled:
     async def test_is_enabled_default_value(self, feature_flag_manager):
         """Тест что is_enabled возвращает default если флаг не найден."""
         # Флаг с таким именем не существует
-        result_false = await feature_flag_manager.is_enabled("NONEXISTENT_FLAG", default=False)
+        result_false = await feature_flag_manager.is_enabled(
+            "NONEXISTENT_FLAG", default=False
+        )
         assert result_false is False
 
-        result_true = await feature_flag_manager.is_enabled("NONEXISTENT_FLAG", default=True)
+        result_true = await feature_flag_manager.is_enabled(
+            "NONEXISTENT_FLAG", default=True
+        )
         assert result_true is True
 
     @pytest.mark.asyncio
@@ -308,7 +318,9 @@ class TestFeatureFlagManagerSetFlag:
         original_value = feature_flag_manager._cache.get(flag_name)
 
         # Устанавливаем флаг БЕЗ инвалидации кэша
-        await feature_flag_manager.set_flag(flag_name, not original_value, invalidate_cache=False)
+        await feature_flag_manager.set_flag(
+            flag_name, not original_value, invalidate_cache=False
+        )
 
         # Кэш все еще содержит старое значение
         assert feature_flag_manager._cache.get(flag_name) == original_value
@@ -385,7 +397,9 @@ class TestFeatureFlagManagerGetAllFlags:
     @pytest.mark.asyncio
     async def test_get_all_flags_by_category(self, feature_flag_manager):
         """Тест получения флагов по категории."""
-        nlp_flags = await feature_flag_manager.get_all_flags(category=FeatureFlagCategory.NLP.value)
+        nlp_flags = await feature_flag_manager.get_all_flags(
+            category=FeatureFlagCategory.NLP.value
+        )
 
         # Должно быть 4 NLP флага
         assert len(nlp_flags) == 4
@@ -397,7 +411,9 @@ class TestFeatureFlagManagerGetAllFlags:
     @pytest.mark.asyncio
     async def test_get_all_flags_parser_category(self, feature_flag_manager):
         """Тест получения флагов категории PARSER."""
-        parser_flags = await feature_flag_manager.get_all_flags(category=FeatureFlagCategory.PARSER.value)
+        parser_flags = await feature_flag_manager.get_all_flags(
+            category=FeatureFlagCategory.PARSER.value
+        )
 
         assert len(parser_flags) == 1
         assert parser_flags[0].name == "USE_ADVANCED_PARSER"
@@ -405,7 +421,9 @@ class TestFeatureFlagManagerGetAllFlags:
     @pytest.mark.asyncio
     async def test_get_all_flags_images_category(self, feature_flag_manager):
         """Тест получения флагов категории IMAGES."""
-        image_flags = await feature_flag_manager.get_all_flags(category=FeatureFlagCategory.IMAGES.value)
+        image_flags = await feature_flag_manager.get_all_flags(
+            category=FeatureFlagCategory.IMAGES.value
+        )
 
         assert len(image_flags) == 1
         assert image_flags[0].name == "ENABLE_IMAGE_CACHING"
@@ -437,7 +455,9 @@ class TestFeatureFlagManagerGetEnabledFlags:
     @pytest.mark.asyncio
     async def test_get_enabled_flags_by_category(self, feature_flag_manager):
         """Тест получения включенных флагов по категории."""
-        enabled_nlp = await feature_flag_manager.get_enabled_flags(category=FeatureFlagCategory.NLP.value)
+        enabled_nlp = await feature_flag_manager.get_enabled_flags(
+            category=FeatureFlagCategory.NLP.value
+        )
 
         # Все должны быть NLP и включены
         assert all(f.category == FeatureFlagCategory.NLP.value for f in enabled_nlp)
@@ -449,7 +469,9 @@ class TestFeatureFlagManagerGetEnabledFlags:
         # Сначала отключаем все PARSER флаги
         await feature_flag_manager.set_flag("USE_ADVANCED_PARSER", False)
 
-        enabled_parser = await feature_flag_manager.get_enabled_flags(category=FeatureFlagCategory.PARSER.value)
+        enabled_parser = await feature_flag_manager.get_enabled_flags(
+            category=FeatureFlagCategory.PARSER.value
+        )
 
         assert len(enabled_parser) == 0
 
@@ -502,15 +524,17 @@ class TestFeatureFlagManagerBulkUpdate:
         # Проверяем что флаги обновлены
         assert (await feature_flag_manager.is_enabled("USE_ADVANCED_PARSER")) is True
         assert (await feature_flag_manager.is_enabled("USE_LLM_ENRICHMENT")) is True
-        assert (await feature_flag_manager.is_enabled("ENABLE_PARALLEL_PROCESSING")) is False
+        assert (
+            await feature_flag_manager.is_enabled("ENABLE_PARALLEL_PROCESSING")
+        ) is False
 
     @pytest.mark.asyncio
     async def test_bulk_update_partial_failure(self, feature_flag_manager):
         """Тест bulk update с частичным отказом."""
         updates = {
             "USE_ADVANCED_PARSER": True,  # Существует
-            "NONEXISTENT_FLAG": False,     # Не существует
-            "ENABLE_IMAGE_CACHING": False, # Существует
+            "NONEXISTENT_FLAG": False,  # Не существует
+            "ENABLE_IMAGE_CACHING": False,  # Существует
         }
 
         results = await feature_flag_manager.bulk_update(updates)
@@ -528,10 +552,12 @@ class TestFeatureFlagManagerBulkUpdate:
         assert len(feature_flag_manager._cache) > 0
 
         # Делаем bulk update
-        await feature_flag_manager.bulk_update({
-            "USE_ADVANCED_PARSER": True,
-            "ENABLE_IMAGE_CACHING": False,
-        })
+        await feature_flag_manager.bulk_update(
+            {
+                "USE_ADVANCED_PARSER": True,
+                "ENABLE_IMAGE_CACHING": False,
+            }
+        )
 
         # Кэш должен быть очищен
         assert feature_flag_manager._cache == {}
@@ -557,7 +583,9 @@ class TestFeatureFlagManagerGetFlagsByCategory:
     @pytest.mark.asyncio
     async def test_get_flags_by_category_nlp(self, feature_flag_manager):
         """Тест получения NLP флагов как словаря."""
-        nlp_flags = await feature_flag_manager.get_flags_by_category(FeatureFlagCategory.NLP)
+        nlp_flags = await feature_flag_manager.get_flags_by_category(
+            FeatureFlagCategory.NLP
+        )
 
         # Должно быть 4 NLP флага
         assert len(nlp_flags) == 4
@@ -569,7 +597,9 @@ class TestFeatureFlagManagerGetFlagsByCategory:
     @pytest.mark.asyncio
     async def test_get_flags_by_category_parser(self, feature_flag_manager):
         """Тест получения PARSER флагов."""
-        parser_flags = await feature_flag_manager.get_flags_by_category(FeatureFlagCategory.PARSER)
+        parser_flags = await feature_flag_manager.get_flags_by_category(
+            FeatureFlagCategory.PARSER
+        )
 
         assert len(parser_flags) == 1
         assert "USE_ADVANCED_PARSER" in parser_flags
@@ -578,7 +608,9 @@ class TestFeatureFlagManagerGetFlagsByCategory:
     @pytest.mark.asyncio
     async def test_get_flags_by_category_images(self, feature_flag_manager):
         """Тест получения IMAGE флагов."""
-        image_flags = await feature_flag_manager.get_flags_by_category(FeatureFlagCategory.IMAGES)
+        image_flags = await feature_flag_manager.get_flags_by_category(
+            FeatureFlagCategory.IMAGES
+        )
 
         assert len(image_flags) == 1
         assert "ENABLE_IMAGE_CACHING" in image_flags

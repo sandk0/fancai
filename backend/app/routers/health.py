@@ -14,7 +14,6 @@ Features:
 - Версия приложения и время uptime
 """
 
-
 from fastapi import APIRouter, Depends, status as http_status, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +42,6 @@ from ..monitoring.metrics import (
 # Для prometheus metrics endpoint
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
-
 
 router = APIRouter()
 security_basic = HTTPBasic()
@@ -150,20 +148,18 @@ async def check_redis() -> ComponentHealthResponse:
         # Perform PING
         is_connected = await r.ping()
         latency = (time.time() - start_time) * 1000  # ms
-        
+
         # Close connection
         await r.close()
 
         if is_connected:
             return ComponentHealthResponse(
-                status="ok", 
-                message="Redis connection successful", 
-                latency_ms=round(latency, 2)
+                status="ok",
+                message="Redis connection successful",
+                latency_ms=round(latency, 2),
             )
         else:
-            return ComponentHealthResponse(
-                status="error", message="Redis PING failed"
-            )
+            return ComponentHealthResponse(status="error", message="Redis PING failed")
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")
         return ComponentHealthResponse(
@@ -174,7 +170,7 @@ async def check_redis() -> ComponentHealthResponse:
 async def check_celery() -> ComponentHealthResponse:
     """
     Проверить статус Celery workers.
-    
+
     Использует Celery control inspect API для пинга воркеров.
 
     Returns:
@@ -182,45 +178,46 @@ async def check_celery() -> ComponentHealthResponse:
     """
     try:
         start_time = time.time()
-        
+
         # Wrap synchronous Celery inspect in thread to avoid blocking event loop
         def _check_celery_workers():
             inspector = celery_app.control.inspect(timeout=0.5)
             return inspector.active()
-        
+
         active = await asyncio.to_thread(_check_celery_workers)
-        
+
         latency = (time.time() - start_time) * 1000  # ms
 
         if active is None:
-             # If no workers found/responding
-             return ComponentHealthResponse(
-                status="warning", 
+            # If no workers found/responding
+            return ComponentHealthResponse(
+                status="warning",
                 message="No Celery workers found or inspector timed out",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
-        
+
         worker_count = len(active) if active else 0
-        
+
         if worker_count > 0:
             return ComponentHealthResponse(
                 status="ok",
                 message=f"Celery workers active: {worker_count}",
                 latency_ms=round(latency, 2),
-                details={"active_workers_count": worker_count, "workers": list(active.keys())},
+                details={
+                    "active_workers_count": worker_count,
+                    "workers": list(active.keys()),
+                },
             )
         else:
             return ComponentHealthResponse(
                 status="warning",
                 message="Celery workers set is empty",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
 
     except Exception as e:
         logger.error(f"Celery health check failed: {e}")
-        return ComponentHealthResponse(
-            status="error", message="Celery check failed"
-        )
+        return ComponentHealthResponse(status="error", message="Celery check failed")
 
 
 async def get_active_sessions_stats(db: AsyncSession) -> Dict[str, Any]:
@@ -350,7 +347,13 @@ async def reading_sessions_health_check(
         ReadingSessionsHealthResponse с детальной информацией
     """
     # Параллельное выполнение всех проверок
-    db_check_result, redis_check_result, celery_check_result, stats_result, abandoned_result = await asyncio.gather(
+    (
+        db_check_result,
+        redis_check_result,
+        celery_check_result,
+        stats_result,
+        abandoned_result,
+    ) = await asyncio.gather(
         check_database(db),
         check_redis(),
         check_celery(),
@@ -385,7 +388,11 @@ async def reading_sessions_health_check(
         celery_check = celery_check_result
 
     if isinstance(stats_result, BaseException):
-        stats: Dict[str, Any] = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
+        stats: Dict[str, Any] = {
+            "total_active": 0,
+            "by_device": {},
+            "concurrent_users": 0,
+        }
     else:
         stats = stats_result
 
@@ -455,7 +462,12 @@ async def deep_health_check(
     uptime = time.time() - APP_START_TIME
 
     # Параллельные проверки
-    db_check_result, redis_check_result, celery_check_result, stats_result = await asyncio.gather(
+    (
+        db_check_result,
+        redis_check_result,
+        celery_check_result,
+        stats_result,
+    ) = await asyncio.gather(
         check_database(db),
         check_redis(),
         check_celery(),
@@ -488,7 +500,11 @@ async def deep_health_check(
         celery_check = celery_check_result
 
     if isinstance(stats_result, BaseException):
-        stats: Dict[str, Any] = {"total_active": 0, "by_device": {}, "concurrent_users": 0}
+        stats: Dict[str, Any] = {
+            "total_active": 0,
+            "by_device": {},
+            "concurrent_users": 0,
+        }
     else:
         stats = stats_result
 
@@ -524,27 +540,29 @@ async def deep_health_check(
     )
 
 
-def verify_metrics_auth(credentials: Annotated[HTTPBasicCredentials, Depends(security_basic)]):
+def verify_metrics_auth(
+    credentials: Annotated[HTTPBasicCredentials, Depends(security_basic)],
+):
     """
     Проверка Basic Auth для доступа к метрикам.
-    
+
     В production окружении переменные для auth должны быть заданы.
     Для простоты используем заглушку, которую легко настроить.
     """
     from ..core.config import settings
-    
+
     current_username_bytes = credentials.username.encode("utf8")
     correct_username_bytes = settings.METRICS_USER.encode("utf8")
     is_correct_username = secrets.compare_digest(
         current_username_bytes, correct_username_bytes
     )
-    
+
     current_password_bytes = credentials.password.encode("utf8")
     correct_password_bytes = settings.METRICS_PASSWORD.encode("utf8")
     is_correct_password = secrets.compare_digest(
         current_password_bytes, correct_password_bytes
     )
-    
+
     if not (is_correct_username and is_correct_password):
         raise HTTPException(
             status_code=http_status.HTTP_401_UNAUTHORIZED,
@@ -563,7 +581,7 @@ def verify_metrics_auth(credentials: Annotated[HTTPBasicCredentials, Depends(sec
 )
 async def metrics_endpoint(
     db: AsyncSession = Depends(get_database_session),
-    username: str = Depends(verify_metrics_auth)
+    username: str = Depends(verify_metrics_auth),
 ):
     """
     Prometheus metrics endpoint.

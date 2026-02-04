@@ -35,7 +35,7 @@ def sample_description():
         "description_type": "location",
         "genre": "fantasy",
         "context": "The hero walked through the forest at night.",
-        "priority_score": 0.85
+        "priority_score": 0.85,
     }
 
 
@@ -43,19 +43,15 @@ class TestImageGeneration:
     """Test image generation core functionality."""
 
     @pytest.mark.asyncio
-    async def test_generate_image_success(
-        self,
-        image_generator,
-        sample_description
-    ):
+    async def test_generate_image_success(self, image_generator, sample_description):
         """Test successful image generation with pollinations.ai."""
         # TODO: Implement actual test
         # Arrange
-        with patch('aiohttp.ClientSession.post') as mock_post:
+        with patch("aiohttp.ClientSession.post") as mock_post:
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.read = AsyncMock(return_value=b"fake_image_data")
-            mock_response.headers = {'content-type': 'image/png'}
+            mock_response.headers = {"content-type": "image/png"}
             mock_post.return_value.__aenter__.return_value = mock_response
 
             # Act
@@ -71,14 +67,12 @@ class TestImageGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_image_api_failure(
-        self,
-        image_generator,
-        sample_description
+        self, image_generator, sample_description
     ):
         """Test handling of API failure with retry logic."""
         # TODO: Implement actual test
         # Arrange
-        with patch('aiohttp.ClientSession.post') as mock_post:
+        with patch("aiohttp.ClientSession.post") as mock_post:
             # Simulate API failure
             mock_post.side_effect = Exception("API Error")
 
@@ -92,15 +86,11 @@ class TestImageGeneration:
         pass
 
     @pytest.mark.asyncio
-    async def test_generate_image_timeout(
-        self,
-        image_generator,
-        sample_description
-    ):
+    async def test_generate_image_timeout(self, image_generator, sample_description):
         """Test handling of API timeout."""
         # TODO: Implement actual test
         # Arrange
-        with patch('aiohttp.ClientSession.post') as mock_post:
+        with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.side_effect = asyncio.TimeoutError()
 
             # Act & Assert
@@ -167,7 +157,7 @@ class TestPromptEngineering:
         description = {
             "text": "forest",
             "context": "The hero felt afraid as night approached.",
-            "description_type": "location"
+            "description_type": "location",
         }
 
         # Act
@@ -187,9 +177,7 @@ class TestImageCaching:
 
     @pytest.mark.asyncio
     async def test_cache_check_before_generation(
-        self,
-        image_generator,
-        sample_description
+        self, image_generator, sample_description
     ):
         """Test that cache is checked before generating new image."""
         # TODO: Implement actual test
@@ -206,10 +194,7 @@ class TestImageCaching:
         pass
 
     @pytest.mark.asyncio
-    async def test_deduplication_similar_descriptions(
-        self,
-        image_generator
-    ):
+    async def test_deduplication_similar_descriptions(self, image_generator):
         """Test that similar descriptions use same cached image."""
         # TODO: Implement actual test
         # Arrange
@@ -226,11 +211,7 @@ class TestImageCaching:
         pass
 
     @pytest.mark.asyncio
-    async def test_cache_invalidation(
-        self,
-        image_generator,
-        sample_description
-    ):
+    async def test_cache_invalidation(self, image_generator, sample_description):
         """Test cache invalidation for low-quality images."""
         # TODO: Implement actual test
         # Arrange
@@ -253,17 +234,14 @@ class TestBatchGeneration:
     """Test batch image generation."""
 
     @pytest.mark.asyncio
-    async def test_batch_generate_multiple_descriptions(
-        self,
-        image_generator
-    ):
+    async def test_batch_generate_multiple_descriptions(self, image_generator):
         """Test generating images for multiple descriptions."""
         # TODO: Implement actual test
         # Arrange
         descriptions = [
             {"text": "forest", "description_type": "location"},
             {"text": "old cabin", "description_type": "location"},
-            {"text": "tall man", "description_type": "character"}
+            {"text": "tall man", "description_type": "character"},
         ]
 
         # Act
@@ -275,17 +253,14 @@ class TestBatchGeneration:
         pass
 
     @pytest.mark.asyncio
-    async def test_batch_partial_failure(
-        self,
-        image_generator
-    ):
+    async def test_batch_partial_failure(self, image_generator):
         """Test batch generation with some failures."""
         # TODO: Implement actual test
         # Arrange
         descriptions = [
             {"text": "valid description"},
             {"text": ""},  # Invalid
-            {"text": "another valid"}
+            {"text": "another valid"},
         ]
 
         # Act
@@ -321,7 +296,7 @@ class TestQualityFiltering:
         # Arrange
         low_priority = {
             "text": "some description",
-            "priority_score": 0.2  # Below threshold
+            "priority_score": 0.2,  # Below threshold
         }
 
         # Act
@@ -338,7 +313,7 @@ class TestQualityFiltering:
         high_quality = {
             "text": "beautiful ancient forest with tall pine trees",
             "priority_score": 0.85,
-            "description_type": "location"
+            "description_type": "location",
         }
 
         # Act
@@ -384,9 +359,7 @@ class TestMetadataStorage:
 
     @pytest.mark.asyncio
     async def test_store_generation_parameters(
-        self,
-        image_generator,
-        sample_description
+        self, image_generator, sample_description
     ):
         """Test that generation parameters are stored."""
         # TODO: Implement actual test
@@ -401,11 +374,7 @@ class TestMetadataStorage:
         pass
 
     @pytest.mark.asyncio
-    async def test_store_quality_metrics(
-        self,
-        image_generator,
-        sample_description
-    ):
+    async def test_store_quality_metrics(self, image_generator, sample_description):
         """Test that quality metrics are stored."""
         # TODO: Implement actual test
         # Act
@@ -426,10 +395,7 @@ class TestConcurrentGeneration:
         """Test multiple concurrent image generation requests."""
         # TODO: Implement actual test
         # Arrange
-        descriptions = [
-            {"text": f"description {i}"}
-            for i in range(5)
-        ]
+        descriptions = [{"text": f"description {i}"} for i in range(5)]
 
         # Act - Generate concurrently
         # tasks = [

@@ -20,7 +20,6 @@ from enum import Enum
 import aiofiles
 from app.core.logging import logger
 
-
 # ============================================================================
 # Secret Categories
 # ============================================================================

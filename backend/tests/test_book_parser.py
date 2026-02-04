@@ -25,7 +25,6 @@ from app.services.book_parser import (
     ParserConfig,
 )
 
-
 # ============================================================================
 # FIXTURES
 # ============================================================================
@@ -705,7 +704,10 @@ class TestFB2Parsing:
 
         chapter1 = result.chapters[0]
         assert chapter1.number == 1
-        assert "forest" in chapter1.content.lower() or "protagonist" in chapter1.content.lower()
+        assert (
+            "forest" in chapter1.content.lower()
+            or "protagonist" in chapter1.content.lower()
+        )
 
     def test_parse_fb2_handles_encoding(self, book_parser):
         """Тест обработки кодировки FB2."""
@@ -741,7 +743,10 @@ class TestFB2Parsing:
             assert "Иван" in result.metadata.author
             # Глава может быть пропущена если контент слишком короткий
             if len(result.chapters) > 0:
-                assert "лесом" in result.chapters[0].content or "соснами" in result.chapters[0].content
+                assert (
+                    "лесом" in result.chapters[0].content
+                    or "соснами" in result.chapters[0].content
+                )
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 
@@ -1065,7 +1070,10 @@ class TestEdgeCases:
                 assert "&amp;" not in result.chapters[0].content
                 assert "&quot;" not in result.chapters[0].content
                 # Но текст сохранен
-                assert "quotes" in result.chapters[0].content or "ampersand" in result.chapters[0].content
+                assert (
+                    "quotes" in result.chapters[0].content
+                    or "ampersand" in result.chapters[0].content
+                )
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 

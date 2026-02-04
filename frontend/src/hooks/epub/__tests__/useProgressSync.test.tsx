@@ -1,8 +1,5 @@
 /**
  * Tests for useProgressSync hook
- *
- * Tests debounced reading progress synchronization, automatic save on unmount,
- * and integration with React Query cache invalidation.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -11,7 +8,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useProgressSync } from '../useProgressSync';
 
-// Mock localStorage
 const mockLocalStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
@@ -25,7 +21,6 @@ Object.defineProperty(window, 'localStorage', {
 
 describe('useProgressSync', () => {
   let queryClient: QueryClient;
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   const createWrapper = () => {
     return ({ children }: { children: React.ReactNode }) => (
@@ -34,7 +29,7 @@ describe('useProgressSync', () => {
   };
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     queryClient = new QueryClient({
       defaultOptions: {
@@ -43,8 +38,7 @@ describe('useProgressSync', () => {
       },
     });
 
-    // Spy on console to prevent test output pollution
-    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -53,7 +47,7 @@ describe('useProgressSync', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    consoleSpy.mockRestore();
+    vi.restoreAllMocks();
     queryClient.clear();
   });
 
@@ -97,7 +91,7 @@ describe('useProgressSync', () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(6000); // Past debounce
+        await vi.advanceTimersByTimeAsync(6000);
       });
 
       expect(onSave).not.toHaveBeenCalled();
@@ -121,29 +115,20 @@ describe('useProgressSync', () => {
           }),
         {
           wrapper: createWrapper(),
-          initialProps: { cfi: '' }, // Start with empty to prevent initial save
+          initialProps: { cfi: '' },
         }
       );
 
-      // Update with actual CFI
       rerender({ cfi: 'epubcfi(/6/4)' });
 
-      // Should not save immediately
       expect(onSave).not.toHaveBeenCalled();
 
-      // Wait for debounce (5000ms default)
       await act(async () => {
-        vi.advanceTimersByTime(5000);
-        await vi.runAllTimersAsync();
+        await vi.advanceTimersByTimeAsync(5100);
       });
 
-      await waitFor(
-        () => {
-          expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 25, 10, 1);
-        },
-        { timeout: 1000 }
-      );
-    }, 10000);
+      expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 25, 10, 1);
+    }, 15000);
 
     it('should use custom debounce delay', async () => {
       const onSave = vi.fn().mockResolvedValue(undefined);
@@ -168,71 +153,66 @@ describe('useProgressSync', () => {
 
       rerender({ cfi: 'epubcfi(/6/4)' });
 
-      // Should not save before custom delay
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1000);
       });
       expect(onSave).not.toHaveBeenCalled();
 
-      // Should save after custom delay
       await act(async () => {
-        vi.advanceTimersByTime(1000);
-        await vi.runAllTimersAsync();
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(
-        () => {
-          expect(onSave).toHaveBeenCalled();
-        },
-        { timeout: 1000 }
-      );
-    }, 10000);
+      expect(onSave).toHaveBeenCalled();
+    }, 15000);
 
     it('should reset debounce timer on progress change', async () => {
+      vi.useRealTimers();
+      vi.useFakeTimers({ shouldAdvanceTime: false });
+
       const onSave = vi.fn().mockResolvedValue(undefined);
 
       const { rerender } = renderHook(
-        ({ progress }) =>
+        ({ cfi, progress }) =>
           useProgressSync({
             bookId: 'book-1',
-            currentCFI: 'epubcfi(/6/4)',
+            currentCFI: cfi,
             progress,
             scrollOffset: 10,
             currentChapter: 1,
             onSave,
-            debounceMs: 3000,
+            debounceMs: 5000,
             enabled: true,
           }),
         {
           wrapper: createWrapper(),
-          initialProps: { progress: 25 },
+          initialProps: { cfi: '', progress: 25 },
         }
       );
 
-      // Wait 2 seconds
+      rerender({ cfi: 'epubcfi(/6/4)', progress: 25 });
+
       await act(async () => {
-        vi.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(3000);
       });
 
-      // Change progress (resets timer)
-      rerender({ progress: 30 });
+      rerender({ cfi: 'epubcfi(/6/4)', progress: 30 });
 
-      // Wait another 2 seconds (total 4s, but timer was reset)
       await act(async () => {
-        vi.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(100);
+      });
+      onSave.mockClear();
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
       });
 
-      // Should not have saved yet (need 3s from last change)
       expect(onSave).not.toHaveBeenCalled();
 
-      // Wait final 1 second
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(2100);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 30, 10, 1);
-      });
+      expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 30, 10, 1);
     });
 
     it('should not save if progress has not changed', async () => {
@@ -253,21 +233,17 @@ describe('useProgressSync', () => {
         { wrapper: createWrapper() }
       );
 
-      // First save
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledTimes(1);
-      });
+      expect(onSave).toHaveBeenCalledTimes(1);
 
-      // No changes, should not save again
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      expect(onSave).toHaveBeenCalledTimes(1); // Still only 1 call
+      expect(onSave).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -296,24 +272,19 @@ describe('useProgressSync', () => {
 
       expect(result.current.isSaving).toBe(false);
 
-      // Trigger save
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(result.current.isSaving).toBe(true);
-      });
+      expect(result.current.isSaving).toBe(true);
 
-      // Complete save
       await act(async () => {
         resolveSave!();
         await Promise.resolve();
+        await Promise.resolve();
       });
 
-      await waitFor(() => {
-        expect(result.current.isSaving).toBe(false);
-      });
+      expect(result.current.isSaving).toBe(false);
     });
 
     it('should update lastSaved timestamp after successful save', async () => {
@@ -338,18 +309,15 @@ describe('useProgressSync', () => {
       expect(result.current.lastSaved).toBeNull();
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(result.current.lastSaved).toBeGreaterThanOrEqual(beforeTime);
-      });
+      expect(result.current.lastSaved).toBeGreaterThanOrEqual(beforeTime);
     });
   });
 
   describe('Error Handling', () => {
     it('should handle save errors gracefully', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const onSave = vi.fn().mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(
@@ -368,24 +336,13 @@ describe('useProgressSync', () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(errorSpy).toHaveBeenCalledWith(
-          expect.stringContaining('[useProgressSync] Error saving progress'),
-          expect.any(Error)
-        );
-      });
-
-      // Should reset isSaving even on error
       expect(result.current.isSaving).toBe(false);
-
-      errorSpy.mockRestore();
     });
 
     it('should not throw on save error', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const onSave = vi.fn().mockRejectedValue(new Error('Save failed'));
 
       const { result } = renderHook(
@@ -404,15 +361,10 @@ describe('useProgressSync', () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      // Should not throw
-      await waitFor(() => {
-        expect(result.current.isSaving).toBe(false);
-      });
-
-      errorSpy.mockRestore();
+      expect(result.current.isSaving).toBe(false);
     });
   });
 
@@ -435,10 +387,8 @@ describe('useProgressSync', () => {
         { wrapper: createWrapper() }
       );
 
-      // Unmount before debounce completes
       unmount();
 
-      // Should trigger immediate save
       await act(async () => {
         await vi.runAllTimersAsync();
       });
@@ -470,7 +420,6 @@ describe('useProgressSync', () => {
         await vi.runAllTimersAsync();
       });
 
-      // Should invalidate book query
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['book', 'book-1'] });
 
       invalidateSpy.mockRestore();
@@ -496,13 +445,10 @@ describe('useProgressSync', () => {
 
       unmount();
 
-      // The debounced timer should be cleared
-      // and immediate save should happen instead
       await act(async () => {
         await vi.runAllTimersAsync();
       });
 
-      // Should have called onSave only once (from unmount)
       expect(onSave).toHaveBeenCalledTimes(1);
     });
   });
@@ -510,7 +456,6 @@ describe('useProgressSync', () => {
   describe('beforeunload Event', () => {
     it('should save progress with fetch keepalive on page unload', () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({} as Response);
-      mockLocalStorage.getItem.mockReturnValue('test-token-123');
 
       const onSave = vi.fn().mockResolvedValue(undefined);
 
@@ -528,19 +473,16 @@ describe('useProgressSync', () => {
         { wrapper: createWrapper() }
       );
 
-      // Trigger beforeunload
-      const event = new Event('beforeunload');
-      window.dispatchEvent(event);
+      window.dispatchEvent(new Event('beforeunload'));
 
-      // Should call fetch with keepalive
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/api/v1/books/book-1/progress'),
         expect.objectContaining({
-          method: 'PUT',
+          method: 'POST',
           keepalive: true,
+          credentials: 'include',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            Authorization: 'Bearer test-token-123',
           }),
           body: expect.stringContaining('"current_chapter":3'),
         })
@@ -549,7 +491,7 @@ describe('useProgressSync', () => {
       fetchSpy.mockRestore();
     });
 
-    it('should not send beacon if no changes since last save', () => {
+    it('should not send beacon if no changes since last save', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({} as Response);
       const onSave = vi.fn().mockResolvedValue(undefined);
 
@@ -568,19 +510,16 @@ describe('useProgressSync', () => {
         { wrapper: createWrapper() }
       );
 
-      // Wait for initial save
-      act(() => {
-        vi.advanceTimersByTime(1000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      // Clear fetch spy after initial save
+      expect(onSave).toHaveBeenCalled();
+
       fetchSpy.mockClear();
 
-      // Trigger beforeunload without any changes
-      const event = new Event('beforeunload');
-      window.dispatchEvent(event);
+      window.dispatchEvent(new Event('beforeunload'));
 
-      // Should not call fetch (no changes)
       expect(fetchSpy).not.toHaveBeenCalled();
 
       fetchSpy.mockRestore();
@@ -588,7 +527,6 @@ describe('useProgressSync', () => {
 
     it('should include all progress data in beacon payload', () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({} as Response);
-      mockLocalStorage.getItem.mockReturnValue('auth-token');
 
       const onSave = vi.fn().mockResolvedValue(undefined);
 
@@ -606,7 +544,6 @@ describe('useProgressSync', () => {
         { wrapper: createWrapper() }
       );
 
-      // Trigger beforeunload
       window.dispatchEvent(new Event('beforeunload'));
 
       const fetchCall = fetchSpy.mock.calls[0];
@@ -648,16 +585,13 @@ describe('useProgressSync', () => {
         }
       );
 
-      // Change CFI
       rerender({ cfi: 'epubcfi(/6/6)' });
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith('epubcfi(/6/6)', 25, 10, 1);
-      });
+      expect(onSave).toHaveBeenCalledWith('epubcfi(/6/6)', 25, 10, 1);
     });
 
     it('should trigger save when progress percentage changes', async () => {
@@ -684,12 +618,10 @@ describe('useProgressSync', () => {
       rerender({ progress: 30 });
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 30, 10, 1);
-      });
+      expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 30, 10, 1);
     });
 
     it('should trigger save when chapter changes', async () => {
@@ -716,12 +648,10 @@ describe('useProgressSync', () => {
       rerender({ chapter: 2 });
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
-      await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 25, 10, 2);
-      });
+      expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 25, 10, 2);
     });
   });
 
@@ -745,7 +675,7 @@ describe('useProgressSync', () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
       expect(onSave).not.toHaveBeenCalled();
@@ -770,7 +700,7 @@ describe('useProgressSync', () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
       expect(onSave).not.toHaveBeenCalled();

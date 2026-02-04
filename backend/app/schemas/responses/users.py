@@ -11,7 +11,6 @@ from datetime import datetime
 
 from . import UserResponse, SubscriptionResponse
 
-
 # ============================================================================
 # USER STATISTICS SCHEMAS
 # ============================================================================
@@ -83,7 +82,9 @@ class UsageInfo(BaseModel):
 
     books_uploaded: int = Field(ge=0, description="Books uploaded count")
     images_generated_month: int = Field(ge=0, description="Images generated this month")
-    last_reset_date: datetime = Field(description="Last reset date for monthly counters")
+    last_reset_date: datetime = Field(
+        description="Last reset date for monthly counters"
+    )
 
 
 class LimitsInfo(BaseModel):
@@ -96,7 +97,9 @@ class LimitsInfo(BaseModel):
     """
 
     books: int = Field(description="Book limit (-1 for unlimited)")
-    generations_month: int = Field(description="Monthly generation limit (-1 for unlimited)")
+    generations_month: int = Field(
+        description="Monthly generation limit (-1 for unlimited)"
+    )
 
 
 class WithinLimitsInfo(BaseModel):
@@ -148,16 +151,12 @@ class DatabaseTestResponse(BaseModel):
         message: Человекочитаемое сообщение
     """
 
-    status: str = Field(
-        default="connected",
-        description="Connection status"
-    )
+    status: str = Field(default="connected", description="Connection status")
     database_info: Dict[str, Any] = Field(
         description="Database information (version, name, user, tables)"
     )
     message: str = Field(
-        default="Database connection successful",
-        description="Human-readable message"
+        default="Database connection successful", description="Human-readable message"
     )
 
 
@@ -218,12 +217,8 @@ class AdminUsersListResponse(BaseModel):
         pagination: Информация о пагинации
     """
 
-    users: List[UserListItem] = Field(
-        description="List of users"
-    )
-    pagination: PaginationInfo = Field(
-        description="Pagination information"
-    )
+    users: List[UserListItem] = Field(description="List of users")
+    pagination: PaginationInfo = Field(description="Pagination information")
 
 
 class SystemHealth(BaseModel):
@@ -263,9 +258,7 @@ class AdminStatisticsResponse(BaseModel):
     content: Dict[str, int] = Field(
         description="Content statistics (total_books, total_descriptions)"
     )
-    system_health: SystemHealth = Field(
-        description="System health information"
-    )
+    system_health: SystemHealth = Field(description="System health information")
 
 
 class ReadingStatisticsResponse(BaseModel):
@@ -285,16 +278,13 @@ class ReadingStatisticsResponse(BaseModel):
         description="Reading statistics (total_books, time, speed, etc.)"
     )
     reading_streak: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Reading streak information (current_streak, longest_streak)"
+        None, description="Reading streak information (current_streak, longest_streak)"
     )
     favorite_genres: Optional[List[Dict[str, Any]]] = Field(
-        None,
-        description="Favorite genres with counts"
+        None, description="Favorite genres with counts"
     )
     weekly_activity: Optional[Dict[str, int]] = Field(
-        None,
-        description="Activity by day of week"
+        None, description="Activity by day of week"
     )
 
 

@@ -104,7 +104,9 @@ class TokenBlacklist:
         except Exception as e:
             logger.warning(f"Token blacklist check failed (Redis unavailable): {e}")
             if require_online:
-                logger.warning("Fail-closed: Rejecting token due to Redis unavailability")
+                logger.warning(
+                    "Fail-closed: Rejecting token due to Redis unavailability"
+                )
                 return True
             return False
 
@@ -144,11 +146,7 @@ class TokenBlacklist:
             async for _ in cache_manager._redis.scan_iter(match=f"{self.PREFIX}*"):
                 count += 1
 
-            return {
-                "available": True,
-                "count": count,
-                "prefix": self.PREFIX
-            }
+            return {"available": True, "count": count, "prefix": self.PREFIX}
         except Exception as e:
             logger.error(f"Failed to get blacklist stats: {e}")
             return {"available": False, "count": 0, "error": str(e)}

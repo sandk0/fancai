@@ -380,7 +380,9 @@ class ReadingSessionService:
                 raw_duration = int(
                     (session.ended_at - session.started_at).total_seconds() / 60
                 )
-                session.duration_minutes = min(raw_duration, MAX_SESSION_DURATION_MINUTES)
+                session.duration_minutes = min(
+                    raw_duration, MAX_SESSION_DURATION_MINUTES
+                )
 
             count += 1
 

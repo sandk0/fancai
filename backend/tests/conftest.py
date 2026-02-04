@@ -23,24 +23,19 @@ from app.core.container import (
 )
 from app.models import User, Book, Chapter, Description, GeneratedImage
 
-
 # Test database URL - using PostgreSQL since models use UUID type
 # This connects to the same postgres container but with a test database
 # NOTE: Use service name "postgres" for Docker environment, not "localhost"
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_test"
+TEST_DATABASE_URL = (
+    "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_test"
+)
 
 # Create test engine
-test_engine = create_async_engine(
-    TEST_DATABASE_URL, 
-    echo=False,
-    future=True
-)
+test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
 
 # Test session factory
 TestSessionLocal = sessionmaker(
-    test_engine, 
-    class_=AsyncSession, 
-    expire_on_commit=False
+    test_engine, class_=AsyncSession, expire_on_commit=False
 )
 
 
@@ -64,6 +59,7 @@ async def db_session(test_db):
 @pytest_asyncio.fixture(scope="function")
 async def override_get_database(db_session):
     """Override the get_database_session dependency."""
+
     def _override_get_database():
         yield db_session
 
@@ -91,7 +87,7 @@ def mock_nlp_processor():
             "description_type": "location",
             "priority_score": 0.8,
             "chapter_position": 100,
-            "context": "Test context"
+            "context": "Test context",
         }
     ]
     return mock
@@ -103,7 +99,7 @@ def mock_image_generator():
     mock = AsyncMock()
     mock.generate_image.return_value = {
         "image_url": "https://example.com/test-image.jpg",
-        "generation_time": 5.0
+        "generation_time": 5.0,
     }
     return mock
 
@@ -114,7 +110,7 @@ def sample_user_data():
     return {
         "email": "test@example.com",
         "password": "SecureP@ss0w9rd!",  # Meets all requirements: 12+ chars, uppercase, lowercase, non-sequential digits, special chars
-        "full_name": "Test User"
+        "full_name": "Test User",
     }
 
 
@@ -129,7 +125,7 @@ def sample_book_data():
         "language": "en",
         "file_format": "epub",
         "file_size": 1024000,
-        "total_chapters": 5
+        "total_chapters": 5,
     }
 
 
@@ -143,7 +139,7 @@ async def test_user(db_session: AsyncSession, sample_user_data):
     user = User(
         email=sample_user_data["email"],
         full_name=sample_user_data["full_name"],
-        password_hash=auth_service.get_password_hash(sample_user_data["password"])
+        password_hash=auth_service.get_password_hash(sample_user_data["password"]),
     )
     db_session.add(user)
     await db_session.commit()
@@ -168,7 +164,7 @@ async def test_book(db_session: AsyncSession, test_user: User):
         file_size=1024000,
         total_pages=100,
         estimated_reading_time=50,
-        is_parsed=True
+        is_parsed=True,
     )
     db_session.add(book)
     await db_session.flush()  # Get book.id without committing
@@ -181,7 +177,7 @@ async def test_book(db_session: AsyncSession, test_user: User):
             title=f"Chapter {i}",
             content=f"Content of chapter {i} with beautiful forest and tall trees.",
             html_content=f"<p>Content of chapter {i} with beautiful forest and tall trees.</p>",
-            word_count=10
+            word_count=10,
         )
         db_session.add(chapter)
 
@@ -201,7 +197,7 @@ async def test_chapter(db_session: AsyncSession, test_book: Book):
         title="Chapter 1",
         content="This is a test chapter content with a beautiful forest and tall trees.",
         html_content="<p>This is a test chapter content with a beautiful forest and tall trees.</p>",
-        word_count=15
+        word_count=15,
     )
     db_session.add(chapter)
     await db_session.commit()
@@ -217,7 +213,7 @@ def sample_chapter_data():
         "title": "Chapter 1: The Beginning",
         "content": "This is the content of the first chapter. It contains a beautiful forest with tall trees.",
         "word_count": 15,
-        "estimated_reading_time": 1
+        "estimated_reading_time": 1,
     }
 
 
@@ -229,38 +225,46 @@ def sample_description_data():
         "description_type": "location",
         "priority_score": 0.8,
         "chapter_position": 50,
-        "context": "This is the content of the first chapter."
+        "context": "This is the content of the first chapter.",
     }
 
 
 @pytest.fixture
 def authenticated_headers(client, sample_user_data):
     """Get authenticated headers for testing."""
+
     async def _get_headers():
         # Register user
         reg_response = await client.post("/api/v1/auth/register", json=sample_user_data)
-        
+
         # If registration failed (e.g., user already exists), that's OK - try login anyway
         if reg_response.status_code not in [201, 400]:
-            raise Exception(f"Registration failed with status {reg_response.status_code}: {reg_response.text}")
-        
+            raise Exception(
+                f"Registration failed with status {reg_response.status_code}: {reg_response.text}"
+            )
+
         # Login
-        login_response = await client.post("/api/v1/auth/login", json={
-            "email": sample_user_data["email"],
-            "password": sample_user_data["password"]
-        })
-        
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": sample_user_data["email"],
+                "password": sample_user_data["password"],
+            },
+        )
+
         # Check login succeeded
         if login_response.status_code != 200:
-            raise Exception(f"Login failed with status {login_response.status_code}: {login_response.text}")
-        
+            raise Exception(
+                f"Login failed with status {login_response.status_code}: {login_response.text}"
+            )
+
         data = login_response.json()
         if "tokens" not in data:
             raise Exception(f"Login response missing 'tokens': {data}")
-            
+
         tokens = data["tokens"]
         return {"Authorization": f"Bearer {tokens['access_token']}"}
-    
+
     return _get_headers
 
 
@@ -286,7 +290,7 @@ async def test_book_with_descriptions(test_user, db_session):
         author="Test Author",
         user_id=test_user.id,
         file_format="epub",
-        language="ru"
+        language="ru",
     )
     db_session.add(book)
     await db_session.flush()
@@ -297,15 +301,23 @@ async def test_book_with_descriptions(test_user, db_session):
         chapter_number=1,
         title="Chapter 1",
         content="A beautiful forest with tall trees. The mysterious castle on the hill.",
-        word_count=100
+        word_count=100,
     )
     db_session.add(chapter)
     await db_session.flush()
 
     # Create descriptions
     descriptions_data = [
-        {"text": "beautiful forest with tall trees", "description_type": "location", "confidence_score": 0.9},
-        {"text": "mysterious castle on the hill", "description_type": "location", "confidence_score": 0.85},
+        {
+            "text": "beautiful forest with tall trees",
+            "description_type": "location",
+            "confidence_score": 0.9,
+        },
+        {
+            "text": "mysterious castle on the hill",
+            "description_type": "location",
+            "confidence_score": 0.85,
+        },
     ]
 
     for desc_data in descriptions_data:
@@ -316,7 +328,7 @@ async def test_book_with_descriptions(test_user, db_session):
             description_type=desc_data["description_type"],
             confidence_score=desc_data["confidence_score"],
             priority_score=0.8,
-            chapter_position=50
+            chapter_position=50,
         )
         db_session.add(description)
 
@@ -337,16 +349,16 @@ async def admin_auth_headers(db_session: AsyncSession, client: AsyncClient):
         email="test_admin@example.com",
         full_name="Test Admin",
         password_hash=auth_service.get_password_hash("AdminPass123!"),
-        is_admin=True
+        is_admin=True,
     )
     db_session.add(admin_user)
     await db_session.commit()
 
     # Login and get token
-    login_response = await client.post("/api/v1/auth/login", json={
-        "email": "test_admin@example.com",
-        "password": "AdminPass123!"
-    })
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "test_admin@example.com", "password": "AdminPass123!"},
+    )
 
     if login_response.status_code != 200:
         raise Exception(f"Admin login failed: {login_response.text}")
@@ -369,16 +381,16 @@ async def auth_headers(db_session: AsyncSession, client: AsyncClient):
         email="regular_user@example.com",
         full_name="Regular User",
         password_hash=auth_service.get_password_hash("RegularPass123!"),
-        is_admin=False
+        is_admin=False,
     )
     db_session.add(user)
     await db_session.commit()
 
     # Login and get token
-    login_response = await client.post("/api/v1/auth/login", json={
-        "email": "regular_user@example.com",
-        "password": "RegularPass123!"
-    })
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "regular_user@example.com", "password": "RegularPass123!"},
+    )
 
     if login_response.status_code != 200:
         raise Exception(f"User login failed: {login_response.text}")
@@ -402,7 +414,7 @@ async def test_book_with_progress(test_user, db_session):
         author="Test Author",
         user_id=test_user.id,
         file_format="epub",
-        language="ru"
+        language="ru",
     )
     db_session.add(book)
     await db_session.flush()
@@ -414,7 +426,7 @@ async def test_book_with_progress(test_user, db_session):
             chapter_number=i + 1,
             title=f"Chapter {i + 1}",
             content=f"Content of chapter {i + 1}",
-            word_count=100
+            word_count=100,
         )
         db_session.add(chapter)
 
@@ -429,7 +441,7 @@ async def test_book_with_progress(test_user, db_session):
         current_position=50,
         current_position_percent=25.0,
         reading_location_cfi="/2/4/2/10",
-        scroll_offset_percent=30.5
+        scroll_offset_percent=30.5,
     )
     db_session.add(progress)
 
@@ -457,6 +469,7 @@ async def initialized_feature_flags(db_session: AsyncSession):
 @dataclass
 class MockImageGenerationResult:
     """Mock result for image generation."""
+
     success: bool = True
     image_url: Optional[str] = "https://example.com/test-image.png"
     local_path: Optional[str] = "/app/storage/test-image.png"
@@ -507,7 +520,7 @@ class MockParsedBook:
                     title="Chapter 1",
                     content="Test chapter content",
                     html_content="<p>Test chapter content</p>",
-                    word_count=100
+                    word_count=100,
                 )
             ]
 
@@ -546,9 +559,7 @@ def mock_image_generator_service():
     mock.generate_image_for_description = AsyncMock(
         return_value=MockImageGenerationResult()
     )
-    mock.generate_image_from_text = AsyncMock(
-        return_value=MockImageGenerationResult()
-    )
+    mock.generate_image_from_text = AsyncMock(return_value=MockImageGenerationResult())
     mock.batch_generate_for_chapter = AsyncMock(
         return_value=[MockImageGenerationResult()]
     )
@@ -602,9 +613,7 @@ def mock_imagen_service():
         "model": "imagen-4",
         "rate_limit_remaining": 100,
     }
-    mock.generate_image = AsyncMock(
-        return_value=MockImageGenerationResult()
-    )
+    mock.generate_image = AsyncMock(return_value=MockImageGenerationResult())
     return mock
 
 
@@ -751,7 +760,9 @@ async def app_with_mock_services(
     Database is still real (test database).
     """
     app.dependency_overrides[get_book_parser_dep] = lambda: mock_book_parser
-    app.dependency_overrides[get_image_generator_service_dep] = lambda: mock_image_generator_service
+    app.dependency_overrides[get_image_generator_service_dep] = (
+        lambda: mock_image_generator_service
+    )
     app.dependency_overrides[get_gemini_extractor_dep] = lambda: mock_gemini_extractor
 
     yield app
@@ -765,6 +776,7 @@ async def app_with_mock_services(
 # ============================================================================
 # EXAMPLE TEST HELPERS
 # ============================================================================
+
 
 def create_mock_dependency_overrides(
     book_parser=None,

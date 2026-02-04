@@ -30,8 +30,7 @@ class TestAdminRouterIntegration:
         """Тест что админ endpoints требуют роль администратора."""
         # Act
         response = await client.get(
-            "/api/v1/admin/multi-nlp-settings/status",
-            headers=auth_headers
+            "/api/v1/admin/multi-nlp-settings/status", headers=auth_headers
         )
 
         # Assert
@@ -50,14 +49,11 @@ class TestAdminRouterIntegration:
     # ==================== MULTI-NLP SETTINGS TESTS ====================
 
     @pytest.mark.asyncio
-    async def test_get_nlp_status(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_get_nlp_status(self, client: AsyncClient, admin_auth_headers: dict):
         """Тест получения статуса NLP процессоров."""
         # Act
         response = await client.get(
-            "/api/v1/admin/multi-nlp-settings/status",
-            headers=admin_auth_headers
+            "/api/v1/admin/multi-nlp-settings/status", headers=admin_auth_headers
         )
 
         # Assert
@@ -72,8 +68,7 @@ class TestAdminRouterIntegration:
         """Тест что обычный пользователь не может видеть NLP статус."""
         # Act
         response = await client.get(
-            "/api/v1/admin/multi-nlp-settings/status",
-            headers=auth_headers
+            "/api/v1/admin/multi-nlp-settings/status", headers=auth_headers
         )
 
         # Assert
@@ -85,16 +80,13 @@ class TestAdminRouterIntegration:
     ):
         """Тест обновления веса NLP процессора."""
         # Arrange
-        update_data = {
-            "weight": 1.5,
-            "threshold": 0.5
-        }
+        update_data = {"weight": 1.5, "threshold": 0.5}
 
         # Act
         response = await client.put(
             "/api/v1/admin/multi-nlp-settings/spacy",
             headers=admin_auth_headers,
-            json=update_data
+            json=update_data,
         )
 
         # Assert
@@ -106,16 +98,13 @@ class TestAdminRouterIntegration:
     ):
         """Тест обновления с невалидным весом."""
         # Arrange
-        invalid_data = {
-            "weight": -1.0,  # Invalid negative weight
-            "threshold": 0.5
-        }
+        invalid_data = {"weight": -1.0, "threshold": 0.5}  # Invalid negative weight
 
         # Act
         response = await client.put(
             "/api/v1/admin/multi-nlp-settings/spacy",
             headers=admin_auth_headers,
-            json=invalid_data
+            json=invalid_data,
         )
 
         # Assert
@@ -130,14 +119,14 @@ class TestAdminRouterIntegration:
         # Arrange
         test_data = {
             "text": "A beautiful forest with tall trees.",
-            "processor": "spacy"
+            "processor": "spacy",
         }
 
         # Act
         response = await client.post(
             "/api/v1/admin/multi-nlp-settings/test",
             headers=admin_auth_headers,
-            json=test_data
+            json=test_data,
         )
 
         # Assert
@@ -152,8 +141,7 @@ class TestAdminRouterIntegration:
         """Тест получения настроек парсинга."""
         # Act
         response = await client.get(
-            "/api/v1/admin/parsing-settings",
-            headers=admin_auth_headers
+            "/api/v1/admin/parsing-settings", headers=admin_auth_headers
         )
 
         # Assert
@@ -165,16 +153,13 @@ class TestAdminRouterIntegration:
     ):
         """Тест обновления настроек парсинга."""
         # Arrange
-        settings_data = {
-            "max_concurrent_parsings": 5,
-            "timeout_minutes": 30
-        }
+        settings_data = {"max_concurrent_parsings": 5, "timeout_minutes": 30}
 
         # Act
         response = await client.put(
             "/api/v1/admin/parsing-settings",
             headers=admin_auth_headers,
-            json=settings_data
+            json=settings_data,
         )
 
         # Assert
@@ -187,8 +172,7 @@ class TestAdminRouterIntegration:
         """Тест получения статуса очереди парсинга."""
         # Act
         response = await client.get(
-            "/api/v1/admin/queue-status",
-            headers=admin_auth_headers
+            "/api/v1/admin/queue-status", headers=admin_auth_headers
         )
 
         # Assert
@@ -201,8 +185,7 @@ class TestAdminRouterIntegration:
         """Тест очистки очереди парсинга."""
         # Act
         response = await client.post(
-            "/api/v1/admin/clear-queue",
-            headers=admin_auth_headers
+            "/api/v1/admin/clear-queue", headers=admin_auth_headers
         )
 
         # Assert
@@ -217,8 +200,7 @@ class TestAdminRouterIntegration:
         """Тест получения системной статистики."""
         # Act
         response = await client.get(
-            "/api/v1/admin/system-stats",
-            headers=admin_auth_headers
+            "/api/v1/admin/system-stats", headers=admin_auth_headers
         )
 
         # Assert
@@ -228,15 +210,10 @@ class TestAdminRouterIntegration:
             assert isinstance(data, dict)
 
     @pytest.mark.asyncio
-    async def test_health_check(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_health_check(self, client: AsyncClient, admin_auth_headers: dict):
         """Тест health check endpoint."""
         # Act
-        response = await client.get(
-            "/api/v1/admin/health",
-            headers=admin_auth_headers
-        )
+        response = await client.get("/api/v1/admin/health", headers=admin_auth_headers)
 
         # Assert
         assert response.status_code in [200, 404]
@@ -258,16 +235,13 @@ class TestAdminRouterIntegration:
     ):
         """Тест обновления системных настроек."""
         # Arrange
-        settings_data = {
-            "max_upload_size_mb": 100,
-            "enable_notifications": True
-        }
+        settings_data = {"max_upload_size_mb": 100, "enable_notifications": True}
 
         # Act
         response = await client.put(
             "/api/v1/admin/system-settings",
             headers=admin_auth_headers,
-            json=settings_data
+            json=settings_data,
         )
 
         # Assert
@@ -276,28 +250,22 @@ class TestAdminRouterIntegration:
     # ==================== CACHE MANAGEMENT TESTS ====================
 
     @pytest.mark.asyncio
-    async def test_get_cache_stats(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_get_cache_stats(self, client: AsyncClient, admin_auth_headers: dict):
         """Тест получения статистики кэша."""
         # Act
         response = await client.get(
-            "/api/v1/admin/cache-stats",
-            headers=admin_auth_headers
+            "/api/v1/admin/cache-stats", headers=admin_auth_headers
         )
 
         # Assert
         assert response.status_code in [200, 404]
 
     @pytest.mark.asyncio
-    async def test_clear_cache(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_clear_cache(self, client: AsyncClient, admin_auth_headers: dict):
         """Тест очистки кэша."""
         # Act
         response = await client.post(
-            "/api/v1/admin/cache/clear",
-            headers=admin_auth_headers
+            "/api/v1/admin/cache/clear", headers=admin_auth_headers
         )
 
         # Assert
@@ -312,8 +280,7 @@ class TestAdminRouterIntegration:
         """Тест инициализации настроек по умолчанию."""
         # Act
         response = await client.post(
-            "/api/v1/admin/initialize-settings",
-            headers=admin_auth_headers
+            "/api/v1/admin/initialize-settings", headers=admin_auth_headers
         )
 
         # Assert
@@ -328,8 +295,7 @@ class TestAdminRouterIntegration:
         """Тест пагинации в админ endpoints."""
         # Act
         response = await client.get(
-            "/api/v1/admin/system-stats?skip=0&limit=10",
-            headers=admin_auth_headers
+            "/api/v1/admin/system-stats?skip=0&limit=10", headers=admin_auth_headers
         )
 
         # Assert
@@ -346,7 +312,7 @@ class TestAdminRouterIntegration:
         response = await client.put(
             "/api/v1/admin/multi-nlp-settings/spacy",
             headers=admin_auth_headers,
-            content="invalid json"
+            content="invalid json",
         )
 
         # Assert
@@ -367,7 +333,7 @@ class TestAdminRouterIntegration:
         response = await client.put(
             "/api/v1/admin/multi-nlp-settings/spacy",
             headers=admin_auth_headers,
-            json=incomplete_data
+            json=incomplete_data,
         )
 
         # Assert
@@ -383,8 +349,7 @@ class TestAdminRouterIntegration:
         """Тест получения списка feature flags."""
         # Act
         response = await client.get(
-            "/api/v1/admin/feature-flags",
-            headers=admin_auth_headers
+            "/api/v1/admin/feature-flags", headers=admin_auth_headers
         )
 
         # Assert
@@ -398,7 +363,7 @@ class TestAdminRouterIntegration:
         # Act
         response = await client.post(
             "/api/v1/admin/feature-flags/USE_NEW_NLP_ARCHITECTURE/toggle",
-            headers=admin_auth_headers
+            headers=admin_auth_headers,
         )
 
         # Assert
@@ -410,16 +375,13 @@ class TestAdminRouterIntegration:
     ):
         """Тест обновления feature flag."""
         # Arrange
-        flag_data = {
-            "enabled": True,
-            "description": "Test description"
-        }
+        flag_data = {"enabled": True, "description": "Test description"}
 
         # Act
         response = await client.put(
             "/api/v1/admin/feature-flags/USE_NEW_NLP_ARCHITECTURE",
             headers=admin_auth_headers,
-            json=flag_data
+            json=flag_data,
         )
 
         # Assert

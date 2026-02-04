@@ -274,7 +274,9 @@ class ParsingRateLimiter:
 
             # Save back
             await self.redis_client.setex(
-                self.STATS_KEY, 86400, json.dumps(stats)  # Keep stats for 24 hours
+                self.STATS_KEY,
+                86400,
+                json.dumps(stats),  # Keep stats for 24 hours
             )
 
         except Exception as e:

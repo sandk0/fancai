@@ -47,6 +47,7 @@ async def _get_system_stats_async() -> Dict[str, Any]:
         total_images = images_count.scalar()
 
         from app.services.gemini_extractor import gemini_extractor
+
         llm_available = gemini_extractor.is_available()
 
         return {

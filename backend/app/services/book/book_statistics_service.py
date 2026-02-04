@@ -91,9 +91,7 @@ class BookStatisticsService:
 
         # Общее количество глав
         total_chapters = await db.execute(
-            select(func.count(Chapter.id))
-            .join(Book)
-            .where(Book.user_id == user_id)
+            select(func.count(Chapter.id)).join(Book).where(Book.user_id == user_id)
         )
         total_chapters_count = total_chapters.scalar() or 0
 

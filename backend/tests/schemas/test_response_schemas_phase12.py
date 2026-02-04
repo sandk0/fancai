@@ -32,7 +32,6 @@ from app.schemas.responses.descriptions import (
 from app.schemas.responses import DescriptionResponse
 from app.models.description import DescriptionType
 
-
 # ============================================================================
 # IMAGE SCHEMAS TESTS
 # ============================================================================

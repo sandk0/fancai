@@ -70,14 +70,11 @@ async def update_system_settings(
         )
 
         return SystemSettingsUpdateResponse(
-            message="System settings saved successfully",
-            settings=settings.model_dump()
+            message="System settings saved successfully", settings=settings.model_dump()
         )
     except Exception as e:
         logger.exception(f"Failed to update system settings: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to update system settings"
-        )
+        raise HTTPException(status_code=500, detail="Failed to update system settings")
 
 
 @router.post("/initialize-settings", response_model=InitializeSettingsResponse)
@@ -89,11 +86,13 @@ async def initialize_default_settings(
     try:
         success = await settings_manager.initialize_default_settings(force=False)
         if success:
-            return InitializeSettingsResponse(message="Default settings initialized successfully")
+            return InitializeSettingsResponse(
+                message="Default settings initialized successfully"
+            )
         else:
-            return InitializeSettingsResponse(message="Settings already exist, no changes made")
+            return InitializeSettingsResponse(
+                message="Settings already exist, no changes made"
+            )
     except Exception as e:
         logger.exception(f"Failed to initialize settings: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to initialize settings"
-        )
+        raise HTTPException(status_code=500, detail="Failed to initialize settings")

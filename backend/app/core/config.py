@@ -36,11 +36,15 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://:redis123@redis:6379"
     REDIS_CACHE_ENABLED: bool = True  # Enable/disable Redis caching
     REDIS_CACHE_DEFAULT_TTL: int = 3600  # Default TTL in seconds (1 hour)
-    REDIS_MAX_CONNECTIONS: int = Field(default=50, ge=10, le=200, env="REDIS_MAX_CONNECTIONS")
+    REDIS_MAX_CONNECTIONS: int = Field(
+        default=50, ge=10, le=200, env="REDIS_MAX_CONNECTIONS"
+    )
 
     # Безопасность (Updated 29 Dec 2025: Extended for book reading app UX)
     # Users should stay logged in for at least 2 weeks without re-authentication
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days (10080 min) - extended for reading app
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = (
+        10080  # 7 days (10080 min) - extended for reading app
+    )
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days - allows month-long sessions
     ALGORITHM: str = "HS256"
 
@@ -51,11 +55,15 @@ class Settings(BaseSettings):
 
     # AI сервисы - Google Gemini & Imagen (December 2025)
     GOOGLE_API_KEY: Optional[str] = None  # Primary key for all Google services
-    GEMINI_MODEL: str = "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
+    GEMINI_MODEL: str = (
+        "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
+    )
     IMAGEN_ENABLED: bool = True
     IMAGEN_MODEL: str = "imagen-4.0-generate-001"  # GA models: imagen-4.0-generate-001, imagen-4.0-fast-generate-001, imagen-4.0-ultra-generate-001
     IMAGEN_ASPECT_RATIO: str = "4:3"  # 1:1, 3:4, 4:3, 9:16, 16:9
-    IMAGEN_SAFETY_LEVEL: str = "block_low_and_above"  # Only block_low_and_above is supported
+    IMAGEN_SAFETY_LEVEL: str = (
+        "block_low_and_above"  # Only block_low_and_above is supported
+    )
     IMAGEN_TIMEOUT_SECONDS: int = 60
 
     # Legacy AI services (optional)
@@ -73,7 +81,9 @@ class Settings(BaseSettings):
 
     # Multi-NLP Configuration (October 2025)
     MULTI_NLP_MODE: str = Field(default="ensemble", env="MULTI_NLP_MODE")
-    CONSENSUS_THRESHOLD: float = Field(default=0.6, ge=0.0, le=1.0, env="CONSENSUS_THRESHOLD")
+    CONSENSUS_THRESHOLD: float = Field(
+        default=0.6, ge=0.0, le=1.0, env="CONSENSUS_THRESHOLD"
+    )
     SPACY_WEIGHT: float = Field(default=1.0, ge=0.0, le=2.0, env="SPACY_WEIGHT")
     NATASHA_WEIGHT: float = Field(default=1.2, ge=0.0, le=2.0, env="NATASHA_WEIGHT")
     STANZA_WEIGHT: float = Field(default=0.8, ge=0.0, le=2.0, env="STANZA_WEIGHT")
@@ -85,13 +95,21 @@ class Settings(BaseSettings):
     # Gunicorn/Uvicorn Workers Configuration (Production Optimization for 4GB RAM / 2 CPU cores)
     WORKERS_COUNT: int = Field(default=4, ge=1, le=8, env="WORKERS_COUNT")
     WORKER_TIMEOUT: int = Field(default=300, ge=60, le=600, env="WORKER_TIMEOUT")
-    WORKER_MAX_REQUESTS: int = Field(default=1000, ge=100, le=5000, env="WORKER_MAX_REQUESTS")
-    WORKER_MAX_REQUESTS_JITTER: int = Field(default=100, ge=0, le=500, env="WORKER_MAX_REQUESTS_JITTER")
+    WORKER_MAX_REQUESTS: int = Field(
+        default=1000, ge=100, le=5000, env="WORKER_MAX_REQUESTS"
+    )
+    WORKER_MAX_REQUESTS_JITTER: int = Field(
+        default=100, ge=0, le=500, env="WORKER_MAX_REQUESTS_JITTER"
+    )
 
     # Celery Configuration (Limited Resources Optimization)
     CELERY_CONCURRENCY: int = Field(default=1, ge=1, le=4, env="CELERY_CONCURRENCY")
-    CELERY_MAX_TASKS_PER_CHILD: int = Field(default=100, ge=10, le=500, env="CELERY_MAX_TASKS_PER_CHILD")
-    CELERY_MAX_MEMORY_PER_CHILD: int = Field(default=1572864, ge=524288, le=3145728, env="CELERY_MAX_MEMORY_PER_CHILD")  # KB (default: 1.5GB)
+    CELERY_MAX_TASKS_PER_CHILD: int = Field(
+        default=100, ge=10, le=500, env="CELERY_MAX_TASKS_PER_CHILD"
+    )
+    CELERY_MAX_MEMORY_PER_CHILD: int = Field(
+        default=1572864, ge=524288, le=3145728, env="CELERY_MAX_MEMORY_PER_CHILD"
+    )  # KB (default: 1.5GB)
 
     # Лимиты подписок
     FREE_BOOKS_LIMIT: int = 3
@@ -112,9 +130,7 @@ class Settings(BaseSettings):
     VAPID_SUBJECT: str = "mailto:admin@fancai.ru"
 
     # CORS - загружается из .env (docker-compose передает полный список)
-    CORS_ORIGINS: str = (
-        "http://localhost:3000,http://localhost:5173,http://localhost:5174"  # Development: React (3000), Vite (5173, 5174)
-    )
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"  # Development: React (3000), Vite (5173, 5174)
 
     @model_validator(mode="after")
     def validate_production_settings(self):

@@ -3,7 +3,15 @@ API роуты для генерации изображений в fancai.
 Thin router layer - delegates to ImageCRUDService and ImageGeneratorService.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Response
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Depends,
+    status,
+    BackgroundTasks,
+    Request,
+    Response,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional, Tuple, Union
@@ -77,7 +85,7 @@ async def check_image_quota(
     """
     TD-P15-7: Dependency to check user's image generation quota before generation.
     TD-P16-4: Returns RateLimitInfo for X-RateLimit-* headers.
-    
+
     Raises HTTPException 402 if quota exceeded.
     """
     result = await db.execute(
@@ -86,9 +94,9 @@ async def check_image_quota(
         .where(Subscription.status == SubscriptionStatus.ACTIVE)
     )
     subscription = result.scalar_one_or_none()
-    
+
     now = datetime.now(timezone.utc)
-    
+
     if not subscription:
         subscription = Subscription(
             user_id=current_user.id,
@@ -99,22 +107,29 @@ async def check_image_quota(
         )
         db.add(subscription)
         await db.flush()
-    
-    if subscription.last_reset_date.month != now.month or subscription.last_reset_date.year != now.year:
+
+    if (
+        subscription.last_reset_date.month != now.month
+        or subscription.last_reset_date.year != now.year
+    ):
         subscription.images_generated_month = 0
         subscription.last_reset_date = now
         db.add(subscription)
         await db.flush()
-    
+
     limit = GENERATION_LIMITS.get(subscription.plan, settings.FREE_GENERATIONS_LIMIT)
     remaining = max(0, limit - subscription.images_generated_month)
-    
+
     _, last_day = calendar.monthrange(now.year, now.month)
-    reset_date = datetime(now.year, now.month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    reset_date = datetime(
+        now.year, now.month, last_day, 23, 59, 59, tzinfo=timezone.utc
+    )
     reset_timestamp = int(reset_date.timestamp())
-    
-    rate_limit_info = RateLimitInfo(limit=limit, remaining=remaining, reset_timestamp=reset_timestamp)
-    
+
+    rate_limit_info = RateLimitInfo(
+        limit=limit, remaining=remaining, reset_timestamp=reset_timestamp
+    )
+
     if subscription.images_generated_month >= limit:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -130,9 +145,9 @@ async def check_image_quota(
                 "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": "0",
                 "X-RateLimit-Reset": str(reset_timestamp),
-            }
+            },
         )
-    
+
     return current_user, rate_limit_info
 
 
@@ -187,25 +202,29 @@ async def get_generated_image_file(
     db: AsyncSession = Depends(get_database_session),
 ):
     logger.info(f"Accessing image file: {filename} for user {current_user.id}")
-    
+
     if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename"
+        )
+
     file_path = GENERATED_IMAGES_DIR / filename
     if not file_path.exists():
         logger.warning(f"File not found on disk: {file_path}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
+        )
+
     service = get_image_service(db)
-    
+
     # 1. Try GeneratedImage table
     image = await service.get_by_local_path(str(file_path))
     if not image:
         api_path = f"/api/v1/images/file/{filename}"
         image = await service.get_by_image_url(api_path)
-    
+
     has_access = False
-    
+
     if image:
         if service.verify_ownership(image, current_user.id):
             has_access = True
@@ -219,45 +238,55 @@ async def get_generated_image_file(
             select(Entity)
             .join(Book, Entity.book_id == Book.id)
             .where(
-                (Entity.master_portrait_url == api_path) | 
-                (Entity.master_portrait_url.like(f"%{filename}"))
+                (Entity.master_portrait_url == api_path)
+                | (Entity.master_portrait_url.like(f"%{filename}"))
             )
             .where(Book.user_id == current_user.id)
         )
         result = await db.execute(stmt)
         entity = result.scalar_one_or_none()
-        
+
         if entity:
             logger.info(f"Found matching Entity for image: {entity.id}")
             has_access = True
         else:
             logger.warning(f"No matching Entity found for image: {filename}")
-    
+
     if not has_access:
         # If file exists but no DB record matches for user -> 404
         # We return 404 to avoid leaking file existence to unauthorized users
         logger.warning(f"Access denied (404) for image: {filename}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found in database")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found in database"
+        )
+
     should_304, etag, last_modified = check_conditional_request(
         file_path=file_path,
         if_none_match=request.headers.get("if-none-match"),
         if_modified_since=request.headers.get("if-modified-since"),
     )
-    
+
     cache_control = "public, max-age=31536000, immutable"
-    
+
     if should_304:
         return Response(
             status_code=304,
-            headers={"ETag": etag, "Last-Modified": last_modified, "Cache-Control": cache_control},
+            headers={
+                "ETag": etag,
+                "Last-Modified": last_modified,
+                "Cache-Control": cache_control,
+            },
         )
-    
+
     return FileResponse(
         path=str(file_path),
         media_type=get_mime_type_from_extension(file_path),
         content_disposition_type="inline",
-        headers={"ETag": etag, "Last-Modified": last_modified, "Cache-Control": cache_control},
+        headers={
+            "ETag": etag,
+            "Last-Modified": last_modified,
+            "Cache-Control": cache_control,
+        },
     )
 
 
@@ -267,7 +296,7 @@ async def get_generation_status(
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> ImageGenerationStatusResponse:
     stats = await image_gen_svc.get_generation_stats()
-    
+
     return ImageGenerationStatusResponse(
         status="operational",
         queue_stats=QueueStats(
@@ -297,19 +326,25 @@ async def get_user_images_stats(
 ) -> UserImageStatsResponse:
     service = get_image_service(db)
     stats = await service.get_user_full_stats(current_user.id)
-    
+
     total_images = stats["total_images"]
     total_descriptions = stats["total_descriptions"]
     images_by_type = stats["images_by_type"]
-    
+
     return UserImageStatsResponse(
         total_images_generated=total_images if isinstance(total_images, int) else 0,
-        total_descriptions_found=total_descriptions if isinstance(total_descriptions, int) else 0,
+        total_descriptions_found=(
+            total_descriptions if isinstance(total_descriptions, int) else 0
+        ),
         images_by_type=images_by_type if isinstance(images_by_type, dict) else {},
     )
 
 
-@router.post("/images/generate/description/{description_id}", response_model=ImageGenerationSuccessResponse, status_code=201)
+@router.post(
+    "/images/generate/description/{description_id}",
+    response_model=ImageGenerationSuccessResponse,
+    status_code=201,
+)
 async def generate_image_for_description(
     description_id: UUID,
     params: ImageGenerationParams,
@@ -322,27 +357,38 @@ async def generate_image_for_description(
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
-    
-    description = await service.get_description_with_access_check(description_id, current_user.id)
+
+    description = await service.get_description_with_access_check(
+        description_id, current_user.id
+    )
     if not description:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Description not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Description not found or access denied",
+        )
+
     if await service.exists_for_description(description_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image already exists for this description")
-    
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Image already exists for this description",
+        )
+
     try:
         result = await image_gen_svc.generate_image_for_description(
             description=description,
             user_id=str(current_user.id),
             custom_style=params.style_prompt,
         )
-        
+
         if not result.success:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Generation failed: {result.error_message}")
-        
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Generation failed: {result.error_message}",
+            )
+
         filename = os.path.basename(result.local_path) if result.local_path else None
         http_url = f"/api/v1/images/file/{filename}" if filename else None
-        
+
         image = await service.create(
             description_id=description.id,
             user_id=current_user.id,
@@ -352,10 +398,10 @@ async def generate_image_for_description(
             generation_time_seconds=result.generation_time_seconds,
             chapter_id=description.chapter_id,
         )
-        
+
         await increment_image_quota(current_user.id, db)
         await db.commit()
-        
+
         return ImageGenerationSuccessResponse(
             image_id=image.id,
             description_id=description.id,
@@ -369,10 +415,15 @@ async def generate_image_for_description(
         raise
     except Exception as e:
         logger.exception(f"Error generating image for description: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image generation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during image generation",
+        )
 
 
-@router.post("/images/generate/chapter/{chapter_id}", response_model=BatchImageGenerationResponse)
+@router.post(
+    "/images/generate/chapter/{chapter_id}", response_model=BatchImageGenerationResponse
+)
 async def generate_images_for_chapter(
     chapter_id: UUID,
     request: BatchGenerationRequest,
@@ -385,51 +436,67 @@ async def generate_images_for_chapter(
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
-    
+
     chapter = await service.get_chapter_with_access_check(chapter_id, current_user.id)
     if not chapter:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found or access denied")
-    
-    all_descriptions = await service.get_chapter_descriptions(chapter_id, request.description_types)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chapter not found or access denied",
+        )
+
+    all_descriptions = await service.get_chapter_descriptions(
+        chapter_id, request.description_types
+    )
     if not all_descriptions:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No descriptions found in this chapter")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No descriptions found in this chapter",
+        )
+
     existing = await service.get_batch_existing([d.id for d in all_descriptions])
-    descriptions_to_process = [d for d in all_descriptions if d.id not in existing][:request.max_images]
-    
+    descriptions_to_process = [d for d in all_descriptions if d.id not in existing][
+        : request.max_images
+    ]
+
     if not descriptions_to_process:
         return BatchImageGenerationResponse(
-            chapter_id=chapter_id, total_descriptions=len(all_descriptions),
-            processed=0, successful=0, failed=0, images=[],
+            chapter_id=chapter_id,
+            total_descriptions=len(all_descriptions),
+            processed=0,
+            successful=0,
+            failed=0,
+            images=[],
             message="All suitable descriptions already have images",
         )
-    
+
     descriptions_dicts = [
         {
             "id": str(d.id),
             "content": d.content,
-            "type": d.type.value if hasattr(d.type, 'value') else str(d.type),
+            "type": d.type.value if hasattr(d.type, "value") else str(d.type),
             "priority_score": d.priority_score,
         }
         for d in descriptions_to_process
     ]
-    
+
     try:
         results = await image_gen_svc.batch_generate_for_chapter(
             descriptions=descriptions_dicts,
             user_id=str(current_user.id),
             max_images=request.max_images,
         )
-        
+
         generated_images = []
         successful_generations = 0
-        
+
         for i, result in enumerate(results):
             if result.success and i < len(descriptions_to_process):
                 desc = descriptions_to_process[i]
-                filename = os.path.basename(result.local_path) if result.local_path else None
+                filename = (
+                    os.path.basename(result.local_path) if result.local_path else None
+                )
                 http_url = f"/api/v1/images/file/{filename}" if filename else None
-                
+
                 await service.create(
                     description_id=desc.id,
                     user_id=current_user.id,
@@ -439,18 +506,20 @@ async def generate_images_for_chapter(
                     generation_time_seconds=result.generation_time_seconds,
                     chapter_id=chapter_id,
                 )
-                
-                generated_images.append(GeneratedImageSummary(
-                    description_id=desc.id,
-                    description_type=desc.type.value,
-                    image_url=http_url or result.image_url,
-                    generation_time=result.generation_time_seconds or 0.0,
-                ))
+
+                generated_images.append(
+                    GeneratedImageSummary(
+                        description_id=desc.id,
+                        description_type=desc.type.value,
+                        image_url=http_url or result.image_url,
+                        generation_time=result.generation_time_seconds or 0.0,
+                    )
+                )
                 successful_generations += 1
                 await increment_image_quota(current_user.id, db)
-        
+
         await db.commit()
-        
+
         return BatchImageGenerationResponse(
             chapter_id=chapter_id,
             total_descriptions=len(all_descriptions),
@@ -463,7 +532,10 @@ async def generate_images_for_chapter(
     except Exception as e:
         logger.exception(f"Batch generation failed: {e}")
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during batch generation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during batch generation",
+        )
 
 
 @router.get("/images/description/{description_id}", response_model=ImageDetailResponse)
@@ -473,14 +545,21 @@ async def get_image_for_description(
     db: AsyncSession = Depends(get_database_session),
 ) -> ImageDetailResponse:
     service = get_image_service(db)
-    
+
     result = await service.get_image_with_relations(description_id, current_user.id)
     if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found for this description")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image not found for this description",
+        )
+
     image, description, chapter = result
-    content_preview = description.content[:100] + "..." if len(description.content) > 100 else description.content
-    
+    content_preview = (
+        description.content[:100] + "..."
+        if len(description.content) > 100
+        else description.content
+    )
+
     return ImageDetailResponse(
         id=image.id,
         image_url=image.image_url or "",
@@ -492,11 +571,16 @@ async def get_image_for_description(
         view_count=image.view_count or 0,
         download_count=image.download_count or 0,
         description=DescriptionSummary(
-            id=description.id, type=description.type.value, text=description.content,
-            content=content_preview, confidence_score=description.confidence_score,
+            id=description.id,
+            type=description.type.value,
+            text=description.content,
+            content=content_preview,
+            confidence_score=description.confidence_score,
             priority_score=description.priority_score,
         ),
-        chapter=ChapterSummary(id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""),
+        chapter=ChapterSummary(
+            id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""
+        ),
     )
 
 
@@ -509,15 +593,20 @@ async def get_book_images(
     db: AsyncSession = Depends(get_database_session),
 ) -> BookImagesResponse:
     from ..models.book import Book
-    
-    book_result = await db.execute(select(Book).where(Book.id == book_id).where(Book.user_id == current_user.id))
+
+    book_result = await db.execute(
+        select(Book).where(Book.id == book_id).where(Book.user_id == current_user.id)
+    )
     book = book_result.scalar_one_or_none()
     if not book:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found or access denied",
+        )
+
     service = get_image_service(db)
     images_data = await service.get_for_book(book_id, current_user.id, skip, limit)
-    
+
     result_images = [
         BookImageItem(
             id=image.id,
@@ -525,17 +614,28 @@ async def get_book_images(
             created_at=image.created_at.isoformat(),
             generation_time_seconds=image.generation_time_seconds or 0.0,
             description=DescriptionSummary(
-                id=description.id, type=description.type.value, text=description.content,
-                content=description.content[:100] + "..." if len(description.content) > 100 else description.content,
-                confidence_score=description.confidence_score, priority_score=description.priority_score,
+                id=description.id,
+                type=description.type.value,
+                text=description.content,
+                content=(
+                    description.content[:100] + "..."
+                    if len(description.content) > 100
+                    else description.content
+                ),
+                confidence_score=description.confidence_score,
+                priority_score=description.priority_score,
             ),
-            chapter=ChapterSummary(id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""),
+            chapter=ChapterSummary(
+                id=chapter.id, number=chapter.chapter_number, title=chapter.title or ""
+            ),
         )
         for image, description, chapter in images_data
     ]
-    
+
     return BookImagesResponse(
-        book_id=book_id, book_title=book.title, images=result_images,
+        book_id=book_id,
+        book_title=book.title,
+        images=result_images,
         pagination={"skip": skip, "limit": limit, "total_found": len(result_images)},
     )
 
@@ -547,11 +647,14 @@ async def delete_generated_image(
     db: AsyncSession = Depends(get_database_session),
 ) -> ImageDeleteResponse:
     service = get_image_service(db)
-    
+
     deleted = await service.delete_with_file(image_id, current_user.id)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image not found or access denied",
+        )
+
     return ImageDeleteResponse()
 
 
@@ -566,13 +669,13 @@ async def regenerate_image(
 ) -> ImageRegenerateResponse:
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
-    
+
     from ..models.image import GeneratedImage
     from ..models.description import Description
     from ..models.chapter import Chapter
     from ..models.book import Book
     from sqlalchemy import select
-    
+
     result = await db.execute(
         select(GeneratedImage, Description)
         .join(Description, GeneratedImage.description_id == Description.id)
@@ -583,20 +686,26 @@ async def regenerate_image(
     )
     row = result.first()
     if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image not found or access denied",
+        )
+
     existing_image, description = row
-    
+
     try:
         gen_result = await image_gen_svc.generate_image_for_description(
             description=description,
             user_id=str(current_user.id),
             custom_style=params.style_prompt,
         )
-        
+
         if not gen_result.success:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Regeneration failed: {gen_result.error_message}")
-        
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Regeneration failed: {gen_result.error_message}",
+            )
+
         service = get_image_service(db)
         updated_image = await service.update_after_regeneration(
             image=existing_image,
@@ -605,21 +714,32 @@ async def regenerate_image(
             prompt_used=params.style_prompt or "default",
             generation_time_seconds=gen_result.generation_time_seconds,
         )
-        
+
         await increment_image_quota(current_user.id, db)
         await db.commit()
-        
-        content_preview = description.content[:100] + "..." if len(description.content) > 100 else description.content
+
+        content_preview = (
+            description.content[:100] + "..."
+            if len(description.content) > 100
+            else description.content
+        )
         return ImageRegenerateResponse(
             image_id=updated_image.id,
             description_id=description.id,
             image_url=gen_result.image_url or "",
             generation_time=gen_result.generation_time_seconds or 0.0,
             status="regenerated",
-            updated_at=updated_image.updated_at.isoformat() if updated_image.updated_at else None,
+            updated_at=(
+                updated_image.updated_at.isoformat()
+                if updated_image.updated_at
+                else None
+            ),
             message="Image regenerated successfully",
             description=DescriptionSummary(
-                id=description.id, type=description.type.value, text=description.content, content=content_preview,
+                id=description.id,
+                type=description.type.value,
+                text=description.content,
+                content=content_preview,
             ),
         )
     except HTTPException:
@@ -627,7 +747,10 @@ async def regenerate_image(
     except Exception as e:
         logger.exception(f"Error regenerating image: {e}")
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred during image regeneration")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during image regeneration",
+        )
 
 
 @router.get("/images/admin/stats", response_model=AdminImageStatsResponse)
@@ -639,7 +762,7 @@ async def get_admin_image_stats(
     service = get_image_service(db)
     stats = await service.get_admin_stats()
     service_stats = await image_gen_svc.get_generation_stats()
-    
+
     # Type-safe extraction from service dicts
     total_images: int = stats.get("total_images", 0)  # type: ignore[assignment]
     type_dist: Dict[str, int] = stats.get("type_distribution", {})  # type: ignore[assignment]
@@ -649,12 +772,14 @@ async def get_admin_image_stats(
     sup_types: List[str] = service_stats.get("supported_types", [])  # type: ignore[assignment]
     q_backend: str = service_stats.get("queue_backend", "celery_redis")  # type: ignore[assignment]
     cel_stats: Dict[str, int] = service_stats.get("celery_stats", {})  # type: ignore[assignment]
-    
+
     return AdminImageStatsResponse(
         total_images_generated=total_images,
         generation_by_type=type_dist,
         performance=PerformanceStats(
-            average_generation_time_seconds=float(avg_time) if avg_time is not None else None,  # type: ignore[arg-type]
+            average_generation_time_seconds=float(avg_time)
+            if avg_time is not None
+            else None,  # type: ignore[arg-type]
             current_queue_size=queue_size,
             is_processing=is_proc,
         ),
@@ -668,7 +793,11 @@ async def get_admin_image_stats(
     )
 
 
-@router.post("/images/generate/async/{description_id}", status_code=202, response_model=AsyncGenerationQueueResponse)
+@router.post(
+    "/images/generate/async/{description_id}",
+    status_code=202,
+    response_model=AsyncGenerationQueueResponse,
+)
 async def queue_async_image_generation(
     description_id: UUID,
     request: AsyncGenerationRequest,
@@ -680,23 +809,35 @@ async def queue_async_image_generation(
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
-    
-    description = await service.get_description_with_access_check(description_id, current_user.id)
+
+    description = await service.get_description_with_access_check(
+        description_id, current_user.id
+    )
     if not description:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Description not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Description not found or access denied",
+        )
+
     if await service.exists_for_description(description_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image already exists for this description")
-    
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Image already exists for this description",
+        )
+
     queue_result = image_gen_svc.queue_image_generation(
         description_id=str(description_id),
         user_id=str(current_user.id),
         description_content=description.content,
-        description_type=description.type.value if hasattr(description.type, 'value') else str(description.type),
+        description_type=(
+            description.type.value
+            if hasattr(description.type, "value")
+            else str(description.type)
+        ),
         book_genre=request.book_genre,
         custom_style=request.style_prompt,
     )
-    
+
     return AsyncGenerationQueueResponse(
         task_id=queue_result["task_id"],
         status=queue_result["status"],
@@ -718,21 +859,31 @@ async def queue_async_batch_generation(
     current_user, rate_limit = quota_result
     set_rate_limit_headers(response, rate_limit)
     service = get_image_service(db)
-    
+
     chapter = await service.get_chapter_with_access_check(chapter_id, current_user.id)
     if not chapter:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found or access denied")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chapter not found or access denied",
+        )
+
     book = await service.get_book_for_chapter(chapter_id)
     book_genre = book.genre if book else None
-    
-    all_descriptions = await service.get_chapter_descriptions(chapter_id, request.description_types)
+
+    all_descriptions = await service.get_chapter_descriptions(
+        chapter_id, request.description_types
+    )
     if not all_descriptions:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No descriptions found in this chapter")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No descriptions found in this chapter",
+        )
+
     existing = await service.get_batch_existing([d.id for d in all_descriptions])
-    descriptions_to_process = [d for d in all_descriptions if d.id not in existing][:request.max_images]
-    
+    descriptions_to_process = [d for d in all_descriptions if d.id not in existing][
+        : request.max_images
+    ]
+
     if not descriptions_to_process:
         return AsyncBatchSkippedResponse(
             message="All suitable descriptions already have images",
@@ -740,12 +891,16 @@ async def queue_async_batch_generation(
             processed=0,
             skipped=len(all_descriptions),
         )
-    
+
     descriptions_data = [
-        {"id": str(d.id), "content": d.content, "type": d.type.value if hasattr(d.type, 'value') else str(d.type)}
+        {
+            "id": str(d.id),
+            "content": d.content,
+            "type": d.type.value if hasattr(d.type, "value") else str(d.type),
+        }
         for d in descriptions_to_process
     ]
-    
+
     queue_result = image_gen_svc.queue_batch_generation(
         chapter_id=str(chapter_id),
         user_id=str(current_user.id),
@@ -753,7 +908,7 @@ async def queue_async_batch_generation(
         book_genre=book_genre,
         max_images=request.max_images,
     )
-    
+
     return AsyncBatchQueueResponse(
         task_id=queue_result["task_id"],
         status=queue_result["status"],
@@ -774,7 +929,7 @@ async def get_task_status(
     image_gen_svc: ImageGeneratorService = Depends(get_image_generator_service_dep),
 ) -> TaskStatusResponse:
     status_info = image_gen_svc.get_task_status(task_id)
-    
+
     status_messages = {
         "PENDING": "Task is waiting in queue",
         "STARTED": "Task has started processing",
@@ -783,7 +938,7 @@ async def get_task_status(
         "RETRY": "Task is being retried",
         "REVOKED": "Task was cancelled",
     }
-    
+
     task_status: str = status_info.get("status", "UNKNOWN")  # type: ignore[assignment]
     return TaskStatusResponse(
         task_id=str(status_info.get("task_id", task_id)),

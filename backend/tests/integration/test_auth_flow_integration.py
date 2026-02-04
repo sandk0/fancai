@@ -43,9 +43,7 @@ class TestAuthFlowIntegration:
             "full_name": "Auth Flow User",
         }
 
-        register_response = await client.post(
-            "/api/v1/auth/register", json=user_data
-        )
+        register_response = await client.post("/api/v1/auth/register", json=user_data)
 
         assert register_response.status_code == 201
         register_data = register_response.json()
@@ -135,17 +133,15 @@ class TestAuthFlowIntegration:
         # Step 7: Verify token is invalidated - should get 401
         # Note: There might be a small delay in Redis blacklist propagation
         import asyncio
+
         await asyncio.sleep(0.1)  # Small delay for blacklist to take effect
 
-        invalidated_response = await client.get(
-            "/api/v1/auth/me", headers=new_headers
-        )
+        invalidated_response = await client.get("/api/v1/auth/me", headers=new_headers)
 
         # After logout, token should be blacklisted
         # In some implementations, this might still return 200 if blacklist isn't checked
         # For now, we'll just verify the logout was successful
         assert logout_response.status_code == 200
-
 
     async def test_login_with_invalid_credentials(
         self, client: AsyncClient, db_session: AsyncSession
@@ -172,17 +168,19 @@ class TestAuthFlowIntegration:
         error_data = login_response.json()
 
         assert "detail" in error_data
-        assert "incorrect" in error_data["detail"].lower() or "invalid" in error_data["detail"].lower()
+        assert (
+            "incorrect" in error_data["detail"].lower()
+            or "invalid" in error_data["detail"].lower()
+        )
 
-
-    async def test_access_protected_endpoint_without_token(
-        self, client: AsyncClient
-    ):
+    async def test_access_protected_endpoint_without_token(self, client: AsyncClient):
         """Test accessing protected endpoint without authentication fails."""
         response = await client.get("/api/v1/auth/me")
 
-        assert response.status_code in [401, 403]  # Can be either depending on implementation
-
+        assert response.status_code in [
+            401,
+            403,
+        ]  # Can be either depending on implementation
 
     async def test_access_protected_endpoint_with_invalid_token(
         self, client: AsyncClient
@@ -194,10 +192,7 @@ class TestAuthFlowIntegration:
 
         assert response.status_code == 401
 
-
-    async def test_refresh_token_with_invalid_token(
-        self, client: AsyncClient
-    ):
+    async def test_refresh_token_with_invalid_token(self, client: AsyncClient):
         """Test token refresh fails with invalid refresh token."""
         refresh_request = {"refresh_token": "invalid_refresh_token"}
 
@@ -205,10 +200,7 @@ class TestAuthFlowIntegration:
 
         assert response.status_code == 401
 
-
-    async def test_duplicate_registration(
-        self, client: AsyncClient
-    ):
+    async def test_duplicate_registration(self, client: AsyncClient):
         """Test registering with duplicate email fails."""
         user_data = {
             "email": "duplicate@example.com",
@@ -230,10 +222,7 @@ class TestAuthFlowIntegration:
         assert "detail" in error_data
         assert "already exists" in error_data["detail"].lower()
 
-
-    async def test_weak_password_registration(
-        self, client: AsyncClient
-    ):
+    async def test_weak_password_registration(self, client: AsyncClient):
         """Test registration fails with weak password."""
         user_data = {
             "email": "weakpass@example.com",
@@ -248,7 +237,6 @@ class TestAuthFlowIntegration:
 
         assert "detail" in error_data
         assert "at least 12 characters" in error_data["detail"].lower()
-
 
     async def test_profile_update_flow(
         self, client: AsyncClient, db_session: AsyncSession
@@ -305,7 +293,6 @@ class TestAuthFlowIntegration:
         user = user_result.scalar_one()
 
         assert user.full_name == "Updated Name"
-
 
     async def test_password_change_flow(
         self, client: AsyncClient, db_session: AsyncSession

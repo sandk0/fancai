@@ -80,7 +80,7 @@ describe('ChapterCache', () => {
     expect(cached?.descriptions).toHaveLength(1);
     expect(cached?.images).toHaveLength(1);
     expect(cached?.descriptions[0].id).toBe('desc-1');
-    expect(cached?.images[0].id).toBe('img-1');
+    expect(cached?.images[0].image_url).toBe('https://example.com/image.png');
   });
 
   it('should return null for non-existent chapter', async () => {

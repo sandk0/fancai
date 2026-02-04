@@ -14,7 +14,6 @@ from app.middleware.cache_control import (
     get_all_cache_policies,
 )
 
-
 # ============================================================================
 # Test get_cache_control_header Function
 # ============================================================================

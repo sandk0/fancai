@@ -81,7 +81,7 @@ export const useEpubLoader = ({
   const bookRef = useRef<Book | null>(null);
   const renditionRef = useRef<Rendition | null>(null);
   const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
 
   const reload = useCallback(() => {
     setError('');
@@ -90,10 +90,10 @@ export const useEpubLoader = ({
 
   useEffect(() => {
     if (!viewerRef.current) {
-      setError('Viewer container not found');
       return;
     }
 
+    const viewer = viewerRef.current;
     let isMounted = true;
     const abortController = new AbortController();
 
@@ -114,7 +114,7 @@ export const useEpubLoader = ({
 
         await epubBook.ready;
 
-        if (!isMounted || !viewerRef.current) return;
+        if (!isMounted || !viewer) return;
 
         const { rendition: newRendition } = await createRendition(epubBook, viewerRef);
 

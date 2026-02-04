@@ -53,7 +53,9 @@ class PushSubscription(Base):
     )
 
     # Push subscription data
-    endpoint: Mapped[str] = mapped_column(String(500), unique=True, nullable=False, index=True)
+    endpoint: Mapped[str] = mapped_column(
+        String(500), unique=True, nullable=False, index=True
+    )
     p256dh_key: Mapped[str] = mapped_column(String(200), nullable=False)
     auth_key: Mapped[str] = mapped_column(String(50), nullable=False)
 
@@ -61,13 +63,20 @@ class PushSubscription(Base):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="push_subscriptions", lazy="raise")
+    user: Mapped["User"] = relationship(
+        "User", back_populates="push_subscriptions", lazy="raise"
+    )
 
     # Composite index for user active subscriptions lookup
     __table_args__ = (

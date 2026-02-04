@@ -27,13 +27,14 @@ class ChapterCacheKey:
     Unique cache key components for chapter analysis.
     Any change in these fields invalidates the cache.
     """
+
     book_id: str
     chapter_id: str
     chapter_content_hash: str  # SHA-256[:16] of text content
     prompt_template_hash: str  # SHA-256[:8] of prompt template
-    model_name: str            # e.g., "gemini-3-flash"
-    analysis_type: str         # "descriptions" | "entities" | "tsa"
-    
+    model_name: str  # e.g., "gemini-3-flash"
+    analysis_type: str  # "descriptions" | "entities" | "tsa"
+
     def to_redis_key(self) -> str:
         """Generate a deterministic Redis key string."""
         # Sort keys to ensure deterministic JSON
@@ -46,31 +47,31 @@ class LLMCacheService:
     def __init__(self):
         self._redis: Optional[Redis] = None
         self._ttl = 86400 * 30  # 30 days default TTL
-        
+
     async def connect(self):
         """Lazy connection to Redis."""
         if not self._redis:
             self._redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
-            
+
     async def get(self, key: ChapterCacheKey) -> Optional[Dict[str, Any]]:
         """
         Retrieve cached LLM response.
-        
+
         Returns:
             Dict with parsed response or None if cache miss.
         """
         await self.connect()
         redis_key = key.to_redis_key()
-        
+
         try:
             data = await self._redis.get(redis_key)
             if data:
                 logger.debug(f"LLM Cache HIT: {redis_key}")
                 return parse_json_safe(data, log_error=True)
-            
+
             logger.debug(f"LLM Cache MISS: {redis_key}")
             return None
-            
+
         except Exception as e:
             logger.warning(f"Redis cache read error: {e}")
             return None
@@ -78,7 +79,7 @@ class LLMCacheService:
     async def set(self, key: ChapterCacheKey, value: Any, ttl: int = None) -> bool:
         """
         Cache LLM response.
-        
+
         Args:
             key: Cache key components
             value: Data to cache (will be JSON serialized)
@@ -86,22 +87,22 @@ class LLMCacheService:
         """
         await self.connect()
         redis_key = key.to_redis_key()
-        
+
         try:
             # Add metadata for debugging
             payload = {
                 "data": value,
                 "metadata": {
                     "cached_at": datetime.utcnow().isoformat(),
-                    "key_components": asdict(key)
-                }
+                    "key_components": asdict(key),
+                },
             }
-            
+
             serialized = dump_json(payload)
             await self._redis.setex(redis_key, ttl or self._ttl, serialized)
             logger.debug(f"LLM Cache SET: {redis_key}")
             return True
-            
+
         except Exception as e:
             logger.warning(f"Redis cache write error: {e}")
             return False

@@ -27,7 +27,6 @@ from ...schemas.responses.books_validation import (
     BookStatisticsPreview,
 )
 
-
 router = APIRouter()
 
 
@@ -50,7 +49,9 @@ async def get_parser_status() -> ParserStatusResponse:
 
 
 @router.post("/validate-file", response_model=BookFileValidationResponse)
-async def validate_book_file(file: UploadFile = File(...)) -> BookFileValidationResponse:
+async def validate_book_file(
+    file: UploadFile = File(...),
+) -> BookFileValidationResponse:
     """
     Валидирует загруженный файл книги без сохранения.
 

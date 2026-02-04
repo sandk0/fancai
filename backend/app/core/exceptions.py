@@ -19,7 +19,7 @@ class ProblemDetail(HTTPException):
     RFC 9457 Problem Details base exception.
     https://www.rfc-editor.org/rfc/rfc9457.html
     """
-    
+
     def __init__(
         self,
         status_code: int,
@@ -34,9 +34,9 @@ class ProblemDetail(HTTPException):
         self.detail_msg = detail
         self.instance = instance
         self.extensions = extensions or {}
-        
+
         super().__init__(status_code=status_code, detail=detail or title)
-    
+
     def to_dict(self, request: Optional[Request] = None) -> Dict[str, Any]:
         result = {
             "type": self.type_uri,
@@ -53,7 +53,9 @@ class ProblemDetail(HTTPException):
         return result
 
 
-async def problem_detail_exception_handler(request: Request, exc: ProblemDetail) -> JSONResponse:
+async def problem_detail_exception_handler(
+    request: Request, exc: ProblemDetail
+) -> JSONResponse:
     """FastAPI exception handler for RFC 9457 Problem Details."""
     return JSONResponse(
         status_code=exc.status_code,

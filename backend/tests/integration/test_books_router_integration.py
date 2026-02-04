@@ -40,7 +40,7 @@ class TestBooksRouterIntegration:
         response = await client.post(
             "/api/v1/books/upload",
             headers=auth_headers,
-            files={"file": ("test.txt", invalid_file, "text/plain")}
+            files={"file": ("test.txt", invalid_file, "text/plain")},
         )
 
         # Assert
@@ -56,7 +56,7 @@ class TestBooksRouterIntegration:
         # Act
         response = await client.post(
             "/api/v1/books/upload",
-            files={"file": ("test.epub", test_file, "application/epub+zip")}
+            files={"file": ("test.epub", test_file, "application/epub+zip")},
         )
 
         # Assert
@@ -66,10 +66,7 @@ class TestBooksRouterIntegration:
     async def test_upload_book_no_file(self, client: AsyncClient, auth_headers: dict):
         """Тест загрузки без файла."""
         # Act
-        response = await client.post(
-            "/api/v1/books/upload",
-            headers=auth_headers
-        )
+        response = await client.post("/api/v1/books/upload", headers=auth_headers)
 
         # Assert
         assert response.status_code in [400, 422]
@@ -78,7 +75,11 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_get_books_list_success(
-        self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест получения списка книг."""
         # Arrange
@@ -92,16 +93,13 @@ class TestBooksRouterIntegration:
                 file_path=f"/tmp/book{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book)
         await db_session.commit()
 
         # Act
-        response = await client.get(
-            "/api/v1/books",
-            headers=auth_headers
-        )
+        response = await client.get("/api/v1/books", headers=auth_headers)
 
         # Assert
         assert response.status_code == 200
@@ -109,15 +107,10 @@ class TestBooksRouterIntegration:
         assert "items" in data or isinstance(data, list)
 
     @pytest.mark.asyncio
-    async def test_get_books_list_empty(
-        self, client: AsyncClient, auth_headers: dict
-    ):
+    async def test_get_books_list_empty(self, client: AsyncClient, auth_headers: dict):
         """Тест получения пустого списка книг."""
         # Act
-        response = await client.get(
-            "/api/v1/books",
-            headers=auth_headers
-        )
+        response = await client.get("/api/v1/books", headers=auth_headers)
 
         # Assert
         assert response.status_code == 200
@@ -130,7 +123,11 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_get_books_list_pagination(
-        self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест пагинации при получении списка книг."""
         # Arrange
@@ -144,15 +141,14 @@ class TestBooksRouterIntegration:
                 file_path=f"/tmp/book{i}.epub",
                 file_format="epub",
                 file_size=1024,
-                total_pages=100
+                total_pages=100,
             )
             db_session.add(book)
         await db_session.commit()
 
         # Act
         response = await client.get(
-            "/api/v1/books?skip=0&limit=2",
-            headers=auth_headers
+            "/api/v1/books?skip=0&limit=2", headers=auth_headers
         )
 
         # Assert
@@ -176,8 +172,7 @@ class TestBooksRouterIntegration:
         """Тест получения деталей книги."""
         # Act
         response = await client.get(
-            f"/api/v1/books/{test_book.id}",
-            headers=auth_headers
+            f"/api/v1/books/{test_book.id}", headers=auth_headers
         )
 
         # Assert
@@ -193,24 +188,24 @@ class TestBooksRouterIntegration:
         """Тест получения несуществующей книги."""
         # Act
         from uuid import uuid4
-        response = await client.get(
-            f"/api/v1/books/{uuid4()}",
-            headers=auth_headers
-        )
+
+        response = await client.get(f"/api/v1/books/{uuid4()}", headers=auth_headers)
 
         # Assert
         assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_book_other_user_book(
-        self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест попытки получить книгу другого пользователя."""
         # Arrange
         other_user = User(
-            email="other@example.com",
-            full_name="Other User",
-            password_hash="hashed"
+            email="other@example.com", full_name="Other User", password_hash="hashed"
         )
         db_session.add(other_user)
         await db_session.commit()
@@ -224,15 +219,14 @@ class TestBooksRouterIntegration:
             file_path="/tmp/other.epub",
             file_format="epub",
             file_size=1024,
-            total_pages=100
+            total_pages=100,
         )
         db_session.add(other_book)
         await db_session.commit()
 
         # Act
         response = await client.get(
-            f"/api/v1/books/{other_book.id}",
-            headers=auth_headers
+            f"/api/v1/books/{other_book.id}", headers=auth_headers
         )
 
         # Assert
@@ -242,11 +236,16 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_delete_book_success(
-        self, client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_user: User
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
     ):
         """Тест удаления книги."""
         # Arrange
         from app.models.book import Book
+
         book = Book(
             user_id=test_user.id,
             title="Book to Delete",
@@ -256,7 +255,7 @@ class TestBooksRouterIntegration:
             file_path="/tmp/todelete.epub",
             file_format="epub",
             file_size=1024,
-            total_pages=100
+            total_pages=100,
         )
         db_session.add(book)
         await db_session.commit()
@@ -264,10 +263,7 @@ class TestBooksRouterIntegration:
         book_id = book.id
 
         # Act
-        response = await client.delete(
-            f"/api/v1/books/{book_id}",
-            headers=auth_headers
-        )
+        response = await client.delete(f"/api/v1/books/{book_id}", headers=auth_headers)
 
         # Assert
         assert response.status_code in [200, 204]
@@ -281,6 +277,7 @@ class TestBooksRouterIntegration:
         """Тест удаления без авторизации."""
         # Act
         from uuid import uuid4
+
         response = await client.delete(f"/api/v1/books/{uuid4()}")
 
         # Assert
@@ -295,8 +292,7 @@ class TestBooksRouterIntegration:
         """Тест получения статуса обработки для новой книги."""
         # Act
         response = await client.get(
-            f"/api/v1/books/{test_book.id}/processing-status",
-            headers=auth_headers
+            f"/api/v1/books/{test_book.id}/processing-status", headers=auth_headers
         )
 
         # Assert
@@ -311,9 +307,9 @@ class TestBooksRouterIntegration:
         """Тест получения статуса для несуществующей книги."""
         # Act
         from uuid import uuid4
+
         response = await client.get(
-            f"/api/v1/books/{uuid4()}/processing-status",
-            headers=auth_headers
+            f"/api/v1/books/{uuid4()}/processing-status", headers=auth_headers
         )
 
         # Assert
@@ -327,16 +323,13 @@ class TestBooksRouterIntegration:
     ):
         """Тест обновления прогресса чтения."""
         # Arrange
-        progress_data = {
-            "chapter_number": 1,
-            "position_percent": 50.0
-        }
+        progress_data = {"chapter_number": 1, "position_percent": 50.0}
 
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
             headers=auth_headers,
-            json=progress_data
+            json=progress_data,
         )
 
         # Assert
@@ -354,14 +347,14 @@ class TestBooksRouterIntegration:
             "chapter_number": 1,
             "position_percent": 25.0,
             "reading_location_cfi": "/2/4/2/10",
-            "scroll_offset_percent": 25.0
+            "scroll_offset_percent": 25.0,
         }
 
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
             headers=auth_headers,
-            json=progress_data
+            json=progress_data,
         )
 
         # Assert
@@ -373,16 +366,13 @@ class TestBooksRouterIntegration:
     ):
         """Тест обновления прогресса с невалидным номером главы."""
         # Arrange
-        progress_data = {
-            "chapter_number": 999,
-            "position_percent": 50.0
-        }
+        progress_data = {"chapter_number": 999, "position_percent": 50.0}
 
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
             headers=auth_headers,
-            json=progress_data
+            json=progress_data,
         )
 
         # Assert - Should clamp to valid chapter
@@ -395,32 +385,28 @@ class TestBooksRouterIntegration:
         """Тест обновления прогресса для несуществующей книги."""
         # Arrange
         from uuid import uuid4
-        progress_data = {
-            "chapter_number": 1,
-            "position_percent": 50.0
-        }
+
+        progress_data = {"chapter_number": 1, "position_percent": 50.0}
 
         # Act
         response = await client.post(
             f"/api/v1/books/{uuid4()}/progress",
             headers=auth_headers,
-            json=progress_data
+            json=progress_data,
         )
 
         # Assert
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_reading_progress_unauthorized(self, client: AsyncClient, test_book: Book):
+    async def test_update_reading_progress_unauthorized(
+        self, client: AsyncClient, test_book: Book
+    ):
         """Тест обновления прогресса без авторизации."""
         # Act
-        progress_data = {
-            "chapter_number": 1,
-            "position_percent": 50.0
-        }
+        progress_data = {"chapter_number": 1, "position_percent": 50.0}
         response = await client.post(
-            f"/api/v1/books/{test_book.id}/progress",
-            json=progress_data
+            f"/api/v1/books/{test_book.id}/progress", json=progress_data
         )
 
         # Assert
@@ -435,9 +421,9 @@ class TestBooksRouterIntegration:
         """Тест получения файла несуществующей книги."""
         # Act
         from uuid import uuid4
+
         response = await client.get(
-            f"/api/v1/books/{uuid4()}/file",
-            headers=auth_headers
+            f"/api/v1/books/{uuid4()}/file", headers=auth_headers
         )
 
         # Assert
@@ -452,9 +438,9 @@ class TestBooksRouterIntegration:
         """Тест получения обложки несуществующей книги."""
         # Act
         from uuid import uuid4
+
         response = await client.get(
-            f"/api/v1/books/{uuid4()}/cover",
-            headers=auth_headers
+            f"/api/v1/books/{uuid4()}/cover", headers=auth_headers
         )
 
         # Assert

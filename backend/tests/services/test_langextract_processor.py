@@ -32,7 +32,6 @@ from app.services.langextract_processor import (
     extract_descriptions_with_langextract,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -99,7 +98,7 @@ def sample_extracted_descriptions():
             confidence=0.9,
             entities=[{"name": "замок", "type": "building"}],
             position=0,
-            source_span=(0, 100)
+            source_span=(0, 100),
         ),
         ExtractedDescription(
             content="Молодой князь Алексей стоял у окна. Его тёмные глаза смотрели вдаль с задумчивым выражением.",
@@ -107,7 +106,7 @@ def sample_extracted_descriptions():
             confidence=0.85,
             entities=[{"name": "князь Алексей", "type": "person"}],
             position=200,
-            source_span=(200, 300)
+            source_span=(200, 300),
         ),
     ]
 
@@ -115,7 +114,9 @@ def sample_extracted_descriptions():
 @pytest.fixture
 def mock_gemini_extractor():
     """Mock GeminiDirectExtractor."""
-    with patch('app.services.langextract_processor.GeminiDirectExtractor') as mock_class:
+    with patch(
+        "app.services.langextract_processor.GeminiDirectExtractor"
+    ) as mock_class:
         mock_instance = MagicMock()
         mock_instance.is_available.return_value = True
         mock_class.return_value = mock_instance
@@ -144,7 +145,7 @@ class TestLangExtractProcessor:
         # Arrange
         config = LangExtractConfig(api_key=None)
 
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             # Act
             processor = LangExtractProcessor(config)
 
@@ -156,7 +157,7 @@ class TestLangExtractProcessor:
         # Arrange
         sample_config.enabled = False
 
-        with patch('app.services.langextract_processor.GeminiDirectExtractor'):
+        with patch("app.services.langextract_processor.GeminiDirectExtractor"):
             # Act
             processor = LangExtractProcessor(sample_config)
 
@@ -165,7 +166,11 @@ class TestLangExtractProcessor:
 
     @pytest.mark.asyncio
     async def test_extract_descriptions_success(
-        self, sample_config, sample_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test successful description extraction."""
         # Arrange
@@ -189,7 +194,7 @@ class TestLangExtractProcessor:
     async def test_extract_descriptions_not_available(self, sample_config):
         """Test extraction when processor is not available."""
         # Arrange
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             config = LangExtractConfig(api_key=None)
             processor = LangExtractProcessor(config)
 
@@ -201,7 +206,9 @@ class TestLangExtractProcessor:
         assert result.quality_metrics.get("available") is False
 
     @pytest.mark.asyncio
-    async def test_extract_descriptions_text_too_short(self, sample_config, mock_gemini_extractor):
+    async def test_extract_descriptions_text_too_short(
+        self, sample_config, mock_gemini_extractor
+    ):
         """Test extraction skips text that's too short."""
         # Arrange
         processor = LangExtractProcessor(sample_config)
@@ -218,7 +225,11 @@ class TestLangExtractProcessor:
 
     @pytest.mark.asyncio
     async def test_extract_descriptions_with_chunking(
-        self, sample_config, sample_long_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_long_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test extraction with text that requires multiple chunks."""
         # Arrange
@@ -246,7 +257,7 @@ class TestLangExtractProcessor:
             content="Low confidence description text that is long enough to pass length filter.",
             description_type=DescriptionType.LOCATION,
             confidence=0.3,  # Below min_confidence of 0.5
-            position=0
+            position=0,
         )
 
         mock_gemini_extractor._extract_from_chunk = AsyncMock(
@@ -273,19 +284,19 @@ class TestLangExtractProcessor:
                 content="Старый замок на холме с высокими башнями и серыми стенами.",
                 description_type=DescriptionType.LOCATION,
                 confidence=0.9,
-                position=0
+                position=0,
             ),
             ExtractedDescription(
                 content="Старый замок на холме с высокими башнями и серыми стенами.",  # Duplicate
                 description_type=DescriptionType.LOCATION,
                 confidence=0.85,
-                position=100
+                position=100,
             ),
             ExtractedDescription(
                 content="Молодой князь с темными глазами и черными волосами стоял у окна.",
                 description_type=DescriptionType.CHARACTER,
                 confidence=0.8,
-                position=200
+                position=200,
             ),
         ]
 
@@ -313,19 +324,17 @@ class TestLangExtractProcessor:
                 content="Low priority atmosphere description with minimal details and short length.",
                 description_type=DescriptionType.ATMOSPHERE,
                 confidence=0.7,
-                position=0
+                position=0,
             ),
             ExtractedDescription(
                 content="High priority location description with optimal length and detailed visual elements that make it perfect for image generation.",
                 description_type=DescriptionType.LOCATION,
                 confidence=0.95,
-                position=100
+                position=100,
             ),
         ]
 
-        mock_gemini_extractor._extract_from_chunk = AsyncMock(
-            return_value=descriptions
-        )
+        mock_gemini_extractor._extract_from_chunk = AsyncMock(return_value=descriptions)
 
         processor = LangExtractProcessor(sample_config)
         processor._gemini_extractor = mock_gemini_extractor
@@ -340,7 +349,11 @@ class TestLangExtractProcessor:
 
     @pytest.mark.asyncio
     async def test_extract_descriptions_quality_metrics(
-        self, sample_config, sample_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test quality metrics calculation."""
         # Arrange
@@ -363,7 +376,11 @@ class TestLangExtractProcessor:
 
     @pytest.mark.asyncio
     async def test_extract_descriptions_updates_statistics(
-        self, sample_config, sample_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test that statistics are updated after extraction."""
         # Arrange
@@ -406,7 +423,11 @@ class TestLangExtractProcessor:
 
     @pytest.mark.asyncio
     async def test_extract_descriptions_with_chapter_id(
-        self, sample_config, sample_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test extraction with chapter ID parameter."""
         # Arrange
@@ -419,8 +440,7 @@ class TestLangExtractProcessor:
 
         # Act
         result = await processor.extract_descriptions(
-            sample_russian_text,
-            chapter_id="chapter_123"
+            sample_russian_text, chapter_id="chapter_123"
         )
 
         # Assert
@@ -493,7 +513,10 @@ class TestRussianTextChunker:
         # Assert
         assert len(chunks) > 1
         for chunk in chunks:
-            assert len(chunk["text"]) <= sample_config.max_chunk_chars + sample_config.chunk_overlap_chars
+            assert (
+                len(chunk["text"])
+                <= sample_config.max_chunk_chars + sample_config.chunk_overlap_chars
+            )
 
     def test_chunk_by_paragraphs(self, sample_config):
         """Test that chunking respects paragraph boundaries."""
@@ -512,7 +535,9 @@ class TestRussianTextChunker:
         """Test chunking with chapter markers."""
         # Arrange
         chunker = RussianTextChunker(sample_config)
-        text = "ГЛАВА ПЕРВАЯ\n\nТекст первой главы.\n\nГЛАВА ВТОРАЯ\n\nТекст второй главы."
+        text = (
+            "ГЛАВА ПЕРВАЯ\n\nТекст первой главы.\n\nГЛАВА ВТОРАЯ\n\nТекст второй главы."
+        )
 
         # Act
         chunks = chunker.chunk(text)
@@ -525,7 +550,9 @@ class TestRussianTextChunker:
         """Test chunking preserves dialog structure."""
         # Arrange
         chunker = RussianTextChunker(sample_config)
-        text = '— Привет, — сказал он.\n\n— Здравствуй, — ответила она.\n\nОписание сцены.'
+        text = (
+            "— Привет, — сказал он.\n\n— Здравствуй, — ответила она.\n\nОписание сцены."
+        )
 
         # Act
         chunks = chunker.chunk(text)
@@ -551,9 +578,30 @@ class TestRussianTextChunker:
         # Arrange
         chunker = RussianTextChunker(sample_config)
         paragraphs = [
-            {"text": "Para 1", "start": 0, "end": 6, "index": 0, "is_dialog": False, "is_chapter_start": False},
-            {"text": "Para 2", "start": 7, "end": 13, "index": 1, "is_dialog": False, "is_chapter_start": False},
-            {"text": "Para 3", "start": 14, "end": 20, "index": 2, "is_dialog": False, "is_chapter_start": False},
+            {
+                "text": "Para 1",
+                "start": 0,
+                "end": 6,
+                "index": 0,
+                "is_dialog": False,
+                "is_chapter_start": False,
+            },
+            {
+                "text": "Para 2",
+                "start": 7,
+                "end": 13,
+                "index": 1,
+                "is_dialog": False,
+                "is_chapter_start": False,
+            },
+            {
+                "text": "Para 3",
+                "start": 14,
+                "end": 20,
+                "index": 2,
+                "is_dialog": False,
+                "is_chapter_start": False,
+            },
         ]
 
         # Act
@@ -599,7 +647,7 @@ class TestExtractedDescription:
             entities=[{"name": "замок", "type": "building"}],
             attributes={"size": "большой"},
             position=100,
-            source_span=(100, 200)
+            source_span=(100, 200),
         )
 
         # Act
@@ -619,7 +667,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 3000,  # Optimal length (2000-3500)
             description_type=DescriptionType.LOCATION,
-            confidence=0.9
+            confidence=0.9,
         )
 
         # Act
@@ -634,7 +682,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 1500,
             description_type=DescriptionType.CHARACTER,
-            confidence=0.8
+            confidence=0.8,
         )
 
         # Act
@@ -649,7 +697,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 800,
             description_type=DescriptionType.ATMOSPHERE,
-            confidence=0.7
+            confidence=0.7,
         )
 
         # Act
@@ -678,7 +726,7 @@ class TestProcessingResult:
             quality_metrics={"total": 1},
             tokens_used=1000,
             api_calls=2,
-            chunks_processed=1
+            chunks_processed=1,
         )
 
         # Assert
@@ -700,6 +748,7 @@ class TestSingletonAndUtilities:
         """Test that get_langextract_processor returns singleton."""
         # Arrange
         import app.services.langextract_processor as lx_module
+
         lx_module._langextract_processor = None
 
         # Act
@@ -721,15 +770,20 @@ class TestSingletonAndUtilities:
 
         # Reset singleton
         import app.services.langextract_processor as lx_module
+
         lx_module._langextract_processor = None
 
-        with patch('app.services.langextract_processor.GeminiDirectExtractor') as mock_class:
+        with patch(
+            "app.services.langextract_processor.GeminiDirectExtractor"
+        ) as mock_class:
             mock_class.return_value = mock_gemini_extractor
             mock_gemini_extractor.is_available.return_value = True
 
-            with patch.dict('os.environ', {'LANGEXTRACT_API_KEY': 'test_key'}):
+            with patch.dict("os.environ", {"LANGEXTRACT_API_KEY": "test_key"}):
                 # Act
-                result = await extract_descriptions_with_langextract(sample_russian_text)
+                result = await extract_descriptions_with_langextract(
+                    sample_russian_text
+                )
 
         # Assert
         assert isinstance(result, ProcessingResult)
@@ -757,7 +811,9 @@ class TestEdgeCases:
         assert len(result.descriptions) == 0
 
     @pytest.mark.asyncio
-    async def test_text_with_only_whitespace(self, sample_config, mock_gemini_extractor):
+    async def test_text_with_only_whitespace(
+        self, sample_config, mock_gemini_extractor
+    ):
         """Test handling of text with only whitespace."""
         # Arrange
         processor = LangExtractProcessor(sample_config)
@@ -810,7 +866,11 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_batch_delay_between_chunks(
-        self, sample_config, sample_long_russian_text, sample_extracted_descriptions, mock_gemini_extractor
+        self,
+        sample_config,
+        sample_long_russian_text,
+        sample_extracted_descriptions,
+        mock_gemini_extractor,
     ):
         """Test that batch delay is applied between chunk processing."""
         # Arrange
@@ -824,6 +884,7 @@ class TestEdgeCases:
 
         # Act
         import time
+
         start = time.time()
         await processor.extract_descriptions(sample_long_russian_text)
         elapsed = time.time() - start
@@ -836,15 +897,15 @@ class TestEdgeCases:
     def test_config_from_environment(self):
         """Test configuration from environment variables."""
         # Arrange
-        with patch.dict('os.environ', {'LANGEXTRACT_API_KEY': 'env_api_key'}):
+        with patch.dict("os.environ", {"LANGEXTRACT_API_KEY": "env_api_key"}):
             config = LangExtractConfig(api_key=None)
 
             # Act
-            with patch('app.services.langextract_processor.GeminiDirectExtractor'):
+            with patch("app.services.langextract_processor.GeminiDirectExtractor"):
                 processor = LangExtractProcessor(config)
 
         # Assert
-        assert processor.config.api_key == 'env_api_key'
+        assert processor.config.api_key == "env_api_key"
 
     @pytest.mark.asyncio
     async def test_process_chunk_with_no_extractor(self, sample_config):

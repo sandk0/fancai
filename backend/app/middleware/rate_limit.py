@@ -278,7 +278,10 @@ RATE_LIMIT_PRESETS = {
     # Ресурсоемкие операции (парсинг, генерация изображений)
     "low_frequency": {"max_requests": 10, "window_seconds": 60},  # 10/min
     # Authentication endpoints (STRENGTHENED for production security)
-    "auth": {"max_requests": 10, "window_seconds": 60},  # 10/min (increased from 3/min to fix login loop issues)
+    "auth": {
+        "max_requests": 10,
+        "window_seconds": 60,
+    },  # 10/min (increased from 3/min to fix login loop issues)
     # Registration endpoints (prevent spam registrations)
     "registration": {"max_requests": 2, "window_seconds": 60},  # 2/min
 }

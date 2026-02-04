@@ -113,7 +113,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
   const loadUserFromStorage = useAuthStore((state) => state.loadUserFromStorage);
 
   // Track when the app was last hidden (for calculating idle time)
-  const lastHiddenTimeRef = useRef<number>(Date.now());
+  const lastHiddenTimeRef = useRef<number>(0);
   const resumeTimestampRef = useRef<number>(0);
   const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);

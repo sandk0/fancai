@@ -17,7 +17,9 @@ class TestDescriptionsRouter:
         """Test getting chapter descriptions without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters/1/descriptions")
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_get_chapter_descriptions_book_not_found(
@@ -36,7 +38,9 @@ class TestDescriptionsRouter:
         """Test getting all book descriptions without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/descriptions")
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_analyze_chapter_no_file(self, client: AsyncClient):
@@ -148,7 +152,10 @@ class TestDescriptionsBackwardCompatibility:
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters/1/descriptions")
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [403, 404]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code in [
+            403,
+            404,
+        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_book_descriptions_endpoint_accessible(self, client: AsyncClient):
@@ -156,7 +163,10 @@ class TestDescriptionsBackwardCompatibility:
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/descriptions")
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [403, 404]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code in [
+            403,
+            404,
+        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_analyze_chapter_endpoint_accessible(self, client: AsyncClient):

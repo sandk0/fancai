@@ -14,81 +14,89 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models.entity import Entity, EntityType
 from app.models.entity_relationship import EntityRelationship
-from app.services.gemini_extractor import ChapterAnalysisResult, ExtractedEntity, ExtractedRelationship
+from app.services.gemini_extractor import (
+    ChapterAnalysisResult,
+    ExtractedEntity,
+    ExtractedRelationship,
+)
 from app.services.imagen_generator import get_imagen_service
 from app.core.json_utils import parse_json_safe
 import random
 
 logger = logging.getLogger(__name__)
 
+
 class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     def _merge_visual_summaries(
-        self, 
-        existing: str, 
-        new: str, 
-        chapter_index: Optional[int] = None
+        self, existing: str, new: str, chapter_index: Optional[int] = None
     ) -> str:
         if not existing:
             return new
         if not new:
             return existing
-        
+
         # Smarter merge: compare with the LAST entry, not the whole history
-        parts = existing.split('\n\n')
+        parts = existing.split("\n\n")
         last_entry = parts[-1]
-        
+
         # Clean up last entry (remove [Глава N]: prefix)
         if "]: " in last_entry:
             last_content = last_entry.split("]: ", 1)[1].lower()
         else:
             last_content = last_entry.lower()
-            
+
         new_lower = new.lower()
-        
+
         # 1. Similarity check against LAST entry
         if SequenceMatcher(None, last_content, new_lower).ratio() > 0.7:
             # If very similar, keep the longer one (replace last entry if new is better)
             # But simpler for now: just ignore new if it's similar to last
             return existing
-        
+
         # 2. Substring check
         if new_lower in last_content:
             return existing
-        
+
         if last_content in new_lower:
-            # If new contains old, it's an expansion. 
+            # If new contains old, it's an expansion.
             # We could replace the last entry, but appending with new chapter is safer for history.
             # Unless it's the SAME chapter.
             # For now, append.
             pass
-        
+
         chapter_marker = f"[Глава {chapter_index}]" if chapter_index else ""
-        combined = f"{existing}\n\n{chapter_marker}: {new}" if chapter_marker else f"{existing}\n\n{new}"
-        
+        combined = (
+            f"{existing}\n\n{chapter_marker}: {new}"
+            if chapter_marker
+            else f"{existing}\n\n{new}"
+        )
+
         if len(combined) > 2000:
             return existing
-        
+
         return combined
 
     def _resolve_entity_advanced(
-        self, 
-        name: str, 
-        existing_entities: Dict[str, "Entity"]
+        self, name: str, existing_entities: Dict[str, "Entity"]
     ) -> Optional["Entity"]:
         name_lower = name.lower()
-        
+
         if name_lower in existing_entities:
             return existing_entities[name_lower]
-        
+
         for entity in existing_entities.values():
-            aliases = entity.entity_metadata.get("aliases", []) if entity.entity_metadata else []
+            aliases = (
+                entity.entity_metadata.get("aliases", [])
+                if entity.entity_metadata
+                else []
+            )
             aliases_lower = [a.lower() for a in aliases if isinstance(a, str)]
             if name_lower in aliases_lower:
                 return entity
-        
+
         name_tokens = set(name_lower.split())
         for key, entity in existing_entities.items():
             entity_tokens = set(key.split())
@@ -97,19 +105,19 @@ class ConsistencyManager:
                 ratio = len(overlap) / max(len(name_tokens), len(entity_tokens))
                 if ratio > 0.5:
                     return entity
-        
+
         for key, entity in existing_entities.items():
             if SequenceMatcher(None, name_lower, key).ratio() > 0.85:
                 return entity
-        
+
         return None
 
     async def process_chapter_analysis(
-        self, 
-        book_id: str, 
-        result: ChapterAnalysisResult, 
+        self,
+        book_id: str,
+        result: ChapterAnalysisResult,
         chapter_id: Optional[str] = None,
-        chapter_index: Optional[int] = None
+        chapter_index: Optional[int] = None,
     ) -> Dict[str, Entity]:
         """
         Process the raw results from agentic parsing.
@@ -117,9 +125,9 @@ class ConsistencyManager:
         2. Create Entity Mentions (Link Chapter <-> Entity).
         3. Update Relationships.
         4. Trigger Master Reference generation (if needed).
-        
+
         Phase 2: Batch entity resolution for performance.
-        
+
         Returns:
             entity_map: Dict[str, Entity] - mapping of lowercase names to Entity objects,
                         used by book_tasks.py to create DescriptionEntity links.
@@ -128,22 +136,24 @@ class ConsistencyManager:
             return {}
 
         logger.info(f"Processing {len(result.entities)} entities for book {book_id}")
-        
-        entity_map = await self._batch_resolve_entities(book_id, result.entities, chapter_index)
-        
+
+        entity_map = await self._batch_resolve_entities(
+            book_id, result.entities, chapter_index
+        )
+
         # Flush to get IDs
         await self.db.flush()
 
         # 2. Create Entity Mentions (Hard Links) with offset from extraction
         if chapter_id:
             from app.models.entity_mention import EntityMention
-            
+
             seen_entity_ids = set()
             for raw_entity in result.entities:
                 resolved_entity = entity_map.get(raw_entity.name.lower())
                 if not resolved_entity or resolved_entity.id in seen_entity_ids:
                     continue
-                    
+
                 seen_entity_ids.add(resolved_entity.id)
                 mention = EntityMention(
                     chapter_id=chapter_id,
@@ -156,7 +166,7 @@ class ConsistencyManager:
         # 3. Relationship processing
         if result.relationships:
             await self._process_relationships(book_id, result.relationships, entity_map)
-            
+
         # 4. Trigger Master Reference generation (for top entities)
         # We process this in background or check if needed
         # For now, let's just trigger for newly created entities with high confidence
@@ -164,37 +174,44 @@ class ConsistencyManager:
             if raw_entity.confidence > 0.8 and raw_entity.visual_summary:
                 # We can check if it needs master ref in _generate...
                 # Ideally this is a separate background task to not slow down extraction
-                pass 
-        
+                pass
+
         return entity_map
-                
-    async def _process_relationships(self, book_id: str, relationships: List[ExtractedRelationship], entity_map: Dict[str, Entity]):
+
+    async def _process_relationships(
+        self,
+        book_id: str,
+        relationships: List[ExtractedRelationship],
+        entity_map: Dict[str, Entity],
+    ):
         """
         Update knowledge graph edges.
         """
         for rel in relationships:
             source = entity_map.get(rel.source.lower())
             target = entity_map.get(rel.target.lower())
-            
+
             if source and target and source.id != target.id:
                 # Check for existing relationship
                 q = select(EntityRelationship).where(
                     EntityRelationship.source_id == source.id,
                     EntityRelationship.target_id == target.id,
-                    EntityRelationship.type == rel.type
+                    EntityRelationship.type == rel.type,
                 )
                 existing = await self.db.scalar(q)
-                
+
                 if existing:
                     existing.weight = int((existing.weight + (rel.weight / 10.0)) / 2)
                     if rel.context:
                         current_context = ""
                         if existing.relationship_metadata:
-                            current_context = existing.relationship_metadata.get("context", "")
+                            current_context = existing.relationship_metadata.get(
+                                "context", ""
+                            )
                         if len(rel.context) > len(current_context):
                             existing.relationship_metadata = {
                                 **(existing.relationship_metadata or {}),
-                                "context": rel.context
+                                "context": rel.context,
                             }
                     self.db.add(existing)
                 else:
@@ -203,80 +220,87 @@ class ConsistencyManager:
                         target_id=target.id,
                         type=rel.type,
                         weight=rel.weight / 10.0,
-                        relationship_metadata={"context": rel.context}
+                        relationship_metadata={"context": rel.context},
                     )
                     self.db.add(new_rel)
 
     async def _batch_resolve_entities(
-        self, 
-        book_id: str, 
+        self,
+        book_id: str,
         raw_entities: List[ExtractedEntity],
-        chapter_index: Optional[int] = None
+        chapter_index: Optional[int] = None,
     ) -> Dict[str, Entity]:
         """
         Batch resolve entities with alias-aware deduplication.
         """
         if not raw_entities:
             return {}
-        
+
         all_names = set()
         for raw in raw_entities:
             all_names.add(raw.name.lower())
             for alias in raw.aliases:
                 all_names.add(alias.lower())
-        
+
         from sqlalchemy.orm import selectinload
-        
+
         query = (
             select(Entity)
             .where(Entity.book_id == book_id)
             .options(
-                selectinload(Entity.mentions),
-                selectinload(Entity.linked_descriptions)
+                selectinload(Entity.mentions), selectinload(Entity.linked_descriptions)
             )
         )
         result = await self.db.execute(query)
         all_book_entities = list(result.scalars().all())
-        
+
         existing_entities: Dict[str, Entity] = {}
         for entity in all_book_entities:
             existing_entities[entity.name.lower()] = entity
-            
-            stored_aliases = entity.entity_metadata.get("aliases", []) if entity.entity_metadata else []
+
+            stored_aliases = (
+                entity.entity_metadata.get("aliases", [])
+                if entity.entity_metadata
+                else []
+            )
             for alias in stored_aliases:
                 if isinstance(alias, str):
                     existing_entities[alias.lower()] = entity
-        
+
         # 3. Build entity map and create new entities
         entity_map: Dict[str, Entity] = {}
-        
+
         for raw in raw_entities:
             name_lower = raw.name.lower()
-            
+
             resolved = self._resolve_entity_advanced(raw.name, existing_entities)
-            
+
             if resolved:
                 entity = resolved
                 merged_summary = self._merge_visual_summaries(
                     entity.visual_summary or "",
                     raw.visual_summary,
-                    chapter_index=chapter_index
+                    chapter_index=chapter_index,
                 )
                 updated = False
                 if merged_summary != (entity.visual_summary or ""):
                     entity.visual_summary = merged_summary
                     updated = True
-                
+
                 if raw.aliases and chapter_index is not None:
                     existing_aliases = entity.aliases_with_reveal or []
-                    existing_names = {a.get("name", "").lower() for a in existing_aliases}
+                    existing_names = {
+                        a.get("name", "").lower() for a in existing_aliases
+                    }
                     for alias in raw.aliases:
                         if alias.lower() not in existing_names:
-                            existing_aliases.append({"name": alias, "reveal_chapter": chapter_index})
+                            existing_aliases.append(
+                                {"name": alias, "reveal_chapter": chapter_index}
+                            )
                             updated = True
                     if updated:
                         entity.aliases_with_reveal = existing_aliases
-                
+
                 if updated:
                     self.db.add(entity)
             elif name_lower not in entity_map:
@@ -285,12 +309,16 @@ class ConsistencyManager:
                     type_enum = EntityType.CHARACTER
                 elif raw.type.lower() == "location":
                     type_enum = EntityType.LOCATION
-                
-                aliases_with_reveal = [
-                    {"name": alias, "reveal_chapter": chapter_index}
-                    for alias in raw.aliases
-                ] if raw.aliases else []
-                    
+
+                aliases_with_reveal = (
+                    [
+                        {"name": alias, "reveal_chapter": chapter_index}
+                        for alias in raw.aliases
+                    ]
+                    if raw.aliases
+                    else []
+                )
+
                 entity = Entity(
                     book_id=book_id,
                     name=raw.name,
@@ -303,51 +331,50 @@ class ConsistencyManager:
                         "aliases": raw.aliases,
                         "confidence": raw.confidence,
                         "first_mention_offset": raw.first_mention_offset,
-                    }
+                    },
                 )
                 self.db.add(entity)
                 existing_entities[name_lower] = entity
             else:
                 entity = entity_map[name_lower]
-            
+
             # Map both name and aliases
             entity_map[name_lower] = entity
             for alias in raw.aliases:
                 entity_map[alias.lower()] = entity
-        
+
         logger.info(
             f"Batch resolved {len(raw_entities)} entities: "
             f"{len(existing_entities)} existing, {len(entity_map)} total mapped"
         )
-        
+
         return entity_map
 
-    async def _resolve_and_upsert_entity(self, book_id: str, raw: ExtractedEntity) -> Entity:
+    async def _resolve_and_upsert_entity(
+        self, book_id: str, raw: ExtractedEntity
+    ) -> Entity:
         """
         Find existing entity by name/alias or create new.
         """
         # Simple exact match for now (MVP)
         # TODO: Vector search or fuzzy match for robust resolution
-        query = select(Entity).where(
-            Entity.book_id == book_id,
-            Entity.name == raw.name
-        )
+        query = select(Entity).where(Entity.book_id == book_id, Entity.name == raw.name)
         existing = await self.db.scalar(query)
-        
+
         if existing:
             # Update visual summary if new one is better (naive logic: longer is better?)
             if len(raw.visual_summary) > len(existing.visual_summary or ""):
                 existing.visual_summary = raw.visual_summary
                 self.db.add(existing)
             return existing
-        
+
         # Create new
         type_enum = EntityType.OBJECT
         if raw.type.lower() == "character":
             type_enum = EntityType.CHARACTER
         elif raw.type.lower() == "location":
             type_enum = EntityType.LOCATION
-            
+
         new_entity = Entity(
             book_id=book_id,
             name=raw.name,
@@ -358,7 +385,7 @@ class ConsistencyManager:
                 "aliases": raw.aliases,
                 "confidence": raw.confidence,
                 "first_mention_offset": raw.first_mention_offset,
-            }
+            },
         )
         self.db.add(new_entity)
         # await self.db.flush() # Needed if we want ID immediately
@@ -373,14 +400,16 @@ class ConsistencyManager:
         query = select(Entity).where(
             Entity.book_id == book_id,
             Entity.visual_summary.isnot(None),
-            Entity.master_portrait_url.is_(None)
+            Entity.master_portrait_url.is_(None),
         )
         result = await self.db.execute(query)
         entities = result.scalars().all()
-        
+
         imagen = get_imagen_service()
         if not imagen.is_available():
-            logger.warning("Imagen service not available for Master Reference generation")
+            logger.warning(
+                "Imagen service not available for Master Reference generation"
+            )
             return
 
         for entity in entities:
@@ -389,18 +418,22 @@ class ConsistencyManager:
             imp = entity.importance if entity.importance is not None else 5
             visual_summary = entity.visual_summary or ""
             if len(visual_summary) < 50 or imp < 7:
-                logger.debug(f"Skipping Master Ref for {entity.name} (Imp: {imp}, Len: {len(visual_summary)})")
+                logger.debug(
+                    f"Skipping Master Ref for {entity.name} (Imp: {imp}, Len: {len(visual_summary)})"
+                )
                 continue
-                
-            logger.info(f"Generating Master Reference for {entity.name} ({entity.type})")
-            
+
+            logger.info(
+                f"Generating Master Reference for {entity.name} ({entity.type})"
+            )
+
             try:
                 # Determine seed
                 seed = entity.seed if entity.seed else random.randint(100000, 999999)
                 if not entity.seed:
                     entity.seed = seed
                     # Save seed immediately? mapping logic handled in generator
-                
+
                 # Generate
                 # We use a specific style for Master Refs? Portrait?
                 style_prompt = "Masterpiece portrait, character concept art, high detail, neutral background"
@@ -408,39 +441,48 @@ class ConsistencyManager:
                     style_prompt = "Masterpiece landscape, concept art, high detail, establishing shot"
                 elif entity.type == EntityType.OBJECT:
                     style_prompt = "Masterpiece object closeup, concept art, high detail, neutral background"
-                
+
                 full_prompt = f"{style_prompt}. {entity.visual_summary}"
-                
+
                 gen_result = await imagen.generate_image(
-                    description=full_prompt,
-                    description_type=entity.type,
-                    seed=seed
+                    description=full_prompt, description_type=entity.type, seed=seed
                 )
-                
+
                 if gen_result.success:
                     import os
-                    filename = os.path.basename(gen_result.local_path) if gen_result.local_path else None
+
+                    filename = (
+                        os.path.basename(gen_result.local_path)
+                        if gen_result.local_path
+                        else None
+                    )
                     if filename:
                         entity.master_portrait_url = f"/api/v1/images/file/{filename}"
                         self.db.add(entity)
                         logger.info(f"Master Reference set for {entity.name}")
             except Exception as e:
                 logger.error(f"Failed to generate master ref for {entity.name}: {e}")
-                
+
                 error_str = str(e)
-                if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str or "Quota exceeded" in error_str:
-                    logger.warning("Quota exceeded. Stopping Master Reference generation for remaining entities.")
+                if (
+                    "RESOURCE_EXHAUSTED" in error_str
+                    or "429" in error_str
+                    or "Quota exceeded" in error_str
+                ):
+                    logger.warning(
+                        "Quota exceeded. Stopping Master Reference generation for remaining entities."
+                    )
                     break
-                    
+
                 continue
-        
+
         # TD-P17-3 FIX: Single commit after loop instead of N commits inside loop
         await self.db.commit()
 
     async def optimize_book_entities(self, book_id: str):
         """
         [Phase 2] Map-Reduce Barrier: Reduce Phase.
-        
+
         Optimizes entities for the entire book AFTER parallel extraction is done.
         1. Fetches ALL entities for the book.
         2. Sends list to Gemini with instructions to:
@@ -449,34 +491,39 @@ class ConsistencyManager:
         3. Updates DB (Merge & Delete).
         """
         logger.info(f"Starting Entity Optimization (Reduce Phase) for book {book_id}")
-        
+
         # 1. Fetch all entities
         query = select(Entity).where(Entity.book_id == book_id)
         result = await self.db.execute(query)
         entities = result.scalars().all()
-        
+
         if not entities:
             logger.warning("No entities found to optimize")
             return
-            
-        logger.info(f"Fetched {len(entities)} raw entities. Preparing LLM Reduce payload...")
-        
+
+        logger.info(
+            f"Fetched {len(entities)} raw entities. Preparing LLM Reduce payload..."
+        )
+
         entity_list_text = ""
         for e in entities:
-             summary = (e.visual_summary or "")[:100]
-             entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {summary}...\n"
-        
+            summary = (e.visual_summary or "")[:100]
+            entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {summary}...\n"
+
         if len(entity_list_text) > 300000:
-             logger.warning("Too many entities for single Reduce pass. Truncating (TODO: Implement Recursive Reduce)")
-             entity_list_text = entity_list_text[:300000]
+            logger.warning(
+                "Too many entities for single Reduce pass. Truncating (TODO: Implement Recursive Reduce)"
+            )
+            entity_list_text = entity_list_text[:300000]
 
         # 3. Call Gemini (LLM Reduce)
         from app.services.gemini_extractor import get_gemini_extractor
+
         extractor = get_gemini_extractor()
         if not extractor.is_available():
             logger.warning("LLM not available for optimization")
             return
-            
+
         REDUCE_PROMPT = f"""You are a Data Consistency Expert for a book entity database.
 
 INPUT DATA:
@@ -516,7 +563,7 @@ CRITICAL RULES:
 - NEVER delete entities just because they have low importance
 - ALWAYS preserve chapter information for spoiler protection
 """
-        
+
         try:
             # We use the raw client to get JSON directly (or string parsing)
             # For now, simplistic raw call wrapper since prompt is custom
@@ -524,72 +571,84 @@ CRITICAL RULES:
             # Using _call_gemini_with_retry but we need schema.
             # Let's bypass and trust simple text parsing or use a targeted schema?
             # Let's define schema dynamically or use a simple Text response and parse JSON.
-            
+
             # Since _call_gemini_with_retry enforces GeminiResponseSchema, we cannot use it directly if payload differs.
-            # WORKAROUND: Create a bespoke method or use the generic one in a flexible way? 
+            # WORKAROUND: Create a bespoke method or use the generic one in a flexible way?
             # We'll rely on a manual implementation here using the client directly for custom task.
-            
+
             import google.genai.types as types
+
             # Use client from extractor
             client = extractor._client
             # Model Tiering: use model_reduce for consistency tasks
             model = extractor.config.model_reduce
-            
+
             response = await client.aio.models.generate_content(
                 model=model,
                 contents=REDUCE_PROMPT,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json"
-                )
+                ),
             )
-            
+
             from typing import Dict, Any
+
             raw_plan = parse_json_safe(response.text)
             plan: Dict[str, Any] = raw_plan if isinstance(raw_plan, dict) else {}
-            
+
             # 4. Execute Plan (DB Updates)
-            
+
             # A. Merges
             merge_ops = plan.get("merge_operations", [])
             for merge in merge_ops:
-                if not isinstance(merge, dict): continue
+                if not isinstance(merge, dict):
+                    continue
                 keep_id = merge.get("keep_id")
                 merge_ids = merge.get("merge_ids", [])
-                
+
                 # Logic: Re-link relationships from merged_ids to keep_id, then delete merged_ids
-                if not keep_id or not merge_ids: continue
-                
+                if not keep_id or not merge_ids:
+                    continue
+
                 try:
                     # Update source edges
-                    stmt_source = update(EntityRelationship).where(
-                        EntityRelationship.source_id.in_(merge_ids)
-                    ).values(source_id=keep_id)
+                    stmt_source = (
+                        update(EntityRelationship)
+                        .where(EntityRelationship.source_id.in_(merge_ids))
+                        .values(source_id=keep_id)
+                    )
                     await self.db.execute(stmt_source)
-                    
+
                     # Update target edges
-                    stmt_target = update(EntityRelationship).where(
-                        EntityRelationship.target_id.in_(merge_ids)
-                    ).values(target_id=keep_id)
+                    stmt_target = (
+                        update(EntityRelationship)
+                        .where(EntityRelationship.target_id.in_(merge_ids))
+                        .values(target_id=keep_id)
+                    )
                     await self.db.execute(stmt_target)
-                    
+
                     # Delete merged entities
                     from sqlalchemy import delete
+
                     stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
                     await self.db.execute(stmt_del)
-                    
+
                 except Exception as e:
                     logger.error(f"Failed merge op for {keep_id}: {e}")
-            
+
             # B. Deletes (Garbage Collection)
             delete_ids = plan.get("delete_operations", [])
             if delete_ids:
                 from sqlalchemy import delete
+
                 stmt_del_garbage = delete(Entity).where(Entity.id.in_(delete_ids))
                 await self.db.execute(stmt_del_garbage)
-                
+
             await self.db.commit()
-            logger.info(f"Optimization Complete. Merged: {len(merge_ops)}, Deleted: {len(delete_ids)}")
-            
+            logger.info(
+                f"Optimization Complete. Merged: {len(merge_ops)}, Deleted: {len(delete_ids)}"
+            )
+
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Entity Optimization Failed: {e}", exc_info=True)

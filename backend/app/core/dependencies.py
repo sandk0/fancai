@@ -31,7 +31,6 @@ from ..models.chapter import Chapter
 from ..models.image import GeneratedImage
 from ..services.book import book_service
 
-
 # ============================================================================
 # Book Dependencies
 # ============================================================================
@@ -95,7 +94,7 @@ async def get_any_book(
         BookNotFoundException: Если книга не найдена
     """
     from sqlalchemy.orm import selectinload
-    
+
     result = await db.execute(
         select(Book)
         .options(selectinload(Book.chapters))

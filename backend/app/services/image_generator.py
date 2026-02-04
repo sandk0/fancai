@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ImageGenerationRequest:
     """Request for image generation."""
+
     description_content: str
     description_type: DescriptionType
     chapter_id: str
@@ -48,6 +49,7 @@ class ImageGenerationRequest:
 @dataclass
 class ImageGenerationResult:
     """Result of image generation."""
+
     success: bool
     image_url: Optional[str] = None
     local_path: Optional[str] = None
@@ -90,7 +92,9 @@ class ImageGeneratorService:
         # Now using Celery tasks with Redis persistence
 
         if self.imagen_service.is_available():
-            logger.info("ImageGeneratorService initialized with Google Imagen + Celery queue")
+            logger.info(
+                "ImageGeneratorService initialized with Google Imagen + Celery queue"
+            )
         else:
             logger.warning("ImageGeneratorService: Imagen not available")
 
@@ -99,7 +103,7 @@ class ImageGeneratorService:
         description: Description,
         user_id: str,
         book_genre: Optional[str] = None,
-        custom_style: Optional[str] = None
+        custom_style: Optional[str] = None,
     ) -> ImageGenerationResult:
         """
         Generate image for a description from the database.
@@ -116,13 +120,17 @@ class ImageGeneratorService:
         if not self.imagen_service.is_available():
             return ImageGenerationResult(
                 success=False,
-                error_message="Image generation service not available. Check GOOGLE_API_KEY."
+                error_message="Image generation service not available. Check GOOGLE_API_KEY.",
             )
 
         # Generate using Imagen
         result = await self.imagen_service.generate_image(
             description=description.content,
-            description_type=description.type.value if hasattr(description.type, 'value') else str(description.type),
+            description_type=(
+                description.type.value
+                if hasattr(description.type, "value")
+                else str(description.type)
+            ),
             genre=book_genre,
             custom_style=custom_style,
         )
@@ -138,7 +146,7 @@ class ImageGeneratorService:
         text: str,
         description_type: str = "location",
         genre: Optional[str] = None,
-        custom_style: Optional[str] = None
+        custom_style: Optional[str] = None,
     ) -> ImageGenerationResult:
         """
         Generate image from raw text (for direct API calls).
@@ -154,8 +162,7 @@ class ImageGeneratorService:
         """
         if not self.imagen_service.is_available():
             return ImageGenerationResult(
-                success=False,
-                error_message="Image generation service not available"
+                success=False, error_message="Image generation service not available"
             )
 
         result = await self.imagen_service.generate_image(
@@ -172,7 +179,7 @@ class ImageGeneratorService:
         descriptions: List[Dict[str, Any]],
         user_id: str,
         book_genre: Optional[str] = None,
-        max_images: int = 5
+        max_images: int = 5,
     ) -> List[ImageGenerationResult]:
         """
         Generate images for a list of descriptions from a chapter.
@@ -188,9 +195,7 @@ class ImageGeneratorService:
         """
         # Sort by priority and take top N
         sorted_descriptions = sorted(
-            descriptions,
-            key=lambda d: d.get('priority_score', 0),
-            reverse=True
+            descriptions, key=lambda d: d.get("priority_score", 0), reverse=True
         )[:max_images]
 
         results = []
@@ -208,10 +213,11 @@ class ImageGeneratorService:
 
             except Exception as e:
                 logger.error(f"Error generating image for description: {e}")
-                results.append(ImageGenerationResult(
-                    success=False,
-                    error_message=f"Generation error: {str(e)}"
-                ))
+                results.append(
+                    ImageGenerationResult(
+                        success=False, error_message=f"Generation error: {str(e)}"
+                    )
+                )
 
         return results
 
@@ -234,7 +240,11 @@ class ImageGeneratorService:
             description_id_str=request.chapter_id,  # Note: repurposed for description_id
             user_id_str=request.user_id,
             description_content=request.description_content,
-            description_type=request.description_type.value if hasattr(request.description_type, 'value') else str(request.description_type),
+            description_type=(
+                request.description_type.value
+                if hasattr(request.description_type, "value")
+                else str(request.description_type)
+            ),
             book_genre=request.book_genre,
             custom_style=request.style_prompt,
         )
@@ -319,7 +329,9 @@ class ImageGeneratorService:
             max_images=max_images,
         )
 
-        logger.info(f"Batch generation queued. Task ID: {task.id}, {len(descriptions)} descriptions")
+        logger.info(
+            f"Batch generation queued. Task ID: {task.id}, {len(descriptions)} descriptions"
+        )
 
         return {
             "task_id": task.id,
@@ -364,13 +376,15 @@ class ImageGeneratorService:
         Kept for backward compatibility but does nothing.
         Queue processing is now automatic via Celery.
         """
-        logger.info("process_queue() called - now handled by Celery workers automatically")
+        logger.info(
+            "process_queue() called - now handled by Celery workers automatically"
+        )
 
     async def preview_prompt(
         self,
         description: str,
         description_type: str = "location",
-        genre: Optional[str] = None
+        genre: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Preview English prompt without generating image.
@@ -381,9 +395,7 @@ class ImageGeneratorService:
             return {"error": "Service not available"}
 
         return await self.imagen_service.preview_prompt(
-            description=description,
-            description_type=description_type,
-            genre=genre
+            description=description, description_type=description_type, genre=genre
         )
 
     async def get_generation_stats(self) -> Dict[str, Any]:
@@ -404,7 +416,9 @@ class ImageGeneratorService:
             "celery_stats": celery_stats,
             "supported_types": [t.value for t in DescriptionType],
             "service_status": status,
-            "api_status": "operational" if self.imagen_service.is_available() else "unavailable",
+            "api_status": (
+                "operational" if self.imagen_service.is_available() else "unavailable"
+            ),
             "queue_backend": "celery_redis",
         }
 

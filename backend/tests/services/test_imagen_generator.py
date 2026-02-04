@@ -34,7 +34,6 @@ from app.services.imagen_generator import (
     get_imagen_service,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -43,7 +42,7 @@ from app.services.imagen_generator import (
 @pytest.fixture
 def mock_genai():
     """Mock google.genai module."""
-    with patch('app.services.imagen_generator.genai') as mock:
+    with patch("app.services.imagen_generator.genai") as mock:
         yield mock
 
 
@@ -78,7 +77,7 @@ def sample_english_translation():
 def sample_image_bytes():
     """Sample image bytes (PNG header)."""
     # PNG header: 89 50 4E 47 0D 0A 1A 0A
-    return b'\x89PNG\r\n\x1a\n' + b'fake_image_data' * 100
+    return b"\x89PNG\r\n\x1a\n" + b"fake_image_data" * 100
 
 
 # =============================================================================
@@ -117,7 +116,10 @@ class TestGoogleImagenGenerator:
     def test_initialization_import_error(self, sample_imagen_config):
         """Test initialization handles import errors."""
         # Arrange
-        with patch('app.services.imagen_generator.genai', side_effect=ImportError("Module not found")):
+        with patch(
+            "app.services.imagen_generator.genai",
+            side_effect=ImportError("Module not found"),
+        ):
             # Act
             generator = GoogleImagenGenerator(sample_imagen_config)
 
@@ -125,7 +127,9 @@ class TestGoogleImagenGenerator:
             assert generator.is_available() is False
 
     @pytest.mark.asyncio
-    async def test_generate_success_with_base64_string(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_generate_success_with_base64_string(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test successful image generation with base64 string response."""
         # Arrange
         mock_client = MagicMock()
@@ -133,7 +137,7 @@ class TestGoogleImagenGenerator:
 
         # Mock successful response with base64 string
         mock_image = MagicMock()
-        image_base64 = base64.b64encode(sample_image_bytes).decode('utf-8')
+        image_base64 = base64.b64encode(sample_image_bytes).decode("utf-8")
         mock_image.image.image_bytes = image_base64  # String format
 
         mock_response = MagicMock()
@@ -142,9 +146,9 @@ class TestGoogleImagenGenerator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                with patch('aiofiles.open', mock_open()):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
+                with patch("aiofiles.open", mock_open()):
                     generator = GoogleImagenGenerator(sample_imagen_config)
 
                     # Act
@@ -158,7 +162,9 @@ class TestGoogleImagenGenerator:
         assert result.local_path is not None
 
     @pytest.mark.asyncio
-    async def test_generate_success_with_raw_png_bytes(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_generate_success_with_raw_png_bytes(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test successful image generation with raw PNG bytes response."""
         # Arrange
         mock_client = MagicMock()
@@ -174,9 +180,9 @@ class TestGoogleImagenGenerator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                with patch('aiofiles.open', mock_open()):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
+                with patch("aiofiles.open", mock_open()):
                     generator = GoogleImagenGenerator(sample_imagen_config)
 
                     # Act
@@ -187,7 +193,9 @@ class TestGoogleImagenGenerator:
         assert result.image_data == sample_image_bytes
 
     @pytest.mark.asyncio
-    async def test_generate_success_with_base64_bytes(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_generate_success_with_base64_bytes(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test successful image generation with base64-encoded bytes response."""
         # Arrange
         mock_client = MagicMock()
@@ -196,7 +204,9 @@ class TestGoogleImagenGenerator:
         # Mock successful response with base64 bytes (not PNG header)
         mock_image = MagicMock()
         image_base64_bytes = base64.b64encode(sample_image_bytes)
-        mock_image.image.image_bytes = image_base64_bytes  # Bytes containing base64 text
+        mock_image.image.image_bytes = (
+            image_base64_bytes  # Bytes containing base64 text
+        )
 
         mock_response = MagicMock()
         mock_response.generated_images = [mock_image]
@@ -204,9 +214,9 @@ class TestGoogleImagenGenerator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                with patch('aiofiles.open', mock_open()):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
+                with patch("aiofiles.open", mock_open()):
                     generator = GoogleImagenGenerator(sample_imagen_config)
 
                     # Act
@@ -240,7 +250,7 @@ class TestGoogleImagenGenerator:
         async def raise_timeout(*args, **kwargs):
             raise asyncio.TimeoutError()
 
-        with patch('asyncio.wait_for', side_effect=raise_timeout):
+        with patch("asyncio.wait_for", side_effect=raise_timeout):
             generator = GoogleImagenGenerator(sample_imagen_config)
 
             # Act
@@ -251,7 +261,9 @@ class TestGoogleImagenGenerator:
         assert "timed out" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_generate_no_images_in_response(self, sample_imagen_config, mock_genai):
+    async def test_generate_no_images_in_response(
+        self, sample_imagen_config, mock_genai
+    ):
         """Test handling when API returns no images."""
         # Arrange
         mock_client = MagicMock()
@@ -264,8 +276,8 @@ class TestGoogleImagenGenerator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
                 generator = GoogleImagenGenerator(sample_imagen_config)
                 generator.config.max_retries = 1  # Reduce retries for speed
 
@@ -286,8 +298,8 @@ class TestGoogleImagenGenerator:
         async def raise_error(*args, **kwargs):
             raise Exception("API Error: Safety filter triggered")
 
-        with patch('asyncio.to_thread', side_effect=raise_error):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
+        with patch("asyncio.to_thread", side_effect=raise_error):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
                 generator = GoogleImagenGenerator(sample_imagen_config)
                 generator.config.max_retries = 1
 
@@ -299,7 +311,9 @@ class TestGoogleImagenGenerator:
         assert "failed" in result.error_message.lower()
 
     @pytest.mark.asyncio
-    async def test_generate_retry_logic(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_generate_retry_logic(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test retry logic on temporary failures."""
         # Arrange
         mock_client = MagicMock()
@@ -320,9 +334,9 @@ class TestGoogleImagenGenerator:
             mock_response.generated_images = [mock_image]
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=generate_with_retry):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                with patch('aiofiles.open', mock_open()):
+        with patch("asyncio.to_thread", side_effect=generate_with_retry):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
+                with patch("aiofiles.open", mock_open()):
                     generator = GoogleImagenGenerator(sample_imagen_config)
 
                     # Act
@@ -333,7 +347,9 @@ class TestGoogleImagenGenerator:
         assert call_count == 2  # Should have retried
 
     @pytest.mark.asyncio
-    async def test_generate_custom_aspect_ratio(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_generate_custom_aspect_ratio(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test generation with custom aspect ratio."""
         # Arrange
         mock_client = MagicMock()
@@ -348,13 +364,15 @@ class TestGoogleImagenGenerator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                with patch('aiofiles.open', mock_open()):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
+                with patch("aiofiles.open", mock_open()):
                     generator = GoogleImagenGenerator(sample_imagen_config)
 
                     # Act
-                    result = await generator.generate("Test prompt", aspect_ratio="16:9")
+                    result = await generator.generate(
+                        "Test prompt", aspect_ratio="16:9"
+                    )
 
         # Assert
         assert result.success is True
@@ -382,7 +400,9 @@ class TestPromptTranslator:
         mock_genai.Client.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_translate_success(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_translate_success(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test successful translation."""
         # Arrange
         mock_client = MagicMock()
@@ -394,7 +414,7 @@ class TestPromptTranslator:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
             translator = PromptTranslator("test_api_key")
 
             # Act
@@ -404,7 +424,9 @@ class TestPromptTranslator:
         assert result == sample_english_translation
 
     @pytest.mark.asyncio
-    async def test_translate_caching(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_translate_caching(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test translation caching."""
         # Arrange
         mock_client = MagicMock()
@@ -420,12 +442,14 @@ class TestPromptTranslator:
             call_count += 1
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
             translator = PromptTranslator("test_api_key")
 
             # Act
             result1 = await translator.translate(sample_russian_text)
-            result2 = await translator.translate(sample_russian_text)  # Should use cache
+            result2 = await translator.translate(
+                sample_russian_text
+            )  # Should use cache
 
         # Assert
         assert result1 == result2
@@ -435,7 +459,9 @@ class TestPromptTranslator:
     async def test_translate_not_available(self, sample_russian_text):
         """Test translation when client is not available."""
         # Arrange
-        with patch('app.services.imagen_generator.genai', side_effect=Exception("Import error")):
+        with patch(
+            "app.services.imagen_generator.genai", side_effect=Exception("Import error")
+        ):
             translator = PromptTranslator("test_api_key")
 
             # Act
@@ -454,7 +480,7 @@ class TestPromptTranslator:
         async def raise_error(*args, **kwargs):
             raise Exception("Translation API error")
 
-        with patch('asyncio.to_thread', side_effect=raise_error):
+        with patch("asyncio.to_thread", side_effect=raise_error):
             translator = PromptTranslator("test_api_key")
 
             # Act
@@ -473,7 +499,9 @@ class TestImagenPromptEngineer:
     """Tests for ImagenPromptEngineer class."""
 
     @pytest.mark.asyncio
-    async def test_create_prompt_location(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_create_prompt_location(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt creation for location descriptions."""
         # Arrange
         mock_client = MagicMock()
@@ -485,11 +513,12 @@ class TestImagenPromptEngineer:
         engineer = ImagenPromptEngineer(translator)
 
         # Mock translate
-        with patch.object(translator, 'translate', return_value=sample_english_translation):
+        with patch.object(
+            translator, "translate", return_value=sample_english_translation
+        ):
             # Act
             prompt = await engineer.create_prompt(
-                sample_russian_text,
-                DescriptionType.LOCATION
+                sample_russian_text, DescriptionType.LOCATION
             )
 
         # Assert
@@ -498,7 +527,9 @@ class TestImagenPromptEngineer:
         assert len(prompt) <= 1800  # Should not exceed limit
 
     @pytest.mark.asyncio
-    async def test_create_prompt_character(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_create_prompt_character(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt creation for character descriptions."""
         # Arrange
         mock_client = MagicMock()
@@ -508,18 +539,21 @@ class TestImagenPromptEngineer:
 
         engineer = ImagenPromptEngineer(translator)
 
-        with patch.object(translator, 'translate', return_value=sample_english_translation):
+        with patch.object(
+            translator, "translate", return_value=sample_english_translation
+        ):
             # Act
             prompt = await engineer.create_prompt(
-                sample_russian_text,
-                DescriptionType.CHARACTER
+                sample_russian_text, DescriptionType.CHARACTER
             )
 
         # Assert
         assert "character" in prompt.lower() or "portrait" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_create_prompt_atmosphere(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_create_prompt_atmosphere(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt creation for atmosphere descriptions."""
         # Arrange
         mock_client = MagicMock()
@@ -528,18 +562,21 @@ class TestImagenPromptEngineer:
         translator = PromptTranslator("test_api_key")
         engineer = ImagenPromptEngineer(translator)
 
-        with patch.object(translator, 'translate', return_value=sample_english_translation):
+        with patch.object(
+            translator, "translate", return_value=sample_english_translation
+        ):
             # Act
             prompt = await engineer.create_prompt(
-                sample_russian_text,
-                DescriptionType.ATMOSPHERE
+                sample_russian_text, DescriptionType.ATMOSPHERE
             )
 
         # Assert
         assert "atmosphere" in prompt.lower() or "mood" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_create_prompt_with_genre(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_create_prompt_with_genre(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt creation with genre styling."""
         # Arrange
         mock_client = MagicMock()
@@ -548,19 +585,21 @@ class TestImagenPromptEngineer:
         translator = PromptTranslator("test_api_key")
         engineer = ImagenPromptEngineer(translator)
 
-        with patch.object(translator, 'translate', return_value=sample_english_translation):
+        with patch.object(
+            translator, "translate", return_value=sample_english_translation
+        ):
             # Act
             prompt = await engineer.create_prompt(
-                sample_russian_text,
-                DescriptionType.LOCATION,
-                genre="fantasy"
+                sample_russian_text, DescriptionType.LOCATION, genre="fantasy"
             )
 
         # Assert
         assert "fantasy" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_create_prompt_with_custom_style(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_create_prompt_with_custom_style(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt creation with custom style."""
         # Arrange
         mock_client = MagicMock()
@@ -571,12 +610,12 @@ class TestImagenPromptEngineer:
 
         custom_style = "watercolor painting style"
 
-        with patch.object(translator, 'translate', return_value=sample_english_translation):
+        with patch.object(
+            translator, "translate", return_value=sample_english_translation
+        ):
             # Act
             prompt = await engineer.create_prompt(
-                sample_russian_text,
-                DescriptionType.LOCATION,
-                custom_style=custom_style
+                sample_russian_text, DescriptionType.LOCATION, custom_style=custom_style
             )
 
         # Assert
@@ -594,11 +633,10 @@ class TestImagenPromptEngineer:
         translator = PromptTranslator("test_api_key")
         engineer = ImagenPromptEngineer(translator)
 
-        with patch.object(translator, 'translate', return_value=long_translation):
+        with patch.object(translator, "translate", return_value=long_translation):
             # Act
             prompt = await engineer.create_prompt(
-                "Russian text",
-                DescriptionType.LOCATION
+                "Russian text", DescriptionType.LOCATION
             )
 
         # Assert
@@ -619,8 +657,8 @@ class TestImagenService:
         mock_client = MagicMock()
         mock_genai.Client.return_value = mock_client
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
@@ -635,7 +673,7 @@ class TestImagenService:
     def test_initialization_no_api_key(self):
         """Test service initialization without API key."""
         # Arrange
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             # Act
             service = ImagenService()
 
@@ -643,7 +681,9 @@ class TestImagenService:
         assert service.is_available() is False
 
     @pytest.mark.asyncio
-    async def test_generate_image_success(self, sample_russian_text, sample_image_bytes, mock_genai):
+    async def test_generate_image_success(
+        self, sample_russian_text, sample_image_bytes, mock_genai
+    ):
         """Test successful image generation through service."""
         # Arrange
         mock_client = MagicMock()
@@ -659,22 +699,23 @@ class TestImagenService:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
                 mock_settings.IMAGEN_TIMEOUT_SECONDS = 60
 
-                with patch('asyncio.to_thread', side_effect=mock_generate):
-                    with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                        with patch('aiofiles.open', mock_open()):
+                with patch("asyncio.to_thread", side_effect=mock_generate):
+                    with patch(
+                        "asyncio.wait_for", side_effect=lambda coro, timeout: coro
+                    ):
+                        with patch("aiofiles.open", mock_open()):
                             service = ImagenService()
 
                             # Act
                             result = await service.generate_image(
-                                sample_russian_text,
-                                description_type="location"
+                                sample_russian_text, description_type="location"
                             )
 
         # Assert
@@ -684,7 +725,7 @@ class TestImagenService:
     async def test_generate_image_not_available(self):
         """Test image generation when service is not available."""
         # Arrange
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             service = ImagenService()
 
             # Act
@@ -695,7 +736,9 @@ class TestImagenService:
         assert "not available" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_generate_image_invalid_type(self, sample_russian_text, sample_image_bytes, mock_genai):
+    async def test_generate_image_invalid_type(
+        self, sample_russian_text, sample_image_bytes, mock_genai
+    ):
         """Test image generation with invalid description type."""
         # Arrange
         mock_client = MagicMock()
@@ -710,36 +753,39 @@ class TestImagenService:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
                 mock_settings.IMAGEN_TIMEOUT_SECONDS = 60
 
-                with patch('asyncio.to_thread', side_effect=mock_generate):
-                    with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
-                        with patch('aiofiles.open', mock_open()):
+                with patch("asyncio.to_thread", side_effect=mock_generate):
+                    with patch(
+                        "asyncio.wait_for", side_effect=lambda coro, timeout: coro
+                    ):
+                        with patch("aiofiles.open", mock_open()):
                             service = ImagenService()
 
                             # Act - invalid type should default to location
                             result = await service.generate_image(
-                                sample_russian_text,
-                                description_type="invalid_type"
+                                sample_russian_text, description_type="invalid_type"
                             )
 
         # Assert
         assert result.success is True  # Should still work with default type
 
     @pytest.mark.asyncio
-    async def test_preview_prompt(self, sample_russian_text, sample_english_translation, mock_genai):
+    async def test_preview_prompt(
+        self, sample_russian_text, sample_english_translation, mock_genai
+    ):
         """Test prompt preview functionality."""
         # Arrange
         mock_client = MagicMock()
         mock_genai.Client.return_value = mock_client
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
@@ -748,7 +794,11 @@ class TestImagenService:
                 service = ImagenService()
 
                 # Mock translation
-                with patch.object(service._translator, 'translate', return_value=sample_english_translation):
+                with patch.object(
+                    service._translator,
+                    "translate",
+                    return_value=sample_english_translation,
+                ):
                     # Act
                     result = await service.preview_prompt(sample_russian_text)
 
@@ -763,8 +813,8 @@ class TestImagenService:
         mock_client = MagicMock()
         mock_genai.Client.return_value = mock_client
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
@@ -797,10 +847,11 @@ class TestSingleton:
 
         # Reset singleton
         import app.services.imagen_generator as img_module
+
         img_module._imagen_service = None
 
-        with patch.dict('os.environ', {'GOOGLE_API_KEY': 'test_key'}):
-            with patch('app.services.imagen_generator.settings') as mock_settings:
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "test_key"}):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
                 mock_settings.IMAGEN_MODEL = "imagen-4.0-generate-001"
                 mock_settings.IMAGEN_ASPECT_RATIO = "4:3"
                 mock_settings.IMAGEN_SAFETY_LEVEL = "block_low_and_above"
@@ -823,7 +874,9 @@ class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_save_image_creates_directory(self, sample_imagen_config, sample_image_bytes, mock_genai):
+    async def test_save_image_creates_directory(
+        self, sample_imagen_config, sample_image_bytes, mock_genai
+    ):
         """Test that _save_image creates directory if it doesn't exist."""
         # Arrange
         mock_client = MagicMock()
@@ -831,8 +884,8 @@ class TestEdgeCases:
 
         generator = GoogleImagenGenerator(sample_imagen_config)
 
-        with patch('pathlib.Path.mkdir') as mock_mkdir:
-            with patch('aiofiles.open', mock_open()):
+        with patch("pathlib.Path.mkdir") as mock_mkdir:
+            with patch("aiofiles.open", mock_open()):
                 # Act
                 await generator._save_image(sample_image_bytes, "test prompt")
 
@@ -840,7 +893,9 @@ class TestEdgeCases:
         mock_mkdir.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_unexpected_data_type_from_imagen(self, sample_imagen_config, mock_genai):
+    async def test_unexpected_data_type_from_imagen(
+        self, sample_imagen_config, mock_genai
+    ):
         """Test handling of unexpected data type from Imagen API."""
         # Arrange
         mock_client = MagicMock()
@@ -856,8 +911,8 @@ class TestEdgeCases:
         async def mock_generate(*args, **kwargs):
             return mock_response
 
-        with patch('asyncio.to_thread', side_effect=mock_generate):
-            with patch('asyncio.wait_for', side_effect=lambda coro, timeout: coro):
+        with patch("asyncio.to_thread", side_effect=mock_generate):
+            with patch("asyncio.wait_for", side_effect=lambda coro, timeout: coro):
                 generator = GoogleImagenGenerator(sample_imagen_config)
 
                 # Act
@@ -865,7 +920,10 @@ class TestEdgeCases:
 
         # Assert
         assert result.success is False
-        assert "Unexpected data type" in result.error_message or "failed" in result.error_message.lower()
+        assert (
+            "Unexpected data type" in result.error_message
+            or "failed" in result.error_message.lower()
+        )
 
     def test_description_type_enum_values(self):
         """Test DescriptionType enum has expected values."""
@@ -886,7 +944,7 @@ class TestEdgeCases:
             local_path="/path/to/image.png",
             generation_time_seconds=5.5,
             model_used="imagen-4.0",
-            prompt_used="test prompt"
+            prompt_used="test prompt",
         )
 
         # Assert

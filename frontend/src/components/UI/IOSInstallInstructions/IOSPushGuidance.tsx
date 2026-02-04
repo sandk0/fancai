@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Bell, Smartphone, Zap, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { m, LazyMotion, domAnimation } from 'motion/react';
@@ -49,22 +49,18 @@ export function IOSPushGuidance({
       description: t('ui.iosPush.quick_access_desc'),
     },
   ];
-  const [shouldShow, setShouldShow] = useState(false);
+  const [shouldShow] = useState(() => {
+    return isIOSSafari() && !isStandalone();
+  });
   const [showInstructions, setShowInstructions] = useState(false);
-  const [iosVersionInfo, setIosVersionInfo] = useState<{
+  const [iosVersionInfo] = useState<{
     version: number | null;
     supportsWebPush: boolean;
-  }>({ version: null, supportsWebPush: false });
-
-  useEffect(() => {
-    const isiOSSafari = isIOSSafari();
-    const inStandalone = isStandalone();
+  }>(() => {
     const version = getIOSVersion();
     const supportsWebPush = version !== null && version >= IOS_MIN_PUSH_VERSION;
-
-    setShouldShow(isiOSSafari && !inStandalone);
-    setIosVersionInfo({ version, supportsWebPush });
-  }, []);
+    return { version, supportsWebPush };
+  });
 
   const handleInstallClick = useCallback(() => {
     if (onInstallClick) {

@@ -36,7 +36,6 @@ from ..schemas.responses import (
 )
 from ..schemas.responses.chapters import ChaptersListResponse, ChapterListItem
 
-
 router = APIRouter()
 
 
@@ -98,7 +97,9 @@ async def list_chapters(
         )
 
         await cache_manager.set(
-            cache_key_str, response.model_dump(mode="json"), ttl=CACHE_TTL["book_chapters"]
+            cache_key_str,
+            response.model_dump(mode="json"),
+            ttl=CACHE_TTL["book_chapters"],
         )
 
         return response
@@ -110,7 +111,9 @@ async def list_chapters(
         raise ChapterFetchException("Failed to fetch chapters")
 
 
-@router.get("/{book_id}/chapters/{chapter_number}", response_model=ChapterDetailResponse)
+@router.get(
+    "/{book_id}/chapters/{chapter_number}", response_model=ChapterDetailResponse
+)
 async def get_chapter(
     chapter: Chapter = Depends(get_chapter_by_number),
     db: AsyncSession = Depends(get_database_session),
@@ -168,12 +171,14 @@ async def get_chapter(
 
         images_data: List[Dict[str, Any]] = []
         for img in images:
-            images_data.append({
-                "id": str(img.id),
-                "image_url": img.image_url,
-                "prompt_used": img.prompt_used,
-                "status": img.status,
-            })
+            images_data.append(
+                {
+                    "id": str(img.id),
+                    "image_url": img.image_url,
+                    "prompt_used": img.prompt_used,
+                    "status": img.status,
+                }
+            )
 
         # Навигационная информация
         has_previous = chapter.chapter_number > 1

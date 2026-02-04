@@ -29,7 +29,8 @@ def _serialize_extra(record: Dict[str, Any]) -> str:
     extra = record.get("extra", {})
     # Filter out loguru internal keys
     user_extra = {
-        k: v for k, v in extra.items()
+        k: v
+        for k, v in extra.items()
         if not k.startswith("_") and k not in ("name", "function", "line")
     }
     if not user_extra:
@@ -106,6 +107,7 @@ def _auto_configure() -> None:
     """
     try:
         from app.core.config import settings
+
         setup_logging(
             debug=settings.DEBUG,
             log_level=settings.LOG_LEVEL,

@@ -81,9 +81,7 @@ class BatchSyncResponse(BaseModel):
 # ============================================================================
 
 
-async def get_user_from_token(
-    token: str, db: AsyncSession
-) -> Optional[User]:
+async def get_user_from_token(token: str, db: AsyncSession) -> Optional[User]:
     """
     Validate token and get user from database.
 
@@ -343,4 +341,6 @@ async def batch_sync(
         raise
     except Exception as e:
         logger.error("Batch sync error", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="An internal error occurred during sync")
+        raise HTTPException(
+            status_code=500, detail="An internal error occurred during sync"
+        )

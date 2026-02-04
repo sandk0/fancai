@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Share, Plus, X } from 'lucide-react';
 import { m, AnimatePresence, LazyMotion, domAnimation } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -32,28 +32,17 @@ export function IOSInstallInstructions({
   className,
   forceShow = false,
 }: IOSInstallInstructionsProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
+  const initialVisibility = useMemo(() => {
+    if (forceShow) return true;
+    if (showOnlyOnIOS) return shouldShowIOSInstallPrompt();
+    return true;
+  }, [forceShow, showOnlyOnIOS]);
+
+  const [isVisible, setIsVisible] = useState(initialVisibility);
+  const [shouldRender, setShouldRender] = useState(initialVisibility);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useFocusTrap(mode === 'modal' && isVisible, modalRef);
-
-  useEffect(() => {
-    if (forceShow) {
-      setShouldRender(true);
-      setIsVisible(true);
-      return;
-    }
-
-    if (showOnlyOnIOS) {
-      const shouldShow = shouldShowIOSInstallPrompt();
-      setShouldRender(shouldShow);
-      setIsVisible(shouldShow);
-    } else {
-      setShouldRender(true);
-      setIsVisible(true);
-    }
-  }, [forceShow, showOnlyOnIOS]);
 
   const handleDismiss = useCallback(() => {
     setIsVisible(false);

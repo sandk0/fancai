@@ -35,12 +35,12 @@ from app.core.retry import (
     TimeoutError as RetryTimeoutError,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
 class DescriptionType(Enum):
     """Types of descriptions for image generation."""
+
     LOCATION = "location"
     CHARACTER = "character"
     ATMOSPHERE = "atmosphere"
@@ -51,11 +51,14 @@ class DescriptionType(Enum):
 @dataclass
 class ImagenConfig:
     """Configuration for Google Imagen generator."""
+
     api_key: str
     model: str = "imagen-4.0-generate-001"
     aspect_ratio: str = "4:3"  # 1:1, 3:4, 4:3, 9:16, 16:9
     person_generation: str = "allow_adult"  # dont_allow, allow_adult, allow_all
-    safety_filter_level: str = "block_low_and_above"  # Only block_low_and_above is supported by Imagen API
+    safety_filter_level: str = (
+        "block_low_and_above"  # Only block_low_and_above is supported by Imagen API
+    )
     timeout_seconds: int = 60
     max_retries: int = 3
     retry_delay: float = 1.0
@@ -64,6 +67,7 @@ class ImagenConfig:
 @dataclass
 class ImageGenerationResult:
     """Result of image generation."""
+
     success: bool
     image_url: Optional[str] = None
     image_data: Optional[bytes] = None
@@ -101,7 +105,9 @@ English translation (visual elements only, no explanations):"""
     def __init__(self, api_key: str):
         self.api_key = api_key
         self._client = None
-        self._model = "gemini-2.0-flash-lite"  # Model Tiering: lightweight model for translation
+        self._model = (
+            "gemini-2.0-flash-lite"  # Model Tiering: lightweight model for translation
+        )
         self._redis = None
         self._initialize()
 
@@ -110,9 +116,12 @@ English translation (visual elements only, no explanations):"""
         try:
             from google import genai
             from google.genai import types
+
             self._client = genai.Client(api_key=self.api_key)
             self._types = types
-            logger.info("PromptTranslator initialized with Gemini 3.0 Flash (google-genai SDK)")
+            logger.info(
+                "PromptTranslator initialized with Gemini 3.0 Flash (google-genai SDK)"
+            )
         except Exception as e:
             logger.error(f"Failed to initialize translator: {e}")
             self._types = None
@@ -123,6 +132,7 @@ English translation (visual elements only, no explanations):"""
             try:
                 import redis.asyncio as aioredis
                 from app.core.config import settings
+
                 self._redis = await aioredis.from_url(settings.REDIS_URL)
             except Exception as e:
                 logger.warning(f"Failed to connect to Redis for translation cache: {e}")
@@ -140,7 +150,9 @@ English translation (visual elements only, no explanations):"""
             English translation optimized for image generation
         """
         # Calculate cache key
-        hash_key = hashlib.md5(russian_text.encode(), usedforsecurity=False).hexdigest()[:16]
+        hash_key = hashlib.md5(
+            russian_text.encode(), usedforsecurity=False
+        ).hexdigest()[:16]
         cache_key = f"translation:{hash_key}"
 
         # Check Redis cache
@@ -161,9 +173,13 @@ English translation (visual elements only, no explanations):"""
         try:
             prompt = self.TRANSLATION_PROMPT.format(text=russian_text)
 
-            config = self._types.GenerateContentConfig(
-                temperature=0.3,
-            ) if self._types else None
+            config = (
+                self._types.GenerateContentConfig(
+                    temperature=0.3,
+                )
+                if self._types
+                else None
+            )
 
             response = await asyncio.to_thread(
                 self._client.models.generate_content,
@@ -173,7 +189,9 @@ English translation (visual elements only, no explanations):"""
             )
 
             # Extract text from response
-            translation = (response.text if hasattr(response, 'text') else str(response)).strip()
+            translation = (
+                response.text if hasattr(response, "text") else str(response)
+            ).strip()
 
             # Cache result in Redis (7 days TTL)
             if redis:
@@ -182,7 +200,7 @@ English translation (visual elements only, no explanations):"""
                     logger.debug(f"Cached translation (Redis): {cache_key}")
                 except Exception as e:
                     logger.warning(f"Redis cache write error: {e}")
-            
+
             logger.debug(f"Translated: {russian_text[:50]}... → {translation[:50]}...")
 
             return translation
@@ -205,27 +223,27 @@ class ImagenPromptEngineer:
         DescriptionType.LOCATION: {
             "prefix": "Detailed book illustration of",
             "base_style": "atmospheric lighting, rich vibrant colors, detailed environment",
-            "suffix": "professional artwork, high quality, suitable for book illustration"
+            "suffix": "professional artwork, high quality, suitable for book illustration",
         },
         DescriptionType.CHARACTER: {
             "prefix": "Character portrait illustration of",
             "base_style": "detailed facial features, expressive eyes, period-appropriate attire",
-            "suffix": "professional character design, artistic rendering, book illustration quality"
+            "suffix": "professional character design, artistic rendering, book illustration quality",
         },
         DescriptionType.ATMOSPHERE: {
             "prefix": "Atmospheric scene depicting",
             "base_style": "cinematic lighting, emotional ambiance, dramatic composition",
-            "suffix": "evocative artwork, impressionistic style, book illustration"
+            "suffix": "evocative artwork, impressionistic style, book illustration",
         },
         DescriptionType.OBJECT: {
             "prefix": "Detailed illustration of",
             "base_style": "clear focus, artistic presentation, rich textures",
-            "suffix": "still life quality, professional artwork"
+            "suffix": "still life quality, professional artwork",
         },
         DescriptionType.ACTION: {
             "prefix": "Dynamic scene of",
             "base_style": "captured motion, dramatic lighting, energy and movement",
-            "suffix": "cinematic moment, book illustration style"
+            "suffix": "cinematic moment, book illustration style",
         },
     }
 
@@ -287,26 +305,23 @@ class ImagenPromptEngineer:
     }
 
     def _get_style_for_type_and_genre(
-        self,
-        description_type: DescriptionType,
-        genre: Optional[str] = None
+        self, description_type: DescriptionType, genre: Optional[str] = None
     ) -> str:
         """
         Get combined style string for description type + genre.
-        
+
         Phase 3: Dynamic style generation based on genre.
         """
         base = self._BASE_STYLE_TEMPLATES.get(
-            description_type, 
-            self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
+            description_type, self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
         )["base_style"]
-        
+
         # Check for genre-specific override for this type
         if genre and genre.lower() in self._GENRE_TYPE_OVERRIDES:
             genre_overrides = self._GENRE_TYPE_OVERRIDES[genre.lower()]
             if description_type in genre_overrides:
                 return f"{base}, {genre_overrides[description_type]}"
-        
+
         return base
 
     def __init__(self, translator: PromptTranslator):
@@ -317,7 +332,7 @@ class ImagenPromptEngineer:
         description: str,
         description_type: DescriptionType,
         genre: Optional[str] = None,
-        custom_style: Optional[str] = None
+        custom_style: Optional[str] = None,
     ) -> str:
         """
         Create optimized English prompt for Imagen.
@@ -338,8 +353,7 @@ class ImagenPromptEngineer:
 
         # Get base template for type (Phase 3: use _BASE_STYLE_TEMPLATES)
         template = self._BASE_STYLE_TEMPLATES.get(
-            description_type,
-            self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
+            description_type, self._BASE_STYLE_TEMPLATES[DescriptionType.LOCATION]
         )
 
         # Get dynamic style based on type + genre (Phase 3)
@@ -373,35 +387,32 @@ class ImagenPromptEngineer:
         return prompt
 
     async def auto_detect_genre_async(
-        self,
-        book_title: str,
-        first_chapter_excerpt: str,
-        author: Optional[str] = None
+        self, book_title: str, first_chapter_excerpt: str, author: Optional[str] = None
     ) -> str:
         """
         Auto-detect book genre using Gemini API.
-        
+
         Phase 3: LLM-based genre detection for accurate style matching.
-        
+
         Args:
             book_title: Title of the book
             first_chapter_excerpt: First 2000 chars of the first chapter
             author: Optional author name
-            
+
         Returns:
             Genre key from GENRE_STYLES (e.g., 'fantasy', 'science_fiction')
         """
         supported_genres = list(self.GENRE_STYLES.keys())
-        
+
         prompt = f"""Analyze this book and determine its primary genre.
 
 **Book Title:** {book_title}
-{f'**Author:** {author}' if author else ''}
+{f"**Author:** {author}" if author else ""}
 
 **First Chapter Excerpt:**
 {first_chapter_excerpt[:2000]}
 
-**Supported Genres:** {', '.join(supported_genres)}
+**Supported Genres:** {", ".join(supported_genres)}
 
 Respond with ONLY the exact genre name from the supported list above.
 If unsure, respond with "other".
@@ -411,24 +422,26 @@ Do not include any explanation, just the genre name.
             from google import genai
             from app.core.config import settings
             import os
-            
+
             api_key = settings.GOOGLE_API_KEY or os.getenv("LANGEXTRACT_API_KEY")
             client = genai.Client(api_key=api_key)
             response = await client.aio.models.generate_content(
                 model=settings.GEMINI_MODEL,
                 contents=prompt,
             )
-            
+
             detected = response.text.strip().lower().replace(" ", "_")
-            
+
             # Validate against supported genres
             if detected in supported_genres:
                 logger.info(f"Auto-detected genre for '{book_title}': {detected}")
                 return detected
             else:
-                logger.warning(f"Unknown genre detected '{detected}' for '{book_title}', using 'other'")
+                logger.warning(
+                    f"Unknown genre detected '{detected}' for '{book_title}', using 'other'"
+                )
                 return "other"
-                
+
         except Exception as e:
             logger.error(f"Genre detection failed for '{book_title}': {e}")
             return "other"
@@ -436,8 +449,16 @@ Do not include any explanation, just the genre name.
 
 # Imagen 4 best practices for prompt format (Phase 3)
 IMAGEN4_NEGATIVE_PROMPTS = [
-    "blurry", "low quality", "distorted", "watermark", "signature",
-    "cropped", "worst quality", "jpeg artifacts", "ugly", "duplicate"
+    "blurry",
+    "low quality",
+    "distorted",
+    "watermark",
+    "signature",
+    "cropped",
+    "worst quality",
+    "jpeg artifacts",
+    "ugly",
+    "duplicate",
 ]
 
 
@@ -483,7 +504,7 @@ class GoogleImagenGenerator:
         prompt: str,
         aspect_ratio: Optional[str] = None,
         reference_image_urls: Optional[List[str]] = None,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
     ) -> ImageGenerationResult:
         """
         Generate image using Google Imagen.
@@ -499,34 +520,35 @@ class GoogleImagenGenerator:
         """
         if not self._available:
             return ImageGenerationResult(
-                success=False,
-                error_message="Imagen generator not available"
+                success=False, error_message="Imagen generator not available"
             )
 
         # 1. Semantic Caching (Cost Optimization)
         # TD-P15-4 FIX: Include aspect_ratio in cache key to avoid returning wrong dimensions
         effective_aspect = aspect_ratio or self.config.aspect_ratio
         cache_key = f"imagen:cache:{hashlib.md5((prompt + str(seed or '') + effective_aspect).encode()).hexdigest()}"
-        
+
         # TD-P15-5 FIX: Use try/finally to guarantee Redis connection is closed
         redis_client = None
         try:
             # Lazy redis load inside method to avoid init issues
             from app.core.config import settings
             import redis.asyncio as aioredis
-            
+
             redis_client = await aioredis.from_url(settings.REDIS_URL)
             cached_url = await redis_client.get(cache_key)
-            
+
             if cached_url:
-                cached_url_str = cached_url.decode('utf-8')
-                logger.info(f"Semantic Cache HIT for prompt. URL: {cached_url_str[:30]}...")
+                cached_url_str = cached_url.decode("utf-8")
+                logger.info(
+                    f"Semantic Cache HIT for prompt. URL: {cached_url_str[:30]}..."
+                )
                 return ImageGenerationResult(
                     success=True,
                     image_url=cached_url_str,
                     generation_time_seconds=0.0,
                     model_used="cache",
-                    prompt_used=prompt
+                    prompt_used=prompt,
                 )
         except Exception as cache_e:
             logger.warning(f"Cache check failed: {cache_e}")
@@ -546,59 +568,58 @@ class GoogleImagenGenerator:
                 aspect_ratio=aspect_ratio,
                 reference_image_urls=reference_image_urls,
                 seed=seed,
-                start_time=start_time
+                start_time=start_time,
             )
-            
+
             # Cache Write on Success
             if result.success and result.image_url:
-                 await self._cache_result(cache_key, result.image_url)
-                 
+                await self._cache_result(cache_key, result.image_url)
+
             return result
         except Exception as e:
             # Check for safety/blocked/400 errors that indicate safety filter
             error_msg_lower = str(e).lower()
             if "blocked" in error_msg_lower or "safety" in error_msg_lower:
-                 logger.warning(f"Safety Filter Triggered for prompt: {prompt[:50]}...")
-                 return ImageGenerationResult(
-                     success=False,
-                     error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
-                     image_url="/static/images/safety_placeholder.png" # Graceful Fallback
-                 )
-            
+                logger.warning(f"Safety Filter Triggered for prompt: {prompt[:50]}...")
+                return ImageGenerationResult(
+                    success=False,
+                    error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
+                    image_url="/static/images/safety_placeholder.png",  # Graceful Fallback
+                )
+
             # If not safety related, re-raise to catch in general error handler or let it fail
             # Actually we are inside `generate` which catches generic Exception below.
             # So we raising here will go to the except below.
             # Let's just fall through to the general handler if not safety.
             pass
 
-            # Rethrow to be caught by the next block if meaningful? 
+            # Rethrow to be caught by the next block if meaningful?
             # Actually the next block catches Exception as e.
-            # Duplicate catch blocks with same type are invalid in Python? 
-            # No, 'except Exception' matches everything. 
-            # I must replace the `except BlockedPromptException` block ENTIRELY 
+            # Duplicate catch blocks with same type are invalid in Python?
+            # No, 'except Exception' matches everything.
+            # I must replace the `except BlockedPromptException` block ENTIRELY
             # and merge logic into the `except Exception as e` block below.
-            
+
             # MERGING LOGIC:
             error_msg = str(e)
             if "blocked" in error_msg.lower() or "safety" in error_msg.lower():
-                 return ImageGenerationResult(
-                     success=False,
-                     error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
-                     image_url="/static/images/safety_placeholder.png"
-                 )
-            
+                return ImageGenerationResult(
+                    success=False,
+                    error_message="SAFETY_VIOLATION: Prompt blocked by Google Safety Filters.",
+                    image_url="/static/images/safety_placeholder.png",
+                )
+
             # All retries exhausted / other error
             logger.error(f"Image generation failed after all retries: {error_msg}")
             return ImageGenerationResult(
-                success=False,
-                error_message=f"Imagen generation failed: {error_msg}"
+                success=False, error_message=f"Imagen generation failed: {error_msg}"
             )
-            
+
     async def _cache_result(self, cache_key: str, url: str) -> None:
         try:
             from app.core.config import settings
             import redis.asyncio as aioredis
-            
+
             redis_client = await aioredis.from_url(settings.REDIS_URL)
             try:
                 await redis_client.setex(cache_key, 604800, url)  # 7 days TTL
@@ -610,7 +631,9 @@ class GoogleImagenGenerator:
         except TimeoutError as e:
             logger.warning(f"Redis timeout for cache write: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error caching image result: {type(e).__name__}: {e}")
+            logger.error(
+                f"Unexpected error caching image result: {type(e).__name__}: {e}"
+            )
 
     @retry_image_generation
     async def _generate_with_retry(
@@ -619,7 +642,7 @@ class GoogleImagenGenerator:
         aspect_ratio: Optional[str],
         reference_image_urls: Optional[List[str]],
         seed: Optional[int],
-        start_time: float
+        start_time: float,
     ) -> ImageGenerationResult:
         """
         Internal method with retry decorator for image generation.
@@ -633,9 +656,11 @@ class GoogleImagenGenerator:
             # NOTE: explicit reference_images support via SDK might require Image inputs (bytes)
             # For this Phase 3 version, we support 'seed' for deterministic generation.
             # 'reference_image_urls' logic to download and pass as bytes is marked for next iteration.
-            
+
             if reference_image_urls:
-                logger.warning(f"Reference images provided but not yet fully implemented in SDK call: {reference_image_urls}")
+                logger.warning(
+                    f"Reference images provided but not yet fully implemented in SDK call: {reference_image_urls}"
+                )
 
             gen_config = types.GenerateImagesConfig(
                 number_of_images=1,
@@ -656,7 +681,7 @@ class GoogleImagenGenerator:
                     prompt=prompt,
                     config=gen_config,
                 ),
-                timeout=self.config.timeout_seconds
+                timeout=self.config.timeout_seconds,
             )
 
             # Extract image
@@ -666,7 +691,9 @@ class GoogleImagenGenerator:
 
                 logger.info(f"Imagen raw_image_data type: {type(raw_image_data)}")
                 if isinstance(raw_image_data, bytes):
-                    logger.info(f"Imagen raw_image_data first 20 bytes: {raw_image_data[:20]}")
+                    logger.info(
+                        f"Imagen raw_image_data first 20 bytes: {raw_image_data[:20]}"
+                    )
 
                 # Google Imagen API returns base64-encoded data
                 # It can be either str or bytes containing base64 text
@@ -677,17 +704,21 @@ class GoogleImagenGenerator:
                 elif isinstance(raw_image_data, bytes):
                     # Check if bytes contain base64 text (starts with ASCII letters like 'iVBOR')
                     # PNG magic bytes are: 0x89 0x50 0x4E 0x47 (PNG)
-                    if raw_image_data[:4] == b'\x89PNG':
+                    if raw_image_data[:4] == b"\x89PNG":
                         logger.info("Imagen returned raw PNG bytes")
                         image_bytes = raw_image_data
-                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     else:
                         # Bytes contain base64-encoded text, decode it
-                        logger.info("Imagen returned bytes containing base64 text, decoding...")
-                        image_base64 = raw_image_data.decode('utf-8')
+                        logger.info(
+                            "Imagen returned bytes containing base64 text, decoding..."
+                        )
+                        image_base64 = raw_image_data.decode("utf-8")
                         image_bytes = base64.b64decode(image_base64)
                 else:
-                    logger.error(f"Unexpected data type from Imagen: {type(raw_image_data)}")
+                    logger.error(
+                        f"Unexpected data type from Imagen: {type(raw_image_data)}"
+                    )
                     raise ValueError(f"Unexpected data type: {type(raw_image_data)}")
 
                 # Save locally (decoded bytes)
@@ -709,7 +740,7 @@ class GoogleImagenGenerator:
                     model_used=self.config.model,
                     prompt_used=prompt,
                 )
-                
+
             # Cache success logic?
             # We can't easily cache purely inside _generate_with_retry without passing redis client
             # But we can assume if we return success, the caller (generate) won't see it to cache it.
@@ -718,13 +749,13 @@ class GoogleImagenGenerator:
             # I must add cache WRITE in 'generate' method after success.
             # Let's modify 'generate' instead of _generate_with_retry for WRITE.
             # But the 'generate' method calls this.
-            
+
             # Since I am editing _generate_with_retry, let's just make it return result and 'generate' handles write.
             # Reverting this chunk change and moving write logic to 'generate' chunk?
             # No, I can't effectively multi-edit 'generate' AND '_generate_with_retry' cleanly if I want to wrap the write.
             # I will assume I'll add the WRITE logic in the 'generate' method replacement chunk too, or add a separate chunk.
             # Let's stick to Exception handling here.
-            
+
             else:
                 # No images generated - this is retryable
                 error_msg = "No images generated by Imagen"
@@ -732,7 +763,9 @@ class GoogleImagenGenerator:
                 raise ImageGenerationError(error_msg)
 
         except asyncio.TimeoutError as e:
-            error_msg = f"Imagen generation timed out after {self.config.timeout_seconds}s"
+            error_msg = (
+                f"Imagen generation timed out after {self.config.timeout_seconds}s"
+            )
             logger.warning(error_msg)
             # Wrap as retryable timeout error
             raise RetryTimeoutError(error_msg) from e
@@ -769,7 +802,9 @@ class GoogleImagenGenerator:
         images_dir.mkdir(parents=True, exist_ok=True)
 
         # Create unique filename
-        prompt_hash = hashlib.md5(prompt.encode(), usedforsecurity=False).hexdigest()[:8]
+        prompt_hash = hashlib.md5(prompt.encode(), usedforsecurity=False).hexdigest()[
+            :8
+        ]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"imagen_{timestamp}_{prompt_hash}.png"
 
@@ -777,6 +812,7 @@ class GoogleImagenGenerator:
 
         # Save file (async to avoid blocking event loop)
         import aiofiles
+
         async with aiofiles.open(file_path, "wb") as f:
             await f.write(image_data)
 
@@ -848,7 +884,7 @@ class ImagenService:
         custom_style: Optional[str] = None,
         aspect_ratio: Optional[str] = None,
         reference_image_urls: Optional[List[str]] = None,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
     ) -> ImageGenerationResult:
         """
         Generate image for a Russian description.
@@ -868,7 +904,7 @@ class ImagenService:
         if not self._available:
             return ImageGenerationResult(
                 success=False,
-                error_message="Imagen service not available. Check GOOGLE_API_KEY."
+                error_message="Imagen service not available. Check GOOGLE_API_KEY.",
             )
 
         try:
@@ -883,31 +919,28 @@ class ImagenService:
                 description=description,
                 description_type=desc_type,
                 genre=genre,
-                custom_style=custom_style
+                custom_style=custom_style,
             )
 
             # Generate image
             result = await self._generator.generate(
-                prompt=prompt, 
+                prompt=prompt,
                 aspect_ratio=aspect_ratio,
                 reference_image_urls=reference_image_urls,
-                seed=seed
+                seed=seed,
             )
 
             return result
 
         except Exception as e:
             logger.error(f"Image generation failed: {e}")
-            return ImageGenerationResult(
-                success=False,
-                error_message=str(e)
-            )
+            return ImageGenerationResult(success=False, error_message=str(e))
 
     async def preview_prompt(
         self,
         description: str,
         description_type: str = "location",
-        genre: Optional[str] = None
+        genre: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Preview the English prompt without generating image.
@@ -923,9 +956,7 @@ class ImagenService:
             desc_type = DescriptionType.LOCATION
 
         english_prompt = await self._prompt_engineer.create_prompt(
-            description=description,
-            description_type=desc_type,
-            genre=genre
+            description=description, description_type=desc_type, genre=genre
         )
 
         return {
@@ -943,7 +974,9 @@ class ImagenService:
             "available": self._available,
             "has_api_key": bool(self._api_key),
             "model": self._generator.config.model if self._generator else None,
-            "aspect_ratio": self._generator.config.aspect_ratio if self._generator else None,
+            "aspect_ratio": (
+                self._generator.config.aspect_ratio if self._generator else None
+            ),
         }
 
 

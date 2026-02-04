@@ -46,7 +46,9 @@ def test_csrf_token_constant_time_comparison():
     middleware = CSRFProtectMiddleware(Mock())
 
     # Should use secrets.compare_digest (constant-time)
-    with patch("app.core.csrf.secrets.compare_digest", return_value=True) as mock_compare:
+    with patch(
+        "app.core.csrf.secrets.compare_digest", return_value=True
+    ) as mock_compare:
         result = middleware._validate_csrf_token(mock_request)
         assert result is True
         mock_compare.assert_called_once()
@@ -164,7 +166,9 @@ def test_csp_no_unsafe_eval():
     assert "'unsafe-eval'" not in script_src, "CSP should not contain unsafe-eval"
 
     # Should NOT contain unsafe-inline in script-src
-    assert "'unsafe-inline'" not in script_src, "CSP should not contain unsafe-inline in script-src"
+    assert "'unsafe-inline'" not in script_src, (
+        "CSP should not contain unsafe-inline in script-src"
+    )
 
 
 def test_csp_block_mixed_content():
@@ -188,7 +192,9 @@ def test_csp_style_src_allows_unsafe_inline():
     style_src = directives.get("style-src", [])
 
     # Should contain unsafe-inline for Tailwind CSS
-    assert "'unsafe-inline'" in style_src, "CSP should allow unsafe-inline for styles (Tailwind)"
+    assert "'unsafe-inline'" in style_src, (
+        "CSP should allow unsafe-inline for styles (Tailwind)"
+    )
 
 
 def test_csrf_exempt_paths():
@@ -259,7 +265,9 @@ def test_secrets_generation_script_exists():
     import os
     from pathlib import Path
 
-    script_path = Path(__file__).parent.parent / "scripts" / "generate-production-secrets.sh"
+    script_path = (
+        Path(__file__).parent.parent / "scripts" / "generate-production-secrets.sh"
+    )
 
     assert script_path.exists(), "generate-production-secrets.sh should exist"
 
@@ -289,7 +297,9 @@ def test_password_validation_in_auth_endpoint():
 
     # Check source code contains validation
     source = inspect.getsource(register_func)
-    assert "validate_password_strength" in source, "Should use validate_password_strength"
+    assert "validate_password_strength" in source, (
+        "Should use validate_password_strength"
+    )
 
 
 @pytest.mark.integration

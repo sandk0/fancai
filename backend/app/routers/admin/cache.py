@@ -18,7 +18,6 @@ from ...schemas.responses import (
     CacheWarmResponse,
 )
 
-
 router = APIRouter(prefix="/cache", tags=["admin", "cache"])
 
 

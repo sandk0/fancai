@@ -67,7 +67,9 @@ class RetryableError(Exception):
 class RateLimitError(RetryableError):
     """Error when API rate limit is exceeded."""
 
-    def __init__(self, message: str = "Rate limit exceeded", retry_after: Optional[int] = None):
+    def __init__(
+        self, message: str = "Rate limit exceeded", retry_after: Optional[int] = None
+    ):
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -232,7 +234,9 @@ def create_retry_decorator(
 
     # Build retry decorator
     retry_decorator = retry(
-        stop=stop_after_attempt(max_retries + 1),  # +1 because first attempt isn't a retry
+        stop=stop_after_attempt(
+            max_retries + 1
+        ),  # +1 because first attempt isn't a retry
         wait=wait_strategy,
         retry=retry_if_exception_type(tuple(retryable_exceptions)),
         before_sleep=before_sleep_log(logger, logging.WARNING) if log_retries else None,
@@ -495,7 +499,9 @@ def is_transient_error(exception: Exception) -> bool:
     Returns:
         True if the exception is likely transient
     """
-    if isinstance(exception, (TransientNetworkError, ServiceUnavailableError, TimeoutError)):
+    if isinstance(
+        exception, (TransientNetworkError, ServiceUnavailableError, TimeoutError)
+    ):
         return True
 
     error_message = str(exception).lower()

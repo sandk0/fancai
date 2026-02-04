@@ -15,7 +15,6 @@ from uuid import UUID
 
 from . import ChapterResponse
 
-
 # ============================================================================
 # CHAPTER NAVIGATION SCHEMAS
 # ============================================================================
@@ -34,7 +33,9 @@ class NavigationInfo(BaseModel):
 
     has_previous: bool = Field(description="Has previous chapter")
     has_next: bool = Field(description="Has next chapter")
-    previous_chapter: Optional[int] = Field(None, ge=1, description="Previous chapter number")
+    previous_chapter: Optional[int] = Field(
+        None, ge=1, description="Previous chapter number"
+    )
     next_chapter: Optional[int] = Field(None, ge=1, description="Next chapter number")
 
 

@@ -11,15 +11,15 @@ async def publish_book_progress(
     chapter: int = 0,
     total_chapters: int = 0,
     status: str = "processing",
-    message: str = ""
+    message: str = "",
 ):
     """
     Publish book processing progress to Redis PubSub.
-    
+
     Called from tasks.py during book processing.
     WebSocket handler in websocket.py subscribes to this channel
     and forwards messages to connected clients.
-    
+
     Args:
         book_id: Book UUID string
         progress: 0-100 percent
@@ -30,8 +30,9 @@ async def publish_book_progress(
     """
     try:
         import redis.asyncio as aioredis
+
         redis_client = await aioredis.from_url(settings.REDIS_URL)
-        
+
         data = {
             "type": "progress" if status == "processing" else status,
             "book_id": book_id,
@@ -39,18 +40,22 @@ async def publish_book_progress(
             "chapter": chapter,
             "total_chapters": total_chapters,
             "status": status,
-            "message": message
+            "message": message,
         }
-        
+
         channel = f"book_progress:{book_id}"
-        
-        logger.info(f"Publishing WebSocket progress: book_id={book_id}, progress={progress}, channel={channel}")
-        
+
+        logger.info(
+            f"Publishing WebSocket progress: book_id={book_id}, progress={progress}, channel={channel}"
+        )
+
         result = await redis_client.publish(channel, json.dumps(data))
         await redis_client.aclose()
-        
-        logger.info(f"WebSocket progress published: book_id={book_id}, progress={progress}, subscribers={result}")
-        
+
+        logger.info(
+            f"WebSocket progress published: book_id={book_id}, progress={progress}, subscribers={result}"
+        )
+
     except Exception as e:
         logger.error(f"Failed to publish progress: {e}", exc_info=True)
 
@@ -62,20 +67,23 @@ async def publish_entities_updated(
 ):
     try:
         import redis.asyncio as aioredis
+
         redis_client = await aioredis.from_url(settings.REDIS_URL)
-        
+
         data = {
             "type": "entities_updated",
             "book_id": book_id,
             "entities_count": entities_count,
             "message": message,
         }
-        
+
         channel = f"book_progress:{book_id}"
         result = await redis_client.publish(channel, json.dumps(data))
         await redis_client.aclose()
-        
-        logger.info(f"Entities updated event published: book_id={book_id}, count={entities_count}, subscribers={result}")
-        
+
+        logger.info(
+            f"Entities updated event published: book_id={book_id}, count={entities_count}, subscribers={result}"
+        )
+
     except Exception as e:
         logger.error(f"Failed to publish entities_updated: {e}", exc_info=True)

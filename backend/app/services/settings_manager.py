@@ -55,9 +55,7 @@ class SettingsManager:
 
         try:
             self.redis_client = await aioredis.from_url(
-                self.redis_url,
-                decode_responses=True,
-                max_connections=50
+                self.redis_url, decode_responses=True, max_connections=50
             )
             # Test connection
             await self.redis_client.ping()
@@ -65,8 +63,7 @@ class SettingsManager:
             logger.info("✅ Connected to Redis for settings persistence")
         except Exception as e:
             logger.warning(
-                f"⚠️  Failed to connect to Redis: {e}. "
-                f"Falling back to in-memory storage"
+                f"⚠️  Failed to connect to Redis: {e}. Falling back to in-memory storage"
             )
             self._use_redis = False
             self.redis_client = None
@@ -214,9 +211,11 @@ class SettingsManager:
                     await self.redis_client.set(
                         redis_key,
                         json.dumps(settings),
-                        ex=None  # No expiration for settings
+                        ex=None,  # No expiration for settings
                     )
-                logger.info(f"✅ Persisted {len(self._settings)} setting categories to Redis")
+                logger.info(
+                    f"✅ Persisted {len(self._settings)} setting categories to Redis"
+                )
             except Exception as e:
                 logger.error(f"Failed to persist settings to Redis: {e}")
 
@@ -248,7 +247,9 @@ class SettingsManager:
                     category_settings = json.loads(data)
                     return category_settings.get(key, default)
             except Exception as e:
-                logger.warning(f"Failed to get setting from Redis: {e}, using in-memory")
+                logger.warning(
+                    f"Failed to get setting from Redis: {e}, using in-memory"
+                )
 
         # Fallback to in-memory
         category_settings = self._settings.get(category, {})
@@ -279,9 +280,7 @@ class SettingsManager:
             try:
                 redis_key = f"settings:{category}"
                 await self.redis_client.set(
-                    redis_key,
-                    dump_json(self._settings[category]),
-                    ex=None
+                    redis_key, dump_json(self._settings[category]), ex=None
                 )
                 logger.debug(f"Set {category}.{key} = {value} (persisted to Redis)")
             except Exception as e:
@@ -312,7 +311,9 @@ class SettingsManager:
                 if data:
                     return json.loads(data)
             except Exception as e:
-                logger.warning(f"Failed to get category from Redis: {e}, using in-memory")
+                logger.warning(
+                    f"Failed to get category from Redis: {e}, using in-memory"
+                )
 
         # Fallback to in-memory
         return self._settings.get(category, {}).copy()
@@ -340,16 +341,16 @@ class SettingsManager:
         if self._use_redis and self.redis_client:
             try:
                 redis_key = f"settings:{category}"
-                await self.redis_client.set(
-                    redis_key,
-                    json.dumps(settings),
-                    ex=None
+                await self.redis_client.set(redis_key, json.dumps(settings), ex=None)
+                logger.info(
+                    f"Updated {category} settings with {len(settings)} keys (persisted to Redis)"
                 )
-                logger.info(f"Updated {category} settings with {len(settings)} keys (persisted to Redis)")
             except Exception as e:
                 logger.warning(f"Failed to persist category to Redis: {e}")
         else:
-            logger.info(f"Updated {category} settings with {len(settings)} keys (in-memory only)")
+            logger.info(
+                f"Updated {category} settings with {len(settings)} keys (in-memory only)"
+            )
 
         return True
 
@@ -407,6 +408,7 @@ def get_settings_manager(redis_url: Optional[str] = None) -> SettingsManager:
         # Import here to avoid circular dependency
         try:
             from ..core.config import get_settings
+
             config = get_settings()
             redis_url = redis_url or config.REDIS_URL
         except Exception as e:

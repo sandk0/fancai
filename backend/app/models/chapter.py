@@ -39,7 +39,9 @@ class Chapter(Base):
     html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    estimated_reading_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_reading_time: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
 
     is_description_parsed: Mapped[bool] = mapped_column(default=False, nullable=False)
     descriptions_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -48,23 +50,41 @@ class Chapter(Base):
     parse_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     is_service_page: Mapped[bool | None] = mapped_column(default=None, nullable=True)
-    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    file_path: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, index=True
     )
-    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    parsed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     book: Mapped["Book"] = relationship("Book", back_populates="chapters", lazy="raise")
     descriptions: Mapped[list["Description"]] = relationship(
-        "Description", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
+        "Description",
+        back_populates="chapter",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     generated_images: Mapped[list["GeneratedImage"]] = relationship(
-        "GeneratedImage", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
+        "GeneratedImage",
+        back_populates="chapter",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     mentions: Mapped[list["EntityMention"]] = relationship(
-        "EntityMention", back_populates="chapter", cascade="all, delete-orphan", lazy="raise"
+        "EntityMention",
+        back_populates="chapter",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     def __repr__(self):
@@ -112,17 +132,39 @@ class Chapter(Base):
 
     # Service page keywords for detection
     SERVICE_PAGE_KEYWORDS = [
-        "содержание", "оглавление", "table of contents", "contents",
-        "от автора", "слово автора", "предисловие", "послесловие",
-        "аннотация", "annotation", "synopsis",
-        "эпиграф", "epigraph", "цитата",
-        "посвящение", "dedication",
-        "благодарности", "acknowledgments",
-        "примечания", "notes", "сноски",
-        "библиография", "bibliography", "references",
-        "об авторе", "about the author", "биография",
-        "copyright", "издательство", "publisher",
-        "isbn", "все права защищены", "all rights reserved",
+        "содержание",
+        "оглавление",
+        "table of contents",
+        "contents",
+        "от автора",
+        "слово автора",
+        "предисловие",
+        "послесловие",
+        "аннотация",
+        "annotation",
+        "synopsis",
+        "эпиграф",
+        "epigraph",
+        "цитата",
+        "посвящение",
+        "dedication",
+        "благодарности",
+        "acknowledgments",
+        "примечания",
+        "notes",
+        "сноски",
+        "библиография",
+        "bibliography",
+        "references",
+        "об авторе",
+        "about the author",
+        "биография",
+        "copyright",
+        "издательство",
+        "publisher",
+        "isbn",
+        "все права защищены",
+        "all rights reserved",
     ]
 
     def check_is_service_page(self) -> bool:

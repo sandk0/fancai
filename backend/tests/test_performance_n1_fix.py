@@ -45,7 +45,9 @@ def query_counter():
 
 
 @pytest.mark.asyncio
-async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User, query_counter: QueryCounter):
+async def test_book_list_no_n1_queries(
+    db_session: AsyncSession, test_user: User, query_counter: QueryCounter
+):
     """
     Test that book list endpoint doesn't have N+1 query problem.
 
@@ -67,15 +69,15 @@ async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User
         book = Book(
             id=uuid4(),
             user_id=test_user.id,
-            title=f"Test Book {i+1}",
-            author=f"Author {i+1}",
+            title=f"Test Book {i + 1}",
+            author=f"Author {i + 1}",
             genre="fantasy",
             language="ru",
             file_path=f"/test/book_{i}.epub",
             file_format="epub",
             file_size=1024 * 1024,
             is_parsed=True,
-            total_pages=300
+            total_pages=300,
         )
         db_session.add(book)
         await db_session.flush()
@@ -87,7 +89,7 @@ async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User
             book_id=book.id,
             current_chapter=1,
             current_page=1,
-            current_position=25
+            current_position=25,
         )
         db_session.add(progress)
 
@@ -98,7 +100,7 @@ async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User
             chapter_number=1,
             title=f"Chapter 1",
             content="Test content",
-            word_count=1000
+            word_count=1000,
         )
         db_session.add(chapter)
 
@@ -141,13 +143,17 @@ async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User
             f"This indicates reading progress is being queried separately for each book."
         )
 
-        print(f"\n[TEST] ✅ PASS: No N+1 queries detected ({query_counter.count} queries for {num_books} books)")
+        print(
+            f"\n[TEST] ✅ PASS: No N+1 queries detected ({query_counter.count} queries for {num_books} books)"
+        )
 
         # Verify reading progress is calculated correctly
         for book, progress_percent in books_with_progress:
             assert 0.0 <= progress_percent <= 100.0, "Progress should be 0-100%"
             # We set current_position=25 in chapter 1 of 1 chapter
-            assert progress_percent == 25.0, f"Expected 25% progress, got {progress_percent}%"
+            assert progress_percent == 25.0, (
+                f"Expected 25% progress, got {progress_percent}%"
+            )
 
         print(f"[TEST] ✅ PASS: Reading progress calculated correctly for all books")
 
@@ -157,7 +163,9 @@ async def test_book_list_no_n1_queries(db_session: AsyncSession, test_user: User
 
 
 @pytest.mark.asyncio
-async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: User, query_counter: QueryCounter):
+async def test_old_method_has_n1_queries(
+    db_session: AsyncSession, test_user: User, query_counter: QueryCounter
+):
     """
     Test that the OLD method (using book.get_reading_progress_percent) has N+1 queries.
 
@@ -175,14 +183,14 @@ async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: Us
         book = Book(
             id=uuid4(),
             user_id=test_user.id,
-            title=f"Old Method Book {i+1}",
-            author=f"Author {i+1}",
+            title=f"Old Method Book {i + 1}",
+            author=f"Author {i + 1}",
             genre="fantasy",
             language="ru",
             file_path=f"/test/old_book_{i}.epub",
             file_format="epub",
             file_size=1024 * 1024,
-            is_parsed=True
+            is_parsed=True,
         )
         db_session.add(book)
         await db_session.flush()
@@ -193,7 +201,7 @@ async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: Us
             user_id=test_user.id,
             book_id=book.id,
             current_chapter=1,
-            current_position=50
+            current_position=50,
         )
         db_session.add(progress)
 
@@ -204,7 +212,7 @@ async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: Us
             chapter_number=1,
             title="Chapter 1",
             content="Test",
-            word_count=1000
+            word_count=1000,
         )
         db_session.add(chapter)
 
@@ -223,7 +231,9 @@ async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: Us
         start_time = time.time()
 
         # Get books
-        books = await book_service.get_user_books(db_session, test_user.id, skip=0, limit=10)
+        books = await book_service.get_user_books(
+            db_session, test_user.id, skip=0, limit=10
+        )
 
         # Call get_reading_progress_percent for each book (N+1 problem!)
         for book in books:
@@ -241,8 +251,10 @@ async def test_old_method_has_n1_queries(db_session: AsyncSession, test_user: Us
             f"Test may not be demonstrating the problem correctly."
         )
 
-        print(f"\n[TEST] ⚠️  CONFIRMED: N+1 problem exists in old method "
-              f"({query_counter.count} queries for {num_books} books)")
+        print(
+            f"\n[TEST] ⚠️  CONFIRMED: N+1 problem exists in old method "
+            f"({query_counter.count} queries for {num_books} books)"
+        )
 
     finally:
         # Remove listener
@@ -267,14 +279,14 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
         book = Book(
             id=uuid4(),
             user_id=test_user.id,
-            title=f"Perf Test Book {i+1}",
+            title=f"Perf Test Book {i + 1}",
             author="Author",
             genre="fantasy",
             language="ru",
             file_path=f"/test/perf_{i}.epub",
             file_format="epub",
             file_size=1024 * 1024,
-            is_parsed=True
+            is_parsed=True,
         )
         db_session.add(book)
         await db_session.flush()
@@ -284,7 +296,7 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
             user_id=test_user.id,
             book_id=book.id,
             current_chapter=1,
-            current_position=33
+            current_position=33,
         )
         db_session.add(progress)
 
@@ -294,7 +306,7 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
             chapter_number=1,
             title="Chapter 1",
             content="Test",
-            word_count=1000
+            word_count=1000,
         )
         db_session.add(chapter)
 
@@ -308,12 +320,16 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
     )
     new_method_time = (time.time() - start) * 1000
 
-    print(f"[TEST] Optimized method: {new_method_time:.2f}ms for {len(books_with_progress)} books")
+    print(
+        f"[TEST] Optimized method: {new_method_time:.2f}ms for {len(books_with_progress)} books"
+    )
 
     # Test OLD method
     print("\n[TEST] Testing OLD method...")
     start = time.time()
-    books = await book_service.get_user_books(db_session, test_user.id, skip=0, limit=50)
+    books = await book_service.get_user_books(
+        db_session, test_user.id, skip=0, limit=50
+    )
     for book in books:
         await book.get_reading_progress_percent(db_session, test_user.id)
     old_method_time = (time.time() - start) * 1000
@@ -322,7 +338,11 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
 
     # Calculate improvement
     speedup = old_method_time / new_method_time if new_method_time > 0 else 0
-    improvement_percent = ((old_method_time - new_method_time) / old_method_time * 100) if old_method_time > 0 else 0
+    improvement_percent = (
+        ((old_method_time - new_method_time) / old_method_time * 100)
+        if old_method_time > 0
+        else 0
+    )
 
     print(f"\n[TEST] 📊 PERFORMANCE RESULTS:")
     print(f"[TEST]   Old method: {old_method_time:.2f}ms")

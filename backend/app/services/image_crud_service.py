@@ -42,10 +42,10 @@ class ImageAlreadyExistsError(Exception):
 
 class ImageCRUDService:
     """Service for GeneratedImage CRUD operations."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def get_by_id(
         self,
         image_id: UUID,
@@ -65,16 +65,18 @@ class ImageCRUDService:
                 select(GeneratedImage).where(GeneratedImage.id == image_id)
             )
         return result.scalar_one_or_none()
-    
+
     async def get_by_description(
         self,
         description_id: UUID,
     ) -> Optional[GeneratedImage]:
         result = await self.db.execute(
-            select(GeneratedImage).where(GeneratedImage.description_id == description_id)
+            select(GeneratedImage).where(
+                GeneratedImage.description_id == description_id
+            )
         )
         return result.scalar_one_or_none()
-    
+
     async def exists_for_description(self, description_id: UUID) -> bool:
         result = await self.db.execute(
             select(GeneratedImage.id)
@@ -82,7 +84,7 @@ class ImageCRUDService:
             .limit(1)
         )
         return result.scalar_one_or_none() is not None
-    
+
     async def get_for_book(
         self,
         book_id: UUID,
@@ -102,7 +104,7 @@ class ImageCRUDService:
             .limit(limit)
         )
         return [(row[0], row[1], row[2]) for row in result.all()]
-    
+
     async def create(
         self,
         description_id: UUID,
@@ -128,9 +130,11 @@ class ImageCRUDService:
         self.db.add(image)
         await self.db.commit()
         await self.db.refresh(image)
-        logger.debug(f"Created GeneratedImage {image.id} for description {description_id}")
+        logger.debug(
+            f"Created GeneratedImage {image.id} for description {description_id}"
+        )
         return image
-    
+
     async def delete(
         self,
         image_id: UUID,
@@ -139,12 +143,12 @@ class ImageCRUDService:
         image = await self.get_by_id(image_id, user_id)
         if not image:
             return False
-        
+
         await self.db.delete(image)
         await self.db.commit()
         logger.debug(f"Deleted GeneratedImage {image_id}")
         return True
-    
+
     async def get_user_stats(
         self,
         user_id: UUID,
@@ -157,7 +161,7 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
         )
         total = total_query.scalar() or 0
-        
+
         by_type_query = await self.db.execute(
             select(Description.type, func.count(GeneratedImage.id))
             .join(Description, GeneratedImage.description_id == Description.id)
@@ -166,38 +170,41 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
             .group_by(Description.type)
         )
-        by_type = {row[0].value if row[0] else "unknown": row[1] for row in by_type_query.all()}
-        
+        by_type = {
+            row[0].value if row[0] else "unknown": row[1] for row in by_type_query.all()
+        }
+
         return {"total": total, "by_type": by_type}
-    
+
     async def get_batch_existing(
         self,
         description_ids: List[UUID],
     ) -> Dict[UUID, GeneratedImage]:
         if not description_ids:
             return {}
-        
+
         result = await self.db.execute(
-            select(GeneratedImage)
-            .where(GeneratedImage.description_id.in_(description_ids))
+            select(GeneratedImage).where(
+                GeneratedImage.description_id.in_(description_ids)
+            )
         )
         return {img.description_id: img for img in result.scalars().all()}
-    
+
     async def get_by_local_path(self, local_path: str) -> Optional[GeneratedImage]:
         result = await self.db.execute(
             select(GeneratedImage).where(GeneratedImage.local_path == local_path)
         )
         return result.scalar_one_or_none()
-    
+
     async def get_by_image_url(self, image_url: str) -> Optional[GeneratedImage]:
         result = await self.db.execute(
             select(GeneratedImage).where(GeneratedImage.image_url == image_url)
         )
         return result.scalar_one_or_none()
-    
+
     def verify_ownership(self, image: GeneratedImage, user_id: UUID) -> bool:
         return image.user_id == user_id
-    
+
     async def get_image_with_relations(
         self,
         description_id: UUID,
@@ -215,8 +222,10 @@ class ImageCRUDService:
         if not row:
             return None
         return (row[0], row[1], row[2])
-    
-    async def get_user_full_stats(self, user_id: UUID) -> Dict[str, int | Dict[str, int]]:
+
+    async def get_user_full_stats(
+        self, user_id: UUID
+    ) -> Dict[str, int | Dict[str, int]]:
         images_count = await self.db.execute(
             select(func.count(GeneratedImage.id))
             .join(Description, GeneratedImage.description_id == Description.id)
@@ -225,7 +234,7 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
         )
         total_images: int = images_count.scalar() or 0
-        
+
         descriptions_count = await self.db.execute(
             select(func.count(Description.id))
             .join(Chapter, Description.chapter_id == Chapter.id)
@@ -233,7 +242,7 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
         )
         total_descriptions: int = descriptions_count.scalar() or 0
-        
+
         by_type_query = await self.db.execute(
             select(Description.type, func.count(GeneratedImage.id))
             .join(GeneratedImage, GeneratedImage.description_id == Description.id)
@@ -243,33 +252,33 @@ class ImageCRUDService:
             .group_by(Description.type)
         )
         images_by_type: Dict[str, int] = {
-            row[0].value if row[0] else "unknown": row[1] 
-            for row in by_type_query.all()
+            row[0].value if row[0] else "unknown": row[1] for row in by_type_query.all()
         }
-        
+
         return {
             "total_images": total_images,
             "total_descriptions": total_descriptions,
             "images_by_type": images_by_type,
         }
-    
+
     async def delete_with_file(self, image_id: UUID, user_id: UUID) -> bool:
         image = await self.get_by_id(image_id, user_id)
         if not image:
             return False
-        
+
         if image.local_path:
             import os
+
             try:
                 os.unlink(image.local_path)
             except OSError:
                 pass
-        
+
         await self.db.delete(image)
         await self.db.commit()
         logger.debug(f"Deleted GeneratedImage {image_id} with file")
         return True
-    
+
     async def update_after_regeneration(
         self,
         image: GeneratedImage,
@@ -280,46 +289,47 @@ class ImageCRUDService:
     ) -> GeneratedImage:
         if image.local_path and image.local_path != local_path:
             import os
+
             try:
                 os.unlink(image.local_path)
             except OSError:
                 pass
-        
+
         image.image_url = image_url
         image.local_path = local_path
         image.prompt_used = prompt_used
         image.generation_time_seconds = generation_time_seconds
-        
+
         await self.db.commit()
         await self.db.refresh(image)
         return image
-    
+
     async def get_admin_stats(self) -> Dict[str, object]:
         total_result = await self.db.execute(select(func.count(GeneratedImage.id)))
         total_count = total_result.scalar() or 0
-        
+
         type_stats = await self.db.execute(
             select(Description.type, func.count(GeneratedImage.id))
             .join(GeneratedImage, GeneratedImage.description_id == Description.id)
             .group_by(Description.type)
         )
         type_distribution = {
-            row[0].value if row[0] else "unknown": row[1] 
-            for row in type_stats.all()
+            row[0].value if row[0] else "unknown": row[1] for row in type_stats.all()
         }
-        
+
         avg_time_result = await self.db.execute(
-            select(func.avg(GeneratedImage.generation_time_seconds))
-            .where(GeneratedImage.generation_time_seconds.is_not(None))
+            select(func.avg(GeneratedImage.generation_time_seconds)).where(
+                GeneratedImage.generation_time_seconds.is_not(None)
+            )
         )
         avg_time = avg_time_result.scalar() or 0
-        
+
         return {
             "total_images": total_count,
             "type_distribution": type_distribution,
             "avg_generation_time": round(float(avg_time), 2),
         }
-    
+
     async def get_description_with_access_check(
         self,
         description_id: UUID,
@@ -333,7 +343,7 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
         )
         return result.scalar_one_or_none()
-    
+
     async def get_chapter_with_access_check(
         self,
         chapter_id: UUID,
@@ -346,24 +356,25 @@ class ImageCRUDService:
             .where(Book.user_id == user_id)
         )
         return result.scalar_one_or_none()
-    
+
     async def get_chapter_descriptions(
         self,
         chapter_id: UUID,
         description_types: Optional[List] = None,
     ) -> List[Description]:
         query = select(Description).where(Description.chapter_id == chapter_id)
-        
+
         if description_types:
             query = query.where(Description.type.in_(description_types))
-        
+
         result = await self.db.execute(
             query.order_by(Description.priority_score.desc())
         )
         return list(result.scalars().all())
-    
+
     async def get_book_for_chapter(self, chapter_id: UUID) -> Optional[Book]:
         from app.models.chapter import Chapter as ChapterModel
+
         result = await self.db.execute(
             select(Book)
             .join(ChapterModel, Book.id == ChapterModel.book_id)

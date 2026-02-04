@@ -27,7 +27,6 @@ from uuid import UUID
 from app.models.user import SubscriptionPlan, SubscriptionStatus
 from app.models.description import DescriptionType
 
-
 # ============================================================================
 # BASE SCHEMAS
 # ============================================================================
@@ -522,7 +521,11 @@ class ValidationErrorResponse(BaseModel):
 from .progress import ReadingProgressDetailResponse  # noqa: E402
 
 # Chapter responses
-from .chapters import NavigationInfo, BookMinimalInfo, ChapterDetailResponse  # noqa: E402
+from .chapters import (
+    NavigationInfo,
+    BookMinimalInfo,
+    ChapterDetailResponse,
+)  # noqa: E402
 
 # Image responses (Phase 1.2)
 from .images import (  # noqa: E402
@@ -618,7 +621,6 @@ from .books_validation import (  # noqa: E402
 from .health import (  # noqa: E402
     PrometheusMetricsResponse,
 )
-
 
 # ============================================================================
 # EXPORTS

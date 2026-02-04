@@ -15,7 +15,6 @@ Usage:
 from fastapi import APIRouter
 from . import crud, validation, processing
 
-
 # Главный router для книг
 books_router = APIRouter(prefix="/books", tags=["books"])
 

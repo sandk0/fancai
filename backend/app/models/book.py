@@ -52,7 +52,9 @@ class Book(Base):
 
     title: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     author: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    genre: Mapped[str] = mapped_column(String(50), default=BookGenre.OTHER.value, nullable=False)
+    genre: Mapped[str] = mapped_column(
+        String(50), default=BookGenre.OTHER.value, nullable=False
+    )
     language: Mapped[str] = mapped_column(String(10), default="ru", nullable=False)
 
     file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
@@ -64,31 +66,48 @@ class Book(Base):
     book_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     total_pages: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    estimated_reading_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_reading_time: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
 
     is_parsed: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_processing: Mapped[bool] = mapped_column(default=True, nullable=False)
     parsing_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
-    descriptions_extracted: Mapped[bool] = mapped_column(default=False, nullable=False)
-    descriptions_processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    descriptions_extracted: Mapped[bool] = mapped_column(default=False, nullable=False)
+    descriptions_processing_error: Mapped[str | None] = mapped_column(
+        Text, nullable=True
     )
-    last_accessed: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    last_accessed: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     user: Mapped["User"] = relationship("User", back_populates="books", lazy="raise")
     chapters: Mapped[list["Chapter"]] = relationship(
         "Chapter", back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
     reading_progress: Mapped[list["ReadingProgress"]] = relationship(
-        "ReadingProgress", back_populates="book", cascade="all, delete-orphan", lazy="raise"
+        "ReadingProgress",
+        back_populates="book",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     reading_sessions: Mapped[list["ReadingSession"]] = relationship(
-        "ReadingSession", back_populates="book", cascade="all, delete-orphan", lazy="raise"
+        "ReadingSession",
+        back_populates="book",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
     def __repr__(self) -> str:
@@ -107,7 +126,7 @@ class Book(Base):
         Returns:
             ReadingProgress или None
         """
-        if not hasattr(self, 'reading_progress') or self.reading_progress is None:
+        if not hasattr(self, "reading_progress") or self.reading_progress is None:
             return None
 
         for progress in self.reading_progress:
@@ -158,7 +177,9 @@ class Book(Base):
             completed_chapters_progress = ((current_chapter - 1) / total_chapters) * 100
             current_chapter_progress = (current_position / 100) * (100 / total_chapters)
 
-            return min(100.0, max(0.0, completed_chapters_progress + current_chapter_progress))
+            return min(
+                100.0, max(0.0, completed_chapters_progress + current_chapter_progress)
+            )
         except Exception as e:
             print(f"⚠️ Error calculating reading progress: {e}")
             return 0.0
@@ -183,8 +204,8 @@ class Book(Base):
             Прогресс чтения от 0.0 до 100.0
         """
         # P1.2: Try pre-loaded data first (no DB query)
-        if hasattr(self, 'reading_progress') and self.reading_progress is not None:
-            if hasattr(self, 'chapters') and self.chapters is not None:
+        if hasattr(self, "reading_progress") and self.reading_progress is not None:
+            if hasattr(self, "chapters") and self.chapters is not None:
                 return self.calculate_progress_percent(user_id)
 
         # Fallback: Query DB (legacy path)
@@ -220,7 +241,9 @@ class Book(Base):
             completed_chapters_progress = ((current_chapter - 1) / total_chapters) * 100
             current_chapter_progress = (current_position / 100) * (100 / total_chapters)
 
-            return min(100.0, max(0.0, completed_chapters_progress + current_chapter_progress))
+            return min(
+                100.0, max(0.0, completed_chapters_progress + current_chapter_progress)
+            )
         except Exception as e:
             print(f"⚠️ Error calculating reading progress: {e}")
             return 0.0
@@ -256,7 +279,9 @@ class ReadingProgress(Base):
     # Позиция чтения
     current_chapter: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     current_page: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    current_position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # позиция в главе
+    current_position: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )  # позиция в главе
     reading_location_cfi: Mapped[str | None] = mapped_column(
         String(500), nullable=True
     )  # CFI для epub.js (точная позиция)
@@ -265,20 +290,33 @@ class ReadingProgress(Base):
     )  # Точный % скролла внутри страницы (0-100)
 
     # Статистика чтения
-    reading_time_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reading_time_minutes: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
     reading_speed_wpm: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    last_read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    last_read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    user: Mapped["User"] = relationship("User", back_populates="reading_progress", lazy="raise")
-    book: Mapped["Book"] = relationship("Book", back_populates="reading_progress", lazy="raise")
+    user: Mapped["User"] = relationship(
+        "User", back_populates="reading_progress", lazy="raise"
+    )
+    book: Mapped["Book"] = relationship(
+        "Book", back_populates="reading_progress", lazy="raise"
+    )
 
     def __repr__(self) -> str:
         return f"<ReadingProgress(user_id={self.user_id}, book_id={self.book_id}, chapter={self.current_chapter})>"

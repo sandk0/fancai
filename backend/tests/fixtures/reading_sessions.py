@@ -15,7 +15,6 @@ from app.models.reading_session import ReadingSession
 from app.models.user import User
 from app.models.book import Book
 
-
 # ============================================================================
 # Sample Data Generators
 # ============================================================================
@@ -431,8 +430,8 @@ def sample_sessions_history():
                 "id": f"123e4567-e89b-12d3-a456-42661417400{i}",
                 "user_id": "123e4567-e89b-12d3-a456-426614174001",
                 "book_id": "123e4567-e89b-12d3-a456-426614174002",
-                "started_at": f"2025-10-28T{10+i}:00:00Z",
-                "ended_at": f"2025-10-28T{11+i}:00:00Z",
+                "started_at": f"2025-10-28T{10 + i}:00:00Z",
+                "ended_at": f"2025-10-28T{11 + i}:00:00Z",
                 "duration_minutes": 60,
                 "start_position": i * 10,
                 "end_position": i * 10 + 20,

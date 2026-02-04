@@ -11,9 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from ..models.feature_flag import FeatureFlag, FeatureFlagCategory, DEFAULT_FEATURE_FLAGS
+from ..models.feature_flag import (
+    FeatureFlag,
+    FeatureFlagCategory,
+    DEFAULT_FEATURE_FLAGS,
+)
 from ..core.database import get_database_session
-
 
 logger = logging.getLogger(__name__)
 
@@ -237,9 +240,7 @@ class FeatureFlagManager:
             await self.db.rollback()
             return None
 
-    async def get_all_flags(
-        self, category: Optional[str] = None
-    ) -> List[FeatureFlag]:
+    async def get_all_flags(self, category: Optional[str] = None) -> List[FeatureFlag]:
         """
         Получить все feature flags.
 

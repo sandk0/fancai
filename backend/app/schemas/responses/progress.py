@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from . import ReadingProgressResponse
 
-
 # ============================================================================
 # READING PROGRESS DETAIL SCHEMAS
 # ============================================================================

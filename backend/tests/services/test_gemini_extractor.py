@@ -31,7 +31,6 @@ from app.services.gemini_extractor import (
     get_gemini_extractor,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -40,7 +39,7 @@ from app.services.gemini_extractor import (
 @pytest.fixture
 def mock_genai():
     """Mock google.genai module."""
-    with patch('app.services.gemini_extractor.genai') as mock:
+    with patch("app.services.gemini_extractor.genai") as mock:
         # Mock Client
         mock_client = MagicMock()
         mock.Client.return_value = mock_client
@@ -55,7 +54,7 @@ def mock_genai():
 @pytest.fixture
 def mock_genai_import():
     """Mock google.genai import."""
-    with patch('app.services.gemini_extractor.genai') as mock_genai:
+    with patch("app.services.gemini_extractor.genai") as mock_genai:
         # Mock types module
         mock_types = MagicMock()
 
@@ -64,7 +63,7 @@ def mock_genai_import():
         mock_genai.Client.return_value = mock_client
 
         # Add types to genai module
-        with patch('app.services.gemini_extractor.types', mock_types):
+        with patch("app.services.gemini_extractor.types", mock_types):
             yield mock_genai, mock_types, mock_client
 
 
@@ -108,13 +107,13 @@ def sample_gemini_response():
             {
                 "content": "Старый замок возвышался на высоком холме, окруженный густым лесом. Его величественные башни касались облаков, а мрачные стены хранили множество тайн.",
                 "type": "location",
-                "confidence": 0.9
+                "confidence": 0.9,
             },
             {
                 "content": "Молодой князь Алексей стоял у окна. Его тёмные глаза смотрели вдаль с задумчивым выражением. Длинные чёрные волосы были собраны в хвост.",
                 "type": "character",
-                "confidence": 0.85
-            }
+                "confidence": 0.85,
+            },
         ]
     }
 
@@ -150,7 +149,7 @@ class TestGeminiDirectExtractor:
         config = GeminiConfig(api_key=None)
 
         # Act
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             extractor = GeminiDirectExtractor(config)
 
         # Assert
@@ -160,7 +159,10 @@ class TestGeminiDirectExtractor:
     async def test_initialization_import_error(self, sample_config):
         """Test initialization handles import errors gracefully."""
         # Arrange
-        with patch('app.services.gemini_extractor.genai', side_effect=ImportError("Module not found")):
+        with patch(
+            "app.services.gemini_extractor.genai",
+            side_effect=ImportError("Module not found"),
+        ):
             # Act
             extractor = GeminiDirectExtractor(sample_config)
 
@@ -168,7 +170,9 @@ class TestGeminiDirectExtractor:
             assert extractor.is_available() is False
 
     @pytest.mark.asyncio
-    async def test_extract_success(self, sample_config, sample_text, sample_gemini_response, mock_genai):
+    async def test_extract_success(
+        self, sample_config, sample_text, sample_gemini_response, mock_genai
+    ):
         """Test successful description extraction."""
         # Arrange
         mock_client = MagicMock()
@@ -177,6 +181,7 @@ class TestGeminiDirectExtractor:
         # Mock response
         mock_response = MagicMock()
         import json
+
         descriptions_json = json.dumps(sample_gemini_response["descriptions"])
         mock_response.text = f'```json\n{{"descriptions": {descriptions_json}}}\n```'
 
@@ -185,7 +190,7 @@ class TestGeminiDirectExtractor:
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
@@ -195,7 +200,11 @@ class TestGeminiDirectExtractor:
         assert len(result) > 0
         assert isinstance(result[0], ExtractedDescription)
         assert result[0].content is not None
-        assert result[0].description_type in [DescriptionType.LOCATION, DescriptionType.CHARACTER, DescriptionType.ATMOSPHERE]
+        assert result[0].description_type in [
+            DescriptionType.LOCATION,
+            DescriptionType.CHARACTER,
+            DescriptionType.ATMOSPHERE,
+        ]
 
     @pytest.mark.asyncio
     async def test_extract_text_too_short(self, sample_config, mock_genai):
@@ -217,7 +226,7 @@ class TestGeminiDirectExtractor:
     async def test_extract_not_available(self, sample_config):
         """Test extraction returns empty list when extractor is not available."""
         # Arrange
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):
             config = GeminiConfig(api_key=None)
             extractor = GeminiDirectExtractor(config)
 
@@ -235,18 +244,24 @@ class TestGeminiDirectExtractor:
         mock_genai.Client.return_value = mock_client
 
         # Create long text
-        long_text = "Параграф текста. " * 500  # ~8000 chars, should create multiple chunks
+        long_text = (
+            "Параграф текста. " * 500
+        )  # ~8000 chars, should create multiple chunks
 
         # Mock response
         mock_response = MagicMock()
-        mock_response.text = '{"descriptions": [{"content": "' + "A" * 150 + '", "type": "location", "confidence": 0.8}]}'
+        mock_response.text = (
+            '{"descriptions": [{"content": "'
+            + "A" * 150
+            + '", "type": "location", "confidence": 0.8}]}'
+        )
 
         mock_client.models.generate_content.return_value = mock_response
 
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
@@ -271,11 +286,13 @@ class TestGeminiDirectExtractor:
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0
@@ -289,16 +306,20 @@ class TestGeminiDirectExtractor:
         mock_genai.Client.return_value = mock_client
 
         # Mock API error
-        mock_client.models.generate_content.side_effect = Exception("API Error: Rate limit exceeded")
+        mock_client.models.generate_content.side_effect = Exception(
+            "API Error: Rate limit exceeded"
+        )
 
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0
@@ -321,7 +342,11 @@ class TestGeminiDirectExtractor:
                 raise Exception("Temporary error")
 
             mock_resp = MagicMock()
-            mock_resp.text = '{"descriptions": [{"content": "' + "A" * 150 + '", "type": "location", "confidence": 0.8}]}'
+            mock_resp.text = (
+                '{"descriptions": [{"content": "'
+                + "A" * 150
+                + '", "type": "location", "confidence": 0.8}]}'
+            )
             return mock_resp
 
         mock_client.models.generate_content.side_effect = generate_with_retry
@@ -329,11 +354,13 @@ class TestGeminiDirectExtractor:
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) > 0
@@ -348,7 +375,11 @@ class TestGeminiDirectExtractor:
 
         # Mock response with low confidence
         mock_response = MagicMock()
-        mock_response.text = '{"descriptions": [{"content": "' + "A" * 150 + '", "type": "location", "confidence": 0.3}]}'
+        mock_response.text = (
+            '{"descriptions": [{"content": "'
+            + "A" * 150
+            + '", "type": "location", "confidence": 0.3}]}'
+        )
 
         mock_client.models.generate_content.return_value = mock_response
 
@@ -356,11 +387,13 @@ class TestGeminiDirectExtractor:
         extractor.config.min_confidence = 0.6
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0  # Should be filtered out
@@ -381,11 +414,13 @@ class TestGeminiDirectExtractor:
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0  # Should be filtered out for being too short
@@ -399,19 +434,19 @@ class TestGeminiDirectExtractor:
                 content="Старый замок на холме",
                 description_type=DescriptionType.LOCATION,
                 confidence=0.9,
-                position=0
+                position=0,
             ),
             ExtractedDescription(
                 content="Старый замок на холме",  # Duplicate
                 description_type=DescriptionType.LOCATION,
                 confidence=0.85,
-                position=100
+                position=100,
             ),
             ExtractedDescription(
                 content="Молодой князь",
                 description_type=DescriptionType.CHARACTER,
                 confidence=0.8,
-                position=200
+                position=200,
             ),
         ]
 
@@ -464,7 +499,7 @@ class TestExtractedDescription:
             entities=[{"name": "замок", "type": "building"}],
             attributes={"size": "большой"},
             position=100,
-            source_span=(100, 200)
+            source_span=(100, 200),
         )
 
         # Act
@@ -485,7 +520,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 300,  # 300 chars - optimal length
             description_type=DescriptionType.LOCATION,
-            confidence=0.9
+            confidence=0.9,
         )
 
         # Act
@@ -500,7 +535,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 150,
             description_type=DescriptionType.CHARACTER,
-            confidence=0.8
+            confidence=0.8,
         )
 
         # Act
@@ -515,7 +550,7 @@ class TestExtractedDescription:
         desc = ExtractedDescription(
             content="A" * 100,
             description_type=DescriptionType.ATMOSPHERE,
-            confidence=0.7
+            confidence=0.7,
         )
 
         # Act
@@ -558,7 +593,9 @@ class TestRecursiveTextChunker:
         # Assert
         assert len(chunks) > 1
         for chunk in chunks:
-            assert len(chunk["text"]) <= sample_config.max_chunk_chars + 1000  # Allow for overlap
+            assert (
+                len(chunk["text"]) <= sample_config.max_chunk_chars + 1000
+            )  # Allow for overlap
 
     def test_chunk_overlap(self, sample_config):
         """Test that chunks have overlap."""
@@ -612,7 +649,9 @@ class TestJSONResponseParser:
     def test_parse_json_in_markdown_block(self):
         """Test parsing JSON wrapped in markdown code block."""
         # Arrange
-        response = '```json\n{"descriptions": [{"content": "test", "type": "location"}]}\n```'
+        response = (
+            '```json\n{"descriptions": [{"content": "test", "type": "location"}]}\n```'
+        )
 
         # Act
         result = JSONResponseParser.parse(response)
@@ -636,7 +675,7 @@ class TestJSONResponseParser:
     def test_parse_invalid_json(self):
         """Test parsing invalid JSON returns empty result."""
         # Arrange
-        response = 'This is not JSON at all'
+        response = "This is not JSON at all"
 
         # Act
         result = JSONResponseParser.parse(response)
@@ -684,6 +723,7 @@ class TestSingleton:
 
         # Reset singleton
         import app.services.gemini_extractor as gem_module
+
         gem_module._extractor = None
 
         config = GeminiConfig(api_key="test_key")
@@ -719,11 +759,13 @@ class TestEdgeCases:
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0
@@ -737,18 +779,22 @@ class TestEdgeCases:
 
         # Missing required fields
         mock_response = MagicMock()
-        mock_response.text = '{"descriptions": [{"type": "location"}]}'  # Missing content
+        mock_response.text = (
+            '{"descriptions": [{"type": "location"}]}'  # Missing content
+        )
 
         mock_client.models.generate_content.return_value = mock_response
 
         extractor = GeminiDirectExtractor(sample_config)
 
         # Mock types
-        with patch.object(extractor, '_types') as mock_types:
+        with patch.object(extractor, "_types") as mock_types:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract("Some text here that is long enough to process and extract descriptions from")
+            result = await extractor.extract(
+                "Some text here that is long enough to process and extract descriptions from"
+            )
 
         # Assert
         assert len(result) == 0  # Should skip malformed descriptions
@@ -756,11 +802,7 @@ class TestEdgeCases:
     def test_invalid_description_type(self):
         """Test handling of invalid description type."""
         # Arrange
-        desc_data = {
-            "content": "A" * 150,
-            "type": "invalid_type",
-            "confidence": 0.8
-        }
+        desc_data = {"content": "A" * 150, "type": "invalid_type", "confidence": 0.8}
 
         # Act - should default to LOCATION
         try:
@@ -777,7 +819,7 @@ class TestEdgeCases:
         desc = ExtractedDescription(
             content="Test",
             description_type=DescriptionType.LOCATION,
-            confidence=1.5  # Invalid high value
+            confidence=1.5,  # Invalid high value
         )
 
         # Act - should be clamped in actual implementation

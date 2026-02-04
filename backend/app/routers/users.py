@@ -33,7 +33,6 @@ from ..schemas.responses.users import (
     SystemHealth,
 )
 
-
 router = APIRouter()
 
 
@@ -64,14 +63,12 @@ async def test_database_connection(
 
         # Проверим, что таблицы созданы
         result = await db.execute(
-            text(
-                """
+            text("""
             SELECT COUNT(*) as table_count
             FROM information_schema.tables
             WHERE table_schema = 'public'
             AND table_name IN ('users', 'books', 'chapters', 'descriptions', 'generated_images')
-        """
-            )
+        """)
         )
         table_count_row = result.fetchone()
         table_count = table_count_row[0] if table_count_row else 0
@@ -263,6 +260,7 @@ async def list_all_users(
     total = total_count.scalar()
 
     from sqlalchemy.orm import selectinload
+
     users_result = await db.execute(
         select(User)
         .options(selectinload(User.subscription))
@@ -271,7 +269,7 @@ async def list_all_users(
         .limit(limit)
     )
     users = users_result.scalars().all()
-    
+
     user_ids = [user.id for user in users]
     books_counts_result = await db.execute(
         select(Book.user_id, func.count(Book.id).label("count"))
@@ -295,9 +293,7 @@ async def list_all_users(
                 is_admin=user.is_admin,
                 created_at=user.created_at.isoformat(),
                 last_login=user.last_login.isoformat() if user.last_login else None,
-                subscription_plan=(
-                    subscription.plan.value if subscription else "free"
-                ),
+                subscription_plan=(subscription.plan.value if subscription else "free"),
                 total_books=total_books,
             )
         )
@@ -371,9 +367,7 @@ async def get_admin_statistics(
         },
         system_health=SystemHealth(
             status="healthy",
-            avg_books_per_user=round(
-                total_books_count / max(total_users_count, 1), 2
-            ),
+            avg_books_per_user=round(total_books_count / max(total_users_count, 1), 2),
             avg_descriptions_per_book=0,  # DEPRECATED
         ),
     )

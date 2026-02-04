@@ -17,7 +17,9 @@ class TestReadingProgressRouter:
         """Test getting progress without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/progress")
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_update_progress_unauthorized(self, client: AsyncClient):
@@ -26,7 +28,9 @@ class TestReadingProgressRouter:
         response = await client.post(
             f"/api/v1/books/{book_id}/progress", json={"current_chapter": 1}
         )
-        assert response.status_code == 403  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert (
+            response.status_code == 403
+        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_get_progress_book_not_found(
@@ -108,7 +112,10 @@ class TestReadingProgressBackwardCompatibility:
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/progress")
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [403, 404]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code in [
+            403,
+            404,
+        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_progress_post_endpoint_accessible(self, client: AsyncClient):
@@ -118,7 +125,10 @@ class TestReadingProgressBackwardCompatibility:
             f"/api/v1/books/{book_id}/progress", json={"current_chapter": 1}
         )
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [403, 404]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code in [
+            403,
+            404,
+        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
 
     @pytest.mark.asyncio
     async def test_progress_supports_cfi(

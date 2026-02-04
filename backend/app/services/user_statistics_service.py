@@ -329,9 +329,9 @@ class UserStatisticsService:
                         (
                             and_(
                                 ReadingProgress.reading_location_cfi.isnot(None),
-                                ReadingProgress.current_position >= 95
+                                ReadingProgress.current_position >= 95,
                             ),
-                            Book.id
+                            Book.id,
                         ),
                         # Legacy mode: completed (>= 95%)
                         # progress = ((current_chapter - 1) + current_position/100) / total_chapters * 100
@@ -342,12 +342,14 @@ class UserStatisticsService:
                                 (
                                     (
                                         cast(ReadingProgress.current_chapter - 1, Float)
-                                        + cast(ReadingProgress.current_position, Float) / 100.0
+                                        + cast(ReadingProgress.current_position, Float)
+                                        / 100.0
                                     )
                                     / cast(chapter_counts.c.chapter_count, Float)
-                                ) >= 0.95
+                                )
+                                >= 0.95,
                             ),
-                            Book.id
+                            Book.id,
                         ),
                     )
                 ).label("completed"),
@@ -358,9 +360,9 @@ class UserStatisticsService:
                             and_(
                                 ReadingProgress.reading_location_cfi.isnot(None),
                                 ReadingProgress.current_position > 0,
-                                ReadingProgress.current_position < 95
+                                ReadingProgress.current_position < 95,
                             ),
-                            Book.id
+                            Book.id,
                         ),
                         # Legacy mode: in_progress (0 < progress < 95)
                         (
@@ -370,37 +372,44 @@ class UserStatisticsService:
                                 (
                                     (
                                         cast(ReadingProgress.current_chapter - 1, Float)
-                                        + cast(ReadingProgress.current_position, Float) / 100.0
+                                        + cast(ReadingProgress.current_position, Float)
+                                        / 100.0
                                     )
                                     / cast(chapter_counts.c.chapter_count, Float)
-                                ) > 0,
+                                )
+                                > 0,
                                 (
                                     (
                                         cast(ReadingProgress.current_chapter - 1, Float)
-                                        + cast(ReadingProgress.current_position, Float) / 100.0
+                                        + cast(ReadingProgress.current_position, Float)
+                                        / 100.0
                                     )
                                     / cast(chapter_counts.c.chapter_count, Float)
-                                ) < 0.95
+                                )
+                                < 0.95,
                             ),
-                            Book.id
+                            Book.id,
                         ),
                         # Legacy mode: in_progress fallback (no chapters but current_chapter > 1)
                         (
                             and_(
                                 ReadingProgress.reading_location_cfi.is_(None),
                                 func.coalesce(chapter_counts.c.chapter_count, 0) == 0,
-                                ReadingProgress.current_chapter > 1
+                                ReadingProgress.current_chapter > 1,
                             ),
-                            Book.id
+                            Book.id,
                         ),
                     )
                 ).label("in_progress"),
             )
             .select_from(Book)
-            .join(ReadingProgress, and_(
-                ReadingProgress.book_id == Book.id,
-                ReadingProgress.user_id == user_id
-            ))
+            .join(
+                ReadingProgress,
+                and_(
+                    ReadingProgress.book_id == Book.id,
+                    ReadingProgress.user_id == user_id,
+                ),
+            )
             .outerjoin(chapter_counts, chapter_counts.c.book_id == Book.id)
             .where(Book.user_id == user_id)
         )
@@ -512,9 +521,7 @@ class UserStatisticsService:
         """
         # Используем GREATEST для защиты от отрицательных значений
         query = select(
-            func.sum(
-                func.greatest(ReadingProgress.current_chapter - 1, 0)
-            )
+            func.sum(func.greatest(ReadingProgress.current_chapter - 1, 0))
         ).where(ReadingProgress.user_id == user_id)
 
         result = await db.execute(query)
@@ -596,9 +603,7 @@ class UserStatisticsService:
         return {"current": current_streak, "longest": longest_streak}
 
     @staticmethod
-    async def get_monthly_statistics(
-        db: AsyncSession, user_id: UUID
-    ) -> Dict[str, int]:
+    async def get_monthly_statistics(db: AsyncSession, user_id: UUID) -> Dict[str, int]:
         """
         Возвращает статистику чтения за текущий месяц.
 
@@ -623,9 +628,7 @@ class UserStatisticsService:
 
         # 1. Время чтения за этот месяц (из reading_sessions)
         # Фильтруем аномальные сессии (> MAX_VALID_SESSION_DURATION)
-        reading_time_query = select(
-            func.sum(ReadingSession.duration_minutes)
-        ).where(
+        reading_time_query = select(func.sum(ReadingSession.duration_minutes)).where(
             ReadingSession.user_id == user_id,
             ReadingSession.started_at >= start_of_month,
             ReadingSession.is_active == False,  # noqa: E712
@@ -635,9 +638,7 @@ class UserStatisticsService:
         reading_time_this_month = int(reading_time_result.scalar() or 0)
 
         # 2. Количество уникальных книг с активностью в этом месяце
-        books_query = select(
-            func.count(func.distinct(ReadingSession.book_id))
-        ).where(
+        books_query = select(func.count(func.distinct(ReadingSession.book_id))).where(
             ReadingSession.user_id == user_id,
             ReadingSession.started_at >= start_of_month,
         )
@@ -736,7 +737,9 @@ class UserStatisticsService:
                 logger.warning(f"Redis GET error for user stats {user_id}: {e}")
 
         # Cache miss or error - compute from database
-        logger.debug(f"User statistics cache MISS for user {user_id}, computing from DB")
+        logger.debug(
+            f"User statistics cache MISS for user {user_id}, computing from DB"
+        )
         stats = await UserStatisticsService._compute_all_statistics(db, user_id)
 
         # Try to cache the result
@@ -771,9 +774,7 @@ class UserStatisticsService:
             Dictionary with all reading statistics
         """
         # Get books count by status
-        books_stats = await UserStatisticsService.get_books_count_by_status(
-            db, user_id
-        )
+        books_stats = await UserStatisticsService.get_books_count_by_status(db, user_id)
 
         # Total reading time
         total_reading_time = await UserStatisticsService.get_total_reading_time(
@@ -807,8 +808,8 @@ class UserStatisticsService:
         )
 
         # Average reading time per day
-        avg_minutes_per_day = await UserStatisticsService.get_average_reading_time_per_day(
-            db, user_id
+        avg_minutes_per_day = (
+            await UserStatisticsService.get_average_reading_time_per_day(db, user_id)
         )
 
         # Monthly statistics

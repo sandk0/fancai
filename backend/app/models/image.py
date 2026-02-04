@@ -93,9 +93,15 @@ class GeneratedImage(Base):
     )
 
     # Результат генерации
-    image_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # URL от сервиса
-    local_path: Mapped[str | None] = mapped_column(String(1000), nullable=True, index=True)  # Локальный путь
-    prompt_used: Mapped[str] = mapped_column(Text, nullable=False)  # Использованный промпт
+    image_url: Mapped[str | None] = mapped_column(
+        String(2000), nullable=True
+    )  # URL от сервиса
+    local_path: Mapped[str | None] = mapped_column(
+        String(1000), nullable=True, index=True
+    )  # Локальный путь
+    prompt_used: Mapped[str] = mapped_column(
+        Text, nullable=False
+    )  # Использованный промпт
 
     # Параметры генерации
     generation_parameters: Mapped[dict[str, Any] | None] = mapped_column(
@@ -104,10 +110,14 @@ class GeneratedImage(Base):
     generation_time_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Информация о файле
-    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)  # размер в байтах
+    file_size: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # размер в байтах
     image_width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_height: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    file_format: Mapped[str | None] = mapped_column(String(10), nullable=True)  # jpg, png, webp
+    file_format: Mapped[str | None] = mapped_column(
+        String(10), nullable=True
+    )  # jpg, png, webp
 
     # Качество и модерация
     quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0.0-1.0
@@ -126,17 +136,30 @@ class GeneratedImage(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Временные метки
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Отношения
     # lazy="raise" предотвращает случайные N+1 queries - требует явного eager loading
-    description: Mapped["Description"] = relationship("Description", back_populates="generated_images", lazy="raise")
-    chapter: Mapped["Chapter | None"] = relationship("Chapter", back_populates="generated_images", lazy="raise")
-    user: Mapped["User"] = relationship("User", back_populates="generated_images", lazy="raise")
+    description: Mapped["Description"] = relationship(
+        "Description", back_populates="generated_images", lazy="raise"
+    )
+    chapter: Mapped["Chapter | None"] = relationship(
+        "Chapter", back_populates="generated_images", lazy="raise"
+    )
+    user: Mapped["User"] = relationship(
+        "User", back_populates="generated_images", lazy="raise"
+    )
 
     def __repr__(self) -> str:
         return f"<GeneratedImage(id={self.id}, service={self.service_used}, status={self.status})>"
