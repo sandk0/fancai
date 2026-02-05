@@ -321,13 +321,15 @@ export function useBookProgressWS({
 
         lastProgressTime.current = Date.now();
 
-        const NO_PROGRESS_TIMEOUT_MS = 90000;
+        const BASE_TIMEOUT_MS = 90000;
+        const FINALIZATION_TIMEOUT_MS = 600000;
         const CHECK_INTERVAL_MS = 10000;
 
         const checkNoProgress = () => {
+            const timeoutMs = progress >= 80 ? FINALIZATION_TIMEOUT_MS : BASE_TIMEOUT_MS;
             const timeSinceLastProgress = Date.now() - lastProgressTime.current;
-            if (timeSinceLastProgress > NO_PROGRESS_TIMEOUT_MS && progress < 100) {
-                logger.warn('[useBookProgressWS] No progress for 90s, closing overlay');
+            if (timeSinceLastProgress > timeoutMs && progress < 100) {
+                logger.warn(`[useBookProgressWS] No progress for ${timeoutMs / 1000}s (at ${progress}%), closing overlay`);
                 onErrorRef.current?.('Processing timeout: no progress received');
                 disconnect();
             }
