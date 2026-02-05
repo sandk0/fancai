@@ -132,8 +132,13 @@ export function useBookProcessing(book: Book): UseBookProcessingResult {
         onSuccess: () => {
             invalidateQueries();
         },
-        onError: () => {
-            // Rollback - assume still processing
+        onError: (error) => {
+            const status = (error as { response?: { status?: number } })?.response?.status;
+            if (status === 400) {
+                // 400 = book is already not processing, treat as success
+                invalidateQueries();
+                return;
+            }
             optimisticUpdate({
                 is_processing: true,
             });
