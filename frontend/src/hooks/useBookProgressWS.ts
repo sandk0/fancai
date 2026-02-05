@@ -319,13 +319,15 @@ export function useBookProgressWS({
     useEffect(() => {
         if (!enabled) return;
 
-        const NO_PROGRESS_TIMEOUT_MS = 30000;
-        const CHECK_INTERVAL_MS = 5000;
+        lastProgressTime.current = Date.now();
+
+        const NO_PROGRESS_TIMEOUT_MS = 90000;
+        const CHECK_INTERVAL_MS = 10000;
 
         const checkNoProgress = () => {
             const timeSinceLastProgress = Date.now() - lastProgressTime.current;
             if (timeSinceLastProgress > NO_PROGRESS_TIMEOUT_MS && progress < 100) {
-                logger.warn('[useBookProgressWS] No progress for 30s, closing overlay');
+                logger.warn('[useBookProgressWS] No progress for 90s, closing overlay');
                 onErrorRef.current?.('Processing timeout: no progress received');
                 disconnect();
             }
