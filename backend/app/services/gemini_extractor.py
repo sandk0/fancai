@@ -21,6 +21,7 @@ import time
 import logging
 import asyncio
 import hashlib
+import json
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
@@ -815,10 +816,22 @@ class GeminiDirectExtractor:
             record_llm_request(model_name, "success", duration)
 
             if hasattr(response, "parsed") and response.parsed:
-                return response.parsed
+                parsed = response.parsed
+                # Unwrap 'data' key if Gemini SDK wraps the response
+                if isinstance(parsed, dict) and "data" in parsed:
+                    parsed = parsed["data"]
+                if isinstance(parsed, GeminiTSAResponseSchema):
+                    return parsed
+                return GeminiTSAResponseSchema.model_validate(parsed)
 
             text = response.text if hasattr(response, "text") else str(response)
-            return GeminiTSAResponseSchema.model_validate_json(text)
+            try:
+                data = json.loads(text)
+                if isinstance(data, dict) and "data" in data:
+                    data = data["data"]
+                return GeminiTSAResponseSchema.model_validate(data)
+            except json.JSONDecodeError:
+                return GeminiTSAResponseSchema.model_validate_json(text)
 
         except asyncio.TimeoutError as e:
             duration = time.time() - start_time
