@@ -44,7 +44,7 @@ from app.monitoring.metrics import (
     record_llm_cache_hit,
     record_llm_cache_miss,
 )
-from app.core.json_utils import parse_model_safe
+from app.core.json_utils import clean_json_text
 from app.services.llm_cache_service import llm_cache, ChapterCacheKey
 from pydantic import BaseModel, Field
 
@@ -748,16 +748,31 @@ class GeminiDirectExtractor:
             record_llm_request(model_name, "success", duration)
 
             if hasattr(response, "parsed") and response.parsed:
-                logger.debug(
-                    "Gemini structured response received and parsed successfully"
-                )
-                return response.parsed
+                parsed = response.parsed
+                if isinstance(parsed, dict) and "data" in parsed:
+                    logger.warning("Unwrapping 'data' key from Gemini legacy response")
+                    parsed = parsed["data"]
+                if isinstance(parsed, GeminiResponseSchema):
+                    return parsed
+                return GeminiResponseSchema.model_validate(parsed)
 
             text = response.text if hasattr(response, "text") else str(response)
             logger.warning(
                 "Gemini returned text instead of parsed object, parsing manually"
             )
-            return parse_model_safe(text, GeminiResponseSchema)
+            cleaned = clean_json_text(text)
+            try:
+                data = json.loads(cleaned)
+                if isinstance(data, dict) and "data" in data:
+                    logger.warning(
+                        "Unwrapping 'data' key from Gemini legacy text response"
+                    )
+                    data = data["data"]
+                return GeminiResponseSchema.model_validate(data)
+            except json.JSONDecodeError as e:
+                raise LLMExtractionError(
+                    f"Gemini legacy returned invalid JSON: {cleaned[:200]}"
+                ) from e
 
         except asyncio.TimeoutError as e:
             duration = time.time() - start_time
@@ -817,21 +832,27 @@ class GeminiDirectExtractor:
 
             if hasattr(response, "parsed") and response.parsed:
                 parsed = response.parsed
-                # Unwrap 'data' key if Gemini SDK wraps the response
                 if isinstance(parsed, dict) and "data" in parsed:
+                    logger.warning("Unwrapping 'data' key from Gemini TSA response")
                     parsed = parsed["data"]
                 if isinstance(parsed, GeminiTSAResponseSchema):
                     return parsed
                 return GeminiTSAResponseSchema.model_validate(parsed)
 
             text = response.text if hasattr(response, "text") else str(response)
+            cleaned = clean_json_text(text)
             try:
-                data = json.loads(text)
+                data = json.loads(cleaned)
                 if isinstance(data, dict) and "data" in data:
+                    logger.warning(
+                        "Unwrapping 'data' key from Gemini TSA text response"
+                    )
                     data = data["data"]
                 return GeminiTSAResponseSchema.model_validate(data)
-            except json.JSONDecodeError:
-                return GeminiTSAResponseSchema.model_validate_json(text)
+            except json.JSONDecodeError as e:
+                raise LLMExtractionError(
+                    f"Gemini TSA returned invalid JSON: {cleaned[:200]}"
+                ) from e
 
         except asyncio.TimeoutError as e:
             duration = time.time() - start_time
