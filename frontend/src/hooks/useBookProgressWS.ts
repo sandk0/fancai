@@ -96,6 +96,8 @@ export function useBookProgressWS({
     const reconnectAttempts = useRef(0);
     const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
     const pingInterval = useRef<NodeJS.Timeout | null>(null);
+    const noProgressTimeout = useRef<NodeJS.Timeout | null>(null);
+    const lastProgressTime = useRef<number>(Date.now());
 
     const onProgressRef = useRef(onProgress);
     const onCompleteRef = useRef(onComplete);
@@ -146,6 +148,10 @@ export function useBookProgressWS({
         if (pingInterval.current) {
             clearInterval(pingInterval.current);
             pingInterval.current = null;
+        }
+        if (noProgressTimeout.current) {
+            clearTimeout(noProgressTimeout.current);
+            noProgressTimeout.current = null;
         }
         if (wsRef.current) {
             wsRef.current.close();
@@ -202,6 +208,7 @@ export function useBookProgressWS({
                             setCurrentChapter(data.chapter || 0);
                             setTotalChapters(data.total_chapters || 0);
                             setMessage(data.message || '');
+                            lastProgressTime.current = Date.now();
                             onProgressRef.current?.(data);
                             break;
 
@@ -280,11 +287,13 @@ export function useBookProgressWS({
                         if (data.chapter) setCurrentChapter(data.chapter);
                         if (data.total_chapters) setTotalChapters(data.total_chapters);
 
-                        // CRITICAL FIX: Close overlay if processing is done or not started
-                        if (data.status === 'completed' || data.status === 'not_started') {
-                            if (data.status === 'completed') setProgress(100);
+                        // Race condition fix: see docs/plans/parsing-overlay-bug-report-2026-02-05.md
+                        if (data.status === 'completed') {
+                            setProgress(100);
                             onCompleteRef.current?.();
                             disconnect();
+                        } else if (data.progress > 0) {
+                            lastProgressTime.current = Date.now();
                         }
                     }
                 } catch (e) {
@@ -306,6 +315,31 @@ export function useBookProgressWS({
             return () => clearTimeout(disconnectTimer);
         }
     }, [enabled, bookId, isAuthenticated, connect, disconnect]);
+
+    useEffect(() => {
+        if (!enabled) return;
+
+        const NO_PROGRESS_TIMEOUT_MS = 30000;
+        const CHECK_INTERVAL_MS = 5000;
+
+        const checkNoProgress = () => {
+            const timeSinceLastProgress = Date.now() - lastProgressTime.current;
+            if (timeSinceLastProgress > NO_PROGRESS_TIMEOUT_MS && progress < 100) {
+                logger.warn('[useBookProgressWS] No progress for 30s, closing overlay');
+                onErrorRef.current?.('Processing timeout: no progress received');
+                disconnect();
+            }
+        };
+
+        noProgressTimeout.current = setInterval(checkNoProgress, CHECK_INTERVAL_MS) as unknown as NodeJS.Timeout;
+
+        return () => {
+            if (noProgressTimeout.current) {
+                clearInterval(noProgressTimeout.current);
+                noProgressTimeout.current = null;
+            }
+        };
+    }, [enabled, progress, disconnect]);
 
     return {
         status,
