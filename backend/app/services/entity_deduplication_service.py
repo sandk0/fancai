@@ -9,7 +9,8 @@ EC-1.2: LLM Entity Alias Merging
 """
 
 import logging
-from typing import List, Optional
+from collections import defaultdict
+from typing import Dict, List, Optional
 from uuid import UUID
 from dataclasses import dataclass
 
@@ -18,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.entity import Entity
+from app.models.entity_mention import EntityMention
+from app.models.chapter import Chapter
 from app.core.retry import retry_llm_extraction
 from app.monitoring.metrics import record_llm_request, record_llm_error
 
@@ -31,6 +34,7 @@ class EntityForAnalysis(BaseModel):
     visual_summary: Optional[str] = None
     aliases: List[str] = Field(default_factory=list)
     importance: int = 5
+    chapters: List[int] = Field(default_factory=list)
 
 
 class MergeGroup(BaseModel):
@@ -90,7 +94,10 @@ class EntityDeduplicationService:
             logger.info(f"[EntityDedup] Less than 2 entities, nothing to deduplicate")
             return DeduplicationResponse(no_duplicates_found=True)
 
-        entities_for_analysis = self._prepare_entities(entities)
+        # Load chapter numbers for each entity via mentions
+        entity_chapters = await self._load_entity_chapters(book_id)
+
+        entities_for_analysis = self._prepare_entities(entities, entity_chapters)
 
         try:
             response = await self._call_gemini(entities_for_analysis)
@@ -111,7 +118,31 @@ class EntityDeduplicationService:
         )
         return list(result.scalars().all())
 
-    def _prepare_entities(self, entities: List[Entity]) -> List[EntityForAnalysis]:
+    async def _load_entity_chapters(self, book_id: UUID) -> Dict[str, List[int]]:
+        """Load chapter numbers where each entity is mentioned."""
+        result = await self.db.execute(
+            select(EntityMention.entity_id, Chapter.chapter_number)
+            .join(Chapter, EntityMention.chapter_id == Chapter.id)
+            .where(Chapter.book_id == book_id)
+        )
+        rows = result.all()
+
+        entity_chapters: Dict[str, List[int]] = defaultdict(list)
+        for entity_id, chapter_number in rows:
+            entity_chapters[str(entity_id)].append(chapter_number)
+
+        # Deduplicate and sort chapter numbers
+        for entity_id in entity_chapters:
+            entity_chapters[entity_id] = sorted(set(entity_chapters[entity_id]))
+
+        return dict(entity_chapters)
+
+    def _prepare_entities(
+        self,
+        entities: List[Entity],
+        entity_chapters: Optional[Dict[str, List[int]]] = None,
+    ) -> List[EntityForAnalysis]:
+        entity_chapters = entity_chapters or {}
         result = []
         for e in entities:
             aliases = []
@@ -126,6 +157,7 @@ class EntityDeduplicationService:
                     visual_summary=e.visual_summary,
                     aliases=aliases,
                     importance=e.importance or 5,
+                    chapters=entity_chapters.get(str(e.id), []),
                 )
             )
         return result
@@ -146,7 +178,8 @@ class EntityDeduplicationService:
         entities_json = "\n".join(
             [
                 f'- ID: {e.id}, Name: "{e.name}", Type: {e.type}, '
-                f'Aliases: {e.aliases}, Visual: "{e.visual_summary or "N/A"}", '
+                f"Aliases: {e.aliases}, Chapters: {e.chapters}, "
+                f'Visual: "{e.visual_summary or "N/A"}", '
                 f"Importance: {e.importance}"
                 for e in entities
             ]

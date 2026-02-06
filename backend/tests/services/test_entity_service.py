@@ -68,6 +68,7 @@ class TestEntityServiceBuildNetworkResponse:
             cfi_mentions_map={},
             offset_mentions_map={},
             entity_to_descriptions={},
+            description_cfi_map={},
         )
         assert response.entities == {}
         assert response.edges == []
@@ -84,6 +85,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity.importance = 10
         entity.master_portrait_url = None
         entity.entity_metadata = {"aliases": []}
+        entity.first_mention_chapter = None
+        entity.aliases_with_reveal = []
 
         response = service._build_network_response(
             entities=[entity],
@@ -92,6 +95,7 @@ class TestEntityServiceBuildNetworkResponse:
             cfi_mentions_map={entity_id: ["epubcfi(/6/4!/4/2:100)"]},
             offset_mentions_map={entity_id: [100, 200, 300]},
             entity_to_descriptions={},
+            description_cfi_map={},
         )
 
         assert entity_id in response.entities
@@ -113,6 +117,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity1.importance = 10
         entity1.master_portrait_url = None
         entity1.entity_metadata = {"aliases": ["White Wolf"]}
+        entity1.first_mention_chapter = None
+        entity1.aliases_with_reveal = []
 
         entity2_id = uuid4()
         entity2 = MagicMock(spec=Entity)
@@ -123,6 +129,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.importance = 5
         entity2.master_portrait_url = None
         entity2.entity_metadata = {}
+        entity2.first_mention_chapter = None
+        entity2.aliases_with_reveal = []
 
         response = service._build_network_response(
             entities=[entity1, entity2],
@@ -131,6 +139,7 @@ class TestEntityServiceBuildNetworkResponse:
             cfi_mentions_map={},
             offset_mentions_map={},
             entity_to_descriptions={},
+            description_cfi_map={},
         )
 
         assert len(response.entities) == 1
@@ -149,6 +158,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity1.importance = 5
         entity1.master_portrait_url = None
         entity1.entity_metadata = {}
+        entity1.first_mention_chapter = None
+        entity1.aliases_with_reveal = []
 
         entity2_id = uuid4()
         entity2 = MagicMock(spec=Entity)
@@ -159,6 +170,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.importance = 5
         entity2.master_portrait_url = None
         entity2.entity_metadata = {}
+        entity2.first_mention_chapter = None
+        entity2.aliases_with_reveal = []
 
         edge = MagicMock(spec=EntityRelationship)
         edge.source_id = entity1_id
@@ -166,6 +179,7 @@ class TestEntityServiceBuildNetworkResponse:
         edge.type = "friend"
         edge.weight = 5
         edge.relationship_metadata = {"context": "They are companions"}
+        edge.first_interaction_cfi = None
 
         response = service._build_network_response(
             entities=[entity1, entity2],
@@ -174,6 +188,7 @@ class TestEntityServiceBuildNetworkResponse:
             cfi_mentions_map={},
             offset_mentions_map={},
             entity_to_descriptions={},
+            description_cfi_map={},
         )
 
         assert len(response.edges) == 1
@@ -193,6 +208,9 @@ class TestEntityServiceCreateMergedDetail:
         entity.visual_summary = "Ancient witcher fortress"
         entity.importance = 8
         entity.master_portrait_url = "http://example.com/kaer.jpg"
+        entity.first_mention_chapter = None
+        entity.aliases_with_reveal = []
+        entity.entity_metadata = {}
 
         detail = service._create_merged_detail(
             master=entity,
@@ -200,6 +218,7 @@ class TestEntityServiceCreateMergedDetail:
             hard_mentions_map={entity_id: {1, 2}},
             cfi_mentions_map={entity_id: ["epubcfi(/6/4!/4/2:100)"]},
             offset_mentions_map={entity_id: [100]},
+            description_cfi_map={},
         )
 
         assert detail.name == "Kaer Morhen"
@@ -219,11 +238,15 @@ class TestEntityServiceCreateMergedDetail:
         entity.visual_summary = None
         entity.importance = 5
         entity.master_portrait_url = None
+        entity.first_mention_chapter = None
+        entity.aliases_with_reveal = []
+        entity.entity_metadata = {}
 
         chapter = MagicMock(spec=Chapter)
         chapter.chapter_number = 3
 
         description = MagicMock(spec=Description)
+        description.id = uuid4()
         description.content = "The ancient fortress stood tall"
         description.chapter = chapter
         description.type = MagicMock()
@@ -235,6 +258,7 @@ class TestEntityServiceCreateMergedDetail:
             hard_mentions_map={},
             cfi_mentions_map={},
             offset_mentions_map={},
+            description_cfi_map={},
         )
 
         assert len(detail.notes) == 1

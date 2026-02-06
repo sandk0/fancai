@@ -106,7 +106,7 @@ English translation (visual elements only, no explanations):"""
         self.api_key = api_key
         self._client = None
         self._model = (
-            "gemini-2.0-flash-lite"  # Model Tiering: lightweight model for translation
+            "gemini-3-flash-preview"  # Model Tiering: upgraded for better translation quality
         )
         self._redis = None
         self._initialize()

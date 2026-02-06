@@ -1202,11 +1202,11 @@ class GeminiDirectExtractor:
                     break
 
                 # 2. Similarity match (SequenceMatcher)
-                # Need strictly high threshold (>0.85) to avoid false positives
+                # Threshold 0.75 catches aliases like "Гарри" vs "Гарри Поттер"
                 similarity = SequenceMatcher(
                     None, entity.name.lower(), existing.name.lower()
                 ).ratio()
-                if similarity > 0.85:
+                if similarity > 0.75:
                     is_duplicate = True
                     best_match = existing
                     break
