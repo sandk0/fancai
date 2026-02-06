@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 import { logger } from '@/lib/logger';
 
 interface Props {
@@ -104,11 +105,11 @@ class ErrorBoundary extends Component<Props, State> {
       onError(error, errorInfo);
     }
 
-    // TODO: Интеграция с error tracking сервисами
-    // if (import.meta.env.PROD) {
-    //   // Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
-    //   // LogRocket.captureException(error);
-    // }
+    // Send to Sentry in production
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
+      tags: { level, url: window.location.href },
+    });
   }
 
   /**

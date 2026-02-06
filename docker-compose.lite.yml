@@ -38,6 +38,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "127.0.0.1:5432:5432"
     networks:
       - bookreader_network
     healthcheck:
@@ -116,6 +118,10 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+      # Sentry Error Tracking
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.2}
+      - SENTRY_PROFILES_SAMPLE_RATE=${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
     volumes:
       - ./backend:/app
       - uploaded_books:/app/storage
@@ -171,6 +177,10 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+      # Sentry Error Tracking
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.2}
+      - SENTRY_PROFILES_SAMPLE_RATE=${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
     volumes:
       - ./backend:/app
       - uploaded_books:/app/storage
@@ -211,6 +221,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-bookreader_dev}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SECRET_KEY=${SECRET_KEY}
+      # Sentry Error Tracking
+      - SENTRY_DSN=${SENTRY_DSN:-}
     volumes:
       - ./backend:/app
     depends_on:
@@ -247,6 +259,8 @@ services:
         - VITE_WS_URL=${VITE_WS_URL:-/ws}
         - VITE_APP_NAME=${VITE_APP_NAME:-fancai}
         - VITE_ENVIRONMENT=${ENVIRONMENT:-production}
+        - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
+        - VITE_SENTRY_ENABLED=${VITE_SENTRY_ENABLED:-true}
     container_name: bookreader_frontend_lite
     environment:
       - NODE_ENV=production
