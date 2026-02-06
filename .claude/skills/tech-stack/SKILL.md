@@ -13,7 +13,7 @@ Web application for reading fiction with AI-generated images from book descripti
 - **State:** TanStack Query 5.90 (server), Zustand 5 (client)
 - **EPUB:** epub.js 0.3.93 with CFI navigation
 - **Styling:** Tailwind CSS 3.4, shadcn/ui
-- **Build:** Vite 6
+- **Build:** Vite 7
 
 ### Key Directories
 - `src/components/Reader/` — EPUB reader (15 files)
@@ -25,7 +25,7 @@ Web application for reading fiction with AI-generated images from book descripti
 - **Framework:** FastAPI 0.125 + Python 3.11
 - **Database:** PostgreSQL 15 + SQLAlchemy 2.0
 - **Cache:** Redis 7.4
-- **Background:** Celery 5.4
+- **Background:** Celery 5.6
 - **Migrations:** Alembic 1.14
 
 ### Key Services

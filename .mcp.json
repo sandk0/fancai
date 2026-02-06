@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@crystaldba/postgres-mcp"],
+      "env": {
+        "DATABASE_URI": "postgresql://postgres:postgres123@localhost:5432/bookreader_dev"
+      }
+    },
+    "ssh-manager": {
+      "command": "npx",
+      "args": ["-y", "@iflow-mcp/mcp-ssh-manager", "--minimal"]
+    }
+  }
+}

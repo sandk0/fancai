@@ -17,20 +17,89 @@
     "deny": [
       "Bash(rm -rf /)",
       "Bash(rm -rf ~)",
-      "Bash(dd *)"
+      "Bash(rm -rf .)",
+      "Bash(dd *)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Read(.env)",
+      "Read(.env.*)"
     ]
   },
   "mcpServers": {
-    "playwright": { "disabled": true }
+    "playwright": { "disabled": false }
   },
   "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude Code needs your attention\" with title \"fancai\" sound name \"Glass\"'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/format/format_hook.sh $CLAUDE_FILE_PATH"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format/format_hook.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '## Post-Compact Reminder\n- Project: fancai (React 19 + FastAPI + Gemini AI)\n- Entity glossary = main selling feature\n- cd frontend && npm run dev | cd backend && pytest -v\n- Commits: <type>(<scope>): <subject>\n- Always run tests before completing'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-progress.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Review the conversation. If source code files (.py, .ts, .tsx, .js, .jsx) were modified but no tests were run (pytest, npm test, vitest), respond with {\"ok\": false, \"reason\": \"Code was modified but tests were not run. Please run the relevant test suite.\"}. If only config/docs/reports were changed, or if tests were already run, or if this is a research/analysis task, respond with {\"ok\": true}."
           }
         ]
       }

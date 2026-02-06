@@ -1,173 +1,48 @@
-# CLAUDE.md
+# fancai — Fiction reader with AI illustrations and interactive book glossary
 
-Guidance for Claude Code when working with fancai repository.
+Two core AI features:
+1. **Image generation** — Gemini extracts visual descriptions, Imagen generates illustrations
+2. **Entity glossary/wiki (main feature)** — AI builds interactive encyclopedia: characters, locations, objects with spoiler-free chapter tracking
 
-## Project Overview
+Stack: React 19 + TypeScript 5.7 + Vite 7 | FastAPI + Python 3.11 + PostgreSQL + Redis + Celery
+AI: Gemini 3.0 Flash (extraction + glossary) | Imagen 4 (images)
+Production: https://fancai.ru | Deploy: `/deploy` skill
 
-**fancai** - Web application for reading fiction with AI-generated images from book descriptions.
-
-**Core Value:** LLM-powered extraction of visual descriptions + AI image generation.
-
-## Technology Stack
-
-### Frontend (`frontend/`)
-- React 19 + TypeScript 5.7, Vite 6
-- epub.js 0.3.93 (CFI navigation)
-- TanStack Query 5.90 + Zustand 5
-- Tailwind CSS 3.4 + shadcn/ui
-
-### Backend (`backend/`)
-- FastAPI 0.125 + Python 3.11
-- PostgreSQL 15 + Redis 7.4
-- Celery 5.4 + SQLAlchemy 2.0
-
-### AI Services
-- **Extraction:** Google Gemini 3.0 Flash (~$0.02/book)
-- **Generation:** Google Imagen 4 ($0.04/image)
-
-## Key Directories
-
-```
-frontend/src/
-├── components/Reader/   # EPUB reader (15 files)
-├── hooks/epub/          # EPUB hooks (22 files)
-├── hooks/api/           # TanStack Query hooks
-└── services/            # IndexedDB caching
-
-backend/app/
-├── services/            # Business logic (17+ services)
-├── routers/             # API endpoints
-└── models/              # SQLAlchemy models
-```
-
-## Development Commands
+## Commands
 
 ```bash
-# Frontend
-cd frontend && npm run dev      # Development
-cd frontend && npm test         # Tests
-cd frontend && npm run build    # Build
-
-# Backend
-cd backend && pytest -v         # Tests
-cd backend && alembic upgrade head  # Migrations
-
-# Docker
-docker-compose up -d            # Start all
-docker-compose logs -f backend  # View logs
-```
-
-## API Quick Reference
-
-```
-POST /api/v1/auth/login          # JWT auth
-GET  /api/v1/books               # List books
-POST /api/v1/books/upload        # Upload EPUB/FB2
-GET  /api/v1/chapters/{id}       # Chapter content
-GET  /api/v1/descriptions/{chapter_id}  # Descriptions
-POST /api/v1/images/generate/{description_id}  # Generate image
-```
-
-## Environment Variables
-
-```bash
-DATABASE_URL=postgresql://user:pass@localhost/bookreader
-REDIS_URL=redis://localhost:6379
-SECRET_KEY=change-in-production
-GOOGLE_API_KEY=...    # For Gemini + Imagen
+cd frontend && npm run dev          # Frontend dev server
+cd frontend && npm test             # Jest tests (prefer single files)
+cd frontend && npm run build        # Production build
+cd backend && pytest -v             # Backend tests
+cd backend && alembic upgrade head  # Run migrations
+docker compose up -d                # Start all services (NOT docker-compose)
 ```
 
 ## Code Conventions
 
-### Commits
-```
-<type>(<scope>): <subject>
-Types: feat, fix, docs, style, refactor, test, chore
-```
+- Commits: `<type>(<scope>): <subject>` — feat, fix, refactor, test, chore
+- TypeScript: functional components, TanStack Query for API, CFI for EPUB positions
+- Python: type hints, Pydantic validation, tenacity retries
+- No direct fetch() — use TanStack Query hooks
 
-### TypeScript
-- Functional components with hooks
-- TanStack Query for all API calls
-- CFI for EPUB position tracking
+## Architecture Gotchas
 
-### Python
-- Type hints required
-- Pydantic for validation
-- tenacity for retries
+- epub.js uses CFI for position tracking (not page numbers)
+- Description highlighting: 8 fallback search strategies (useDescriptionHighlighting.ts)
+- IndexedDB caches chapters offline (chapterCache.ts)
+- EpubReader.tsx — hottest file (84 changes), extract logic into hooks before editing
+- Entity system: spoiler-free, shows info only up to current reading chapter
 
-## Key Files
+## Workflow
 
-### Backend Services
-| File | Purpose |
-|------|---------|
-| `app/services/book_parser.py` | EPUB/FB2 parsing |
-| `app/services/gemini_extractor.py` | Gemini API extraction |
-| `app/services/imagen_generator.py` | Image generation |
-| `app/core/retry.py` | Exponential backoff |
-
-### Frontend
-| File | Purpose |
-|------|---------|
-| `src/components/Reader/EpubReader.tsx` | Main reader |
-| `src/hooks/epub/useDescriptionHighlighting.ts` | 9 search strategies |
-| `src/services/chapterCache.ts` | IndexedDB cache |
-
-## Theme System
-
-**CSS Variables:** `frontend/src/styles/globals.css`
-**Themes:** Light, Dark, Sepia, System
-**Hooks:** `useTheme()`, `useEpubThemes()`
-
-## iOS Mobile Fixes
-
-- `touch-action: pan-x pan-y` - disable pinch-zoom
-- `overscroll-behavior: none` - disable bounce
-- Safari gesture event prevention
-- Safe-area support for notch devices
-
-## Production
-
-- **URL:** https://fancai.ru
-- **Deploy:** `docker-compose.lite.yml`
-- **Uptime target:** >99%
-
-## Superpowers Auto-Routing
-
-При обработке задач автоматически вызывай соответствующие superpowers skills:
-
-### Триггеры на русском языке
-
-| Слова в промпте | Skill | Условие |
-|-----------------|-------|---------|
-| "баг", "ошибка", "не работает", "сломалось" | `/systematic-debugging` | Всегда |
-| "добавить функцию", "реализовать", "создать" | `/brainstorm` | Новая функциональность |
-| "план", "спецификация", "требования" | `/writing-plans` | Есть требования |
-| "проанализировать", "исследовать", "аудит" | `/research-and-analysis` | Нужен отчёт |
-| "рефакторинг", "оптимизация" | `/brainstorm` | Значительные изменения |
-| "перед коммитом", "готово к PR" | `/verification-before-completion` | Всегда |
-
-### Триггеры на английском языке
-
-| Words in prompt | Skill | Condition |
-|-----------------|-------|-----------|
-| "bug", "error", "broken", "failing" | `/systematic-debugging` | Always |
-| "add feature", "implement", "create", "build" | `/brainstorm` | New functionality |
-| "plan", "spec", "requirements" | `/writing-plans` | Has requirements |
-| "analyze", "research", "audit" | `/research-and-analysis` | Need report |
-| "refactor", "optimize" | `/brainstorm` | Significant changes |
-| "before commit", "ready for PR" | `/verification-before-completion` | Always |
-
-### Правило 1%
-
-Если есть хоть 1% вероятности, что skill применим — вызови его. Лучше вызвать и понять что не нужно, чем пропустить.
-
-### Исключения (НЕ вызывать skills)
-
-- Простые вопросы: "Что делает эта функция?"
-- Тривиальные изменения: "Исправь опечатку"
-- Чистое exploration: "Покажи структуру директории"
+- Run tests before completing any code task
+- `/clear` between unrelated tasks
+- For tech stack details: `.claude/skills/tech-stack/SKILL.md`
+- For deploy: `/deploy` skill
+- For migrations: `/db-migrate` skill
 
 ---
 
-For detailed documentation: `/docs/README.md`
-For full tech stack reference: `.claude/skills/tech-stack/SKILL.md`
+For iOS/theme/Reader rules: `.claude/rules/frontend.md`
+For skill routing: `.claude/rules/auto-routing.md`
