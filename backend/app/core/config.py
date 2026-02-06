@@ -124,11 +124,6 @@ class Settings(BaseSettings):
     METRICS_USER: str = "admin"
     METRICS_PASSWORD: str = "metrics_secure_password"  # Override via env in production
 
-    # Sentry Error Tracking
-    SENTRY_DSN: Optional[str] = None
-    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.2, ge=0.0, le=1.0, env="SENTRY_TRACES_SAMPLE_RATE")
-    SENTRY_PROFILES_SAMPLE_RATE: float = Field(default=0.1, ge=0.0, le=1.0, env="SENTRY_PROFILES_SAMPLE_RATE")
-
     # Web Push (VAPID) Configuration (January 2026)
     VAPID_PUBLIC_KEY: Optional[str] = None
     VAPID_PRIVATE_KEY: Optional[str] = None

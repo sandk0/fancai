@@ -5,7 +5,6 @@ fancai - FastAPI Main Application
 с автоматической генерацией изображений по описаниям.
 """
 
-import sentry_sdk
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,21 +14,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from datetime import datetime, timezone
 from typing import Dict, Any
-
-from .core.config import settings
-
-# ============================================================================
-# Sentry SDK Initialization (must be before FastAPI app creation)
-# ============================================================================
-if settings.SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-        profiles_sample_rate=settings.SENTRY_PROFILES_SAMPLE_RATE,
-        environment="production" if not settings.DEBUG else "development",
-        release=f"fancai-backend@{settings.APP_VERSION}",
-        send_default_pii=False,
-    )
 
 from .routers import (
     users,
@@ -45,6 +29,7 @@ from .routers import (
 )
 from .routers.admin import admin_router
 from .routers.books import books_router
+from .core.config import settings
 from .core.cache import cache_manager
 from .core.secrets import startup_secrets_check
 from .core.logging import logger

@@ -3,21 +3,9 @@ Celery configuration for fancai.
 Настройка Celery для фоновых задач.
 """
 
-import sentry_sdk
 from celery import Celery
 import os
 from app.core.config import settings
-
-# Initialize Sentry for Celery workers (if DSN configured)
-if settings.SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-        profiles_sample_rate=settings.SENTRY_PROFILES_SAMPLE_RATE,
-        environment="production" if not settings.DEBUG else "development",
-        release=f"fancai-celery@{settings.APP_VERSION}",
-        send_default_pii=False,
-    )
 
 # Create Celery instance with basic config
 celery_app = Celery(

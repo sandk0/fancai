@@ -5,8 +5,11 @@
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
     "postgres": {
-      "command": "bash",
-      "args": [".claude/scripts/pg-tunnel-mcp.sh"]
+      "command": "npx",
+      "args": ["-y", "@crystaldba/postgres-mcp"],
+      "env": {
+        "DATABASE_URI": "postgresql://postgres:postgres123@localhost:5432/bookreader_dev"
+      }
     },
     "ssh-manager": {
       "command": "npx",
