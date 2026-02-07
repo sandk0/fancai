@@ -1164,7 +1164,10 @@ git commit -m "feat(ui): add name highlighting toggle and description density co
 
 ---
 
-## Фаза 6: Интеграция и тестирование
+## Фаза 6: Интеграция и тестирование ✅ ЗАВЕРШЕНА
+
+> **Что сделано:** Интеграционные тесты synthesis pipeline (полный цикл с mock Gemini, обработка пустых entities, graceful failure, event dedup → synthesis input, progressive disclosure milestones, relationship evolution, prompt construction). Frontend: 15/15 тестовых файлов, 280 тестов ✅, build ✅. Backend тесты не запускались локально (нет Python venv, запуск в Docker при деплое).
+> **Отклонения:** docker-compose.yml нет в корне (используются deploy-specific конфиги), backend pytest нельзя запустить локально.
 
 ### Task 26: Интеграционные тесты backend
 
