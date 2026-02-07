@@ -50,6 +50,8 @@ def _make_entity(
     entity.aliases_with_reveal = (
         aliases_with_reveal if aliases_with_reveal is not None else []
     )
+    entity.biography_milestones = None
+    entity.base_role = None
     return entity
 
 
@@ -306,6 +308,7 @@ class TestEntityLocking:
             cfi_mentions_map={},
             offset_mentions_map={},
             description_cfi_map={},
+            entity_events=[],
             current_chapter=2,
         )
 
@@ -329,6 +332,7 @@ class TestEntityLocking:
             cfi_mentions_map={},
             offset_mentions_map={},
             description_cfi_map={},
+            entity_events=[],
             current_chapter=5,
         )
 
@@ -346,6 +350,7 @@ class TestEntityLocking:
             cfi_mentions_map={},
             offset_mentions_map={},
             description_cfi_map={},
+            entity_events=[],
             current_chapter=5,
         )
 

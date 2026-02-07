@@ -4,3 +4,7 @@ export { EntityDrawer } from './EntityDrawer';
 export { EntityProfile } from './EntityProfile';
 export { RelationshipCard } from './RelationshipCard';
 export { SpoilerText } from './SpoilerText';
+export { EntityEventTimeline } from './EntityEventTimeline';
+export { EntityGallery } from './EntityGallery';
+export { EntityMiniCard } from './EntityMiniCard';
+export { RecapPanel } from './RecapPanel';

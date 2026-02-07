@@ -112,6 +112,30 @@ class ConsistencyManager:
 
         return None
 
+    @staticmethod
+    def _deduplicate_events(events: list[dict]) -> list[dict]:
+        """Дедуплицирует похожие events (SequenceMatcher > 0.8), оставляя более длинный."""
+        if len(events) <= 1:
+            return events
+        result = []
+        used: set[int] = set()
+        for i, ev_a in enumerate(events):
+            if i in used:
+                continue
+            best = ev_a
+            for j, ev_b in enumerate(events[i + 1:], start=i + 1):
+                if j in used:
+                    continue
+                ratio = SequenceMatcher(
+                    None, ev_a.get("action", ""), ev_b.get("action", "")
+                ).ratio()
+                if ratio > 0.8:
+                    used.add(j)
+                    if len(ev_b.get("action", "")) > len(best.get("action", "")):
+                        best = ev_b
+            result.append(best)
+        return result
+
     async def process_chapter_analysis(
         self,
         book_id: str,

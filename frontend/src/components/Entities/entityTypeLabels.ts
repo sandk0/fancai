@@ -14,3 +14,30 @@ export const entityTypeLabels: Record<string, string> = new Proxy(
         },
     }
 );
+
+export const baseRoleLabels: Record<string, string> = {
+    protagonist: 'Главный герой',
+    antagonist: 'Антагонист',
+    supporting: 'Значимый персонаж',
+    episodic: 'Эпизодический',
+};
+
+export const relationshipTypeLabels: Record<string, string> = {
+    KINSHIP: 'Родство',
+    ALLY: 'Союзник',
+    ENEMY: 'Враг',
+    FRIEND: 'Друг',
+    MENTOR: 'Наставник',
+    STUDENT: 'Ученик',
+    ROMANCE: 'Любовь',
+    RIVAL: 'Соперник',
+};
+
+export const getBaseRoleLabel = (role: string | null | undefined): string | null => {
+    if (!role) return null;
+    return baseRoleLabels[role] || role;
+};
+
+export const getRelationshipLabel = (type: string): string => {
+    return relationshipTypeLabels[type] || type;
+};

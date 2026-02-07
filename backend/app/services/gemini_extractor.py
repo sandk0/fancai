@@ -66,6 +66,12 @@ class GeminiEntitySchema(BaseModel):
     first_mention_offset: Optional[int] = Field(
         default=None, description="Позиция (символ) первого упоминания в тексте"
     )
+    chapter_event_action: Optional[str] = Field(
+        default=None, description="Что персонаж ДЕЛАЕТ в этой главе (одно предложение, или null)"
+    )
+    chapter_event_inner: Optional[str] = Field(
+        default=None, description="Что персонаж ЧУВСТВУЕТ/ДУМАЕТ (одно предложение, или null)"
+    )
 
 
 class GeminiRelationshipSchema(BaseModel):
@@ -126,6 +132,8 @@ class ExtractedEntity:
     confidence: float = 0.0
     importance: int = 0
     first_mention_offset: Optional[int] = None
+    chapter_event_action: Optional[str] = None
+    chapter_event_inner: Optional[str] = None
 
 
 @dataclass
@@ -442,6 +450,11 @@ class GeminiDirectExtractor:
 2. ВСЕ локации с visual_summary
 3. СВЯЗИ между сущностями (source, target, type, context)
 
+## СОБЫТИЯ ГЛАВЫ (chapter events)
+Для каждой сущности укажи главное СОБЫТИЕ этой главы:
+- chapter_event_action: что персонаж ДЕЛАЕТ (одно предложение, или null если просто упоминается)
+- chapter_event_inner: что персонаж ЧУВСТВУЕТ/ДУМАЕТ (одно предложение, или null)
+
 ## QUALITY GATES
 - visual_summary < 80 символов → Дополни деталями из контекста
 - Нет описания внешности → "Внешность не описана в данном фрагменте"
@@ -470,6 +483,9 @@ class GeminiDirectExtractor:
    - Примеры: "Aragorn" → aliases: ["Strider", "Elessar", "Isildur's Heir"]
 5. Определи СВЯЗИ между сущностями.
 6. Выдели ОПИСАТЕЛЬНЫЕ ФРАГМЕНТЫ (descriptions) длиннее 80 символов.
+9. Для каждой сущности укажи главное СОБЫТИЕ этой главы:
+   - chapter_event_action: что персонаж ДЕЛАЕТ (одно предложение, или null если просто упоминается)
+   - chapter_event_inner: что персонаж ЧУВСТВУЕТ/ДУМАЕТ (одно предложение, или null)
 7. ВАЖНО: Для каждой сущности укажи "first_mention_offset" — позицию (номер символа от начала текста), где сущность ПЕРВЫЙ раз упоминается.
    - Пример: если "Геральт" впервые появляется на 150-м символе текста, то first_mention_offset: 150
 8. КРИТИЧНО для descriptions: Укажи "text_offset" — позицию (номер символа от начала текста), где начинается каждое описание.
@@ -1135,6 +1151,8 @@ class GeminiDirectExtractor:
                     confidence=confidence,
                     importance=importance,
                     first_mention_offset=first_mention_offset,
+                    chapter_event_action=item.chapter_event_action,
+                    chapter_event_inner=item.chapter_event_inner,
                 )
             )
         return entities

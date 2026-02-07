@@ -30,6 +30,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   title,
   description,
   imageId,
+  descriptionData,
   onImageRegenerated
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
@@ -198,7 +199,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         >
           <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
             <div className="flex items-start justify-between gap-2">
-              <ImageMetadata title={title} description={description} />
+              <ImageMetadata title={title} description={description} descriptionData={descriptionData} />
               <ImageControls
                 isZoomed={isZoomed}
                 isRegenerating={isRegenerating}

@@ -17,6 +17,7 @@ from .entity import Entity, EntityType
 from .entity_relationship import EntityRelationship
 from .description_entity import DescriptionEntity
 from .entity_mention import EntityMention
+from .entity_event import EntityEvent
 
 __all__ = [
     "User",
@@ -39,4 +40,5 @@ __all__ = [
     "EntityRelationship",
     "DescriptionEntity",
     "EntityMention",
+    "EntityEvent",
 ]

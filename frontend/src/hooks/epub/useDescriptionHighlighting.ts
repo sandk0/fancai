@@ -2,8 +2,10 @@ import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Rendition } from '@/types/epub';
 import type { Description, GeneratedImage } from '@/types/api';
 import { normalizeText, removeChapterHeaders, getFirstWords } from '@/utils/text-search/normalization';
-import { strategies } from '@/utils/text-search/strategies';
+import { strategies, type StrategyResult } from '@/utils/text-search/strategies';
 import { addToCache, getFromCache, type SearchPatterns } from '@/utils/text-search/cache';
+
+export type DescriptionDensity = 'all' | 'key' | 'off';
 
 interface UseDescriptionHighlightingOptions {
   rendition: Rendition | null;
@@ -11,17 +13,23 @@ interface UseDescriptionHighlightingOptions {
   images: GeneratedImage[];
   onDescriptionClick: (description: Description, image?: GeneratedImage) => void;
   enabled?: boolean;
+  density?: DescriptionDensity;
 }
 
-const getHighlightColors = () => {
-  if (typeof window === 'undefined') return { bg: 'rgba(96,165,250,0.2)', border: 'rgba(96,165,250,0.4)', active: 'rgba(96,165,250,0.5)' };
-  const s = getComputedStyle(document.documentElement);
-  return {
-    bg: s.getPropertyValue('--highlight-bg').trim() ? `hsl(${s.getPropertyValue('--highlight-bg')})` : 'rgba(96,165,250,0.2)',
-    border: s.getPropertyValue('--highlight-border').trim() ? `hsl(${s.getPropertyValue('--highlight-border')})` : 'rgba(96,165,250,0.4)',
-    active: s.getPropertyValue('--highlight-active').trim() ? `hsl(${s.getPropertyValue('--highlight-active')})` : 'rgba(96,165,250,0.5)',
-  };
+const TYPE_COLORS: Record<string, { bg: string; border: string; active: string }> = {
+  location:   { bg: 'rgba(96,165,250,0.2)',  border: 'rgba(96,165,250,0.6)',  active: 'rgba(96,165,250,0.4)' },
+  character:  { bg: 'rgba(167,139,250,0.2)', border: 'rgba(167,139,250,0.6)', active: 'rgba(167,139,250,0.4)' },
+  atmosphere: { bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.5)',  active: 'rgba(251,191,36,0.35)' },
+  object:     { bg: 'rgba(74,222,128,0.15)', border: 'rgba(74,222,128,0.5)',  active: 'rgba(74,222,128,0.35)' },
+  action:     { bg: 'rgba(96,165,250,0.2)',  border: 'rgba(96,165,250,0.6)',  active: 'rgba(96,165,250,0.4)' },
 };
+
+const getTypeClass = (type: string): string => {
+  const valid = ['location', 'character', 'atmosphere', 'object', 'action'];
+  return valid.includes(type) ? `desc-${type}` : 'desc-location';
+};
+
+const PRIORITY_THRESHOLD = 50;
 
 const DEBOUNCE_DELAY_MS = 100;
 
@@ -45,23 +53,31 @@ const preprocessDescription = (desc: Description): SearchPatterns => {
 };
 
 export const useDescriptionHighlighting = ({
-  rendition, descriptions, images, onDescriptionClick, enabled = true,
+  rendition, descriptions, images, onDescriptionClick, enabled = true, density = 'all',
 }: UseDescriptionHighlightingOptions) => {
   const processingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastProcessedIds = useRef<string>('');
 
-  // DEFENSIVE: Ensure input is array
-  const safeDescriptions = useMemo(() => Array.isArray(descriptions) ? descriptions : [], [descriptions]);
+  // DEFENSIVE: Ensure input is array + apply density filter
+  const safeDescriptions = useMemo(() => {
+    const arr = Array.isArray(descriptions) ? descriptions : [];
+    if (density === 'off') return [];
+    if (density === 'key') return arr.filter(d => d.priority_score > PRIORITY_THRESHOLD);
+    return arr;
+  }, [descriptions, density]);
   const imagesByDescId = useMemo(() => {
     const map = new Map<string, GeneratedImage>();
     if (Array.isArray(images)) images.forEach(img => { if (img.description_id) map.set(img.description_id, img); });
     return map;
   }, [images]);
 
-  const highlightDescription = useCallback((text: string, patterns: SearchPatterns, len: number) => {
-    for (const s of strategies) { if (s.fn(text, patterns, len)) return true; }
-    return false;
+  const findHighlightMatch = useCallback((text: string, patterns: SearchPatterns, len: number): StrategyResult => {
+    for (const s of strategies) {
+      const result = s.fn(text, patterns, len);
+      if (result.found) return result;
+    }
+    return { found: false };
   }, []);
 
   const processContents = useCallback(async (force = false) => {
@@ -94,13 +110,18 @@ export const useDescriptionHighlighting = ({
         if (p) { p.replaceChild(doc.createTextNode(el.textContent || ''), el); p.normalize(); }
       });
 
-      const colors = getHighlightColors();
       const styleId = 'highlight-styles';
-      if (!doc.getElementById(styleId)) {
-        const s = doc.createElement('style'); s.id = styleId;
-        s.textContent = `.description-highlight { background: ${colors.bg}; border-bottom: 2px solid ${colors.border}; cursor: pointer; transition: background 0.2s; } .description-highlight:hover { background: ${colors.active}; }`;
-        doc.head.appendChild(s);
-      }
+      const existingStyle = doc.getElementById(styleId);
+      if (existingStyle) existingStyle.remove();
+      const s = doc.createElement('style'); s.id = styleId;
+      const rules = Object.entries(TYPE_COLORS).map(([type, c]) =>
+        `.desc-${type} { background: ${c.bg}; border-bottom: 2px solid ${c.border}; cursor: pointer; transition: background 0.2s; }
+         .desc-${type}:hover { background: ${c.active}; }
+         .desc-${type}.has-image { border-bottom-style: solid; }
+         .desc-${type}.no-image { border-bottom-style: dashed; }`
+      ).join('\n');
+      s.textContent = `.description-highlight { cursor: pointer; transition: background 0.2s; }\n${rules}`;
+      doc.head.appendChild(s);
 
       const processed = safeDescriptions.map(d => ({ data: d, patterns: preprocessDescription(d) }));
       const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
@@ -120,12 +141,24 @@ export const useDescriptionHighlighting = ({
               if (!text || text.length < 15) return;
               const norm = normalizeText(text);
               for (const { data, patterns } of processed) {
-                if (highlightDescription(norm, patterns, norm.length)) {
+                const result = findHighlightMatch(norm, patterns, norm.length);
+                if (result.found && result.startIdx !== undefined && result.endIdx !== undefined) {
+                  const before = text.substring(0, result.startIdx);
+                  const match = text.substring(result.startIdx, result.endIdx);
+                  const after = text.substring(result.endIdx);
+
+                  const frag = doc.createDocumentFragment();
+                  if (before) frag.appendChild(doc.createTextNode(before));
+
                   const span = doc.createElement('span');
-                  span.className = 'description-highlight';
+                  const hasImage = imagesByDescId.has(data.id);
+                  span.className = `description-highlight ${getTypeClass(data.type)} ${hasImage ? 'has-image' : 'no-image'}`;
                   span.setAttribute('data-description-id', data.id);
-                  span.textContent = text;
-                  node.parentNode?.replaceChild(span, node);
+                  span.textContent = match;
+                  frag.appendChild(span);
+
+                  if (after) frag.appendChild(doc.createTextNode(after));
+                  node.parentNode?.replaceChild(frag, node);
                   break;
                 }
               }
@@ -136,7 +169,7 @@ export const useDescriptionHighlighting = ({
         });
       }
     } finally { processingRef.current = false; }
-  }, [rendition, safeDescriptions, enabled, highlightDescription]);
+  }, [rendition, safeDescriptions, enabled, findHighlightMatch, imagesByDescId]);
 
   useEffect(() => {
     if (!rendition || !enabled) return;
@@ -190,5 +223,5 @@ export const useDescriptionHighlighting = ({
     prevCount.current = safeDescriptions.length;
   }, [safeDescriptions.length, processContents]);
 
-  return { highlightDescription };
+  return { findHighlightMatch };
 };

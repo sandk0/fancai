@@ -18,6 +18,16 @@ class EntityNoteSchema(BaseModel):
     type: str
 
 
+class EntityEventSchema(BaseModel):
+    """Событие сущности в конкретной главе."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    chapter_number: int
+    event_action: str
+    event_inner_state: Optional[str] = None
+
+
 class EntityDetailSchema(BaseModel):
     """
     Детальная информация о сущности (смерженная).
@@ -41,6 +51,13 @@ class EntityDetailSchema(BaseModel):
 
     notes: List[EntityNoteSchema] = []
 
+    # Entity Wiki fields (from milestones)
+    biography: Optional[str] = None
+    base_role: Optional[str] = None
+    dynamic_role: Optional[str] = None
+    visual_summary_clean: Optional[str] = None
+    events: List[EntityEventSchema] = []
+
 
 class NetworkEdgeSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -63,3 +80,19 @@ class EntityNetworkResponse(BaseModel):
 
     entities: Dict[UUID, EntityDetailSchema]  # Key = Entity ID
     edges: List[NetworkEdgeSchema]
+
+
+class RecapEntitySchema(BaseModel):
+    """Entity в recap — краткая карточка для 'Ранее в книге'."""
+
+    id: UUID
+    name: str
+    avatar_url: Optional[str] = None
+    dynamic_role: Optional[str] = None
+    last_event: Optional[EntityEventSchema] = None
+
+
+class RecapResponse(BaseModel):
+    """Ответ recap endpoint — топ entities с последним событием."""
+
+    entities: List[RecapEntitySchema]

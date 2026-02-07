@@ -74,6 +74,9 @@ export {
 // Parsing Status Hook
 export { useParsingStatus } from './useParsingStatus';
 
+// Recap Hook
+export { useRecap, type RecapEntity } from './useRecap';
+
 /**
  * Type exports для использования в компонентах
  */

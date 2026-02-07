@@ -12,6 +12,7 @@ from ..core.database import Base
 
 if TYPE_CHECKING:
     from .book import Book
+    from .entity_event import EntityEvent
     from .entity_mention import EntityMention
     from .entity_relationship import EntityRelationship
     from .description_entity import DescriptionEntity
@@ -80,6 +81,13 @@ class Entity(Base):
         comment="CFI of first mention for spoiler protection",
     )
 
+    biography_milestones: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB, nullable=True
+    )
+    base_role: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -115,6 +123,12 @@ class Entity(Base):
         "EntityRelationship",
         foreign_keys="[EntityRelationship.target_id]",
         back_populates="target",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
+    events: Mapped[list["EntityEvent"]] = relationship(
+        "EntityEvent",
+        back_populates="entity",
         cascade="all, delete-orphan",
         lazy="raise",
     )
