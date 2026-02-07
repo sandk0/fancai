@@ -5,15 +5,13 @@
  * - Gradient hero with book cover
  * - Large action buttons
  * - Stats cards (Chapters, Progress, Images)
- * - Modern chapters list
  * - Reading progress visualization
  * - Fully theme-aware
  */
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import {
   Book,
@@ -27,122 +25,10 @@ import {
   Sparkles,
   CheckCircle2,
 } from 'lucide-react';
+
 import { booksAPI } from '@/api/books';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import { PageMeta } from '@/components/SEO/PageMeta';
-import type { ChapterInfo } from '@/types/api';
-
-const VIRTUALIZATION_THRESHOLD = 20;
-const ESTIMATED_CHAPTER_HEIGHT = 120;
-const CHAPTER_GAP = 12;
-
-interface ChaptersListProps {
-  chapters: ChapterInfo[];
-  bookId: string;
-  navigate: (path: string) => void;
-}
-
-const ChaptersList: React.FC<ChaptersListProps> = ({ chapters, bookId, navigate }) => {
-  const { t } = useTranslation();
-  const parentRef = useRef<HTMLDivElement>(null);
-  const useVirtual = chapters.length > VIRTUALIZATION_THRESHOLD;
-
-  const rowVirtualizer = useVirtualizer({
-    count: chapters.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ESTIMATED_CHAPTER_HEIGHT,
-    overscan: 5,
-    gap: CHAPTER_GAP,
-    enabled: useVirtual,
-  });
-
-  const renderChapter = (chapter: ChapterInfo) => (
-    <div
-      onClick={() => navigate(`/book/${bookId}/chapter/${chapter.number}`)}
-      className="group p-3 sm:p-4 lg:p-6 rounded-xl border-2 cursor-pointer transition-all hover:scale-[102%] hover:shadow-lg bg-background border-border"
-    >
-      <div className="flex items-start justify-between gap-2 sm:gap-4">
-        <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
-          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center font-bold text-sm sm:text-base bg-muted text-primary">
-            {chapter.number}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base lg:text-lg mb-1 sm:mb-2 line-clamp-2 text-foreground">
-              {chapter.title}
-            </h3>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-2 sm:mb-3 text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span>{chapter.word_count.toLocaleString()} {t('book.words')}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span>~{chapter.estimated_reading_time_minutes} {t('book.minutes_short')}</span>
-              </div>
-            </div>
-            {chapter.is_description_parsed && chapter.descriptions_found > 0 && (
-              <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-md bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs sm:text-sm font-medium">
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span>{chapter.descriptions_found} {t('book.ai_descriptions')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex-shrink-0 text-muted-foreground group-hover:translate-x-1 transition-transform hidden sm:block">
-          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div>
-      <h2 className="fluid-h2 font-bold mb-4 sm:mb-6 text-foreground">
-        {t('book.chapters_title')} ({chapters.length})
-      </h2>
-      {useVirtual ? (
-        <div
-          ref={parentRef}
-          style={{ overflow: 'auto', maxHeight: '70vh' }}
-        >
-          <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-              const chapter = chapters[virtualItem.index];
-              return (
-                <div
-                  key={virtualItem.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualItem.start}px)`,
-                  }}
-                >
-                  {renderChapter(chapter)}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2 sm:space-y-3">
-          {chapters.map((chapter) => (
-            <div key={chapter.id}>
-              {renderChapter(chapter)}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const BookPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
@@ -368,8 +254,6 @@ const BookPage: React.FC = () => {
         </div>
       )}
 
-      {/* Chapters List */}
-      <ChaptersList chapters={book.chapters} bookId={book.id} navigate={navigate} />
     </div>
   );
 };
