@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Cookie
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
@@ -107,8 +109,13 @@ async def register_user(
             full_name=user_request.full_name,
         )
 
-        # Refresh user object to ensure all fields are loaded
-        await db.refresh(user)
+        # Reload user with subscription eagerly loaded (lazy="raise")
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.subscription))
+            .where(User.id == user.id)
+        )
+        user = result.scalar_one()
 
         tokens_dict = auth_svc.create_tokens_for_user(user)
 
