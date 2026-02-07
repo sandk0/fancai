@@ -1073,7 +1073,10 @@ git commit -m "feat(ui): add ROMANCE, RIVAL relationship types with evolution"
 
 ---
 
-## Фаза 5: Frontend — Description Pipeline
+## Фаза 5: Frontend — Description Pipeline ✅ ЗАВЕРШЕНА
+
+> **Что сделано:** Type-based CSS-классы (desc-location/character/atmosphere/object/action) с цветами, solid/dashed border по наличию изображения, фильтрация по priority_score + density prop (all/key/off). DescriptionPeek компонент (thumbnail 150×150 или текстовый preview, tap → полный модал). ImageModal "Book vs AI" — оригинальный текст книги в кавычках вместо Imagen промпта. useEntityNameHighlighting хук — поиск имён + алиасов, dotted underline, tap → EntityMiniCard, первое упоминание per entity. ReaderControls + zustand store — toggle подсветки имён, 3-кнопочный переключатель плотности описаний (Все/Ключевые/Выкл). Build ✅, 279/280 тестов ✅ (1 flaky в useBooks — не связан).
+> **Отклонения:** scene_context не существует в типах — ImageModal использует description.text как книжный текст. DescriptionDensity type экспортирован из обоих мест (хук + store).
 
 ### Task 21: Type-based highlight цвета + quality tiers
 

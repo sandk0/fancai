@@ -5,23 +5,31 @@ import { normalizeText, removeChapterHeaders, getFirstWords } from '@/utils/text
 import { strategies, type StrategyResult } from '@/utils/text-search/strategies';
 import { addToCache, getFromCache, type SearchPatterns } from '@/utils/text-search/cache';
 
+export type DescriptionDensity = 'all' | 'key' | 'off';
+
 interface UseDescriptionHighlightingOptions {
   rendition: Rendition | null;
   descriptions: Description[];
   images: GeneratedImage[];
   onDescriptionClick: (description: Description, image?: GeneratedImage) => void;
   enabled?: boolean;
+  density?: DescriptionDensity;
 }
 
-const getHighlightColors = () => {
-  if (typeof window === 'undefined') return { bg: 'rgba(96,165,250,0.2)', border: 'rgba(96,165,250,0.4)', active: 'rgba(96,165,250,0.5)' };
-  const s = getComputedStyle(document.documentElement);
-  return {
-    bg: s.getPropertyValue('--highlight-bg').trim() ? `hsl(${s.getPropertyValue('--highlight-bg')})` : 'rgba(96,165,250,0.2)',
-    border: s.getPropertyValue('--highlight-border').trim() ? `hsl(${s.getPropertyValue('--highlight-border')})` : 'rgba(96,165,250,0.4)',
-    active: s.getPropertyValue('--highlight-active').trim() ? `hsl(${s.getPropertyValue('--highlight-active')})` : 'rgba(96,165,250,0.5)',
-  };
+const TYPE_COLORS: Record<string, { bg: string; border: string; active: string }> = {
+  location:   { bg: 'rgba(96,165,250,0.2)',  border: 'rgba(96,165,250,0.6)',  active: 'rgba(96,165,250,0.4)' },
+  character:  { bg: 'rgba(167,139,250,0.2)', border: 'rgba(167,139,250,0.6)', active: 'rgba(167,139,250,0.4)' },
+  atmosphere: { bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.5)',  active: 'rgba(251,191,36,0.35)' },
+  object:     { bg: 'rgba(74,222,128,0.15)', border: 'rgba(74,222,128,0.5)',  active: 'rgba(74,222,128,0.35)' },
+  action:     { bg: 'rgba(96,165,250,0.2)',  border: 'rgba(96,165,250,0.6)',  active: 'rgba(96,165,250,0.4)' },
 };
+
+const getTypeClass = (type: string): string => {
+  const valid = ['location', 'character', 'atmosphere', 'object', 'action'];
+  return valid.includes(type) ? `desc-${type}` : 'desc-location';
+};
+
+const PRIORITY_THRESHOLD = 50;
 
 const DEBOUNCE_DELAY_MS = 100;
 
@@ -45,14 +53,19 @@ const preprocessDescription = (desc: Description): SearchPatterns => {
 };
 
 export const useDescriptionHighlighting = ({
-  rendition, descriptions, images, onDescriptionClick, enabled = true,
+  rendition, descriptions, images, onDescriptionClick, enabled = true, density = 'all',
 }: UseDescriptionHighlightingOptions) => {
   const processingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastProcessedIds = useRef<string>('');
 
-  // DEFENSIVE: Ensure input is array
-  const safeDescriptions = useMemo(() => Array.isArray(descriptions) ? descriptions : [], [descriptions]);
+  // DEFENSIVE: Ensure input is array + apply density filter
+  const safeDescriptions = useMemo(() => {
+    const arr = Array.isArray(descriptions) ? descriptions : [];
+    if (density === 'off') return [];
+    if (density === 'key') return arr.filter(d => d.priority_score > PRIORITY_THRESHOLD);
+    return arr;
+  }, [descriptions, density]);
   const imagesByDescId = useMemo(() => {
     const map = new Map<string, GeneratedImage>();
     if (Array.isArray(images)) images.forEach(img => { if (img.description_id) map.set(img.description_id, img); });
@@ -97,13 +110,18 @@ export const useDescriptionHighlighting = ({
         if (p) { p.replaceChild(doc.createTextNode(el.textContent || ''), el); p.normalize(); }
       });
 
-      const colors = getHighlightColors();
       const styleId = 'highlight-styles';
-      if (!doc.getElementById(styleId)) {
-        const s = doc.createElement('style'); s.id = styleId;
-        s.textContent = `.description-highlight { background: ${colors.bg}; border-bottom: 2px solid ${colors.border}; cursor: pointer; transition: background 0.2s; } .description-highlight:hover { background: ${colors.active}; }`;
-        doc.head.appendChild(s);
-      }
+      const existingStyle = doc.getElementById(styleId);
+      if (existingStyle) existingStyle.remove();
+      const s = doc.createElement('style'); s.id = styleId;
+      const rules = Object.entries(TYPE_COLORS).map(([type, c]) =>
+        `.desc-${type} { background: ${c.bg}; border-bottom: 2px solid ${c.border}; cursor: pointer; transition: background 0.2s; }
+         .desc-${type}:hover { background: ${c.active}; }
+         .desc-${type}.has-image { border-bottom-style: solid; }
+         .desc-${type}.no-image { border-bottom-style: dashed; }`
+      ).join('\n');
+      s.textContent = `.description-highlight { cursor: pointer; transition: background 0.2s; }\n${rules}`;
+      doc.head.appendChild(s);
 
       const processed = safeDescriptions.map(d => ({ data: d, patterns: preprocessDescription(d) }));
       const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
@@ -133,7 +151,8 @@ export const useDescriptionHighlighting = ({
                   if (before) frag.appendChild(doc.createTextNode(before));
 
                   const span = doc.createElement('span');
-                  span.className = 'description-highlight';
+                  const hasImage = imagesByDescId.has(data.id);
+                  span.className = `description-highlight ${getTypeClass(data.type)} ${hasImage ? 'has-image' : 'no-image'}`;
                   span.setAttribute('data-description-id', data.id);
                   span.textContent = match;
                   frag.appendChild(span);
@@ -150,7 +169,7 @@ export const useDescriptionHighlighting = ({
         });
       }
     } finally { processingRef.current = false; }
-  }, [rendition, safeDescriptions, enabled, findHighlightMatch]);
+  }, [rendition, safeDescriptions, enabled, findHighlightMatch, imagesByDescId]);
 
   useEffect(() => {
     if (!rendition || !enabled) return;

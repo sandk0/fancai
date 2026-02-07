@@ -1,12 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, FileText, Minus, Plus, Hand, MousePointerClick, Settings } from 'lucide-react';
+import { Sun, Moon, FileText, Minus, Plus, Hand, MousePointerClick, Settings, Type, Eye } from 'lucide-react';
 import { isAndroid } from '@/utils/iosSupport';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/UI/dropdown-menu';
 import { Switch } from '@/components/UI/Switch';
 import { cn } from '@/lib/utils';
 import type { ThemeName } from '@/hooks/epub/useEpubThemes';
-import type { NavigationMode } from '@/stores/reader';
+import type { NavigationMode, DescriptionDensity } from '@/stores/reader';
 
 interface ReaderControlsProps {
   theme: ThemeName; fontSize: number; onThemeChange: (t: ThemeName) => void;
@@ -15,11 +15,14 @@ interface ReaderControlsProps {
   wakeLockEnabled?: boolean; wakeLockSupported?: boolean; wakeLockActive?: boolean;
   onWakeLockChange?: (e: boolean) => void; navigationMode?: NavigationMode;
   onNavigationModeChange?: (m: NavigationMode) => void;
+  nameHighlightingEnabled?: boolean; onNameHighlightingChange?: (e: boolean) => void;
+  descriptionDensity?: DescriptionDensity; onDescriptionDensityChange?: (d: DescriptionDensity) => void;
 }
 
 export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function ReaderControls({
   theme, fontSize, onThemeChange, onFontSizeIncrease, onFontSizeDecrease, isOpen, onOpenChange,
   className, wakeLockEnabled, wakeLockSupported, wakeLockActive, onWakeLockChange, navigationMode, onNavigationModeChange,
+  nameHighlightingEnabled, onNameHighlightingChange, descriptionDensity, onDescriptionDensityChange,
 }) {
   const { t } = useTranslation();
   const showNav = isAndroid() && onNavigationModeChange;
@@ -70,6 +73,37 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
                 <button onClick={() => onNavigationModeChange?.('tap')} className={cn("p-2 rounded-sm flex flex-col items-center", navigationMode === 'tap' ? "bg-primary text-primary-foreground" : "bg-card border")}>
                   <MousePointerClick className="h-4 w-4" /><span>{t('reader.settings.nav_tap')}</span>
                 </button>
+              </div>
+            </div>
+          )}
+          {onNameHighlightingChange && (
+            <div className="px-4 py-3 border-t flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Type className="h-4 w-4 opacity-50" />
+                <span className="text-sm font-medium">{t('entities.name_highlighting')}</span>
+              </div>
+              <Switch checked={nameHighlightingEnabled} onChange={onNameHighlightingChange} />
+            </div>
+          )}
+          {onDescriptionDensityChange && (
+            <div className="px-4 py-3 border-t">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="h-4 w-4 opacity-50" />
+                <label className="text-xs opacity-70">{t('entities.description_density')}</label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['all', 'key', 'off'] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => onDescriptionDensityChange(d)}
+                    className={cn(
+                      "px-2 py-1.5 rounded-sm text-sm",
+                      descriptionDensity === d ? "bg-primary text-primary-foreground" : "bg-card border"
+                    )}
+                  >
+                    {t(`entities.density_${d}`)}
+                  </button>
+                ))}
               </div>
             </div>
           )}
