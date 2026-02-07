@@ -58,6 +58,8 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
         FRIEND: { label: t('entities.rel_friend'), icon: <Heart className="w-4 h-4" />, color: 'text-[var(--color-relationship-friend)]' },
         MENTOR: { label: t('entities.rel_mentor'), icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-mentor)]' },
         STUDENT: { label: t('entities.rel_student'), icon: <Users className="w-4 h-4" />, color: 'text-[var(--color-relationship-student)]' },
+        ROMANCE: { label: t('entities.rel_romance'), icon: <Heart className="w-4 h-4" />, color: 'text-pink-500' },
+        RIVAL: { label: t('entities.rel_rival'), icon: <Swords className="w-4 h-4" />, color: 'text-orange-500' },
     };
 
     const isVisible = isRelationshipVisible(edge, sourceEntity, targetEntity, currentCFI ?? null, currentChapter);

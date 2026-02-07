@@ -941,7 +941,10 @@ git commit -m "feat(highlighting): position-aware strategies with node splitting
 
 ---
 
-## Фаза 4: Frontend — Компоненты Entity Wiki
+## Фаза 4: Frontend — Компоненты Entity Wiki ✅ ЗАВЕРШЕНА
+
+> **Что сделано:** EntityEventTimeline (timeline с группировкой по главам), EntityGallery (сетка is_focus изображений), EntityMiniCard (popup с аватаром, ролью, summary, last event), RecapPanel + useRecap хук (горизонтальная лента top-5 entities), обновлённый EntityProfile (biography, appearance, aliases, role badge, PlaceholderIcon, EntityEventTimeline), обновлённый EntityCard (role badge, clean summary, last event, TypeIcon), RelationshipCard + ROMANCE/RIVAL типы. Build ✅, 60 тестов ✅.
+> **Отклонения:** EntityGallery принимает GalleryImage[] пропс (данные приходят извне, не привязан к API напрямую). Notes-секция удалена из EntityProfile — заменена biography + events.
 
 ### Task 14: EntityEventTimeline
 
