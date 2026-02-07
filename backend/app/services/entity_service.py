@@ -15,11 +15,13 @@ from app.models.description import Description
 from app.models.description_entity import DescriptionEntity
 from app.models.chapter import Chapter
 from app.models.entity_mention import EntityMention
+from app.models.entity_event import EntityEvent
 from app.schemas.responses.entities import (
     EntityNetworkResponse,
     EntityDetailSchema,
     NetworkEdgeSchema,
     EntityNoteSchema,
+    EntityEventSchema,
 )
 from app.core.cache import cache_manager
 from app.core.database import get_database_session
@@ -98,6 +100,37 @@ class EntityService:
 
         return visible_aliases
 
+    @staticmethod
+    def _get_current_milestone(
+        milestones: list[dict] | None, current_chapter: int
+    ) -> dict | None:
+        """Возвращает актуальный milestone для текущей главы."""
+        if not milestones:
+            return None
+        valid = [m for m in milestones if m.get("up_to_chapter", 0) <= current_chapter]
+        if not valid:
+            return None
+        return max(valid, key=lambda m: m["up_to_chapter"])
+
+    @staticmethod
+    def _filter_events_by_chapter(
+        events: list[dict], current_chapter: int
+    ) -> list[dict]:
+        """Фильтрует events до текущей главы включительно."""
+        return [e for e in events if e.get("chapter_number", 0) <= current_chapter]
+
+    @staticmethod
+    def _get_current_relationship_milestone(
+        milestones: list[dict] | None, current_chapter: int
+    ) -> dict | None:
+        """Возвращает актуальный relationship milestone для текущей главы."""
+        if not milestones:
+            return None
+        valid = [m for m in milestones if m.get("up_to_chapter", 0) <= current_chapter]
+        if not valid:
+            return None
+        return max(valid, key=lambda m: m["up_to_chapter"])
+
     async def get_book_entity_network(
         self, book_id: UUID, current_chapter: Optional[int] = None
     ) -> EntityNetworkResponse:
@@ -108,7 +141,7 @@ class EntityService:
         logger.info(f"[EntityService] Loading entity network for book_id={book_id}")
 
         # 1. Проверяем кэш
-        cache_key = f"book:{book_id}:entity_network_v3"  # v3 cache key for Hard Links
+        cache_key = f"book:{book_id}:entity_network_raw_v4"  # v4 RAW cache (no chapter filter)
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
             logger.debug(f"[EntityService] Cache HIT for book_id={book_id}")
@@ -209,6 +242,19 @@ class EntityService:
         edges_res = await self.db.execute(q_edges)
         all_edges = edges_res.scalars().all()
 
+        # 4b. Загружаем EntityEvents
+        q_events = select(EntityEvent).where(
+            EntityEvent.entity_id.in_(entity_ids)
+        )
+        events_res = await self.db.execute(q_events)
+        all_entity_events = events_res.scalars().all()
+
+        events_by_entity: Dict[UUID, List[EntityEvent]] = {}
+        for ev in all_entity_events:
+            if ev.entity_id not in events_by_entity:
+                events_by_entity[ev.entity_id] = []
+            events_by_entity[ev.entity_id].append(ev)
+
         response = self._build_network_response(
             list(all_entities),
             list(all_edges),
@@ -217,6 +263,7 @@ class EntityService:
             offset_mentions_map,
             entity_to_descriptions,
             description_cfi_map,
+            events_by_entity,
             current_chapter,
         )
 
@@ -234,6 +281,7 @@ class EntityService:
         offset_mentions_map: Dict[UUID, List[int]],
         entity_to_descriptions: Dict[UUID, List[Description]],
         description_cfi_map: Dict[UUID, str],
+        events_by_entity: Dict[UUID, List[EntityEvent]],
         current_chapter: Optional[int] = None,
     ) -> EntityNetworkResponse:
         alias_to_canonical: Dict[str, str] = {}
@@ -280,8 +328,10 @@ class EntityService:
             )
 
             related_descriptions: List[Description] = []
+            related_events: List[EntityEvent] = []
             for entity in group:
                 related_descriptions.extend(entity_to_descriptions.get(entity.id, []))
+                related_events.extend(events_by_entity.get(entity.id, []))
 
             merged_detail = self._create_merged_detail(
                 master,
@@ -290,6 +340,7 @@ class EntityService:
                 cfi_mentions_map,
                 offset_mentions_map,
                 description_cfi_map,
+                related_events,
                 current_chapter,
             )
             master_entities[master.id] = merged_detail
@@ -404,6 +455,7 @@ class EntityService:
         cfi_mentions_map: Dict[UUID, List[str]],
         offset_mentions_map: Dict[UUID, List[int]],
         description_cfi_map: Dict[UUID, str],
+        entity_events: List[EntityEvent],
         current_chapter: Optional[int] = None,
     ) -> EntityDetailSchema:
         all_notes: List[EntityNoteSchema] = []
@@ -445,6 +497,35 @@ class EntityService:
                 f"soft_links={len(descriptions)}"
             )
 
+        # Wiki fields from biography milestones
+        biography: Optional[str] = None
+        dynamic_role: Optional[str] = None
+        visual_summary_clean: Optional[str] = None
+        milestones = master.biography_milestones
+        if milestones and isinstance(milestones, list) and len(milestones) > 0:
+            if current_chapter is not None:
+                ms = self._get_current_milestone(milestones, current_chapter)
+            else:
+                # No chapter filter — use last milestone
+                ms = max(milestones, key=lambda m: m.get("up_to_chapter", 0))
+            if ms:
+                biography = ms.get("biography")
+                dynamic_role = ms.get("dynamic_role")
+                visual_summary_clean = ms.get("visual_summary_clean")
+
+        # Events filtered by chapter, sorted chronologically
+        filtered_events = entity_events
+        if current_chapter is not None:
+            filtered_events = [e for e in entity_events if e.chapter_number <= current_chapter]
+        events_schema = [
+            EntityEventSchema(
+                chapter_number=e.chapter_number,
+                event_action=e.event_action,
+                event_inner_state=e.event_inner_state,
+            )
+            for e in sorted(filtered_events, key=lambda e: e.chapter_number)
+        ]
+
         return EntityDetailSchema(
             id=master.id,
             name=master.name,
@@ -460,6 +541,11 @@ class EntityService:
             first_mention_chapter=master.first_mention_chapter,
             aliases=self._filter_aliases_by_chapter(master, current_chapter),
             notes=all_notes,
+            biography=biography,
+            base_role=master.base_role,
+            dynamic_role=dynamic_role,
+            visual_summary_clean=visual_summary_clean,
+            events=events_schema,
         )
 
 

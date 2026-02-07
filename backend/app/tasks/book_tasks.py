@@ -16,6 +16,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
 from app.models.book import Book
 from app.models.entity import Entity
+from app.models.entity_relationship import EntityRelationship
 from app.models.chapter import Chapter
 from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
@@ -421,6 +422,22 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 chapter_index=idx,
                             )
 
+                            # 4b. Create EntityEvents from extraction
+                            from app.models.entity_event import EntityEvent
+
+                            for raw_entity in result.entities:
+                                if raw_entity.chapter_event_action:
+                                    resolved = entity_map.get(raw_entity.name.lower())
+                                    if resolved:
+                                        event = EntityEvent(
+                                            entity_id=resolved.id,
+                                            chapter_id=local_chapter.id,
+                                            chapter_number=idx,
+                                            event_action=raw_entity.chapter_event_action,
+                                            event_inner_state=raw_entity.chapter_event_inner,
+                                        )
+                                        session.add(event)
+
                             # 5. Save Descriptions and create DescriptionEntity links
                             descriptions_data = result.descriptions or []
                             from app.models.description import (
@@ -630,6 +647,97 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     )
         except Exception as e:
             logger.warning(f"LLM deduplication phase failed (non-critical): {e}")
+
+        # D. Entity Synthesis Phase (Phase 2 — milestones, roles, relationships)
+        try:
+            from app.services.entity_synthesis_service import EntitySynthesisService
+            from app.models.entity_event import EntityEvent
+
+            logger.info("Running Entity Synthesis...", book_id=str(book_id))
+            await publish_book_progress(
+                book_id=str(book_id),
+                progress=88,
+                status="processing",
+                message="Синтез энциклопедии...",
+            )
+
+            # Load entities and events
+            entities_q = await db.execute(
+                select(Entity).where(Entity.book_id == book_id)
+            )
+            all_entities = entities_q.scalars().all()
+
+            events_q = await db.execute(
+                select(EntityEvent).where(
+                    EntityEvent.entity_id.in_([e.id for e in all_entities])
+                )
+            )
+            all_events = events_q.scalars().all()
+
+            entities_data = [
+                {
+                    "name": e.name,
+                    "type": e.type,
+                    "visual_summary": e.visual_summary or "",
+                }
+                for e in all_entities
+            ]
+            events_data = [
+                {
+                    "entity_name": next(
+                        (ent.name for ent in all_entities if ent.id == ev.entity_id), ""
+                    ),
+                    "chapter_number": ev.chapter_number,
+                    "action": ev.event_action,
+                    "inner_state": ev.event_inner_state,
+                }
+                for ev in all_events
+            ]
+
+            synthesis_service = EntitySynthesisService()
+            synthesis_result = await synthesis_service.synthesize_book_entities(
+                book_id=str(book_id),
+                entities=entities_data,
+                events=events_data,
+                genre=getattr(book, "genre", "") or "",
+                language=getattr(book, "language", "ru") or "ru",
+            )
+
+            # Save synthesis results to DB
+            entity_name_map = {e.name.lower(): e for e in all_entities}
+            for synth_entity in synthesis_result.get("entities", []):
+                name = synth_entity.get("name", "")
+                db_entity = entity_name_map.get(name.lower())
+                if db_entity:
+                    db_entity.base_role = synth_entity.get("base_role")
+                    db_entity.biography_milestones = synth_entity.get("milestones", [])
+                    db.add(db_entity)
+
+            # Save relationship milestones
+            for rel_ms in synthesis_result.get("relationship_milestones", []):
+                source_name = rel_ms.get("source", "").lower()
+                target_name = rel_ms.get("target", "").lower()
+                source_entity = entity_name_map.get(source_name)
+                target_entity = entity_name_map.get(target_name)
+                if source_entity and target_entity:
+                    rel_q = await db.execute(
+                        select(EntityRelationship).where(
+                            EntityRelationship.source_id == source_entity.id,
+                            EntityRelationship.target_id == target_entity.id,
+                        )
+                    )
+                    rel = rel_q.scalar_one_or_none()
+                    if rel:
+                        rel.relationship_milestones = rel_ms.get("milestones", [])
+                        db.add(rel)
+
+            await db.commit()
+            logger.info(
+                f"Entity Synthesis complete: {len(synthesis_result.get('entities', []))} entities",
+                book_id=str(book_id),
+            )
+        except Exception as e:
+            logger.warning(f"Entity synthesis phase failed (non-critical): {e}")
 
         # B. Graph Phase: PageRank & Importance
         try:

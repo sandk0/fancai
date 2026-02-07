@@ -8,6 +8,12 @@ export interface EntityNote {
     type: string;
 }
 
+export interface EntityEvent {
+    chapter_number: number;
+    event_action: string;
+    event_inner_state?: string | null;
+}
+
 export interface EntityDetail {
     id: string;
     name: string;
@@ -21,7 +27,14 @@ export interface EntityDetail {
     first_mention_offset?: number | null;
     first_mention_chapter?: number | null;
     aliases?: string[];
-    notes: EntityNote[];
+    notes?: EntityNote[];
+
+    // Entity Wiki fields (from milestones)
+    biography?: string | null;
+    base_role?: string | null;
+    dynamic_role?: string | null;
+    visual_summary_clean?: string | null;
+    events?: EntityEvent[];
 }
 
 export interface NetworkEdge {

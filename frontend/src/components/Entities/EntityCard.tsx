@@ -2,11 +2,12 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { EntityDetail } from '../../types/entity';
 import { isEntityMetCFI, getFirstMeetingChapter } from '../../utils/entityUtils';
-import { ChevronRight, Lock } from 'lucide-react';
+import { ChevronRight, Lock, User, MapPin, Box } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../UI/avatar';
+import { Badge } from '../UI/badge';
 import { Card } from '../UI/Card';
 import { cn } from '@/lib/utils';
-import { entityTypeLabels } from './entityTypeLabels';
+import { entityTypeLabels, getBaseRoleLabel } from './entityTypeLabels';
 
 const DEBUG_MODE = import.meta.env.DEV;
 
@@ -17,6 +18,14 @@ interface EntityCardProps {
     onClick?: () => void;
 }
 
+const TypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
+    switch (type) {
+        case 'location': return <MapPin className={className} />;
+        case 'object': return <Box className={className} />;
+        default: return <User className={className} />;
+    }
+};
+
 export const EntityCard: React.FC<EntityCardProps> = ({
     entity,
     currentChapter,
@@ -26,6 +35,13 @@ export const EntityCard: React.FC<EntityCardProps> = ({
     const { t } = useTranslation();
     const isMet = isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
     const typeLabel = entityTypeLabels[entity.type] || entity.type;
+    const roleLabel = getBaseRoleLabel(entity.dynamic_role || entity.base_role);
+    const summary = entity.visual_summary_clean || entity.visual_summary;
+
+    // Find latest event up to current chapter
+    const lastEvent = (entity.events || [])
+        .filter(e => e.chapter_number <= currentChapter)
+        .sort((a, b) => b.chapter_number - a.chapter_number)[0];
 
     return (
         <Card
@@ -54,7 +70,9 @@ export const EntityCard: React.FC<EntityCardProps> = ({
                         className={!isMet ? 'grayscale brightness-50' : ''}
                     />
                     <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
-                        {entity.name ? entity.name[0] : '?'}
+                        {entity.avatar_url ? (entity.name ? entity.name[0] : '?') : (
+                            <TypeIcon type={entity.type} className="w-5 h-5" />
+                        )}
                     </AvatarFallback>
                 </Avatar>
 
@@ -69,15 +87,24 @@ export const EntityCard: React.FC<EntityCardProps> = ({
                         {!isMet && <Lock className="w-3 h-3 text-[var(--color-text-disabled)]" aria-hidden="true" />}
                     </div>
 
-                    <p className="text-xs text-[var(--color-text-subtle)] truncate">
-                        {typeLabel}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-[var(--color-text-subtle)]">{typeLabel}</span>
+                        {roleLabel && isMet && (
+                            <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                                {roleLabel}
+                            </Badge>
+                        )}
+                    </div>
 
-                    {isMet && entity.visual_summary && (
+                    {isMet && summary && (
                         <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5 italic">
-                            {entity.visual_summary.length > 50 
-                                ? `${entity.visual_summary.slice(0, 50)}...` 
-                                : entity.visual_summary}
+                            {summary.length > 50 ? `${summary.slice(0, 50)}...` : summary}
+                        </p>
+                    )}
+
+                    {isMet && lastEvent && (
+                        <p className="text-[10px] text-[var(--color-text-subtle)] truncate mt-0.5">
+                            {lastEvent.event_action}
                         </p>
                     )}
 

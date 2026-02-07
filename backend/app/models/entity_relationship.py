@@ -67,6 +67,10 @@ class EntityRelationship(Base):
         JSONB, default={}, nullable=False
     )
 
+    relationship_milestones: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB, nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

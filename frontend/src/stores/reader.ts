@@ -19,6 +19,9 @@ export type ReaderTheme = 'light' | 'dark' | 'sepia' | 'night' | 'outdoor';
 // Navigation mode type
 export type NavigationMode = 'swipe' | 'tap';
 
+// Description density
+export type DescriptionDensity = 'all' | 'key' | 'off';
+
 interface ReaderState {
   // Settings
   fontSize: number;
@@ -30,6 +33,8 @@ interface ReaderState {
   maxWidth: number;
   margin: number;
   navigationMode: NavigationMode; // 'swipe' or 'tap' - iOS always uses 'swipe'
+  nameHighlightingEnabled: boolean;
+  descriptionDensity: DescriptionDensity;
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
@@ -44,6 +49,8 @@ interface ReaderState {
   updateMaxWidth: (width: number) => void;
   updateMargin: (margin: number) => void;
   updateNavigationMode: (mode: NavigationMode) => void;
+  updateNameHighlighting: (enabled: boolean) => void;
+  updateDescriptionDensity: (density: DescriptionDensity) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
   addBookmark: (bookId: string, chapter: number, page: number, text: string) => void;
   removeBookmark: (bookId: string, index: number) => void;
@@ -91,7 +98,9 @@ export const useReaderStore = create<ReaderState>()(
       maxWidth: 800,
       margin: 40,
       navigationMode: 'swipe', // Default to swipe (modern UX)
-      
+      nameHighlightingEnabled: false,
+      descriptionDensity: 'all' as DescriptionDensity,
+
       // Initial state
       readingProgress: {},
       bookmarks: {},
@@ -129,6 +138,14 @@ export const useReaderStore = create<ReaderState>()(
 
       updateNavigationMode: (mode: NavigationMode) => {
         set({ navigationMode: mode });
+      },
+
+      updateNameHighlighting: (enabled: boolean) => {
+        set({ nameHighlightingEnabled: enabled });
+      },
+
+      updateDescriptionDensity: (density: DescriptionDensity) => {
+        set({ descriptionDensity: density });
       },
 
       // Reading progress actions (optimistic update + background sync)
@@ -236,6 +253,8 @@ export const useReaderStore = create<ReaderState>()(
           maxWidth: 800,
           margin: 40,
           navigationMode: 'swipe',
+          nameHighlightingEnabled: false,
+          descriptionDensity: 'all' as DescriptionDensity,
         });
       },
 
@@ -253,6 +272,8 @@ export const useReaderStore = create<ReaderState>()(
           maxWidth: 800,
           margin: 40,
           navigationMode: 'swipe',
+          nameHighlightingEnabled: false,
+          descriptionDensity: 'all' as DescriptionDensity,
           // Clear all user data
           readingProgress: {},
           bookmarks: {},
@@ -283,6 +304,8 @@ export const useReaderStore = create<ReaderState>()(
         maxWidth: state.maxWidth,
         margin: state.margin,
         navigationMode: state.navigationMode,
+        nameHighlightingEnabled: state.nameHighlightingEnabled,
+        descriptionDensity: state.descriptionDensity,
         readingProgress: state.readingProgress,
         bookmarks: state.bookmarks,
         highlights: state.highlights,
