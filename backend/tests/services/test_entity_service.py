@@ -69,6 +69,7 @@ class TestEntityServiceBuildNetworkResponse:
             offset_mentions_map={},
             entity_to_descriptions={},
             description_cfi_map={},
+            events_by_entity={},
         )
         assert response.entities == {}
         assert response.edges == []
@@ -87,6 +88,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity.entity_metadata = {"aliases": []}
         entity.first_mention_chapter = None
         entity.aliases_with_reveal = []
+        entity.biography_milestones = None
+        entity.base_role = None
 
         response = service._build_network_response(
             entities=[entity],
@@ -96,6 +99,7 @@ class TestEntityServiceBuildNetworkResponse:
             offset_mentions_map={entity_id: [100, 200, 300]},
             entity_to_descriptions={},
             description_cfi_map={},
+            events_by_entity={},
         )
 
         assert entity_id in response.entities
@@ -119,6 +123,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity1.entity_metadata = {"aliases": ["White Wolf"]}
         entity1.first_mention_chapter = None
         entity1.aliases_with_reveal = []
+        entity1.biography_milestones = None
+        entity1.base_role = None
 
         entity2_id = uuid4()
         entity2 = MagicMock(spec=Entity)
@@ -131,6 +137,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.entity_metadata = {}
         entity2.first_mention_chapter = None
         entity2.aliases_with_reveal = []
+        entity2.biography_milestones = None
+        entity2.base_role = None
 
         response = service._build_network_response(
             entities=[entity1, entity2],
@@ -140,6 +148,7 @@ class TestEntityServiceBuildNetworkResponse:
             offset_mentions_map={},
             entity_to_descriptions={},
             description_cfi_map={},
+            events_by_entity={},
         )
 
         assert len(response.entities) == 1
@@ -160,6 +169,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity1.entity_metadata = {}
         entity1.first_mention_chapter = None
         entity1.aliases_with_reveal = []
+        entity1.biography_milestones = None
+        entity1.base_role = None
 
         entity2_id = uuid4()
         entity2 = MagicMock(spec=Entity)
@@ -172,6 +183,8 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.entity_metadata = {}
         entity2.first_mention_chapter = None
         entity2.aliases_with_reveal = []
+        entity2.biography_milestones = None
+        entity2.base_role = None
 
         edge = MagicMock(spec=EntityRelationship)
         edge.source_id = entity1_id
@@ -189,6 +202,7 @@ class TestEntityServiceBuildNetworkResponse:
             offset_mentions_map={},
             entity_to_descriptions={},
             description_cfi_map={},
+            events_by_entity={},
         )
 
         assert len(response.edges) == 1
@@ -211,6 +225,8 @@ class TestEntityServiceCreateMergedDetail:
         entity.first_mention_chapter = None
         entity.aliases_with_reveal = []
         entity.entity_metadata = {}
+        entity.biography_milestones = None
+        entity.base_role = None
 
         detail = service._create_merged_detail(
             master=entity,
@@ -219,6 +235,7 @@ class TestEntityServiceCreateMergedDetail:
             cfi_mentions_map={entity_id: ["epubcfi(/6/4!/4/2:100)"]},
             offset_mentions_map={entity_id: [100]},
             description_cfi_map={},
+            entity_events=[],
         )
 
         assert detail.name == "Kaer Morhen"
@@ -241,6 +258,8 @@ class TestEntityServiceCreateMergedDetail:
         entity.first_mention_chapter = None
         entity.aliases_with_reveal = []
         entity.entity_metadata = {}
+        entity.biography_milestones = None
+        entity.base_role = None
 
         chapter = MagicMock(spec=Chapter)
         chapter.chapter_number = 3
@@ -259,6 +278,7 @@ class TestEntityServiceCreateMergedDetail:
             cfi_mentions_map={},
             offset_mentions_map={},
             description_cfi_map={},
+            entity_events=[],
         )
 
         assert len(detail.notes) == 1

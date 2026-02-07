@@ -116,17 +116,17 @@ class TestEventDedupIntegration:
     def test_deduped_events_in_synthesis_input(self):
         """Events are deduped before being passed to synthesis prompt."""
         raw_events = [
-            {"action": "Гарри получает письмо", "inner": None},
-            {"action": "Гарри получает письмо из Хогвартса", "inner": None},
+            {"action": "Родион Раскольников убивает старуху-процентщицу", "inner": None},
+            {"action": "Родион Раскольников убивает старуху-процентщицу топором", "inner": None},
             {"action": "Гарри улетает на метле", "inner": "Счастлив"},
         ]
 
         deduped = ConsistencyManager._deduplicate_events(raw_events)
-        assert len(deduped) == 2  # first two merged
+        assert len(deduped) == 2  # first two merged (similarity > 0.8)
 
         # Verify the longer version survived
-        letter_event = next(e for e in deduped if "письмо" in e["action"])
-        assert "Хогвартса" in letter_event["action"]
+        kill_event = next(e for e in deduped if "Раскольников" in e["action"])
+        assert "топором" in kill_event["action"]
 
 
 class TestMilestoneFilteringIntegration:
