@@ -12,7 +12,11 @@
 
 ---
 
-## Фаза 1: Backend — Модели и миграции
+## Фаза 1: Backend — Модели и миграции ✅ ЗАВЕРШЕНА
+
+> **Коммит:** `cf5d08d` feat(models): add EntityEvent model, biography milestones, relationship evolution, is_focus
+> **Что сделано:** EntityEvent модель, biography_milestones + base_role в Entity, relationship_milestones в EntityRelationship, is_focus в DescriptionEntity, 2 миграции.
+> **Отклонения от плана:** Tasks 2-4 объединены в одну миграцию `2026_02_07_0002` для атомарности. Тесты будут запущены при развёртывании (нет локального venv).
 
 ### Task 1: Модель EntityEvent + миграция
 

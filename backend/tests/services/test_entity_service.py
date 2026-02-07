@@ -284,6 +284,16 @@ class TestEntityServiceGetBookEntityNetwork:
             assert isinstance(result, EntityNetworkResponse)
             mock_cache.get.assert_called_once()
 
+    async def test_get_book_entity_network_uses_raw_v4_cache_key(self):
+        mock_db = AsyncMock()
+        service = EntityService(db=mock_db)
+        book_id = uuid4()
+
+        with patch("app.services.entity_service.cache_manager") as mock_cache:
+            mock_cache.get = AsyncMock(return_value={"entities": {}, "edges": []})
+            await service.get_book_entity_network(book_id)
+            mock_cache.get.assert_called_once_with(f"book:{book_id}:entity_network_raw_v4")
+
     async def test_get_book_entity_network_loads_from_db_on_cache_miss(self):
         mock_db = AsyncMock()
 
@@ -324,3 +334,76 @@ class TestEntityServiceGetBookEntityNetwork:
             assert isinstance(result, EntityNetworkResponse)
             assert result.entities == {}
             assert result.edges == []
+
+
+class TestChapterFiltering:
+    """Тесты RAW cache + on-the-fly фильтрации."""
+
+    def test_filter_milestones_by_chapter(self):
+        """Возвращает milestone до текущей главы."""
+        milestones = [
+            {"up_to_chapter": 1, "biography": "Студент", "dynamic_role": "Студент", "importance": 5},
+            {"up_to_chapter": 5, "biography": "Убийца", "dynamic_role": "Убийца", "importance": 9},
+            {"up_to_chapter": 10, "biography": "Каторжник", "dynamic_role": "Каторжник", "importance": 8},
+        ]
+        result = EntityService._get_current_milestone(milestones, current_chapter=5)
+        assert result["biography"] == "Убийца"
+        assert result["dynamic_role"] == "Убийца"
+
+    def test_filter_milestones_between_chapters(self):
+        """Если нет milestone на текущей главе — берём последний до неё."""
+        milestones = [
+            {"up_to_chapter": 1, "biography": "Студент"},
+            {"up_to_chapter": 10, "biography": "Убийца"},
+        ]
+        result = EntityService._get_current_milestone(milestones, current_chapter=7)
+        assert result["biography"] == "Студент"
+
+    def test_filter_milestones_no_milestones(self):
+        """Без milestones возвращает None."""
+        result = EntityService._get_current_milestone(None, current_chapter=5)
+        assert result is None
+
+    def test_filter_milestones_empty_list(self):
+        """Пустой список milestones возвращает None."""
+        result = EntityService._get_current_milestone([], current_chapter=5)
+        assert result is None
+
+    def test_filter_milestones_all_future(self):
+        """Все milestones в будущем — возвращает None."""
+        milestones = [
+            {"up_to_chapter": 10, "biography": "Убийца"},
+            {"up_to_chapter": 20, "biography": "Каторжник"},
+        ]
+        result = EntityService._get_current_milestone(milestones, current_chapter=5)
+        assert result is None
+
+    def test_filter_events_by_chapter(self):
+        """События фильтруются по chapter_number."""
+        events = [
+            {"chapter_number": 1, "action": "Появляется"},
+            {"chapter_number": 5, "action": "Убивает"},
+            {"chapter_number": 10, "action": "Арестован"},
+        ]
+        result = EntityService._filter_events_by_chapter(events, current_chapter=5)
+        assert len(result) == 2
+        assert result[-1]["action"] == "Убивает"
+
+    def test_filter_events_empty(self):
+        """Пустой список событий."""
+        result = EntityService._filter_events_by_chapter([], current_chapter=5)
+        assert result == []
+
+    def test_filter_relationship_milestones(self):
+        """Тип связи актуальный для текущей главы."""
+        milestones = [
+            {"up_to_chapter": 3, "type": "ENEMY", "weight": -60},
+            {"up_to_chapter": 10, "type": "ALLY", "weight": 70},
+        ]
+        result = EntityService._get_current_relationship_milestone(milestones, current_chapter=5)
+        assert result["type"] == "ENEMY"
+
+    def test_filter_relationship_milestones_none(self):
+        """None milestones."""
+        result = EntityService._get_current_relationship_milestone(None, current_chapter=5)
+        assert result is None

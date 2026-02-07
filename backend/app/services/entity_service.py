@@ -98,6 +98,37 @@ class EntityService:
 
         return visible_aliases
 
+    @staticmethod
+    def _get_current_milestone(
+        milestones: list[dict] | None, current_chapter: int
+    ) -> dict | None:
+        """Возвращает актуальный milestone для текущей главы."""
+        if not milestones:
+            return None
+        valid = [m for m in milestones if m.get("up_to_chapter", 0) <= current_chapter]
+        if not valid:
+            return None
+        return max(valid, key=lambda m: m["up_to_chapter"])
+
+    @staticmethod
+    def _filter_events_by_chapter(
+        events: list[dict], current_chapter: int
+    ) -> list[dict]:
+        """Фильтрует events до текущей главы включительно."""
+        return [e for e in events if e.get("chapter_number", 0) <= current_chapter]
+
+    @staticmethod
+    def _get_current_relationship_milestone(
+        milestones: list[dict] | None, current_chapter: int
+    ) -> dict | None:
+        """Возвращает актуальный relationship milestone для текущей главы."""
+        if not milestones:
+            return None
+        valid = [m for m in milestones if m.get("up_to_chapter", 0) <= current_chapter]
+        if not valid:
+            return None
+        return max(valid, key=lambda m: m["up_to_chapter"])
+
     async def get_book_entity_network(
         self, book_id: UUID, current_chapter: Optional[int] = None
     ) -> EntityNetworkResponse:
@@ -108,7 +139,7 @@ class EntityService:
         logger.info(f"[EntityService] Loading entity network for book_id={book_id}")
 
         # 1. Проверяем кэш
-        cache_key = f"book:{book_id}:entity_network_v3"  # v3 cache key for Hard Links
+        cache_key = f"book:{book_id}:entity_network_raw_v4"  # v4 RAW cache (no chapter filter)
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
             logger.debug(f"[EntityService] Cache HIT for book_id={book_id}")
