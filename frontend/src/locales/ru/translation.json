@@ -334,7 +334,19 @@
     "rel_enemy": "Враг",
     "rel_friend": "Друг",
     "rel_mentor": "Наставник",
-    "rel_student": "Ученик"
+    "rel_student": "Ученик",
+    "rel_romance": "Любовь",
+    "rel_rival": "Соперник",
+    "about": "О персонаже",
+    "by_chapters": "По главам",
+    "gallery": "Галерея",
+    "aliases_section": "Псевдонимы",
+    "recap_title": "Ранее в книге",
+    "name_highlighting": "Подсветка имён",
+    "description_density": "Плотность описаний",
+    "density_all": "Все",
+    "density_key": "Ключевые",
+    "density_off": "Выкл"
   },
   "gallery": {
     "title": "Галерея Персонажей",

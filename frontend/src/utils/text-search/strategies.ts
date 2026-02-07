@@ -1,18 +1,32 @@
 import { findLCS } from './lcs';
 import type { SearchPatterns } from './cache';
 
-type SearchStrategy = (
-  text: string, 
-  patterns: SearchPatterns, 
+export interface StrategyResult {
+  found: boolean;
+  startIdx?: number;
+  endIdx?: number;
+}
+
+export type SearchStrategy = (
+  text: string,
+  patterns: SearchPatterns,
   contentLength: number
-) => boolean;
+) => StrategyResult;
+
+const NOT_FOUND: StrategyResult = { found: false };
+
+const indexOfResult = (text: string, pattern: string): StrategyResult => {
+  const idx = text.indexOf(pattern);
+  if (idx < 0) return NOT_FOUND;
+  return { found: true, startIdx: idx, endIdx: idx + pattern.length };
+};
 
 /**
  * Strategy 1: First 40 characters (exact match)
  * Fastest, handles >80% of cases
  */
 export const strategyFirst40: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.first40);
+  return indexOfResult(text, patterns.first40);
 };
 
 /**
@@ -20,7 +34,7 @@ export const strategyFirst40: SearchStrategy = (text, patterns) => {
  * Handles slight variations at the beginning (e.g. "Chapter 1" removed)
  */
 export const strategySkip10: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.skip10);
+  return indexOfResult(text, patterns.skip10);
 };
 
 /**
@@ -28,7 +42,7 @@ export const strategySkip10: SearchStrategy = (text, patterns) => {
  * Handles cases where punctuation differs but words are same
  */
 export const strategyFirstWords: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.firstWords);
+  return indexOfResult(text, patterns.firstWords);
 };
 
 /**
@@ -36,8 +50,8 @@ export const strategyFirstWords: SearchStrategy = (text, patterns) => {
  * Only feasible for short texts (<200 chars)
  */
 export const strategyFullMatch: SearchStrategy = (text, patterns, contentLength) => {
-  if (contentLength > 500) return false; // Skip for long texts
-  return text.includes(patterns.normalized);
+  if (contentLength > 500) return NOT_FOUND;
+  return indexOfResult(text, patterns.normalized);
 };
 
 /**
@@ -45,7 +59,7 @@ export const strategyFullMatch: SearchStrategy = (text, patterns, contentLength)
  * Deeper check for problematic headers
  */
 export const strategySkip20: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.skip20);
+  return indexOfResult(text, patterns.skip20);
 };
 
 /**
@@ -53,7 +67,7 @@ export const strategySkip20: SearchStrategy = (text, patterns) => {
  * Takes 50 chars from the middle of the description
  */
 export const strategyMiddle: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.middleSection);
+  return indexOfResult(text, patterns.middleSection);
 };
 
 /**
@@ -61,7 +75,7 @@ export const strategyMiddle: SearchStrategy = (text, patterns) => {
  * Tries to match just the first sentence
  */
 export const strategyFirstSentence: SearchStrategy = (text, patterns) => {
-  return text.includes(patterns.firstSentence);
+  return indexOfResult(text, patterns.firstSentence);
 };
 
 /**
@@ -72,12 +86,16 @@ export const strategyLCS: SearchStrategy = (text, patterns, contentLength) => {
   // Length check optimization: if difference > 50%, unlikely to match
   const patLen = patterns.normalized.length;
   if (Math.abs(contentLength - patLen) > Math.max(contentLength, patLen) * 0.5) {
-    return false;
+    return NOT_FOUND;
   }
 
   const common = findLCS(text, patterns.normalized);
   // Match if common substring covers significant portion of description
-  return common.length > Math.min(50, patLen * 0.7);
+  if (common.length > Math.min(50, patLen * 0.7)) {
+    const idx = text.indexOf(common);
+    return { found: true, startIdx: idx, endIdx: idx + common.length };
+  }
+  return NOT_FOUND;
 };
 
 // Export ordered list of strategies

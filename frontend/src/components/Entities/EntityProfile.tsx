@@ -189,7 +189,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                                 </p>
                             </Card>
                         ) : (
-                            entity.notes.length === 0 ? (
+                            !entity.notes || entity.notes.length === 0 ? (
                                 <p className="text-[var(--color-text-muted)]">{t('entities.no_notes')}</p>
                             ) : (
                                 <div className="space-y-4" role="list">

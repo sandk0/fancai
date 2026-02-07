@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Rendition } from '@/types/epub';
 import type { Description, GeneratedImage } from '@/types/api';
 import { normalizeText, removeChapterHeaders, getFirstWords } from '@/utils/text-search/normalization';
-import { strategies } from '@/utils/text-search/strategies';
+import { strategies, type StrategyResult } from '@/utils/text-search/strategies';
 import { addToCache, getFromCache, type SearchPatterns } from '@/utils/text-search/cache';
 
 interface UseDescriptionHighlightingOptions {
@@ -59,9 +59,12 @@ export const useDescriptionHighlighting = ({
     return map;
   }, [images]);
 
-  const highlightDescription = useCallback((text: string, patterns: SearchPatterns, len: number) => {
-    for (const s of strategies) { if (s.fn(text, patterns, len)) return true; }
-    return false;
+  const findHighlightMatch = useCallback((text: string, patterns: SearchPatterns, len: number): StrategyResult => {
+    for (const s of strategies) {
+      const result = s.fn(text, patterns, len);
+      if (result.found) return result;
+    }
+    return { found: false };
   }, []);
 
   const processContents = useCallback(async (force = false) => {
@@ -120,12 +123,23 @@ export const useDescriptionHighlighting = ({
               if (!text || text.length < 15) return;
               const norm = normalizeText(text);
               for (const { data, patterns } of processed) {
-                if (highlightDescription(norm, patterns, norm.length)) {
+                const result = findHighlightMatch(norm, patterns, norm.length);
+                if (result.found && result.startIdx !== undefined && result.endIdx !== undefined) {
+                  const before = text.substring(0, result.startIdx);
+                  const match = text.substring(result.startIdx, result.endIdx);
+                  const after = text.substring(result.endIdx);
+
+                  const frag = doc.createDocumentFragment();
+                  if (before) frag.appendChild(doc.createTextNode(before));
+
                   const span = doc.createElement('span');
                   span.className = 'description-highlight';
                   span.setAttribute('data-description-id', data.id);
-                  span.textContent = text;
-                  node.parentNode?.replaceChild(span, node);
+                  span.textContent = match;
+                  frag.appendChild(span);
+
+                  if (after) frag.appendChild(doc.createTextNode(after));
+                  node.parentNode?.replaceChild(frag, node);
                   break;
                 }
               }
@@ -136,7 +150,7 @@ export const useDescriptionHighlighting = ({
         });
       }
     } finally { processingRef.current = false; }
-  }, [rendition, safeDescriptions, enabled, highlightDescription]);
+  }, [rendition, safeDescriptions, enabled, findHighlightMatch]);
 
   useEffect(() => {
     if (!rendition || !enabled) return;
@@ -190,5 +204,5 @@ export const useDescriptionHighlighting = ({
     prevCount.current = safeDescriptions.length;
   }, [safeDescriptions.length, processContents]);
 
-  return { highlightDescription };
+  return { findHighlightMatch };
 };

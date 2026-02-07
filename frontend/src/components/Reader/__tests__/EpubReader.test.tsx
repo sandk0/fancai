@@ -919,7 +919,7 @@ describe('EpubReader Component', () => {
       const { useDescriptionHighlighting } = await import('@/hooks/epub');
 
       vi.mocked(useDescriptionHighlighting).mockImplementation((_config) => ({
-        highlightDescription: vi.fn().mockReturnValue(false),
+        findHighlightMatch: vi.fn().mockReturnValue({ found: false }),
       }));
 
       renderEpubReader();

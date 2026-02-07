@@ -228,7 +228,11 @@ git commit -m "feat(models): add is_focus to DescriptionEntity for gallery filte
 
 ---
 
-## Фаза 2: Backend — Сервисы и API
+## Фаза 2: Backend — Сервисы и API ✅ ЗАВЕРШЕНА
+
+> **Коммит:** `f67234a` feat(backend): Phase 2 — services, API, synthesis pipeline
+> **Что сделано:** RAW cache v4 + фильтрация milestones/events, event dedup (SequenceMatcher), chapter_event_action/inner в extraction, EntitySynthesisService с batching и genre-aware промптом, интеграция EntityEvent и synthesis в pipeline, обновлённые API-схемы (EntityEventSchema, RecapResponse), /recap endpoint.
+> **Тесты:** 10+ unit-тестов для фильтрации, dedup, synthesis. Запуск в Docker при деплое.
 
 ### Task 5: Исправить кэширование (RAW cache + фильтрация)
 
@@ -727,7 +731,10 @@ git commit -m "feat(api): update EntityDetailSchema with milestones, add recap e
 
 ---
 
-## Фаза 3: Frontend — Типы и утилиты
+## Фаза 3: Frontend — Типы и утилиты ✅ ЗАВЕРШЕНА
+
+> **Что сделано:** EntityEvent интерфейс + wiki-поля (biography, base_role, dynamic_role, visual_summary_clean, events) в EntityDetail, notes стал optional. baseRoleLabels + relationshipTypeLabels в entityTypeLabels.ts, новые i18n ключи (rel_romance, rel_rival, recap_title, density и др.). Position-aware strategies (StrategyResult с startIdx/endIdx), node splitting в useDescriptionHighlighting. 5+20+35 тестов пройдены, build ✅.
+> **Отклонения от плана:** notes/EntityNote сохранены как optional (используются в EntityProfile + entityUtils), entityLabels добавлены в существующий entityTypeLabels.ts вместо нового файла.
 
 ### Task 11: Обновить TypeScript типы
 
