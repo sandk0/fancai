@@ -284,6 +284,8 @@ RATE_LIMIT_PRESETS = {
     },  # 10/min (increased from 3/min to fix login loop issues)
     # Registration endpoints (prevent spam registrations)
     "registration": {"max_requests": 2, "window_seconds": 60},  # 2/min
+    # Password reset endpoints (OWASP: prevent brute force)
+    "password_reset": {"max_requests": 3, "window_seconds": 60},  # 3/min
 }
 
 

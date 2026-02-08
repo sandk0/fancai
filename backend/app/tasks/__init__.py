@@ -30,6 +30,11 @@ from .utility_tasks import (
     _get_system_stats_async,
 )
 
+from .auth_tasks import (
+    cleanup_expired_reset_tokens,
+    _cleanup_expired_tokens_async,
+)
+
 from .common import run_async
 
 __all__ = [
@@ -49,5 +54,7 @@ __all__ = [
     "health_check_task",
     "system_stats_task",
     "_get_system_stats_async",
+    "cleanup_expired_reset_tokens",
+    "_cleanup_expired_tokens_async",
     "run_async",
 ]

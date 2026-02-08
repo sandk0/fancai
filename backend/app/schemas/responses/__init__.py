@@ -585,6 +585,8 @@ from .auth import (  # noqa: E402
     CurrentUserResponse,
     ProfileUpdateResponse,
     AccountDeactivationResponse,
+    ForgotPasswordResponse,
+    ResetPasswordResponse,
 )
 
 # User responses (Phase 1.1 + 1.4)
@@ -723,6 +725,8 @@ __all__ = [
     "CurrentUserResponse",
     "ProfileUpdateResponse",
     "AccountDeactivationResponse",
+    "ForgotPasswordResponse",
+    "ResetPasswordResponse",
     # NEW: Phase 1.4 Type Safety - Users/Admin
     "DatabaseTestResponse",
     "UserListItem",

@@ -691,6 +691,38 @@
       "password_min": "Password must be at least 6 characters"
     }
   },
+  "forgot_password": {
+    "title": "Reset Password",
+    "description": "Enter the email you used to register. We'll send a password reset link.",
+    "email_label": "Email",
+    "submit": "Send Reset Link",
+    "submitting": "Sending...",
+    "success_title": "Email Sent",
+    "success_description": "If this email is registered, a reset link has been sent. Check your spam folder if you don't see it.",
+    "back_to_login": "Back to Login",
+    "page_title": "Reset Password",
+    "page_description": "Reset your fancai password"
+  },
+  "reset_password": {
+    "title": "New Password",
+    "description": "Create a new secure password for your account.",
+    "password_label": "New Password",
+    "password_placeholder": "Minimum 12 characters",
+    "confirm_label": "Confirm Password",
+    "confirm_placeholder": "Repeat password",
+    "submit": "Save Password",
+    "submitting": "Saving...",
+    "success_title": "Password Changed",
+    "success_description": "Your password has been changed successfully. You can now log in with your new password.",
+    "go_to_login": "Log In",
+    "invalid_token_title": "Link Invalid",
+    "invalid_token_description": "This password reset link has expired or has already been used.",
+    "request_new_link": "Request New Link",
+    "no_token_title": "Link Missing",
+    "no_token_description": "A password reset link from your email is required.",
+    "page_title": "Reset Password",
+    "page_description": "Set a new password for fancai"
+  },
   "book": {
     "page_title": "Book",
     "page_description": "Book information",

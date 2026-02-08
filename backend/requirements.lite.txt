@@ -80,6 +80,9 @@ sqlalchemy[mypy]==2.0.46
 # Web Push Notifications (January 2026)
 pywebpush==2.2.0
 
+# Email (Yandex Cloud Postbox — SES v2 compatible)
+aioboto3>=13.0.0
+
 # Утилиты
 python-dateutil==2.9.0.post0
 pillow==12.1.0

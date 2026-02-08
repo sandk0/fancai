@@ -25,6 +25,8 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import LibraryPage from '@/pages/LibraryPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/ResetPasswordPage';
 
 // Lazy-loaded pages (heavy or less frequently accessed)
 // These will be code-split into separate chunks
@@ -89,6 +91,8 @@ function App() {
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Fullscreen reader route (no layout) */}
               <Route

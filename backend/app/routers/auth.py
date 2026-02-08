@@ -4,6 +4,8 @@ API роуты для аутентификации в fancai.
 Содержит endpoints для регистрации, входа, обновления токенов и управления профилем.
 """
 
+import asyncio
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Cookie
 from fastapi.security import HTTPAuthorizationCredentials
@@ -11,13 +13,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..services.email.email_service import EmailService
 
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, security
 from ..services.auth_service import AuthService
 from ..services.token_blacklist import TokenBlacklist
-from ..core.container import get_auth_service_dep, get_token_blacklist_dep
+from ..core.container import get_auth_service_dep, get_token_blacklist_dep, get_email_service_dep
 from ..models.user import User
 from ..core.config import settings
 from ..middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
@@ -33,6 +38,8 @@ from ..schemas.responses.auth import (
     CurrentUserResponse,
     ProfileUpdateResponse,
     AccountDeactivationResponse,
+    ForgotPasswordResponse,
+    ResetPasswordResponse,
 )
 
 router = APIRouter()
@@ -400,3 +407,92 @@ async def deactivate_account(
         )
 
     return AccountDeactivationResponse(message="Account deactivated successfully")
+
+
+# ============================================================================
+# PASSWORD RESET ENDPOINTS
+# ============================================================================
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Запрос на сброс пароля."""
+
+    email: EmailStr
+
+
+@router.post("/auth/forgot-password", response_model=ForgotPasswordResponse)
+@rate_limit(**RATE_LIMIT_PRESETS["password_reset"])
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_database_session),
+    auth_svc: AuthService = Depends(get_auth_service_dep),
+    email_svc: "EmailService" = Depends(get_email_service_dep),
+) -> ForgotPasswordResponse:
+    """Запрос на сброс пароля. Всегда возвращает 200 (OWASP: no user enumeration)."""
+    token = await auth_svc.create_password_reset_token(db, body.email)
+
+    if token:
+        reset_url = f"{settings.PASSWORD_RESET_BASE_URL}?token={token}"
+
+        # Fire-and-forget: НЕ await — для OWASP timing-safety
+        _logger = logging.getLogger(__name__)
+
+        async def _safe_send():
+            try:
+                await email_svc.send_password_reset_email(body.email, reset_url)
+            except Exception as e:
+                _logger.error(f"Failed to send password reset email: {e}")
+
+        asyncio.ensure_future(_safe_send())
+
+    return ForgotPasswordResponse()
+
+
+class ResetPasswordRequest(BaseModel):
+    """Запрос на установку нового пароля."""
+
+    token: str
+    new_password: str
+
+
+@router.post("/auth/reset-password", response_model=ResetPasswordResponse)
+@rate_limit(**RATE_LIMIT_PRESETS["password_reset"])
+async def reset_password(
+    body: ResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_database_session),
+    auth_svc: AuthService = Depends(get_auth_service_dep),
+    email_svc: "EmailService" = Depends(get_email_service_dep),
+) -> ResetPasswordResponse:
+    """Сброс пароля по токену из email."""
+    from ..core.validation import validate_password_strength
+
+    is_valid, error_msg = validate_password_strength(body.new_password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
+        )
+
+    success, user_email = await auth_svc.validate_and_reset_password(
+        db, body.token, body.new_password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    # OWASP: отправить confirmation email (fire-and-forget)
+    if user_email:
+        _logger = logging.getLogger(__name__)
+
+        async def _safe_send_confirmation():
+            try:
+                await email_svc.send_password_changed_confirmation(user_email)
+            except Exception as e:
+                _logger.error(f"Failed to send password changed confirmation: {e}")
+
+        asyncio.ensure_future(_safe_send_confirmation())
+
+    return ResetPasswordResponse()

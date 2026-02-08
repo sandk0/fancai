@@ -18,7 +18,7 @@ function getPasswordStrength(password: string): {
   score: number;
 } {
   const criteria: PasswordCriteria = {
-    minLength: password.length >= 8,
+    minLength: password.length >= 12,
     hasLowercase: /[a-z]/.test(password),
     hasUppercase: /[A-Z]/.test(password),
     hasNumber: /\d/.test(password),

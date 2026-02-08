@@ -47,6 +47,15 @@ export const authAPI = {
     return apiClient.delete('/auth/deactivate');
   },
 
+  // Password recovery
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    return apiClient.post('/auth/forgot-password', { email });
+  },
+
+  async resetPassword(token: string, new_password: string): Promise<{ message: string }> {
+    return apiClient.post('/auth/reset-password', { token, new_password });
+  },
+
   // User profile and subscription info
   async getUserProfile(): Promise<UserProfile> {
     return apiClient.get('/users/profile');
