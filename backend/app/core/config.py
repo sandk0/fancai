@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_dev"
     )
+    TEST_DATABASE_URL: str = ""  # Override via env; if empty, derived from DATABASE_URL in conftest
 
     # Database Connection Pool Settings (October 2025 - Production Optimization)
     DB_POOL_SIZE: int = Field(default=20, ge=5, le=50, env="DB_POOL_SIZE")
