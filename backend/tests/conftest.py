@@ -1,4 +1,3 @@
-import sqlalchemy
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -48,24 +47,31 @@ TestSessionLocal = sessionmaker(
 )
 
 
+def _create_enums(sync_conn):
+    """Create PG enums that have create_type=False in models."""
+    from sqlalchemy import text
+    sync_conn.execute(text(
+        "DO $$ BEGIN "
+        "  CREATE TYPE entitytype AS ENUM ('character', 'location', 'object'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; "
+        "END $$"
+    ))
+
+def _drop_enums(sync_conn):
+    """Drop PG enums after tests."""
+    from sqlalchemy import text
+    sync_conn.execute(text("DROP TYPE IF EXISTS entitytype"))
+
 @pytest_asyncio.fixture(scope="function")
 async def test_db():
     """Create test database tables (including PG enums with create_type=False)."""
     async with test_engine.begin() as conn:
-        # Create PG enums that have create_type=False in models
-        await conn.execute(
-            sqlalchemy.text(
-                "DO $$ BEGIN "
-                "  CREATE TYPE entitytype AS ENUM ('character', 'location', 'object'); "
-                "EXCEPTION WHEN duplicate_object THEN NULL; "
-                "END $$"
-            )
-        )
+        await conn.run_sync(_create_enums)
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-        await conn.execute(sqlalchemy.text("DROP TYPE IF EXISTS entitytype"))
+        await conn.run_sync(_drop_enums)
 
 
 @pytest_asyncio.fixture(scope="function")
