@@ -129,6 +129,19 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: Optional[str] = None
     VAPID_SUBJECT: str = "mailto:admin@fancai.ru"
 
+    # Password Reset
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
+    PASSWORD_RESET_BASE_URL: str = "http://localhost:5173/reset-password"
+
+    # Email (Yandex Cloud Postbox — AWS SES v2 compatible)
+    EMAIL_ENABLED: bool = False
+    EMAIL_FROM: str = "noreply@fancai.ru"
+    EMAIL_FROM_NAME: str = "fancai"
+    YANDEX_POSTBOX_ACCESS_KEY: Optional[str] = None
+    YANDEX_POSTBOX_SECRET_KEY: Optional[str] = None
+    YANDEX_POSTBOX_ENDPOINT: str = "https://postbox.cloud.yandex.net"
+    YANDEX_POSTBOX_REGION: str = "ru-central1"
+
     # CORS - загружается из .env (docker-compose передает полный список)
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"  # Development: React (3000), Vite (5173, 5174)
 

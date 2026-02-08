@@ -18,6 +18,7 @@ from app.models.chapter import Chapter  # noqa: F401
 from app.models.image import GeneratedImage  # noqa: F401
 from app.models.user import Subscription, User  # noqa: F401
 from app.models.reading_session import ReadingSession  # noqa: F401
+from app.models.password_reset import PasswordResetToken  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -124,6 +124,18 @@ class IAuthService(Protocol):
         """Аутентифицирует пользователя."""
         ...
 
+    async def create_password_reset_token(
+        self, db: AsyncSession, email: str
+    ) -> Optional[str]:
+        """Создаёт токен сброса пароля."""
+        ...
+
+    async def validate_and_reset_password(
+        self, db: AsyncSession, token: str, new_password: str
+    ) -> tuple[bool, Optional[str]]:
+        """Валидирует токен и устанавливает новый пароль. Возвращает (success, user_email)."""
+        ...
+
 
 @runtime_checkable
 class IBookService(Protocol):
@@ -316,6 +328,22 @@ def get_token_blacklist() -> "TokenBlacklist":
 
 
 @lru_cache()
+def get_email_service() -> "EmailService":
+    """Фабричная функция для EmailService."""
+    from ..services.email.email_service import EmailService
+
+    if settings.EMAIL_ENABLED:
+        from ..services.email.yandex_postbox import YandexPostboxProvider
+
+        provider = YandexPostboxProvider()
+    else:
+        from ..services.email.log_provider import LogEmailProvider
+
+        provider = LogEmailProvider()
+    return EmailService(provider)
+
+
+@lru_cache()
 def get_feature_flag_manager_singleton() -> "FeatureFlagManager":
     """
     Фабричная функция для получения FeatureFlagManager.
@@ -419,6 +447,11 @@ def get_token_blacklist_dep() -> "TokenBlacklist":
     return get_token_blacklist()
 
 
+def get_email_service_dep() -> "EmailService":
+    """FastAPI Dependency для EmailService."""
+    return get_email_service()
+
+
 # ============================================================================
 # CONTAINER CLASS - Централизованный контейнер зависимостей
 # ============================================================================
@@ -504,6 +537,7 @@ class DependencyContainer:
         get_book_progress_service.cache_clear()
         get_image_generator_service.cache_clear()
         get_token_blacklist.cache_clear()
+        get_email_service.cache_clear()
 
 
 # ============================================================================
@@ -534,6 +568,7 @@ def create_test_overrides() -> Dict[Any, Any]:
             get_image_generator_service
         ),
         get_token_blacklist_dep: lambda: DependencyContainer.get(get_token_blacklist),
+        get_email_service_dep: lambda: DependencyContainer.get(get_email_service),
     }
 
 

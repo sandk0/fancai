@@ -18,6 +18,7 @@ from .entity_relationship import EntityRelationship
 from .description_entity import DescriptionEntity
 from .entity_mention import EntityMention
 from .entity_event import EntityEvent
+from .password_reset import PasswordResetToken
 
 __all__ = [
     "User",
@@ -41,4 +42,5 @@ __all__ = [
     "DescriptionEntity",
     "EntityMention",
     "EntityEvent",
+    "PasswordResetToken",
 ]

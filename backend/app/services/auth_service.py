@@ -10,12 +10,18 @@ from uuid import UUID
 from jose import JWTError, jwt
 import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+import hashlib
+import logging
+import secrets
+
 from ..models.user import User, Subscription, SubscriptionPlan, SubscriptionStatus
 from ..core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -85,7 +91,8 @@ class AuthService:
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=self.access_token_expire_minutes
         )
-        to_encode.update({"exp": expire, "type": "access"})
+        now = datetime.now(timezone.utc)
+        to_encode.update({"exp": expire, "iat": now, "type": "access"})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
@@ -102,7 +109,8 @@ class AuthService:
         expire = datetime.now(timezone.utc) + timedelta(
             days=self.refresh_token_expire_days
         )
-        to_encode.update({"exp": expire, "type": "refresh"})
+        now = datetime.now(timezone.utc)
+        to_encode.update({"exp": expire, "iat": now, "type": "refresh"})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def verify_token(
@@ -317,6 +325,12 @@ class AuthService:
         if not user or not user.is_active:
             return None
 
+        # Option A: проверяем tokens_invalidated_at
+        if user.tokens_invalidated_at:
+            token_iat = payload.get("iat")
+            if token_iat and token_iat < user.tokens_invalidated_at.timestamp():
+                return None
+
         # Создаем новую пару токенов
         return self.create_tokens_for_user(user)
 
@@ -376,6 +390,90 @@ class AuthService:
         user.is_active = False
         await db.commit()
         return True
+
+    async def create_password_reset_token(
+        self, db: AsyncSession, email: str
+    ) -> Optional[str]:
+        """Создаёт токен сброса пароля. Возвращает plain-text токен или None если user не найден."""
+        from ..models.password_reset import PasswordResetToken
+
+        user = await self.get_user_by_email(db, email)
+        if not user or not user.is_active:
+            return None
+
+        # Инвалидировать все существующие токены пользователя
+        await db.execute(
+            delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
+
+        # Создать новый токен
+        plain_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(plain_token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+        )
+
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        db.add(reset_token)
+        await db.commit()
+
+        logger.info(f"Password reset token created for user_id={user.id}")
+        return plain_token
+
+    async def validate_and_reset_password(
+        self, db: AsyncSession, token: str, new_password: str
+    ) -> tuple[bool, Optional[str]]:
+        """Валидирует токен и устанавливает новый пароль.
+
+        Returns:
+            (success, user_email) — email нужен для отправки confirmation.
+        """
+        from ..models.password_reset import PasswordResetToken
+
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        result = await db.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.token_hash == token_hash,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > datetime.now(timezone.utc),
+            )
+        )
+        reset_token = result.scalar_one_or_none()
+
+        if not reset_token:
+            # OWASP timing-safety: выполнить dummy bcrypt hash чтобы время ответа
+            # было сопоставимо со случаем валидного токена (который делает реальный hash)
+            self.get_password_hash("dummy-password-for-timing-safety")
+            logger.warning("Invalid/expired password reset token attempted")
+            return False, None
+
+        # Обновить пароль
+        user = await self.get_user_by_id(db, reset_token.user_id)
+        if not user or not user.is_active:
+            return False, None
+
+        user.password_hash = self.get_password_hash(new_password)
+
+        # Удалить ВСЕ токены этого пользователя (инвалидация, включая текущий)
+        await db.execute(
+            delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
+
+        # OWASP: инвалидировать ВСЕ активные сессии пользователя (Option A)
+        # Все JWT выпущенные до этого момента будут считаться невалидными
+        user.tokens_invalidated_at = datetime.now(timezone.utc)
+
+        await db.commit()
+
+        logger.info(
+            f"Password reset completed for user_id={user.id}, all sessions invalidated"
+        )
+        return True, user.email
 
 
 # Глобальный экземпляр сервиса

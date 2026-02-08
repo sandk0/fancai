@@ -98,6 +98,28 @@ class AccountDeactivationResponse(BaseModel):
     )
 
 
+class ForgotPasswordResponse(BaseModel):
+    """
+    Response для запроса сброса пароля.
+
+    Всегда возвращает одно сообщение (OWASP: no user enumeration).
+    """
+
+    message: str = Field(
+        default="If this email is registered, a password reset link has been sent",
+        description="Constant message regardless of email existence",
+    )
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response для успешного сброса пароля."""
+
+    message: str = Field(
+        default="Password has been reset successfully",
+        description="Success message",
+    )
+
+
 # ============================================================================
 # EXPORTS
 # ============================================================================
@@ -107,4 +129,6 @@ __all__ = [
     "CurrentUserResponse",
     "ProfileUpdateResponse",
     "AccountDeactivationResponse",
+    "ForgotPasswordResponse",
+    "ResetPasswordResponse",
 ]

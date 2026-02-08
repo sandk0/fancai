@@ -67,6 +67,15 @@ celery_app.conf.update(
                 "priority": 1,
             },
         },
+        # Password reset tokens cleanup (daily)
+        "cleanup-expired-reset-tokens": {
+            "task": "cleanup_expired_reset_tokens",
+            "schedule": 86400.0,  # 24 hours
+            "options": {
+                "queue": "light",
+                "priority": 1,
+            },
+        },
     },
     # Celery 5.6+ Soft Shutdown (Phase 1: Dependency Updates)
     # Allows graceful completion of long-running tasks before worker shutdown

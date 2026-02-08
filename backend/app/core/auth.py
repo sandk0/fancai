@@ -87,6 +87,12 @@ async def get_current_user(
     if user is None or not user.is_active:
         raise credentials_exception
 
+    # Option A: проверяем tokens_invalidated_at (password reset invalidates all sessions)
+    if user.tokens_invalidated_at:
+        token_iat = payload.get("iat")
+        if token_iat and token_iat < user.tokens_invalidated_at.timestamp():
+            raise token_revoked_exception
+
     return user
 
 
@@ -177,6 +183,12 @@ def get_optional_current_user():
             user = await auth_service.get_user_by_id(db, user_id)
             if user is None or not user.is_active:
                 return None
+
+            # Option A: проверяем tokens_invalidated_at (password reset)
+            if user.tokens_invalidated_at:
+                token_iat = payload.get("iat")
+                if token_iat and token_iat < user.tokens_invalidated_at.timestamp():
+                    return None
 
             return user
 

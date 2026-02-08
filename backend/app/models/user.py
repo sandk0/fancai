@@ -87,6 +87,12 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Session invalidation (Option A: timestamp-based)
+    # After password reset, all JWTs issued before this timestamp are invalid
+    tokens_invalidated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Статистика
     longest_streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 

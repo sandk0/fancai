@@ -25,7 +25,7 @@ function createRegisterSchema(t: (key: string) => string) {
       email: z.string().email(t('register.validation.email_invalid')),
       password: z
         .string()
-        .min(8, t('register.validation.password_min'))
+        .min(12, t('register.validation.password_min'))
         .regex(/[a-z]/, t('register.validation.password_lowercase'))
         .regex(/[A-Z]/, t('register.validation.password_uppercase'))
         .regex(/\d/, t('register.validation.password_digit'))
