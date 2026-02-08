@@ -50,17 +50,18 @@ TestSessionLocal = sessionmaker(
 def _create_enums(sync_conn):
     """Create PG enums that have create_type=False in models."""
     from sqlalchemy import text
-    sync_conn.execute(text(
-        "DO $$ BEGIN "
-        "  CREATE TYPE entitytype AS ENUM ('character', 'location', 'object'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    ))
+    exists = sync_conn.execute(
+        text("SELECT 1 FROM pg_type WHERE typname = 'entitytype'")
+    ).fetchone()
+    if not exists:
+        sync_conn.execute(
+            text("CREATE TYPE entitytype AS ENUM ('character', 'location', 'object')")
+        )
 
 def _drop_enums(sync_conn):
     """Drop PG enums after tests."""
     from sqlalchemy import text
-    sync_conn.execute(text("DROP TYPE IF EXISTS entitytype"))
+    sync_conn.execute(text("DROP TYPE IF EXISTS entitytype CASCADE"))
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db():
