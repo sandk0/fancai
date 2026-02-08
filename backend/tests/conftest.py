@@ -23,12 +23,20 @@ from app.core.container import (
 )
 from app.models import User, Book, Chapter, Description, GeneratedImage
 
-# Test database URL - using PostgreSQL since models use UUID type
-# This connects to the same postgres container but with a test database
-# NOTE: Use service name "postgres" for Docker environment, not "localhost"
-TEST_DATABASE_URL = (
-    "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_test"
-)
+# Test database URL — derived from settings.DATABASE_URL (single source of truth)
+def _build_test_database_url() -> str:
+    """Derive test database URL from settings."""
+    if settings.TEST_DATABASE_URL:
+        return settings.TEST_DATABASE_URL
+    # Replace db name suffix: bookreader_dev -> bookreader_test
+    url = settings.DATABASE_URL
+    base, db_name = url.rsplit("/", 1)
+    if "?" in db_name:
+        db_name, params = db_name.split("?", 1)
+        return f"{base}/{db_name.removesuffix('_dev')}_test?{params}"
+    return f"{base}/{db_name.removesuffix('_dev')}_test"
+
+TEST_DATABASE_URL = _build_test_database_url()
 
 # Create test engine
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
