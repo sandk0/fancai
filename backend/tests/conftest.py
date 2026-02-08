@@ -73,6 +73,8 @@ async def test_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(_drop_enums)
+    # Reset connection pool to avoid "another operation in progress" between tests
+    await test_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
