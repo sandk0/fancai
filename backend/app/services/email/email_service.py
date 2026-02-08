@@ -50,7 +50,7 @@ class EmailService:
           </tr>
           <tr>
             <td align="center" style="padding-bottom:24px;">
-              <a href="{reset_url}" style="display:inline-block;background-color:#7c3aed;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:16px;font-weight:600;">
+              <a href="{reset_url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:#7c3aed;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:16px;font-weight:600;">
                 Сбросить пароль
               </a>
             </td>
