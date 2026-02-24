@@ -120,7 +120,7 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
                 "Book processing completed",
                 book_id=book_id_str,
                 status=result.get("status"),
-                chapters_preparsed=result.get("chapters_preparsed"),
+                chapters_processed=result.get("chapters_processed"),
             )
             return result
 
@@ -305,7 +305,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
         # ИЗМЕНЕНО: Обрабатываем ВСЕ главы книги (ранее было только 5)
         # Теперь обработка запускается вручную, поэтому обрабатываем полностью
-        chapters_parsed = 0
+        chapters_processed = 0
         total_descriptions = 0
         total_chapters = len(chapters)
 
@@ -318,263 +318,276 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             # Semaphore to limit massive concurrency
             chapter_semaphore = asyncio.Semaphore(10)
 
-            # Import TaskGroup safely (Python 3.11+)
-            try:
-                from asyncio import TaskGroup
-            except ImportError:
-                # Fallback for older python if needed, though we are on 3.12
-                logger.error("Asyncio TaskGroup not found. Python 3.11+ required.")
-                raise
-
             # Progress tracking
             chapters_done_count = 0
             progress_lock = asyncio.Lock()
 
             async def process_chapter_safe(idx: int, chapter_id: UUID):
-                """
-                Process a single chapter in its own DB session to avoid concurrency issues.
-                """
-                async with AsyncSessionLocal() as session:
-                    async with chapter_semaphore:
-                        local_chapter = None
-                        try:
-                            stmt = select(Chapter).where(Chapter.id == chapter_id)
-                            res = await session.execute(stmt)
-                            local_chapter = res.scalar_one_or_none()
+                """Process a single chapter. Catches ALL exceptions to prevent sibling task cancellation."""
+                try:
+                    async with AsyncSessionLocal() as session:
+                        async with chapter_semaphore:
+                            local_chapter = None
+                            try:
+                                stmt = select(Chapter).where(Chapter.id == chapter_id)
+                                res = await session.execute(stmt)
+                                local_chapter = res.scalar_one_or_none()
 
-                            if not local_chapter:
-                                return
+                                if not local_chapter:
+                                    return
 
-                            # Skip if already parsed
-                            if local_chapter.is_description_parsed:
-                                return
+                                # Skip if already parsed
+                                if local_chapter.is_description_parsed:
+                                    return
 
-                            # 2. Check Service Page (Table of Contents, etc)
-                            SERVICE_PAGE_KEYWORDS = [
-                                "содержание",
-                                "оглавление",
-                                "table of contents",
-                                "contents",
-                                "от автора",
-                                "слово автора",
-                                "предисловие",
-                                "послесловие",
-                                "аннотация",
-                                "annotation",
-                                "synopsis",
-                                "эпиграф",
-                                "epigraph",
-                                "цитата",
-                                "посвящение",
-                                "dedication",
-                                "благодарности",
-                                "acknowledgments",
-                                "примечания",
-                                "notes",
-                                "сноски",
-                                "библиография",
-                                "bibliography",
-                                "references",
-                                "об авторе",
-                                "about the author",
-                                "биография",
-                                "copyright",
-                                "издательство",
-                                "publisher",
-                                "isbn",
-                                "все права защищены",
-                                "all rights reserved",
-                            ]
+                                # 2. Check Service Page (Table of Contents, etc)
+                                SERVICE_PAGE_KEYWORDS = [
+                                    "содержание",
+                                    "оглавление",
+                                    "table of contents",
+                                    "contents",
+                                    "от автора",
+                                    "слово автора",
+                                    "предисловие",
+                                    "послесловие",
+                                    "аннотация",
+                                    "annotation",
+                                    "synopsis",
+                                    "эпиграф",
+                                    "epigraph",
+                                    "цитата",
+                                    "посвящение",
+                                    "dedication",
+                                    "благодарности",
+                                    "acknowledgments",
+                                    "примечания",
+                                    "notes",
+                                    "сноски",
+                                    "библиография",
+                                    "bibliography",
+                                    "references",
+                                    "об авторе",
+                                    "about the author",
+                                    "биография",
+                                    "copyright",
+                                    "издательство",
+                                    "publisher",
+                                    "isbn",
+                                    "все права защищены",
+                                    "all rights reserved",
+                                ]
 
-                            content_lower = (local_chapter.content or "")[:500].lower()
-                            title_lower = (local_chapter.title or "").lower()
+                                content_lower = (local_chapter.content or "")[:500].lower()
+                                title_lower = (local_chapter.title or "").lower()
 
-                            is_service = any(
-                                k in title_lower or k in content_lower
-                                for k in SERVICE_PAGE_KEYWORDS
-                            )
-                            if (
-                                local_chapter.word_count
-                                and local_chapter.word_count < 100
-                            ):
-                                is_service = True
+                                is_service = any(
+                                    k in title_lower or k in content_lower
+                                    for k in SERVICE_PAGE_KEYWORDS
+                                )
+                                if (
+                                    local_chapter.word_count
+                                    and local_chapter.word_count < 100
+                                ):
+                                    is_service = True
 
-                            if is_service:
-                                local_chapter.is_service_page = True
+                                if is_service:
+                                    local_chapter.is_service_page = True
+                                    local_chapter.is_description_parsed = True
+                                    local_chapter.parsed_at = datetime.now(timezone.utc)
+                                    await session.commit()
+                                    return
+
+                                # 3. Analyze with Gemini
+                                # Extractor has its own internal semaphore/rate-limiting too
+                                result = await gemini_extractor.analyze_chapter(
+                                    local_chapter.content
+                                )
+
+                                # 4. Consistency & Logic (Map Phase)
+                                # Use a local ConsistencyManager with this session
+                                local_mgr = ConsistencyManager(session)
+                                entity_map = await local_mgr.process_chapter_analysis(
+                                    str(book_id),
+                                    result,
+                                    chapter_id=str(local_chapter.id),
+                                    chapter_index=idx,
+                                )
+
+                                # 4b. Create EntityEvents from extraction
+                                from app.models.entity_event import EntityEvent
+
+                                for raw_entity in result.entities:
+                                    if raw_entity.chapter_event_action:
+                                        resolved = entity_map.get(raw_entity.name.lower())
+                                        if resolved:
+                                            event = EntityEvent(
+                                                entity_id=resolved.id,
+                                                chapter_id=local_chapter.id,
+                                                chapter_number=idx,
+                                                event_action=raw_entity.chapter_event_action,
+                                                event_inner_state=raw_entity.chapter_event_inner,
+                                            )
+                                            session.add(event)
+
+                                # 5. Save Descriptions and create DescriptionEntity links
+                                descriptions_data = result.descriptions or []
+                                from app.models.description import (
+                                    Description as DescriptionModel,
+                                )
+                                from app.models.description_entity import DescriptionEntity
+
+                                for i, d in enumerate(descriptions_data):
+                                    d_dict = cast(
+                                        Dict[str, Any],
+                                        (
+                                            d.to_dict()
+                                            if hasattr(d, "to_dict")
+                                            else (
+                                                dict(d)
+                                                if isinstance(d, dict)
+                                                else {"content": str(d)}
+                                            )
+                                        ),
+                                    )
+                                    try:
+                                        d_type = DescriptionType(
+                                            d_dict.get("type", "location")
+                                        )
+                                    except ValueError:
+                                        logger.warning(
+                                            f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
+                                        )
+                                        d_type = DescriptionType.LOCATION
+
+                                    new_desc = DescriptionModel(
+                                        chapter_id=local_chapter.id,
+                                        type=d_type,
+                                        content=d_dict.get("content", ""),
+                                        confidence_score=d_dict.get(
+                                            "confidence_score", 0.8
+                                        ),
+                                        priority_score=d_dict.get("priority_score", 0.5),
+                                        position_in_chapter=i,
+                                        word_count=d_dict.get("word_count", 0),
+                                    )
+                                    session.add(new_desc)
+                                    await session.flush()  # Get new_desc.id
+
+                                    # Create DescriptionEntity links for spoiler protection
+                                    entities_mentioned = d_dict.get(
+                                        "entities_mentioned", []
+                                    )
+                                    entities_linked = 0
+                                    entities_not_found = []
+
+                                    for entity_name in entities_mentioned:
+                                        if not entity_name:
+                                            continue
+                                        entity = find_entity_fuzzy(entity_name, entity_map)
+                                        if entity:
+                                            desc_entity = DescriptionEntity(
+                                                description_id=new_desc.id,
+                                                entity_id=entity.id,
+                                                confidence=d_dict.get(
+                                                    "confidence_score", 0.8
+                                                ),
+                                                mention_text=entity_name,
+                                            )
+                                            session.add(desc_entity)
+                                            entities_linked += 1
+                                        else:
+                                            entities_not_found.append(entity_name)
+
+                                    # Diagnostic logging for entity lookup
+                                    if entities_mentioned:
+                                        logger.debug(
+                                            f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
+                                            f"linked={entities_linked}, not_found={entities_not_found}, "
+                                            f"entity_map_keys={list(entity_map.keys())[:10]}..."
+                                        )
+                                        if entities_not_found:
+                                            logger.warning(
+                                                f"Entity lookup miss in chapter {local_chapter.chapter_number}: "
+                                                f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
+                                            )
+
+                                local_chapter.descriptions_found = len(descriptions_data)
                                 local_chapter.is_description_parsed = True
                                 local_chapter.parsed_at = datetime.now(timezone.utc)
+                                local_chapter.parsing_error = None
+                                local_chapter.parse_attempts += 1
+
                                 await session.commit()
-                                return
 
-                            # 3. Analyze with Gemini
-                            # Extractor has its own internal semaphore/rate-limiting too
-                            result = await gemini_extractor.analyze_chapter(
-                                local_chapter.content
-                            )
+                                num_descriptions = len(descriptions_data)
+                                logger.info(
+                                    f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
+                                )
 
-                            # 4. Consistency & Logic (Map Phase)
-                            # Use a local ConsistencyManager with this session
-                            local_mgr = ConsistencyManager(session)
-                            entity_map = await local_mgr.process_chapter_analysis(
-                                str(book_id),
-                                result,
-                                chapter_id=str(local_chapter.id),
-                                chapter_index=idx,
-                            )
+                                # Update progress
+                                nonlocal chapters_done_count, total_descriptions
+                                async with progress_lock:
+                                    chapters_done_count += 1
+                                    total_descriptions += num_descriptions
+                                    current_progress = int(
+                                        (chapters_done_count / total_chapters) * 80
+                                    )
 
-                            # 4b. Create EntityEvents from extraction
-                            from app.models.entity_event import EntityEvent
+                                await publish_book_progress(
+                                    book_id=str(book_id),
+                                    progress=current_progress,
+                                    chapter=local_chapter.chapter_number,
+                                    total_chapters=total_chapters,
+                                    status="processing",
+                                    message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}",
+                                )
 
-                            for raw_entity in result.entities:
-                                if raw_entity.chapter_event_action:
-                                    resolved = entity_map.get(raw_entity.name.lower())
-                                    if resolved:
-                                        event = EntityEvent(
-                                            entity_id=resolved.id,
-                                            chapter_id=local_chapter.id,
-                                            chapter_number=idx,
-                                            event_action=raw_entity.chapter_event_action,
-                                            event_inner_state=raw_entity.chapter_event_inner,
-                                        )
-                                        session.add(event)
-
-                            # 5. Save Descriptions and create DescriptionEntity links
-                            descriptions_data = result.descriptions or []
-                            from app.models.description import (
-                                Description as DescriptionModel,
-                            )
-                            from app.models.description_entity import DescriptionEntity
-
-                            for i, d in enumerate(descriptions_data):
-                                d_dict = cast(
-                                    Dict[str, Any],
-                                    (
-                                        d.to_dict()
-                                        if hasattr(d, "to_dict")
-                                        else (
-                                            dict(d)
-                                            if isinstance(d, dict)
-                                            else {"content": str(d)}
-                                        )
-                                    ),
+                            except Exception as e:
+                                logger.error(
+                                    f"Error parsing chapter {idx + 1}: {e}", exc_info=True
                                 )
                                 try:
-                                    d_type = DescriptionType(
-                                        d_dict.get("type", "location")
+                                    if local_chapter:
+                                        local_chapter.parsing_error = str(e)[:1000]
+                                        local_chapter.parse_attempts += 1
+                                        await session.commit()
+                                except Exception as commit_err:
+                                    logger.error(
+                                        f"Failed to record chapter {idx + 1} error: {commit_err}"
                                     )
-                                except ValueError:
-                                    logger.warning(
-                                        f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
-                                    )
-                                    d_type = DescriptionType.LOCATION
-
-                                new_desc = DescriptionModel(
-                                    chapter_id=local_chapter.id,
-                                    type=d_type,
-                                    content=d_dict.get("content", ""),
-                                    confidence_score=d_dict.get(
-                                        "confidence_score", 0.8
-                                    ),
-                                    priority_score=d_dict.get("priority_score", 0.5),
-                                    position_in_chapter=i,
-                                    word_count=d_dict.get("word_count", 0),
-                                )
-                                session.add(new_desc)
-                                await session.flush()  # Get new_desc.id
-
-                                # Create DescriptionEntity links for spoiler protection
-                                entities_mentioned = d_dict.get(
-                                    "entities_mentioned", []
-                                )
-                                entities_linked = 0
-                                entities_not_found = []
-
-                                for entity_name in entities_mentioned:
-                                    if not entity_name:
-                                        continue
-                                    entity = find_entity_fuzzy(entity_name, entity_map)
-                                    if entity:
-                                        desc_entity = DescriptionEntity(
-                                            description_id=new_desc.id,
-                                            entity_id=entity.id,
-                                            confidence=d_dict.get(
-                                                "confidence_score", 0.8
-                                            ),
-                                            mention_text=entity_name,
-                                        )
-                                        session.add(desc_entity)
-                                        entities_linked += 1
-                                    else:
-                                        entities_not_found.append(entity_name)
-
-                                # Diagnostic logging for entity lookup
-                                if entities_mentioned:
-                                    logger.debug(
-                                        f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
-                                        f"linked={entities_linked}, not_found={entities_not_found}, "
-                                        f"entity_map_keys={list(entity_map.keys())[:10]}..."
-                                    )
-                                    if entities_not_found:
-                                        logger.warning(
-                                            f"Entity lookup miss in chapter {local_chapter.chapter_number}: "
-                                            f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
-                                        )
-
-                            local_chapter.descriptions_found = len(descriptions_data)
-                            local_chapter.is_description_parsed = True
-                            local_chapter.parsed_at = datetime.now(timezone.utc)
-                            local_chapter.parsing_error = None
-                            local_chapter.parse_attempts += 1
-
-                            await session.commit()
-
-                            num_descriptions = len(descriptions_data)
-                            logger.info(
-                                f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
-                            )
-
-                            # Update progress
-                            nonlocal chapters_done_count, total_descriptions
-                            async with progress_lock:
-                                chapters_done_count += 1
-                                total_descriptions += num_descriptions
-                                current_progress = int(
-                                    (chapters_done_count / total_chapters) * 80
-                                )
-
-                            await publish_book_progress(
-                                book_id=str(book_id),
-                                progress=current_progress,
-                                chapter=local_chapter.chapter_number,
-                                total_chapters=total_chapters,
-                                status="processing",
-                                message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}",
-                            )
-
-                        except Exception as e:
-                            logger.error(
-                                f"Error parsing chapter {idx + 1}: {e}", exc_info=True
-                            )
-                            if local_chapter:
-                                local_chapter.parsing_error = str(e)[:1000]
-                                local_chapter.parse_attempts += 1
-                                await session.commit()
+                except BaseException as fatal_err:
+                    # Catch-all: CancelledError, session creation failures, context manager cleanup errors.
+                    # Prevents ANY exception from propagating and affecting sibling tasks.
+                    logger.error(
+                        f"Fatal error in chapter {idx + 1} processing: "
+                        f"{type(fatal_err).__name__}: {fatal_err}",
+                        exc_info=True,
+                    )
 
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
-            try:
-                async with TaskGroup() as tg:
-                    for idx, chapter in enumerate(chapters):
-                        tg.create_task(process_chapter_safe(idx, chapter.id))
-            except* Exception as excgroup:
-                failed_count = len(excgroup.exceptions)
-                logger.error(f"Chapter processing: {failed_count} tasks failed")
-                for exc in excgroup.exceptions:
-                    logger.error(f"  - {type(exc).__name__}: {exc}")
+            results = await asyncio.gather(
+                *(process_chapter_safe(idx, chapter.id) for idx, chapter in enumerate(chapters)),
+                return_exceptions=True,
+            )
 
-            logger.info("Parallel processing complete.")
+            # Log any exceptions that were returned (shouldn't happen with our BaseException catch,
+            # but log just in case for debugging)
+            for i, result in enumerate(results):
+                if isinstance(result, BaseException):
+                    logger.error(
+                        f"Chapter task {i + 1} returned exception: "
+                        f"{type(result).__name__}: {result}"
+                    )
+
+            logger.info(
+                f"Parallel processing complete. "
+                f"{chapters_done_count}/{total_chapters} chapters processed, "
+                f"{total_descriptions} descriptions extracted."
+            )
 
             # Update book progress to 100% (approximate)
             book.parsing_progress = 100
+            chapters_processed = chapters_done_count
 
         # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
         # Executed once after all chapters are extracted.
@@ -823,20 +836,20 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             "book_id": str(book_id),
             "status": "completed" if not failed_chapters else "completed_with_errors",
             "chapters_count": len(chapters),
-            "chapters_preparsed": chapters_parsed,
+            "chapters_processed": chapters_processed,
             "chapters_failed": len(failed_chapters),
             "failed_chapter_numbers": [c[0] for c in failed_chapters],
             "descriptions_extracted": total_descriptions,
             "llm_available": llm_available,
             "extraction_mode": "full_book",
-            "message": f"Book processed. {chapters_parsed} chapters, {len(failed_chapters)} failed.",
+            "message": f"Book processed. {chapters_processed} chapters, {len(failed_chapters)} failed.",
         }
 
         logger.info(
             "Book processing finished",
             book_id=str(book_id),
             chapters_count=len(chapters),
-            chapters_preparsed=chapters_parsed,
+            chapters_processed=chapters_processed,
             descriptions_extracted=total_descriptions,
         )
 
