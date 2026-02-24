@@ -87,7 +87,7 @@ async def update_entity_cfi(
         logger.error(f"Failed to update entity CFI: {e}")
         raise HTTPException(status_code=500, detail="Database error")
 
-    cache_key = f"book:{book_id}:entity_network_raw_v4"
+    cache_key = f"book:{book_id}:entity_network_raw_v5"
     await cache_manager.delete(cache_key)
 
     logger.info(
@@ -114,57 +114,68 @@ async def get_book_recap(
     db: AsyncSession = Depends(get_database_session),
 ) -> RecapResponse:
     """Возвращает 'Ранее в книге' — топ-5 entities с последним событием."""
-    from sqlalchemy.orm import selectinload
+    from sqlalchemy import func as sa_func
 
-    # Load top entities by importance
-    entities_q = await db.execute(
+    top_entities_q = await db.execute(
         select(Entity)
         .where(Entity.book_id == book_id)
         .order_by(Entity.importance.desc().nulls_last())
         .limit(5)
     )
-    top_entities = entities_q.scalars().all()
+    top_entities = top_entities_q.scalars().all()
+    if not top_entities:
+        return RecapResponse(entities=[])
 
+    entity_ids = [e.id for e in top_entities]
+
+    row_num = (
+        sa_func.row_number()
+        .over(
+            partition_by=EntityEvent.entity_id,
+            order_by=EntityEvent.chapter_number.desc(),
+        )
+        .label("rn")
+    )
+    subq = (
+        select(EntityEvent, row_num)
+        .where(
+            EntityEvent.entity_id.in_(entity_ids),
+            EntityEvent.chapter_number <= current_chapter,
+        )
+        .subquery()
+    )
+    latest_events_q = await db.execute(
+        select(
+            subq.c.entity_id,
+            subq.c.chapter_number,
+            subq.c.event_action,
+            subq.c.event_inner_state,
+        ).where(subq.c.rn == 1)
+    )
+    events_by_entity = {
+        row.entity_id: EntityEventSchema(
+            chapter_number=row.chapter_number,
+            event_action=row.event_action,
+            event_inner_state=row.event_inner_state,
+        )
+        for row in latest_events_q
+    }
     recap_entities = []
     for entity in top_entities:
-        # Get latest event up to current chapter
-        event_q = await db.execute(
-            select(EntityEvent)
-            .where(
-                EntityEvent.entity_id == entity.id,
-                EntityEvent.chapter_number <= current_chapter,
-            )
-            .order_by(EntityEvent.chapter_number.desc())
-            .limit(1)
-        )
-        last_event_row = event_q.scalar_one_or_none()
-
-        last_event = None
-        if last_event_row:
-            last_event = EntityEventSchema(
-                chapter_number=last_event_row.chapter_number,
-                event_action=last_event_row.event_action,
-                event_inner_state=last_event_row.event_inner_state,
-            )
-
-        # Get dynamic_role from current milestone
         dynamic_role = None
         if entity.biography_milestones:
-            from app.services.entity_service import EntityService
             milestone = EntityService._get_current_milestone(
                 entity.biography_milestones, current_chapter
             )
             if milestone:
                 dynamic_role = milestone.get("dynamic_role")
-
         recap_entities.append(
             RecapEntitySchema(
                 id=entity.id,
                 name=entity.name,
                 avatar_url=entity.master_portrait_url,
                 dynamic_role=dynamic_role,
-                last_event=last_event,
+                last_event=events_by_entity.get(entity.id),
             )
         )
-
     return RecapResponse(entities=recap_entities)

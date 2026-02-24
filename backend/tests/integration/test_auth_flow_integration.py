@@ -136,7 +136,7 @@ class TestAuthFlowIntegration:
 
         await asyncio.sleep(0.1)  # Small delay for blacklist to take effect
 
-        invalidated_response = await client.get("/api/v1/auth/me", headers=new_headers)
+        await client.get("/api/v1/auth/me", headers=new_headers)
 
         # After logout, token should be blacklisted
         # In some implementations, this might still return 200 if blacklist isn't checked

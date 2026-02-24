@@ -7,11 +7,10 @@ Implements "literal cache" strategy for LLM calls:
 - Reduces API costs by ~90% for repeated processing
 """
 
-import json
 import hashlib
 import logging
 from dataclasses import dataclass, asdict
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 from redis.asyncio import Redis

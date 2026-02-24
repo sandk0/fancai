@@ -15,17 +15,14 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.services.book.book_parsing_service import BookParsingService
 from app.services.book.book_service import BookService
-from app.models.book import Book, BookGenre
+from app.models.book import Book
 from app.models.chapter import Chapter
 from app.models.description import Description, DescriptionType
-from app.models.user import User
 
 
 class TestBookParsingServiceIntegration:

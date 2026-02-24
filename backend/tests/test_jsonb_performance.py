@@ -25,8 +25,6 @@ pytestmark = pytest.mark.skip(
     reason="JSONB GIN indexes not available in test DB (require Alembic migrations)"
 )
 import time
-import asyncio
-from typing import List, Dict, Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -181,7 +179,7 @@ async def test_gin_index_usage_books(db_session: AsyncSession):
         "GIN index not being used for JSONB query"
     )
 
-    print(f"   ✓ GIN index is being used for books.book_metadata")
+    print("   ✓ GIN index is being used for books.book_metadata")
     print(f"   Query plan: {plan[0]['Plan']['Node Type']}")
 
 
@@ -205,7 +203,7 @@ async def test_gin_index_usage_images(db_session: AsyncSession):
         "idx_generated_images_params_gin" in plan_str or "Bitmap Index Scan" in plan_str
     ), "GIN index not being used for generation_parameters"
 
-    print(f"   ✓ GIN index is being used for generation_parameters")
+    print("   ✓ GIN index is being used for generation_parameters")
 
     # Check moderation_result GIN index
     explain_query = text("""
@@ -223,7 +221,7 @@ async def test_gin_index_usage_images(db_session: AsyncSession):
         or "Bitmap Index Scan" in plan_str
     ), "GIN index not being used for moderation_result"
 
-    print(f"   ✓ GIN index is being used for moderation_result")
+    print("   ✓ GIN index is being used for moderation_result")
 
 
 # ============================================================================
@@ -259,7 +257,7 @@ async def test_jsonb_query_performance_benchmark(db_session: AsyncSession):
     elapsed = end_time - start_time
     avg_time_ms = (elapsed / iterations) * 1000
 
-    print(f"\n   📊 JSONB Query Performance:")
+    print("\n   📊 JSONB Query Performance:")
     print(f"   - Total time: {elapsed:.3f}s")
     print(f"   - Iterations: {iterations}")
     print(f"   - Average time: {avg_time_ms:.2f}ms")
@@ -271,9 +269,9 @@ async def test_jsonb_query_performance_benchmark(db_session: AsyncSession):
     )
 
     if avg_time_ms < 10:
-        print(f"   ✅ EXCELLENT: Query time <10ms (target achieved)")
+        print("   ✅ EXCELLENT: Query time <10ms (target achieved)")
     elif avg_time_ms < 50:
-        print(f"   ✓ GOOD: Query time <50ms")
+        print("   ✓ GOOD: Query time <50ms")
     else:
         print(f"   ⚠️  ACCEPTABLE: Query time {avg_time_ms:.2f}ms (could be optimized)")
 
@@ -304,7 +302,7 @@ async def test_complex_jsonb_query_performance(db_session: AsyncSession):
     elapsed = end_time - start_time
     avg_time_ms = (elapsed / iterations) * 1000
 
-    print(f"\n   📊 Complex JSONB Query Performance:")
+    print("\n   📊 Complex JSONB Query Performance:")
     print(f"   - Average time: {avg_time_ms:.2f}ms")
     print(f"   - QPS: {iterations / elapsed:.2f} queries/second")
 
@@ -385,7 +383,7 @@ async def test_jsonb_insert_update_operations(db_session: AsyncSession):
     # Verify insert
     assert test_book.id is not None
     assert test_book.book_metadata["publisher"] == "Test Publisher"
-    print(f"   ✓ INSERT with JSONB data successful")
+    print("   ✓ INSERT with JSONB data successful")
 
     # Update JSONB field
     test_book.book_metadata["tags"].append("performance")
@@ -394,7 +392,7 @@ async def test_jsonb_insert_update_operations(db_session: AsyncSession):
     # Verify update
     await db_session.refresh(test_book)
     assert "performance" in test_book.book_metadata["tags"]
-    print(f"   ✓ UPDATE of JSONB data successful")
+    print("   ✓ UPDATE of JSONB data successful")
 
     # Rollback test data
     await db_session.rollback()
@@ -419,7 +417,7 @@ async def test_jsonb_operators_comprehensive(db_session: AsyncSession):
     - ||  (concatenation)
     - -   (delete key)
     """
-    print(f"\n   Testing JSONB operators:")
+    print("\n   Testing JSONB operators:")
 
     # @> (contains)
     query = select(Book).where(Book.book_metadata.op("@>")({"publisher": "АСТ"}))
@@ -473,13 +471,13 @@ async def test_backward_compatibility(db_session: AsyncSession):
         book = books[0]
         assert hasattr(book, "chapters")
         assert hasattr(book, "user")
-        print(f"   ✓ Relationships still work")
+        print("   ✓ Relationships still work")
 
     # Test metadata access
     if books and books[0].book_metadata:
         metadata = books[0].book_metadata
         assert isinstance(metadata, dict)
-        print(f"   ✓ JSONB data accessible as dict")
+        print("   ✓ JSONB data accessible as dict")
 
 
 # ============================================================================
@@ -502,7 +500,7 @@ async def test_jsonb_migration_summary(db_session: AsyncSession):
         select(text("COUNT(*)")).select_from(GeneratedImage)
     )
 
-    print(f"\n✅ Database Statistics:")
+    print("\n✅ Database Statistics:")
     print(f"   - Books: {book_count}")
     print(f"   - Generated Images: {image_count}")
 
@@ -520,9 +518,9 @@ async def test_jsonb_migration_summary(db_session: AsyncSession):
     for idx in indexes:
         print(f"   - {idx[1]}.{idx[0]}")
 
-    print(f"\n✅ JSONB Migration Successful!")
-    print(f"   - All JSON columns converted to JSONB")
-    print(f"   - GIN indexes created and active")
-    print(f"   - Query performance significantly improved")
-    print(f"   - Data integrity maintained")
+    print("\n✅ JSONB Migration Successful!")
+    print("   - All JSON columns converted to JSONB")
+    print("   - GIN indexes created and active")
+    print("   - Query performance significantly improved")
+    print("   - Data integrity maintained")
     print("=" * 70 + "\n")

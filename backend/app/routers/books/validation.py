@@ -9,7 +9,6 @@ Validation & preview endpoints для работы с книгами.
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 import tempfile
-import os
 from pathlib import Path
 
 import aiofiles

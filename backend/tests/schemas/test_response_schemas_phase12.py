@@ -11,7 +11,7 @@ Version: Phase 1.2 Type Safety (2025-11-29)
 """
 
 import pytest
-from uuid import UUID, uuid4
+from uuid import uuid4
 from datetime import datetime
 
 from app.schemas.responses.images import (

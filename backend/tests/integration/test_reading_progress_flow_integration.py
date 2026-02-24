@@ -16,8 +16,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.models.book import Book, ReadingProgress
-from app.models.chapter import Chapter
+from app.models.book import ReadingProgress
 
 
 def create_minimal_epub() -> io.BytesIO:

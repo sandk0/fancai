@@ -296,6 +296,9 @@ class ReadingProgress(Base):
         Float, default=0.0, nullable=False
     )  # Точный % скролла внутри страницы (0-100)
 
+    max_chapter_reached: Mapped[int] = mapped_column(
+        Integer, default=1, nullable=False, server_default="1"
+    )  # Максимальная глава, до которой пользователь дочитал (для защиты от спойлеров)
     # Статистика чтения
     reading_time_minutes: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False

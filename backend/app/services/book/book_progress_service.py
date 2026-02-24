@@ -230,6 +230,7 @@ class BookProgressService:
                 ),  # Теперь хранит процент 0-100 (int)
                 reading_location_cfi=reading_location_cfi,  # CFI для epub.js
                 scroll_offset_percent=scroll_offset_percent,  # Точный скролл внутри страницы
+                max_chapter_reached=valid_chapter,  # Начальное значение = текущая глава
             )
             db.add(progress)
         else:
@@ -272,6 +273,10 @@ class BookProgressService:
                     if reading_location_cfi:
                         progress.reading_location_cfi = reading_location_cfi
                     progress.scroll_offset_percent = scroll_offset_percent
+                    # max_chapter_reached обновляется даже при блокировке прогресса
+                    progress.max_chapter_reached = max(
+                        valid_chapter, progress.max_chapter_reached or 1
+                    )
                     progress.last_read_at = datetime.now(timezone.utc)
                     await db.commit()
                     await db.refresh(progress)
@@ -289,6 +294,10 @@ class BookProgressService:
             )
             progress.last_read_at = datetime.now(timezone.utc)
 
+            # Обновляем max_chapter_reached (монотонно возрастает — защита от спойлеров)
+            progress.max_chapter_reached = max(
+                valid_chapter, progress.max_chapter_reached or 1
+            )
         # Обновляем время последнего доступа к книге
         book_result = await db.execute(select(Book).where(Book.id == book_id))
         book = book_result.scalar_one()

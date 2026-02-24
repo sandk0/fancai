@@ -11,7 +11,6 @@ Security considerations:
 """
 
 from datetime import datetime, timezone
-from typing import Optional
 from loguru import logger
 
 from ..core.cache import cache_manager
@@ -61,7 +60,7 @@ class TokenBlacklist:
 
         # Token already expired, no need to blacklist
         if ttl_seconds <= 0:
-            logger.debug(f"Token already expired, skipping blacklist")
+            logger.debug("Token already expired, skipping blacklist")
             return True
 
         key = f"{self.PREFIX}{token}"
@@ -98,7 +97,7 @@ class TokenBlacklist:
             is_revoked = result is not None
 
             if is_revoked:
-                logger.debug(f"Blacklisted token access attempted")
+                logger.debug("Blacklisted token access attempted")
 
             return is_revoked
         except Exception as e:
@@ -124,7 +123,7 @@ class TokenBlacklist:
 
         try:
             await cache_manager.delete(key)
-            logger.info(f"Token removed from blacklist")
+            logger.info("Token removed from blacklist")
             return True
         except Exception as e:
             logger.error(f"Failed to remove token from blacklist: {e}")

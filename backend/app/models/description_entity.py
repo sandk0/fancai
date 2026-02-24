@@ -65,10 +65,10 @@ class DescriptionEntity(Base):
     )
 
     description: Mapped["Description"] = relationship(
-        "Description", back_populates="linked_entities"
+        "Description", back_populates="linked_entities", lazy="raise"
     )
     entity: Mapped["Entity"] = relationship(
-        "Entity", back_populates="linked_descriptions"
+        "Entity", back_populates="linked_descriptions", lazy="raise"
     )
 
     def __repr__(self) -> str:

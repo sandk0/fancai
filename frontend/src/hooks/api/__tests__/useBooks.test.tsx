@@ -335,6 +335,7 @@ describe('useBooks hooks', () => {
           current_page: 100,
           current_position: 50,
           progress_percent: 50,
+          max_chapter_reached: 5,
         },
         file_format: 'epub',
         file_size_mb: 2.5,

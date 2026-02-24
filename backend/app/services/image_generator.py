@@ -21,7 +21,6 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import logging
-from uuid import UUID
 
 from ..models.description import Description, DescriptionType
 from .imagen_generator import (

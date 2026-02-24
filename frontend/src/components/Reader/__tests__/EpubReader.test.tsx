@@ -300,6 +300,7 @@ const createMockBook = (overrides?: Partial<BookDetail>): BookDetail => ({
     current_page: 1,
     current_position: 0,
     reading_location_cfi: undefined,
+    max_chapter_reached: 1,
     progress_percent: 0,
   },
   file_format: 'epub',
@@ -674,6 +675,7 @@ describe('EpubReader Component', () => {
           current_position: 0,
           reading_location_cfi: undefined,
           progress_percent: 0,
+          max_chapter_reached: 1,
           last_read_at: '2025-01-01T00:00:00Z',
         },
       });
@@ -884,6 +886,7 @@ describe('EpubReader Component', () => {
           reading_location_cfi: undefined,
           progress_percent: 0,
           last_read_at: '2025-01-01T00:00:00Z',
+          max_chapter_reached: 1,
         },
         message: 'Progress updated successfully',
       });

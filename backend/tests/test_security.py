@@ -11,7 +11,7 @@ Security Tests для fancai.
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 
 from app.main import app
@@ -169,7 +169,7 @@ class TestRateLimiting:
 
     def test_rate_limit_headers_present(self, client):
         """Test rate limit headers are included in response."""
-        response = client.get("/health")
+        client.get("/health")
 
         # Note: Headers may not be present if using custom rate limiter
         # This test is for documentation purposes

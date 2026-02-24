@@ -10,8 +10,7 @@ Expected: 2 queries for 50 books (instead of 51)
 import pytest
 import time
 from uuid import uuid4
-from sqlalchemy import event, select
-from sqlalchemy.engine import Engine
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -98,7 +97,7 @@ async def test_book_list_no_n1_queries(
             id=uuid4(),
             book_id=book.id,
             chapter_number=1,
-            title=f"Chapter 1",
+            title="Chapter 1",
             content="Test content",
             word_count=1000,
         )
@@ -155,7 +154,7 @@ async def test_book_list_no_n1_queries(
                 f"Expected 25% progress, got {progress_percent}%"
             )
 
-        print(f"[TEST] ✅ PASS: Reading progress calculated correctly for all books")
+        print("[TEST] ✅ PASS: Reading progress calculated correctly for all books")
 
     finally:
         # Remove listener
@@ -344,7 +343,7 @@ async def test_performance_comparison(db_session: AsyncSession, test_user: User)
         else 0
     )
 
-    print(f"\n[TEST] 📊 PERFORMANCE RESULTS:")
+    print("\n[TEST] 📊 PERFORMANCE RESULTS:")
     print(f"[TEST]   Old method: {old_method_time:.2f}ms")
     print(f"[TEST]   New method: {new_method_time:.2f}ms")
     print(f"[TEST]   Speedup: {speedup:.1f}x faster")

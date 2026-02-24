@@ -90,6 +90,7 @@ describe('Books API', () => {
           current_page: 0,
           current_position: 0,
           progress_percent: 0,
+          max_chapter_reached: 1,
         },
         file_format: 'epub',
         file_size_mb: 1.5,

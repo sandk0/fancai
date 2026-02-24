@@ -15,29 +15,48 @@ export const entityTypeLabels: Record<string, string> = new Proxy(
     }
 );
 
-export const baseRoleLabels: Record<string, string> = {
-    protagonist: 'Главный герой',
-    antagonist: 'Антагонист',
-    supporting: 'Значимый персонаж',
-    episodic: 'Эпизодический',
-};
-
-export const relationshipTypeLabels: Record<string, string> = {
-    KINSHIP: 'Родство',
-    ALLY: 'Союзник',
-    ENEMY: 'Враг',
-    FRIEND: 'Друг',
-    MENTOR: 'Наставник',
-    STUDENT: 'Ученик',
-    ROMANCE: 'Любовь',
-    RIVAL: 'Соперник',
-};
-
 export const getBaseRoleLabel = (role: string | null | undefined): string | null => {
     if (!role) return null;
-    return baseRoleLabels[role] || role;
+    const key = `entities.role_${role}`;
+    const translated = i18n.t(key);
+    return translated !== key ? translated : role;
+};
+
+const RELATIONSHIP_KEY_MAP: Record<string, string> = {
+    KINSHIP: 'rel_kinship',
+    ALLY: 'rel_ally',
+    ENEMY: 'rel_enemy',
+    FRIEND: 'rel_friend',
+    MENTOR: 'rel_mentor',
+    STUDENT: 'rel_student',
+    ROMANCE: 'rel_romance',
+    RIVAL: 'rel_rival',
 };
 
 export const getRelationshipLabel = (type: string): string => {
-    return relationshipTypeLabels[type] || type;
+    const key = RELATIONSHIP_KEY_MAP[type];
+    if (key) {
+        const translated = i18n.t(`entities.${key}`);
+        if (translated !== `entities.${key}`) return translated;
+    }
+    return type;
 };
+
+export const relationshipTypeLabels: Record<string, string> = new Proxy(
+    {} as Record<string, string>,
+    {
+        get(_target, prop: string) {
+            return getRelationshipLabel(prop);
+        },
+    }
+);
+
+
+export const baseRoleLabels: Record<string, string> = new Proxy(
+    {} as Record<string, string>,
+    {
+        get(_target, prop: string) {
+            return getBaseRoleLabel(prop) || prop;
+        },
+    }
+);

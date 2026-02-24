@@ -210,8 +210,6 @@ async def get_parsing_status(
                 "message": "Parsing not started",
             }
 
-        print(f"[PARSING-STATUS] Response: {response}")
-        return response
 
     except HTTPException:
         raise

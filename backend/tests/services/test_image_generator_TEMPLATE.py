@@ -13,7 +13,6 @@ Priority: HIGHEST (0% → 70% coverage)
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
-from typing import Dict, Any
 
 # TODO: Import actual ImageGenerator class
 # from app.services.image_generator import ImageGenerator
@@ -108,8 +107,6 @@ class TestPromptEngineering:
         """Test fantasy genre prompt template."""
         # TODO: Implement actual test
         # Arrange
-        description = "dark forest with ancient trees"
-        genre = "fantasy"
 
         # Act
         # prompt = image_generator.build_prompt(description, genre)
@@ -124,8 +121,6 @@ class TestPromptEngineering:
         """Test detective genre prompt template."""
         # TODO: Implement actual test
         # Arrange
-        description = "old apartment building"
-        genre = "detective"
 
         # Act
         # prompt = image_generator.build_prompt(description, genre)
@@ -139,8 +134,6 @@ class TestPromptEngineering:
         """Test horror genre prompt template."""
         # TODO: Implement actual test
         # Arrange
-        description = "abandoned house"
-        genre = "horror"
 
         # Act
         # prompt = image_generator.build_prompt(description, genre)
@@ -154,11 +147,6 @@ class TestPromptEngineering:
         """Test description enhancement with context."""
         # TODO: Implement actual test
         # Arrange
-        description = {
-            "text": "forest",
-            "context": "The hero felt afraid as night approached.",
-            "description_type": "location",
-        }
 
         # Act
         # enriched_prompt = image_generator.build_prompt(
@@ -198,8 +186,6 @@ class TestImageCaching:
         """Test that similar descriptions use same cached image."""
         # TODO: Implement actual test
         # Arrange
-        desc1 = {"text": "dark forest with trees"}
-        desc2 = {"text": "Dark forest with tall trees"}  # Similar
 
         # Act
         # result1 = await image_generator.generate_image(desc1)
@@ -238,11 +224,6 @@ class TestBatchGeneration:
         """Test generating images for multiple descriptions."""
         # TODO: Implement actual test
         # Arrange
-        descriptions = [
-            {"text": "forest", "description_type": "location"},
-            {"text": "old cabin", "description_type": "location"},
-            {"text": "tall man", "description_type": "character"},
-        ]
 
         # Act
         # results = await image_generator.batch_generate(descriptions)
@@ -257,11 +238,6 @@ class TestBatchGeneration:
         """Test batch generation with some failures."""
         # TODO: Implement actual test
         # Arrange
-        descriptions = [
-            {"text": "valid description"},
-            {"text": ""},  # Invalid
-            {"text": "another valid"},
-        ]
 
         # Act
         # results = await image_generator.batch_generate(descriptions)
@@ -281,7 +257,6 @@ class TestQualityFiltering:
         """Test rejection of descriptions that are too short."""
         # TODO: Implement actual test
         # Arrange
-        short_desc = {"text": "tree"}  # Too generic
 
         # Act
         # is_valid = image_generator.validate_description(short_desc)
@@ -294,10 +269,6 @@ class TestQualityFiltering:
         """Test rejection of low-priority descriptions."""
         # TODO: Implement actual test
         # Arrange
-        low_priority = {
-            "text": "some description",
-            "priority_score": 0.2,  # Below threshold
-        }
 
         # Act
         # is_valid = image_generator.validate_description(low_priority)
@@ -310,11 +281,6 @@ class TestQualityFiltering:
         """Test acceptance of high-quality descriptions."""
         # TODO: Implement actual test
         # Arrange
-        high_quality = {
-            "text": "beautiful ancient forest with tall pine trees",
-            "priority_score": 0.85,
-            "description_type": "location",
-        }
 
         # Act
         # is_valid = image_generator.validate_description(high_quality)
@@ -332,7 +298,7 @@ class TestRateLimiting:
         """Test that rate limits are respected."""
         # TODO: Implement actual test
         # Arrange
-        descriptions = [
+        [
             {"text": f"description {i}"}
             for i in range(20)  # More than rate limit
         ]
@@ -395,7 +361,7 @@ class TestConcurrentGeneration:
         """Test multiple concurrent image generation requests."""
         # TODO: Implement actual test
         # Arrange
-        descriptions = [{"text": f"description {i}"} for i in range(5)]
+        [{"text": f"description {i}"} for i in range(5)]
 
         # Act - Generate concurrently
         # tasks = [

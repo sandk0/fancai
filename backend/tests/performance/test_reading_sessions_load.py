@@ -17,7 +17,6 @@ Run:
 
 import random
 import logging
-from uuid import uuid4
 from typing import Optional
 
 import pytest

@@ -13,8 +13,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch, MagicMock
 from httpx import AsyncClient
 
-from app.services.token_blacklist import TokenBlacklist, token_blacklist
-from app.services.auth_service import auth_service
+from app.services.token_blacklist import TokenBlacklist
 
 
 class TestTokenBlacklistService:

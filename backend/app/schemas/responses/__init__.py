@@ -406,6 +406,7 @@ class ReadingProgressResponse(BaseResponse):
     user_id: UUID
     book_id: UUID
     current_chapter: int = Field(ge=1, description="Номер текущей главы")
+    max_chapter_reached: int = Field(ge=1, default=1, description="Максимальная глава, до которой пользователь дочитал")
     current_page: int = Field(ge=1, description="Номер текущей страницы")
     current_position: int = Field(ge=0, le=100, description="Процент прогресса 0-100")
     reading_location_cfi: Optional[str] = Field(

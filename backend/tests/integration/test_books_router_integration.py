@@ -17,7 +17,6 @@ import pytest
 import io
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from pathlib import Path
 
 from app.models.book import Book, BookGenre
 from app.models.user import User

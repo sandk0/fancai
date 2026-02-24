@@ -58,12 +58,8 @@ class Entity(Base):
     seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     importance: Mapped[int | None] = mapped_column(Integer, default=5, nullable=True)
-    linked_entity_ids: Mapped[list[Any] | None] = mapped_column(
-        JSONB, default=[], nullable=True
-    )
-
     entity_metadata: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, default={}, nullable=False
+        JSONB, default=dict, nullable=False
     )
 
     aliases_with_reveal: Mapped[list[dict[str, Any]]] = mapped_column(

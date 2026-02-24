@@ -18,8 +18,7 @@ Coverage target: >70%
 
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
-from typing import Dict, List, Any
+from unittest.mock import MagicMock, patch
 
 from app.services.gemini_extractor import (
     GeminiDirectExtractor,
@@ -265,7 +264,7 @@ class TestGeminiDirectExtractor:
             mock_types.GenerateContentConfig.return_value = MagicMock()
 
             # Act
-            result = await extractor.extract(long_text)
+            await extractor.extract(long_text)
 
         # Assert - should have made multiple API calls for chunks
         assert extractor.stats["total_calls"] >= 2

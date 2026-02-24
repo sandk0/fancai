@@ -17,9 +17,7 @@ Coverage target: >70%
 """
 
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
-from typing import List, Dict, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.langextract_processor import (
     LangExtractProcessor,

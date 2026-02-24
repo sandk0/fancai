@@ -7,7 +7,7 @@ Entity Synthesis Service — Phase 2 post-book processing.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 

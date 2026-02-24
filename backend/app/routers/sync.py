@@ -17,7 +17,6 @@ Author: fancai Team
 
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone
@@ -28,7 +27,6 @@ from ..core.database import get_database_session
 from ..core.logging import logger
 from ..services.auth_service import auth_service
 from ..services.token_blacklist import token_blacklist
-from ..models.book import ReadingProgress
 from ..models.user import User
 from ..services.book import book_progress_service
 

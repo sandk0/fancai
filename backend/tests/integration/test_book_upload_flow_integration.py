@@ -18,7 +18,6 @@ from sqlalchemy import select
 
 from app.models.book import Book
 from app.models.chapter import Chapter
-from app.models.user import User
 
 
 def create_minimal_epub() -> io.BytesIO:

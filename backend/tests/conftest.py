@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import AsyncMock, MagicMock
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 
 from app.main import app
 from app.core.database import get_database_session, Base
@@ -13,15 +13,13 @@ from app.core.config import settings
 from app.core.container import (
     DependencyContainer,
     get_book_parser_dep,
-    get_imagen_service_dep,
     get_gemini_extractor_dep,
     get_auth_service_dep,
     get_book_service_dep,
-    get_book_progress_service_dep,
     get_image_generator_service_dep,
     get_token_blacklist_dep,
 )
-from app.models import User, Book, Chapter, Description, GeneratedImage
+from app.models import User, Book
 
 # Test database URL — derived from settings.DATABASE_URL (single source of truth)
 def _build_test_database_url() -> str:

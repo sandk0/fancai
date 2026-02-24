@@ -9,9 +9,8 @@ Test coverage:
 """
 
 import pytest
-import pytest_asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.tasks.reading_sessions_tasks import (

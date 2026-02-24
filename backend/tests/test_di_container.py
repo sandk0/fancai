@@ -10,7 +10,6 @@ These tests verify:
 Run with: pytest tests/test_di_container.py -v
 """
 
-import pytest
 from unittest.mock import MagicMock, AsyncMock
 
 from app.main import app
@@ -18,8 +17,6 @@ from app.core.container import (
     DependencyContainer,
     get_book_parser,
     get_auth_service,
-    get_book_service,
-    get_image_generator_service,
     get_book_parser_dep,
     get_auth_service_dep,
     get_book_service_dep,

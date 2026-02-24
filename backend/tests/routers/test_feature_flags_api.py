@@ -7,9 +7,7 @@
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.feature_flag import FeatureFlagCategory
 
 
 @pytest.mark.asyncio
@@ -635,11 +633,11 @@ class TestFeatureFlagsIntegration:
             headers=admin_auth_headers,
         )
         assert create_response.status_code == 201
-        created_flag = create_response.json()
+        create_response.json()
 
         # 2. Получаем флаг
         get_response = await client.get(
-            f"/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
+            "/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
             headers=admin_auth_headers,
         )
         assert get_response.status_code == 200
@@ -648,7 +646,7 @@ class TestFeatureFlagsIntegration:
 
         # 3. Обновляем флаг
         update_response = await client.put(
-            f"/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
+            "/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
             json={"enabled": True},
             headers=admin_auth_headers,
         )
@@ -657,7 +655,7 @@ class TestFeatureFlagsIntegration:
 
         # 4. Проверяем что флаг обновлен
         final_response = await client.get(
-            f"/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
+            "/api/v1/admin/feature-flags/WORKFLOW_TEST_FLAG",
             headers=admin_auth_headers,
         )
         assert final_response.json()["enabled"] is True
