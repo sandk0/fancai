@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
-import { EntityDetail } from '../../types/entity';
+import { EntityDetail } from '@/types/entity';
 import { EntityCard } from './EntityCard';
 import { entityTypeLabels } from './entityTypeLabels';
-import { EntityListSkeleton } from '../UI/Skeleton';
-import { Input } from '../UI/Input';
+import { EntityListSkeleton } from '@/components/UI/Skeleton';
+import { Input } from '@/components/UI/Input';
 import { Search, X } from 'lucide-react';
 
 type EntityTypeFilter = 'character' | 'location' | 'object';
@@ -49,7 +49,7 @@ export const EntityList: React.FC<EntityListProps> = ({
 
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase().trim();
-            result = result.filter((e) => e.name.toLowerCase().includes(query));
+            result = result.filter((e) => e.name.toLowerCase().includes(query) || e.aliases?.some(a => a.toLowerCase().includes(query)));
         }
 
         return result;

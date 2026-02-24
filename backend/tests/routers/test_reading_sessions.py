@@ -13,9 +13,8 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from app.models.user import User
 from app.models.book import Book

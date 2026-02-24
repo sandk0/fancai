@@ -647,6 +647,7 @@ export function useUpdateReadingProgress(
               current_position: data.progress.current_position,
               reading_location_cfi: data.progress.reading_location_cfi,
               progress_percent: data.progress.progress_percent,
+              max_chapter_reached: data.progress.max_chapter_reached,
             },
           };
         }

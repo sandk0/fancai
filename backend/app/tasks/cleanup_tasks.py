@@ -118,7 +118,7 @@ async def _cleanup_stuck_books_async() -> Dict[str, Any]:
     async with AsyncSessionLocal() as db:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=4)
 
-        query = select(Book).where(Book.is_processing == True, Book.updated_at < cutoff)
+        query = select(Book).where(Book.is_processing.is_(True), Book.updated_at < cutoff)
         result = await db.execute(query)
         stuck_books = result.scalars().all()
 

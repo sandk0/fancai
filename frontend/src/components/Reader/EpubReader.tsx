@@ -215,10 +215,12 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     return 'bg-white';
   }, [theme]);
 
+  // max_chapter_reached приходит с сервера (монотонно возрастающее значение)
+  // Дополнительно берём max с currentChapter на случай задержки синхронизации
   const maxChapterReached = useMemo(() => {
-    const savedChapter = book.reading_progress?.current_chapter || 1;
-    return Math.max(currentChapter, savedChapter);
-  }, [currentChapter, book.reading_progress]);
+    const serverMax = book.reading_progress?.max_chapter_reached || 1;
+    return Math.max(currentChapter, serverMax);
+  }, [currentChapter, book.reading_progress?.max_chapter_reached]);
 
   return (
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>

@@ -5,7 +5,6 @@
 методы сериализации и предопределенные значения.
 """
 
-import pytest
 from datetime import datetime
 import uuid
 

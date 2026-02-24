@@ -21,7 +21,6 @@ Usage:
     )
 """
 
-import json
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from loguru import logger
@@ -219,7 +218,7 @@ class PushNotificationService:
         """
         query = select(PushSubscription).where(PushSubscription.user_id == user_id)
         if active_only:
-            query = query.where(PushSubscription.is_active == True)
+            query = query.where(PushSubscription.is_active.is_(True))
 
         result = await db.execute(query)
         return list(result.scalars().all())

@@ -14,8 +14,8 @@ from uuid import uuid4
 
 from app.services.user_statistics_service import UserStatisticsService
 from app.models.reading_session import ReadingSession
-from app.models.book import Book, ReadingProgress
-from app.models.user import User, Subscription
+from app.models.book import Book
+from app.models.user import User
 
 
 @pytest.mark.asyncio

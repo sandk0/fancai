@@ -9,8 +9,7 @@ Validates:
 """
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-import secrets
+from unittest.mock import Mock, patch
 
 
 def test_csrf_token_generation():
@@ -34,7 +33,6 @@ def test_csrf_token_generation():
 def test_csrf_token_constant_time_comparison():
     """Test CSRF uses constant-time comparison."""
     from app.core.csrf import CSRFProtectMiddleware
-    import secrets as sec
 
     # Mock request with matching tokens
     mock_request = Mock()
@@ -239,7 +237,6 @@ async def test_csrf_middleware_validates_post():
 
 def test_production_env_example_exists():
     """Test .env.production.example was created."""
-    import os
     from pathlib import Path
 
     env_example_path = Path(__file__).parent.parent / ".env.production.example"

@@ -8,7 +8,6 @@ import pytest
 import tempfile
 from pathlib import Path
 from uuid import uuid4
-from unittest.mock import AsyncMock, patch, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -108,7 +107,6 @@ class TestBookCreation:
             assert book.file_format == "epub"
 
             # Проверяем что главы созданы в БД (используем refresh с selectinload для async)
-            from sqlalchemy.orm import selectinload
 
             await db_session.refresh(book, ["chapters"])
             assert len(book.chapters) == 2

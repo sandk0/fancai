@@ -369,11 +369,12 @@ async def get_book(
     try:
         progress_percent = await book.get_reading_progress_percent(db, current_user.id)
 
-        current_chapter, current_page, current_position, reading_location_cfi = (
+        current_chapter, current_page, current_position, reading_location_cfi, max_chapter_reached = (
             1,
             1,
             0,
             None,
+            1,
         )
         if book.reading_progress:
             progress = book.reading_progress[0]
@@ -381,6 +382,7 @@ async def get_book(
             current_page = progress.current_page
             current_position = progress.current_position
             reading_location_cfi = progress.reading_location_cfi
+            max_chapter_reached = progress.max_chapter_reached or current_chapter
 
         chapters_data = [
             {
@@ -433,6 +435,7 @@ async def get_book(
                 "current_page": current_page,
                 "current_position": current_position,
                 "reading_location_cfi": reading_location_cfi,
+                "max_chapter_reached": max_chapter_reached,
                 "progress_percent": round(progress_percent, 1),
             },
         )

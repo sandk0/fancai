@@ -169,7 +169,7 @@ async def get_user_from_websocket(
         token = query_token
         auth_source = "query_param"
         logger.warning(
-            f"WebSocket auth via query param (deprecated) - use cookies instead"
+            "WebSocket auth via query param (deprecated) - use cookies instead"
         )
 
     if not token:

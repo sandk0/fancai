@@ -7,17 +7,13 @@ Comprehensive тесты для Book Parser - парсер EPUB и FB2 книг.
 Coverage target: 60-70% (было 23%)
 """
 
-import os
 import pytest
 import tempfile
 import zipfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from app.services.book_parser import (
     BookParser,
-    EPUBParser,
-    FB2Parser,
     ChapterNumberExtractor,
     BookMetadata,
     BookChapter,

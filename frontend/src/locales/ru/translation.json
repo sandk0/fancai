@@ -337,6 +337,10 @@
     "rel_student": "Ученик",
     "rel_romance": "Любовь",
     "rel_rival": "Соперник",
+    "role_protagonist": "Главный герой",
+    "role_antagonist": "Антагонист",
+    "role_supporting": "Значимый персонаж",
+    "role_episodic": "Эпизодический",
     "about": "О персонаже",
     "by_chapters": "По главам",
     "gallery": "Галерея",
@@ -346,7 +350,10 @@
     "description_density": "Плотность описаний",
     "density_all": "Все",
     "density_key": "Ключевые",
-    "density_off": "Выкл"
+    "density_off": "Выкл",
+    "relation_count_one": "{{count}} связь",
+    "relation_count_few": "{{count}} связи",
+    "relation_count_many": "{{count}} связей"
   },
   "gallery": {
     "title": "Галерея Персонажей",

@@ -1,7 +1,8 @@
 import React from 'react';
-import type { EntityDetail, EntityEvent } from '../../types/entity';
-import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
-import { Badge } from '../UI/badge';
+import { useTranslation } from 'react-i18next';
+import type { EntityDetail, EntityEvent } from '@/types/entity';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/UI/avatar';
+import { Badge } from '@/components/UI/badge';
 import { getBaseRoleLabel } from './entityTypeLabels';
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export const EntityMiniCard: React.FC<Props> = ({ entity, currentChapter, relationCount = 0, onClick }) => {
+    const { t } = useTranslation();
     const roleLabel = getBaseRoleLabel(entity.dynamic_role || entity.base_role);
     const summary = entity.visual_summary_clean || entity.visual_summary;
     const truncatedSummary = summary && summary.length > 80 ? summary.slice(0, 80) + '...' : summary;
@@ -56,7 +58,7 @@ export const EntityMiniCard: React.FC<Props> = ({ entity, currentChapter, relati
                 )}
                 {relationCount > 0 && (
                     <span className="text-[10px] text-[var(--color-text-disabled)]">
-                        {relationCount} {relationCount === 1 ? 'связь' : 'связей'}
+                        {t('entities.relation_count', { count: relationCount })}
                     </span>
                 )}
             </div>

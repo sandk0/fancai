@@ -1,7 +1,6 @@
 """Email service — фасад для отправки email через абстрактного провайдера."""
 
 import logging
-from typing import Optional
 
 from .provider import EmailProvider
 

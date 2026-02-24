@@ -14,7 +14,7 @@ Performance optimization (December 2025):
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, cast, Date, case, and_, Float
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from uuid import UUID
 
 from loguru import logger

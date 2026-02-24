@@ -9,13 +9,12 @@ Responsible for:
 
 import logging
 import networkx as nx
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, case
 from app.models.entity import Entity
 from app.models.entity_relationship import EntityRelationship
-from app.models.book import Book
 
 logger = logging.getLogger(__name__)
 

@@ -10,12 +10,10 @@ Tests the entire reading session lifecycle end-to-end:
 """
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
-from typing import List
 
 from app.models.reading_session import ReadingSession
 from app.models.user import User

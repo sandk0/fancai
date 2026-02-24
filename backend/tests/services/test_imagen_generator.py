@@ -19,9 +19,7 @@ Coverage target: >70%
 import pytest
 import asyncio
 import base64
-from unittest.mock import AsyncMock, MagicMock, patch, Mock, mock_open
-from pathlib import Path
-from typing import Dict, Any
+from unittest.mock import MagicMock, patch, mock_open
 
 from app.services.imagen_generator import (
     GoogleImagenGenerator,

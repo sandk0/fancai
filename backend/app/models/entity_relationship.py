@@ -64,7 +64,7 @@ class EntityRelationship(Base):
     )
 
     relationship_metadata: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, default={}, nullable=False
+        JSONB, default=dict, nullable=False
     )
 
     relationship_milestones: Mapped[list[dict[str, Any]] | None] = mapped_column(
@@ -83,10 +83,10 @@ class EntityRelationship(Base):
 
     # Relationships
     source: Mapped["Entity"] = relationship(
-        "Entity", foreign_keys=[source_id], back_populates="outgoing_relations"
+        "Entity", foreign_keys=[source_id], back_populates="outgoing_relations", lazy="raise"
     )
     target: Mapped["Entity"] = relationship(
-        "Entity", foreign_keys=[target_id], back_populates="incoming_relations"
+        "Entity", foreign_keys=[target_id], back_populates="incoming_relations", lazy="raise"
     )
 
     # Composite Index for fast lookup of "All friends of X"

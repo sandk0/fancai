@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
-from io import BytesIO
+from unittest.mock import patch
 from uuid import uuid4
 
 

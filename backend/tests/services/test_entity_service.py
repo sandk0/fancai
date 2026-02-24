@@ -2,7 +2,7 @@ import pytest
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.entity_service import EntityService
+from app.services.entity_service import EntityService, _normalize_name
 from app.models.entity import Entity
 from app.models.entity_relationship import EntityRelationship
 from app.models.description import Description
@@ -12,24 +12,15 @@ from app.schemas.responses.entities import EntityNetworkResponse
 
 class TestEntityServiceNormalizeName:
     def test_normalize_name_lowercase(self):
-        service = EntityService(db=MagicMock())
-        assert service._normalize_name("GERALT") == "geralt"
-
+        assert _normalize_name("GERALT") == "geralt"
     def test_normalize_name_strips_whitespace(self):
-        service = EntityService(db=MagicMock())
-        assert service._normalize_name("  Geralt  ") == "geralt"
-
+        assert _normalize_name("  Geralt  ") == "geralt"
     def test_normalize_name_replaces_yo(self):
-        service = EntityService(db=MagicMock())
-        assert service._normalize_name("Ёлка") == "елка"
-
+        assert _normalize_name("Ёлка") == "елка"
     def test_normalize_name_empty_string(self):
-        service = EntityService(db=MagicMock())
-        assert service._normalize_name("") == ""
-
+        assert _normalize_name("") == ""
     def test_normalize_name_none(self):
-        service = EntityService(db=MagicMock())
-        assert service._normalize_name(None) == ""
+        assert _normalize_name(None) == ""
 
 
 class TestEntityServiceGetEarliestCfi:
@@ -58,10 +49,10 @@ class TestEntityServiceGetEarliestCfi:
         assert result == "epubcfi(/6/4!/4/2:100)"
 
 
-class TestEntityServiceBuildNetworkResponse:
-    def test_build_network_response_empty_entities(self):
+class TestEntityServiceBuildRawMergedNetwork:
+    def test_build_raw_merged_network_empty_entities(self):
         service = EntityService(db=MagicMock())
-        response = service._build_network_response(
+        response = service._build_raw_merged_network(
             entities=[],
             edges=[],
             hard_mentions_map={},
@@ -71,10 +62,10 @@ class TestEntityServiceBuildNetworkResponse:
             description_cfi_map={},
             events_by_entity={},
         )
-        assert response.entities == {}
-        assert response.edges == []
+        assert response["entities"] == {}
+        assert response["edges"] == []
 
-    def test_build_network_response_single_entity(self):
+    def test_build_raw_merged_network_single_entity(self):
         service = EntityService(db=MagicMock())
 
         entity_id = uuid4()
@@ -90,8 +81,7 @@ class TestEntityServiceBuildNetworkResponse:
         entity.aliases_with_reveal = []
         entity.biography_milestones = None
         entity.base_role = None
-
-        response = service._build_network_response(
+        response = service._build_raw_merged_network(
             entities=[entity],
             edges=[],
             hard_mentions_map={entity_id: {1, 2, 3}},
@@ -102,14 +92,14 @@ class TestEntityServiceBuildNetworkResponse:
             events_by_entity={},
         )
 
-        assert entity_id in response.entities
-        detail = response.entities[entity_id]
-        assert detail.name == "Geralt"
-        assert detail.type == "character"
-        assert detail.mentions == [1, 2, 3]
-        assert detail.first_mention_offset == 100
+        assert str(entity_id) in response["entities"]
+        detail = response["entities"][str(entity_id)]
+        assert detail["name"] == "Geralt"
+        assert detail["type"] == "character"
+        assert detail["mentions"] == [1, 2, 3]
+        assert detail["first_mention_offset"] == 100
 
-    def test_build_network_response_merges_duplicate_entities(self):
+    def test_build_raw_merged_network_merges_duplicate_entities(self):
         service = EntityService(db=MagicMock())
 
         entity1_id = uuid4()
@@ -139,8 +129,7 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.aliases_with_reveal = []
         entity2.biography_milestones = None
         entity2.base_role = None
-
-        response = service._build_network_response(
+        response = service._build_raw_merged_network(
             entities=[entity1, entity2],
             edges=[],
             hard_mentions_map={},
@@ -151,11 +140,11 @@ class TestEntityServiceBuildNetworkResponse:
             events_by_entity={},
         )
 
-        assert len(response.entities) == 1
-        master_entity = list(response.entities.values())[0]
-        assert master_entity.visual_summary == "White-haired witcher"
+        assert len(response["entities"]) == 1
+        master_entity = list(response["entities"].values())[0]
+        assert master_entity["_raw_visual_summary"] == "White-haired witcher"
 
-    def test_build_network_response_with_edges(self):
+    def test_build_raw_merged_network_with_edges(self):
         service = EntityService(db=MagicMock())
 
         entity1_id = uuid4()
@@ -185,7 +174,6 @@ class TestEntityServiceBuildNetworkResponse:
         entity2.aliases_with_reveal = []
         entity2.biography_milestones = None
         entity2.base_role = None
-
         edge = MagicMock(spec=EntityRelationship)
         edge.source_id = entity1_id
         edge.target_id = entity2_id
@@ -193,8 +181,9 @@ class TestEntityServiceBuildNetworkResponse:
         edge.weight = 5
         edge.relationship_metadata = {"context": "They are companions"}
         edge.first_interaction_cfi = None
+        edge.first_interaction_chapter = None
 
-        response = service._build_network_response(
+        response = service._build_raw_merged_network(
             entities=[entity1, entity2],
             edges=[edge],
             hard_mentions_map={},
@@ -205,13 +194,13 @@ class TestEntityServiceBuildNetworkResponse:
             events_by_entity={},
         )
 
-        assert len(response.edges) == 1
-        assert response.edges[0].type == "friend"
-        assert response.edges[0].description == "They are companions"
+        assert len(response["edges"]) == 1
+        assert response["edges"][0]["type"] == "friend"
+        assert response["edges"][0]["_context"] == "They are companions"
 
 
-class TestEntityServiceCreateMergedDetail:
-    def test_create_merged_detail_basic(self):
+class TestEntityServiceCreateRawEntityCache:
+    def test_create_raw_entity_cache_basic(self):
         service = EntityService(db=MagicMock())
 
         entity_id = uuid4()
@@ -228,7 +217,7 @@ class TestEntityServiceCreateMergedDetail:
         entity.biography_milestones = None
         entity.base_role = None
 
-        detail = service._create_merged_detail(
+        detail = service._create_raw_entity_cache(
             master=entity,
             descriptions=[],
             hard_mentions_map={entity_id: {1, 2}},
@@ -238,13 +227,13 @@ class TestEntityServiceCreateMergedDetail:
             entity_events=[],
         )
 
-        assert detail.name == "Kaer Morhen"
-        assert detail.type == "location"
-        assert detail.avatar_url == "http://example.com/kaer.jpg"
-        assert detail.first_mention_offset == 100
-        assert detail.mentions == [1, 2]
+        assert detail["name"] == "Kaer Morhen"
+        assert detail["type"] == "location"
+        assert detail["avatar_url"] == "http://example.com/kaer.jpg"
+        assert detail["first_mention_offset"] == 100
+        assert detail["mentions"] == [1, 2]
 
-    def test_create_merged_detail_with_descriptions(self):
+    def test_create_raw_entity_cache_with_descriptions(self):
         service = EntityService(db=MagicMock())
 
         entity_id = uuid4()
@@ -260,7 +249,6 @@ class TestEntityServiceCreateMergedDetail:
         entity.entity_metadata = {}
         entity.biography_milestones = None
         entity.base_role = None
-
         chapter = MagicMock(spec=Chapter)
         chapter.chapter_number = 3
 
@@ -270,8 +258,7 @@ class TestEntityServiceCreateMergedDetail:
         description.chapter = chapter
         description.type = MagicMock()
         description.type.value = "location"
-
-        detail = service._create_merged_detail(
+        detail = service._create_raw_entity_cache(
             master=entity,
             descriptions=[description],
             hard_mentions_map={},
@@ -281,10 +268,10 @@ class TestEntityServiceCreateMergedDetail:
             entity_events=[],
         )
 
-        assert len(detail.notes) == 1
-        assert detail.notes[0].text == "The ancient fortress stood tall"
-        assert detail.notes[0].chapter_index == 3
-        assert 3 in detail.mentions
+        assert len(detail["notes"]) == 1
+        assert detail["notes"][0]["text"] == "The ancient fortress stood tall"
+        assert detail["notes"][0]["chapter_index"] == 3
+        assert 3 in detail["mentions"]
 
 
 @pytest.mark.asyncio
@@ -304,7 +291,7 @@ class TestEntityServiceGetBookEntityNetwork:
             assert isinstance(result, EntityNetworkResponse)
             mock_cache.get.assert_called_once()
 
-    async def test_get_book_entity_network_uses_raw_v4_cache_key(self):
+    async def test_get_book_entity_network_uses_raw_v5_cache_key(self):
         mock_db = AsyncMock()
         service = EntityService(db=mock_db)
         book_id = uuid4()
@@ -312,7 +299,7 @@ class TestEntityServiceGetBookEntityNetwork:
         with patch("app.services.entity_service.cache_manager") as mock_cache:
             mock_cache.get = AsyncMock(return_value={"entities": {}, "edges": []})
             await service.get_book_entity_network(book_id)
-            mock_cache.get.assert_called_once_with(f"book:{book_id}:entity_network_raw_v4")
+            mock_cache.get.assert_called_once_with(f"book:{book_id}:entity_network_raw_v5")
 
     async def test_get_book_entity_network_loads_from_db_on_cache_miss(self):
         mock_db = AsyncMock()

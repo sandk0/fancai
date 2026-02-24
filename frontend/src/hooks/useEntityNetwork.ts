@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
-import { EntityService } from '../services/EntityService';
-import { EntityNetworkResponse } from '../types/entity';
+import { EntityService } from '@/services/EntityService';
+import { EntityNetworkResponse } from '@/types/entity';
 
 const ENTITY_NETWORK_STALE_TIME = 1000 * 60 * 60;
 
@@ -20,6 +20,7 @@ export const useEntityNetwork = (bookId: string | undefined, currentChapter?: nu
         enabled: !!bookId,
         staleTime: ENTITY_NETWORK_STALE_TIME,
         refetchOnWindowFocus: false,
+        placeholderData: keepPreviousData,
     });
 };
 

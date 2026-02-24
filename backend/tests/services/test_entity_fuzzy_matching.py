@@ -14,7 +14,7 @@ which runs after chunk extraction to merge duplicate entities.
 
 import pytest
 from difflib import SequenceMatcher
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.services.gemini_extractor import (
     GeminiDirectExtractor,
@@ -168,7 +168,7 @@ class TestSimilarityThreshold:
     def test_similar_but_different_entities_preserved(self, extractor):
         """Names with moderate similarity should NOT be merged."""
         # "Иван" vs "Ивана" — different characters
-        similarity = SequenceMatcher(None, "иван", "ивана").ratio()
+        SequenceMatcher(None, "иван", "ивана").ratio()
         # This might be > 0.85 for such short, similar strings
         # Let's use names that are more clearly distinct
         entities = [

@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { strategies, strategyFirst40, strategyLCS, type StrategyResult } from '../strategies';
 import type { SearchPatterns } from '../cache';
 

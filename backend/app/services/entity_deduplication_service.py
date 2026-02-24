@@ -91,7 +91,7 @@ class EntityDeduplicationService:
 
         entities = await self._load_entities(book_id)
         if len(entities) < 2:
-            logger.info(f"[EntityDedup] Less than 2 entities, nothing to deduplicate")
+            logger.info("[EntityDedup] Less than 2 entities, nothing to deduplicate")
             return DeduplicationResponse(no_duplicates_found=True)
 
         # Load chapter numbers for each entity via mentions
