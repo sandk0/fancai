@@ -417,7 +417,9 @@
       "total": "Всего изображений",
       "locations": "Локации",
       "characters": "Персонажи",
-      "atmosphere": "Атмосфера"
+      "atmosphere": "Атмосфера",
+      "objects": "Объекты",
+      "actions": "Действия"
     },
     "search_placeholder": "Поиск по описанию...",
     "filters": "Фильтры",

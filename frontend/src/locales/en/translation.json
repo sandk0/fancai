@@ -416,7 +416,9 @@
       "total": "Total images",
       "locations": "Locations",
       "characters": "Characters",
-      "atmosphere": "Atmosphere"
+      "atmosphere": "Atmosphere",
+      "objects": "Objects",
+      "actions": "Actions"
     },
     "search_placeholder": "Search by description...",
     "filters": "Filters",

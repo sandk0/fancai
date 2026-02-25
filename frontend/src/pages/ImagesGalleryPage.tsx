@@ -6,6 +6,8 @@ import {
   Sparkles,
   MapPin,
   User as UserIcon,
+  Box,
+  Zap,
 } from 'lucide-react';
 import { booksAPI } from '@/api/books';
 import { imagesAPI } from '@/api/images';
@@ -20,7 +22,7 @@ import type { GeneratedImage, Book } from '@/types/api';
 const CONCURRENCY_LIMIT = 3;
 const IMAGES_PER_PAGE = 24;
 
-type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere';
+type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere' | 'object' | 'action';
 type SortOption = 'newest' | 'oldest' | 'book';
 
 interface ImageWithBookInfo extends GeneratedImage {
@@ -119,6 +121,8 @@ const ImagesGalleryPage: React.FC = () => {
      { value: 'location', label: t('imagesGallery.stats.locations'), icon: MapPin },
      { value: 'character', label: t('imagesGallery.stats.characters'), icon: UserIcon },
      { value: 'atmosphere', label: t('imagesGallery.stats.atmosphere'), icon: Sparkles },
+     { value: 'object', label: t('imagesGallery.stats.objects'), icon: Box },
+     { value: 'action', label: t('imagesGallery.stats.actions'), icon: Zap },
    ];
 
   const filteredImages = useMemo(() => {
