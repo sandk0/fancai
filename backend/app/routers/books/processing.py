@@ -9,6 +9,7 @@ Processing & status endpoints для работы с книгами.
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from ...core.database import get_database_session
 from ...core.auth import get_current_active_user
@@ -52,14 +53,14 @@ async def process_book_descriptions(
         # Проверяем текущий статус парсинга
         parsing_status = await parsing_manager.get_parsing_status(book_id)
         if parsing_status and parsing_status["status"] in ["queued", "processing"]:
-            return {
-                "book_id": book_id,
-                "status": parsing_status["status"],
-                "message": parsing_status.get("message", ""),
-                "progress": parsing_status.get("progress", 0),
-                "position": parsing_status.get("position"),
-                "descriptions_found": parsing_status.get("descriptions_found", 0),
-            }
+            return BookProcessingResponse(
+                book_id=book_id,
+                status=parsing_status["status"],
+                message=parsing_status.get("message", ""),
+                progress=parsing_status.get("progress", 0),
+                position=parsing_status.get("position"),
+                descriptions_found=parsing_status.get("descriptions_found", 0),
+            )
 
         # Проверяем, можно ли начать парсинг сейчас
         can_parse, message = await parsing_manager.can_start_parsing()
@@ -90,14 +91,15 @@ async def process_book_descriptions(
                     # Запускаем задачу
                     process_book_task.delay(book_id)
 
-                    return {
-                        "book_id": book_id,
-                        "status": "processing",
-                        "message": "Book parsing started immediately",
-                        "priority": priority,
-                    }
+                    return BookProcessingResponse(
+                        book_id=book_id,
+                        status="processing",
+                        message="Book parsing started immediately",
+                        priority=priority,
+                    )
 
                 except Exception:
+                    logger.exception("Failed to dispatch Celery task for book %s, falling back to sync processing" % book_id)
                     # Освобождаем блокировку при ошибке
                     await parsing_manager.release_parsing_lock(book_id)
 
@@ -106,27 +108,27 @@ async def process_book_descriptions(
 
                     result = await process_book_descriptions(book_id, db)
 
-                    return {
-                        "book_id": book_id,
-                        "status": "completed",
-                        "message": "Book processing completed synchronously",
-                        "descriptions_found": result.get("total_descriptions", 0),
-                    }
+                    return BookProcessingResponse(
+                        book_id=book_id,
+                        status="completed",
+                        message="Book processing completed synchronously",
+                        descriptions_found=result.get("total_descriptions", 0),
+                    )
 
         # Если парсинг сейчас невозможен, добавляем в очередь
         queue_info = await parsing_manager.add_to_parsing_queue(
             book_id, str(current_user.id), priority, db
         )
 
-        return {
-            "book_id": book_id,
-            "status": "queued",
-            "message": f"Added to parsing queue. {message}",
-            "position": queue_info["position"],
-            "total_in_queue": queue_info["total_in_queue"],
-            "estimated_wait_time": queue_info["estimated_wait_time"],
-            "priority": priority,
-        }
+        return BookProcessingResponse(
+            book_id=book_id,
+            status="queued",
+            message=f"Added to parsing queue. {message}",
+            position=queue_info["position"],
+            total_in_queue=queue_info["total_in_queue"],
+            estimated_wait_time=queue_info["estimated_wait_time"],
+            priority=priority,
+        )
 
     except HTTPException:
         raise
@@ -155,7 +157,7 @@ async def get_parsing_status(
         BookNotFoundException: Если книга не найдена
         BookAccessDeniedException: Если доступ запрещен
     """
-    print(f"[PARSING-STATUS] Request for book_id={book.id}, user={current_user.email}")
+    logger.debug("Parsing status request for book_id={}", book.id)
     try:
         book_id = book.id
 
@@ -163,52 +165,52 @@ async def get_parsing_status(
 
         # Если идет обработка (независимо от того, распаршена книга или нет - например, идет генерация описаний)
         if book.is_processing:
-            return {
-                "book_id": book_id,
-                "status": "processing",
-                "progress": book.parsing_progress,
-                "message": f"Parsing in progress: {book.parsing_progress}%",
-            }
+            return ParsingStatusResponse(
+                book_id=book_id,
+                status="processing",
+                progress=book.parsing_progress,
+                message=f"Parsing in progress: {book.parsing_progress}%",
+            )
 
         # Если не обрабатывается, но распаршена (начальный парсинг структуры)
         if book.is_parsed:
             # Если описания еще не извлечены, значит мы в состоянии "ожидания" или "готовности к старту"
             # Но не "completed" в контексте AI-обработки
             if not book.descriptions_extracted:
-                return {
-                    "book_id": book_id,
-                    "status": "not_started",
-                    "progress": 0,
-                    "message": "Content parsed, AI descriptions pending",
-                }
+                return ParsingStatusResponse(
+                    book_id=book_id,
+                    status="not_started",
+                    progress=0,
+                    message="Content parsed, AI descriptions pending",
+                )
 
-            return {
-                "book_id": book_id,
-                "status": "completed",
-                "progress": 100,
-                "message": "AI processing completed",
-                "descriptions_found": (
+            return ParsingStatusResponse(
+                book_id=book_id,
+                status="completed",
+                progress=100,
+                message="AI processing completed",
+                descriptions_found=(
                     sum(ch.descriptions_found for ch in book.chapters)
                     if book.chapters
                     else 0
                 ),
-            }
+            )
 
         # Если есть частичный прогресс (на всякий случай)
         elif book.parsing_progress > 0:
-            return {
-                "book_id": book_id,
-                "status": "processing",
-                "progress": book.parsing_progress,
-                "message": f"Parsing in progress (stalled): {book.parsing_progress}%",
-            }
+            return ParsingStatusResponse(
+                book_id=book_id,
+                status="processing",
+                progress=book.parsing_progress,
+                message=f"Parsing in progress (stalled): {book.parsing_progress}%",
+            )
         else:
-            return {
-                "book_id": book_id,
-                "status": "not_started",
-                "progress": 0,
-                "message": "Parsing not started",
-            }
+            return ParsingStatusResponse(
+                book_id=book_id,
+                status="not_started",
+                progress=0,
+                message="Parsing not started",
+            )
 
 
     except HTTPException:

@@ -40,7 +40,7 @@ async def get_system_settings(admin_user: User = Depends(get_current_admin_user)
             enable_debug_mode=sys_settings.get("enable_debug_mode", False),
         )
     except Exception as e:
-        print(f"Error getting system settings: {e}")
+        logger.error("Error getting system settings: {}", e)
         return SystemSettings(
             maintenance_mode=False,
             max_upload_size_mb=50,
