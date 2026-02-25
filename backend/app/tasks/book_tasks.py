@@ -31,11 +31,11 @@ def find_entity_fuzzy(
     Find entity with fuzzy matching fallback.
 
     Strategy:
-    1. Exact match (lowercase)
+    1. Exact match (casefolded)
     2. Close string match (difflib, cutoff=0.7)
     3. Substring containment (either direction)
     """
-    name_lower = entity_name.lower().strip()
+    name_lower = entity_name.casefold().strip()
 
     if name_lower in entity_map:
         return entity_map[name_lower]
@@ -416,7 +416,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                                 for raw_entity in result.entities:
                                     if raw_entity.chapter_event_action:
-                                        resolved = entity_map.get(raw_entity.name.lower())
+                                        resolved = entity_map.get(raw_entity.name.casefold()[:255])
                                         if resolved:
                                             event = EntityEvent(
                                                 entity_id=resolved.id,
@@ -547,7 +547,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 try:
                                     await session.rollback()
                                     if local_chapter:
-                                        local_chapter = await session.get(Chapter, local_chapter.id)
+                                        local_chapter = await session.get(Chapter, chapter_id)
+                                        # Use chapter_id (function arg) instead of local_chapter.id
+                                        # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
                                         if local_chapter:
                                             local_chapter.parsing_error = str(e)[:1000]
                                             local_chapter.parse_attempts += 1
@@ -736,10 +738,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             )
 
             # Save synthesis results to DB
-            entity_name_map = {e.name.lower(): e for e in all_entities}
+            entity_name_map = {e.name_lower: e for e in all_entities}
             for synth_entity in synthesis_result.get("entities", []):
                 name = synth_entity.get("name", "")
-                db_entity = entity_name_map.get(name.lower())
+                db_entity = entity_name_map.get(name.casefold()[:255])
                 if db_entity:
                     db_entity.base_role = synth_entity.get("base_role")
                     db_entity.biography_milestones = synth_entity.get("milestones", [])
@@ -747,8 +749,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
             # Save relationship milestones
             for rel_ms in synthesis_result.get("relationship_milestones", []):
-                source_name = rel_ms.get("source", "").lower()
-                target_name = rel_ms.get("target", "").lower()
+                source_name = rel_ms.get("source", "").casefold()[:255]
+                target_name = rel_ms.get("target", "").casefold()[:255]
                 source_entity = entity_name_map.get(source_name)
                 target_entity = entity_name_map.get(target_name)
                 if source_entity and target_entity:
