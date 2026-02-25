@@ -32,12 +32,26 @@ if TYPE_CHECKING:
     from .description_entity import DescriptionEntity
 
 
-class DescriptionType(enum.Enum):
-    LOCATION = "LOCATION"
-    CHARACTER = "CHARACTER"
-    ATMOSPHERE = "ATMOSPHERE"
-    OBJECT = "OBJECT"
-    ACTION = "ACTION"
+# NOTE: PostgreSQL descriptiontype enum contains a zombie 'OBJECT' value alongside
+# lowercase 'object'. PostgreSQL does not support DROP VALUE for enums, so 'OBJECT'
+# cannot be removed without recreating the type (risky on production). All rows use
+# lowercase 'object'; the zombie is harmless. See: audit report #5 (2026-02-25).
+class DescriptionType(enum.StrEnum):
+    LOCATION = "location"
+    CHARACTER = "character"
+    ATMOSPHERE = "atmosphere"
+    OBJECT = "object"
+    ACTION = "action"
+
+    @classmethod
+    def _missing_(cls, value: object) -> 'DescriptionType | None':
+        """Case-insensitive lookup для backward compat с Celery tasks."""
+        if isinstance(value, str):
+            lower = value.lower()
+            for member in cls:
+                if member.value == lower:
+                    return member
+        return None
 
 
 class Description(Base):
