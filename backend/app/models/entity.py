@@ -6,7 +6,7 @@ import enum
 
 from sqlalchemy import String, Text, ForeignKey, Integer, DateTime, func, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, ENUM as PG_ENUM
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import relationship, Mapped, mapped_column, validates
 
 from ..core.database import Base
 
@@ -33,9 +33,9 @@ class Entity(Base):
     __tablename__ = "entities"
     __table_args__ = (
         Index(
-            "ix_entities_book_id_name_lower",
+            "ix_entities_book_id_name_lower_v2",
             "book_id",
-            func.lower("name"),
+            "name_lower",
             unique=True,
         ),
     )
@@ -52,6 +52,10 @@ class Entity(Base):
 
     type: Mapped[str] = mapped_column(entity_type_pg_enum, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    name_lower: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=False,
+        comment="Casefolded name for locale-independent case-insensitive matching"
+    )
     visual_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     master_portrait_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -131,3 +135,10 @@ class Entity(Base):
 
     def __repr__(self) -> str:
         return f"<Entity(id={self.id}, name='{self.name}', type='{self.type}')>"
+
+    @validates("name")
+    def _set_name_lower(self, key: str, value: str) -> str:
+        """Auto-populate name_lower on every name assignment using Unicode casefold."""
+        if value is not None:
+            self.name_lower = value.casefold()[:255]
+        return value
