@@ -50,7 +50,7 @@ class MergeResponse(BaseModel):
 def _normalize_name(name: str) -> str:
     if not name:
         return ""
-    return name.lower().strip().replace("ё", "е")
+    return name.casefold().strip()
 
 
 @router.get("/entities/duplicates", response_model=DuplicatesResponse)
@@ -63,7 +63,7 @@ async def get_duplicate_entities(
     Find potential duplicate entities based on normalized name matching.
 
     Duplicates are defined as entities with the same book_id and
-    normalized name (lowercase, trimmed, ё→е).
+    normalized name (casefolded, trimmed).
 
     Args:
         book_id: Optional filter by specific book
@@ -196,7 +196,7 @@ async def _merge_entities_internal(
     await db.execute(delete(Entity).where(Entity.id.in_(duplicate_ids)))
     await db.commit()
 
-    cache_key = f"book:{book_id}:entity_network_v3"
+    cache_key = f"book:{book_id}:entity_network_raw_v5"
     await cache_manager.delete(cache_key)
 
     return len(duplicates)
@@ -306,7 +306,7 @@ async def update_entity_first_mention_cfi(
     )
     book_id = entity_result.scalar_one_or_none()
     if book_id:
-        cache_key = f"book:{book_id}:entity_network_v3"
+        cache_key = f"book:{book_id}:entity_network_raw_v5"
         await cache_manager.delete(cache_key)
 
     return True
