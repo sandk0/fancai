@@ -299,22 +299,63 @@ async def get_abandoned_sessions_count(db: AsyncSession) -> int:
     "/health",
     response_model=HealthCheckResponse,
     summary="Базовый health check",
-    description="Быстрая проверка доступности API. Используется для load balancer health checks.",
+    description="Быстрая проверка доступности API с проверкой БД и Redis. Используется для load balancer health checks.",
     status_code=http_status.HTTP_200_OK,
 )
-async def basic_health_check() -> HealthCheckResponse:
+async def basic_health_check(
+    db: AsyncSession = Depends(get_database_session),
+) -> HealthCheckResponse:
     """
-    Базовый health check endpoint.
+    Базовый health check endpoint с проверкой database и Redis.
 
     Возвращает минимальную информацию о статусе приложения.
-    Используется для простых проверок доступности.
+    Проверяет доступность критичных компонентов (БД, Redis).
+
+    Args:
+        db: Database session
 
     Returns:
         HealthCheckResponse с базовой информацией
     """
     uptime = time.time() - APP_START_TIME
 
-    return HealthCheckResponse(status="healthy", uptime_seconds=round(uptime, 2))
+    # Параллельные проверки database и Redis
+    (
+        db_check_result,
+        redis_check_result,
+    ) = await asyncio.gather(
+        check_database(db),
+        check_redis(),
+        return_exceptions=True,
+    )
+
+    # Обработка исключений
+    if isinstance(db_check_result, BaseException):
+        db_check = ComponentHealthResponse(
+            status="error",
+            message=f"Database check failed: {db_check_result}",
+        )
+    else:
+        db_check = db_check_result
+
+    if isinstance(redis_check_result, BaseException):
+        redis_check = ComponentHealthResponse(
+            status="error",
+            message=f"Redis check failed: {redis_check_result}",
+        )
+    else:
+        redis_check = redis_check_result
+
+    # Определяем общий статус на основе проверок
+    checks_status = [db_check.status, redis_check.status]
+    if all(s == "ok" for s in checks_status):
+        overall_status = "healthy"
+    elif any(s == "error" for s in checks_status):
+        overall_status = "unhealthy"
+    else:
+        overall_status = "degraded"
+
+    return HealthCheckResponse(status=overall_status, uptime_seconds=round(uptime, 2))
 
 
 @router.get(
