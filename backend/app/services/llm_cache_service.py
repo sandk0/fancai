@@ -66,7 +66,12 @@ class LLMCacheService:
             data = await self._redis.get(redis_key)
             if data:
                 logger.debug(f"LLM Cache HIT: {redis_key}")
-                return parse_json_safe(data, log_error=True)
+                parsed = parse_json_safe(data, log_error=True)
+                # Unwrap the {"data": ..., "metadata": ...} envelope
+                # added by set() so callers receive clean data.
+                if isinstance(parsed, dict) and "data" in parsed:
+                    return parsed["data"]
+                return parsed
 
             logger.debug(f"LLM Cache MISS: {redis_key}")
             return None
