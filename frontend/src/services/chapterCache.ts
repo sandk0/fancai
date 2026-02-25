@@ -14,9 +14,10 @@
  * @module services/chapterCache
  */
 
-import { db, createChapterId, CHAPTER_CACHE_TTL, notifyFallbackOnce, type CachedChapter, type CachedDescription } from './db'
+import { db, createChapterId, getChapterCacheTTL, notifyFallbackOnce, type CachedChapter, type CachedDescription } from './db'
 import { MemoryTable } from './memoryFallbackCache'
 import type { Description, GeneratedImage } from '@/types/api'
+import { API_TO_CACHE_TYPE, CACHE_TO_API_TYPE, DEFAULT_CACHE_TYPE, DEFAULT_API_TYPE } from '@/utils/descriptionTypeMapping'
 
 import { logger } from '@/lib/logger'
 
@@ -49,19 +50,13 @@ interface CacheStats {
  * Convert API Description to CachedDescription
  */
 function toCachedDescription(desc: Description): CachedDescription {
-  const typeMap: Record<string, CachedDescription['type']> = {
-    location: 'setting',
-    character: 'character',
-    atmosphere: 'scene',
-    object: 'object',
-    action: 'scene',
-  }
-
   return {
     id: desc.id,
     content: desc.content,
-    type: typeMap[desc.type] || 'scene',
+    text: desc.text ?? null,
+    type: API_TO_CACHE_TYPE[desc.type] ?? DEFAULT_CACHE_TYPE,
     confidence: desc.confidence_score,
+    priorityScore: desc.priority_score ?? (desc.confidence_score ? desc.confidence_score * 100 : 0),
     imageUrl: desc.generated_image?.image_url ?? null,
     imageStatus: desc.generated_image
       ? (desc.generated_image.status === 'completed' ? 'generated' : 'pending')
@@ -89,7 +84,7 @@ function isValidCachedDescription(cached: unknown): cached is CachedDescription 
   }
 
   // type must be valid enum value
-  const validTypes = ['setting', 'character', 'scene', 'object']
+  const validTypes = ['setting', 'character', 'scene', 'object', 'action']
   if (typeof desc.type !== 'string' || !validTypes.includes(desc.type)) {
     return false
   }
@@ -102,26 +97,19 @@ function isValidCachedDescription(cached: unknown): cached is CachedDescription 
  * Returns null if data is corrupted (defensive against IndexedDB corruption)
  */
 function fromCachedDescription(cached: CachedDescription): Description | null {
-  // Defensive validation for corrupted IndexedDB data
   if (!isValidCachedDescription(cached)) {
     logger.warn('[ChapterCache] Corrupted description detected, skipping:', cached)
     return null
   }
 
-  const typeMap: Record<CachedDescription['type'], Description['type']> = {
-    setting: 'location',
-    character: 'character',
-    scene: 'atmosphere',
-    object: 'object',
-  }
-
+  const apiType = CACHE_TO_API_TYPE[cached.type] ?? DEFAULT_API_TYPE
   return {
     id: cached.id,
-    type: typeMap[cached.type] || 'atmosphere',
+    type: apiType,
     content: cached.content,
-    text: cached.content,
+    text: cached.text ?? cached.content,
     confidence_score: cached.confidence ?? 0,
-    priority_score: cached.confidence ?? 0,
+    priority_score: cached.priorityScore ?? (cached.confidence ? cached.confidence * 100 : 0),
     generated_image: cached.imageUrl ? {
       id: '',
       service_used: 'cached',
@@ -133,11 +121,11 @@ function fromCachedDescription(cached: CachedDescription): Description | null {
       created_at: new Date().toISOString(),
       description: {
         id: cached.id,
-        type: typeMap[cached.type] || 'atmosphere',
-        text: cached.content,
+        type: apiType,
+        text: cached.text ?? cached.content,
         content: cached.content,
         confidence_score: cached.confidence ?? 0,
-        priority_score: cached.confidence ?? 0,
+        priority_score: cached.priorityScore ?? (cached.confidence ? cached.confidence * 100 : 0),
       },
       chapter: {
         id: '',
@@ -407,7 +395,7 @@ class ChapterCacheService {
    */
   async clearExpired(): Promise<number> {
     try {
-      const expirationTime = Date.now() - CHAPTER_CACHE_TTL
+      const expirationTime = Date.now() - getChapterCacheTTL()
 
       const allChapters = await getChaptersTable().toArray()
       const expired = allChapters.filter(ch => ch.lastAccessedAt < expirationTime)
@@ -495,7 +483,7 @@ class ChapterCacheService {
    * Check if cache entry is expired
    */
   private isExpired(cachedAt: number): boolean {
-    return Date.now() - cachedAt > CHAPTER_CACHE_TTL
+    return Date.now() - cachedAt > getChapterCacheTTL()
   }
 
   /**
@@ -585,3 +573,6 @@ export const chapterCache = new ChapterCacheService()
 // Export types for compatibility
 export type { CacheStats }
 export type { CachedChapter, CachedDescription } from './db'
+
+// Export validation function for use in useChapter.ts
+export { isValidCachedDescription }

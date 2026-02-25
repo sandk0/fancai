@@ -13,7 +13,7 @@ import {
   MAX_CACHE_SIZE,
   STORAGE_WARNING_THRESHOLD,
   STORAGE_CRITICAL_THRESHOLD,
-  CHAPTER_CACHE_TTL,
+  getChapterCacheTTL,
   IMAGE_CACHE_TTL,
 } from './db'
 
@@ -601,7 +601,7 @@ class StorageManager {
       return { freedBytes, itemsRemoved, targetReached: true }
     }
 
-    // 2. Remove old chapters (not accessed for CHAPTER_CACHE_TTL)
+    // 2. Remove old chapters (not accessed for getChapterCacheTTL())
     const chapterResult = await this.cleanupOldChapters(targetFreeBytes - freedBytes)
     freedBytes += chapterResult.freedBytes
     itemsRemoved += chapterResult.itemsRemoved
@@ -667,7 +667,7 @@ class StorageManager {
     let freedBytes = 0
     let itemsRemoved = 0
 
-    const cutoffTime = Date.now() - CHAPTER_CACHE_TTL
+    const cutoffTime = Date.now() - getChapterCacheTTL()
 
     const oldChapters = await db.chapters
       .where('lastAccessedAt')
