@@ -39,7 +39,7 @@ async def get_image_generation_settings(
             max_generation_time=img_settings.get("max_generation_time", 60),
         )
     except Exception as e:
-        print(f"Error getting image generation settings: {e}")
+        logger.error("Error getting image generation settings: {}", e)
         return ImageGenerationSettings(
             primary_service="imagen",
             fallback_services=[],
