@@ -20,7 +20,7 @@ Usage:
 
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 # Импортируем Enum классы из моделей для консистентности
@@ -504,7 +504,7 @@ class ErrorResponse(BaseModel):
 
     detail: str = Field(description="Описание ошибки")
     error_code: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ValidationErrorResponse(BaseModel):
@@ -522,11 +522,11 @@ class ValidationErrorResponse(BaseModel):
 from .progress import ReadingProgressDetailResponse  # noqa: E402
 
 # Chapter responses
-from .chapters import (
+from .chapters import (  # noqa: E402
     NavigationInfo,
     BookMinimalInfo,
     ChapterDetailResponse,
-)  # noqa: E402
+)
 
 # Image responses (Phase 1.2)
 from .images import (  # noqa: E402

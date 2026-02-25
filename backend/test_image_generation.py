@@ -10,7 +10,7 @@ import asyncio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.core.database import AsyncSessionLocal
-from app.models.description import Description
+from app.models.description import Description, DescriptionType
 from app.models.image import GeneratedImage
 from app.models.user import User
 from app.services.image_generator import image_generator_service
@@ -30,7 +30,7 @@ async def test_image_generation():
         # Получаем первое описание типа LOCATION
         result = await db.execute(
             select(Description)
-            .where(Description.type == 'LOCATION')
+            .where(Description.type == DescriptionType.LOCATION)
             .where(Description.is_suitable_for_generation == True)
             .order_by(Description.priority_score.desc())
             .limit(1)

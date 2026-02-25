@@ -6,7 +6,7 @@ Response schemas для auth endpoints в fancai.
 """
 
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ============================================================================
 # AUTH RESPONSE SCHEMAS
@@ -31,7 +31,7 @@ class LogoutResponse(BaseModel):
     """
 
     message: str = Field(default="Logout successful")
-    logged_out_at: datetime = Field(default_factory=datetime.utcnow)
+    logged_out_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CurrentUserResponse(BaseModel):
@@ -94,7 +94,7 @@ class AccountDeactivationResponse(BaseModel):
         default="Account deactivated successfully", description="Success message"
     )
     deactivated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Deactivation timestamp"
+        default_factory=lambda: datetime.now(timezone.utc), description="Deactivation timestamp"
     )
 
 

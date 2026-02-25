@@ -19,17 +19,10 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-from enum import Enum
+from app.models.description import DescriptionType
 
 logger = logging.getLogger(__name__)
 
-
-class DescriptionType(Enum):
-    """Типы описаний для обогащения."""
-
-    LOCATION = "location"
-    CHARACTER = "character"
-    ATMOSPHERE = "atmosphere"
 
 
 @dataclass
@@ -51,7 +44,7 @@ class EnrichedDescription:
     extracted_entities: List[Dict[str, Any]]
     attributes: Dict[str, Any]
     confidence: float = 0.0
-    source_spans: List[tuple] = None
+    source_spans: Optional[List[tuple[int, int]]] = None
 
 
 class LLMDescriptionEnricher:
