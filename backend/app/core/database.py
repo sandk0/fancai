@@ -75,6 +75,19 @@ engine = create_async_engine(
 )
 
 # Создание фабрики асинхронных сессий
+# WARNING: expire_on_commit=False does NOT prevent expiry on rollback().
+# session.rollback() ALWAYS expires all loaded objects (SQLAlchemy hardcoded behavior).
+# After rollback, accessing ORM attributes (e.g. obj.id) in async context triggers
+# MissingGreenlet because lazy loading requires a sync greenlet.
+#
+# SAFE pattern after rollback:
+#   chapter_id = chapter.id  # capture BEFORE try block
+#   await session.rollback()
+#   chapter = await session.get(Chapter, chapter_id)  # fresh query with captured ID
+#
+# UNSAFE pattern (will raise MissingGreenlet):
+#   await session.rollback()
+#   print(chapter.id)  # BOOM — expired, triggers lazy load in async
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
