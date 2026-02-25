@@ -95,6 +95,7 @@ export const useEpubLoader = ({
 
     const viewer = viewerRef.current;
     let isMounted = true;
+    let iosFixesCleanup: (() => void) | undefined;
     const abortController = new AbortController();
 
     const loadEpub = async () => {
@@ -116,7 +117,8 @@ export const useEpubLoader = ({
 
         if (!isMounted || !viewer) return;
 
-        const { rendition: newRendition } = await createRendition(epubBook, viewerRef);
+        const { rendition: newRendition, cleanup } = await createRendition(epubBook, viewerRef);
+        iosFixesCleanup = cleanup;
 
         renditionRef.current = newRendition;
         setRendition(newRendition);
@@ -145,6 +147,7 @@ export const useEpubLoader = ({
       isMounted = false;
       abortController.abort();
 
+      iosFixesCleanup?.();
       if (renditionRef.current) {
         try {
           const currentRendition = renditionRef.current;

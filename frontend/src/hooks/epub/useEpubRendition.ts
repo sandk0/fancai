@@ -190,6 +190,7 @@ export interface CreateRenditionResult {
   rendition: Rendition;
   renditionWidth: string | number;
   renditionHeight: string | number;
+  cleanup: () => void;
 }
 
 export async function createRendition(
@@ -221,14 +222,14 @@ export async function createRendition(
   const themeStyles = INITIAL_THEMES[savedTheme] || INITIAL_THEMES.dark;
   newRendition.themes.default(themeStyles);
 
-  applyIOSSpreadFix({ rendition: newRendition, viewerRef, renditionWidth });
-
+  const spreadFixCleanup = applyIOSSpreadFix({ rendition: newRendition, viewerRef, renditionWidth });
   logger.debug('[useEpubRendition] Rendition created:', {
     isIOS: isIOS(),
     spread: newRendition.settings?.spread,
     minSpreadWidth: newRendition.settings?.minSpreadWidth,
   });
 
+  let renderedFixesCleanup: (() => void) | undefined;
   newRendition.on('rendered', () => {
     const iframe = viewerRef.current?.querySelector('iframe');
     if (iframe?.contentDocument?.body) {
@@ -238,8 +239,9 @@ export async function createRendition(
       iframe.contentDocument.body.style.webkitUserSelect = 'text';
     }
 
-    applyIOSRenderedFixes(newRendition, viewerRef, renditionWidth, iframe ?? null);
-
+    // Clean up previous rendered fixes before applying new ones
+    renderedFixesCleanup?.();
+    renderedFixesCleanup = applyIOSRenderedFixes(newRendition, viewerRef, renditionWidth, iframe ?? null);
     if (newRendition.manager?.layout) {
       logger.debug('[useEpubRendition] Layout after render:', {
         divisor: newRendition.manager.layout.divisor,
@@ -250,5 +252,10 @@ export async function createRendition(
     }
   });
 
-  return { rendition: newRendition, renditionWidth, renditionHeight };
+  const cleanup = () => {
+    spreadFixCleanup?.();
+    renderedFixesCleanup?.();
+  };
+
+  return { rendition: newRendition, renditionWidth, renditionHeight, cleanup };
 }

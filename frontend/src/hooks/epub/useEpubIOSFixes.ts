@@ -49,18 +49,18 @@ function getContainerWidth(
     : parseInt(containerWidth as string, 10) || 0;
 }
 
-export function applyIOSSpreadFix({ rendition, viewerRef, renditionWidth }: IOSFixesOptions): void {
-  if (!isIOS() || !rendition) return;
+export function applyIOSSpreadFix({ rendition, viewerRef, renditionWidth }: IOSFixesOptions): (() => void) | undefined {
+  if (!isIOS() || !rendition) return undefined;
 
   rendition.spread('none', 99999);
 
   const width = getContainerWidth(viewerRef, renditionWidth);
 
-  rendition.on('layout', (layout: unknown) => {
+  const onLayout = (layout: unknown) => {
     fixIOSLayout(layout as EpubLayout, width, 'layout event');
-  });
+  };
 
-  rendition.on('displayed', () => {
+  const onDisplayed = () => {
     if (rendition.manager?.layout) {
       fixIOSLayout(
         rendition.manager.layout as unknown as EpubLayout,
@@ -68,9 +68,17 @@ export function applyIOSSpreadFix({ rendition, viewerRef, renditionWidth }: IOSF
         'displayed event',
       );
     }
-  });
+  };
+
+  rendition.on('layout', onLayout);
+  rendition.on('displayed', onDisplayed);
 
   logger.debug('[useEpubIOSFixes] Applied spread("none", 99999) and layout fix');
+
+  return () => {
+    rendition.off('layout', onLayout);
+    rendition.off('displayed', onDisplayed);
+  };
 }
 
 export function applyIOSRenderedFixes(
@@ -78,12 +86,10 @@ export function applyIOSRenderedFixes(
   viewerRef: React.RefObject<HTMLDivElement | null>,
   renditionWidth: string | number,
   iframe: HTMLIFrameElement | null,
-): void {
-  if (!isIOS()) return;
-
+): (() => void) | undefined {
+  if (!isIOS()) return undefined;
   const manager = (rendition as unknown as { manager?: EpubManager }).manager;
-  if (!manager) return;
-
+  if (!manager) return undefined;
   logger.debug('[useEpubIOSFixes] Manager state:', {
     hasSnap: typeof manager.snap === 'function',
     hasGestures: !!manager.gestures,
@@ -92,14 +98,12 @@ export function applyIOSRenderedFixes(
     layoutDelta: manager.layout?.delta,
     layoutDivisor: manager.layout?.divisor,
   });
-
   if (typeof manager.snap === 'function') {
     manager.snap = function(..._args: unknown[]) {
       logger.warn('[useEpubIOSFixes] BLOCKED manager.snap()');
       return Promise.resolve();
     };
   }
-
   if (manager.gestures) {
     try {
       if (typeof manager.gestures.destroy === 'function') {
@@ -110,7 +114,6 @@ export function applyIOSRenderedFixes(
       logger.warn('[useEpubIOSFixes] Could not disable gestures:', err);
     }
   }
-
   if (manager.stage?.container) {
     const stage = manager.stage.container;
     const originalScrollTo = stage.scrollTo?.bind(stage);
@@ -121,25 +124,28 @@ export function applyIOSRenderedFixes(
       logger.warn('[useEpubIOSFixes] stage.scrollTo(x,y) BLOCKED:', options, y);
       return originalScrollTo?.(options, y);
     };
-
     stage.scrollBy = function(_options: ScrollToOptions | number, _y?: number) {
       logger.warn('[useEpubIOSFixes] stage.scrollBy() BLOCKED');
       return;
     };
   }
 
+  let touchCleanup: (() => void) | undefined;
   if (iframe?.contentDocument) {
     const doc = iframe.contentDocument;
     const blockEpubJsTouchHandler = (e: TouchEvent) => {
       e.stopPropagation();
     };
-
     doc.addEventListener('touchstart', blockEpubJsTouchHandler, { capture: true, passive: true });
     doc.addEventListener('touchmove', blockEpubJsTouchHandler, { capture: true, passive: true });
     doc.addEventListener('touchend', blockEpubJsTouchHandler, { capture: true, passive: true });
     logger.debug('[useEpubIOSFixes] Added capture-phase touch blockers to iframe');
+    touchCleanup = () => {
+      doc.removeEventListener('touchstart', blockEpubJsTouchHandler, { capture: true });
+      doc.removeEventListener('touchmove', blockEpubJsTouchHandler, { capture: true });
+      doc.removeEventListener('touchend', blockEpubJsTouchHandler, { capture: true });
+    };
   }
-
   // Final safety net: fix layout after render
   if (rendition.manager?.layout) {
     const layout = rendition.manager.layout as unknown as EpubLayout;
@@ -148,4 +154,6 @@ export function applyIOSRenderedFixes(
       fixIOSLayout(layout, width, 'rendered event');
     }
   }
+
+  return touchCleanup;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Rendition } from '@/types/epub';
 import type { Description, GeneratedImage } from '@/types/api';
-import { normalizeText, removeChapterHeaders, getFirstWords } from '@/utils/text-search/normalization';
+import { normalizeText, removeChapterHeaders, getFirstWords, buildIndexMap, mapNormalizedRange } from '@/utils/text-search/normalization';
 import { strategies, type StrategyResult } from '@/utils/text-search/strategies';
 import { addToCache, getFromCache, type SearchPatterns } from '@/utils/text-search/cache';
 
@@ -140,12 +140,14 @@ export const useDescriptionHighlighting = ({
               const text = node.textContent;
               if (!text || text.length < 15) return;
               const norm = normalizeText(text);
+              const indexMap = buildIndexMap(text);
               for (const { data, patterns } of processed) {
                 const result = findHighlightMatch(norm, patterns, norm.length);
                 if (result.found && result.startIdx !== undefined && result.endIdx !== undefined) {
-                  const before = text.substring(0, result.startIdx);
-                  const match = text.substring(result.startIdx, result.endIdx);
-                  const after = text.substring(result.endIdx);
+                  const mapped = mapNormalizedRange(indexMap, text, result.startIdx, result.endIdx);
+                  const before = text.substring(0, mapped.startIdx);
+                  const match = text.substring(mapped.startIdx, mapped.endIdx);
+                  const after = text.substring(mapped.endIdx);
 
                   const frag = doc.createDocumentFragment();
                   if (before) frag.appendChild(doc.createTextNode(before));
@@ -217,10 +219,12 @@ export const useDescriptionHighlighting = ({
   // Force re-highlight when descriptions load late
   const prevCount = useRef(0);
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (safeDescriptions.length > 0 && prevCount.current === 0) {
-      setTimeout(processContents, 200);
+      timer = setTimeout(processContents, 200);
     }
     prevCount.current = safeDescriptions.length;
+    return () => { if (timer) clearTimeout(timer); };
   }, [safeDescriptions.length, processContents]);
 
   return { findHighlightMatch };
