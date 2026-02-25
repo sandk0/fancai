@@ -192,7 +192,8 @@ export const imagesAPI = {
     bookId: string,
     chapterNumber?: number,
     skip: number = 0,
-    limit: number = 50
+    limit: number = 50,
+    signal?: AbortSignal
   ): Promise<{
     book_id: string;
     book_title: string;
@@ -210,7 +211,7 @@ export const imagesAPI = {
       params.append('chapter', chapterNumber.toString());
     }
 
-    const response = await apiClient.get(`/images/book/${bookId}?${params.toString()}`) as {
+    const response = await apiClient.get(`/images/book/${bookId}?${params.toString()}`, { signal }) as {
       book_id: string;
       book_title: string;
       images: GeneratedImage[];

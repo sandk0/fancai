@@ -99,7 +99,8 @@ export const booksAPI = {
   async getChapterDescriptions(
     bookId: string,
     chapterNumber: number,
-    extractNew: boolean = false
+    extractNew: boolean = false,
+    signal?: AbortSignal
   ): Promise<{
     chapter_info: ChapterInfo;
     nlp_analysis: NLPAnalysis;
@@ -107,9 +108,8 @@ export const booksAPI = {
   }> {
     const params = new URLSearchParams();
     if (extractNew) params.append('extract_new', 'true');
-
     const url = `/books/${bookId}/chapters/${chapterNumber}/descriptions${params.toString() ? '?' + params.toString() : ''}`;
-    return apiClient.get(url);
+    return apiClient.get(url, { signal });
   },
 
   /**
