@@ -106,18 +106,21 @@ class DescriptionExtractionService:
         if not gemini_extractor.is_available():
             raise LLMUnavailableError()
 
-        lock_key = f"llm_extract_lock:chapter:{chapter.id}"
+        # Capture scalar ID before try block — after rollback() ORM objects are expired
+        # and accessing .id triggers MissingGreenlet in async context
+        chapter_id = chapter.id
+        lock_key = f"llm_extract_lock:chapter:{chapter_id}"
 
         async with DistributedLock(
             cache_manager, lock_key, ttl=self.LOCK_TTL, renewal_interval=20
         ) as lock_acquired:
             if not lock_acquired:
-                raise ExtractionLockError(chapter.id)
+                raise ExtractionLockError(chapter_id)
 
             start_time = datetime.now(timezone.utc)
 
             try:
-                logger.info(f"🔄 Starting LLM extraction for chapter {chapter.id}")
+                logger.info(f"🔄 Starting LLM extraction for chapter {chapter_id}")
 
                 try:
                     result = await asyncio.wait_for(
@@ -127,18 +130,18 @@ class DescriptionExtractionService:
                 except asyncio.TimeoutError:
                     await self.db.rollback()
                     raise ExtractionTimeoutError(
-                        chapter.id, self.LLM_EXTRACTION_TIMEOUT
+                        chapter_id, self.LLM_EXTRACTION_TIMEOUT
                     )
 
                 descriptions_data = result if result else []
 
                 if delete_existing:
-                    await self._delete_chapter_descriptions(chapter.id)
+                    await self._delete_chapter_descriptions(chapter_id)
 
                 descriptions = []
                 for position, desc_data in enumerate(descriptions_data):
                     desc = self._create_description_from_data(
-                        chapter_id=chapter.id, desc_data=desc_data, position=position
+                        chapter_id=chapter_id, desc_data=desc_data, position=position
                     )
                     self.db.add(desc)
                     descriptions.append(desc)
@@ -157,13 +160,13 @@ class DescriptionExtractionService:
                 ).total_seconds() * 1000
 
                 logger.info(
-                    f"✅ LLM extraction complete for chapter {chapter.id}: "
+                    f"✅ LLM extraction complete for chapter {chapter_id}: "
                     f"{len(descriptions)} descriptions in {extraction_time_ms:.0f}ms"
                 )
 
                 return ExtractionResult(
                     descriptions=descriptions,
-                    chapter_id=chapter.id,
+                    chapter_id=chapter_id,
                     extraction_time_ms=extraction_time_ms,
                 )
 
