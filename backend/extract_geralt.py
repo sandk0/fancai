@@ -23,7 +23,7 @@ async def main():
         stmt = select(Entity).where(
             and_(
                 Entity.book_id == book_id,
-                Entity.name.ilike(f"%{char_name}%")
+                Entity.name_lower.contains(char_name.casefold())
             )
         )
         result = await db.execute(stmt)
