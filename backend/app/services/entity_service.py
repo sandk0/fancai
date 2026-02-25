@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def _normalize_name(name: str) -> str:
     if not name:
         return ""
-    return name.lower().strip().replace("ё", "е")
+    return name.casefold().strip()
 
 
 class EntityService:

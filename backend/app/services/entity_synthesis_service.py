@@ -196,7 +196,7 @@ class EntitySynthesisService:
         # Merge events into entities data
         events_by_entity: dict[str, list] = {}
         for ev in events:
-            name = ev.get("entity_name", "").lower()
+            name = ev.get("entity_name", "").casefold()
             if name not in events_by_entity:
                 events_by_entity[name] = []
             events_by_entity[name].append(ev)
@@ -204,7 +204,7 @@ class EntitySynthesisService:
         entities_data = []
         for e in entities:
             name = e.get("name", "")
-            entity_events = events_by_entity.get(name.lower(), [])
+            entity_events = events_by_entity.get(name.casefold(), [])
             entities_data.append({
                 "name": name,
                 "type": e.get("type", "character"),
