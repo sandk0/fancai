@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { Book } from '@/types/api';
 
-type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere';
+type DescriptionType = 'all' | 'location' | 'character' | 'atmosphere' | 'object' | 'action';
 type SortOption = 'newest' | 'oldest' | 'book';
 
 interface ImageFiltersProps {
@@ -55,6 +55,8 @@ export function ImageFilters({
     { value: 'location', label: t('imagesGallery.stats.locations') },
     { value: 'character', label: t('imagesGallery.stats.characters') },
     { value: 'atmosphere', label: t('imagesGallery.stats.atmosphere') },
+    { value: 'object', label: t('imagesGallery.stats.objects') },
+    { value: 'action', label: t('imagesGallery.stats.actions') },
   ];
 
   const sortOptions = [

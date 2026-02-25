@@ -58,3 +58,68 @@ export const removeChapterHeaders = (text: string): string => {
 export const getFirstWords = (text: string, count: number): string => {
   return text.split(/\s+/).slice(0, count).join(' ');
 };
+
+/**
+ * Build a mapping from normalized text indices to original text indices.
+ * Accounts for trim() offset and whitespace collapse (\s+ → ' ').
+ *
+ * WARNING: Only handles whitespace transformations (NBSP→space, collapse, trim).
+ * Quote/dash replacements (« → ", — → -) are 1:1 and don't shift indices.
+ * If normalizeText() gains N:M replacements, this MUST be updated.
+ *
+ * @returns Array where map[normalizedIdx] = originalIdx
+ */
+export const buildIndexMap = (original: string): number[] => {
+  const map: number[] = [];
+
+  let oi = 0;
+  while (oi < original.length && /\s/.test(original[oi])) {
+    oi++;
+  }
+
+  let inWhitespace = false;
+  while (oi < original.length) {
+    const ch = original[oi];
+    if (/\s/.test(ch)) {
+      if (!inWhitespace) {
+        map.push(oi);
+        inWhitespace = true;
+      }
+      oi++;
+    } else {
+      inWhitespace = false;
+      map.push(oi);
+      oi++;
+    }
+  }
+  // Trim trailing whitespace entry to match normalizeText()'s trim()
+  if (inWhitespace && map.length > 0) {
+    map.pop();
+  }
+  return map;
+};
+
+/**
+ * Map a range [startIdx, endIdx) from normalized text back to original text.
+ * The indexMap should be pre-computed via buildIndexMap() for the same original text.
+ */
+export const mapNormalizedRange = (
+  indexMap: number[],
+  original: string,
+  normalizedStartIdx: number,
+  normalizedEndIdx: number,
+): { startIdx: number; endIdx: number } => {
+  const startIdx = normalizedStartIdx < indexMap.length
+    ? indexMap[normalizedStartIdx]
+    : original.length;
+
+  const lastNormIdx = normalizedEndIdx - 1;
+  let endIdx: number;
+  if (lastNormIdx < indexMap.length) {
+    endIdx = indexMap[lastNormIdx] + 1;
+  } else {
+    endIdx = original.length;
+  }
+
+  return { startIdx, endIdx };
+};
