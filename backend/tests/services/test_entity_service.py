@@ -15,8 +15,8 @@ class TestEntityServiceNormalizeName:
         assert _normalize_name("GERALT") == "geralt"
     def test_normalize_name_strips_whitespace(self):
         assert _normalize_name("  Geralt  ") == "geralt"
-    def test_normalize_name_replaces_yo(self):
-        assert _normalize_name("Ёлка") == "елка"
+    def test_normalize_name_casefold_preserves_yo(self):
+        assert _normalize_name("Ёлка") == "ёлка"
     def test_normalize_name_empty_string(self):
         assert _normalize_name("") == ""
     def test_normalize_name_none(self):
