@@ -1009,7 +1009,7 @@ class GeminiDirectExtractor:
     ) -> List[ExtractedDescription]:
         """Convert Pydantic schemas to ExtractedDescription objects with validation."""
         descriptions = []
-        source_lower = source_text.lower() if source_text else None
+        source_lower = source_text.casefold() if source_text else None
 
         for item in schema_descriptions:
             content = item.content
@@ -1024,7 +1024,7 @@ class GeminiDirectExtractor:
                 continue
 
             if source_lower:
-                content_sample = content[:100].lower()
+                content_sample = content[:100].casefold()
                 if content_sample not in source_lower:
                     logger.debug(
                         f"Description not found in source text: {content[:50]}..."
@@ -1099,7 +1099,7 @@ class GeminiDirectExtractor:
     ) -> List[ExtractedEntity]:
         """Convert Pydantic schemas to ExtractedEntity objects with validation."""
         entities = []
-        source_lower = source_text.lower() if source_text else None
+        source_lower = source_text.casefold() if source_text else None
 
         for item in schema_entities:
             name = item.name.strip() if item.name else ""
@@ -1107,9 +1107,9 @@ class GeminiDirectExtractor:
                 continue
 
             if source_lower:
-                name_in_text = name.lower() in source_lower
+                name_in_text = name.casefold() in source_lower
                 aliases_in_text = any(
-                    a.lower().strip() in source_lower for a in (item.aliases or []) if a
+                    a.casefold().strip() in source_lower for a in (item.aliases or []) if a
                 )
                 if not name_in_text and not aliases_in_text:
                     logger.debug(f"Entity '{name}' not found in source text, skipping")
@@ -1176,7 +1176,7 @@ class GeminiDirectExtractor:
 
         for desc in descriptions:
             # Нормализуем для сравнения
-            key = desc.content.strip().lower()[:150]
+            key = desc.content.strip().casefold()[:150]
 
             if key not in seen:
                 seen.add(key)
@@ -1207,7 +1207,7 @@ class GeminiDirectExtractor:
 
             for existing in unique:
                 # 1. Exact match (case insensitive)
-                if entity.name.lower() == existing.name.lower():
+                if entity.name.casefold() == existing.name.casefold():
                     is_duplicate = True
                     best_match = existing
                     break
@@ -1215,7 +1215,7 @@ class GeminiDirectExtractor:
                 # 2. Similarity match (SequenceMatcher)
                 # Threshold 0.75 catches aliases like "Гарри" vs "Гарри Поттер"
                 similarity = SequenceMatcher(
-                    None, entity.name.lower(), existing.name.lower()
+                    None, entity.name.casefold(), existing.name.casefold()
                 ).ratio()
                 if similarity > 0.75:
                     is_duplicate = True
@@ -1227,8 +1227,8 @@ class GeminiDirectExtractor:
                     len(entity.name) > 4
                     and len(existing.name) > 4
                     and (
-                        entity.name.lower() in existing.name.lower()
-                        or existing.name.lower() in entity.name.lower()
+                        entity.name.casefold() in existing.name.casefold()
+                        or existing.name.casefold() in entity.name.casefold()
                     )
                 ):
                     # Only merge if types match (don't merge "Ring" and "Ring of Power" if types differ)
