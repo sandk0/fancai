@@ -8,7 +8,7 @@ Usage:
     from app.core.logging import logger
 
     logger.info("Processing book", book_id=book_id, user_email=user.email)
-    logger.error("Failed to parse", error=str(e), exc_info=True)
+    logger.opt(exception=True).error(f"Failed to parse: {e}")
 
 Created: December 2025
 Author: fancai Team
@@ -59,7 +59,6 @@ def setup_logging(debug: bool = True, log_level: str = "INFO") -> None:
                 "<level>{level: <8}</level> | "
                 "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
                 "<level>{message}</level>"
-                "{extra}"
             ),
             level=log_level,
             colorize=True,

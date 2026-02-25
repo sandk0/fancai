@@ -383,11 +383,9 @@ async def not_found_handler(request, exc):
 @app.exception_handler(500)
 async def internal_error_handler(request, exc):
     """Обработчик внутренних ошибок сервера."""
-    logger.error(
-        "Internal server error",
-        error=str(exc),
+    logger.opt(exception=True).error(
+        f"Internal server error: {exc}",
         path=str(request.url.path),
-        exc_info=True,
     )
     return JSONResponse(
         status_code=500,

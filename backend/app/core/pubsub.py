@@ -57,7 +57,7 @@ async def publish_book_progress(
         )
 
     except Exception as e:
-        logger.error(f"Failed to publish progress: {e}", exc_info=True)
+        logger.opt(exception=True).error(f"Failed to publish progress: {e}")
 
 
 async def publish_entities_updated(
@@ -86,4 +86,4 @@ async def publish_entities_updated(
         )
 
     except Exception as e:
-        logger.error(f"Failed to publish entities_updated: {e}", exc_info=True)
+        logger.opt(exception=True).error(f"Failed to publish entities_updated: {e}")

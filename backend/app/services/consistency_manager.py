@@ -8,10 +8,14 @@ Responsible for:
 """
 
 import logging
+import hashlib
 from typing import List, Dict, Optional
 from difflib import SequenceMatcher
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
+from sqlalchemy import text as sa_text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+import uuid as uuid_module
 from app.models.entity import Entity, EntityType
 from app.models.entity_relationship import EntityRelationship
 from app.services.gemini_extractor import (
@@ -29,6 +33,26 @@ logger = logging.getLogger(__name__)
 class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+
+    async def _acquire_entity_lock(self, book_id: str, entity_name: str) -> None:
+        """
+        Acquire PostgreSQL advisory lock for entity creation.
+        
+        Uses pg_advisory_xact_lock (transaction-scoped) to serialize concurrent
+        entity creation across Celery workers. The lock is automatically released
+        on COMMIT/ROLLBACK.
+        """
+        lock_key = int(
+            hashlib.sha256(
+                f"{book_id}:{entity_name.lower()}".encode()
+            ).hexdigest()[:15],
+            16,
+        )
+        await self.db.execute(
+            sa_text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": lock_key},
+        )
 
     def _merge_visual_summaries(
         self, existing: str, new: str, chapter_index: Optional[int] = None
@@ -343,21 +367,46 @@ class ConsistencyManager:
                     else []
                 )
 
-                entity = Entity(
-                    book_id=book_id,
-                    name=raw.name,
-                    type=type_enum.value,
-                    visual_summary=raw.visual_summary,
-                    importance=raw.importance if raw.importance else 5,
-                    first_mention_chapter=chapter_index,
-                    aliases_with_reveal=aliases_with_reveal,
-                    entity_metadata={
+
+                # Advisory lock to serialize entity creation across workers
+                await self._acquire_entity_lock(book_id, raw.name)
+
+                # Use INSERT ... ON CONFLICT to handle concurrent entity creation
+                # from parallel chapter processing (race condition fix)
+                entity_values = {
+                    "id": uuid_module.uuid4(),
+                    "book_id": book_id,
+                    "name": raw.name,
+                    "type": type_enum.value,
+                    "visual_summary": raw.visual_summary,
+                    "importance": raw.importance if raw.importance else 5,
+                    "first_mention_chapter": chapter_index,
+                    "aliases_with_reveal": aliases_with_reveal,
+                    "entity_metadata": {
                         "aliases": raw.aliases,
                         "confidence": raw.confidence,
                         "first_mention_offset": raw.first_mention_offset,
                     },
+                }
+                stmt = pg_insert(Entity).values(**entity_values)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["book_id", func.lower(Entity.__table__.c.name)],
+                    set_={
+                        "entity_metadata": stmt.excluded.entity_metadata,
+                        "aliases_with_reveal": stmt.excluded.aliases_with_reveal,
+                        "updated_at": func.now(),
+                    },
                 )
-                self.db.add(entity)
+                await self.db.execute(stmt)
+
+                # Fetch the entity back as ORM object (whether inserted or conflict-updated)
+                fetch_result = await self.db.execute(
+                    select(Entity).where(
+                        Entity.book_id == book_id,
+                        func.lower(Entity.name) == name_lower,
+                    )
+                )
+                entity = fetch_result.scalar_one()
                 existing_entities[name_lower] = entity
             else:
                 entity = entity_map[name_lower]
@@ -675,4 +724,4 @@ CRITICAL RULES:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Entity Optimization Failed: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Entity Optimization Failed: {e}")
