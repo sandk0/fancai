@@ -97,7 +97,7 @@ export function useBookProgressWS({
     const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
     const pingInterval = useRef<NodeJS.Timeout | null>(null);
     const noProgressTimeout = useRef<NodeJS.Timeout | null>(null);
-    const lastProgressTime = useRef<number>(Date.now());
+    const lastProgressTime = useRef<number>(0);
 
     const onProgressRef = useRef(onProgress);
     const onCompleteRef = useRef(onComplete);

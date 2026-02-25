@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.database import Base
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .user import User
+
 
 class PasswordResetToken(Base):
     """Токен для сброса пароля (OWASP-compliant)."""

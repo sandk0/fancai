@@ -232,16 +232,18 @@ def create_retry_decorator(
         )
 
     # Build retry decorator
-    retry_decorator = retry(
-        stop=stop_after_attempt(
+    retry_kwargs: dict[str, Any] = {
+        "stop": stop_after_attempt(
             max_retries + 1
         ),  # +1 because first attempt isn't a retry
-        wait=wait_strategy,
-        retry=retry_if_exception_type(tuple(retryable_exceptions)),
-        before_sleep=before_sleep_log(logger, logging.WARNING) if log_retries else None,
-        after=after_log(logger, logging.DEBUG) if log_retries else None,
-        reraise=True,
-    )
+        "wait": wait_strategy,
+        "retry": retry_if_exception_type(tuple(retryable_exceptions)),
+        "reraise": True,
+    }
+    if log_retries:
+        retry_kwargs["before_sleep"] = before_sleep_log(logger, logging.WARNING)
+        retry_kwargs["after"] = after_log(logger, logging.DEBUG)
+    retry_decorator = retry(**retry_kwargs)
 
     return retry_decorator
 

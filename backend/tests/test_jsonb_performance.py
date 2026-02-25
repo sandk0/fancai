@@ -16,7 +16,11 @@ Requirements:
 """
 
 import pytest
-
+import time
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.book import Book
+from app.models.image import GeneratedImage
 # SKIP: Tests require GIN indexes which are not created by Base.metadata.create_all() in test DB
 # These tests need either:
 # 1. Alembic migrations to be run in test DB
@@ -24,12 +28,6 @@ import pytest
 pytestmark = pytest.mark.skip(
     reason="JSONB GIN indexes not available in test DB (require Alembic migrations)"
 )
-import time
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.book import Book
-from app.models.image import GeneratedImage
 
 # ============================================================================
 # JSONB Query Tests
