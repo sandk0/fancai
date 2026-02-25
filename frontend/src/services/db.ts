@@ -36,8 +36,10 @@ export interface OfflineBook {
 export interface CachedDescription {
   id: string
   content: string
-  type: 'scene' | 'character' | 'setting' | 'object'
+  text: string | null
+  type: 'scene' | 'character' | 'setting' | 'object' | 'action'
   confidence: number
+  priorityScore: number
   imageUrl: string | null
   imageStatus: 'none' | 'pending' | 'generated' | 'error'
 }
@@ -345,8 +347,13 @@ export const STORAGE_CRITICAL_THRESHOLD = 0.95
 /** Максимальное количество повторных попыток синхронизации */
 export const MAX_SYNC_RETRIES = 5
 
-/** TTL для кэша глав (7 дней в мс) */
-export const CHAPTER_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
+/** TTL для кэша глав: 1 час online, 7 дней offline (PWA) */
+export function getChapterCacheTTL(): number {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 7 * 24 * 60 * 60 * 1000 // 7 days offline
+  }
+  return 1 * 60 * 60 * 1000 // 1 hour online
+}
 
 /** TTL для кэша изображений (30 дней в мс) */
 export const IMAGE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000

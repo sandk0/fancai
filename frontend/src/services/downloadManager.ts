@@ -24,6 +24,7 @@ import {
 } from './db'
 import { apiClient } from '@/api/client'
 import { logger } from '@/lib/logger';
+import { API_TO_CACHE_TYPE, DEFAULT_CACHE_TYPE } from '@/utils/descriptionTypeMapping'
 
 // ============================================================================
 // Types
@@ -391,8 +392,10 @@ class DownloadManager {
     ).map((desc) => ({
       id: desc.id,
       content: desc.content,
+      text: null,
       type: this.mapDescriptionType(desc.type),
       confidence: desc.confidence_score ?? 0.5,
+      priorityScore: desc.confidence_score ? desc.confidence_score * 100 : 0,
       imageUrl: desc.generated_image?.image_url ?? null,
       imageStatus: desc.generated_image?.status === 'completed' ? 'generated' : 'none',
     }))
@@ -422,14 +425,7 @@ class DownloadManager {
   private mapDescriptionType(
     apiType: string
   ): CachedDescription['type'] {
-    const typeMap: Record<string, CachedDescription['type']> = {
-      action: 'scene',
-      character: 'character',
-      location: 'setting',
-      object: 'object',
-      atmosphere: 'setting',
-    }
-    return typeMap[apiType] ?? 'object'
+    return API_TO_CACHE_TYPE[apiType as keyof typeof API_TO_CACHE_TYPE] ?? DEFAULT_CACHE_TYPE
   }
 
   /**

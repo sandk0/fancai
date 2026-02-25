@@ -210,4 +210,45 @@ describe('ChapterCache', () => {
     // Cleanup user2
     await chapterCache.clearAll(user2);
   });
+
+  it('should preserve action type through cache round-trip', async () => {
+    const actionDescriptions: Description[] = [{
+      id: 'desc-action',
+      type: 'action',
+      content: 'He swung the sword in a wide arc',
+      text: 'He swung the sword in a wide arc',
+      confidence_score: 0.85,
+      priority_score: 72,
+    }];
+
+    await chapterCache.set(testUserId, testBookId, testChapter, actionDescriptions, []);
+    const cached = await chapterCache.get(testUserId, testBookId, testChapter);
+    expect(cached).not.toBeNull();
+    expect(cached?.descriptions[0].type).toBe('action');
+    expect(cached?.descriptions[0].priority_score).toBe(72);
+    expect(cached?.descriptions[0].text).toBe('He swung the sword in a wide arc');
+  });
+
+  it('should preserve all description types through cache round-trip', async () => {
+    const allTypeDescriptions: Description[] = [
+      { id: 'd1', type: 'location', content: 'A dark forest', text: 'A dark forest', confidence_score: 0.9, priority_score: 80 },
+      { id: 'd2', type: 'character', content: 'A tall elf', text: 'A tall elf', confidence_score: 0.8, priority_score: 60 },
+      { id: 'd3', type: 'atmosphere', content: 'Misty dawn', text: 'Misty dawn', confidence_score: 0.7, priority_score: 50 },
+      { id: 'd4', type: 'object', content: 'Golden ring', text: 'Golden ring', confidence_score: 0.6, priority_score: 40 },
+      { id: 'd5', type: 'action', content: 'Running fast', text: 'Running fast', confidence_score: 0.5, priority_score: 30 },
+    ];
+
+    await chapterCache.set(testUserId, testBookId, testChapter, allTypeDescriptions, []);
+    const cached = await chapterCache.get(testUserId, testBookId, testChapter);
+    expect(cached).not.toBeNull();
+    expect(cached?.descriptions).toHaveLength(5);
+
+    const typeMap = new Map(cached!.descriptions.map(d => [d.id, d.type]));
+    expect(typeMap.get('d1')).toBe('location');
+    expect(typeMap.get('d2')).toBe('character');
+    expect(typeMap.get('d3')).toBe('atmosphere');
+    expect(typeMap.get('d4')).toBe('object');
+    expect(typeMap.get('d5')).toBe('action');
+  });
 });
+
