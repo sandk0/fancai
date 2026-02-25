@@ -11,7 +11,7 @@ import hashlib
 import logging
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from redis.asyncio import Redis
 from app.core.config import settings
@@ -75,7 +75,7 @@ class LLMCacheService:
             logger.warning(f"Redis cache read error: {e}")
             return None
 
-    async def set(self, key: ChapterCacheKey, value: Any, ttl: int = None) -> bool:
+    async def set(self, key: ChapterCacheKey, value: Any, ttl: Optional[int] = None) -> bool:
         """
         Cache LLM response.
 
@@ -92,7 +92,7 @@ class LLMCacheService:
             payload = {
                 "data": value,
                 "metadata": {
-                    "cached_at": datetime.utcnow().isoformat(),
+                    "cached_at": datetime.now(timezone.utc).isoformat(),
                     "key_components": asdict(key),
                 },
             }

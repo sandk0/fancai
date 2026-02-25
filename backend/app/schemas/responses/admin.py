@@ -12,7 +12,7 @@ Version: Phase 1.3 Type Safety (2025-11-29)
 
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class CacheStatsResponse(BaseModel):
@@ -77,7 +77,7 @@ class CacheClearResponse(BaseModel):
     keys_deleted: int = Field(ge=0, description="Number of keys deleted from cache")
     message: str = Field(description="Human-readable result message")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Operation timestamp"
+        default_factory=lambda: datetime.now(timezone.utc), description="Operation timestamp"
     )
     pattern: Optional[str] = Field(
         None, description="Redis key pattern used for deletion (if pattern-based clear)"
