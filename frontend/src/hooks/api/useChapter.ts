@@ -20,7 +20,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
-import { chapterCache } from '@/services/chapterCache';
+import { chapterCache, isValidCachedDescription } from '@/services/chapterCache';
 import {
   db,
   createChapterId,
@@ -31,6 +31,7 @@ import { isOnline } from '@/hooks/useOnlineStatus';
 import { chapterKeys, descriptionKeys, getCurrentUserId } from './queryKeys';
 import type { Chapter, Description } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { API_TO_CACHE_TYPE, CACHE_TO_API_TYPE, DEFAULT_CACHE_TYPE, DEFAULT_API_TYPE } from '@/utils/descriptionTypeMapping'
 
 /**
  * Response типа для главы с навигацией
@@ -52,13 +53,7 @@ interface ChapterResponse {
  * Маппинг типов описаний из кэша в API формат
  */
 function mapDescriptionType(cachedType: CachedDescription['type']): Description['type'] {
-  const typeMap: Record<CachedDescription['type'], Description['type']> = {
-    scene: 'action',
-    character: 'character',
-    setting: 'location',
-    object: 'object',
-  };
-  return typeMap[cachedType] ?? 'object';
+  return CACHE_TO_API_TYPE[cachedType] ?? DEFAULT_API_TYPE;
 }
 
 /**
@@ -67,12 +62,13 @@ function mapDescriptionType(cachedType: CachedDescription['type']): Description[
 function convertCachedDescriptions(
   cached: CachedDescription[]
 ): Description[] {
-  return cached.map((desc) => ({
+  return cached.filter(isValidCachedDescription).map((desc) => ({
     id: desc.id,
     content: desc.content,
+    text: desc.text ?? desc.content,
     type: mapDescriptionType(desc.type),
     confidence_score: desc.confidence,
-    priority_score: desc.confidence,
+    priority_score: desc.priorityScore ?? (desc.confidence ? desc.confidence * 100 : 0),
     generated_image: desc.imageUrl ? {
       id: `cached_${desc.id}`,
       service_used: 'cached',
@@ -85,10 +81,10 @@ function convertCachedDescriptions(
       description: {
         id: desc.id,
         type: mapDescriptionType(desc.type),
-        text: desc.content,
+        text: desc.text ?? desc.content,
         content: desc.content,
         confidence_score: desc.confidence,
-        priority_score: desc.confidence,
+        priority_score: desc.priorityScore ?? (desc.confidence ? desc.confidence * 100 : 0),
       },
       chapter: { id: '', number: 0, title: '' },
     } : undefined,
@@ -99,14 +95,7 @@ function convertCachedDescriptions(
  * Маппинг типов описаний из API в кэш формат
  */
 function mapToCachedDescriptionType(apiType: Description['type']): CachedDescription['type'] {
-  const typeMap: Record<Description['type'], CachedDescription['type']> = {
-    action: 'scene',
-    character: 'character',
-    location: 'setting',
-    object: 'object',
-    atmosphere: 'setting',
-  };
-  return typeMap[apiType] ?? 'object';
+  return API_TO_CACHE_TYPE[apiType] ?? DEFAULT_CACHE_TYPE;
 }
 
 /**
@@ -123,10 +112,12 @@ async function saveChapterToCache(
   const cachedDescriptions: CachedDescription[] = (response.descriptions ?? []).map((desc) => ({
     id: desc.id,
     content: desc.content,
+    text: desc.text ?? null,
     type: mapToCachedDescriptionType(desc.type),
     confidence: desc.confidence_score ?? 0,
+    priorityScore: desc.priority_score ?? (desc.confidence_score ? desc.confidence_score * 100 : 0),
     imageUrl: desc.generated_image?.image_url ?? null,
-    imageStatus: desc.generated_image?.status === 'completed' ? 'generated' as const : 'none' as const,
+    imageStatus: desc.generated_image ? (desc.generated_image.status === 'completed' ? 'generated' as const : 'pending' as const) : 'none' as const,
   }));
 
   const chapter: CachedChapter = {
