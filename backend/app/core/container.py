@@ -14,12 +14,25 @@ Created: 2025-12-28
 Author: fancai Team
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..services.book_parser import BookParser
+    from ..services.imagen_generator import ImagenService
+    from ..services.gemini_extractor import GeminiDirectExtractor
+    from ..services.auth_service import AuthService
+    from ..services.book.book_service import BookService
+    from ..services.book.book_progress_service import BookProgressService
+    from ..services.image_generator import ImageGeneratorService
+    from ..services.token_blacklist import TokenBlacklist
+    from ..services.email.email_service import EmailService
+    from ..services.feature_flag_manager import FeatureFlagManager
+
 from functools import lru_cache
 from typing import Protocol, Dict, Any, Optional, List, runtime_checkable
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
-
-from .database import get_database_session
 from .config import settings
 
 # ============================================================================

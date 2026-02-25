@@ -25,7 +25,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from enum import Enum
+from app.models.description import DescriptionType
 import logging
 
 from app.core.retry import (
@@ -38,14 +38,6 @@ from app.core.retry import (
 logger = logging.getLogger(__name__)
 
 
-class DescriptionType(Enum):
-    """Types of descriptions for image generation."""
-
-    LOCATION = "location"
-    CHARACTER = "character"
-    ATMOSPHERE = "atmosphere"
-    OBJECT = "object"
-    ACTION = "action"
 
 
 @dataclass

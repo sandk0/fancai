@@ -29,6 +29,8 @@ from .routers import (
 )
 from .routers.admin import admin_router
 from .routers.books import books_router
+from .routers.books.entities import router as entities_router
+from .routers.websocket import router as websocket_router
 from .core.config import settings
 from .core.cache import cache_manager
 from .core.secrets import startup_secrets_check
@@ -265,7 +267,7 @@ app.include_router(admin_router, prefix="/api/v1")
 # Books routers (refactored into modular structure)
 app.include_router(books_router, prefix="/api/v1")
 app.include_router(chapters.router, prefix="/api/v1/books", tags=["chapters"])
-from .routers.books.entities import router as entities_router
+
 
 app.include_router(entities_router, prefix="/api/v1/books", tags=["entities"])
 app.include_router(descriptions_router, prefix="/api/v1/books", tags=["descriptions"])
@@ -286,7 +288,7 @@ app.include_router(push_router, prefix="/api/v1", tags=["push"])
 app.include_router(sync_router, prefix="/api/v1", tags=["sync"])
 
 # WebSocket router for real-time progress updates (Phase 5, January 2026)
-from .routers.websocket import router as websocket_router
+
 
 app.include_router(websocket_router, tags=["websocket"])
 

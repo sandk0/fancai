@@ -187,7 +187,7 @@ class TestBooks:
             # Clean up temp file
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
                 pass
 
     @pytest.mark.asyncio
@@ -216,7 +216,7 @@ class TestBooks:
         finally:
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
                 pass
 
     @pytest.mark.asyncio

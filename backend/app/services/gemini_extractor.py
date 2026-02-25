@@ -25,7 +25,7 @@ import json
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
-from enum import Enum
+from app.models.description import DescriptionType
 
 from app.core.retry import (
     retry_llm_extraction,
@@ -112,13 +112,6 @@ class GeminiTSAResponseSchema(BaseModel):
     relationships: List[GeminiRelationshipSchema]
 
 
-class DescriptionType(Enum):
-    """Типы описаний для извлечения."""
-
-    LOCATION = "location"
-    CHARACTER = "character"
-    OBJECT = "object"
-    ATMOSPHERE = "atmosphere"
 
 
 @dataclass
@@ -173,7 +166,7 @@ class ExtractedDescription:
 
         return {
             "content": self.content,
-            "type": self.description_type.value.upper(),
+            "type": self.description_type.value,
             "confidence_score": self.confidence,
             "priority_score": self._calculate_priority(),
             "source": "gemini_direct",
