@@ -204,7 +204,7 @@ async def upload_book(
         )
 
     except Exception as e:
-        logger.error("Book processing failed", error=str(e), exc_info=True)
+        logger.opt(exception=True).error(f"Book processing failed: {e}")
         # Удаляем временный файл в случае ошибки
         try:
             if os.path.exists(temp_file_path):

@@ -254,7 +254,7 @@ class EPUBParser:
             return ParsedBook(metadata=metadata, chapters=chapters, file_format="epub")
 
         except Exception as e:
-            logger.error(f"Error parsing EPUB: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Error parsing EPUB: {e}")
             raise Exception(f"Error parsing EPUB file: {str(e)}")
 
     def _extract_metadata(self, book) -> BookMetadata:
@@ -779,7 +779,7 @@ class FB2Parser:
             return ParsedBook(metadata=metadata, chapters=chapters, file_format="fb2")
 
         except Exception as e:
-            logger.error(f"Error parsing FB2: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Error parsing FB2: {e}")
             raise Exception(f"Error parsing FB2 file: {str(e)}")
 
     def _extract_metadata(self, root) -> BookMetadata:

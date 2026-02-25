@@ -241,9 +241,8 @@ class EntitySynthesisService:
                     f"{len(parsed['entities'])} entities processed"
                 )
             except Exception as e:
-                logger.error(
-                    f"Book {book_id}: Synthesis batch {batch_idx + 1} failed: {e}",
-                    exc_info=True,
+                logger.opt(exception=True).error(
+                    f"Book {book_id}: Synthesis batch {batch_idx + 1} failed: {e}"
                 )
 
         return all_results

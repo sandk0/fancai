@@ -141,11 +141,9 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
             raise  # Re-raise so Celery marks task as failed
 
         except Exception as e:
-            logger.error(
-                "Error processing book",
+            logger.opt(exception=True).error(
+                f"Error processing book: {e}",
                 book_id=book_id_str,
-                error=str(e),
-                exc_info=True,
             )
             # Ensure we update the book state in DB so it doesn't get stuck processing
             if book_id:
@@ -543,25 +541,31 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 )
 
                             except Exception as e:
-                                logger.error(
-                                    f"Error parsing chapter {idx + 1}: {e}", exc_info=True
+                                logger.opt(exception=True).error(
+                                    f"Error parsing chapter {idx + 1}: {e}"
                                 )
                                 try:
+                                    await session.rollback()
                                     if local_chapter:
-                                        local_chapter.parsing_error = str(e)[:1000]
-                                        local_chapter.parse_attempts += 1
-                                        await session.commit()
+                                        local_chapter = await session.get(Chapter, local_chapter.id)
+                                        if local_chapter:
+                                            local_chapter.parsing_error = str(e)[:1000]
+                                            local_chapter.parse_attempts += 1
+                                            await session.commit()
                                 except Exception as commit_err:
-                                    logger.error(
+                                    logger.opt(exception=True).error(
                                         f"Failed to record chapter {idx + 1} error: {commit_err}"
                                     )
+                                    try:
+                                        await session.rollback()
+                                    except Exception:
+                                        pass
                 except BaseException as fatal_err:
                     # Catch-all: CancelledError, session creation failures, context manager cleanup errors.
                     # Prevents ANY exception from propagating and affecting sibling tasks.
-                    logger.error(
+                    logger.opt(exception=True).error(
                         f"Fatal error in chapter {idx + 1} processing: "
-                        f"{type(fatal_err).__name__}: {fatal_err}",
-                        exc_info=True,
+                        f"{type(fatal_err).__name__}: {fatal_err}"
                     )
 
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
@@ -570,14 +574,29 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 return_exceptions=True,
             )
 
-            # Log any exceptions that were returned (shouldn't happen with our BaseException catch,
-            # but log just in case for debugging)
-            for i, result in enumerate(results):
-                if isinstance(result, BaseException):
-                    logger.error(
-                        f"Chapter task {i + 1} returned exception: "
-                        f"{type(result).__name__}: {result}"
-                    )
+            # Log results and retry failed chapters sequentially
+            succeeded = sum(1 for r in results if not isinstance(r, BaseException))
+            failed_indices = [i for i, r in enumerate(results) if isinstance(r, BaseException)]
+
+            for i in failed_indices:
+                logger.error(
+                    f"Chapter task {i + 1} returned exception: "
+                    f"{type(results[i]).__name__}: {results[i]}"
+                )
+
+            # Retry failed chapters sequentially (once)
+            if failed_indices:
+                logger.warning(
+                    f"Retrying {len(failed_indices)} failed chapters sequentially..."
+                )
+                for i in failed_indices:
+                    try:
+                        await process_chapter_safe(i, chapters[i].id)
+                        succeeded += 1
+                    except BaseException as retry_err:
+                        logger.opt(exception=True).error(
+                            f"Chapter {i + 1} retry also failed: {retry_err}"
+                        )
 
             logger.info(
                 f"Parallel processing complete. "
