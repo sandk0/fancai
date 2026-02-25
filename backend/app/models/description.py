@@ -68,7 +68,8 @@ class Description(Base):
     )
 
     type: Mapped[DescriptionType] = mapped_column(
-        SQLEnum(DescriptionType), nullable=False, index=True
+        SQLEnum(DescriptionType, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False, index=True,
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
