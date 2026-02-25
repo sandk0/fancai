@@ -45,7 +45,7 @@ class ConsistencyManager:
         """
         lock_key = int(
             hashlib.sha256(
-                f"{book_id}:{entity_name.lower()}".encode()
+                f"{book_id}:{entity_name.casefold()}".encode()
             ).hexdigest()[:15],
             16,
         )
@@ -106,7 +106,7 @@ class ConsistencyManager:
     def _resolve_entity_advanced(
         self, name: str, existing_entities: Dict[str, "Entity"]
     ) -> Optional["Entity"]:
-        name_lower = name.lower()
+        name_lower = name.casefold()
 
         if name_lower in existing_entities:
             return existing_entities[name_lower]
@@ -117,7 +117,7 @@ class ConsistencyManager:
                 if entity.entity_metadata
                 else []
             )
-            aliases_lower = [a.lower() for a in aliases if isinstance(a, str)]
+            aliases_lower = [a.casefold() for a in aliases if isinstance(a, str)]
             if name_lower in aliases_lower:
                 return entity
 
@@ -198,7 +198,7 @@ class ConsistencyManager:
 
             seen_entity_ids = set()
             for raw_entity in result.entities:
-                resolved_entity = entity_map.get(raw_entity.name.lower())
+                resolved_entity = entity_map.get(raw_entity.name.casefold())
                 if not resolved_entity or resolved_entity.id in seen_entity_ids:
                     continue
 
@@ -236,8 +236,8 @@ class ConsistencyManager:
         Update knowledge graph edges.
         """
         for rel in relationships:
-            source = entity_map.get(rel.source.lower())
-            target = entity_map.get(rel.target.lower())
+            source = entity_map.get(rel.source.casefold())
+            target = entity_map.get(rel.target.casefold())
 
             if source and target and source.id != target.id:
                 # Check for existing relationship
@@ -286,9 +286,9 @@ class ConsistencyManager:
 
         all_names = set()
         for raw in raw_entities:
-            all_names.add(raw.name.lower())
+            all_names.add(raw.name.casefold())
             for alias in raw.aliases:
-                all_names.add(alias.lower())
+                all_names.add(alias.casefold())
 
         from sqlalchemy.orm import selectinload
 
@@ -304,7 +304,7 @@ class ConsistencyManager:
 
         existing_entities: Dict[str, Entity] = {}
         for entity in all_book_entities:
-            existing_entities[entity.name.lower()] = entity
+            existing_entities[entity.name_lower] = entity
 
             stored_aliases = (
                 entity.entity_metadata.get("aliases", [])
@@ -313,13 +313,13 @@ class ConsistencyManager:
             )
             for alias in stored_aliases:
                 if isinstance(alias, str):
-                    existing_entities[alias.lower()] = entity
+                    existing_entities[alias.casefold()[:255]] = entity
 
         # 3. Build entity map and create new entities
         entity_map: Dict[str, Entity] = {}
 
         for raw in raw_entities:
-            name_lower = raw.name.lower()
+            name_lower = raw.name.casefold()[:255]
 
             resolved = self._resolve_entity_advanced(raw.name, existing_entities)
 
@@ -338,10 +338,10 @@ class ConsistencyManager:
                 if raw.aliases and chapter_index is not None:
                     existing_aliases = entity.aliases_with_reveal or []
                     existing_names = {
-                        a.get("name", "").lower() for a in existing_aliases
+                        a.get("name", "").casefold() for a in existing_aliases
                     }
                     for alias in raw.aliases:
-                        if alias.lower() not in existing_names:
+                        if alias.casefold() not in existing_names:
                             existing_aliases.append(
                                 {"name": alias, "reveal_chapter": chapter_index}
                             )
@@ -377,6 +377,7 @@ class ConsistencyManager:
                     "id": uuid_module.uuid4(),
                     "book_id": book_id,
                     "name": raw.name,
+                    "name_lower": raw.name.casefold()[:255],
                     "type": type_enum.value,
                     "visual_summary": raw.visual_summary,
                     "importance": raw.importance if raw.importance else 5,
@@ -390,7 +391,7 @@ class ConsistencyManager:
                 }
                 stmt = pg_insert(Entity).values(**entity_values)
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=["book_id", func.lower(Entity.__table__.c.name)],
+                    index_elements=["book_id", "name_lower"],
                     set_={
                         "entity_metadata": stmt.excluded.entity_metadata,
                         "aliases_with_reveal": stmt.excluded.aliases_with_reveal,
@@ -403,7 +404,7 @@ class ConsistencyManager:
                 fetch_result = await self.db.execute(
                     select(Entity).where(
                         Entity.book_id == book_id,
-                        func.lower(Entity.name) == name_lower,
+                        Entity.name_lower == name_lower,  # name_lower: Python casefold(), locale-independent
                     )
                 )
                 entity = fetch_result.scalar_one()
@@ -414,7 +415,7 @@ class ConsistencyManager:
             # Map both name and aliases
             entity_map[name_lower] = entity
             for alias in raw.aliases:
-                entity_map[alias.lower()] = entity
+                entity_map[alias.casefold()[:255]] = entity
 
         logger.info(
             f"Batch resolved {len(raw_entities)} entities: "
@@ -429,9 +430,9 @@ class ConsistencyManager:
         """
         Find existing entity by name/alias or create new.
         """
-        # Simple exact match for now (MVP)
-        # TODO: Vector search or fuzzy match for robust resolution
-        query = select(Entity).where(Entity.book_id == book_id, Entity.name == raw.name)
+        # LEGACY (dead code): replaced by _batch_resolve_entities.
+        # Uses name_lower for locale-independent case-insensitive match.
+        query = select(Entity).where(Entity.book_id == book_id, Entity.name_lower == raw.name.casefold())
         existing = await self.db.scalar(query)
 
         if existing:
