@@ -69,13 +69,12 @@ def upgrade() -> None:
 
     # Update any rows that still have UPPERCASE values (e.g., 'OBJECT' rows
     # when lowercase 'object' was already added but rows weren't migrated).
-    op.execute("""
-        UPDATE descriptions SET type = 'location' WHERE type = 'LOCATION';
-        UPDATE descriptions SET type = 'character' WHERE type = 'CHARACTER';
-        UPDATE descriptions SET type = 'atmosphere' WHERE type = 'ATMOSPHERE';
-        UPDATE descriptions SET type = 'object' WHERE type = 'OBJECT';
-        UPDATE descriptions SET type = 'action' WHERE type = 'ACTION';
-    """)
+    # Split into individual statements for asyncpg compatibility.
+    op.execute("UPDATE descriptions SET type = 'location' WHERE type = 'LOCATION'")
+    op.execute("UPDATE descriptions SET type = 'character' WHERE type = 'CHARACTER'")
+    op.execute("UPDATE descriptions SET type = 'atmosphere' WHERE type = 'ATMOSPHERE'")
+    op.execute("UPDATE descriptions SET type = 'object' WHERE type = 'OBJECT'")
+    op.execute("UPDATE descriptions SET type = 'action' WHERE type = 'ACTION'")
 
 
 def downgrade() -> None:
@@ -119,10 +118,9 @@ def downgrade() -> None:
     END $$;
     """)
 
-    op.execute("""
-        UPDATE descriptions SET type = 'LOCATION' WHERE type = 'location';
-        UPDATE descriptions SET type = 'CHARACTER' WHERE type = 'character';
-        UPDATE descriptions SET type = 'ATMOSPHERE' WHERE type = 'atmosphere';
-        UPDATE descriptions SET type = 'OBJECT' WHERE type = 'object';
-        UPDATE descriptions SET type = 'ACTION' WHERE type = 'action';
-    """)
+    # Split into individual statements for asyncpg compatibility.
+    op.execute("UPDATE descriptions SET type = 'LOCATION' WHERE type = 'location'")
+    op.execute("UPDATE descriptions SET type = 'CHARACTER' WHERE type = 'character'")
+    op.execute("UPDATE descriptions SET type = 'ATMOSPHERE' WHERE type = 'atmosphere'")
+    op.execute("UPDATE descriptions SET type = 'OBJECT' WHERE type = 'object'")
+    op.execute("UPDATE descriptions SET type = 'ACTION' WHERE type = 'action'")
