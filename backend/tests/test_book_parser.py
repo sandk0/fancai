@@ -1130,3 +1130,288 @@ class TestIntegration:
         # Парсинг должен выбросить исключение
         with pytest.raises(Exception):
             book_parser.parse_book(corrupted_epub_file)
+
+
+# ============================================================================
+# TESTS: _flatten_toc() — Шаг 1.1
+# ============================================================================
+
+
+class TestFlattenToc:
+    """Тесты корректного обхода TOC с вложенными структурами ebooklib."""
+
+    @pytest.fixture
+    def epub_parser(self, parser_config):
+        from app.services.book_parser import EPUBParser
+        return EPUBParser(config=parser_config)
+
+    def test_flatten_simple_links(self, epub_parser):
+        """Тест 1: простые Link items — href и title берутся напрямую."""
+        from ebooklib import epub
+        toc = [
+            epub.Link("ch1.xhtml", "Глава 1", "ch1"),
+            epub.Link("ch2.xhtml", "Глава 2", "ch2"),
+        ]
+        result = epub_parser._flatten_toc(toc)
+        hrefs = [r[0] for r in result]
+        titles = [r[1] for r in result]
+        assert "ch1.xhtml" in hrefs
+        assert "ch2.xhtml" in hrefs
+        assert "Глава 1" in titles
+        assert "Глава 2" in titles
+
+    def test_flatten_section_with_links_uses_section_title(self, epub_parser):
+        """Тест 2: (Section, [Link...]) — title берётся из Section.title, НЕ из item[1]."""
+        from ebooklib import epub
+        section = epub.Section("Часть I", "part1.xhtml")
+        link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
+        toc = [(section, [link])]
+        result = epub_parser._flatten_toc(toc)
+        hrefs = [r[0] for r in result]
+        titles = [r[1] for r in result]
+        assert "part1.xhtml" in hrefs
+        assert "Часть I" in titles       # Заголовок секции, не children-список
+        assert "ch1.xhtml" in hrefs
+        assert "Глава 1" in titles
+
+    def test_flatten_section_with_empty_href(self, epub_parser):
+        """Тест 3: Section с пустым href — не добавляется, но дети добавляются."""
+        from ebooklib import epub
+        section = epub.Section("Группа", "")   # href=""
+        link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
+        toc = [(section, [link])]
+        result = epub_parser._flatten_toc(toc)
+        hrefs = [r[0] for r in result]
+        assert "" not in hrefs              # пустой href не добавляется
+        assert "ch1.xhtml" in hrefs
+
+
+# ============================================================================
+# TESTS: ChapterNumberExtractor compound-first — Шаг 1.2
+# ============================================================================
+
+
+class TestChapterNumberExtractionCompound:
+    """Регрессионные тесты составных порядковых числительных (21–99).
+
+    Эти тесты будут КРАСНЫМИ до исправления compound-first баг.
+    """
+
+    @pytest.fixture
+    def chapter_extractor(self, parser_config):
+        return ChapterNumberExtractor(config=parser_config)
+
+    # --- Регрессионные тесты (ДОЛЖНЫ КРАСНЫЕ до фикса) ---
+
+    def test_compound_dvadtsat_pervaya(self, chapter_extractor):
+        """Глава двадцать первая → 21, не 1."""
+        result = chapter_extractor.extract("", title="Глава двадцать первая")
+        assert result == 21, f"Expected 21, got {result} (substring bug)"
+
+    def test_compound_dvadtsat_vtoraya(self, chapter_extractor):
+        """Глава двадцать вторая → 22, не 2."""
+        result = chapter_extractor.extract("", title="Глава двадцать вторая")
+        assert result == 22, f"Expected 22, got {result} (substring bug)"
+
+    def test_compound_dvadtsat_tretya(self, chapter_extractor):
+        """Глава двадцать третья → 23, не 3."""
+        result = chapter_extractor.extract("", title="Глава двадцать третья")
+        assert result == 23, f"Expected 23, got {result} (substring bug)"
+
+    def test_compound_tridtsat_pyataya(self, chapter_extractor):
+        """Глава тридцать пятая → 35."""
+        result = chapter_extractor.extract("", title="Глава тридцать пятая")
+        assert result == 35, f"Expected 35, got {result}"
+
+    def test_compound_devyanosto_devyataya(self, chapter_extractor):
+        """Глава девяносто девятая → 99."""
+        result = chapter_extractor.extract("", title="Глава девяносто девятая")
+        assert result == 99, f"Expected 99, got {result}"
+
+    # --- Не регрессия (должны уже работать и продолжать работать после фикса) ---
+
+    def test_simple_vtoraya_no_regression(self, chapter_extractor):
+        """Глава вторая → 2 (не регрессия)."""
+        result = chapter_extractor.extract("", title="Глава вторая")
+        assert result == 2
+
+    def test_simple_dvadtsataya_no_regression(self, chapter_extractor):
+        """Глава двадцатая → 20 (не регрессия)."""
+        result = chapter_extractor.extract("", title="Глава двадцатая")
+        assert result == 20
+
+    def test_arabic_number_no_regression(self, chapter_extractor):
+        """Глава 5 → 5 (арабские цифры, не регрессия)."""
+        result = chapter_extractor.extract("", title="Глава 5")
+        assert result == 5
+
+    def test_roman_chapter_no_regression(self, chapter_extractor):
+        """Глава III → 3 (не регрессия)."""
+        result = chapter_extractor.extract("", title="Глава III")
+        assert result == 3
+
+    def test_case_insensitive(self, chapter_extractor):
+        """глава ПЕРВАЯ → 1 (case insensitive)."""
+        result = chapter_extractor.extract("", title="глава ПЕРВАЯ")
+        assert result == 1
+
+    def test_prologue_returns_none(self, chapter_extractor):
+        """Пролог → None (spine-based назначит позицию)."""
+        result = chapter_extractor.extract("", title="Пролог")
+        assert result is None
+
+    def test_general_info_returns_none(self, chapter_extractor):
+        """Общая информация → None (сервисная, не содержит 'глава')."""
+        result = chapter_extractor.extract("", title="Общая информация")
+        assert result is None
+
+    def test_the_storm_returns_none(self, chapter_extractor):
+        """The Storm → None (без числового указания)."""
+        result = chapter_extractor.extract("", title="The Storm")
+        assert result is None
+
+
+# ============================================================================
+# TESTS: _is_service_page() — Шаг 1.3
+# ============================================================================
+
+
+class TestIsServicePage:
+    """Тесты определения сервисных страниц EPUB.
+
+    Методы _is_service_page, _get_body_epub_type, _is_image_only ещё не реализованы —
+    тесты будут КРАСНЫМИ до Фазы 2.
+    """
+
+    @pytest.fixture
+    def epub_parser(self, parser_config):
+        from app.services.book_parser import EPUBParser
+        return EPUBParser(config=parser_config)
+
+    def _make_item(self, name="test.xhtml", content=b"<html><body>text</body></html>"):
+        """Создаёт мок ebooklib item."""
+        from unittest.mock import MagicMock
+        item = MagicMock()
+        item.get_name.return_value = name
+        item.get_content.return_value = content
+        return item
+
+    def test_annotation_is_service(self, epub_parser):
+        """Аннотация (1 слово в тексте < 100) → сервисная."""
+        item = self._make_item("ch.xhtml", b"<html><body>short</body></html>")
+        assert epub_parser._is_service_page(item, "short text", "Аннотация", 1) is True
+
+    def test_cover_image_only_is_service(self, epub_parser):
+        """Страница только с изображением → сервисная (обложка)."""
+        content = b'<html><body><img src="cover.jpg"/></body></html>'
+        item = self._make_item("cover.xhtml", content)
+        assert epub_parser._is_service_page(item, "", "Обложка", 0) is True
+
+    def test_tsitaty_short_is_service(self, epub_parser):
+        """'Цитаты' с коротким текстом → сервисная (книга Ведьмак)."""
+        item = self._make_item("ch.xhtml", b"<html><body>short</body></html>")
+        assert epub_parser._is_service_page(item, "short", "Цитаты", 1) is True
+
+    def test_obshchaya_info_short_is_service(self, epub_parser):
+        """'Общая информация' с коротким текстом → сервисная (Эксмо/АСТ)."""
+        item = self._make_item("ch1-1.xhtml", b"<html><body>short</body></html>")
+        assert epub_parser._is_service_page(item, "short", "Общая информация", 0) is True
+
+    def test_copyright_patterns_is_service(self, epub_parser):
+        """Страница с УДК + ББК → сервисная (97% — копирайт)."""
+        text = "УДК 821.162\nББК 84(4Пол)\nISBN 978-5-699-90001\nВсе права защищены"
+        item = self._make_item("ch.xhtml", b"<html><body>content</body></html>")
+        assert epub_parser._is_service_page(item, text, "ch", 2) is True
+
+    def test_long_prologue_is_not_service(self, epub_parser):
+        """Пролог с длинным текстом (>300 слов) → НЕ сервисная."""
+        text = "word " * 400    # 400 слов >> 300
+        item = self._make_item("ch.xhtml", b"<html><body>content</body></html>")
+        assert epub_parser._is_service_page(item, text, "Пролог", 2) is False
+
+    def test_long_chapter_is_not_service(self, epub_parser):
+        """Глава с длинным текстом → НЕ сервисная."""
+        text = "word " * 400
+        item = self._make_item("ch.xhtml", b"<html><body>content</body></html>")
+        assert epub_parser._is_service_page(item, text, "Глава первая", 3) is False
+
+    def test_long_english_chapter_is_not_service(self, epub_parser):
+        """'The Storm' с длинным текстом → НЕ сервисная."""
+        text = "word " * 400
+        item = self._make_item("ch.xhtml", b"<html><body>content</body></html>")
+        assert epub_parser._is_service_page(item, text, "The Storm", 4) is False
+
+
+# ============================================================================
+# TESTS: _get_bodymatter_basename() — Шаг 1.4
+# ============================================================================
+
+
+class TestGetBodymatterBasename:
+    """Тесты определения начала основного контента EPUB.
+
+    Метод _get_bodymatter_basename ещё не реализован — тесты КРАСНЫЕ до Фазы 2.
+    """
+
+    @pytest.fixture
+    def epub_parser(self, parser_config):
+        from app.services.book_parser import EPUBParser
+        return EPUBParser(config=parser_config)
+
+    def _make_book(self, guide_refs, spine_items, toc_links):
+        """Создаёт мок EpubBook для тестирования bodymatter detection."""
+        from unittest.mock import MagicMock
+        book = MagicMock()
+        book.guide = guide_refs
+        book.spine = [(item["id"], "yes") for item in spine_items]
+        book.toc = toc_links
+        book.get_items_of_type.return_value = []  # нет EPUB 3 Landmarks
+
+        def get_item_with_id(idref):
+            for si in spine_items:
+                if si["id"] == idref:
+                    m = MagicMock()
+                    m.get_name.return_value = si["name"]
+                    return m
+            return None
+
+        book.get_item_with_id.side_effect = get_item_with_id
+        return book
+
+    def test_guide_type_text_returns_basename(self, epub_parser):
+        """Guide type='text' → возвращает basename первого контентного файла."""
+        guide = [{"href": "OPS/ch1.xhtml", "type": "text", "title": "Start"}]
+        book = self._make_book(guide, [], [])
+        result = epub_parser._get_bodymatter_basename(book)
+        assert result == "ch1.xhtml"
+
+    def test_ncx_gap_returns_first_toc_basename(self, epub_parser):
+        """NCX gap: toc[0].href != spine[0].href → возвращает basename toc[0]."""
+        from ebooklib import epub
+        link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
+        spine_items = [
+            {"id": "cover", "name": "cover.xhtml"},
+            {"id": "annot", "name": "annotation.xhtml"},
+            {"id": "ch1", "name": "ch1.xhtml"},
+        ]
+        book = self._make_book([], spine_items, [link])
+        result = epub_parser._get_bodymatter_basename(book)
+        assert result == "ch1.xhtml"
+
+    def test_ncx_no_gap_returns_none(self, epub_parser):
+        """NCX: toc[0] == spine[0] → None (все spine items с начала — контент)."""
+        from ebooklib import epub
+        link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
+        spine_items = [
+            {"id": "ch1", "name": "ch1.xhtml"},
+            {"id": "ch2", "name": "ch2.xhtml"},
+        ]
+        book = self._make_book([], spine_items, [link])
+        result = epub_parser._get_bodymatter_basename(book)
+        assert result is None
+
+    def test_empty_guide_and_toc_returns_none(self, epub_parser):
+        """Нет guide, нет toc → None (включаем все spine items)."""
+        book = self._make_book([], [], [])
+        result = epub_parser._get_bodymatter_basename(book)
+        assert result is None

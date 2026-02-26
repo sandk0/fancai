@@ -1,18 +1,20 @@
 /**
  * useChapterMapping - Maps EPUB spine hrefs to backend chapter numbers
  *
- * STRATEGY (Hybrid):
- * 1. Hard Match (Primary): Matches `chapter.file_path` from DB with `tocItem.href`.
- *    This is 100% reliable for new books processed with the updated backend.
- * 2. Heuristic Match (Fallback): Uses title similarity and regex for legacy books
- *    (where file_path is missing) or fallback scenarios.
+ * STRATEGY (Hybrid + Spine-based):
+ * 1. Spine Map (Primary): Uses location.start.index + TOC-based spineChapterMap.
+ *    Most reliable — works for all books regardless of title format.
+ * 2. Hard Match (Secondary): Matches chapter.file_path from DB with tocItem.href.
+ *    100% reliable for new books processed with updated backend.
+ * 3. Heuristic Match (Fallback): Title similarity + regex for legacy books.
+ * 4. Spine arithmetic fallback: bodymatterIdx + relative spine position.
  *
  * @example
- * const { getChapterNumberByHref } = useChapterMapping(toc, chapters);
+ * const { getChapterNumberByHref } = useChapterMapping(toc, chapters, book);
  */
 
 import { useMemo } from 'react';
-import type { NavItem, Location } from '@/types/epub';
+import type { NavItem, Location, Book } from '@/types/epub';
 
 // ============================================================================
 // Types
@@ -44,6 +46,18 @@ const RUSSIAN_NUMERALS: Record<string, number> = {
   'девятнадцатая': 19, 'двадцатая': 20,
 };
 
+// Compound-first: десятки для числительных 21–99
+const TENS: Record<string, number> = {
+  'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50,
+  'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80, 'девяносто': 90,
+};
+
+// Единицы для составных: "двадцать первая" = 20 + 1
+const UNIT_ORDINALS: Record<string, number> = {
+  'первая': 1, 'вторая': 2, 'третья': 3, 'четвёртая': 4, 'четвертая': 4,
+  'пятая': 5, 'шестая': 6, 'седьмая': 7, 'восьмая': 8, 'девятая': 9,
+};
+
 const SERVICE_KEYWORDS = [
   'содержание', 'оглавление', 'table of contents', 'contents',
   'copyright', 'издательство', 'об авторе', 'about the author',
@@ -62,13 +76,31 @@ const normalizeHref = (href: string): string =>
 const normalizeTitle = (title: string): string =>
   title.toLowerCase().replace(/\s+/g, ' ').trim();
 
-const extractChapterNumber = (title: string): number | null => {
+/**
+ * Извлекает номер главы из заголовка.
+ * Compound-first: сначала составные (21–99), потом простые.
+ * Экспортируется для тестирования.
+ */
+export const extractChapterNumber = (title: string): number | null => {
   const lower = normalizeTitle(title);
 
-  for (const [word, num] of Object.entries(RUSSIAN_NUMERALS)) {
+  // 1. Составные числительные (21–99) — ПЕРВЫМИ
+  // Иначе "двадцать вторая" → substring match "вторая" → 2 вместо 22
+  for (const [tens, tensVal] of Object.entries(TENS)) {
+    for (const [unit, unitVal] of Object.entries(UNIT_ORDINALS)) {
+      if (lower.includes(`${tens} ${unit}`)) return tensVal + unitVal;
+    }
+  }
+
+  // 2. Простые числительные — по убыванию длины
+  // (предотвращает ранний матч "первая" перед "одиннадцатая")
+  const sortedSimple = Object.entries(RUSSIAN_NUMERALS)
+    .sort((a, b) => b[0].length - a[0].length);
+  for (const [word, num] of sortedSimple) {
     if (lower.includes(word)) return num;
   }
 
+  // 3. Arabic / Roman числа из заголовка
   const explicitMatch = lower.match(/(?:chapter|глава|часть|part)\s*(\d+|[ivxlcdm]+)/i);
   if (explicitMatch) {
     const val = explicitMatch[1];
@@ -99,13 +131,103 @@ const flattenToc = (toc: NavItem[]): NavItem[] =>
   toc.flatMap(item => [item, ...flattenToc(item.subitems ?? [])]);
 
 // ============================================================================
-// Hook implementation
+// Spine-based bodymatter detection (Шаг 4.1)
+// ============================================================================
+
+/**
+ * Возвращает spine index первого контентного (bodymatter) spine item.
+ * Иерархия:
+ * 1. EPUB 3 Landmarks (epub:type="bodymatter")
+ * 2. NCX/TOC first entry gap detection — ключевой для российских FB2-EPUB 2
+ * 3. Первый linear spine item (fallback)
+ *
+ * Экспортируется для тестирования.
+ */
+export function getBodymatterSpineIndex(book: Book): number {
+  // Уровень 1: EPUB 3 Landmarks (epub:type="bodymatter")
+  // book.navigation.landmarks всегда [], никогда null (для EPUB 2 всегда пусто)
+  const landmark = book.navigation.landmarks?.find(l => l.type === 'bodymatter');
+  if (landmark) {
+    // book.spine.get() автоматически стрипает #fragment (spine.js line 143)
+    const item = book.spine.get(landmark.href);
+    if (item) return item.index;
+  }
+
+  // Уровень 2: NCX/TOC first entry
+  // epub.js НЕ парсит <guide> — book.packaging.guide НЕ существует
+  // NCX — лучший доступный fallback для российских FB2-EPUB 2
+  const firstTocItem = book.navigation.toc?.[0];
+  if (firstTocItem) {
+    const spineItem = book.spine.get(firstTocItem.href);
+    if (spineItem) {
+      if (spineItem.index > 0) {
+        // TOC начинается не с spine[0] → сервисные страницы перед ним
+        return spineItem.index;
+      }
+      // spineItem.index === 0 → нет сервисных страниц перед контентом
+      return 0;
+    }
+  }
+
+  // Уровень 3: Первый linear spine item
+  return book.spine.first()?.index ?? 0;
+}
+
+// ============================================================================
+// Spine Chapter Map builder (Шаг 4.2)
+// ============================================================================
+
+/**
+ * Строит маппинг: spineIndex → chapterNumber из TOC с учётом bodymatter.
+ */
+function buildSpineChapterMap(book: Book): Map<number, number> {
+  const bodymatterIdx = getBodymatterSpineIndex(book);
+  const chapterMap = new Map<number, number>(); // spineIndex → chapterNumber
+  const seenIndices = new Set<number>();
+  let chapterNumber = 0;
+
+  const allTocItems = flattenToc(book.navigation.toc);
+
+  for (const tocItem of allTocItems) {
+    const spineItem = book.spine.get(tocItem.href);
+    if (!spineItem) continue;
+    if (spineItem.index < bodymatterIdx) continue;  // до bodymatter
+    if (seenIndices.has(spineItem.index)) continue;  // дедупликация
+    seenIndices.add(spineItem.index);
+    chapterMap.set(spineItem.index, ++chapterNumber);
+  }
+
+  // Fallback: pure spine если TOC пустой или ничего не нашли
+  if (chapterMap.size === 0) {
+    book.spine.each((item) => {
+      if (item.index >= bodymatterIdx) {
+        chapterMap.set(item.index, chapterMap.size + 1);
+      }
+    });
+  }
+
+  return chapterMap;
+}
+
+// ============================================================================
+// Hook implementation (Шаги 4.3–4.5)
 // ============================================================================
 
 export const useChapterMapping = (
   toc: NavItem[],
-  chapters: ChapterMetadata[]
+  chapters: ChapterMetadata[],
+  book?: Book | null  // Шаг 4.3: book опциональный — backward compatible
 ): ChapterMapping => {
+  // Spine-based chapter map (строится один раз при наличии book)
+  const spineChapterMap = useMemo(() => {
+    if (!book) return new Map<number, number>();
+    try {
+      return buildSpineChapterMap(book);
+    } catch {
+      return new Map<number, number>();
+    }
+  }, [book]);
+
   const hrefToChapterNumber = useMemo(() => {
     const mapping = new Map<string, number>();
 
@@ -132,15 +254,10 @@ export const useChapterMapping = (
     });
 
     if (hasHardMatches) {
-      // If we found hard matches, rely on them primarily.
-      // We can optionally fill gaps if needed, but usually hard match is complete
-      // if the backend did its job.
-      // Returning here implicitly prefers "Strict Mode".
       return mapping;
     }
 
     // Phase 2: Heuristic Matching (Legacy / Fallback)
-    // Executed ONLY if no hard matches were found (Legacy books)
 
     const assignments: Array<{ href: string; chapterNum: number | null; confidence: 'high' | 'low' | 'none' }> = [];
 
@@ -179,7 +296,7 @@ export const useChapterMapping = (
       } else {
         if (chapterMap.has(nextExpectedChapter)) {
           mapping.set(assign.href, nextExpectedChapter);
-          nextExpectedChapter++; // Increment only if assigned
+          nextExpectedChapter++;
         }
       }
     });
@@ -190,9 +307,33 @@ export const useChapterMapping = (
   const getChapterNumberByHref = (href: string): number | null =>
     hrefToChapterNumber.get(normalizeHref(href)) ?? null;
 
+  // Шаг 4.5: обновлённая getChapterNumberByLocation с spine index как приоритет 1
   const getChapterNumberByLocation = (location: Location): number | null => {
+    // Приоритет 1: spine-based map по location.start.index
+    const spineIndex = location?.start?.index;
+    if (typeof spineIndex === 'number' && spineChapterMap.size > 0) {
+      const ch = spineChapterMap.get(spineIndex);
+      if (ch != null) return ch;
+    }
+
+    // Приоритет 2: hard-match по file_path (compatibility layer для DB)
     const href = location?.start?.href;
-    return href ? getChapterNumberByHref(href) : null;
+    if (href) {
+      const hardMatch = getChapterNumberByHref(href);
+      if (hardMatch !== null) return hardMatch;
+    }
+
+    // Приоритет 3: spine arithmetic fallback
+    if (typeof spineIndex === 'number' && book) {
+      try {
+        const bodymatterIdx = getBodymatterSpineIndex(book);
+        return Math.max(1, spineIndex - bodymatterIdx + 1);
+      } catch {
+        // fallthrough
+      }
+    }
+
+    return null;
   };
 
   return {

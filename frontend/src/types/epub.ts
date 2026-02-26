@@ -11,6 +11,7 @@ export interface NavItem {
   id: string;
   href: string;
   label: string;
+  type?: string;     // epub:type для landmarks (например "bodymatter", "toc")
   subitems?: NavItem[];
   parent?: string;
 }
@@ -148,6 +149,7 @@ export interface Book {
   spine: {
     get(target: string | number): SpineItem | undefined;
     each(callback: (item: SpineItem) => void): void;
+    first(): SpineItem | undefined;
     items: SpineItem[];
     length: number;
   };
