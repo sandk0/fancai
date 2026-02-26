@@ -110,13 +110,16 @@ export const useEntityNameHighlighting = ({
         for (const term of searchTerms) {
           if (matchedEntities.has(term.entityId)) continue;
 
-          const idx = text.indexOf(term.text);
+          // Case-insensitive search — important for Russian text where case varies
+          // (e.g. "ГАРРИ" / "гарри" should highlight entity "Гарри Поттер").
+          // We search on lowercased copies but preserve the original casing in the span.
+          const idx = text.toLowerCase().indexOf(term.text.toLowerCase());
           if (idx < 0) continue;
 
           matchedEntities.add(term.entityId);
 
           const before = text.substring(0, idx);
-          const match = text.substring(idx, idx + term.text.length);
+          const match = text.substring(idx, idx + term.text.length); // original casing preserved
           const after = text.substring(idx + term.text.length);
 
           const frag = doc.createDocumentFragment();

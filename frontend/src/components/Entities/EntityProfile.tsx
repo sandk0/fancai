@@ -48,7 +48,8 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
     const roleLabel = getBaseRoleLabel(entity.dynamic_role || entity.base_role);
     const biography = entity.biography;
     const appearance = entity.visual_summary_clean || entity.visual_summary;
-    const events = (entity.events || []).filter(e => e.chapter_number <= currentChapter);
+    // Backend already filters events by current chapter in _filter_events_by_chapter().
+    const events = entity.events || [];
 
     return (
         <div className="bg-[var(--color-bg-base)] text-[var(--color-text-default)] h-full flex flex-col">

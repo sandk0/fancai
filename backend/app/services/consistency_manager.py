@@ -91,7 +91,7 @@ class ConsistencyManager:
             # For now, append.
             pass
 
-        chapter_marker = f"[Глава {chapter_index}]" if chapter_index else ""
+        chapter_marker = f"[Глава {chapter_index}]" if chapter_index is not None else ""
         combined = (
             f"{existing}\n\n{chapter_marker}: {new}"
             if chapter_marker
@@ -131,7 +131,7 @@ class ConsistencyManager:
                     return entity
 
         for key, entity in existing_entities.items():
-            if SequenceMatcher(None, name_lower, key).ratio() > 0.85:
+            if SequenceMatcher(None, name_lower, key).ratio() > 0.75:
                 return entity
 
         return None
@@ -393,8 +393,43 @@ class ConsistencyManager:
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["book_id", "name_lower"],
                     set_={
+                        # Keep the earliest chapter where the entity first appeared.
+                        # LEAST(COALESCE(a,b), COALESCE(b,a)) returns the minimum of
+                        # two values even when one of them is NULL.
+                        "first_mention_chapter": func.least(
+                            func.coalesce(
+                                Entity.first_mention_chapter,
+                                stmt.excluded.first_mention_chapter,
+                            ),
+                            func.coalesce(
+                                stmt.excluded.first_mention_chapter,
+                                Entity.first_mention_chapter,
+                            ),
+                        ),
+                        # Keep the existing visual_summary if already set; only
+                        # populate it if the row is empty (e.g. won by a later chapter).
+                        "visual_summary": func.coalesce(
+                            Entity.visual_summary, stmt.excluded.visual_summary
+                        ),
                         "entity_metadata": stmt.excluded.entity_metadata,
-                        "aliases_with_reveal": stmt.excluded.aliases_with_reveal,
+                        # Merge alias arrays from both parallel workers rather than
+                        # replacing. For each alias name, keep the entry with the
+                        # lowest reveal_chapter (NULL = always visible, treated as -1).
+                        # DISTINCT ON deduplicates by name; ORDER BY picks the earliest.
+                        "aliases_with_reveal": sa_text(
+                            "(SELECT jsonb_agg(alias) "
+                            " FROM ("
+                            "   SELECT DISTINCT ON (alias->>'name') alias"
+                            "   FROM jsonb_array_elements("
+                            "     COALESCE(entities.aliases_with_reveal, '[]'::jsonb)"
+                            "     || COALESCE(excluded.aliases_with_reveal, '[]'::jsonb)"
+                            "   ) AS alias"
+                            "   ORDER BY alias->>'name',"
+                            "     CASE WHEN alias->>'reveal_chapter' IS NULL THEN -1"
+                            "          ELSE (alias->>'reveal_chapter')::int"
+                            "     END ASC"
+                            " ) merged)"
+                        ),
                         "updated_at": func.now(),
                     },
                 )
@@ -423,47 +458,6 @@ class ConsistencyManager:
         )
 
         return entity_map
-
-    async def _resolve_and_upsert_entity(
-        self, book_id: str, raw: ExtractedEntity
-    ) -> Entity:
-        """
-        Find existing entity by name/alias or create new.
-        """
-        # LEGACY (dead code): replaced by _batch_resolve_entities.
-        # Uses name_lower for locale-independent case-insensitive match.
-        query = select(Entity).where(Entity.book_id == book_id, Entity.name_lower == raw.name.casefold())
-        existing = await self.db.scalar(query)
-
-        if existing:
-            # Update visual summary if new one is better (naive logic: longer is better?)
-            if len(raw.visual_summary) > len(existing.visual_summary or ""):
-                existing.visual_summary = raw.visual_summary
-                self.db.add(existing)
-            return existing
-
-        # Create new
-        type_enum = EntityType.OBJECT
-        if raw.type.lower() == "character":
-            type_enum = EntityType.CHARACTER
-        elif raw.type.lower() == "location":
-            type_enum = EntityType.LOCATION
-
-        new_entity = Entity(
-            book_id=book_id,
-            name=raw.name,
-            type=type_enum.value,
-            visual_summary=raw.visual_summary,
-            importance=raw.importance if raw.importance else 5,
-            entity_metadata={
-                "aliases": raw.aliases,
-                "confidence": raw.confidence,
-                "first_mention_offset": raw.first_mention_offset,
-            },
-        )
-        self.db.add(new_entity)
-        # await self.db.flush() # Needed if we want ID immediately
-        return new_entity
 
     async def generate_master_references(self, book_id: str):
         """

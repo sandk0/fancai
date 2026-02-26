@@ -572,7 +572,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
             results = await asyncio.gather(
-                *(process_chapter_safe(idx, chapter.id) for idx, chapter in enumerate(chapters)),
+                *(process_chapter_safe(idx, chapter.id) for idx, chapter in enumerate(chapters, start=1)),
                 return_exceptions=True,
             )
 
@@ -835,6 +835,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             pattern = f"user:{book.user_id}:books:*"
             deleted_count = await cache_manager.delete_pattern(pattern)
             logger.debug("Cache invalidated", keys_deleted=deleted_count)
+
+            # Invalidate the entity network RAW cache so users see fresh entity data
+            # after reprocessing instead of stale data until TTL expires.
+            entity_cache_key = f"book:{book_id}:entity_network_raw_v5"
+            await cache_manager.delete(entity_cache_key)
+            logger.debug("Entity network cache invalidated", cache_key=entity_cache_key)
         except Exception as e:
             logger.warning("Failed to invalidate cache", error=str(e))
 
