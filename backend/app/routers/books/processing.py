@@ -15,6 +15,7 @@ from ...core.database import get_database_session
 from ...core.auth import get_current_active_user
 from ...core.dependencies import get_user_book
 from ...core.exceptions import ParsingStartException, ParsingStatusException
+from ...core.cache import cache_manager
 from ...models.user import User
 from ...models.book import Book
 from ...core.tasks import process_book_task
@@ -87,6 +88,18 @@ async def process_book_descriptions(
                     book.parsing_progress = 0
                     book.descriptions_extracted = False
                     await db.commit()
+
+                    # Invalidate Redis books list cache so the next frontend poll
+                    # gets fresh is_processing=True instead of stale cached data
+                    try:
+                        await cache_manager.delete_pattern(
+                            f"user:{current_user.id}:books:*"
+                        )
+                    except Exception as cache_err:
+                        logger.warning(
+                            "Failed to invalidate book list cache after processing start",
+                            error=str(cache_err),
+                        )
 
                     # Запускаем задачу
                     process_book_task.delay(book_id)
