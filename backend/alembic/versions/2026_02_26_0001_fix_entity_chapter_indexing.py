@@ -120,7 +120,7 @@ def _run_migration(delta: int) -> None:
 
             fixed = _fix_aliases_with_reveal(aliases, delta)
             conn.execute(sa.text(
-                "UPDATE entities SET aliases_with_reveal = :val::jsonb WHERE id = :id"
+                "UPDATE entities SET aliases_with_reveal = CAST(:val AS jsonb) WHERE id = :id"
             ), {"val": json.dumps(fixed, ensure_ascii=False), "id": row.id})
             aliases_updated += 1
 
