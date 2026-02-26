@@ -1,12 +1,12 @@
 """
-Spoiler-free filtering tests for EntityService.
+Тесты спойлерной фильтрации EntityService.
 
-Tests cover:
-1. _filter_aliases_by_chapter() — alias visibility based on reading position
-2. _process_visual_summary() — visual summary filtering by [Глава N] markers
-3. Entity locking — entities not yet met should be hidden
+Покрывают:
+1. _filter_aliases_from_raw() — видимость псевдонимов по позиции чтения
+2. _process_visual_summary() — фильтрация visual_summary по маркерам [Глава N]
+3. _filter_entity_detail() — передача first_mention_chapter в схему
 
-These are critical paths for the entity/glossary spoiler protection system.
+Критические пути системы антиспойлеров глоссария сущностей.
 """
 
 import pytest
@@ -18,13 +18,13 @@ from app.models.entity import Entity
 
 
 # =============================================================================
-# Fixtures
+# Fixtures и хелперы
 # =============================================================================
 
 
 @pytest.fixture
 def service():
-    """Create an EntityService with a mocked DB session."""
+    """Создать EntityService с замоканной сессией БД."""
     return EntityService(db=MagicMock())
 
 
@@ -34,10 +34,10 @@ def _make_entity(
     visual_summary=None,
     first_mention_chapter=None,
     importance=5,
-    name="Test Entity",
+    name="Тестовая сущность",
     entity_type="character",
 ) -> MagicMock:
-    """Helper to create a mock Entity with the given attributes."""
+    """Хелпер: создать мок Entity с заданными атрибутами."""
     entity = MagicMock(spec=Entity)
     entity.id = uuid4()
     entity.name = name
@@ -55,190 +55,217 @@ def _make_entity(
     return entity
 
 
+def _make_detail_data(
+    entity: MagicMock,
+    all_aliases: list = None,
+) -> dict:
+    """Построить минимальный dict в формате RAW-кеша из мок-сущности для _filter_entity_detail."""
+    meta = entity.entity_metadata or {}
+    computed_aliases = (
+        all_aliases
+        if all_aliases is not None
+        else (meta.get("aliases", []) if isinstance(meta, dict) else [])
+    )
+    return {
+        "id": str(entity.id),
+        "name": entity.name,
+        "type": entity.type,
+        "importance": entity.importance,
+        "first_mention_chapter": entity.first_mention_chapter,
+        "first_mention_cfi": None,
+        "first_mention_offset": None,
+        "avatar_url": None,
+        "base_role": None,
+        "mentions": [],
+        "notes": [],
+        "_aliases_with_reveal": entity.aliases_with_reveal or [],
+        "_all_aliases": computed_aliases,
+        "_all_events": [],
+        "_biography_milestones": None,
+        "_raw_visual_summary": entity.visual_summary,
+    }
+
+
 # =============================================================================
-# _filter_aliases_by_chapter Tests
+# _filter_aliases_from_raw — тесты
 # =============================================================================
 
 
-class TestFilterAliasesByChapter:
-    """Tests for EntityService._filter_aliases_by_chapter()."""
+class TestFilterAliasesFromRaw:
+    """Тесты для EntityService._filter_aliases_from_raw() — видимость псевдонимов по главе.
 
-    def test_no_aliases_with_reveal_returns_all_metadata_aliases(self, service):
-        """Entity with no aliases_with_reveal — should return all aliases from metadata."""
-        entity = _make_entity(
-            entity_metadata={"aliases": ["Белый Волк", "Ведьмак"]},
-            aliases_with_reveal=[],
-        )
+    _filter_aliases_from_raw(aliases_with_reveal, current_chapter) — @staticmethod,
+    принимает список raw псевдонимов и целый номер главы.
 
-        # When current_chapter is set but aliases_with_reveal is empty,
-        # the method iterates over empty list, so returns empty.
-        # But when current_chapter is None, it returns metadata aliases.
-        result = service._filter_aliases_by_chapter(entity, current_chapter=None)
-        assert result == ["Белый Волк", "Ведьмак"]
+    Путь current_chapter=None обрабатывается на уровне _filter_entity_detail
+    (возвращает _all_aliases из кеша) — тестируется отдельно.
+    """
 
-    def test_alias_hidden_before_reveal_chapter(self, service):
-        """Alias with reveal_chapter=3 should be hidden when current_chapter=2."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                {"name": "Мальчик-который-выжил", "reveal_chapter": 3},
-            ],
-        )
-
-        result = service._filter_aliases_by_chapter(entity, current_chapter=2)
+    def test_пустой_список_возвращает_пустой_результат(self, service):
+        """Пустой список псевдонимов → пустой результат."""
+        result = EntityService._filter_aliases_from_raw([], current_chapter=1)
         assert result == []
 
-    def test_alias_visible_at_reveal_chapter(self, service):
-        """Alias with reveal_chapter=3 should be visible when current_chapter=3."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                {"name": "Мальчик-который-выжил", "reveal_chapter": 3},
-            ],
-        )
+    def test_псевдоним_скрыт_до_главы_раскрытия(self, service):
+        """Псевдоним с reveal_chapter=3 скрыт при current_chapter=2."""
+        aliases_with_reveal = [{"name": "Мальчик-который-выжил", "reveal_chapter": 3}]
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=3)
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=2
+        )
+        assert result == []
+
+    def test_псевдоним_виден_в_главе_раскрытия(self, service):
+        """Псевдоним с reveal_chapter=3 виден при current_chapter=3."""
+        aliases_with_reveal = [{"name": "Мальчик-который-выжил", "reveal_chapter": 3}]
+
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=3
+        )
         assert result == ["Мальчик-который-выжил"]
 
-    def test_alias_visible_after_reveal_chapter(self, service):
-        """Alias with reveal_chapter=3 should remain visible at current_chapter=5."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                {"name": "Мальчик-который-выжил", "reveal_chapter": 3},
-            ],
-        )
+    def test_псевдоним_виден_после_главы_раскрытия(self, service):
+        """Псевдоним с reveal_chapter=3 остаётся видимым при current_chapter=5."""
+        aliases_with_reveal = [{"name": "Мальчик-который-выжил", "reveal_chapter": 3}]
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=5)
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=5
+        )
         assert result == ["Мальчик-который-выжил"]
 
-    def test_progressive_reveal_multiple_aliases(self, service):
-        """Multiple aliases at different reveal chapters — progressive reveal."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                {"name": "Гарри", "reveal_chapter": 1},
-                {"name": "Мальчик-который-выжил", "reveal_chapter": 3},
-                {"name": "Избранный", "reveal_chapter": 7},
-            ],
-        )
+    def test_прогрессивное_раскрытие_нескольких_псевдонимов(self, service):
+        """Несколько псевдонимов с разными главами раскрытия — прогрессивное раскрытие."""
+        aliases_with_reveal = [
+            {"name": "Гарри", "reveal_chapter": 1},
+            {"name": "Мальчик-который-выжил", "reveal_chapter": 3},
+            {"name": "Избранный", "reveal_chapter": 7},
+        ]
 
-        # At chapter 1: only "Гарри"
-        result_ch1 = service._filter_aliases_by_chapter(entity, current_chapter=1)
+        # Глава 1: только «Гарри»
+        result_ch1 = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=1
+        )
         assert result_ch1 == ["Гарри"]
 
-        # At chapter 3: "Гарри" + "Мальчик-который-выжил"
-        result_ch3 = service._filter_aliases_by_chapter(entity, current_chapter=3)
+        # Глава 3: «Гарри» + «Мальчик-который-выжил»
+        result_ch3 = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=3
+        )
         assert result_ch3 == ["Гарри", "Мальчик-который-выжил"]
 
-        # At chapter 10: all three
-        result_ch10 = service._filter_aliases_by_chapter(entity, current_chapter=10)
+        # Глава 10: все три
+        result_ch10 = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=10
+        )
         assert len(result_ch10) == 3
         assert "Избранный" in result_ch10
 
-    def test_current_chapter_none_returns_all_metadata_aliases(self, service):
-        """current_chapter=None should return all aliases from metadata (no filtering)."""
-        entity = _make_entity(
-            entity_metadata={"aliases": ["Alias A", "Alias B", "Alias C"]},
-            aliases_with_reveal=[
-                {"name": "Alias A", "reveal_chapter": 1},
-                {"name": "Alias B", "reveal_chapter": 5},
-                {"name": "Alias C", "reveal_chapter": 10},
-            ],
+    def test_псевдоним_без_главы_раскрытия_всегда_виден(self, service):
+        """Псевдоним с reveal_chapter=None всегда виден."""
+        aliases_with_reveal = [
+            {"name": "Всегда видимый", "reveal_chapter": None},
+            {"name": "Скрытый до главы 5", "reveal_chapter": 5},
+        ]
+
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=1
         )
-
-        result = service._filter_aliases_by_chapter(entity, current_chapter=None)
-        # When current_chapter=None, returns metadata aliases (unfiltered)
-        assert result == ["Alias A", "Alias B", "Alias C"]
-
-    def test_alias_with_no_reveal_chapter_always_visible(self, service):
-        """Alias with reveal_chapter=None should always be visible."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                {"name": "Всегда видимый", "reveal_chapter": None},
-                {"name": "Скрытый до главы 5", "reveal_chapter": 5},
-            ],
-        )
-
-        result = service._filter_aliases_by_chapter(entity, current_chapter=1)
         assert "Всегда видимый" in result
         assert "Скрытый до главы 5" not in result
 
-    def test_non_dict_alias_data_skipped(self, service):
-        """Non-dict items in aliases_with_reveal should be skipped gracefully."""
-        entity = _make_entity(
-            aliases_with_reveal=[
-                "invalid_string_alias",  # Should be skipped
-                {"name": "Валидный", "reveal_chapter": 1},
-            ],
-        )
+    def test_не_dict_элемент_пропускается(self, service):
+        """Не-dict элементы в aliases_with_reveal пропускаются без ошибок."""
+        aliases_with_reveal = [
+            "невалидная_строка",  # должна быть пропущена
+            {"name": "Валидный", "reveal_chapter": 1},
+        ]
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=1)
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=1
+        )
         assert result == ["Валидный"]
 
-    def test_empty_alias_name_skipped(self, service):
-        """Alias with empty name should not be included."""
+    def test_пустое_имя_псевдонима_пропускается(self, service):
+        """Псевдонимы с пустым именем пропускаются."""
+        aliases_with_reveal = [
+            {"name": "", "reveal_chapter": 1},
+            {"name": "Настоящее имя", "reveal_chapter": 1},
+        ]
+
+        result = EntityService._filter_aliases_from_raw(
+            aliases_with_reveal, current_chapter=1
+        )
+        assert result == ["Настоящее имя"]
+
+    def test_current_chapter_none_через_filter_entity_detail_возвращает_все(self, service):
+        """current_chapter=None в _filter_entity_detail возвращает все псевдонимы."""
         entity = _make_entity(
+            entity_metadata={"aliases": ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]},
             aliases_with_reveal=[
-                {"name": "", "reveal_chapter": 1},
-                {"name": "Реальный", "reveal_chapter": 1},
+                {"name": "Белый Волк", "reveal_chapter": 1},
+                {"name": "Ведьмак", "reveal_chapter": 3},
+                {"name": "Мясник из Блавикена", "reveal_chapter": 8},
             ],
         )
+        data = _make_detail_data(
+            entity,
+            all_aliases=["Белый Волк", "Ведьмак", "Мясник из Блавикена"],
+        )
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=1)
-        assert result == ["Реальный"]
+        detail = service._filter_entity_detail(data, current_chapter=None)
 
-    def test_entity_metadata_not_dict(self, service):
-        """When entity_metadata is not a dict and current_chapter=None, return empty."""
-        entity = _make_entity(entity_metadata=None)
+        assert detail.aliases == ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=None)
-        assert result == []
+    def test_нет_метаданных_и_chapter_none_возвращает_пустой(self, service):
+        """Нет предвычисленных псевдонимов + current_chapter=None → пустой список."""
+        entity = _make_entity(entity_metadata=None, aliases_with_reveal=[])
+        data = _make_detail_data(entity, all_aliases=[])
 
-    def test_entity_metadata_has_no_aliases_key(self, service):
-        """When entity_metadata has no 'aliases' key and current_chapter=None."""
-        entity = _make_entity(entity_metadata={"other_key": "value"})
+        detail = service._filter_entity_detail(data, current_chapter=None)
 
-        result = service._filter_aliases_by_chapter(entity, current_chapter=None)
-        assert result == []
+        assert detail.aliases == []
 
 
 # =============================================================================
-# _process_visual_summary Tests
+# _process_visual_summary — тесты
 # =============================================================================
 
 
 class TestProcessVisualSummary:
-    """Tests for EntityService._process_visual_summary() — spoiler-free summaries."""
+    """Тесты для EntityService._process_visual_summary() — спойлерно-безопасные описания."""
 
-    def test_none_summary_returns_none(self, service):
-        """None visual_summary should return None."""
+    def test_none_возвращает_none(self, service):
+        """None visual_summary → None."""
         result = service._process_visual_summary(None, current_chapter=5)
         assert result is None
 
-    def test_empty_summary_returns_none(self, service):
-        """Empty visual_summary should return None."""
+    def test_пустая_строка_возвращает_none(self, service):
+        """Пустой visual_summary → None."""
         result = service._process_visual_summary("", current_chapter=5)
         assert result is None
 
-    def test_summary_without_markers_returns_full_text(self, service):
-        """Summary without [Глава N] markers returns the full text."""
-        summary = "Высокий мужчина с белыми волосами и жёлтыми глазами."
+    def test_описание_без_маркеров_возвращается_полностью(self, service):
+        """Описание без маркеров [Глава N] возвращается целиком."""
+        summary = "Высокий мужчина с белыми волосами и жёлтыми глазами кошки."
         result = service._process_visual_summary(summary, current_chapter=5)
         assert result == summary
 
-    def test_summary_with_future_chapter_marker_filtered(self, service):
-        """Summary parts from future chapters should be filtered out."""
+    def test_части_из_будущих_глав_отфильтровываются(self, service):
+        """Части описания из будущих глав должны быть скрыты."""
         summary = (
             "Высокий мужчина с белыми волосами."
             "\n\n[Глава 3]: Получил шрам на лице."
             "\n\n[Глава 8]: Потерял левый глаз."
         )
 
-        # At chapter 5: base + chapter 3 visible, chapter 8 hidden
+        # Глава 5: базовый текст + глава 3 видны, глава 8 скрыта
         result = service._process_visual_summary(summary, current_chapter=5)
         assert "белыми волосами" in result
         assert "шрам на лице" in result
         assert "левый глаз" not in result
 
-    def test_summary_with_current_chapter_none_shows_all(self, service):
-        """current_chapter=None should show all parts of the summary."""
+    def test_current_chapter_none_показывает_всё(self, service):
+        """current_chapter=None показывает все части описания."""
         summary = (
             "Базовое описание."
             "\n\n[Глава 3]: Деталь из главы 3."
@@ -250,21 +277,21 @@ class TestProcessVisualSummary:
         assert "Деталь из главы 3" in result
         assert "Деталь из главы 8" in result
 
-    def test_summary_chapter_boundary_exact(self, service):
-        """Chapter marker at exactly the current chapter should be included."""
+    def test_маркер_текущей_главы_включается(self, service):
+        """Маркер точно на текущей главе должен быть включён."""
         summary = "Базовое описание.[Глава 5]: Обновление из текущей главы."
 
         result = service._process_visual_summary(summary, current_chapter=5)
         assert "Обновление из текущей главы" in result
 
-    def test_summary_only_base_text_no_markers(self, service):
-        """Summary with only base text (no markers) returns base text."""
+    def test_только_базовый_текст_без_маркеров(self, service):
+        """Описание только с базовым текстом (без маркеров) возвращается как есть."""
         summary = "Просто описание без маркеров глав."
         result = service._process_visual_summary(summary, current_chapter=1)
         assert result == summary
 
-    def test_summary_all_markers_in_future(self, service):
-        """When all chapter markers are in the future, only base text returned."""
+    def test_все_маркеры_в_будущем_возвращает_только_базу(self, service):
+        """Если все маркеры в будущем — возвращается только базовый текст."""
         summary = (
             "Базовое."
             "\n\n[Глава 10]: Будущее 1."
@@ -274,49 +301,42 @@ class TestProcessVisualSummary:
         result = service._process_visual_summary(summary, current_chapter=1)
         assert result == "Базовое."
 
-    def test_summary_no_base_text_only_future_markers(self, service):
-        """When there's no base text and all markers are future, returns None."""
+    def test_нет_базового_текста_только_маркеры_будущего_возвращает_none(self, service):
+        """Нет базового текста + все маркеры в будущем → None."""
         summary = "[Глава 10]: Только будущее."
 
         result = service._process_visual_summary(summary, current_chapter=1)
-        # The split produces empty base text, and chapter 10 > current 1
         assert result is None
 
 
 # =============================================================================
-# Entity Locking (first_mention_chapter > current_chapter)
+# _filter_entity_detail — передача first_mention_chapter в схему
 # =============================================================================
 
 
-class TestEntityLocking:
-    """Tests for entity locking based on first_mention_chapter."""
+class TestFirstMentionChapterPropagation:
+    """Тесты: first_mention_chapter корректно передаётся в EntityDetailSchema.
 
-    def test_entity_not_yet_met_has_first_mention_chapter(self, service):
-        """Entity with first_mention_chapter > current should be lockable by frontend."""
+    Фронтенд использует это поле для блокировки/скрытия сущностей,
+    которые читатель ещё не встретил.
+    """
+
+    def test_first_mention_chapter_сохраняется_для_непрочитанной_сущности(self, service):
+        """first_mention_chapter=5 сохраняется в схеме при current_chapter=2."""
         entity = _make_entity(
             first_mention_chapter=5,
             name="Секретный персонаж",
             visual_summary="Описание персонажа",
         )
+        data = _make_detail_data(entity)
 
-        # The _create_merged_detail sets first_mention_chapter in the detail schema.
-        # Frontend uses this to decide visibility. Let's verify the field is set correctly.
-        detail = service._create_merged_detail(
-            master=entity,
-            descriptions=[],
-            hard_mentions_map={},
-            cfi_mentions_map={},
-            offset_mentions_map={},
-            description_cfi_map={},
-            entity_events=[],
-            current_chapter=2,
-        )
+        detail = service._filter_entity_detail(data, current_chapter=2)
 
         assert detail.first_mention_chapter == 5
         assert detail.name == "Секретный персонаж"
 
-    def test_entity_already_met(self, service):
-        """Entity with first_mention_chapter <= current should be fully visible."""
+    def test_first_mention_chapter_сохраняется_для_прочитанной_сущности(self, service):
+        """first_mention_chapter <= current: сущность полностью видима."""
         entity = _make_entity(
             first_mention_chapter=2,
             name="Известный персонаж",
@@ -324,34 +344,18 @@ class TestEntityLocking:
             entity_metadata={"aliases": ["Прозвище"]},
             aliases_with_reveal=[{"name": "Прозвище", "reveal_chapter": 2}],
         )
+        data = _make_detail_data(entity)
 
-        detail = service._create_merged_detail(
-            master=entity,
-            descriptions=[],
-            hard_mentions_map={},
-            cfi_mentions_map={},
-            offset_mentions_map={},
-            description_cfi_map={},
-            entity_events=[],
-            current_chapter=5,
-        )
+        detail = service._filter_entity_detail(data, current_chapter=5)
 
         assert detail.first_mention_chapter == 2
         assert "Прозвище" in detail.aliases
 
-    def test_entity_with_no_first_mention_chapter(self, service):
-        """Entity with first_mention_chapter=None should have None in detail."""
+    def test_first_mention_chapter_none_передаётся_как_none(self, service):
+        """first_mention_chapter=None сохраняется в схеме как None."""
         entity = _make_entity(first_mention_chapter=None)
+        data = _make_detail_data(entity)
 
-        detail = service._create_merged_detail(
-            master=entity,
-            descriptions=[],
-            hard_mentions_map={},
-            cfi_mentions_map={},
-            offset_mentions_map={},
-            description_cfi_map={},
-            entity_events=[],
-            current_chapter=5,
-        )
+        detail = service._filter_entity_detail(data, current_chapter=5)
 
         assert detail.first_mention_chapter is None

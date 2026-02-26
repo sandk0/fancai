@@ -455,3 +455,203 @@ class TestRollbackSafety:
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
+
+def _build_production_upsert_stmt(entity_values):
+    """Upsert-statement, идентичный production-коду consistency_manager.py.
+
+    Включает:
+    - LEAST(COALESCE(...)) для first_mention_chapter
+    - COALESCE для visual_summary
+    - DISTINCT ON merge для aliases_with_reveal
+    """
+    from sqlalchemy import text as sa_text
+
+    stmt = pg_insert(Entity).values(**entity_values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["book_id", "name_lower"],
+        set_={
+            "first_mention_chapter": func.least(
+                func.coalesce(
+                    Entity.first_mention_chapter,
+                    stmt.excluded.first_mention_chapter,
+                ),
+                func.coalesce(
+                    stmt.excluded.first_mention_chapter,
+                    Entity.first_mention_chapter,
+                ),
+            ),
+            "visual_summary": func.coalesce(
+                Entity.visual_summary, stmt.excluded.visual_summary
+            ),
+            "entity_metadata": stmt.excluded.entity_metadata,
+            "aliases_with_reveal": sa_text(
+                "(SELECT jsonb_agg(alias) "
+                " FROM ("
+                "   SELECT DISTINCT ON (alias->>'name') alias"
+                "   FROM jsonb_array_elements("
+                "     COALESCE(entities.aliases_with_reveal, '[]'::jsonb)"
+                "     || COALESCE(excluded.aliases_with_reveal, '[]'::jsonb)"
+                "   ) AS alias"
+                "   ORDER BY alias->>'name',"
+                "     CASE WHEN alias->>'reveal_chapter' IS NULL THEN -1"
+                "          ELSE (alias->>'reveal_chapter')::int"
+                "     END ASC"
+                " ) merged)"
+            ),
+            "updated_at": func.now(),
+        },
+    )
+    return stmt
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestConflictAliasesMerge:
+    """Тесты слияния aliases_with_reveal при ON CONFLICT (P2-1).
+
+    Два параллельных воркера могут вставлять одну и ту же сущность
+    с разными псевдонимами из разных глав. ON CONFLICT должен
+    объединять массивы, а не заменять один другим.
+    """
+
+    async def test_конфликт_объединяет_псевдонимы_из_двух_глав(self, test_db):
+        """Глава 1 и Глава 5 видят одну сущность с разными псевдонимами — оба сохраняются."""
+        from tests.conftest import TestSessionLocal
+
+        book_id = uuid_module.uuid4()
+
+        async with TestSessionLocal() as session:
+            try:
+                # Глава 1 вставляет сущность с псевдонимом "Мальчик-который-выжил"
+                values1 = _make_entity_values(
+                    book_id, name="Гарри",
+                    first_mention_chapter=1,
+                    aliases_with_reveal=[
+                        {"name": "Мальчик-который-выжил", "reveal_chapter": 1}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values1))
+                await session.commit()
+
+                # Глава 5 попадает в ON CONFLICT с другим псевдонимом "Избранный"
+                values2 = _make_entity_values(
+                    book_id, name="Гарри",
+                    first_mention_chapter=5,
+                    aliases_with_reveal=[
+                        {"name": "Избранный", "reveal_chapter": 5}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values2))
+                await session.commit()
+
+                result = await session.execute(
+                    select(Entity).where(
+                        Entity.book_id == book_id,
+                        Entity.name_lower == "гарри",
+                    )
+                )
+                entity = result.scalar_one()
+                alias_names = {a["name"] for a in entity.aliases_with_reveal}
+
+                assert "Мальчик-который-выжил" in alias_names, (
+                    "Псевдоним из первого INSERT потерян при ON CONFLICT"
+                )
+                assert "Избранный" in alias_names, (
+                    "Псевдоним из второго INSERT (ON CONFLICT) не добавлен"
+                )
+                # first_mention_chapter должен быть минимальным
+                assert entity.first_mention_chapter == 1
+            finally:
+                await session.execute(delete(Entity).where(Entity.book_id == book_id))
+                await session.commit()
+
+    async def test_конфликт_дедуплицирует_одинаковые_имена_псевдонимов(self, test_db):
+        """Одинаковое имя псевдонима из двух глав — сохраняем с минимальным reveal_chapter."""
+        from tests.conftest import TestSessionLocal
+
+        book_id = uuid_module.uuid4()
+
+        async with TestSessionLocal() as session:
+            try:
+                values1 = _make_entity_values(
+                    book_id, name="Волдеморт",
+                    aliases_with_reveal=[
+                        {"name": "Тот-кого-нельзя-называть", "reveal_chapter": 3}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values1))
+                await session.commit()
+
+                # Тот же псевдоним, но из более поздней главы — должен взять reveal_chapter=3
+                values2 = _make_entity_values(
+                    book_id, name="Волдеморт",
+                    aliases_with_reveal=[
+                        {"name": "Тот-кого-нельзя-называть", "reveal_chapter": 7}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values2))
+                await session.commit()
+
+                result = await session.execute(
+                    select(Entity).where(
+                        Entity.book_id == book_id,
+                        Entity.name_lower == "волдеморт",
+                    )
+                )
+                entity = result.scalar_one()
+                alias_names = [a["name"] for a in entity.aliases_with_reveal]
+                alias_chapters = {
+                    a["name"]: a["reveal_chapter"]
+                    for a in entity.aliases_with_reveal
+                }
+
+                assert alias_names.count("Тот-кого-нельзя-называть") == 1, (
+                    "Дубликат псевдонима не был дедуплицирован"
+                )
+                assert alias_chapters["Тот-кого-нельзя-называть"] == 3, (
+                    "Должен быть сохранён минимальный reveal_chapter=3, а не 7"
+                )
+            finally:
+                await session.execute(delete(Entity).where(Entity.book_id == book_id))
+                await session.commit()
+
+    async def test_конфликт_сохраняет_псевдоним_без_главы_раскрытия(self, test_db):
+        """Псевдоним с reveal_chapter=None (всегда видимый) сохраняется при слиянии."""
+        from tests.conftest import TestSessionLocal
+
+        book_id = uuid_module.uuid4()
+
+        async with TestSessionLocal() as session:
+            try:
+                values1 = _make_entity_values(
+                    book_id, name="Арагорн",
+                    aliases_with_reveal=[
+                        {"name": "Бродяжник", "reveal_chapter": None}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values1))
+                await session.commit()
+
+                values2 = _make_entity_values(
+                    book_id, name="Арагорн",
+                    aliases_with_reveal=[
+                        {"name": "Наследник Исильдура", "reveal_chapter": 10}
+                    ],
+                )
+                await session.execute(_build_production_upsert_stmt(values2))
+                await session.commit()
+
+                result = await session.execute(
+                    select(Entity).where(
+                        Entity.book_id == book_id,
+                        Entity.name_lower == "арагорн",
+                    )
+                )
+                entity = result.scalar_one()
+                alias_names = {a["name"] for a in entity.aliases_with_reveal}
+
+                assert "Бродяжник" in alias_names
+                assert "Наследник Исильдура" in alias_names
+            finally:
+                await session.execute(delete(Entity).where(Entity.book_id == book_id))
+                await session.commit()
