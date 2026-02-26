@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { EntityService } from '@/services/EntityService';
 import { EntityNetworkResponse } from '@/types/entity';
 
-const ENTITY_NETWORK_STALE_TIME = 1000 * 60 * 60;
+const ENTITY_NETWORK_STALE_TIME = 1000 * 60 * 5; // 5 minutes — entity data changes when processing completes
 
 export const entityNetworkQueryKey = (bookId: string, currentChapter?: number) => 
     currentChapter != null 
