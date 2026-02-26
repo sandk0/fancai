@@ -186,7 +186,10 @@ class EntityService:
                 f"[EntityService] Cache MISS for book_id={book_id}, loading from DB"
             )
             cached_data = await self._build_raw_network_cache(book_id)
-            await cache_manager.set(cache_key, cached_data, ttl=3600)
+            # Don't cache empty results — prevents stale cache poisoning when
+            # the entity network is requested before processing has finished.
+            if cached_data and cached_data.get("entities"):
+                await cache_manager.set(cache_key, cached_data, ttl=3600)
 
         # Always filter per-request — even on cache HIT
         return self._apply_chapter_filter(cached_data, current_chapter)
