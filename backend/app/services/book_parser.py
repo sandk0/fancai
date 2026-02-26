@@ -6,7 +6,9 @@
 
 import logging
 import os
+import posixpath
 import re
+import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -32,6 +34,60 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# EPUB STRUCTURE CONSTANTS (Шаг 2.1)
+# ============================================================================
+
+SERVICE_EPUB_TYPES = frozenset({
+    "cover", "titlepage", "halftitlepage", "copyright-page",
+    "toc", "landmarks", "page-list",
+    "frontmatter", "backmatter", "colophon", "dedication", "acknowledgments",
+})
+
+CONTENT_EPUB_TYPES = frozenset({
+    "bodymatter", "chapter", "part", "volume",
+    "prologue", "epilogue", "afterword", "conclusion",
+    "preface", "foreword", "introduction",
+})
+
+SERVICE_FILENAME_PATTERNS = (
+    # English
+    "cover", "titlepage", "title_page", "title-page",
+    "copyright", "copyrights", "toc", "contents",
+    "halftitle", "dedication", "epigraph", "colophon",
+    "frontmatter", "front_matter", "annotation",
+    # Russian transliterated (Litres требует Latin filenames)
+    "annotaciya", "oblozhka", "oglav", "soderzhanie",
+)
+
+SERVICE_TITLE_KEYWORDS = frozenset({
+    # Русские (подтверждены из российских EPUB — Литрес, Эксмо, АСТ)
+    "аннотация", "обложка", "содержание", "оглавление",
+    "об авторе", "о книге", "от автора", "от издателя",
+    "от редактора", "от переводчика",
+    "правовая информация", "авторские права",
+    "благодарности", "посвящение",
+    "алфавитный указатель", "библиография", "примечания",
+    "общая информация",  # Эксмо/АСТ (книга Ведьмак)
+    "цитаты",            # Эксмо/АСТ (книга Ведьмак)
+    "isbn",
+    # English
+    "cover", "title page", "copyright", "contents", "table of contents",
+    "about the author", "acknowledgments", "acknowledgements",
+    "dedication", "foreword", "preface", "bibliography", "index", "notes",
+    "annotation", "colophon",
+})
+
+RUSSIAN_COPYRIGHT_PATTERNS = [
+    re.compile(r"УДК\s+\d"),
+    re.compile(r"ББК\s+\d"),
+    re.compile(r"ISBN\s+97[89]"),
+    re.compile(r"Все права защищены"),
+    re.compile(r"Никакая часть"),
+    re.compile(r"охраняется законом", re.IGNORECASE),
+]
 
 
 # ============================================================================
@@ -172,6 +228,27 @@ class ParserConfig:
 class ChapterNumberExtractor:
     """Извлекает номера глав из текста."""
 
+    # Compound-first: десятки для составных числительных (21–99)
+    _TENS: Dict[str, int] = {
+        "двадцать": 20, "тридцать": 30, "сорок": 40, "пятьдесят": 50,
+        "шестьдесят": 60, "семьдесят": 70, "восемьдесят": 80, "девяносто": 90,
+    }
+    # Единицы для составных (только 1–9, используются в "двадцать первая" = 20+1)
+    _UNIT_ORDINALS_F: Dict[str, int] = {
+        "первая": 1, "вторая": 2, "третья": 3, "четвёртая": 4, "четвертая": 4,
+        "пятая": 5, "шестая": 6, "седьмая": 7, "восьмая": 8, "девятая": 9,
+    }
+    # Простые порядковые (1–20, 30, 40...) — для одиночных числительных
+    _SIMPLE_ORDINALS_F: Dict[str, int] = {
+        "первая": 1, "вторая": 2, "третья": 3, "четвёртая": 4, "четвертая": 4,
+        "пятая": 5, "шестая": 6, "седьмая": 7, "восьмая": 8, "девятая": 9,
+        "десятая": 10, "одиннадцатая": 11, "двенадцатая": 12, "тринадцатая": 13,
+        "четырнадцатая": 14, "пятнадцатая": 15, "шестнадцатая": 16,
+        "семнадцатая": 17, "восемнадцатая": 18, "девятнадцатая": 19,
+        "двадцатая": 20, "тридцатая": 30, "сороковая": 40, "пятидесятая": 50,
+        "шестидесятая": 60, "семидесятая": 70, "восьмидесятая": 80, "девяностая": 90,
+    }
+
     def __init__(self, config: ParserConfig):
         self.config = config
 
@@ -182,25 +259,40 @@ class ChapterNumberExtractor:
         Примеры:
             "Глава 1" -> 1
             "Глава первая" -> 1
-            "Chapter III" -> 3
+            "Глава двадцать первая" -> 21 (compound-first fix)
+            "Глава III" -> 3
         """
         search_text = (title + " " + text[:500]).lower()
 
-        # Пробуем паттерны по порядку
+        # 1. Паттерны с Arabic/Roman числами (высокая точность)
         for pattern in self.config.chapter_patterns:
             match = re.search(pattern, search_text)
             if match:
                 number_str = match.group(1)
-                # Проверяем римские цифры
                 if re.match(r"^[ivxlcdm]+$", number_str):
                     return self._roman_to_int(number_str)
-                # Иначе арабские
                 try:
                     return int(number_str)
                 except ValueError:
                     continue
 
-        # Пробуем текстовые номера
+        # 2. Составные числительные (21–99) — ОБЯЗАТЕЛЬНО перед простыми
+        # Иначе "двадцать вторая" → substring match "вторая" → 2 вместо 22
+        for tens_word, tens_val in self._TENS.items():
+            for unit_word, unit_val in self._UNIT_ORDINALS_F.items():
+                if f"{tens_word} {unit_word}" in search_text:
+                    return tens_val + unit_val
+
+        # 3. Простые числительные — по убыванию длины слова
+        # (предотвращает ранний матч "первая" перед "одиннадцатая")
+        for word, val in sorted(self._SIMPLE_ORDINALS_F.items(), key=lambda x: -len(x[0])):
+            if (
+                f"глава {word}" in search_text
+                or f"chapter {word}" in search_text
+            ):
+                return val
+
+        # 4. Fallback: config.text_number_map (English слова и legacy русские)
         for text_num, num in self.config.text_number_map.items():
             if (
                 f"глава {text_num}" in search_text
@@ -239,6 +331,17 @@ class EPUBParser:
     def __init__(self, config: ParserConfig):
         self.config = config
         self.chapter_extractor = ChapterNumberExtractor(config)
+
+    @staticmethod
+    def _normalize_href(href: str) -> str:
+        """
+        Нормализует EPUB href для сравнения между guide/TOC и spine items.
+
+        Проблема: guide хранит "OPS/ch1.xhtml", item.get_name() = "ch1.xhtml".
+        Решение: сравниваем только basename без фрагмента.
+        """
+        href = urllib.parse.unquote(href).split("#")[0]
+        return posixpath.basename(href)
 
     def parse(self, file_path: str) -> ParsedBook:
         """Парсит EPUB файл."""
@@ -553,81 +656,281 @@ class EPUBParser:
         return chapters
 
     def _extract_chapters_from_toc(self, book) -> List[BookChapter]:
-        """Извлекает главы используя встроенный TOC."""
-        chapters = []
+        """
+        Извлекает главы из spine, используя TOC для получения заголовков.
+
+        Ключевой принцип: chapter_number = порядковая spine позиция после bodymatter.
+        Не зависит от наличия числа в заголовке — "Пролог" получает chapter 1 автоматически.
+
+        Иерархия заголовков: TOC title map → h1/h2/h3 → filename.
+        Bodymatter detection: Landmarks → Guide → NCX[0] → spine[0].
+        Service pages: epub:type → image-only → copyright patterns → filename → word count.
+        """
+        if not EBOOKLIB_AVAILABLE:
+            return []
+
+        chapters: List[BookChapter] = []
 
         try:
-            toc = book.toc
-            if not toc:
-                return []
+            # Строим map: basename файла → заголовок из TOC
+            toc_flat = self._flatten_toc(book.toc)
+            toc_title_map = {
+                self._normalize_href(href): title
+                for href, title in toc_flat
+                if href
+            }
+            logger.info(f"📚 TOC title map has {len(toc_title_map)} entries")
 
-            # TOC может быть вложенным, обходим рекурсивно
-            flat_toc = self._flatten_toc(toc)
+            # Определяем начало основного контента
+            bodymatter_basename = self._get_bodymatter_basename(book)
+            bodymatter_reached = (bodymatter_basename is None)
+            if bodymatter_basename:
+                logger.info(f"📖 Bodymatter starts at: {bodymatter_basename}")
 
-            logger.info(f"📚 Found {len(flat_toc)} items in TOC")
-
-            for idx, (link, title) in enumerate(flat_toc, start=1):
+            for spine_idx, (idref, linear) in enumerate(book.spine):
                 try:
-                    # Получаем контент по ссылке
-                    content, html_content = self._get_content_by_link(book, link)
-
-                    if not content or len(content) < self.config.min_chapter_length:
-                        logger.debug(f"⏭️  Skipping short TOC item: {title}")
+                    if linear == "no":
                         continue
 
-                    # Пытаемся извлечь номер главы
-                    chapter_num = self.chapter_extractor.extract(content, title)
-
-                    # Если номер не найден, это НЕ глава - пропускаем
-                    if chapter_num is None:
-                        logger.debug(f"⏭️  Skipping non-chapter TOC item: {title}")
+                    item = book.get_item_with_id(idref)
+                    if not item or item.get_type() != ebooklib.ITEM_DOCUMENT:
                         continue
+
+                    item_basename = posixpath.basename(item.get_name())
+
+                    # Пропускаем до bodymatter
+                    if not bodymatter_reached:
+                        if item_basename == bodymatter_basename:
+                            bodymatter_reached = True
+                        else:
+                            logger.debug(f"⏭️  Before bodymatter: {item.get_name()}")
+                            continue
+
+                    text_content, html_content = self._extract_text_from_item(item)
+
+                    # Заголовок: TOC map → h1/h2/h3 → filename
+                    title = (
+                        toc_title_map.get(item_basename)
+                        or self._extract_first_heading(html_content)
+                        or item_basename
+                    )
+
+                    # Фильтруем сервисные страницы
+                    if self._is_service_page(item, text_content, title, spine_idx):
+                        logger.debug(f"⏭️  Service page: {title!r} ({item.get_name()})")
+                        continue
+
+                    if len(text_content) < self.config.min_chapter_length:
+                        logger.debug(f"⏭️  Too short: {title!r}")
+                        continue
+
+                    # chapter_number = порядковая позиция (не из заголовка)
+                    chapter_num = len(chapters) + 1
 
                     chapter = BookChapter(
                         number=chapter_num,
                         title=title,
-                        content=content,
+                        content=text_content,
                         html_content=html_content,
-                        file_path=link.split("#")[0],  # Store internal href
+                        file_path=item.get_name(),  # Internal EPUB href
                     )
-
                     chapters.append(chapter)
                     logger.debug(f"✅ Chapter {chapter_num}: {title[:50]}")
 
                 except Exception as e:
-                    logger.warning(f"⚠️  Error processing TOC item {title}: {e}")
+                    logger.warning(f"⚠️  Error processing spine item {idref}: {e}")
                     continue
 
-            # Сортируем по номерам
-            chapters.sort(key=lambda ch: ch.number)
-
         except Exception as e:
-            logger.error(f"❌ Error extracting chapters from TOC: {e}")
+            logger.error(f"❌ Error extracting chapters from spine/TOC: {e}")
             return []
 
         return chapters
 
     def _flatten_toc(self, toc, depth=0) -> List[Tuple[str, str]]:
-        """Рекурсивно обходит вложенный TOC и возвращает плоский список."""
+        """
+        Рекурсивно обходит вложенный TOC ebooklib и возвращает плоский список.
+
+        Типы элементов TOC в ebooklib:
+        - epub.Link: .href надёжен, .title надёжен
+        - epub.Section: .href может быть "" (пустая строка), .title надёжен
+        - tuple (head, children): head = Section или Link, children = список дочерних
+
+        ИСПРАВЛЕНИЕ (было): item[1] ошибочно принималось за title, но это список children.
+        """
         flat = []
 
         for item in toc:
-            if isinstance(item, tuple):
-                # Это (Section, Title) или (Link, Title)
-                if hasattr(item[0], "href"):
-                    # ebooklib.Link
-                    flat.append((item[0].href, item[1]))
-                elif isinstance(item[0], list):
-                    # Вложенная секция
-                    flat.extend(self._flatten_toc(item[0], depth + 1))
+            if isinstance(item, tuple) and len(item) == 2:
+                head, children = item
+                if hasattr(head, "href"):
+                    # head — это Section или Link
+                    if head.href:
+                        flat.append((head.href, getattr(head, "title", "") or ""))
+                    if isinstance(children, (list, tuple)):
+                        flat.extend(self._flatten_toc(children, depth + 1))
             elif isinstance(item, list):
-                # Вложенный список
                 flat.extend(self._flatten_toc(item, depth + 1))
             elif hasattr(item, "href"):
-                # ebooklib.Link
-                flat.append((item.href, getattr(item, "title", "Untitled")))
+                # Прямой Link без children
+                if item.href:
+                    flat.append((item.href, getattr(item, "title", "") or ""))
 
         return flat
+
+    def _get_body_epub_type(self, item) -> Optional[str]:
+        """Читает epub:type с <body> элемента (EPUB 3 структурная семантика)."""
+        try:
+            soup = BeautifulSoup(item.get_content(), "html.parser")
+            body = soup.find("body")
+            if body:
+                val = body.get("epub:type", "")
+                if val:
+                    return val.strip().split()[0]
+        except Exception:
+            pass
+        return None
+
+    def _is_image_only(self, item) -> bool:
+        """True если страница содержит только изображение без текста (обложка)."""
+        try:
+            soup = BeautifulSoup(item.get_content(), "html.parser")
+            body = soup.find("body")
+            if not body:
+                return False
+            text = body.get_text(strip=True)
+            images = body.find_all(["img", "image"])
+            paragraphs = [p for p in body.find_all("p") if p.get_text(strip=True)]
+            return not text and len(images) >= 1 and not paragraphs
+        except Exception:
+            return False
+
+    def _extract_first_heading(self, html_content: str) -> Optional[str]:
+        """Извлекает первый заголовок h1/h2/h3 из HTML контента."""
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+            for tag in ["h1", "h2", "h3"]:
+                el = soup.find(tag)
+                if el:
+                    text = el.get_text(strip=True)
+                    if text:
+                        return text
+        except Exception:
+            pass
+        return None
+
+    def _is_service_page(
+        self, item, text_content: str, title: str, spine_idx: int
+    ) -> bool:
+        """
+        Определяет является ли spine item сервисной страницей.
+
+        Иерархия от надёжного к слабому:
+        1. epub:type на <body> — структурный, самый надёжный
+        2. Image-only — 99%, обложка
+        3. Российские библиографические паттерны — 97%, копирайт
+        4. Filename patterns — 92%
+        5. Word count < 100 — 91%
+        6. Word count 100–300 + (title keyword ИЛИ spine_idx <= 2) — 75%
+        """
+        # 1. epub:type на <body>
+        epub_type = self._get_body_epub_type(item)
+        if epub_type and epub_type in SERVICE_EPUB_TYPES:
+            return True
+        if epub_type and epub_type in CONTENT_EPUB_TYPES:
+            return False  # явно контент — дальше не проверяем
+
+        # 2. Image-only (99% — обложка)
+        if self._is_image_only(item):
+            return True
+
+        # 3. Российские библиографические паттерны (97%)
+        copyright_hits = sum(
+            1 for p in RUSSIAN_COPYRIGHT_PATTERNS if p.search(text_content)
+        )
+        if copyright_hits >= 2:
+            return True
+
+        # 4. Filename patterns (92%)
+        basename = posixpath.basename(item.get_name()).lower()
+        if any(pat in basename for pat in SERVICE_FILENAME_PATTERNS):
+            return True
+
+        words = len(text_content.split())
+
+        # 5. Word count < 100 (91%)
+        if words < 100:
+            return True
+
+        # 6. Серая зона 100–300 слов + дополнительный сигнал (75%)
+        if words < 300:
+            title_lower = title.lower()
+            if any(kw in title_lower for kw in SERVICE_TITLE_KEYWORDS):
+                return True
+            if spine_idx <= 2:
+                return True
+
+        return False
+
+    def _get_bodymatter_basename(self, book) -> Optional[str]:
+        """
+        Возвращает basename первого файла основного контента (bodymatter).
+        Всё до него в spine — сервисные страницы.
+        Возвращает None если bodymatter начинается с spine[0].
+
+        Иерархия:
+        1. EPUB 3 Landmarks (epub:type="bodymatter" в NAV)
+        2. EPUB 2 Guide (type="text" или "start") — доступен в ebooklib
+        3. NCX/TOC first entry — ключевой для российских FB2-EPUB 2
+        """
+        # Уровень 1: EPUB 3 Landmarks
+        if EBOOKLIB_AVAILABLE:
+            for nav_item in book.get_items_of_type(ebooklib.ITEM_NAVIGATION):
+                try:
+                    soup = BeautifulSoup(nav_item.get_content(), "html.parser")
+                    for nav_el in soup.find_all("nav"):
+                        if "landmarks" in nav_el.get("epub:type", ""):
+                            for a in nav_el.find_all("a"):
+                                if "bodymatter" in a.get("epub:type", ""):
+                                    href = a.get("href", "")
+                                    if href:
+                                        logger.info(f"Bodymatter from landmarks: {href}")
+                                        return self._normalize_href(href)
+                except Exception:
+                    continue
+
+        # Уровень 2: EPUB 2 Guide
+        # fb2converter генерирует guide с type="cover-page" и type="text"
+        # fb2toepub — НЕ генерирует guide вообще
+        for ref in (book.guide or []):
+            ref_type = ref.get("type", "").lower()
+            if ref_type in ("text", "start"):
+                href = ref.get("href", "")
+                if href:
+                    logger.info(f"Bodymatter from guide type={ref_type!r}: {href}")
+                    return self._normalize_href(href)
+
+        # Уровень 3: NCX/TOC first entry
+        # Почему работает: FB2-конвертеры всегда кладут первую главу первым в NCX.
+        # Если toc[0] != spine[0] — все spine items до toc[0] сервисные.
+        toc_flat = self._flatten_toc(book.toc)
+        if toc_flat:
+            first_toc_href, _ = toc_flat[0]
+            first_toc_basename = self._normalize_href(first_toc_href)
+            for spine_idx, (idref, _) in enumerate(book.spine):
+                item = book.get_item_with_id(idref)
+                if item and self._normalize_href(item.get_name()) == first_toc_basename:
+                    if spine_idx > 0:
+                        logger.info(
+                            f"Bodymatter from TOC[0]: {first_toc_href} "
+                            f"(spine_idx={spine_idx})"
+                        )
+                        return first_toc_basename
+                    else:
+                        # TOC[0] == spine[0] → нет сервисных страниц перед контентом
+                        return None
+
+        return None  # включаем все spine items
 
     def _get_content_by_link(self, book, link: str) -> Tuple[str, str]:
         """Получает контент по ссылке из TOC."""

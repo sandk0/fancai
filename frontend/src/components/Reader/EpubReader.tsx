@@ -87,7 +87,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   const { toc, currentHref, setCurrentHref } = useToc(epubBook);
-  const { getChapterNumberByLocation } = useChapterMapping(toc, book.chapters || []);
+  const { getChapterNumberByLocation } = useChapterMapping(toc, book.chapters || [], epubBook);
 
   const { isRestoringPosition, positionConflict, resolveConflict } = useReaderPosition({
     rendition, renditionReady, bookId: book.id, locations, goToCFI, skipNextRelocated, setInitialProgress,
