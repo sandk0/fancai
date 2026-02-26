@@ -322,7 +322,9 @@ export function useBookProgressWS({
         lastProgressTime.current = Date.now();
 
         const BASE_TIMEOUT_MS = 90000;
-        const FINALIZATION_TIMEOUT_MS = 600000;
+        // Portrait generation for large books (100+ entities) can take 15-20 min.
+        // Was 600s — bumped to 1200s to prevent false timeouts during this phase.
+        const FINALIZATION_TIMEOUT_MS = 1200000;
         const CHECK_INTERVAL_MS = 10000;
 
         const checkNoProgress = () => {
