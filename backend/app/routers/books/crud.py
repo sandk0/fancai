@@ -749,6 +749,15 @@ async def reprocess_book_descriptions(
     book.descriptions_processing_error = None
     await db.commit()
 
+    # Invalidate Redis books list cache so the next frontend poll
+    # gets fresh is_processing=True instead of stale cached data
+    try:
+        pattern = f"user:{current_user.id}:books:*"
+        deleted_count = await cache_manager.delete_pattern(pattern)
+        logger.debug("Book list cache invalidated after reprocess start", keys_deleted=deleted_count)
+    except Exception as e:
+        logger.warning("Failed to invalidate book list cache after reprocess start", error=str(e))
+
     # Запускаем Celery task
     task_id = None
     try:

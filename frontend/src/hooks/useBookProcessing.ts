@@ -94,7 +94,14 @@ export function useBookProcessing(book: Book): UseBookProcessingResult {
     // Start processing mutation
     const startMutation = useMutation({
         mutationFn: () => booksAPI.processDescriptions(book.id),
-        onMutate: () => {
+        onMutate: async () => {
+            // Cancel in-flight refetches to prevent them from overwriting our optimistic update
+            try {
+                const userId = getCurrentUserId();
+                await queryClient.cancelQueries({ queryKey: bookKeys.all(userId) });
+            } catch {
+                // User not authenticated, skip
+            }
             // Optimistic: set is_processing = true
             optimisticUpdate({
                 is_processing: true,
@@ -148,7 +155,14 @@ export function useBookProcessing(book: Book): UseBookProcessingResult {
     // Reprocess mutation
     const reprocessMutation = useMutation({
         mutationFn: () => booksAPI.reprocessDescriptions(book.id),
-        onMutate: () => {
+        onMutate: async () => {
+            // Cancel in-flight refetches to prevent them from overwriting our optimistic update
+            try {
+                const userId = getCurrentUserId();
+                await queryClient.cancelQueries({ queryKey: bookKeys.all(userId) });
+            } catch {
+                // User not authenticated, skip
+            }
             // Optimistic: set is_processing = true, clear extracted flag
             optimisticUpdate({
                 is_processing: true,
