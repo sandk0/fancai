@@ -97,6 +97,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     book: epubBook, rendition, bookId: book.id, getChapterNumberByLocation, isRestoringPosition,
   });
 
+  // max_chapter_reached приходит с сервера (монотонно возрастающее значение)
+  // Дополнительно берём max с currentChapter на случай задержки синхронизации
+  const maxChapterReached = useMemo(() => {
+    const serverMax = book.reading_progress?.max_chapter_reached || 1;
+    return Math.max(currentChapter, serverMax);
+  }, [currentChapter, book.reading_progress?.max_chapter_reached]);
+
   const { isSaving, lastSaved } = useProgressSync({
     bookId: book.id, currentCFI, progress, scrollOffset: scrollOffsetPercent, currentChapter,
     onSave: async (cfi, prog, scroll, ch) => {
@@ -143,7 +150,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
-  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(book.id, currentChapter);
+  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(book.id, maxChapterReached);
   const prefetchEntityNetwork = usePrefetchEntityNetwork();
   useEffect(() => { if (book.id) prefetchEntityNetwork(book.id); }, [book.id, prefetchEntityNetwork]);
 
@@ -214,13 +221,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (theme === 'night') return 'bg-black';
     return 'bg-white';
   }, [theme]);
-
-  // max_chapter_reached приходит с сервера (монотонно возрастающее значение)
-  // Дополнительно берём max с currentChapter на случай задержки синхронизации
-  const maxChapterReached = useMemo(() => {
-    const serverMax = book.reading_progress?.max_chapter_reached || 1;
-    return Math.max(currentChapter, serverMax);
-  }, [currentChapter, book.reading_progress?.max_chapter_reached]);
 
   return (
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
