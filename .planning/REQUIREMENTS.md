@@ -105,42 +105,42 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | — | Pending |
-| SEC-02 | — | Pending |
-| SEC-03 | — | Pending |
-| CLEAN-01 | — | Pending |
-| CLEAN-02 | — | Pending |
-| CLEAN-03 | — | Pending |
-| CLEAN-04 | — | Pending |
-| CLEAN-05 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| UX-04 | — | Pending |
-| UX-05 | — | Pending |
-| UX-06 | — | Pending |
-| WIKI-01 | — | Pending |
-| WIKI-02 | — | Pending |
-| WIKI-03 | — | Pending |
-| WIKI-04 | — | Pending |
-| AI-01 | — | Pending |
-| AI-02 | — | Pending |
-| AI-03 | — | Pending |
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| DEPLOY-04 | — | Pending |
-| READ-01 | — | Pending |
-| READ-02 | — | Pending |
-| READ-03 | — | Pending |
-| READ-04 | — | Pending |
-| READ-05 | — | Pending |
+| SEC-01 | Phase 1: Production Safety | Pending |
+| SEC-02 | Phase 1: Production Safety | Pending |
+| SEC-03 | Phase 1: Production Safety | Pending |
+| DEPLOY-01 | Phase 1: Production Safety | Pending |
+| DEPLOY-02 | Phase 1: Production Safety | Pending |
+| DEPLOY-03 | Phase 1: Production Safety | Pending |
+| DEPLOY-04 | Phase 1: Production Safety | Pending |
+| UX-01 | Phase 1: Production Safety | Pending |
+| CLEAN-01 | Phase 2: Dead Code Cleanup | Pending |
+| CLEAN-02 | Phase 2: Dead Code Cleanup | Pending |
+| CLEAN-03 | Phase 2: Dead Code Cleanup | Pending |
+| CLEAN-04 | Phase 2: Dead Code Cleanup | Pending |
+| CLEAN-05 | Phase 2: Dead Code Cleanup | Pending |
+| AI-01 | Phase 3: AI Pipeline Stability | Pending |
+| AI-02 | Phase 3: AI Pipeline Stability | Pending |
+| AI-03 | Phase 3: AI Pipeline Stability | Pending |
+| WIKI-01 | Phase 4: Entity Wiki Quality | Pending |
+| WIKI-02 | Phase 4: Entity Wiki Quality | Pending |
+| WIKI-03 | Phase 4: Entity Wiki Quality | Pending |
+| WIKI-04 | Phase 4: Entity Wiki Quality | Pending |
+| UX-06 | Phase 4: Entity Wiki Quality | Pending |
+| UX-02 | Phase 5: Error Handling & UX | Pending |
+| UX-03 | Phase 5: Error Handling & UX | Pending |
+| UX-04 | Phase 5: Error Handling & UX | Pending |
+| UX-05 | Phase 5: Error Handling & UX | Pending |
+| READ-01 | Phase 6: Reader Features | Pending |
+| READ-02 | Phase 6: Reader Features | Pending |
+| READ-03 | Phase 6: Reader Features | Pending |
+| READ-04 | Phase 6: Reader Features | Pending |
+| READ-05 | Phase 6: Reader Features | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30 ⚠️
+- Mapped to phases: 30
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*
