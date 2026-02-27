@@ -31,11 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Health check endpoint returns actual connectivity status for PostgreSQL, Redis, and Celery (not hardcoded "checking...")
   4. Backend errors appear in Sentry dashboard with full stack traces; frontend JavaScript errors appear in a separate Sentry project
   5. Application runs under Gunicorn with UvicornWorker in production (no --reload flag), and database is backed up on a schedule
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Security hardening (JWT migration to PyJWT, DEBUG=False, SECRET_KEY validation) + production deploy config (Gunicorn, health endpoint fix, .env.example)
+- [ ] 01-02-PLAN.md — Sentry monitoring (backend + frontend + Celery) + PostgreSQL backup script with S3 upload
 
 ### Phase 2: Dead Code Cleanup
 **Goal**: The codebase contains only living code -- every config field is used, every endpoint does what it claims, and no NLP artifacts remain to confuse future development
