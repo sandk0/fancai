@@ -10,7 +10,10 @@
     },
     "ssh-manager": {
       "command": "npx",
-      "args": ["-y", "@iflow-mcp/mcp-ssh-manager", "--minimal"]
+      "args": ["-y", "@iflow-mcp/mcp-ssh-manager", "--minimal"],
+      "env": {
+        "SSH_CONFIG_PATH": "/Users/sandk/.ssh-manager/ssh-config.toml"
+      }
     }
   }
 }

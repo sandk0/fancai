@@ -1,6 +1,7 @@
 # fancai — Fiction reader with AI illustrations and interactive book glossary
 
 Two core AI features:
+
 1. **Image generation** — Gemini extracts visual descriptions, Imagen generates illustrations
 2. **Entity glossary/wiki (main feature)** — AI builds interactive encyclopedia: characters, locations, objects with spoiler-free chapter tracking
 
@@ -45,4 +46,6 @@ docker compose up -d                # Start all services (NOT docker-compose)
 ---
 
 For iOS/theme/Reader rules: `.claude/rules/frontend.md`
+For Reader/EPUB rules: `.claude/rules/reader.md`
 For skill routing: `.claude/rules/auto-routing.md`
+GSD planning: `.planning/` (ROADMAP.md, STATE.md)

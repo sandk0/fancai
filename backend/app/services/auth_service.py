@@ -7,7 +7,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from uuid import UUID
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -139,7 +140,7 @@ class AuthService:
                 return None
 
             return payload
-        except JWTError:
+        except InvalidTokenError:
             return None
 
     async def create_user(

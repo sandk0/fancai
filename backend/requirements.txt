@@ -3,7 +3,7 @@ fastapi==0.128.0  # Feb 2026: pydantic.v1 compat removed
 uvicorn[standard]==0.40.0
 gunicorn==25.0.1
 python-multipart==0.0.22
-python-jose[cryptography]==3.5.0
+PyJWT[crypto]==2.10.1
 passlib[bcrypt]==1.7.4
 
 # База данных
@@ -45,7 +45,7 @@ prometheus-fastapi-instrumentator==7.1.0
 
 # Безопасность
 python-decouple==3.8
-cryptography==46.0.4  # Feb 2026: CAST5/SEED/Blowfish removed
+cryptography==46.0.5  # Feb 2026: CAST5/SEED/Blowfish removed
 ecdsa>=0.19.0
 
 # Тестирование
@@ -66,7 +66,7 @@ sqlalchemy[mypy]==2.0.46
 
 # Утилиты
 python-dateutil==2.9.0.post0
-pillow==12.1.0
+pillow==12.1.1
 tenacity==9.1.2  # Retry library with exponential backoff
 
 # Web Push Notifications (January 2026)

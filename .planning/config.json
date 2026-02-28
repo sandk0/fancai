@@ -1,8 +1,8 @@
 {
   "mode": "interactive",
-  "depth": "comprehensive",
-  "model_profile": "quality",
-  "commit_docs": true,
+  "depth": "standard",
+  "model_profile": "balanced",
+  "commit_docs": false,
   "search_gitignored": false,
   "branching_strategy": "none",
   "phase_branch_template": "gsd/phase-{phase}-{slug}",
@@ -14,6 +14,6 @@
     "auto_advance": false,
     "nyquist_validation": true
   },
-  "parallelization": true,
+  "parallelization": { "enabled": true, "max_concurrent_agents": 2 },
   "brave_search": false
 }
