@@ -16,6 +16,7 @@ uvicorn[standard]==0.40.0
 gunicorn==25.0.1
 python-multipart==0.0.22
 PyJWT[crypto]==2.10.1
+bcrypt==4.3.0
 
 # База данных (December 2025)
 sqlalchemy==2.0.46
