@@ -195,6 +195,10 @@ frontend/.htpasswd
 # GSD planning (process, not outcomes)
 .planning/
 
+# Claude Code local artifacts
+.claude/backups/
+.claude/prompts/
+
 # Auto Claude data directory
 .auto-claude/
 
