@@ -46,9 +46,8 @@ class AuthService:
         Returns:
             True если пароль верный
         """
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-        )
+        password_bytes = plain_password.encode("utf-8")[:72]
+        return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
 
     def get_password_hash(self, password: str) -> str:
         """
