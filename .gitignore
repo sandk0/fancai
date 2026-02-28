@@ -192,6 +192,9 @@ start-dev.sh
 .env.development
 frontend/.htpasswd
 
+# GSD planning (process, not outcomes)
+.planning/
+
 # Auto Claude data directory
 .auto-claude/
 

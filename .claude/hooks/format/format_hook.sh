@@ -1,22 +1,23 @@
 #!/bin/bash
 # Auto-format after Edit/Write operations
-# Called with file path as argument
+# PostToolUse hooks receive tool input via stdin as JSON
 
-FILE="$1"
-EXT="${FILE##*.}"
+INPUT=$(cat)
+FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.file // empty')
 
-# Skip if file doesn't exist
+# Skip if no file path or file doesn't exist
+[ -z "$FILE" ] && exit 0
 [ ! -f "$FILE" ] && exit 0
+
+EXT="${FILE##*.}"
 
 case "$EXT" in
   ts|tsx|js|jsx|json|css|md)
-    # Format with Prettier (if available)
     if command -v npx &> /dev/null; then
       npx prettier --write "$FILE" 2>/dev/null
     fi
     ;;
   py)
-    # Format with Black (if available)
     if command -v black &> /dev/null; then
       black --quiet "$FILE" 2>/dev/null
     fi
