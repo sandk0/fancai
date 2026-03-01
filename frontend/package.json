@@ -26,6 +26,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@hawk.so/javascript": "^3.2.18",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",

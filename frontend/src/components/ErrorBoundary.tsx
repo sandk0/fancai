@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { logger } from '@/lib/logger';
+import { getHawk } from '@/config/hawk';
 
 interface Props {
   children: ReactNode;
@@ -56,7 +57,7 @@ class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
-      error
+      error,
     };
   }
 
@@ -96,7 +97,7 @@ class ErrorBoundary extends Component<Props, State> {
 
     this.setState({
       error,
-      errorInfo
+      errorInfo,
     });
 
     // Вызываем callback если передан
@@ -104,11 +105,15 @@ class ErrorBoundary extends Component<Props, State> {
       onError(error, errorInfo);
     }
 
-    // TODO: Интеграция с error tracking сервисами
-    // if (import.meta.env.PROD) {
-    //   // Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
-    //   // LogRocket.captureException(error);
-    // }
+    // Отправка ошибки в Hawk Tracker
+    const hawkInstance = getHawk();
+    if (hawkInstance) {
+      hawkInstance.send(error, {
+        componentStack: errorInfo.componentStack ?? undefined,
+        level,
+        url: window.location.href,
+      });
+    }
   }
 
   /**
@@ -166,9 +171,7 @@ class ErrorBoundary extends Component<Props, State> {
 
             {/* Error Title */}
             <h1
-              className={`font-bold mb-4 text-foreground ${
-                isAppLevel ? 'text-3xl' : 'text-2xl'
-              }`}
+              className={`font-bold mb-4 text-foreground ${isAppLevel ? 'text-3xl' : 'text-2xl'}`}
             >
               {isAppLevel && 'Ups! Something went wrong'}
               {isPageLevel && 'Page load error'}
@@ -177,7 +180,8 @@ class ErrorBoundary extends Component<Props, State> {
 
             {/* Error Message */}
             <p className="text-base mb-8 text-muted-foreground leading-relaxed">
-              {isAppLevel && 'We apologize for the inconvenience. Please try refreshing the page or return to the home page.'}
+              {isAppLevel &&
+                'We apologize for the inconvenience. Please try refreshing the page or return to the home page.'}
               {isPageLevel && 'Failed to load page content. Try refreshing or going back.'}
               {!isAppLevel && !isPageLevel && 'An error occurred while rendering this component.'}
             </p>
@@ -190,18 +194,14 @@ class ErrorBoundary extends Component<Props, State> {
                 </summary>
 
                 <div className="mt-4">
-                  <p className="font-semibold mb-2 text-sm">
-                    Error:
-                  </p>
+                  <p className="font-semibold mb-2 text-sm">Error:</p>
                   <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border mb-4">
                     {error.toString()}
                   </pre>
 
                   {error.message && error.message !== error.toString() && (
                     <>
-                      <p className="font-semibold mb-2 text-sm">
-                        Message:
-                      </p>
+                      <p className="font-semibold mb-2 text-sm">Message:</p>
                       <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border mb-4">
                         {error.message}
                       </pre>
@@ -210,9 +210,7 @@ class ErrorBoundary extends Component<Props, State> {
 
                   {errorInfo?.componentStack && (
                     <>
-                      <p className="font-semibold mb-2 text-sm">
-                        Component Stack:
-                      </p>
+                      <p className="font-semibold mb-2 text-sm">Component Stack:</p>
                       <pre className="bg-background p-3 rounded-sm text-xs overflow-auto border border-border max-h-[200px]">
                         {errorInfo.componentStack}
                       </pre>
