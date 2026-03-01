@@ -7,11 +7,11 @@ Entity Synthesis Service — Phase 2 post-book processing.
 
 import json
 import logging
-from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.json_utils import parse_json_safe
+from app.core.openrouter_client import get_openrouter_client
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +91,8 @@ OUTPUT JSON:
 
 
 class EntitySynthesisService:
-    def __init__(self, gemini_client: Any = None):
-        self.gemini_client = gemini_client
+    def __init__(self) -> None:
+        pass
 
     @staticmethod
     def _build_synthesis_prompt(
@@ -110,13 +110,10 @@ class EntitySynthesisService:
         )
 
     @staticmethod
-    def _batch_entities(
-        entities: list[dict], batch_size: int = 50
-    ) -> list[list[dict]]:
+    def _batch_entities(entities: list[dict], batch_size: int = 50) -> list[list[dict]]:
         """Разбивает entities на batch'и для LLM-вызовов."""
         return [
-            entities[i: i + batch_size]
-            for i in range(0, len(entities), batch_size)
+            entities[i : i + batch_size] for i in range(0, len(entities), batch_size)
         ]
 
     @staticmethod
@@ -129,11 +126,13 @@ class EntitySynthesisService:
         for e in entities:
             if not isinstance(e, dict) or "name" not in e:
                 continue
-            parsed_entities.append({
-                "name": e["name"],
-                "base_role": e.get("base_role", "episodic"),
-                "milestones": e.get("milestones", []),
-            })
+            parsed_entities.append(
+                {
+                    "name": e["name"],
+                    "base_role": e.get("base_role", "episodic"),
+                    "milestones": e.get("milestones", []),
+                }
+            )
 
         return {
             "entities": parsed_entities,
@@ -142,32 +141,19 @@ class EntitySynthesisService:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def _call_gemini(self, prompt: str) -> dict:
-        """Вызов Gemini с retry."""
-        if not self.gemini_client:
-            from app.services.gemini_extractor import get_gemini_extractor
+        """Вызов LLM через OpenRouter с retry.
 
-            extractor = get_gemini_extractor()
-            if not extractor.is_available():
-                logger.warning("Gemini not available for synthesis")
-                return {"entities": [], "relationship_milestones": []}
-
-            import google.genai.types as types
-
-            client = extractor._client
-            model = extractor.config.model_reduce
-
-            response = await client.aio.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                ),
-            )
-
-            raw = parse_json_safe(response.text)
-            return raw if isinstance(raw, dict) else {}
-
-        return {}
+        Заменяет прямой вызов google.genai SDK.
+        Использует generate_text() — JSON mode через response_format.
+        """
+        client = get_openrouter_client()
+        raw_text = await client.generate_text(
+            prompt=prompt,
+            system_prompt="Respond ONLY with valid JSON, no markdown.",
+            temperature=0.3,
+        )
+        raw = parse_json_safe(raw_text)
+        return raw if isinstance(raw, dict) else {}
 
     async def synthesize_book_entities(
         self,
@@ -205,12 +191,14 @@ class EntitySynthesisService:
         for e in entities:
             name = e.get("name", "")
             entity_events = events_by_entity.get(name.casefold(), [])
-            entities_data.append({
-                "name": name,
-                "type": e.get("type", "character"),
-                "visual_summary": e.get("visual_summary", ""),
-                "events": entity_events,
-            })
+            entities_data.append(
+                {
+                    "name": name,
+                    "type": e.get("type", "character"),
+                    "visual_summary": e.get("visual_summary", ""),
+                    "events": entity_events,
+                }
+            )
 
         all_entity_names = [e["name"] for e in entities_data]
 

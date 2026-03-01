@@ -25,6 +25,7 @@ from app.services.gemini_extractor import (
 )
 from app.services.imagen_generator import get_imagen_service
 from app.core.json_utils import parse_json_safe
+from app.core.openrouter_client import get_openrouter_client
 import random
 
 logger = logging.getLogger(__name__)
@@ -34,19 +35,18 @@ class ConsistencyManager:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-
     async def _acquire_entity_lock(self, book_id: str, entity_name: str) -> None:
         """
         Acquire PostgreSQL advisory lock for entity creation.
-        
+
         Uses pg_advisory_xact_lock (transaction-scoped) to serialize concurrent
         entity creation across Celery workers. The lock is automatically released
         on COMMIT/ROLLBACK.
         """
         lock_key = int(
-            hashlib.sha256(
-                f"{book_id}:{entity_name.casefold()}".encode()
-            ).hexdigest()[:15],
+            hashlib.sha256(f"{book_id}:{entity_name.casefold()}".encode()).hexdigest()[
+                :15
+            ],
             16,
         )
         await self.db.execute(
@@ -147,7 +147,7 @@ class ConsistencyManager:
             if i in used:
                 continue
             best = ev_a
-            for j, ev_b in enumerate(events[i + 1:], start=i + 1):
+            for j, ev_b in enumerate(events[i + 1 :], start=i + 1):
                 if j in used:
                     continue
                 ratio = SequenceMatcher(
@@ -367,7 +367,6 @@ class ConsistencyManager:
                     else []
                 )
 
-
                 # Advisory lock to serialize entity creation across workers
                 await self._acquire_entity_lock(book_id, raw.name)
 
@@ -439,7 +438,8 @@ class ConsistencyManager:
                 fetch_result = await self.db.execute(
                     select(Entity).where(
                         Entity.book_id == book_id,
-                        Entity.name_lower == name_lower,  # name_lower: Python casefold(), locale-independent
+                        Entity.name_lower
+                        == name_lower,  # name_lower: Python casefold(), locale-independent
                     )
                 )
                 entity = fetch_result.scalar_one()
@@ -584,14 +584,7 @@ class ConsistencyManager:
             )
             entity_list_text = entity_list_text[:300000]
 
-        # 3. Call Gemini (LLM Reduce)
-        from app.services.gemini_extractor import get_gemini_extractor
-
-        extractor = get_gemini_extractor()
-        if not extractor.is_available():
-            logger.warning("LLM not available for optimization")
-            return
-
+        # 3. Call LLM via OpenRouter (Reduce Phase)
         REDUCE_PROMPT = f"""You are a Data Consistency Expert for a book entity database.
 
 INPUT DATA:
@@ -633,35 +626,17 @@ CRITICAL RULES:
 """
 
         try:
-            # We use the raw client to get JSON directly (or string parsing)
-            # For now, simplistic raw call wrapper since prompt is custom
-            # Ideally add method to gemini_extractor `generate_raw(prompt)`
-            # Using _call_gemini_with_retry but we need schema.
-            # Let's bypass and trust simple text parsing or use a targeted schema?
-            # Let's define schema dynamically or use a simple Text response and parse JSON.
-
-            # Since _call_gemini_with_retry enforces GeminiResponseSchema, we cannot use it directly if payload differs.
-            # WORKAROUND: Create a bespoke method or use the generic one in a flexible way?
-            # We'll rely on a manual implementation here using the client directly for custom task.
-
-            import google.genai.types as types
-
-            # Use client from extractor
-            client = extractor._client
-            # Model Tiering: use model_reduce for consistency tasks
-            model = extractor.config.model_reduce
-
-            response = await client.aio.models.generate_content(
-                model=model,
-                contents=REDUCE_PROMPT,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                ),
+            # Вызов через OpenRouter вместо прямого google.genai SDK
+            openrouter = get_openrouter_client()
+            raw_text = await openrouter.generate_text(
+                prompt=REDUCE_PROMPT,
+                system_prompt="Respond ONLY with valid JSON, no markdown.",
+                temperature=0.1,
             )
 
             from typing import Dict, Any
 
-            raw_plan = parse_json_safe(response.text)
+            raw_plan = parse_json_safe(raw_text)
             plan: Dict[str, Any] = raw_plan if isinstance(raw_plan, dict) else {}
 
             # 4. Execute Plan (DB Updates)
