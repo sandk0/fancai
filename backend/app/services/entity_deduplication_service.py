@@ -23,6 +23,7 @@ from app.models.entity_mention import EntityMention
 from app.models.chapter import Chapter
 from app.core.retry import retry_llm_extraction
 from app.monitoring.metrics import record_llm_request, record_llm_error
+from app.core.openrouter_client import get_openrouter_client
 
 logger = logging.getLogger(__name__)
 
@@ -166,14 +167,15 @@ class EntityDeduplicationService:
     async def _call_gemini(
         self, entities: List[EntityForAnalysis]
     ) -> DeduplicationResponse:
-        import time
-        import os
-        import google.genai as genai
-        from google.genai import types
-        from app.core.config import settings
+        """
+        Вызов OpenRouter API для дедупликации сущностей.
 
-        api_key = settings.GOOGLE_API_KEY or os.getenv("LANGEXTRACT_API_KEY")
-        client = genai.Client(api_key=api_key)
+        Plan 03-02: Мигрирован с google-genai на OpenRouter generate_structured().
+        DeduplicationResponse содержит вложенные Optional поля — _inline_defs корректно их обрабатывает.
+        """
+        import time
+
+        client = get_openrouter_client()
 
         entities_json = "\n".join(
             [
@@ -188,23 +190,19 @@ class EntityDeduplicationService:
         prompt = DEDUPLICATION_PROMPT.format(entities_json=entities_json)
 
         start_time = time.time()
-        response = await client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=DeduplicationResponse,
-                temperature=0.1,
-            ),
+        raw_dict = await client.generate_structured(
+            prompt=prompt,
+            schema_class=DeduplicationResponse,
+            temperature=0.1,
         )
         duration = time.time() - start_time
-        record_llm_request("gemini-dedup", "success", duration)
+        record_llm_request("openrouter-dedup", "success", duration)
 
-        if not response.text:
-            logger.warning("[EntityDedup] Empty response from Gemini")
+        if not raw_dict:
+            logger.warning("[EntityDedup] Empty response from OpenRouter")
             return DeduplicationResponse(no_duplicates_found=True)
 
-        return DeduplicationResponse.model_validate_json(response.text)
+        return DeduplicationResponse.model_validate(raw_dict)
 
 
 def get_entity_deduplication_service(db: AsyncSession) -> EntityDeduplicationService:
