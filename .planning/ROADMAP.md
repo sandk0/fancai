@@ -57,8 +57,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Безопасное удаление файлов без зависимостей и очистка NLP-конфигов (CLEAN-01, CLEAN-02, CLEAN-03)
-- [ ] 02-02-PLAN.md — Рефакторинг схем, исправление sync.py и финальная очистка NLP-ссылок (CLEAN-04, CLEAN-05)
+- [x] 02-01-PLAN.md — Безопасное удаление файлов без зависимостей и очистка NLP-конфигов (CLEAN-01, CLEAN-02, CLEAN-03)
+- [x] 02-02-PLAN.md — Рефакторинг схем, исправление sync.py и финальная очистка NLP-ссылок (CLEAN-04, CLEAN-05)
 
 ### Phase 3: Миграция сервисов
 **Goal:** Все AI-сервисы работают через OpenRouter: LLM с fallback chain (Gemini 3 Flash -> Claude Haiku 4.5 -> Gemini 2.5 Flash Lite), генерация изображений через FLUX.2 Pro/Klein (вместо Imagen 4). nginx заменён на Caddy с auto-HTTPS и HTTP/3. google-genai SDK полностью удалён
@@ -70,12 +70,14 @@ Plans:
   3. Structured output (response_schema) корректно работает через OpenRouter — Pydantic модели конвертируются в JSON Schema с inlining $defs
   4. Генерация изображений работает через OpenRouter (FLUX.2 Pro/Klein вместо Imagen 4), google-genai SDK полностью удалён из проекта
   5. Caddy обслуживает фронтенд и проксирует бэкенд — auto-HTTPS работает, HTTP/3 включен
-  6. Rate limiting реализован через FastAPI slowapi (по user ID)
-**Plans:** Будут определены
+  6. Rate limiting реализован по user ID (расширение существующего Redis rate limiter)
+**Plans:** 4 plans
 
 Plans:
-- [ ] 03-01: Будет определен
-- [ ] 03-02: Будет определен
+- [ ] 03-01-PLAN.md — OpenRouter клиент с fallback chain + миграция простых LLM-сервисов (MIGR-01, MIGR-02, MIGR-05)
+- [ ] 03-02-PLAN.md — Миграция сложных LLM-сервисов со structured output (MIGR-03, MIGR-04)
+- [ ] 03-03-PLAN.md — Миграция генерации изображений на OpenRouter + per-user rate limiting (MIGR-04.1, MIGR-08)
+- [ ] 03-04-PLAN.md — Замена nginx на Caddy с auto-HTTPS и HTTP/3 (MIGR-06, MIGR-07)
 
 ### Phase 4: Обслуживание инфраструктуры
 **Goal:** Сервер мониторится в реальном времени, зависимости обновлены до актуальных безопасных версий, PostgreSQL оптимизирован для 32GB RAM
@@ -162,7 +164,7 @@ Plans:
 |-------|------------------|--------|-----------|
 | 1. Безопасность продакшена | 2/2 | Complete   | 2026-03-01 |
 | 2. Очистка мертвого кода | 2/2 | Complete   | 2026-03-01 |
-| 3. Миграция сервисов | 0/2 | Не начата | - |
+| 3. Миграция сервисов | 0/4 | Не начата | - |
 | 4. Обслуживание инфраструктуры | 0/2 | Не начата | - |
 | 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
 | 6. Качество Entity Wiki | 0/2 | Не начата | - |
