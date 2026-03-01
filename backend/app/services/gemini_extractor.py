@@ -46,6 +46,7 @@ from app.monitoring.metrics import (
 )
 from app.core.json_utils import clean_json_text
 from app.services.llm_cache_service import llm_cache, ChapterCacheKey
+from app.core.openrouter_client import get_openrouter_client
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -67,10 +68,12 @@ class GeminiEntitySchema(BaseModel):
         default=None, description="Позиция (символ) первого упоминания в тексте"
     )
     chapter_event_action: Optional[str] = Field(
-        default=None, description="Что персонаж ДЕЛАЕТ в этой главе (одно предложение, или null)"
+        default=None,
+        description="Что персонаж ДЕЛАЕТ в этой главе (одно предложение, или null)",
     )
     chapter_event_inner: Optional[str] = Field(
-        default=None, description="Что персонаж ЧУВСТВУЕТ/ДУМАЕТ (одно предложение, или null)"
+        default=None,
+        description="Что персонаж ЧУВСТВУЕТ/ДУМАЕТ (одно предложение, или null)",
     )
 
 
@@ -110,8 +113,6 @@ class GeminiTSAResponseSchema(BaseModel):
     )
     entities: List[GeminiEntitySchema]
     relationships: List[GeminiRelationshipSchema]
-
-
 
 
 @dataclass
@@ -497,13 +498,16 @@ class GeminiDirectExtractor:
     def __init__(self, config: Optional[GeminiConfig] = None):
         """Инициализация экстрактора."""
         self.config = config or GeminiConfig()
-        self.config.api_key = self.config.api_key or os.getenv("LANGEXTRACT_API_KEY")
+        self.config.api_key = (
+            self.config.api_key
+            or os.getenv("OPENROUTER_API_KEY")
+            or os.getenv("LANGEXTRACT_API_KEY")
+        )
 
         self.chunker = RecursiveTextChunker(self.config)
 
         self._client: Any = None
         self._model: Optional[str] = None
-        self._types: Any = None
         self._available = False
 
         # Статистика
@@ -518,36 +522,23 @@ class GeminiDirectExtractor:
         # TD-P3-6 FIX: Lock for thread-safe stats updates
         self._stats_lock = asyncio.Lock()
 
-        # Rate limiting semaphore for concurrent Gemini API calls
+        # Rate limiting semaphore for concurrent API calls
         # TD-P3-2 FIX: Moved from per-call to class level
         self._chunk_semaphore = asyncio.Semaphore(3)
 
         self._initialize()
 
     def _initialize(self):
-        """Инициализация Gemini API с новым google-genai SDK (December 2025)."""
-        if not self.config.api_key:
-            logger.warning("LANGEXTRACT_API_KEY not set. Gemini extractor disabled.")
-            return
-
+        """Инициализация OpenRouter клиента (Plan 03-02: миграция с google-genai на OpenRouter)."""
         try:
-            from google import genai
-            from google.genai import types
-
-            # Создаём клиент с новым SDK
-            self._client = genai.Client(api_key=self.config.api_key)
+            self._client = get_openrouter_client()
             self._model = self.config.model_extraction
-            self._types = types
-
             self._available = True
             logger.info(
-                f"Gemini extractor initialized (model: {self.config.model_extraction}, SDK: google-genai)"
+                f"Gemini extractor initialized (model: {self.config.model_extraction}, client: OpenRouter)"
             )
-
-        except ImportError:
-            logger.error("google-genai not installed. Run: pip install google-genai")
         except Exception as e:
-            logger.error(f"Failed to initialize Gemini: {e}")
+            logger.error(f"Failed to initialize OpenRouter client: {e}")
 
     def is_available(self) -> bool:
         """Проверить доступность экстрактора."""
@@ -728,160 +719,72 @@ class GeminiDirectExtractor:
     @retry_llm_extraction
     async def _call_gemini_with_retry(self, prompt: str) -> GeminiResponseSchema:
         """
-        Call Gemini API with tenacity retry decorator.
+        Вызов OpenRouter API с tenacity retry декоратором.
 
-        Phase 6: Returns parsed Pydantic model directly.
+        Plan 03-02: Мигрирован с google-genai на OpenRouter generate_structured().
+        Убран asyncio.to_thread — httpx.AsyncClient полностью async.
         """
-        start_time = time.time()
-        model_name = self.config.model_id
-
         try:
-            config = self._types.GenerateContentConfig(
+            raw_dict = await self._client.generate_structured(
+                prompt=prompt,
+                schema_class=GeminiResponseSchema,
                 temperature=0.3,
-                top_p=0.95,
-                response_mime_type="application/json",
-                response_schema=GeminiResponseSchema,
             )
 
-            response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._client.models.generate_content,
-                    model=self._model,
-                    contents=prompt,
-                    config=config,
-                ),
-                timeout=self.config.timeout_seconds,
-            )
+            # Обработка data-обёртки (legacy Gemini ответы)
+            if isinstance(raw_dict, dict) and "data" in raw_dict:
+                logger.warning("Unwrapping 'data' key from OpenRouter response")
+                raw_dict = raw_dict["data"]
 
-            duration = time.time() - start_time
-            record_llm_request(model_name, "success", duration)
-
-            if hasattr(response, "parsed") and response.parsed:
-                parsed = response.parsed
-                if isinstance(parsed, dict) and "data" in parsed:
-                    logger.warning("Unwrapping 'data' key from Gemini legacy response")
-                    parsed = parsed["data"]
-                if isinstance(parsed, GeminiResponseSchema):
-                    return parsed
-                return GeminiResponseSchema.model_validate(parsed)
-
-            text = response.text if hasattr(response, "text") else str(response)
-            logger.warning(
-                "Gemini returned text instead of parsed object, parsing manually"
-            )
-            cleaned = clean_json_text(text)
-            try:
-                data = json.loads(cleaned)
-                if isinstance(data, dict) and "data" in data:
-                    logger.warning(
-                        "Unwrapping 'data' key from Gemini legacy text response"
-                    )
-                    data = data["data"]
-                return GeminiResponseSchema.model_validate(data)
-            except json.JSONDecodeError as e:
-                raise LLMExtractionError(
-                    f"Gemini legacy returned invalid JSON: {cleaned[:200]}"
-                ) from e
-
-        except asyncio.TimeoutError as e:
-            duration = time.time() - start_time
-            record_llm_request(model_name, "timeout", duration)
-            record_llm_error(model_name, "timeout")
-            error_msg = f"Gemini API timed out after {self.config.timeout_seconds}s"
-            logger.warning(error_msg)
-            raise RetryTimeoutError(error_msg) from e
+            return GeminiResponseSchema.model_validate(raw_dict)
 
         except Exception as e:
-            duration = time.time() - start_time
             error_msg = str(e)
 
             if "rate" in error_msg.lower() and "limit" in error_msg.lower():
-                record_llm_request(model_name, "rate_limited", duration)
-                record_llm_rate_limit(model_name)
+                record_llm_rate_limit(self.config.model_id)
                 raise RateLimitError(error_msg) from e
             if "quota" in error_msg.lower():
-                record_llm_request(model_name, "rate_limited", duration)
-                record_llm_rate_limit(model_name)
+                record_llm_rate_limit(self.config.model_id)
                 raise RateLimitError(error_msg) from e
             if "429" in error_msg:
-                record_llm_request(model_name, "rate_limited", duration)
-                record_llm_rate_limit(model_name)
+                record_llm_rate_limit(self.config.model_id)
                 raise RateLimitError(error_msg) from e
 
-            record_llm_request(model_name, "error", duration)
-            record_llm_error(model_name, "api_error")
-            logger.error(f"Gemini extraction error: {error_msg}")
+            record_llm_error(self.config.model_id, "api_error")
+            logger.error(f"OpenRouter extraction error: {error_msg}")
             raise LLMExtractionError(error_msg) from e
 
     @retry_llm_extraction
     async def _call_gemini_tsa(self, prompt: str) -> GeminiTSAResponseSchema:
-        start_time = time.time()
-        model_name = self.config.model_id
+        """
+        Вызов OpenRouter API для TSA режима с tenacity retry декоратором.
 
+        Plan 03-02: Мигрирован с google-genai на OpenRouter generate_structured().
+        Убран asyncio.to_thread — httpx.AsyncClient полностью async.
+        """
         try:
-            config = self._types.GenerateContentConfig(
+            raw_dict = await self._client.generate_structured(
+                prompt=prompt,
+                schema_class=GeminiTSAResponseSchema,
                 temperature=0.3,
-                top_p=0.95,
-                response_mime_type="application/json",
-                response_schema=GeminiTSAResponseSchema,
             )
 
-            response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._client.models.generate_content,
-                    model=self._model,
-                    contents=prompt,
-                    config=config,
-                ),
-                timeout=self.config.timeout_seconds,
-            )
+            # Обработка data-обёртки (legacy Gemini ответы)
+            if isinstance(raw_dict, dict) and "data" in raw_dict:
+                logger.warning("Unwrapping 'data' key from OpenRouter TSA response")
+                raw_dict = raw_dict["data"]
 
-            duration = time.time() - start_time
-            record_llm_request(model_name, "success", duration)
-
-            if hasattr(response, "parsed") and response.parsed:
-                parsed = response.parsed
-                if isinstance(parsed, dict) and "data" in parsed:
-                    logger.warning("Unwrapping 'data' key from Gemini TSA response")
-                    parsed = parsed["data"]
-                if isinstance(parsed, GeminiTSAResponseSchema):
-                    return parsed
-                return GeminiTSAResponseSchema.model_validate(parsed)
-
-            text = response.text if hasattr(response, "text") else str(response)
-            cleaned = clean_json_text(text)
-            try:
-                data = json.loads(cleaned)
-                if isinstance(data, dict) and "data" in data:
-                    logger.warning(
-                        "Unwrapping 'data' key from Gemini TSA text response"
-                    )
-                    data = data["data"]
-                return GeminiTSAResponseSchema.model_validate(data)
-            except json.JSONDecodeError as e:
-                raise LLMExtractionError(
-                    f"Gemini TSA returned invalid JSON: {cleaned[:200]}"
-                ) from e
-
-        except asyncio.TimeoutError as e:
-            duration = time.time() - start_time
-            record_llm_request(model_name, "timeout", duration)
-            record_llm_error(model_name, "timeout")
-            raise RetryTimeoutError(
-                f"TSA call timed out after {self.config.timeout_seconds}s"
-            ) from e
+            return GeminiTSAResponseSchema.model_validate(raw_dict)
 
         except Exception as e:
-            duration = time.time() - start_time
             error_msg = str(e)
 
             if any(x in error_msg.lower() for x in ["rate", "quota", "429"]):
-                record_llm_request(model_name, "rate_limited", duration)
-                record_llm_rate_limit(model_name)
+                record_llm_rate_limit(self.config.model_id)
                 raise RateLimitError(error_msg) from e
 
-            record_llm_request(model_name, "error", duration)
-            record_llm_error(model_name, "api_error")
+            record_llm_error(self.config.model_id, "api_error")
             raise LLMExtractionError(error_msg) from e
 
     def _convert_tsa_to_descriptions(
@@ -1109,7 +1012,9 @@ class GeminiDirectExtractor:
             if source_lower:
                 name_in_text = name.casefold() in source_lower
                 aliases_in_text = any(
-                    a.casefold().strip() in source_lower for a in (item.aliases or []) if a
+                    a.casefold().strip() in source_lower
+                    for a in (item.aliases or [])
+                    if a
                 )
                 if not name_in_text and not aliases_in_text:
                     logger.debug(f"Entity '{name}' not found in source text, skipping")
