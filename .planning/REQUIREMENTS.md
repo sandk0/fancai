@@ -56,15 +56,15 @@
 
 ### Миграция сервисов (OpenRouter + Caddy)
 
-- [ ] **MIGR-01**: Мигрировать entity_synthesis на OpenRouter API (только response_mime_type, низкая сложность)
-- [ ] **MIGR-02**: Мигрировать consistency_manager на OpenRouter API (только response_mime_type, средняя сложность)
+- [x] **MIGR-01**: Мигрировать entity_synthesis на OpenRouter API (только response_mime_type, низкая сложность)
+- [x] **MIGR-02**: Мигрировать consistency_manager на OpenRouter API (только response_mime_type, средняя сложность)
 - [ ] **MIGR-03**: Мигрировать entity_dedup на OpenRouter API (response_schema с вложенными Optional полями, высокая сложность)
 - [ ] **MIGR-04**: Мигрировать gemini_extractor на OpenRouter API (response_schema с Pydantic, высокая сложность)
-- [ ] **MIGR-04.1**: Мигрировать imagen_generator с Imagen 4 (Google API) на OpenRouter image-модели (FLUX.2 Pro/Klein), удалить зависимость google-genai
-- [ ] **MIGR-05**: Реализовать fallback chain: Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite
+- [x] **MIGR-04.1**: Мигрировать imagen_generator с Imagen 4 (Google API) на OpenRouter image-модели (FLUX.2 Pro/Klein), удалить зависимость google-genai
+- [x] **MIGR-05**: Реализовать fallback chain: Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite
 - [ ] **MIGR-06**: Заменить nginx на Caddy — написать Caddyfile (~80 строк вместо 748 строк nginx)
 - [ ] **MIGR-07**: Настроить auto-HTTPS в Caddy (Let's Encrypt + ZeroSSL)
-- [ ] **MIGR-08**: Добавить rate limiting через FastAPI slowapi (по user ID, не только по IP)
+- [x] **MIGR-08**: Добавить rate limiting через FastAPI slowapi (по user ID, не только по IP)
 
 ### Обслуживание инфраструктуры (мониторинг + зависимости)
 

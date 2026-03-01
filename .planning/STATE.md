@@ -23,11 +23,11 @@ progress:
 ## Текущая позиция
 
 Фаза: 3 из 8 (Миграция сервисов)
-План: 3 из 4 в текущей фазе — Plan 03-02 ЗАВЕРШЁН
-Статус: Plan 03-02 выполнен. gemini_extractor и entity_dedup мигрированы на OpenRouter generate_structured(). Все 4 LLM-сервиса теперь на OpenRouter. asyncio.to_thread убран.
-Последняя активность: 2026-03-01 — Plan 03-02 выполнен (2/2 задачи, ~35 мин). MIGR-03, MIGR-04 закрыты.
+План: 4 из 4 в текущей фазе — Plan 03-03 ЗАВЕРШЁН
+Статус: Plan 03-03 выполнен. imagen_generator мигрирован на OpenRouter FLUX.2 Klein 4B, google-genai SDK удалён полностью. Rate limiting расширен: per-user ID, JSON 429, AI presets, применён к 4 AI-эндпоинтам.
+Последняя активность: 2026-03-02 — Plan 03-03 выполнен (3/3 задачи, ~15 мин). MIGR-04.1, MIGR-08 закрыты.
 
-Прогресс: [███████░░░] 38%
+Прогресс: [████████░░] 44%
 
 ## Метрики производительности
 
@@ -43,11 +43,11 @@ progress:
 | ----------------------- | ----- | -------- | ------------ |
 | 01-production-safety    | 2/2   | ~60 мин  | ~30 мин      |
 | 02-dead-code-cleanup    | 2/2   | ~39 мин  | ~20 мин      |
-| 03-migration-services   | 3/4   | ~114 мин | ~38 мин      |
+| 03-migration-services   | 4/4   | ~129 мин | ~32 мин      |
 
 **Недавний тренд:**
 
-- Последние 7 планов: 01-01 (~30 мин), 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин)
+- Последние 7 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин)
 - Тренд: Инфра-планы требуют больше времени (~40-45 мин) из-за интеграции компонентов и верификации; TDD-планы ~30-35 мин
 
 _Обновляется после завершения каждого плана_
@@ -86,6 +86,9 @@ _Обновляется после завершения каждого план�
 - [03-02]: asyncio.to_thread убран из gemini_extractor — httpx.AsyncClient полностью async, не нужен thread pool
 - [03-02]: google-genai остаётся в requirements.txt до Plan 03-03 — imagen_generator.py ещё использует SDK
 - [03-02]: data-обёртка legacy ответов сохранена в _call_gemini_with_retry и _call_gemini_tsa — обратная совместимость с ответами через OpenRouter
+- [03-03]: FLUX.2 Klein 4B не имеет встроенного safety filter (в отличие от Imagen 4) — SFW-защита через суффикс "SFW, safe for work, appropriate content" в промпте
+- [03-03]: Python 3.14 LOAD_GLOBAL specialization (PEP 659) — patch('...rate_limiter') не работает; используется monkey-patch на классе RateLimiter
+- [03-03]: generate_images_for_chapter: параметр 'request: BatchGenerationRequest' переименован в 'body' чтобы освободить имя 'request' для fastapi.Request
 
 ### Ожидающие задачи
 
@@ -102,6 +105,6 @@ _Обновляется после завершения каждого план�
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-01
-Остановились на: Plan 03-02 завершён. gemini_extractor + entity_dedup мигрированы на OpenRouter. Все 4 LLM-сервиса на OpenRouter. 60 тестов проходят. Следующий: Plan 03-03 (imagen_generator миграция + удаление google-genai).
-Файл возобновления: .planning/phases/03-migration-services/03-02-SUMMARY.md
+Последняя сессия: 2026-03-02
+Остановились на: Plan 03-03 завершён. Все 5 AI-сервисов на OpenRouter, google-genai удалён. Rate limiting расширен per-user/per-IP, AI presets, 4 AI-эндпоинта защищены. 106 тестов проходят. Фаза 03 полностью завершена.
+Файл возобновления: .planning/phases/03-migration-services/03-03-SUMMARY.md
