@@ -11,8 +11,8 @@
 
 Фаза: 1 из 8 (Безопасность продакшена)
 План: 2 из 2 в текущей фазе (Phase 1 завершена)
-Статус: Phase 1 выполнена — чекпоинт верификации Hawk Tracker у пользователя
-Последняя активность: 2026-03-01 — Выполнены планы 01-01 и 01-02 (Production Safety)
+Статус: Phase 1 полностью выполнена (01-01 + 01-02) — все исправления безопасности и инфраструктуры применены
+Последняя активность: 2026-03-01 — Выполнен план 01-01 (Security config + infra fixes: DEPLOY-01,05,06,07,08, UX-01, SEC-01, SEC-02)
 
 Прогресс: [██░░░░░░░░] 12%
 
@@ -52,6 +52,10 @@
 - [01-02]: hawk-python-sdk 3.5.2 (не 1.x.x из плана — актуальная стабильная версия)
 - [01-02]: Celery task_failure signal через @task_failure.connect декоратор внутри init_hawk_celery()
 - [01-02]: Celery интеграция обёрнута в try/except в celery_app.py чтобы не сломать запуск воркера
+- [01-01]: DEBUG=False по умолчанию — без .env файла приложение безопасно в продакшене
+- [01-01]: extra='ignore' в Settings.Config — игнорируем неизвестные env vars из root .env
+- [01-01]: Celery concurrency default 4 → 2 (оптимально для 32GB сервера с учётом memory limits)
+- [01-01]: visibility_timeout=14400 > max task_time_limit (DEPLOY-05 исправлен)
 
 ### Ожидающие задачи
 
@@ -64,10 +68,10 @@
 - [Аудит v5]: Gemini 3 Flash — preview-модель (не GA). Риск изменения API без предупреждения. Mitigation: fallback chain через OpenRouter (Phase 3)
 - [Аудит v5]: Dockge (Docker UI) stale >12 мес. Рассмотреть Lazydocker или CLI вместо веб-UI
 - [Аудит v5]: Redis 8.0 лицензирование (AGPL/RSAL) — оставаться на Redis 7.4-alpine до юридической оценки
-- [Планирование]: Phase 1 планы (01-01, 01-02) нуждаются в обновлении — добавить DEPLOY-05..08 (Celery баги, LANGEXTRACT_MODEL, postgres CVE, memory limits)
+- ~~[Планирование]: Phase 1 планы (01-01, 01-02) нуждаются в обновлении — добавить DEPLOY-05..08 (Celery баги, LANGEXTRACT_MODEL, postgres CVE, memory limits)~~ — ВЫПОЛНЕНО в 01-01
 
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-01
-Остановились на: Выполнен план 01-02 (Hawk Tracker мониторинг) — чекпоинт верификации у пользователя
-Файл возобновления: .planning/phases/01-production-safety/01-02-SUMMARY.md
+Остановились на: Выполнен план 01-01 (Security config, gunicorn, health check, celery fixes, docker-compose sync). Фаза 1 полностью завершена.
+Файл возобновления: .planning/phases/01-production-safety/01-01-SUMMARY.md
