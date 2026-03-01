@@ -9,8 +9,8 @@
 
 ### Безопасность
 
-- [ ] **SEC-01**: Исправить значение DEBUG по умолчанию на False в config.py
-- [ ] **SEC-02**: Исправить захардкоженный SECRET_KEY — прерывать запуск, если используется ключ по умолчанию в не-debug режиме
+- [x] **SEC-01**: Исправить значение DEBUG по умолчанию на False в config.py
+- [x] **SEC-02**: Исправить захардкоженный SECRET_KEY — прерывать запуск, если используется ключ по умолчанию в не-debug режиме
 - [x] **SEC-03**: ~~Заменить python-jose (CVE) на PyJWT для JWT-операций~~ — ВЫПОЛНЕНО (PyJWT[crypto]==2.10.1 уже в requirements.txt)
 
 ### Очистка мертвого кода и заглушек
@@ -23,7 +23,7 @@
 
 ### Обработка ошибок и UX
 
-- [ ] **UX-01**: Реализовать настоящий health check endpoint (реальная проверка подключения к БД + Redis + Celery)
+- [x] **UX-01**: Реализовать настоящий health check endpoint (реальная проверка подключения к БД + Redis + Celery)
 - [ ] **UX-02**: Стандартизировать сообщения об ошибках для всех состояний сбоя (единообразно использовать ErrorMessage.tsx)
 - [ ] **UX-03**: Добавить пользовательские состояния ошибок при сбое парсинга книги (информативное сообщение + действие повтора)
 - [ ] **UX-04**: Добавить состояния загрузки при переходе между главами (shimmer/skeleton пока epub.js перерендеривает контент)
@@ -45,14 +45,14 @@
 
 ### Продакшен-деплой
 
-- [ ] **DEPLOY-01**: Переключиться на Gunicorn в продакшене (убрать флаг --reload из docker-compose.lite.yml)
+- [x] **DEPLOY-01**: Переключиться на Gunicorn в продакшене (убрать флаг --reload из docker-compose.lite.yml)
 - [x] **DEPLOY-02**: Инициализировать Hawk Tracker на бэкенде (hawk-python-sdk[fastapi], HawkFastapi integration)
 - [x] **DEPLOY-03**: Добавить Hawk Tracker на фронтенд (@hawk.so/javascript) для отслеживания ошибок
 - [ ] **DEPLOY-04**: Добавить стратегию резервного копирования базы данных (локальное решение, отложено на следующие фазы)
-- [ ] **DEPLOY-05**: Исправить visibility_timeout (3600) < time_limit (10800) в Celery — увеличить до 14400 для предотвращения дублирования задач
-- [ ] **DEPLOY-06**: Синхронизировать LANGEXTRACT_MODEL в docker-compose файлах (gemini-2.0-flash → gemini-3-flash-preview)
-- [ ] **DEPLOY-07**: Обновить postgres:17-alpine → postgres:17.9-alpine (CVE-2025-8715 CRITICAL, CVE-2025-1094 HIGH)
-- [ ] **DEPLOY-08**: Унифицировать memory limits для Celery workers на 512MB во всех конфигурациях (код + staging + prod)
+- [x] **DEPLOY-05**: Исправить visibility_timeout (3600) < time_limit (10800) в Celery — увеличить до 14400 для предотвращения дублирования задач
+- [x] **DEPLOY-06**: Синхронизировать LANGEXTRACT_MODEL в docker-compose файлах (gemini-2.0-flash → gemini-3-flash-preview)
+- [x] **DEPLOY-07**: Обновить postgres:17-alpine → postgres:17.9-alpine (CVE-2025-8715 CRITICAL, CVE-2025-1094 HIGH)
+- [x] **DEPLOY-08**: Унифицировать memory limits для Celery workers на 512MB во всех конфигурациях (код + staging + prod)
 
 ### Миграция сервисов (OpenRouter + Caddy)
 
