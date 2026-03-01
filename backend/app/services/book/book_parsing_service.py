@@ -2,7 +2,7 @@
 Сервис для управления парсингом книг и LLM обработкой.
 
 Ответственности:
-- Извлечение описаний из глав с помощью LLM (LangExtract/Gemini)
+- Извлечение описаний из глав с помощью LLM (Gemini)
 - Управление прогрессом парсинга
 - Маппинг жанров (перенесено из BookService)
 - Интеграция с Celery tasks для асинхронного парсинга
@@ -10,12 +10,6 @@
 Single Responsibility Principle:
 Сервис отвечает ТОЛЬКО за парсинг и LLM обработку.
 Не занимается CRUD операциями книг или статистикой.
-
-NLP REMOVAL (December 2025):
-- Удален multi_nlp_manager (требовал 10-12 ГБ RAM)
-- Используется gemini_extractor (LLM-based via Gemini API)
-- Описания больше не хранятся в отдельной таблице
-- Извлечение происходит on-demand через LLM API
 """
 
 from typing import List, Optional, Dict, Any, TYPE_CHECKING

@@ -5,11 +5,9 @@
  * - AdminHeader - Заголовок панели
  * - AdminTabNavigation - Навигация по табам
  * - AdminStats - Статистические карточки
- * - AdminMultiNLPSettings - Настройки Multi-NLP (в отдельном файле)
  * - AdminParsingSettings - Настройки парсинга (в отдельном файле)
  *
  * Features:
- * - Управление Multi-NLP настройками
  * - Управление настройками парсинга
  * - Системная статистика
  * - Placeholder для Images, System, Users табов
@@ -17,7 +15,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Activity, Cpu, Database, Image, Server, Users, GitMerge } from 'lucide-react';
+import { AlertTriangle, Activity, Database, Image, Server, Users, GitMerge } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { notify } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';
@@ -26,63 +24,41 @@ import ErrorMessage from '@/components/UI/ErrorMessage';
 import { AdminHeader } from '@/components/Admin/AdminHeader';
 import { AdminTabNavigation, type AdminTab } from '@/components/Admin/AdminTabNavigation';
 import { AdminStats } from '@/components/Admin/AdminStats';
-import { AdminMultiNLPSettings } from '@/components/Admin/AdminMultiNLPSettings';
 import { AdminParsingSettings } from '@/components/Admin/AdminParsingSettings';
 import { PageMeta } from '@/components/SEO/PageMeta';
 import { AdminEntityMerge } from '@/components/Admin/AdminEntityMerge';
 import { Accordion, type AccordionItem } from '@/components/UI/Accordion';
-import {
-  adminAPI,
-  type SystemStats,
-  type MultiNLPSettings,
-  type ParsingSettings,
-} from '@/api/admin';
+import { adminAPI, type SystemStats, type ParsingSettings } from '@/api/admin';
 
 const AdminDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user, isLoading } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [multiNlpOverrides, setMultiNlpOverrides] = useState<MultiNLPSettings | null>(null);
   const [parsingOverrides, setParsingOverrides] = useState<ParsingSettings | null>(null);
 
   // Always call hooks regardless of user state
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<SystemStats>({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useQuery<SystemStats>({
     queryKey: ['admin', 'stats'],
     queryFn: () => adminAPI.getSystemStats(),
     refetchInterval: 30000,
-    enabled: !!(user && user.is_admin)
-  });
-
-  const { data: multiNlpData, isLoading: multiNlpLoading } = useQuery<MultiNLPSettings>({
-    queryKey: ['admin', 'multi-nlp-settings'],
-    queryFn: () => adminAPI.getMultiNLPSettings(),
-    enabled: !!(user && user.is_admin)
+    enabled: !!(user && user.is_admin),
   });
 
   const { data: parsingData, isLoading: parsingLoading } = useQuery<ParsingSettings>({
     queryKey: ['admin', 'parsing-settings'],
     queryFn: () => adminAPI.getParsingSettings(),
-    enabled: !!(user && user.is_admin)
+    enabled: !!(user && user.is_admin),
   });
 
   // Derive effective settings: local overrides take precedence over query data
-  const multiNlpSettings = multiNlpOverrides ?? multiNlpData ?? null;
   const parsingSettings = parsingOverrides ?? parsingData ?? null;
 
-  const setMultiNlpSettings = setMultiNlpOverrides;
   const setParsingSettings = setParsingOverrides;
-
-  const saveMultiNlpSettings = useMutation({
-    mutationFn: (settings: MultiNLPSettings) => adminAPI.updateMultiNLPSettings(settings),
-    onSuccess: () => {
-      notify.success(t('admin.settingsSaved'), t('admin.multiNlpUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['admin'] });
-    },
-    onError: (error: Error) => {
-      notify.error(t('admin.saveFailed'), error.message);
-    }
-  });
 
   const saveParsingSettings = useMutation({
     mutationFn: (settings: ParsingSettings) => adminAPI.updateParsingSettings(settings),
@@ -92,7 +68,7 @@ const AdminDashboard: React.FC = () => {
     },
     onError: (error: Error) => {
       notify.error(t('admin.saveFailed'), error.message);
-    }
+    },
   });
 
   if (isLoading) {
@@ -121,32 +97,9 @@ const AdminDashboard: React.FC = () => {
       description: t('admin.overviewDesc'),
       icon: Activity,
       content: statsError ? (
-        <ErrorMessage
-          title={t('admin.failedToLoadStats')}
-          message={statsError.message}
-        />
+        <ErrorMessage title={t('admin.failedToLoadStats')} message={statsError.message} />
       ) : (
-        <AdminStats
-          stats={stats}
-          isLoading={statsLoading}
-          t={t}
-        />
-      ),
-    },
-    {
-      id: 'nlp',
-      title: t('admin.multiNlpSettings'),
-      description: t('admin.nlpDesc'),
-      icon: Cpu,
-      content: (
-        <AdminMultiNLPSettings
-          settings={multiNlpSettings}
-          setSettings={setMultiNlpSettings}
-          isLoading={multiNlpLoading}
-          onSave={(settings) => saveMultiNlpSettings.mutate(settings)}
-          isSaving={saveMultiNlpSettings.isPending}
-          t={t}
-        />
+        <AdminStats stats={stats} isLoading={statsLoading} t={t} />
       ),
     },
     {
@@ -215,26 +168,16 @@ const AdminDashboard: React.FC = () => {
       <PageMeta title={t('admin.pageTitle')} description={t('admin.pageDescription')} />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4 lg:py-6 w-full max-w-full box-border">
         {/* Header */}
-        <AdminHeader
-          title={t('admin.title')}
-          subtitle={t('admin.subtitle')}
-        />
+        <AdminHeader title={t('admin.title')} subtitle={t('admin.subtitle')} />
 
         {/* Mobile: Accordion Navigation */}
         <div className="lg:hidden">
-          <Accordion
-            items={accordionItems}
-            defaultOpen="overview"
-          />
+          <Accordion items={accordionItems} defaultOpen="overview" />
         </div>
 
         {/* Desktop: Tab Navigation + Content */}
         <div className="hidden lg:block">
-          <AdminTabNavigation
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            t={t}
-          />
+          <AdminTabNavigation activeTab={activeTab} onTabChange={setActiveTab} t={t} />
 
           {/* Tab Content */}
           <div className="w-full max-w-full overflow-x-clip">
@@ -242,30 +185,11 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {statsError ? (
-                  <ErrorMessage
-                    title={t('admin.failedToLoadStats')}
-                    message={statsError.message}
-                  />
+                  <ErrorMessage title={t('admin.failedToLoadStats')} message={statsError.message} />
                 ) : (
-                  <AdminStats
-                    stats={stats}
-                    isLoading={statsLoading}
-                    t={t}
-                  />
+                  <AdminStats stats={stats} isLoading={statsLoading} t={t} />
                 )}
               </div>
-            )}
-
-            {/* NLP Settings Tab */}
-            {activeTab === 'nlp' && (
-              <AdminMultiNLPSettings
-                settings={multiNlpSettings}
-                setSettings={setMultiNlpSettings}
-                isLoading={multiNlpLoading}
-                onSave={(settings) => saveMultiNlpSettings.mutate(settings)}
-                isSaving={saveMultiNlpSettings.isPending}
-                t={t}
-              />
             )}
 
             {/* Parsing Settings Tab */}

@@ -112,21 +112,12 @@ async def process_book_descriptions(
                     )
 
                 except Exception:
-                    logger.exception("Failed to dispatch Celery task for book %s, falling back to sync processing" % book_id)
+                    logger.exception(
+                        "Failed to dispatch Celery task for book %s" % book_id
+                    )
                     # Освобождаем блокировку при ошибке
                     await parsing_manager.release_parsing_lock(book_id)
-
-                    # Fallback на синхронную обработку
-                    from ...services.nlp_processor import process_book_descriptions
-
-                    result = await process_book_descriptions(book_id, db)
-
-                    return BookProcessingResponse(
-                        book_id=book_id,
-                        status="completed",
-                        message="Book processing completed synchronously",
-                        descriptions_found=result.get("total_descriptions", 0),
-                    )
+                    raise
 
         # Если парсинг сейчас невозможен, добавляем в очередь
         queue_info = await parsing_manager.add_to_parsing_queue(
@@ -224,7 +215,6 @@ async def get_parsing_status(
                 progress=0,
                 message="Parsing not started",
             )
-
 
     except HTTPException:
         raise

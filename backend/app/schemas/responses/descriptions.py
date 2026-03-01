@@ -2,7 +2,7 @@
 Response schemas для Description analysis endpoints.
 
 Содержит Pydantic модели для:
-- NLP анализ глав книги
+- Анализ описаний глав книги
 - Описания в контексте главы
 - Превью анализа главы
 - Статистика по типам описаний
@@ -37,9 +37,9 @@ class ChapterMinimalInfo(BaseModel):
     word_count: int = Field(ge=0, description="Word count in chapter")
 
 
-class NLPAnalysisResult(BaseModel):
+class DescriptionsAnalysis(BaseModel):
     """
-    Результаты NLP анализа текста.
+    Результаты анализа описаний текста.
 
     Используется в ChapterDescriptionsResponse и ChapterAnalysisResponse.
 
@@ -53,7 +53,7 @@ class NLPAnalysisResult(BaseModel):
         total_descriptions: Всего найдено описаний
         by_type: Количество по типам описаний
         descriptions: Список описаний с полной информацией
-        processing_time_seconds: Время обработки NLP (опционально)
+        processing_time_seconds: Время обработки (опционально)
     """
 
     total_descriptions: int = Field(ge=0, description="Total descriptions found")
@@ -65,7 +65,7 @@ class NLPAnalysisResult(BaseModel):
         default_factory=list, description="List of extracted descriptions with metadata"
     )
     processing_time_seconds: Optional[float] = Field(
-        None, ge=0.0, description="NLP processing time in seconds (if available)"
+        None, ge=0.0, description="Processing time in seconds (if available)"
     )
 
 
@@ -77,17 +77,17 @@ class ChapterDescriptionsResponse(BaseModel):
 
     Включает:
     - Минимальную информацию о главе
-    - Полный NLP анализ с описаниями
+    - Анализ описаний с результатами
     - Сообщение об успешном выполнении
 
     Attributes:
         chapter_info: Информация о главе
-        nlp_analysis: NLP анализ с описаниями
+        nlp_analysis: Анализ описаний (поле сохранено для совместимости с фронтендом)
         message: Сообщение о результате
     """
 
     chapter_info: ChapterMinimalInfo
-    nlp_analysis: NLPAnalysisResult
+    nlp_analysis: DescriptionsAnalysis
     message: str = Field(default="Descriptions retrieved successfully")
 
 
@@ -114,25 +114,25 @@ class ChapterAnalysisPreview(BaseModel):
 
 class ChapterAnalysisResponse(BaseModel):
     """
-    Response для NLP анализа главы (preview mode).
+    Response для анализа описаний главы (preview mode).
 
     Используется в POST /api/v1/descriptions/analyze-chapter.
 
     Анализирует главу БЕЗ сохранения в базу данных.
     Полезно для:
     - Preview анализа перед загрузкой книги
-    - Тестирования качества NLP
+    - Тестирования качества извлечения
     - Демонстрации возможностей системы
 
     Attributes:
         chapter_info: Превью информации о главе
-        nlp_analysis: Результаты NLP анализа
+        nlp_analysis: Результаты анализа описаний (поле сохранено для совместимости)
         message: Сообщение о результате
         test_mode: True если анализ не был сохранен в БД
     """
 
     chapter_info: ChapterAnalysisPreview
-    nlp_analysis: NLPAnalysisResult
+    nlp_analysis: DescriptionsAnalysis
     message: str = Field(default="Chapter analyzed successfully")
     test_mode: bool = Field(
         default=False, description="True if analysis was not saved to database"
@@ -224,7 +224,7 @@ class BackgroundExtractionResponse(BaseModel):
 
 __all__ = [
     "ChapterMinimalInfo",
-    "NLPAnalysisResult",
+    "DescriptionsAnalysis",
     "ChapterDescriptionsResponse",
     "ChapterAnalysisPreview",
     "ChapterAnalysisResponse",

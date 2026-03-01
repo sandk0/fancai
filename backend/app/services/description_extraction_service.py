@@ -35,7 +35,7 @@ from app.services.gemini_extractor import gemini_extractor, ExtractedDescription
 from app.schemas.responses import DescriptionResponse
 from app.schemas.responses.descriptions import (
     ChapterMinimalInfo,
-    NLPAnalysisResult,
+    DescriptionsAnalysis,
     ChapterDescriptionsResponse,
     ChapterDescriptionsResult,
     BatchDescriptionsResponse,
@@ -357,7 +357,7 @@ class DescriptionExtractionService:
         by_type = self.group_by_type(descriptions)
         desc_responses = [self.build_description_response(d) for d in descriptions]
 
-        nlp_analysis = NLPAnalysisResult(
+        nlp_analysis = DescriptionsAnalysis(
             total_descriptions=len(descriptions),
             by_type=by_type,
             descriptions=desc_responses,
@@ -380,7 +380,7 @@ class DescriptionExtractionService:
         )
         return ChapterDescriptionsResponse(
             chapter_info=chapter_info,
-            nlp_analysis=NLPAnalysisResult(
+            nlp_analysis=DescriptionsAnalysis(
                 total_descriptions=0,
                 by_type={},
                 descriptions=[],
