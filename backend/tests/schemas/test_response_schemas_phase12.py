@@ -24,7 +24,7 @@ from app.schemas.responses.images import (
 )
 from app.schemas.responses.descriptions import (
     ChapterMinimalInfo,
-    NLPAnalysisResult,
+    DescriptionsAnalysis,
     ChapterDescriptionsResponse,
     ChapterAnalysisPreview,
     ChapterAnalysisResponse,
@@ -275,8 +275,8 @@ class TestChapterMinimalInfo:
             )
 
 
-class TestNLPAnalysisResult:
-    """Тесты для NLPAnalysisResult schema."""
+class TestDescriptionsAnalysis:
+    """Тесты для DescriptionsAnalysis schema."""
 
     def test_nlp_analysis_result(self):
         """Проверка NLP анализа."""
@@ -297,7 +297,7 @@ class TestNLPAnalysisResult:
             updated_at=datetime.utcnow(),
         )
 
-        result = NLPAnalysisResult(
+        result = DescriptionsAnalysis(
             total_descriptions=10,
             by_type={"LOCATION": 6, "CHARACTER": 3, "ATMOSPHERE": 1},
             descriptions=[desc_response],
@@ -311,7 +311,7 @@ class TestNLPAnalysisResult:
 
     def test_nlp_analysis_result_without_time(self):
         """Проверка NLP анализа без времени обработки."""
-        result = NLPAnalysisResult(
+        result = DescriptionsAnalysis(
             total_descriptions=0,
             by_type={},
             descriptions=[],
@@ -334,7 +334,7 @@ class TestChapterDescriptionsResponse:
             word_count=3000,
         )
 
-        nlp_analysis = NLPAnalysisResult(
+        nlp_analysis = DescriptionsAnalysis(
             total_descriptions=5,
             by_type={"LOCATION": 3, "CHARACTER": 2},
             descriptions=[],
@@ -392,7 +392,7 @@ class TestChapterAnalysisResponse:
             preview_text="Начало истории...",
         )
 
-        nlp_analysis = NLPAnalysisResult(
+        nlp_analysis = DescriptionsAnalysis(
             total_descriptions=8,
             by_type={"LOCATION": 5, "CHARACTER": 3},
             descriptions=[],
@@ -472,7 +472,7 @@ class TestPhase12Integration:
                 word_count=1000,
                 preview_text="Preview...",
             ),
-            nlp_analysis=NLPAnalysisResult(
+            nlp_analysis=DescriptionsAnalysis(
                 total_descriptions=5,
                 by_type={"LOCATION": 3, "CHARACTER": 2},
                 descriptions=[],
@@ -492,7 +492,7 @@ class TestPhase12Integration:
                 title="Test Chapter",
                 word_count=1000,
             ),
-            nlp_analysis=NLPAnalysisResult(
+            nlp_analysis=DescriptionsAnalysis(
                 total_descriptions=5,
                 by_type={"LOCATION": 3, "CHARACTER": 2},
                 descriptions=[],
