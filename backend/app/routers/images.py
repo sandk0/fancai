@@ -26,6 +26,7 @@ from loguru import logger
 from ..utils.etag import check_conditional_request, get_mime_type_from_extension
 from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, get_current_admin_user
+from ..middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
 from ..core.config import settings
 from ..services.image_generator import ImageGeneratorService
 from ..services.image_crud_service import ImageCRUDService
@@ -345,9 +346,11 @@ async def get_user_images_stats(
     response_model=ImageGenerationSuccessResponse,
     status_code=201,
 )
+@rate_limit(**RATE_LIMIT_PRESETS["ai_image"])
 async def generate_image_for_description(
     description_id: UUID,
     params: ImageGenerationParams,
+    request: Request,
     response: Response,
     background_tasks: BackgroundTasks,
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
@@ -424,9 +427,11 @@ async def generate_image_for_description(
 @router.post(
     "/images/generate/chapter/{chapter_id}", response_model=BatchImageGenerationResponse
 )
+@rate_limit(**RATE_LIMIT_PRESETS["ai_image"])
 async def generate_images_for_chapter(
     chapter_id: UUID,
-    request: BatchGenerationRequest,
+    body: BatchGenerationRequest,
+    request: Request,
     response: Response,
     background_tasks: BackgroundTasks,
     quota_result: Tuple[User, RateLimitInfo] = Depends(check_image_quota),
@@ -445,7 +450,7 @@ async def generate_images_for_chapter(
         )
 
     all_descriptions = await service.get_chapter_descriptions(
-        chapter_id, request.description_types
+        chapter_id, body.description_types
     )
     if not all_descriptions:
         raise HTTPException(
@@ -455,7 +460,7 @@ async def generate_images_for_chapter(
 
     existing = await service.get_batch_existing([d.id for d in all_descriptions])
     descriptions_to_process = [d for d in all_descriptions if d.id not in existing][
-        : request.max_images
+        : body.max_images
     ]
 
     if not descriptions_to_process:
@@ -483,7 +488,7 @@ async def generate_images_for_chapter(
         results = await image_gen_svc.batch_generate_for_chapter(
             descriptions=descriptions_dicts,
             user_id=str(current_user.id),
-            max_images=request.max_images,
+            max_images=body.max_images,
         )
 
         generated_images = []
@@ -502,7 +507,7 @@ async def generate_images_for_chapter(
                     user_id=current_user.id,
                     image_url=http_url,
                     local_path=result.local_path,
-                    prompt_used=result.prompt_used or request.style_prompt or "default",
+                    prompt_used=result.prompt_used or body.style_prompt or "default",
                     generation_time_seconds=result.generation_time_seconds,
                     chapter_id=chapter_id,
                 )
@@ -777,9 +782,9 @@ async def get_admin_image_stats(
         total_images_generated=total_images,
         generation_by_type=type_dist,
         performance=PerformanceStats(
-            average_generation_time_seconds=float(avg_time)
-            if avg_time is not None
-            else None,  # type: ignore[arg-type]
+            average_generation_time_seconds=(
+                float(avg_time) if avg_time is not None else None
+            ),  # type: ignore[arg-type]
             current_queue_size=queue_size,
             is_processing=is_proc,
         ),

@@ -7,9 +7,11 @@ Processing & status endpoints для работы с книгами.
 - Управление очередью обработки
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
+
+from ...middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
 
 from ...core.database import get_database_session
 from ...core.auth import get_current_active_user
@@ -25,7 +27,9 @@ router = APIRouter()
 
 
 @router.post("/{book_id}/process", response_model=BookProcessingResponse)
+@rate_limit(**RATE_LIMIT_PRESETS["ai_operation"])
 async def process_book_descriptions(
+    request: Request,
     book: Book = Depends(get_user_book),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),

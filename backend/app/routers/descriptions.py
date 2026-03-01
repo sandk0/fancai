@@ -4,9 +4,11 @@ API роуты для работы с описаниями в книгах fanca
 Thin router layer - delegates business logic to DescriptionExtractionService.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+
+from ..middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
 
 from ..core.database import get_database_session, AsyncSessionLocal
 from ..core.auth import get_current_active_user
@@ -227,10 +229,12 @@ async def _background_extract_descriptions(
     summary="Trigger background LLM extraction",
     description="Starts LLM extraction in background. Returns immediately.",
 )
+@rate_limit(**RATE_LIMIT_PRESETS["ai_operation"])
 async def trigger_background_extraction(
     book_id: UUID,
     chapter_number: int,
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> BackgroundExtractionResponse:
