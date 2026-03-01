@@ -1,62 +1,70 @@
-# Project State
+# Состояние проекта
 
-## Project Reference
+## Ссылка на проект
 
-See: .planning/PROJECT.md (updated 2026-02-27)
+См.: .planning/PROJECT.md (обновлен 2026-02-27)
 
-**Core value:** Stable AI-powered book reader with spoiler-free entity wiki and AI illustrations -- works reliably without crashes or visual glitches
-**Current focus:** Phase 1: Production Safety
+**Ключевая ценность:** Стабильное AI-приложение для чтения книг со спойлер-защищенной Entity Wiki и AI-иллюстрациями — работает надежно, без сбоев и визуальных глюков
+**Текущий фокус:** Фаза 1: Безопасность продакшена
 
-## Current Position
+## Текущая позиция
 
-Phase: 1 of 6 (Production Safety)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-27 -- Roadmap created (6 phases, 30 requirements mapped)
+Фаза: 1 из 8 (Безопасность продакшена)
+План: 0 из 2 в текущей фазе
+Статус: Готов к планированию (планы нуждаются в обновлении с учётом DEPLOY-05..08)
+Последняя активность: 2026-03-01 — Дорожная карта обновлена по итогам аудит-отчёта v5 (6 → 8 фаз, 30 → 45 требований)
 
-Progress: [░░░░░░░░░░] 0%
+Прогресс: [░░░░░░░░░░] 0%
 
-## Performance Metrics
+## Метрики производительности
 
-**Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+**Скорость:**
+- Всего планов выполнено: 0
+- Средняя продолжительность: -
+- Общее время выполнения: 0 часов
 
-**By Phase:**
+**По фазам:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
+| Фаза | Планы | Всего | Среднее/План |
+|------|-------|-------|--------------|
 | - | - | - | - |
 
-**Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+**Недавний тренд:**
+- Последние 5 планов: -
+- Тренд: -
 
-*Updated after each plan completion*
+*Обновляется после завершения каждого плана*
 
-## Accumulated Context
+## Накопленный контекст
 
-### Decisions
+### Решения
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Решения фиксируются в таблице ключевых решений PROJECT.md.
+Недавние решения, влияющие на текущую работу:
 
-- [Roadmap]: 6 phases derived from 30 requirements. Security first, then cleanup, AI stability, entity wiki, UX, reader features.
-- [Roadmap]: UX-01 (health check) grouped with Phase 1 (production infrastructure) not Phase 5 (UX polish).
-- [Roadmap]: UX-06 (orphaned descriptions) grouped with Phase 4 (entity wiki) since it's a data integrity issue in the description pipeline.
+- [Дорожная карта]: 8 фаз получены из 45 требований. Сначала безопасность, очистка, миграция сервисов, обслуживание инфры, стабильность AI, Entity Wiki, UX, функции ридера.
+- [Аудит v5]: Гибридный подход AI — LLM через OpenRouter (fallback chain), Images через Google API (Imagen 4 не на OpenRouter).
+- [Аудит v5]: Caddy вместо nginx (748→~80 строк). Инфра после очистки кода (Phase 3 после Phase 2).
+- [Аудит v5]: Все баги Celery (visibility_timeout, memory limits) + CVE PostgreSQL 17.9 → Phase 1.
+- [Аудит v5]: Сервер уже мигрировал на 32GB/12vCPU/PG17. PROJECT.md обновлён.
+- [Дорожная карта]: UX-01 (health check) сгруппирован с Фазой 1 (инфраструктура продакшена), а не с Фазой 7 (полировка UX).
+- [Дорожная карта]: UX-06 (осиротевшие описания) сгруппирован с Фазой 6 (Entity Wiki), так как это проблема целостности данных в пайплайне описаний.
 
-### Pending Todos
+### Ожидающие задачи
 
-None yet.
+Пока нет.
 
-### Blockers/Concerns
+### Блокеры/Опасения
 
-- [Research]: Phase 3 -- aiobreaker behavior inside Celery workers needs targeted proof-of-concept during planning
-- [Research]: Phase 4 -- Hypothesis property-based testing for spoiler filtering needs test design research during planning
+- [Исследование]: Фаза 5 — поведение aiobreaker внутри Celery workers требует целевого proof-of-concept во время планирования
+- [Исследование]: Фаза 6 — тестирование спойлер-фильтрации через Hypothesis (property-based testing) требует исследования дизайна тестов во время планирования
+- [Аудит v5]: Gemini 3 Flash — preview-модель (не GA). Риск изменения API без предупреждения. Mitigation: fallback chain через OpenRouter (Phase 3)
+- [Аудит v5]: Dockge (Docker UI) stale >12 мес. Рассмотреть Lazydocker или CLI вместо веб-UI
+- [Аудит v5]: Redis 8.0 лицензирование (AGPL/RSAL) — оставаться на Redis 7.4-alpine до юридической оценки
+- [Планирование]: Phase 1 планы (01-01, 01-02) нуждаются в обновлении — добавить DEPLOY-05..08 (Celery баги, LANGEXTRACT_MODEL, postgres CVE, memory limits)
 
-## Session Continuity
+## Непрерывность сессий
 
-Last session: 2026-02-27
-Stopped at: Roadmap created, ready for Phase 1 planning
-Resume file: None
+Последняя сессия: 2026-03-01
+Остановились на: Phase 2 context gathered — решения: глубокая зачистка всех NLP-артефактов, чистка root-тестов, сохранение миграций
+Файл возобновления: .planning/phases/02-dead-code-cleanup/02-CONTEXT.md
