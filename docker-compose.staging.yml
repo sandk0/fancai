@@ -15,24 +15,23 @@
 # Requires: LANGEXTRACT_API_KEY in .env file
 
 services:
-  # Nginx Reverse Proxy - MINIMAL RESOURCES
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: bookreader_nginx_staging
+  # Caddy Reverse Proxy with Auto-HTTPS and HTTP/3 - MINIMAL RESOURCES
+  caddy:
+    image: caddy:2-alpine
+    container_name: bookreader_caddy_staging
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - "443:443/udp"   # HTTP/3 (QUIC)
     volumes:
-      - ./nginx/nginx.prod.conf.template:/etc/nginx/nginx.conf.template:ro
-      - ./nginx/docker-entrypoint.sh:/docker-entrypoint.d/00-envsubst.sh:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
       - ./backend/storage:/var/www/storage:ro
+      - frontend_build:/var/www/frontend:ro
     depends_on:
       frontend:
-        condition: service_healthy
+        condition: service_completed_successfully
       backend:
         condition: service_healthy
     restart: unless-stopped
@@ -45,13 +44,8 @@ services:
           memory: 128M
         reservations:
           memory: 64M
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Frontend Production Build - MINIMAL
+  # Frontend Production Build - MINIMAL (outputs to shared volume, exits after build)
   frontend:
     image: bookreader-frontend:latest
     build:
@@ -62,24 +56,11 @@ services:
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
         - VITE_APP_NAME=BookReader AI Staging
     container_name: bookreader_frontend_staging
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped
+    volumes:
+      - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
+    restart: "no"                        # контейнер завершается после build
     networks:
       - bookreader_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.3'
-          memory: 256M
-        reservations:
-          memory: 128M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   # Backend API - LangExtract Optimized (No NLP models)
   backend:
@@ -346,6 +327,12 @@ volumes:
   redis_data:
     driver: local
   beat_schedule:
+    driver: local
+  caddy_data:         # SSL сертификаты (Caddy управляет автоматически через Let's Encrypt)
+    driver: local
+  caddy_config:       # Caddy конфигурационный кеш
+    driver: local
+  frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
     driver: local
 
 networks:

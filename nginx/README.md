@@ -1,6 +1,11 @@
-# Nginx Configuration Files
+# Nginx Configuration Files — DEPRECATED
 
-This directory contains nginx configuration files for BookReader AI.
+> **DEPRECATED:** nginx has been replaced by Caddy (see `Caddyfile` in project root).
+> These files are kept for reference only and are no longer used in production.
+> 881 строк nginx конфигов заменены ~80 строками Caddyfile.
+> Caddy обеспечивает: auto-HTTPS через Let's Encrypt, HTTP/3 (QUIC), SPA routing, reverse proxy.
+
+This directory contains the former nginx configuration files for BookReader AI.
 
 ## Production Configuration
 
@@ -69,6 +74,7 @@ SSL certificates are expected in `ssl/` directory:
 ### Let's Encrypt Setup
 
 For automatic SSL certificates with Let's Encrypt, see:
+
 - `/docs/guides/deployment/production-deployment.md`
 - `/scripts/setup-ssl.sh`
 
@@ -111,6 +117,7 @@ The production nginx configuration includes:
 ### Template Variables Not Substituting
 
 Check that:
+
 1. `DOMAIN_NAME` is set in environment
 2. `docker-entrypoint.sh` is mounted to `/docker-entrypoint.d/`
 3. Entrypoint script has execute permissions (`chmod +x`)
