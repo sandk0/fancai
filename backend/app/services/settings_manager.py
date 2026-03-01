@@ -97,73 +97,6 @@ class SettingsManager:
         storage_type = "Redis" if self._use_redis else "in-memory"
         logger.info(f"Initializing default settings ({storage_type})")
 
-        # NLP Global settings
-        self._settings["nlp_global"] = {
-            "processing_mode": "single",
-            "default_processor": "spacy",
-            "max_parallel_processors": 3,
-            "ensemble_voting_threshold": 0.6,
-        }
-
-        # SpaCy settings
-        self._settings["nlp_spacy"] = {
-            "enabled": True,
-            "weight": 1.0,
-            "confidence_threshold": 0.3,
-            "model_name": "ru_core_news_lg",
-            "literary_patterns": True,
-            "character_detection_boost": 1.2,
-            "location_detection_boost": 1.1,
-            "atmosphere_keywords": [],
-        }
-
-        # Natasha settings
-        self._settings["nlp_natasha"] = {
-            "enabled": True,
-            "weight": 1.2,
-            "confidence_threshold": 0.4,
-            "literary_boost": 1.3,
-            "enable_morphology": True,
-            "enable_syntax": True,
-            "enable_ner": True,
-            "person_patterns": [],
-            "location_patterns": [],
-            "atmosphere_indicators": [],
-        }
-
-        # Stanza settings
-        self._settings["nlp_stanza"] = {
-            "enabled": True,  # ✅ ACTIVATED (Session 6, 2025-11-23) - 4-processor ensemble
-            "weight": 0.8,
-            "confidence_threshold": 0.5,
-            "model_name": "ru",
-            "processors": "tokenize,pos,lemma,depparse,ner",
-            "complex_syntax_analysis": True,
-            "dependency_parsing": True,
-        }
-
-        # GLiNER settings (DeepPavlov replacement)
-        self._settings["nlp_gliner"] = {
-            "enabled": True,
-            "weight": 1.0,
-            "confidence_threshold": 0.3,
-            "model_name": "urchade/gliner_medium-v2.1",
-            "zero_shot_mode": True,
-            "threshold": 0.3,
-            "max_length": 384,
-            "batch_size": 8,
-            "entity_types": [
-                "person",
-                "location",
-                "organization",
-                "object",
-                "building",
-                "place",
-                "character",
-                "atmosphere",
-            ],
-        }
-
         # Parsing settings
         self._settings["parsing"] = {
             "max_concurrent_parsing": 1,
@@ -228,7 +161,7 @@ class SettingsManager:
         Получить значение настройки.
 
         Args:
-            category: Категория настроек (например, 'nlp_spacy')
+            category: Категория настроек (например, 'parsing', 'image_generation')
             key: Ключ настройки
             default: Значение по умолчанию
 
@@ -353,19 +286,6 @@ class SettingsManager:
             )
 
         return True
-
-    async def get_processor_config(self, processor_name: str) -> Dict[str, Any]:
-        """
-        Получить конфигурацию процессора.
-
-        Args:
-            processor_name: Название процессора (spacy, natasha, stanza)
-
-        Returns:
-            Конфигурация процессора
-        """
-        category = f"nlp_{processor_name}"
-        return await self.get_category_settings(category)
 
     async def reset_to_defaults(self) -> bool:
         """

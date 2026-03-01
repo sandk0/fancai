@@ -37,10 +37,8 @@ async def get_parser_status() -> ParserStatusResponse:
     Returns:
         Информация о поддерживаемых форматах и доступности парсера
     """
-    # NLP removed - using LLM-based extraction on-demand
     return ParserStatusResponse(
         supported_formats=book_parser.get_supported_formats(),
-        nlp_available=True,  # LLM extraction available
         parser_ready=len(book_parser.get_supported_formats()) > 0,
         max_file_size_mb=50,
         message=f"Book parser supports: {', '.join(book_parser.get_supported_formats())}",

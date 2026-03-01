@@ -21,7 +21,6 @@ class ParserStatusResponse(BaseModel):
 
     Attributes:
         supported_formats: Список поддерживаемых форматов (.epub, .fb2)
-        nlp_available: Доступность NLP процессора
         parser_ready: Готовность парсера к работе
         max_file_size_mb: Максимальный размер файла в МБ
         message: Информационное сообщение
@@ -30,7 +29,6 @@ class ParserStatusResponse(BaseModel):
     supported_formats: List[str] = Field(
         description="List of supported book formats (.epub, .fb2)"
     )
-    nlp_available: bool = Field(description="Whether NLP processor is available")
     parser_ready: bool = Field(description="Whether parser is ready to process books")
     max_file_size_mb: int = Field(
         default=50, description="Maximum file size in megabytes"
@@ -41,7 +39,6 @@ class ParserStatusResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "supported_formats": [".epub", ".fb2"],
-                "nlp_available": True,
                 "parser_ready": True,
                 "max_file_size_mb": 50,
                 "message": "Book parser supports: .epub, .fb2",
