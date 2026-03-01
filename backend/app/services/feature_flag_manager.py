@@ -34,9 +34,9 @@ class FeatureFlagManager:
     Example:
         >>> async with get_database_session() as db:
         ...     flag_manager = FeatureFlagManager(db)
-        ...     is_enabled = await flag_manager.is_enabled("USE_NEW_NLP_ARCHITECTURE")
+        ...     is_enabled = await flag_manager.is_enabled("ENABLE_BACKGROUND_EXTRACTION")
         ...     if is_enabled:
-        ...         # Use new architecture
+        ...         # Use background extraction
         ...         pass
     """
 

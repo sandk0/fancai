@@ -304,16 +304,6 @@ class ImageAlreadyExistsException(HTTPException):
 # ============================================================================
 
 
-class NLPProcessorUnavailableException(HTTPException):
-    """Исключение, когда NLP процессор недоступен."""
-
-    def __init__(self):
-        super().__init__(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="NLP processor is not available",
-        )
-
-
 class ParsingServiceUnavailableException(HTTPException):
     """Исключение, когда сервис парсинга недоступен."""
 

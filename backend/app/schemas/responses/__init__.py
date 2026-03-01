@@ -406,7 +406,11 @@ class ReadingProgressResponse(BaseResponse):
     user_id: UUID
     book_id: UUID
     current_chapter: int = Field(ge=1, description="Номер текущей главы")
-    max_chapter_reached: int = Field(ge=1, default=1, description="Максимальная глава, до которой пользователь дочитал")
+    max_chapter_reached: int = Field(
+        ge=1,
+        default=1,
+        description="Максимальная глава, до которой пользователь дочитал",
+    )
     current_page: int = Field(ge=1, description="Номер текущей страницы")
     current_position: int = Field(ge=0, le=100, description="Процент прогресса 0-100")
     reading_location_cfi: Optional[str] = Field(
@@ -450,34 +454,6 @@ class SystemStatsResponse(BaseModel):
     avg_descriptions_per_book: float = Field(ge=0.0)
     avg_images_per_book: float = Field(ge=0.0)
     timestamp: datetime
-
-
-class NLPProcessorStatus(BaseModel):
-    """Статус одного NLP процессора."""
-
-    name: str
-    enabled: bool
-    weight: float = Field(ge=0.0)
-    threshold: float = Field(ge=0.0, le=1.0)
-    max_descriptions: int = Field(ge=0)
-    min_confidence: float = Field(ge=0.0, le=1.0)
-    is_loaded: bool
-    error: Optional[str] = None
-
-
-class NLPStatusResponse(BaseModel):
-    """
-    Статус Multi-NLP системы.
-
-    Используется в /api/v1/admin/multi-nlp-settings/status.
-    """
-
-    processors: List[NLPProcessorStatus]
-    total_processors: int = Field(ge=0)
-    active_processors: int = Field(ge=0)
-    current_strategy: str = Field(description="SINGLE, ENSEMBLE, ADAPTIVE, etc.")
-    ensemble_consensus_threshold: float = Field(ge=0.0, le=1.0)
-    last_updated: datetime
 
 
 class HealthCheckResponse(BaseModel):
@@ -541,7 +517,7 @@ from .images import (  # noqa: E402
 # Description responses (Phase 1.2)
 from .descriptions import (  # noqa: E402
     ChapterMinimalInfo,
-    NLPAnalysisResult,
+    DescriptionsAnalysis,
     ChapterDescriptionsResponse,
     ChapterAnalysisPreview,
     ChapterAnalysisResponse,
@@ -553,8 +529,6 @@ from .processing import (  # noqa: E402
     ParsingStatusResponse,
 )
 
-# NLP Testing responses removed (December 2025 - NLP system removed)
-
 # Admin responses (Phase 1.3 + 1.4)
 from .admin import (  # noqa: E402
     CacheStatsResponse,
@@ -564,11 +538,6 @@ from .admin import (  # noqa: E402
     ParsingSettingsResponse,
     CacheWarmResponse,
     FeatureFlagBulkUpdateResponse,
-    # Phase 1.4 - NLP Settings
-    MultiNLPSettingsUpdateResponse,
-    NLPProcessorStatusResponse,
-    NLPProcessorTestResponse,
-    NLPProcessorInfoResponse,
     # Phase 1.4 - Parsing Queue
     ParsingSettingsUpdateResponse,
     ParsingQueueStatusResponse,
@@ -662,8 +631,6 @@ __all__ = [
     "ReadingProgressUpdateResponse",
     # Admin
     "SystemStatsResponse",
-    "NLPProcessorStatus",
-    "NLPStatusResponse",
     "HealthCheckResponse",
     # Errors
     "ErrorResponse",
@@ -693,14 +660,13 @@ __all__ = [
     "ImageGenerationSuccessResponse",
     # NEW: Phase 1.2 Type Safety - Description schemas
     "ChapterMinimalInfo",
-    "NLPAnalysisResult",
+    "DescriptionsAnalysis",
     "ChapterDescriptionsResponse",
     "ChapterAnalysisPreview",
     "ChapterAnalysisResponse",
     # NEW: Phase 1.3 Type Safety - Processing schemas
     "BookProcessingResponse",
     "ParsingStatusResponse",
-    # NLP Testing schemas removed (December 2025 - NLP system removed)
     # NEW: Phase 1.3 Type Safety - Admin schemas
     "CacheStatsResponse",
     "CacheClearResponse",
@@ -709,11 +675,6 @@ __all__ = [
     "ParsingSettingsResponse",
     "CacheWarmResponse",
     "FeatureFlagBulkUpdateResponse",
-    # NEW: Phase 1.4 Type Safety - NLP Settings
-    "MultiNLPSettingsUpdateResponse",
-    "NLPProcessorStatusResponse",
-    "NLPProcessorTestResponse",
-    "NLPProcessorInfoResponse",
     # NEW: Phase 1.4 Type Safety - Parsing Queue
     "ParsingSettingsUpdateResponse",
     "ParsingQueueStatusResponse",

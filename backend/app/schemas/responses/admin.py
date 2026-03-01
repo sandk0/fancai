@@ -77,7 +77,8 @@ class CacheClearResponse(BaseModel):
     keys_deleted: int = Field(ge=0, description="Number of keys deleted from cache")
     message: str = Field(description="Human-readable result message")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Operation timestamp"
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Operation timestamp",
     )
     pattern: Optional[str] = Field(
         None, description="Redis key pattern used for deletion (if pattern-based clear)"
@@ -156,16 +157,11 @@ class ParsingSettingsResponse(BaseModel):
     - Ограничения по количеству одновременных парсингов
     - Приоритеты по умолчанию
     - Настройки автоматической генерации изображений
-    - Режим работы NLP системы
-    - Активные NLP процессоры
 
     Attributes:
         max_concurrent_parsings: Максимум одновременных парсингов
         default_priority: Приоритет по умолчанию (low | normal | high)
         auto_generate_images: Автоматически генерировать изображения после парсинга
-        nlp_mode: Режим NLP (SINGLE | PARALLEL | SEQUENTIAL | ENSEMBLE | ADAPTIVE)
-        enabled_processors: Список активных NLP процессоров
-        ensemble_consensus_threshold: Порог консенсуса для ENSEMBLE режима (опционально)
     """
 
     max_concurrent_parsings: int = Field(
@@ -177,20 +173,6 @@ class ParsingSettingsResponse(BaseModel):
     )
     auto_generate_images: bool = Field(
         description="Automatically generate images after parsing completion"
-    )
-    nlp_mode: str = Field(
-        description="NLP processing mode: SINGLE | PARALLEL | SEQUENTIAL | ENSEMBLE | ADAPTIVE",
-        pattern="^(SINGLE|PARALLEL|SEQUENTIAL|ENSEMBLE|ADAPTIVE)$",
-    )
-    enabled_processors: List[str] = Field(
-        default_factory=list,
-        description="List of enabled NLP processors (spacy, natasha, stanza, gliner)",
-    )
-    ensemble_consensus_threshold: Optional[float] = Field(
-        None,
-        ge=0.0,
-        le=1.0,
-        description="Consensus threshold for ENSEMBLE mode (0.0-1.0)",
     )
 
 
@@ -241,101 +223,6 @@ class FeatureFlagBulkUpdateResponse(BaseModel):
     failed_count: int = Field(ge=0, description="Number of failed updates")
     admin_email: Optional[str] = Field(
         None, description="Email of the admin who performed the operation"
-    )
-
-
-# ============================================================================
-# NLP Settings Responses (NEW: Phase 1.4)
-# ============================================================================
-
-
-class MultiNLPSettingsUpdateResponse(BaseModel):
-    """
-    Response после обновления Multi-NLP настроек.
-
-    Используется в PUT /api/v1/admin/multi-nlp-settings.
-
-    Attributes:
-        message: Сообщение об успешном обновлении
-        settings: Обновленные настройки (MultiNLPSettings from router)
-        processors_reloaded: Флаг перезагрузки процессоров
-    """
-
-    message: str = Field(
-        default="Multi-NLP settings updated successfully", description="Success message"
-    )
-    settings: Dict[str, Any] = Field(description="Updated Multi-NLP settings")
-    processors_reloaded: bool = Field(
-        default=True, description="Whether NLP processors were reloaded"
-    )
-
-
-class NLPProcessorStatusResponse(BaseModel):
-    """
-    Response с детальным статусом NLP процессоров.
-
-    Используется в GET /api/v1/admin/nlp-processor-status.
-
-    Attributes:
-        status: Статус операции (success)
-        data: Данные о статусе процессоров
-        timestamp: Временная метка запроса
-    """
-
-    status: str = Field(default="success", description="Operation status")
-    data: Dict[str, Any] = Field(description="NLP processor status data")
-    timestamp: str = Field(description="Request timestamp (ISO 8601)")
-
-
-class NLPProcessorTestResponse(BaseModel):
-    """
-    Response с результатами тестирования NLP процессоров.
-
-    Используется в POST /api/v1/admin/nlp-processor-test.
-
-    Attributes:
-        status: Статус операции (success)
-        test_text: Тестовый текст (первые 200 символов)
-        processing_mode: Режим обработки (parallel, ensemble, etc.)
-        processors_used: Список использованных процессоров
-        total_descriptions: Всего найдено описаний
-        processing_time_seconds: Время обработки в секундах
-        quality_metrics: Метрики качества
-        recommendations: Рекомендации по улучшению
-        processor_results: Результаты каждого процессора
-        best_descriptions: Топ 5 лучших описаний
-        timestamp: Временная метка запроса
-    """
-
-    status: str = Field(default="success")
-    test_text: str = Field(description="Test text preview (first 200 chars)")
-    processing_mode: str
-    processors_used: List[str]
-    total_descriptions: int = Field(ge=0)
-    processing_time_seconds: float = Field(ge=0.0)
-    quality_metrics: Dict[str, Any]
-    recommendations: List[str]
-    processor_results: Dict[str, Any]
-    best_descriptions: List[Any]
-    timestamp: str
-
-
-class NLPProcessorInfoResponse(BaseModel):
-    """
-    Response с информацией о NLP процессоре.
-
-    Используется в GET /api/v1/admin/nlp-processor-info.
-
-    Attributes:
-        processor_info: Информация о текущем процессоре
-        available_models: Доступные модели для каждого процессора
-    """
-
-    processor_info: Dict[str, Any] = Field(
-        description="Current NLP processor information"
-    )
-    available_models: Dict[str, List[str]] = Field(
-        description="Available models for each processor type"
     )
 
 
@@ -526,11 +413,6 @@ __all__ = [
     "ParsingSettingsResponse",
     "CacheWarmResponse",
     "FeatureFlagBulkUpdateResponse",
-    # NLP Settings (Phase 1.4)
-    "MultiNLPSettingsUpdateResponse",
-    "NLPProcessorStatusResponse",
-    "NLPProcessorTestResponse",
-    "NLPProcessorInfoResponse",
     # Parsing Queue (Phase 1.4)
     "ParsingSettingsUpdateResponse",
     "ParsingQueueStatusResponse",
