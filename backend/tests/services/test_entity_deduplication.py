@@ -23,6 +23,79 @@ from app.services.entity_deduplication_service import (
 )
 from app.models.entity import Entity
 
+# =============================================================================
+# OpenRouter migration checks
+# =============================================================================
+
+
+class TestOpenRouterMigration:
+    """Убеждаемся что entity_dedup мигрирован на OpenRouter."""
+
+    def test_no_google_genai_import(self):
+        """entity_deduplication_service.py не должен содержать import google.genai."""
+        import inspect
+        import app.services.entity_deduplication_service as mod
+
+        source = inspect.getsource(mod)
+        assert "import google.genai" not in source, "Найден import google.genai"
+        assert "from google.genai" not in source, "Найден from google.genai import"
+        assert (
+            "from google import genai" not in source
+        ), "Найден from google import genai"
+
+    def test_uses_get_openrouter_client(self):
+        """entity_deduplication_service должен импортировать get_openrouter_client."""
+        import app.services.entity_deduplication_service as mod
+
+        assert hasattr(
+            mod, "get_openrouter_client"
+        ), "get_openrouter_client не импортирован"
+
+    def test_optional_fields_in_deduplication_response(self):
+        """DeduplicationResponse с Optional полями корректно работает через JSON Schema."""
+        from pydantic import BaseModel
+        from app.core.openrouter_client import _inline_defs
+
+        schema = DeduplicationResponse.model_json_schema()
+        inlined = _inline_defs(schema)
+
+        # После inlining не должно быть $defs и $ref
+        import json
+
+        schema_str = json.dumps(inlined)
+        assert "$defs" not in schema_str, "После _inline_defs остались $defs"
+        assert "$ref" not in schema_str, "После _inline_defs остались $ref"
+
+    async def test_call_gemini_uses_generate_structured(self):
+        """_call_gemini должен использовать generate_structured с DeduplicationResponse."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_client = AsyncMock()
+        mock_client.generate_structured = AsyncMock(
+            return_value={
+                "merge_groups": [],
+                "no_duplicates_found": True,
+            }
+        )
+
+        entities = [
+            EntityForAnalysis(id="1", name="Геральт", type="character"),
+            EntityForAnalysis(id="2", name="Белый Волк", type="character"),
+        ]
+
+        with patch(
+            "app.services.entity_deduplication_service.get_openrouter_client",
+            return_value=mock_client,
+        ):
+            db = AsyncMock()
+            service = EntityDeduplicationService(db=db)
+            result = await service._call_gemini(entities)
+
+        mock_client.generate_structured.assert_called_once()
+        call_kwargs = mock_client.generate_structured.call_args
+        assert call_kwargs.kwargs.get("schema_class") is DeduplicationResponse
+        assert isinstance(result, DeduplicationResponse)
+
 
 # =============================================================================
 # Fixtures
@@ -146,7 +219,9 @@ class TestPrepareEntities:
         assert result[0].id == str(entity.id)
         assert result[0].name == "Йеннифэр"
         assert result[0].type == "character"
-        assert result[0].visual_summary == "Черноволосая чародейка с фиолетовыми глазами"
+        assert (
+            result[0].visual_summary == "Черноволосая чародейка с фиолетовыми глазами"
+        )
         assert result[0].importance == 9
 
     def test_multiple_entities(self, dedup_service):
@@ -256,9 +331,7 @@ class TestGeminiMergeResponse:
 class TestGeminiErrorHandling:
     """Test graceful error handling when Gemini API fails."""
 
-    async def test_gemini_api_error_returns_no_duplicates(
-        self, dedup_service, mock_db
-    ):
+    async def test_gemini_api_error_returns_no_duplicates(self, dedup_service, mock_db):
         """Gemini API error should gracefully return no_duplicates_found=True."""
         entity1 = _make_entity("Гарри Поттер")
         entity2 = _make_entity("Дамблдор")
@@ -273,17 +346,13 @@ class TestGeminiErrorHandling:
             mock_call.side_effect = Exception("Gemini API rate limit exceeded")
 
             # Also mock the monitoring functions to avoid import issues
-            with patch(
-                "app.services.entity_deduplication_service.record_llm_error"
-            ):
+            with patch("app.services.entity_deduplication_service.record_llm_error"):
                 result = await dedup_service.suggest_merges(book_id=uuid4())
 
         assert result.no_duplicates_found is True
         assert result.merge_groups == []
 
-    async def test_gemini_timeout_returns_no_duplicates(
-        self, dedup_service, mock_db
-    ):
+    async def test_gemini_timeout_returns_no_duplicates(self, dedup_service, mock_db):
         """Gemini timeout should gracefully return no_duplicates_found=True."""
         entity1 = _make_entity("Гарри Поттер")
         entity2 = _make_entity("Дамблдор")
@@ -297,9 +366,7 @@ class TestGeminiErrorHandling:
         ) as mock_call:
             mock_call.side_effect = TimeoutError("Request timed out after 120s")
 
-            with patch(
-                "app.services.entity_deduplication_service.record_llm_error"
-            ):
+            with patch("app.services.entity_deduplication_service.record_llm_error"):
                 result = await dedup_service.suggest_merges(book_id=uuid4())
 
         assert result.no_duplicates_found is True
@@ -320,9 +387,7 @@ class TestGeminiErrorHandling:
         ) as mock_call:
             mock_call.side_effect = ConnectionError("Cannot connect to Gemini API")
 
-            with patch(
-                "app.services.entity_deduplication_service.record_llm_error"
-            ):
+            with patch("app.services.entity_deduplication_service.record_llm_error"):
                 result = await dedup_service.suggest_merges(book_id=uuid4())
 
         assert result.no_duplicates_found is True

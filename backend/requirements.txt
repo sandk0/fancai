@@ -20,8 +20,7 @@ psutil==7.2.2
 # Text processing (NLP REMOVED December 2025 for RAM optimization)
 # Description extraction now via LLM API (Google Gemini 3.0 Flash)
 beautifulsoup4==4.14.3
-google-genai==1.61.0  # Jan 15, 2026: Model lifecycle, 100MB file limit, GCS support
-# langextract removed - using google-genai directly
+google-genai==1.61.0  # TODO(03-03): remove after imagen_generator.py migrated to OpenRouter
 
 # Парсинг книг
 ebooklib==0.20
