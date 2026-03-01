@@ -1,139 +1,140 @@
-# Technology Stack
+# Технологический стек
 
-**Analysis Date:** 2026-02-27
+**Дата анализа:** 2026-02-27
 
-## Languages
+## Языки программирования
 
-**Primary:**
-- TypeScript 5.7 - Frontend (React SPA)
-- Python 3.11 - Backend (FastAPI API + Celery workers)
+**Основные:**
+- TypeScript 5.7 — фронтенд (React SPA)
+- Python 3.11 — бэкенд (FastAPI API + Celery воркеры)
 
-**Secondary:**
-- CSS (Tailwind v4) - Styling
-- SQL - Database migrations via Alembic
+**Вспомогательные:**
+- CSS (Tailwind v4) — стилизация
+- SQL — миграции базы данных через Alembic
 
-## Runtime
+## Среда выполнения
 
-**Frontend Environment:**
-- Node.js (via npm) - Development and build tooling
-- Browser - Runtime target (ES2020)
+**Фронтенд-окружение:**
+- Node.js (через npm) — инструменты разработки и сборки
+- Браузер — целевая среда выполнения (ES2020)
 
-**Backend Environment:**
+**Бэкенд-окружение:**
 - Python 3.11
-- Uvicorn 0.40.0 (ASGI server, dev) / Gunicorn 25.0.1 (production)
+- Uvicorn 0.40.0 (ASGI-сервер, разработка) / Gunicorn 25.0.1 (продакшен)
 
-**Package Managers:**
-- npm - Frontend (`frontend/package-lock.json` present)
-- pip - Backend (`backend/requirements.txt` and `backend/requirements.lite.txt`)
+**Пакетные менеджеры:**
+- npm — фронтенд (присутствует `frontend/package-lock.json`)
+- pip — бэкенд (`backend/requirements.txt` и `backend/requirements.lite.txt`)
 
-## Frameworks
+## Фреймворки
 
-**Core Frontend:**
-- React 19.0.0 - UI framework (functional components only)
-- Vite 7.3.1 - Build tool and dev server
-- React Router DOM 7.1.0 - Client-side routing
-- TanStack Query 5.90.12 - Server state management and API data fetching
-- Zustand 5.0.10 - Client-side state management (auth, reader, UI)
-- React Hook Form 7.54.2 + Zod 4.3.6 - Form validation
+**Основной фронтенд:**
+- React 19.0.0 — UI-фреймворк (только функциональные компоненты)
+- Vite 7.3.1 — инструмент сборки и дев-сервер
+- React Router DOM 7.1.0 — клиентская маршрутизация
+- TanStack Query 5.90.12 — управление серверным состоянием и получение данных через API
+- Zustand 5.0.10 — управление клиентским состоянием (авторизация, ридер, UI)
+- React Hook Form 7.54.2 + Zod 4.3.6 — валидация форм
 
-**Core Backend:**
-- FastAPI 0.128.0 - HTTP API framework with async support
-- SQLAlchemy 2.0.46 - ORM with async engine (`asyncpg`)
-- Alembic 1.18.3 - Database migrations
-- Celery 5.6.2 - Async task queue (book processing, image generation)
-- Pydantic 2.12.5 - Schema validation (v2, Rust core)
+**Основной бэкенд:**
+- FastAPI 0.128.0 — HTTP API-фреймворк с асинхронной поддержкой
+- SQLAlchemy 2.0.46 — ORM с асинхронным движком (`asyncpg`)
+- Alembic 1.18.3 — миграции базы данных
+- Celery 5.6.2 — асинхронная очередь задач (обработка книг, генерация изображений)
+- Pydantic 2.12.5 — валидация схем (v2, Rust-ядро)
 
-**UI Component Libraries:**
-- Radix UI - Headless components (`@radix-ui/react-*`)
-- Tailwind CSS 4.1.18 - Utility-first CSS (via `@tailwindcss/vite` plugin)
-- Motion 12.31.0 - Animations
-- Lucide React 0.563.0 - Icons
-- Sonner 2.0.7 - Toast notifications
-- Vaul 1.1.2 - Drawer/bottom sheet
+**UI-библиотеки компонентов:**
+- Radix UI — headless-компоненты (`@radix-ui/react-*`)
+- Tailwind CSS 4.1.18 — utility-first CSS (через плагин `@tailwindcss/vite`)
+- Motion 12.31.0 — анимации
+- Lucide React 0.563.0 — иконки
+- Sonner 2.0.7 — всплывающие уведомления (toast)
+- Vaul 1.1.2 — выдвижная панель (drawer/bottom sheet)
 
-**Testing:**
-- Vitest 4.0.18 - Unit/integration test runner (frontend)
-- Playwright 1.49.1 - E2E tests (frontend)
-- Testing Library (React, DOM, user-event) - Component testing
-- pytest 9.0.2 + pytest-asyncio 1.3.0 - Backend test runner
+**Тестирование:**
+- Vitest 4.0.18 — модульные/интеграционные тесты (фронтенд)
+- Playwright 1.49.1 — E2E-тесты (фронтенд)
+- Testing Library (React, DOM, user-event) — тестирование компонентов
+- pytest 9.0.2 + pytest-asyncio 1.3.0 — тесты бэкенда
 
-**Build/Dev:**
-- Vite PWA plugin 1.2.0 - Service Worker via Workbox `injectManifest` strategy
-- Rollup Visualizer 6.0.5 - Bundle analysis
-- ESLint 9.17.0 + typescript-eslint 8.54.0 - Frontend linting
-- Black 26.1.0 + Ruff 0.15.0 + mypy 1.19.1 - Backend formatting/linting
+**Сборка/Разработка:**
+- Vite PWA plugin 1.2.0 — Service Worker через Workbox, стратегия `injectManifest`
+- Rollup Visualizer 6.0.5 — анализ бандла
+- ESLint 9.17.0 + typescript-eslint 8.54.0 — линтинг фронтенда
+- Black 26.1.0 + Ruff 0.15.0 + mypy 1.19.1 — форматирование/линтинг бэкенда
 
-## Key Dependencies
+## Ключевые зависимости
 
-**Critical Frontend:**
-- `epubjs` 0.3.93 - EPUB rendering and navigation (CFI-based position tracking)
-- `dexie` 4.2.1 - IndexedDB wrapper for offline chapter caching
-- `axios` 1.7.9 - HTTP client (wrapped in `src/api/client.ts` singleton)
-- `i18next` 25.8.0 + `react-i18next` 16.5.4 - Internationalization
-- `dompurify` 3.3.0 - HTML sanitization for EPUB content
-- `@tanstack/react-virtual` 3.13.18 - Virtualization for entity lists
+**Критичные для фронтенда:**
+- `epubjs` 0.3.93 — рендеринг и навигация по EPUB (отслеживание позиции на основе CFI)
+- `dexie` 4.2.1 — обёртка для IndexedDB, офлайн-кеширование глав
+- `axios` 1.7.9 — HTTP-клиент (обёрнут в синглтон `src/api/client.ts`)
+- `i18next` 25.8.0 + `react-i18next` 16.5.4 — интернационализация
+- `dompurify` 3.3.0 — санитизация HTML для содержимого EPUB
+- `@tanstack/react-virtual` 3.13.18 — виртуализация списков сущностей
 
-**Critical Backend:**
-- `google-genai` 1.61.0 - Google Gemini and Imagen SDK (primary AI integration)
-- `asyncpg` 0.31.0 - Async PostgreSQL driver
-- `redis` 7.1.0 (async) - Cache + Celery broker/backend
-- `tenacity` 9.1.2 - Retry with exponential backoff for all LLM calls
-- `python-jose` 3.5.0 - JWT token generation and validation
-- `passlib[bcrypt]` 1.7.4 - Password hashing
-- `networkx` 3.6.1 - Entity graph analysis
-- `ebooklib` 0.20 + `lxml` 6.0.2 - EPUB parsing
-- `beautifulsoup4` 4.14.3 - HTML extraction from EPUB chapters
-- `loguru` 0.7.3 - Structured logging
-- `sentry-sdk[fastapi]` 2.51.0 - Error tracking
-- `prometheus-client` 0.24.1 + `prometheus-fastapi-instrumentator` 7.1.0 - Metrics
-- `pywebpush` 2.2.0 - Web Push (VAPID) notifications
-- `aioboto3` 13.0.0 - Async AWS/SES-compatible client (for Yandex Postbox email)
-- `pillow` 12.1.0 - Image processing
+**Критичные для бэкенда:**
+- `google-genai` 1.61.0 — SDK для Google Gemini и Imagen (основная AI-интеграция; планируется полное удаление при миграции на OpenRouter в Phase 3)
+- `asyncpg` 0.31.0 — асинхронный драйвер PostgreSQL
+- `redis` 7.1.0 (async) — кеш + Celery-брокер/бэкенд
+- `tenacity` 9.1.2 — повторные попытки с экспоненциальной задержкой для всех LLM-вызовов
+- `python-jose` 3.5.0 — генерация и валидация JWT-токенов
+- `passlib[bcrypt]` 1.7.4 — хеширование паролей
+- `networkx` 3.6.1 — анализ графов сущностей
+- `ebooklib` 0.20 + `lxml` 6.0.2 — парсинг EPUB
+- `beautifulsoup4` 4.14.3 — извлечение HTML из глав EPUB
+- `loguru` 0.7.3 — структурированное логирование
+- `sentry-sdk[fastapi]` 2.51.0 — отслеживание ошибок
+- `prometheus-client` 0.24.1 + `prometheus-fastapi-instrumentator` 7.1.0 — метрики
+- `pywebpush` 2.2.0 — Web Push (VAPID) уведомления
+- `aioboto3` 13.0.0 — асинхронный AWS/SES-совместимый клиент (для Yandex Postbox, отправка email)
+- `pillow` 12.1.0 — обработка изображений
 
 **PWA / Service Worker:**
-- Workbox 7.4.0 (`workbox-routing`, `workbox-strategies`, `workbox-background-sync`, etc.) - Service Worker caching and offline sync
+- Workbox 7.4.0 (`workbox-routing`, `workbox-strategies`, `workbox-background-sync` и др.) — кеширование и офлайн-синхронизация через Service Worker
 
-## Configuration
+## Конфигурация
 
-**Frontend Environment Variables (VITE_ prefix):**
-- `VITE_API_BASE_URL` - API base URL (default: `/api/v1`)
-- `VITE_WS_URL` - WebSocket URL (default: `/ws`)
-- `VITE_APP_NAME` - Application name
-- `VITE_ENVIRONMENT` - Environment name
+**Переменные окружения фронтенда (префикс VITE_):**
+- `VITE_API_BASE_URL` — базовый URL API (по умолчанию: `/api/v1`)
+- `VITE_WS_URL` — URL WebSocket (по умолчанию: `/ws`)
+- `VITE_APP_NAME` — название приложения
+- `VITE_ENVIRONMENT` — название окружения
 
-**Backend Environment Variables (loaded via pydantic-settings from `.env`):**
-- `DATABASE_URL` - PostgreSQL connection string (`postgresql+asyncpg://...`)
-- `REDIS_URL` - Redis connection string (`redis://:password@host:port`)
-- `SECRET_KEY` - JWT signing key
-- `GOOGLE_API_KEY` / `LANGEXTRACT_API_KEY` - Google AI API key (Gemini + Imagen)
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` - Web Push
-- `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` - Email
-- `CORS_ORIGINS` - Comma-separated allowed origins
-- `DEBUG` - Dev/prod toggle (validates secrets when `false`)
-- `SENTRY_DSN` - Error tracking (configured via sentry-sdk)
+**Переменные окружения бэкенда (загружаются через pydantic-settings из `.env`):**
+- `DATABASE_URL` — строка подключения к PostgreSQL (`postgresql+asyncpg://...`)
+- `REDIS_URL` — строка подключения к Redis (`redis://:password@host:port`)
+- `SECRET_KEY` — ключ подписи JWT
+- `GOOGLE_API_KEY` / `LANGEXTRACT_API_KEY` — API-ключ Google AI (Gemini + Imagen; будет заменён на OPENROUTER_API_KEY в Phase 3)
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push
+- `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` — Email
+- `CORS_ORIGINS` — разрешённые источники через запятую
+- `DEBUG` — переключатель разработка/продакшен (при `false` проверяет секреты)
+- `SENTRY_DSN` — отслеживание ошибок (настраивается через sentry-sdk)
 
-**Build Configuration:**
-- `frontend/vite.config.ts` - Vite build config with manual chunks, PWA, proxy
-- `frontend/tsconfig.json` - TypeScript with strict mode, path aliases (`@/*` → `src/*`)
-- `frontend/vitest.config.ts` - Vitest with jsdom, v8 coverage
-- `backend/pytest.ini` - pytest with asyncio-mode=auto, 70% coverage threshold
-- `backend/alembic.ini` - Alembic migrations config
+**Конфигурация сборки:**
+- `frontend/vite.config.ts` — конфигурация сборки Vite с ручным разделением чанков, PWA, прокси
+- `frontend/tsconfig.json` — TypeScript со strict-режимом, алиасы путей (`@/*` → `src/*`)
+- `frontend/vitest.config.ts` — Vitest с jsdom, покрытие через v8
+- `backend/pytest.ini` — pytest с asyncio-mode=auto, порог покрытия 70%
+- `backend/alembic.ini` — конфигурация миграций Alembic
 
-## Platform Requirements
+## Требования к платформе
 
-**Development:**
-- Docker + Docker Compose (V2, `docker compose` not `docker-compose`)
-- Node.js (frontend dev server on port 5173)
-- Python 3.11 (backend on port 8000)
+**Разработка:**
+- Docker + Docker Compose (V2, `docker compose`, а не `docker-compose`)
+- Node.js (дев-сервер фронтенда на порту 5173)
+- Python 3.11 (бэкенд на порту 8000)
 
-**Production:**
-- Docker Compose via `docker-compose.lite.yml` (primary production config)
-- PostgreSQL 15-alpine (data initialized on v15, not upgradeable to v17)
-- Redis 7.4-alpine (640MB maxmemory, allkeys-lru eviction)
-- nginx (reverse proxy, frontend static serving)
-- Target server: 8GB RAM, 4 CPU cores
-- Deployed to: `fancai.ru` (Russian domain, Europe/Moscow timezone)
+**Продакшен:**
+- Docker Compose через `docker-compose.lite.yml` (основная продакшен-конфигурация)
+- PostgreSQL 17-alpine (обновлять до 17.9-alpine для закрытия CVE)
+- Redis 7.4-alpine (maxmemory 640MB, политика вытеснения allkeys-lru)
+- nginx (обратный прокси, раздача статики фронтенда) → планируется замена на Caddy
+- Сервер: 32 ГБ ОЗУ, 12 vCPU, NVMe SSD
+- Развёрнуто на: `fancai.ru` (российский домен, часовой пояс Europe/Moscow)
 
 ---
 
-*Stack analysis: 2026-02-27*
+*Анализ стека: 2026-02-27*
+*Обновлено: 2026-03-01 (серверные характеристики, PostgreSQL версия)*

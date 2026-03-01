@@ -43,7 +43,7 @@
 Недавние решения, влияющие на текущую работу:
 
 - [Дорожная карта]: 8 фаз получены из 45 требований. Сначала безопасность, очистка, миграция сервисов, обслуживание инфры, стабильность AI, Entity Wiki, UX, функции ридера.
-- [Аудит v5]: Гибридный подход AI — LLM через OpenRouter (fallback chain), Images через Google API (Imagen 4 не на OpenRouter).
+- [Аудит v5 → решение обновлено]: Все AI через OpenRouter — LLM (fallback chain) + Images (FLUX.2 Pro/Klein вместо Imagen 4). google-genai SDK полностью удаляется.
 - [Аудит v5]: Caddy вместо nginx (748→~80 строк). Инфра после очистки кода (Phase 3 после Phase 2).
 - [Аудит v5]: Все баги Celery (visibility_timeout, memory limits) + CVE PostgreSQL 17.9 → Phase 1.
 - [Аудит v5]: Сервер уже мигрировал на 32GB/12vCPU/PG17. PROJECT.md обновлён.

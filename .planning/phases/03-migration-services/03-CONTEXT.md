@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Мигрировать 4 LLM-сервиса с Google Gemini SDK (`google-genai`) на OpenRouter API с автоматическим fallback chain (Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite). Заменить nginx на Caddy с auto-HTTPS и HTTP/3. Imagen 4 остаётся на Google API (не доступен на OpenRouter). Добавить per-user rate limiting через FastAPI slowapi.
+Мигрировать все 5 AI-сервисов с Google Gemini SDK (`google-genai`) на OpenRouter API: 4 LLM-сервиса с fallback chain (Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite) и генерацию изображений с Imagen 4 на OpenRouter image-модели (FLUX.2 Pro/Klein и др.). Заменить nginx на Caddy с auto-HTTPS и HTTP/3. Полностью удалить зависимость google-genai. Добавить per-user rate limiting через FastAPI slowapi.
 
 </domain>
 
@@ -14,10 +14,10 @@
 ## Implementation Decisions
 
 ### OpenRouter клиент
-- Единый клиент `openrouter_client.py` в `backend/app/core/` — все 4 LLM-сервиса импортируют его
-- Методы: `generate_text()` (для response_mime_type сервисов) и `generate_structured()` (для response_schema сервисов)
+- Единый клиент `openrouter_client.py` в `backend/app/core/` — все 5 AI-сервисов (4 LLM + 1 image) импортируют его
+- Методы: `generate_text()` (для response_mime_type сервисов), `generate_structured()` (для response_schema сервисов), `generate_image()` (для генерации изображений)
 - Встроенные retry, логирование, метрики, fallback chain — в одном месте
-- google-genai SDK остаётся в requirements.txt только для `imagen_generator.py`
+- google-genai SDK полностью удаляется из requirements.txt после миграции
 
 ### Structured output
 - Claude's Discretion — выбрать оптимальный подход на этапе исследования (JSON Schema inlining vs JSON mode + prompt)
@@ -58,9 +58,11 @@
 <specifics>
 ## Specific Ideas
 
-- Imagen 4 остаётся на Google API с отдельным ключом — это зафиксировано в требованиях (MIGR-04)
+- Imagen 4 заменяется на OpenRouter image-модели (FLUX.2 Pro/Klein и др.) — единый API для всех AI-сервисов
 - Существующие промпты на русском языке — они должны работать одинаково через OpenRouter
+- Перевод RU→EN для image prompts сохраняется (сейчас через Gemini, после миграции через OpenRouter LLM)
 - Rate limiter уже работает на Redis — лучше расширить его, чем добавлять новую зависимость (slowapi)
+- После миграции google-genai SDK и GOOGLE_API_KEY больше не нужны — полное удаление vendor lock
 
 </specifics>
 
@@ -86,7 +88,7 @@
   - `consistency_manager.py` — `response_mime_type` только, средняя сложность
   - `entity_deduplication_service.py` — `response_schema` с вложенными Optional полями, высокая сложность
   - `gemini_extractor.py` — `response_schema` с Pydantic, высокая сложность
-- `imagen_generator.py` — НЕ мигрировать, остаётся на google-genai SDK
+- `imagen_generator.py` — мигрировать с Imagen 4 (google-genai SDK) на OpenRouter image-модели (FLUX.2 Pro/Klein), высокая сложность — другой API (не chat)
 - nginx конфиги: `nginx/nginx.prod.conf` (283 строки), `nginx/nginx.prod.conf.template` (245 строк), `frontend/nginx.conf`, `frontend/nginx.prod.conf`
 - Docker Compose файлы: nginx-сервис нужно заменить на Caddy-сервис
 
