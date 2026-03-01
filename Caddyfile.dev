@@ -1,0 +1,30 @@
+{
+    # Dev mode — localhost with Caddy's internal CA (auto-HTTPS)
+}
+
+localhost {
+    encode zstd gzip
+
+    # API бэкенда
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # WebSocket
+    handle /ws/* {
+        reverse_proxy backend:8000
+    }
+
+    # Storage (изображения)
+    handle /storage/* {
+        root * /var/www
+        file_server
+    }
+
+    # Frontend SPA (catch-all)
+    handle {
+        root * /var/www/frontend
+        try_files {path} /index.html
+        file_server
+    }
+}

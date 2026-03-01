@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COMPOSE_FILE="docker-compose.production.yml"
+COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 BACKUP_DIR="./backups"
 LOG_DIR="./logs"
@@ -43,8 +43,8 @@ check_requirements() {
         exit 1
     fi
     
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose is not installed"
+    if ! docker compose version &> /dev/null; then
+        log_error "Docker Compose V2 is not installed"
         exit 1
     fi
     
@@ -61,18 +61,17 @@ init_deployment() {
     check_requirements
     
     # Create directories
-    mkdir -p $LOG_DIR/{nginx,backend,postgres,redis,celery,beat}
-    mkdir -p ./nginx/{ssl,certbot-www}
+    mkdir -p $LOG_DIR/{backend,postgres,redis,celery,beat}
     mkdir -p $BACKUP_DIR
     mkdir -p ./backend/storage/{books,covers}
     
     source $ENV_FILE
     
     log_info "Building images..."
-    docker-compose -f $COMPOSE_FILE build --no-cache
+    docker compose -f $COMPOSE_FILE build --no-cache
     
     log_info "Starting services..."
-    docker-compose -f $COMPOSE_FILE up -d
+    docker compose -f $COMPOSE_FILE up -d
     
     log_success "Deployment initialized"
 }
@@ -81,34 +80,14 @@ deploy_application() {
     log_info "Deploying application..."
     check_requirements
     
-    docker-compose -f $COMPOSE_FILE build
-    docker-compose -f $COMPOSE_FILE up -d
+    docker compose -f $COMPOSE_FILE build
+    docker compose -f $COMPOSE_FILE up -d
     
     log_success "Deployment completed"
 }
 
 show_logs() {
-    docker-compose -f $COMPOSE_FILE logs -f --tail=100 ${1:-}
-}
-
-setup_ssl() {
-    log_info "Setting up SSL certificates..."
-    check_requirements
-    
-    source $ENV_FILE
-    
-    if [ -z "$DOMAIN_NAME" ] || [ -z "$SSL_EMAIL" ]; then
-        log_error "DOMAIN_NAME and SSL_EMAIL must be set in $ENV_FILE"
-        exit 1
-    fi
-    
-    log_info "Getting SSL certificates for $DOMAIN_NAME..."
-    docker-compose -f docker-compose.ssl.yml --profile ssl-init run --rm certbot
-    
-    log_info "Starting SSL renewal service..."
-    docker-compose -f docker-compose.ssl.yml --profile ssl-renew up -d certbot-renew
-    
-    log_success "SSL certificates configured"
+    docker compose -f $COMPOSE_FILE logs -f --tail=100 ${1:-}
 }
 
 backup_data() {
@@ -120,7 +99,7 @@ backup_data() {
     mkdir -p $BACKUP_DIR/$BACKUP_NAME
     
     # Database backup
-    docker-compose -f $COMPOSE_FILE exec -T postgres pg_dump -U bookreader_user bookreader_prod > $BACKUP_DIR/$BACKUP_NAME/database.sql
+    docker compose -f $COMPOSE_FILE exec -T postgres pg_dump -U bookreader_user bookreader_prod > $BACKUP_DIR/$BACKUP_NAME/database.sql
     
     # Storage backup
     cp -r ./backend/storage $BACKUP_DIR/$BACKUP_NAME/
@@ -133,7 +112,7 @@ backup_data() {
 
 show_status() {
     log_info "Service status:"
-    docker-compose -f $COMPOSE_FILE ps
+    docker compose -f $COMPOSE_FILE ps
     
     log_info "Health checks:"
     curl -s -o /dev/null -w "%{http_code}" http://localhost/health || echo "Health check failed"
@@ -141,19 +120,19 @@ show_status() {
 
 restart_services() {
     log_info "Restarting services..."
-    docker-compose -f $COMPOSE_FILE restart
+    docker compose -f $COMPOSE_FILE restart
     log_success "Services restarted"
 }
 
 stop_services() {
     log_info "Stopping services..."
-    docker-compose -f $COMPOSE_FILE down
+    docker compose -f $COMPOSE_FILE down
     log_success "Services stopped"
 }
 
 start_services() {
     log_info "Starting services..."
-    docker-compose -f $COMPOSE_FILE up -d
+    docker compose -f $COMPOSE_FILE up -d
     log_success "Services started"
 }
 
@@ -163,7 +142,6 @@ show_help() {
     echo "Commands:"
     echo "  init     - Initialize production deployment"
     echo "  deploy   - Deploy/redeploy application"
-    echo "  ssl      - Setup SSL certificates with Let's Encrypt"
     echo "  backup   - Create database and storage backup"
     echo "  status   - Show service status and health"
     echo "  logs     - Show logs (optional: specify service name)"
@@ -175,7 +153,7 @@ show_help() {
     echo "Examples:"
     echo "  ./scripts/deploy.sh init"
     echo "  ./scripts/deploy.sh logs backend"
-    echo "  ./scripts/deploy.sh ssl"
+    echo "  ./scripts/deploy.sh backup"
 }
 
 case "$1" in
@@ -184,9 +162,6 @@ case "$1" in
         ;;
     deploy)
         deploy_application
-        ;;
-    ssl)
-        setup_ssl
         ;;
     backup)
         backup_data
