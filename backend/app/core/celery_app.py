@@ -85,3 +85,16 @@ celery_app.conf.update(
 
 # Auto-discover tasks
 celery_app.autodiscover_tasks()
+
+# Мониторинг ошибок: Hawk Tracker для Celery workers
+try:
+    from app.core.hawk import init_hawk_celery
+
+    init_hawk_celery(celery_app)
+except Exception as e:
+    # Не ломаем запуск Celery при ошибке инициализации Hawk
+    import logging
+
+    logging.getLogger(__name__).warning(
+        f"Failed to initialize Hawk Tracker for Celery: {e}"
+    )

@@ -35,6 +35,7 @@ from .core.config import settings
 from .core.cache import cache_manager
 from .core.secrets import startup_secrets_check
 from .core.logging import logger
+from .core.hawk import init_hawk
 from .services.settings_manager import settings_manager
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.cache_control import CacheControlMiddleware
@@ -78,6 +79,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Secrets validation error", error=str(e))
         # Continue with warning (non-critical error)
+
+    # Мониторинг ошибок: Hawk Tracker
+    try:
+        init_hawk(app)
+    except Exception as e:
+        logger.warning("Failed to initialize Hawk Tracker", error=str(e))
 
     # Initialize Rate Limiter
     try:
