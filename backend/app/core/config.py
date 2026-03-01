@@ -56,7 +56,13 @@ class Settings(BaseSettings):
     UPLOAD_DIRECTORY: str = "./uploads"
     ALLOWED_EXTENSIONS: list = [".epub", ".fb2"]
 
-    # AI сервисы - Google Gemini & Imagen (December 2025)
+    # AI сервисы - OpenRouter (Phase 3: migration from google-genai)
+    OPENROUTER_API_KEY: str = ""  # OpenRouter API key — все AI-сервисы (LLM + images)
+    OPENROUTER_IMAGE_MODEL: str = (
+        "black-forest-labs/flux.2-klein-4b"  # FLUX.2 Klein 4B — быстрая/дешёвая ($0.014/MP, <1 сек), подтверждена доступной 2026-03-01
+    )
+
+    # AI сервисы - Google Gemini & Imagen (December 2025) — будут удалены в Phase 3
     GOOGLE_API_KEY: Optional[str] = None  # Primary key for all Google services
     GEMINI_MODEL: str = (
         "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
