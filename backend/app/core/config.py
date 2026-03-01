@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "fancai"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = (
-        True  # Development mode по умолчанию (установите DEBUG=false в production!)
+        False  # Production safe: False по умолчанию (установите DEBUG=true для разработки)
     )
     SECRET_KEY: str = "dev-secret-key-change-in-production"
 
@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_dev"
     )
-    TEST_DATABASE_URL: str = ""  # Override via env; if empty, derived from DATABASE_URL in conftest
+    TEST_DATABASE_URL: str = (
+        ""  # Override via env; if empty, derived from DATABASE_URL in conftest
+    )
 
     # Database Connection Pool Settings (October 2025 - Production Optimization)
     DB_POOL_SIZE: int = Field(default=20, ge=5, le=50, env="DB_POOL_SIZE")
@@ -60,7 +62,9 @@ class Settings(BaseSettings):
         "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
     )
     IMAGEN_ENABLED: bool = True
-    IMAGEN_MODEL: str = "imagen-4.0-generate-001"  # GA models: imagen-4.0-generate-001, imagen-4.0-fast-generate-001, imagen-4.0-ultra-generate-001
+    IMAGEN_MODEL: str = (
+        "imagen-4.0-generate-001"  # GA models: imagen-4.0-generate-001, imagen-4.0-fast-generate-001, imagen-4.0-ultra-generate-001
+    )
     IMAGEN_ASPECT_RATIO: str = "4:3"  # 1:1, 3:4, 4:3, 9:16, 16:9
     IMAGEN_SAFETY_LEVEL: str = (
         "block_low_and_above"  # Only block_low_and_above is supported
@@ -75,19 +79,6 @@ class Settings(BaseSettings):
     YOOKASSA_SHOP_ID: Optional[str] = None
     YOOKASSA_SECRET_KEY: Optional[str] = None
     CLOUDPAYMENTS_PUBLIC_ID: Optional[str] = None
-
-    # NLP настройки
-    SPACY_MODEL: str = "ru_core_news_lg"
-    NLTK_DATA_PATH: str = "./nltk_data"
-
-    # Multi-NLP Configuration (October 2025)
-    MULTI_NLP_MODE: str = Field(default="ensemble", env="MULTI_NLP_MODE")
-    CONSENSUS_THRESHOLD: float = Field(
-        default=0.6, ge=0.0, le=1.0, env="CONSENSUS_THRESHOLD"
-    )
-    SPACY_WEIGHT: float = Field(default=1.0, ge=0.0, le=2.0, env="SPACY_WEIGHT")
-    NATASHA_WEIGHT: float = Field(default=1.2, ge=0.0, le=2.0, env="NATASHA_WEIGHT")
-    STANZA_WEIGHT: float = Field(default=0.8, ge=0.0, le=2.0, env="STANZA_WEIGHT")
 
     # CFI Configuration (October 2025)
     CFI_MAX_LENGTH: int = Field(default=500, ge=100, le=1000, env="CFI_MAX_LENGTH")
@@ -125,6 +116,9 @@ class Settings(BaseSettings):
     METRICS_USER: str = "admin"
     METRICS_PASSWORD: str = "metrics_secure_password"  # Override via env in production
 
+    # Мониторинг ошибок (Hawk Tracker)
+    HAWK_TOKEN: Optional[str] = None  # hawk-tracker.ru: Python проект Integration Token
+
     # Web Push (VAPID) Configuration (January 2026)
     VAPID_PUBLIC_KEY: Optional[str] = None
     VAPID_PRIVATE_KEY: Optional[str] = None
@@ -144,7 +138,9 @@ class Settings(BaseSettings):
     YANDEX_POSTBOX_REGION: str = "ru-central1"
 
     # CORS - загружается из .env (docker-compose передает полный список)
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"  # Development: React (3000), Vite (5173, 5174)
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:5173,http://localhost:5174"  # Development: React (3000), Vite (5173, 5174)
+    )
 
     @model_validator(mode="after")
     def validate_production_settings(self):
@@ -190,29 +186,6 @@ class Settings(BaseSettings):
 
         return self
 
-    @model_validator(mode="after")
-    def validate_nlp_weights(self):
-        """
-        Валидация весов Multi-NLP процессоров.
-
-        Сумма весов должна быть в разумных пределах для корректной работы
-        ensemble voting алгоритма.
-
-        Raises:
-            ValueError: Если сумма весов выходит за допустимые пределы
-
-        Returns:
-            Settings: Проверенный объект настроек
-        """
-        total_weight = self.SPACY_WEIGHT + self.NATASHA_WEIGHT + self.STANZA_WEIGHT
-        if total_weight < 0.5 or total_weight > 10.0:
-            raise ValueError(
-                f"❌ CONFIGURATION ERROR: Sum of Multi-NLP processor weights must be between 0.5 and 10.0, "
-                f"got {total_weight:.2f} (spacy={self.SPACY_WEIGHT}, natasha={self.NATASHA_WEIGHT}, "
-                f"stanza={self.STANZA_WEIGHT}). Adjust weights via environment variables."
-            )
-        return self
-
     @property
     def cors_origins_list(self) -> list:
         """Возвращает список CORS origins из строки."""
@@ -227,8 +200,13 @@ class Settings(BaseSettings):
     class Config:
         """Настройка загрузки переменных окружения."""
 
-        env_file = ".env"
+        # Ищем .env в текущей директории и в родительской (для запуска тестов из backend/)
+        env_file = (".env", "../.env")
+        env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = (
+            "ignore"  # Игнорируем неизвестные переменные (DB_NAME, DB_PASSWORD и т.п.)
+        )
 
 
 # Глобальный экземпляр настроек

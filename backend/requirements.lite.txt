@@ -52,7 +52,7 @@ pydantic-settings==2.12.0
 
 # Логирование и мониторинг (December 2025)
 loguru==0.7.3
-sentry-sdk[fastapi]==2.51.0
+hawk-python-sdk[fastapi]>=3.5.2
 prometheus-client==0.24.1
 prometheus-fastapi-instrumentator==7.1.0
 
