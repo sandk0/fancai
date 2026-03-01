@@ -246,7 +246,7 @@ services:
     restart: unless-stopped
     command: celery -A app.core.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
 
-  # React + Vite Frontend (Production Build with nginx)
+  # React + Vite Frontend (Production Build — outputs to shared volume, exits after build)
   frontend:
     build:
       context: ./frontend
@@ -257,31 +257,14 @@ services:
         - VITE_APP_NAME=${VITE_APP_NAME:-fancai}
         - VITE_ENVIRONMENT=${ENVIRONMENT:-production}
     container_name: bookreader_frontend_lite
-    environment:
-      - NODE_ENV=production
-      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
-    ports:
-      - "5173:80"
+    volumes:
+      - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - bookreader_network
-    healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.3'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-    restart: unless-stopped
+    restart: "no"                        # контейнер завершается после build
 
   # =============================================================================
   # Automatic Backup Service (Daily)
@@ -325,6 +308,7 @@ volumes:
   postgres_data:
   redis_data:
   uploaded_books:
+  frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
 
 
 networks:

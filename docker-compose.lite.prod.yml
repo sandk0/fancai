@@ -6,43 +6,41 @@
 #
 # Requirements:
 # - LANGEXTRACT_API_KEY in .env file
-# - SSL certificates in ./nginx/ssl/
 # - Server in supported region (US, EU, etc.)
 #
-# Memory requirements (optimized for 8GB server, 4 cores):
+# Memory requirements (optimized for 32GB server, 12 vCPU):
 # - PostgreSQL: 2GB (with shared_buffers=512MB)
 # - Redis: 768MB (maxmemory=640mb)
 # - Backend: 2GB
 # - Celery Worker: 1.5GB
 # - Celery Beat: 256MB
-# - Nginx: 256MB
-# - Frontend: 256MB
-# Total: ~7GB (leaving 1GB for OS)
+# - Caddy: 128MB
+# - Frontend: 256MB (build-only, exits after completing)
+# Total: ~7GB (leaving 25GB for OS + headroom)
 #
 # Usage:
-#   docker-compose -f docker-compose.lite.prod.yml up -d
-#   docker-compose -f docker-compose.lite.prod.yml up -d --build
+#   docker compose -f docker-compose.lite.prod.yml up -d
+#   docker compose -f docker-compose.lite.prod.yml up -d --build
 # =============================================================================
 
 services:
-  # Nginx Reverse Proxy with SSL
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: bookreader_nginx
+  # Caddy Reverse Proxy with Auto-HTTPS and HTTP/3
+  caddy:
+    image: caddy:2-alpine
+    container_name: fancai_caddy
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - "443:443/udp"   # HTTP/3 (QUIC)
     volumes:
-      - ./nginx/nginx.prod.conf.template:/etc/nginx/nginx.conf.template:ro
-      - ./nginx/docker-entrypoint.sh:/docker-entrypoint.d/00-envsubst.sh:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
       - ./backend/storage:/var/www/storage:ro
+      - frontend_build:/var/www/frontend:ro
     depends_on:
       frontend:
-        condition: service_healthy
+        condition: service_completed_successfully
       backend:
         condition: service_healthy
     restart: unless-stopped
@@ -52,17 +50,12 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          memory: 128M
         reservations:
           cpus: '0.1'
-          memory: 128M
-    healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+          memory: 64M
 
-  # Frontend Production Build (nginx serving static files)
+  # Frontend Production Build (outputs to shared volume, exits after build)
   frontend:
     image: bookreader-frontend:lite
     build:
@@ -73,25 +66,11 @@ services:
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
         - VITE_APP_NAME=BookReader AI
     container_name: bookreader_frontend
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped
+    volumes:
+      - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
+    restart: "no"                        # контейнер завершается после build
     networks:
       - bookreader_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.3'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-    healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   # Backend API (Lite - LangExtract only)
   backend:
@@ -312,6 +291,11 @@ volumes:
     driver: local
   beat_schedule:
     driver: local
+  caddy_data:         # SSL сертификаты (Caddy управляет автоматически через Let's Encrypt)
+    driver: local
+  caddy_config:       # Caddy конфигурационный кеш
+    driver: local
+  frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
 
 networks:
   bookreader_network:

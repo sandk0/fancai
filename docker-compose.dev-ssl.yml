@@ -1,32 +1,27 @@
 # Development with SSL support
-# Extends docker-compose.dev.yml and adds nginx with SSL
+# Extends docker-compose.dev.yml and adds Caddy with auto-HTTPS
 
 services:
-  # Nginx with SSL for development
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: bookreader_nginx_dev
+  # Caddy with SSL for development (auto-HTTPS via Let's Encrypt)
+  caddy:
+    image: caddy:2-alpine
+    container_name: bookreader_caddy_dev
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - "443:443/udp"   # HTTP/3 (QUIC)
     volumes:
-      - ./nginx/nginx.dev-ssl.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./nginx/certbot-www:/var/www/certbot:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
       - ./backend/storage:/var/www/storage:ro
+      - frontend_build:/var/www/frontend:ro
     depends_on:
       - backend
       - frontend
     restart: unless-stopped
     networks:
       - bookreader_network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # Backend from dev config
   backend:
@@ -98,6 +93,9 @@ volumes:
   nlp_nltk_data:
   nlp_stanza_models:
   beat_schedule:
+  caddy_data:
+  caddy_config:
+  frontend_build:
 
 networks:
   bookreader_network:

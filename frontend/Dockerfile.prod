@@ -41,62 +41,11 @@ RUN test -f dist/sw.js && echo "✓ Service Worker generated successfully" || \
 RUN test -f dist/manifest.json && echo "✓ Manifest found" || \
     (echo "✗ WARNING: manifest.json not found in dist/" && ls -la dist/)
 
-# Production stage
-FROM nginx:1.27-alpine AS production
+# Production stage — output only (Caddy serves static files via shared volume)
+FROM alpine:3.21
 
-# Install security updates and required tools
-RUN apk update && apk upgrade && \
-    apk add --no-cache curl tzdata openssl && \
-    rm -rf /var/cache/apk/*
+# Копируем build артефакты в путь для shared volume
+COPY --from=builder /app/dist /var/www/html
 
-# Copy custom nginx config (PWA-optimized)
-# Copy custom nginx config (PWA-optimized)
-# Use nginx.prod.conf for production PWA settings
-COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
-RUN rm -f /etc/nginx/conf.d/default.conf.bak 2>/dev/null || true
-
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Create nginx directories with proper permissions
-RUN mkdir -p /tmp/nginx /var/cache/nginx/client_temp && \
-    mkdir -p /var/cache/nginx/proxy_temp && \
-    mkdir -p /var/cache/nginx/fastcgi_temp && \
-    mkdir -p /var/cache/nginx/uwsgi_temp && \
-    mkdir -p /var/cache/nginx/scgi_temp && \
-    mkdir -p /var/run/nginx
-
-# Fix nginx.conf to use writable pid location (for non-root user)
-RUN sed -i 's|/run/nginx.pid|/tmp/nginx.pid|g' /etc/nginx/nginx.conf && \
-    sed -i 's|user  nginx;|#user  nginx;|g' /etc/nginx/nginx.conf
-
-# Set proper permissions
-RUN touch /etc/nginx/.htpasswd && \
-    chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /tmp/nginx && \
-    chown nginx:nginx /etc/nginx/.htpasswd && \
-    chmod -R 755 /usr/share/nginx/html && \
-    chmod -R 755 /var/cache/nginx && \
-    chmod -R 755 /tmp/nginx && \
-    chmod 664 /etc/nginx/.htpasswd
-
-# Health check (uses /health endpoint defined in nginx.prod.conf)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
-
-# Security: Run as non-root user
-USER nginx
-
-# Entrypoint to generate .htpasswd
-ENTRYPOINT ["/entrypoint.sh"]
-
-# Expose port
-EXPOSE 80
-
-# Start nginx in foreground
-CMD ["nginx", "-g", "daemon off;"]
+# Контейнер завершается сразу — артефакты доступны через frontend_build volume
+CMD ["echo", "Frontend build complete"]

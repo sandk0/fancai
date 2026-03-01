@@ -1,0 +1,60 @@
+{
+    email admin@fancai.ru
+}
+
+fancai.ru {
+    # Сжатие
+    encode zstd gzip
+
+    # API бэкенда
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 120s
+                read_timeout 130s
+            }
+        }
+    }
+
+    # WebSocket
+    handle /ws/* {
+        reverse_proxy backend:8000
+    }
+
+    # Storage (изображения)
+    handle /storage/* {
+        root * /var/www
+        file_server
+    }
+
+    # Frontend SPA (catch-all — должен быть последним)
+    handle {
+        root * /var/www/frontend
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Upload limit для EPUB
+    @uploads {
+        path /api/v1/books/upload /api/v1/books/*/upload
+    }
+    request_body @uploads {
+        max_size 50MB
+    }
+
+    # Security headers
+    header {
+        X-Frame-Options SAMEORIGIN
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}
+
+# www -> non-www редирект
+www.fancai.ru {
+    redir https://fancai.ru{uri} permanent
+}
