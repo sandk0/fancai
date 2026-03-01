@@ -295,19 +295,23 @@ async def batch_sync(
                         errors.append(f"Failed to process progress: {endpoint}")
 
                 elif "/bookmarks" in endpoint:
-                    # TODO: Implement bookmark sync
+                    # NOT IMPLEMENTED (Phase 8: READ-01)
                     failed += 1
-                    errors.append("Bookmark sync not yet implemented")
+                    errors.append(
+                        "501: Bookmark sync not implemented (planned Phase 8)"
+                    )
 
                 elif "/highlights" in endpoint:
-                    # TODO: Implement highlight sync
+                    # NOT IMPLEMENTED (Phase 8: READ-02)
                     failed += 1
-                    errors.append("Highlight sync not yet implemented")
+                    errors.append(
+                        "501: Highlight sync not implemented (planned Phase 8)"
+                    )
 
                 elif "/reading-sessions" in endpoint:
-                    # TODO: Implement reading session sync
+                    # NOT IMPLEMENTED
                     failed += 1
-                    errors.append("Reading session sync not yet implemented")
+                    errors.append("501: Reading session sync not implemented")
 
                 else:
                     failed += 1
