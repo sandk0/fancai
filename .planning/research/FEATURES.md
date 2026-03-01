@@ -1,237 +1,237 @@
-# Feature Landscape
+# Ландшафт функций
 
-**Domain:** AI-enhanced e-book reader (web PWA) with entity glossary and illustration generation
-**Researched:** 2026-02-27
-**Confidence:** HIGH (based on competitive analysis of Kindle X-Ray, Readest, ReadEra, Kobo, Moon+ Reader, and existing codebase audit)
+**Область:** Электронная читалка с ИИ (веб-PWA) с глоссарием сущностей и генерацией иллюстраций
+**Исследовано:** 2026-02-27
+**Уверенность:** ВЫСОКАЯ (на основе конкурентного анализа Kindle X-Ray, Readest, ReadEra, Kobo, Moon+ Reader и аудита существующей кодовой базы)
 
-## Table Stakes
+## Обязательный минимум
 
-Features users expect from any production book reader. Missing = product feels incomplete or broken.
+Функции, которые пользователи ожидают от любой продакшен-читалки. Отсутствие = продукт воспринимается как неполный или сломанный.
 
-### Reader Core
+### Ядро ридера
 
-| Feature | Why Expected | Complexity | Status | Notes |
-|---------|--------------|------------|--------|-------|
-| Reliable EPUB rendering | Foundational -- without this nothing else matters | Already built | DONE | epub.js 0.3.93, CFI navigation working |
-| Table of contents navigation | Every reader has this; Kindle, Kobo, Readest all include searchable TOC | Low | DONE | `TocSidebar.tsx` with search, virtualization |
-| Reading progress tracking | Users need to know where they are; all competitors show percentage + chapter | Low | DONE | `ProgressIndicator.tsx`, progress sync to backend |
-| Font customization (size, family) | Baseline expectation -- Kindle, Apple Books, ReadEra, Readest all offer this | Low | DONE | `ReaderSettingsPanel.tsx` with 6 font families, size 12-32px |
-| Theme support (light/dark/sepia) | All modern readers offer at least 3 themes | Low | DONE | 5 themes: light, dark, sepia, warm, cool |
-| Resume reading position | Users close and reopen constantly; must resume exactly | Med | DONE | CFI-based position persistence, `PositionConflictDialog` for cross-device |
-| Book library with covers | Basic library management; see all books at a glance | Low | DONE | `LibraryPage.tsx`, `BookCard` components |
-| Book upload | Users need to get books into the app | Low | DONE | `BookUploadModal.tsx`, drag-and-drop, EPUB + FB2 |
-| Offline reading | PWA users expect cached books to work without network | Med | DONE | IndexedDB chapter cache, service worker, `PWAOfflineSection` |
-| Text selection + copy | Minimum text interaction -- every reader supports this | Low | DONE | `SelectionMenu.tsx` with copy action |
-| Mobile-responsive layout | Book reading is primarily mobile; must work on phones | Med | DONE | Responsive components, bottom sheet on mobile, swipe/tap navigation |
-| Wake lock (screen stays on) | Readers hate screens dimming mid-page; Kindle hardware does this by default | Low | DONE | Wake Lock API integration in settings panel |
-| Search in TOC | Users search for chapters by name | Low | DONE | Built into `TocSidebar.tsx` |
+| Функция | Почему ожидается | Сложность | Статус | Примечания |
+|---------|------------------|-----------|--------|------------|
+| Надёжный рендеринг EPUB | Фундамент -- без этого ничто другое не имеет значения | Уже реализовано | ГОТОВО | epub.js 0.3.93, CFI-навигация работает |
+| Навигация по оглавлению | Есть у каждой читалки; Kindle, Kobo, Readest -- все включают поисковое оглавление | Низкая | ГОТОВО | `TocSidebar.tsx` с поиском, виртуализацией |
+| Отслеживание прогресса чтения | Пользователям нужно знать, где они находятся; все конкуренты показывают процент + главу | Низкая | ГОТОВО | `ProgressIndicator.tsx`, синхронизация прогресса с бэкендом |
+| Настройка шрифтов (размер, семейство) | Базовое ожидание -- Kindle, Apple Books, ReadEra, Readest -- все предлагают это | Низкая | ГОТОВО | `ReaderSettingsPanel.tsx` с 6 семействами шрифтов, размер 12-32px |
+| Поддержка тем (светлая/тёмная/сепия) | Все современные читалки предлагают как минимум 3 темы | Низкая | ГОТОВО | 5 тем: light, dark, sepia, warm, cool |
+| Возобновление позиции чтения | Пользователи постоянно закрывают и открывают; должно возобновляться точно | Средняя | ГОТОВО | Сохранение позиции на основе CFI, `PositionConflictDialog` для кросс-девайсного чтения |
+| Библиотека книг с обложками | Базовое управление библиотекой; просмотр всех книг одним взглядом | Низкая | ГОТОВО | `LibraryPage.tsx`, компоненты `BookCard` |
+| Загрузка книг | Пользователям нужно добавлять книги в приложение | Низкая | ГОТОВО | `BookUploadModal.tsx`, drag-and-drop, EPUB + FB2 |
+| Офлайн-чтение | Пользователи PWA ожидают, что кэшированные книги будут работать без сети | Средняя | ГОТОВО | IndexedDB-кэш глав, service worker, `PWAOfflineSection` |
+| Выделение текста + копирование | Минимальное взаимодействие с текстом -- каждая читалка поддерживает это | Низкая | ГОТОВО | `SelectionMenu.tsx` с действием копирования |
+| Мобильно-адаптивная вёрстка | Чтение книг -- преимущественно мобильная активность; должно работать на телефонах | Средняя | ГОТОВО | Адаптивные компоненты, bottom sheet на мобильных, свайп/тап навигация |
+| Wake lock (экран не гаснет) | Пользователей раздражает затемнение экрана во время чтения; Kindle-устройства делают это по умолчанию | Низкая | ГОТОВО | Интеграция Wake Lock API в панели настроек |
+| Поиск по оглавлению | Пользователи ищут главы по названию | Низкая | ГОТОВО | Встроен в `TocSidebar.tsx` |
 
-### Error Handling and Reliability
+### Обработка ошибок и надёжность
 
-| Feature | Why Expected | Complexity | Status | Notes |
-|---------|--------------|------------|--------|-------|
-| Graceful book parsing errors | Corrupted or malformed EPUBs must not crash the app; user needs actionable message | Med | PARTIAL | ebooklib catches some errors, but no user-friendly error states for malformed books |
-| API error recovery with retry | Network flakiness must not lose user's place or data | Med | PARTIAL | TanStack Query retries exist, but error messages are generic |
-| Health check that actually works | Monitoring must detect real failures, not report fake "healthy" | Low | MISSING | Health endpoint returns hardcoded "checking..." |
-| Consistent error message UX | All errors should look the same and suggest next actions | Med | PARTIAL | `ErrorMessage.tsx` exists with retry, but not used consistently across all failure states |
-| Book processing failure recovery | If AI extraction fails, user needs to know and retry | Med | PARTIAL | `ParsingOverlay` shows progress, but failure state UX is weak -- user can re-trigger but no clear "what went wrong" |
-| Position conflict resolution | Cross-device reading creates position conflicts | Med | DONE | `PositionConflictDialog.tsx` handles server vs local position |
+| Функция | Почему ожидается | Сложность | Статус | Примечания |
+|---------|------------------|-----------|--------|------------|
+| Корректная обработка ошибок парсинга книг | Повреждённые или некорректные EPUB не должны крашить приложение; пользователю нужно понятное сообщение | Средняя | ЧАСТИЧНО | ebooklib перехватывает некоторые ошибки, но нет пользовательски дружественных состояний ошибок для некорректных книг |
+| Восстановление при ошибках API с повторами | Нестабильность сети не должна терять позицию или данные пользователя | Средняя | ЧАСТИЧНО | Повторы TanStack Query существуют, но сообщения об ошибках общие |
+| Health-проверка, которая действительно работает | Мониторинг должен обнаруживать реальные сбои, а не сообщать фейковое "healthy" | Низкая | ОТСУТСТВУЕТ | Health-эндпоинт возвращает захардкоженное "checking..." |
+| Согласованный UX сообщений об ошибках | Все ошибки должны выглядеть одинаково и предлагать следующие действия | Средняя | ЧАСТИЧНО | `ErrorMessage.tsx` существует с повтором, но используется не всюду для всех состояний ошибок |
+| Восстановление при сбое обработки книги | Если ИИ-извлечение завершается ошибкой, пользователь должен знать и иметь возможность повторить | Средняя | ЧАСТИЧНО | `ParsingOverlay` показывает прогресс, но UX состояния ошибки слабый -- пользователь может повторить запуск, но нет чёткого "что пошло не так" |
+| Разрешение конфликтов позиции | Кросс-девайсное чтение создаёт конфликты позиций | Средняя | ГОТОВО | `PositionConflictDialog.tsx` обрабатывает серверную vs локальную позицию |
 
-### Loading States and Perceived Performance
+### Состояния загрузки и воспринимаемая производительность
 
-| Feature | Why Expected | Complexity | Status | Notes |
-|---------|--------------|------------|--------|-------|
-| Skeleton loading for library | Users see blank screens without it; Nielsen Norman Group research confirms skeletons reduce perceived wait | Low | DONE | `BookCardSkeleton`, `EntityListSkeleton`, `CardSkeleton` in `Skeleton.tsx` |
-| Book processing progress indicator | Long-running task (5-60+ seconds); users must see progress, not a spinner | Med | DONE | `UploadProgress.tsx`, WebSocket/polling for Celery progress |
-| AI extraction loading state | 5-15 second LLM call must communicate "AI is working" | Med | DONE | `ExtractionIndicator.tsx` with spinner, text, cancel button |
-| Chapter loading between navigations | Swipe/tap to new chapter must feel instant or show loading | Low | PARTIAL | Chapter data is cached in IndexedDB, but no shimmer/skeleton while epub.js re-renders |
-| Image lazy loading | AI-generated images are large; must not block page render | Low | DONE | `LazyImage.tsx`, `AuthenticatedImage.tsx` |
+| Функция | Почему ожидается | Сложность | Статус | Примечания |
+|---------|------------------|-----------|--------|------------|
+| Скелетная загрузка для библиотеки | Без неё пользователи видят пустые экраны; исследования Nielsen Norman Group подтверждают, что скелетоны снижают воспринимаемое ожидание | Низкая | ГОТОВО | `BookCardSkeleton`, `EntityListSkeleton`, `CardSkeleton` в `Skeleton.tsx` |
+| Индикатор прогресса обработки книги | Долгая задача (5-60+ секунд); пользователи должны видеть прогресс, а не спиннер | Средняя | ГОТОВО | `UploadProgress.tsx`, WebSocket/polling для прогресса Celery |
+| Состояние загрузки ИИ-извлечения | 5-15 секунд вызова LLM должны сообщать "ИИ работает" | Средняя | ГОТОВО | `ExtractionIndicator.tsx` со спиннером, текстом, кнопкой отмены |
+| Загрузка главы при переходах | Свайп/тап на новую главу должен ощущаться мгновенно или показывать загрузку | Низкая | ЧАСТИЧНО | Данные глав кэшируются в IndexedDB, но нет shimmer/скелетона во время перерендеринга epub.js |
+| Ленивая загрузка изображений | ИИ-генерированные изображения большие; не должны блокировать рендеринг страницы | Низкая | ГОТОВО | `LazyImage.tsx`, `AuthenticatedImage.tsx` |
 
-### Security Fundamentals
+### Основы безопасности
 
-| Feature | Why Expected | Complexity | Status | Notes |
-|---------|--------------|------------|--------|-------|
-| No debug mode in production | Leaking stack traces = security vulnerability + unprofessional | Low | MISSING | `DEBUG: bool = True` default; must flip to `False` |
-| Secure secret key | Hardcoded secrets are exploitable | Low | MISSING | Default `"dev-secret-key-change-in-production"` |
-| Reasonable token expiry | 7-day access tokens are too long if stolen | Low | MISSING | `ACCESS_TOKEN_EXPIRE_MINUTES = 10080` should be 15-30 min |
-| Working password reset | Production users need to recover accounts | Low | MISSING | URL hardcodes `localhost:5173` |
-| File upload validation | Malicious uploads must be rejected early | Low | PARTIAL | Extension-only validation; no magic byte check |
+| Функция | Почему ожидается | Сложность | Статус | Примечания |
+|---------|------------------|-----------|--------|------------|
+| Отключение debug-режима в продакшене | Утечка стек-трейсов = уязвимость безопасности + непрофессионально | Низкая | ОТСУТСТВУЕТ | Дефолт `DEBUG: bool = True`; необходимо изменить на `False` |
+| Безопасный секретный ключ | Захардкоженные секреты эксплуатируемы | Низкая | ОТСУТСТВУЕТ | Дефолт `"dev-secret-key-change-in-production"` |
+| Разумный срок действия токена | 7-дневные access-токены слишком длинные при краже | Низкая | ОТСУТСТВУЕТ | `ACCESS_TOKEN_EXPIRE_MINUTES = 10080` должно быть 15-30 минут |
+| Работающий сброс пароля | Пользователям продакшена нужна возможность восстановить аккаунт | Низкая | ОТСУТСТВУЕТ | URL захардкожен как `localhost:5173` |
+| Валидация загружаемых файлов | Вредоносные загрузки должны отклоняться на ранней стадии | Низкая | ЧАСТИЧНО | Валидация только по расширению; нет проверки magic bytes |
 
-## Differentiators
+## Дифференциаторы
 
-Features that set fancai apart. Not table stakes, but the reason users choose this product over alternatives.
+Функции, отличающие fancai. Не обязательный минимум, но причина, по которой пользователи выбирают именно этот продукт.
 
-### AI-Powered Entity Wiki (Primary Differentiator)
+### ИИ-вики сущностей (основной дифференциатор)
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| Spoiler-free character glossary | Kindle X-Ray doesn't filter by reading position; fancai's chapter-based filtering is genuinely unique | Already built | DONE | Entity filtering by CFI position, `EntityDrawer.tsx`, `EntityProfile.tsx` |
-| Entity relationships graph | See character connections visually; goes beyond what any mainstream reader offers | Med | DONE | `graph_service.py`, relationship data in entity profiles |
-| Entity type categorization | Characters, locations, objects -- organized taxonomy | Low | DONE | Entity types with icons and categories |
-| Entity event timeline | See when characters appeared and what happened -- narrative tracking | Med | DONE | `EntityEventTimeline.tsx` |
-| Entity recap panel | Quick summary of what happened with entities up to current chapter | Med | DONE | `RecapPanel.tsx` |
-| Entity deduplication (fuzzy + LLM) | Merge "Harry" and "Harry Potter" intelligently -- quality control | High | PARTIAL | Works but fuzzy threshold 0.85 too high for Russian names; chunk boundary entity loss exists |
-| In-text entity search | Tap a character name in text to see their wiki entry | Med | NOT BUILT | Kindle X-Ray has this via tap-and-hold; fancai could link description highlights to entity profiles |
+| Функция | Ценностное предложение | Сложность | Статус | Примечания |
+|---------|------------------------|-----------|--------|------------|
+| Глоссарий персонажей без спойлеров | Kindle X-Ray не фильтрует по позиции чтения; глава-based фильтрация fancai действительно уникальна | Уже реализовано | ГОТОВО | Фильтрация сущностей по CFI-позиции, `EntityDrawer.tsx`, `EntityProfile.tsx` |
+| Граф связей сущностей | Визуальное отображение связей персонажей; выходит за рамки того, что предлагает любая основная читалка | Средняя | ГОТОВО | `graph_service.py`, данные о связях в профилях сущностей |
+| Категоризация типов сущностей | Персонажи, локации, объекты -- организованная таксономия | Низкая | ГОТОВО | Типы сущностей с иконками и категориями |
+| Таймлайн событий сущности | Просмотр, когда персонажи появлялись и что происходило -- отслеживание нарратива | Средняя | ГОТОВО | `EntityEventTimeline.tsx` |
+| Панель пересказа сущностей | Краткое резюме того, что произошло с сущностями до текущей главы | Средняя | ГОТОВО | `RecapPanel.tsx` |
+| Дедупликация сущностей (нечёткая + LLM) | Умное объединение "Гарри" и "Гарри Поттер" -- контроль качества | Высокая | ЧАСТИЧНО | Работает, но порог нечёткого сопоставления 0.85 слишком высок для русских имён; есть потеря сущностей на границах чанков |
+| Поиск сущностей в тексте | Нажмите на имя персонажа в тексте, чтобы увидеть его вики-запись | Средняя | НЕ РЕАЛИЗОВАНО | Kindle X-Ray имеет это через tap-and-hold; fancai может связать подсветку описаний с профилями сущностей |
 
-### AI-Generated Illustrations (Secondary Differentiator)
+### ИИ-генерированные иллюстрации (вторичный дифференциатор)
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| AI illustration generation | Unique value: see the scenes as you read them | Already built | DONE | Gemini extraction + Imagen 4 generation pipeline |
-| Description highlighting in text | Visual link between text passage and generated image | High | DONE | 8 fallback strategies in `useDescriptionHighlighting.ts` |
-| Image gallery per book | Browse all generated illustrations | Low | DONE | `BookImagesPage.tsx`, `ImageGallery.tsx` |
-| Image viewer with zoom | Full-screen image viewing experience | Low | DONE | `ImageViewer.tsx` |
+| Функция | Ценностное предложение | Сложность | Статус | Примечания |
+|---------|------------------------|-----------|--------|------------|
+| Генерация ИИ-иллюстраций | Уникальная ценность: видеть сцены во время чтения | Уже реализовано | ГОТОВО | Конвейер извлечения Gemini + генерации изображений (Imagen 4 → FLUX.2 через OpenRouter в Phase 3) |
+| Подсветка описаний в тексте | Визуальная связь между текстовым фрагментом и сгенерированным изображением | Высокая | ГОТОВО | 8 стратегий фолбэка в `useDescriptionHighlighting.ts` |
+| Галерея изображений по книге | Просмотр всех сгенерированных иллюстраций | Низкая | ГОТОВО | `BookImagesPage.tsx`, `ImageGallery.tsx` |
+| Просмотрщик изображений с зумом | Полноэкранный просмотр изображений | Низкая | ГОТОВО | `ImageViewer.tsx` |
 
-### Reading Analytics
+### Аналитика чтения
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| Reading statistics | Time spent, pages read, streaks -- gamification of reading | Med | DONE | `StatsPage.tsx`, `StatsCards.tsx`, reading session tracking |
-| Reading streaks | Daily/weekly reading habit tracking | Low | DONE | Part of statistics system |
-| Achievements | Gamified milestones (books finished, hours read) | Med | DONE | `AchievementsList.tsx` |
+| Функция | Ценностное предложение | Сложность | Статус | Примечания |
+|---------|------------------------|-----------|--------|------------|
+| Статистика чтения | Потраченное время, прочитанные страницы, серии -- геймификация чтения | Средняя | ГОТОВО | `StatsPage.tsx`, `StatsCards.tsx`, отслеживание сессий чтения |
+| Серии чтения | Ежедневное/еженедельное отслеживание привычки чтения | Низкая | ГОТОВО | Часть системы статистики |
+| Достижения | Геймифицированные вехи (завершённые книги, часы чтения) | Средняя | ГОТОВО | `AchievementsList.tsx` |
 
-### Quality of Life
+### Улучшения качества жизни
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| PWA install prompt | Native-app-like experience without app store friction | Low | DONE | `PWAInstallSection.tsx`, `IOSInstallInstructions` |
-| Push notifications | "Continue reading" reminders, processing complete alerts | Med | DONE | `push_notification_service.py`, `pushNotifications.ts` |
-| Cross-tab sync | Read in one tab, entity wiki in another -- both stay synced | Low | DONE | `tabSync.ts` |
-| Admin dashboard | Content moderation, user management, entity merge | Med | DONE | `AdminDashboardEnhanced.tsx` |
-| i18n (Russian + English) | Bilingual support for target audience | Already built | DONE | 222 occurrences of `useTranslation` across 100 files |
+| Функция | Ценностное предложение | Сложность | Статус | Примечания |
+|---------|------------------------|-----------|--------|------------|
+| Промпт установки PWA | Нативноподобный опыт без трения магазина приложений | Низкая | ГОТОВО | `PWAInstallSection.tsx`, `IOSInstallInstructions` |
+| Push-уведомления | Напоминания "Продолжить чтение", оповещения о завершении обработки | Средняя | ГОТОВО | `push_notification_service.py`, `pushNotifications.ts` |
+| Межтабовая синхронизация | Читайте в одной вкладке, вики сущностей в другой -- обе синхронизированы | Низкая | ГОТОВО | `tabSync.ts` |
+| Админ-панель | Модерация контента, управление пользователями, слияние сущностей | Средняя | ГОТОВО | `AdminDashboardEnhanced.tsx` |
+| i18n (русский + английский) | Двуязычная поддержка для целевой аудитории | Уже реализовано | ГОТОВО | 222 вхождения `useTranslation` в 100 файлах |
 
-## Planned/Stub Features (Not Yet Working)
+## Запланированные/заглушенные функции (ещё не работают)
 
-Features with code stubs or UI but no working implementation.
+Функции с заглушками кода или UI, но без работающей реализации.
 
-| Feature | Current State | What's Needed | Priority | Notes |
-|---------|--------------|---------------|----------|-------|
-| Bookmarks | SelectionMenu has "Highlight" + "Note" buttons marked "Task 3.1" | Backend sync endpoint + IndexedDB persistence + UI for bookmark list | Med | Sync endpoint (`sync.py`) is a TODO stub that returns errors |
-| Highlights (text annotation) | UI button exists but `onHighlight` is never passed | Same as bookmarks -- shared sync infrastructure | Med | Standard reader feature; Kindle, Kobo, Readest all have it |
-| Notes on highlights | UI button exists but `onNote` is never passed | Same as bookmarks | Med | Tied to highlight feature |
-| WebSocket real-time updates | Frontend `WebSocketService` is a no-op stub | Backend cookie auth for WS + reconnection logic | High | Would replace polling for book processing progress |
-| Batch description fetch | `useBookDescriptions` hook is permanently disabled | Backend batch endpoint | Low | Optimization for prefetching all descriptions |
-| Book download for offline | `DownloadBookButton.tsx` exists | Verify full offline pipeline works end-to-end | Med | PWA offline is partially implemented |
-| Payment/subscription system | Config stubs for YooKassa/CloudPayments | Full payment integration | OUT OF SCOPE | Monetization deferred |
+| Функция | Текущее состояние | Что необходимо | Приоритет | Примечания |
+|---------|-------------------|----------------|-----------|------------|
+| Закладки | SelectionMenu имеет кнопки "Highlight" + "Note" с пометкой "Task 3.1" | Бэкенд-эндпоинт синхронизации + сохранение в IndexedDB + UI для списка закладок | Средний | Эндпоинт синхронизации (`sync.py`) -- TODO-заглушка, возвращающая ошибки |
+| Выделения (текстовые аннотации) | UI-кнопка существует, но `onHighlight` никогда не передаётся | То же, что закладки -- общая инфраструктура синхронизации | Средний | Стандартная функция читалки; Kindle, Kobo, Readest -- все имеют это |
+| Заметки к выделениям | UI-кнопка существует, но `onNote` никогда не передаётся | То же, что закладки | Средний | Привязана к функции выделений |
+| WebSocket обновления в реальном времени | Фронтенд `WebSocketService` -- нерабочая заглушка | Бэкенд cookie-авторизация для WS + логика переподключения | Высокий | Заменит polling для прогресса обработки книги |
+| Пакетная загрузка описаний | Хук `useBookDescriptions` постоянно отключён | Бэкенд-эндпоинт пакетной загрузки | Низкий | Оптимизация для предзагрузки всех описаний |
+| Скачивание книги для офлайна | `DownloadBookButton.tsx` существует | Проверить полный офлайн-пайплайн от начала до конца | Средний | PWA-офлайн частично реализован |
+| Система оплаты/подписки | Конфигурационные заглушки для YooKassa/CloudPayments | Полная интеграция оплаты | ВНЕ СКОУПА | Монетизация отложена |
 
-## Anti-Features
+## Антифункции
 
-Features to explicitly NOT build in this production-readiness milestone.
+Функции, которые следует явно НЕ реализовывать в этом этапе подготовки к продакшену.
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Social/community features | Scope creep; reading is primarily solitary; no competitive moat here | Focus on single-user reading experience quality |
-| Built-in book store/marketplace | Complex legal, licensing, and payment integration; not core value | Support EPUB/FB2 upload; users source books elsewhere |
-| Text-to-speech / audio narration | Complex accessibility feature; better served by OS-level accessibility tools; Readest does this but it's not expected in web readers | Ensure app works with screen readers (VoiceOver, TalkBack) |
-| AI-powered book recommendations | Requires large dataset of user behavior; cold start problem; not related to core reading experience | Manual library organization is sufficient |
-| Reading speed estimation / "time left in chapter" | Inaccurate and annoying when wrong; chapter progress percentage is sufficient | Show chapter progress percentage (already done) |
-| OAuth social login (Google, GitHub) | Added complexity for minimal user acquisition benefit in v1 | Email/password auth works; add OAuth later if user feedback demands it |
-| Multi-format beyond EPUB/FB2 | PDF, MOBI, AZW3 support adds parser complexity; EPUB is the standard for reflowable text | Keep EPUB + FB2; recommend Calibre for format conversion |
-| Collaborative annotations | Sharing highlights/notes between users; complex permissions model | Single-user annotations first |
-| WebSocket for everything | Over-engineering; polling works for all current features except book processing | Use WebSocket only for book processing progress; polling for everything else |
-| Inline dictionary/translation | Complex feature requiring dictionary API integration; tangential to core value | Users can select text and use OS-level dictionary |
+| Антифункция | Почему избегать | Что делать вместо |
+|-------------|-----------------|-------------------|
+| Социальные/общественные функции | Расползание скоупа; чтение -- преимущественно одиночная активность; нет конкурентного преимущества здесь | Сосредоточиться на качестве опыта одиночного чтения |
+| Встроенный книжный магазин/маркетплейс | Сложная юридическая, лицензионная и платёжная интеграция; не основная ценность | Поддержка загрузки EPUB/FB2; пользователи берут книги в других местах |
+| Озвучивание текста / аудионарративы | Сложная функция доступности; лучше обслуживается средствами доступности ОС; Readest делает это, но это не ожидается от веб-читалок | Обеспечить работу приложения со скринридерами (VoiceOver, TalkBack) |
+| ИИ-рекомендации книг | Требует большого датасета поведения пользователей; проблема холодного старта; не связано с основным опытом чтения | Ручная организация библиотеки достаточна |
+| Оценка скорости чтения / "времени до конца главы" | Неточно и раздражает при ошибках; процента прогресса главы достаточно | Показывать процент прогресса главы (уже сделано) |
+| OAuth социальный логин (Google, GitHub) | Дополнительная сложность с минимальной пользой привлечения пользователей в v1 | Email/пароль авторизация работает; добавить OAuth позже, если фидбэк пользователей потребует |
+| Мультиформатность помимо EPUB/FB2 | Поддержка PDF, MOBI, AZW3 добавляет сложность парсера; EPUB -- стандарт для перетекающего текста | Оставить EPUB + FB2; рекомендовать Calibre для конвертации форматов |
+| Совместные аннотации | Обмен выделениями/заметками между пользователями; сложная модель прав | Сначала аннотации для одного пользователя |
+| WebSocket для всего | Переинженерия; polling работает для всех текущих функций кроме обработки книг | Использовать WebSocket только для прогресса обработки книг; polling для всего остального |
+| Встроенный словарь/перевод | Сложная функция, требующая интеграции с API словарей; второстепенна по отношению к основной ценности | Пользователи могут выделить текст и использовать словарь уровня ОС |
 
-## Feature Dependencies
+## Зависимости функций
 
 ```
-Book Upload -> Book Parsing -> Chapter Storage -> EPUB Rendering
-                           |
-                           +-> AI Extraction -> Entity Wiki (spoiler-free)
-                           |                 |
-                           |                 +-> Entity Deduplication
-                           |
-                           +-> Description Extraction -> Image Generation
-                                                      |
-                                                      +-> Description Highlighting
+Загрузка книги -> Парсинг книги -> Хранение глав -> Рендеринг EPUB
+                               |
+                               +-> ИИ-извлечение -> Вики сущностей (без спойлеров)
+                               |                 |
+                               |                 +-> Дедупликация сущностей
+                               |
+                               +-> Извлечение описаний -> Генерация изображений
+                                                       |
+                                                       +-> Подсветка описаний
 
-Reading Progress Tracking -> Reading Statistics -> Achievements
-                          |
-                          +-> Position Resume
-                          |
-                          +-> Position Conflict Resolution
+Отслеживание прогресса чтения -> Статистика чтения -> Достижения
+                              |
+                              +-> Возобновление позиции
+                              |
+                              +-> Разрешение конфликтов позиции
 
-Text Selection -> Copy (DONE)
-              |
-              +-> Highlights (STUB) -> Bookmark Sync (STUB)
-              |
-              +-> Notes (STUB) -> Bookmark Sync (STUB)
+Выделение текста -> Копирование (ГОТОВО)
+                |
+                +-> Выделения (ЗАГЛУШКА) -> Синхронизация закладок (ЗАГЛУШКА)
+                |
+                +-> Заметки (ЗАГЛУШКА) -> Синхронизация закладок (ЗАГЛУШКА)
 
-Security Fixes (no dependencies, can be done in parallel):
-  - Debug mode default
-  - Secret key default
-  - Token expiry
-  - Password reset URL
-  - File upload validation
-  - Health check
+Исправления безопасности (без зависимостей, можно делать параллельно):
+  - Дефолт debug-режима
+  - Дефолт секретного ключа
+  - Срок действия токена
+  - URL сброса пароля
+  - Валидация загрузки файлов
+  - Health-проверка
 ```
 
-## Production Readiness Recommendation
+## Рекомендации по готовности к продакшену
 
-### Phase 1: Security + Stability (do first -- no features until this is solid)
+### Фаза 1: Безопасность + Стабильность (делать первым -- никаких функций, пока это не будет надёжным)
 
-1. Fix security defaults (DEBUG, SECRET_KEY, token expiry, password reset URL)
-2. Implement real health check
-3. Remove dead NLP code (reduces confusion, smaller attack surface)
-4. Fix or remove TODO stubs (sync endpoint should return 501 Not Implemented, not silent failure)
-5. Add magic byte validation for file uploads
+1. Исправить дефолты безопасности (DEBUG, SECRET_KEY, срок действия токена, URL сброса пароля)
+2. Реализовать реальную health-проверку
+3. Удалить мёртвый NLP-код (уменьшает путаницу, снижает поверхность атаки)
+4. Исправить или удалить TODO-заглушки (эндпоинт синхронизации должен возвращать 501 Not Implemented, а не молчаливый сбой)
+5. Добавить валидацию magic bytes для загрузки файлов
 
-### Phase 2: Error Handling + Loading States (polish what exists)
+### Фаза 2: Обработка ошибок + Состояния загрузки (полировка существующего)
 
-1. Standardize error messages across all failure states
-2. Add proper error states for book parsing failures (user-friendly)
-3. Add chapter transition loading states (shimmer while epub.js re-renders)
-4. Improve AI extraction failure recovery UX
-5. Fix book reprocess orphaned descriptions bug
+1. Стандартизировать сообщения об ошибках для всех состояний сбоев
+2. Добавить правильные состояния ошибок для сбоев парсинга книг (дружественные к пользователю)
+3. Добавить состояния загрузки при переходе между главами (shimmer во время перерендеринга epub.js)
+4. Улучшить UX восстановления при сбое ИИ-извлечения
+5. Исправить баг осиротевших описаний при переобработке книги
 
-### Phase 3: Entity Wiki Quality (core differentiator must be reliable)
+### Фаза 3: Качество вики сущностей (основной дифференциатор должен быть надёжным)
 
-1. Lower fuzzy matching threshold for Russian names (0.85 -> 0.70-0.75 with validation)
-2. Address chunk boundary entity loss (recursive reduce or smarter overlap)
-3. Add ConsistencyManager unit tests (no tests for 722-line service)
-4. Verify spoiler-free filtering is exhaustively tested
+1. Снизить порог нечёткого сопоставления для русских имён (0.85 -> 0.70-0.75 с валидацией)
+2. Решить проблему потери сущностей на границах чанков (рекурсивный reduce или умнее перекрытие)
+3. Добавить модульные тесты ConsistencyManager (нет тестов для сервиса на 722 строки)
+4. Проверить исчерпывающее тестирование фильтрации без спойлеров
 
-### Phase 4: Reader Polish (quality of life)
+### Фаза 4: Полировка ридера (улучшения качества жизни)
 
-1. Implement bookmarks/highlights (SelectionMenu UI already exists)
-2. Implement bookmark sync endpoint (replace TODO stub)
-3. Add entity-to-text linking (tap character name -> entity profile)
-4. Add empty states for all "no content" scenarios
+1. Реализовать закладки/выделения (UI SelectionMenu уже существует)
+2. Реализовать эндпоинт синхронизации закладок (заменить TODO-заглушку)
+3. Добавить связывание сущности с текстом (нажатие на имя персонажа -> профиль сущности)
+4. Добавить пустые состояния для всех сценариев "нет контента"
 
-Defer: WebSocket real-time, payment system, OAuth, batch descriptions
+Отложить: WebSocket в реальном времени, система оплаты, OAuth, пакетные описания
 
-## Competitor Feature Matrix
+## Матрица функций конкурентов
 
-| Feature | fancai | Kindle (X-Ray) | Readest | ReadEra | Kobo |
+| Функция | fancai | Kindle (X-Ray) | Readest | ReadEra | Kobo |
 |---------|--------|----------------|---------|---------|------|
-| EPUB support | Yes | MOBI/AZW3 | Yes | Yes | Yes |
-| Spoiler-free entity wiki | **Yes** | No (shows all) | No | No | No |
-| AI-generated illustrations | **Yes** | No | No | No | No |
-| Character glossary | Yes | Yes (X-Ray) | No | No | No |
-| Highlights/annotations | Stub | Yes | Yes | Yes | Yes |
-| Bookmarks | Stub | Yes | Yes | Yes | Yes |
-| Cross-device sync | Yes | Yes | Yes | No | Yes |
-| Offline reading | Yes | Yes | Yes | Yes | Yes |
-| Reading statistics | Yes | Yes | Basic | Yes | Yes |
-| Dark mode | Yes | Yes | Yes | Yes | Yes |
-| Font customization | Yes | Yes | Yes | Yes | Yes |
-| Text search in book | No | Yes | Yes | Yes | Yes |
-| Dictionary/translation | No | Yes | Yes | No | Yes |
-| Split-screen reading | No | No | Yes | No | No |
-| TTS/narration | No | Audible | Yes | Yes | No |
-| Open source | No | No | Yes | No | No |
+| Поддержка EPUB | Да | MOBI/AZW3 | Да | Да | Да |
+| Вики сущностей без спойлеров | **Да** | Нет (показывает всё) | Нет | Нет | Нет |
+| ИИ-генерированные иллюстрации | **Да** | Нет | Нет | Нет | Нет |
+| Глоссарий персонажей | Да | Да (X-Ray) | Нет | Нет | Нет |
+| Выделения/аннотации | Заглушка | Да | Да | Да | Да |
+| Закладки | Заглушка | Да | Да | Да | Да |
+| Кросс-девайсная синхронизация | Да | Да | Да | Нет | Да |
+| Офлайн-чтение | Да | Да | Да | Да | Да |
+| Статистика чтения | Да | Да | Базовая | Да | Да |
+| Тёмный режим | Да | Да | Да | Да | Да |
+| Настройка шрифтов | Да | Да | Да | Да | Да |
+| Поиск текста в книге | Нет | Да | Да | Да | Да |
+| Словарь/перевод | Нет | Да | Да | Нет | Да |
+| Разделённый экран | Нет | Нет | Да | Нет | Нет |
+| Озвучка/нарратив | Нет | Audible | Да | Да | Нет |
+| Открытый исходный код | Нет | Нет | Да | Нет | Нет |
 
-**Key insight:** fancai's two unique differentiators (spoiler-free entity wiki + AI illustrations) are genuinely absent from all major competitors. The gap is in table-stakes features: highlights, bookmarks, and in-book text search. These must be addressed to prevent users leaving for a more complete reader despite the unique AI features.
+**Ключевой вывод:** Два уникальных дифференциатора fancai (вики сущностей без спойлеров + ИИ-иллюстрации) действительно отсутствуют у всех крупных конкурентов. Разрыв -- в обязательных функциях: выделениях, закладках и поиске текста в книге. Их необходимо устранить, чтобы пользователи не уходили к более полным читалкам, несмотря на уникальные ИИ-функции.
 
-## Sources
+## Источники
 
-- [Kindle X-Ray Feature Guide - SlashGear](https://www.slashgear.com/1475659/kindle-x-ray-feature-explained/) (HIGH confidence)
-- [Kindle X-Ray for Authors - KDP](https://kdp.amazon.com/en_US/help/topic/G202187430) (HIGH confidence)
-- [Readest - Open Source Reader](https://github.com/readest/readest) (HIGH confidence)
-- [ReadEra - Book Reader](https://readera.org/) (HIGH confidence)
-- [Kobo Web Reader Navigation Features](https://help.kobo.com/hc/en-us/articles/35996239522967-Kobo-Web-Reader-Navigation-Reading-Features) (HIGH confidence)
-- [Skeleton Screen Best Practices - NN/G](https://www.nngroup.com/articles/skeleton-screens/) (HIGH confidence)
-- [AI Progress Indicators - SAP Fiori](https://www.sap.com/design-system/fiori-design-ios/v26-1/in-app-ai-design/components/ai-progress-indicators) (MEDIUM confidence)
-- [Cloudscape GenAI Loading States](https://cloudscape.design/patterns/genai/genai-loading-states/) (MEDIUM confidence)
-- [PWA Offline Caching Strategies - MDN](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Caching) (HIGH confidence)
-- [Error Handling in Mobile Apps - Maestro](https://maestro.dev/insights/error-handling-mobile-apps-best-practices) (MEDIUM confidence)
-- Existing codebase analysis (`.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/CONCERNS.md`) (HIGH confidence)
+- [Kindle X-Ray Feature Guide - SlashGear](https://www.slashgear.com/1475659/kindle-x-ray-feature-explained/) (ВЫСОКАЯ уверенность)
+- [Kindle X-Ray for Authors - KDP](https://kdp.amazon.com/en_US/help/topic/G202187430) (ВЫСОКАЯ уверенность)
+- [Readest - Open Source Reader](https://github.com/readest/readest) (ВЫСОКАЯ уверенность)
+- [ReadEra - Book Reader](https://readera.org/) (ВЫСОКАЯ уверенность)
+- [Kobo Web Reader Navigation Features](https://help.kobo.com/hc/en-us/articles/35996239522967-Kobo-Web-Reader-Navigation-Reading-Features) (ВЫСОКАЯ уверенность)
+- [Skeleton Screen Best Practices - NN/G](https://www.nngroup.com/articles/skeleton-screens/) (ВЫСОКАЯ уверенность)
+- [AI Progress Indicators - SAP Fiori](https://www.sap.com/design-system/fiori-design-ios/v26-1/in-app-ai-design/components/ai-progress-indicators) (СРЕДНЯЯ уверенность)
+- [Cloudscape GenAI Loading States](https://cloudscape.design/patterns/genai/genai-loading-states/) (СРЕДНЯЯ уверенность)
+- [PWA Offline Caching Strategies - MDN](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Caching) (ВЫСОКАЯ уверенность)
+- [Error Handling in Mobile Apps - Maestro](https://maestro.dev/insights/error-handling-mobile-apps-best-practices) (СРЕДНЯЯ уверенность)
+- Анализ существующей кодовой базы (`.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/CONCERNS.md`) (ВЫСОКАЯ уверенность)

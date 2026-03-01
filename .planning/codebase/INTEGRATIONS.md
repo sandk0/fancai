@@ -1,171 +1,172 @@
-# External Integrations
+# Внешние интеграции
 
-**Analysis Date:** 2026-02-27
+**Дата анализа:** 2026-02-27
 
-## APIs & External Services
+## API и внешние сервисы
 
-**AI / Machine Learning:**
-- Google Gemini 3.0 Flash (`gemini-3-flash-preview` / `gemini-2.0-flash`) - Chapter analysis, entity extraction, description extraction, and Russian-to-English prompt translation
-  - SDK/Client: `google-genai` 1.61.0 (`backend/requirements.txt`)
-  - Integration: `backend/app/services/gemini_extractor.py`
-  - Auth: `GOOGLE_API_KEY` or `LANGEXTRACT_API_KEY` env var
-  - Called via: `analyze_chapter()` — extracts both descriptions AND entities in one call
-  - Retry: tenacity with exponential backoff (`backend/app/core/retry.py`)
+**AI / Машинное обучение:**
+- Google Gemini 3.0 Flash (`gemini-3-flash-preview` / `gemini-2.0-flash`) — анализ глав, извлечение сущностей, извлечение описаний и перевод промптов с русского на английский
+  - SDK/клиент: `google-genai` 1.61.0 (`backend/requirements.txt`)
+  - Интеграция: `backend/app/services/gemini_extractor.py`
+  - Аутентификация: переменная окружения `GOOGLE_API_KEY` или `LANGEXTRACT_API_KEY`
+  - Вызывается через: `analyze_chapter()` — извлекает описания И сущности за один вызов
+  - Повторные попытки: tenacity с экспоненциальной задержкой (`backend/app/core/retry.py`)
 
-- Google Imagen 4 (`imagen-4.0-generate-001`) - AI illustration generation from book descriptions
-  - SDK/Client: `google-genai` 1.61.0 (same SDK as Gemini)
-  - Integration: `backend/app/services/imagen_generator.py`, `backend/app/services/image_generator.py`
-  - Auth: `GOOGLE_API_KEY` env var (same key as Gemini)
-  - Config: `IMAGEN_ENABLED`, `IMAGEN_MODEL`, `IMAGEN_ASPECT_RATIO`, `IMAGEN_SAFETY_LEVEL`, `IMAGEN_TIMEOUT_SECONDS`
-  - Models available: `imagen-4.0-generate-001`, `imagen-4.0-fast-generate-001`, `imagen-4.0-ultra-generate-001`
+- Google Imagen 4 (`imagen-4.0-generate-001`) — AI-генерация иллюстраций по описаниям из книг
+  - SDK/клиент: `google-genai` 1.61.0 (тот же SDK, что и для Gemini)
+  - Интеграция: `backend/app/services/imagen_generator.py`, `backend/app/services/image_generator.py`
+  - Аутентификация: переменная окружения `GOOGLE_API_KEY` (тот же ключ, что и для Gemini)
+  - Конфигурация: `IMAGEN_ENABLED`, `IMAGEN_MODEL`, `IMAGEN_ASPECT_RATIO`, `IMAGEN_SAFETY_LEVEL`, `IMAGEN_TIMEOUT_SECONDS`
+  - Доступные модели: `imagen-4.0-generate-001`, `imagen-4.0-fast-generate-001`, `imagen-4.0-ultra-generate-001`
+  - **РЕШЕНИЕ Phase 3:** Мигрируется на OpenRouter image-модели (FLUX.2 Pro/Klein). google-genai SDK полностью удаляется. NSFW-фильтрация через отдельный механизм (Imagen 4 имел встроенный safety filter)
 
-**Legacy / Optional AI (configured but not primary):**
-- OpenAI - Optional; key configured in `OPENAI_API_KEY`, not actively used in core pipeline
-- Midjourney - Optional; key configured in `MIDJOURNEY_API_KEY`, not actively used
+**Устаревшие / Опциональные AI (настроены, но не основные):**
+- OpenAI — опционально; ключ настроен в `OPENAI_API_KEY`, активно не используется в основном пайплайне
+- Midjourney — опционально; ключ настроен в `MIDJOURNEY_API_KEY`, активно не используется
 
-## Data Storage
+## Хранение данных
 
-**Databases:**
+**Базы данных:**
 - PostgreSQL 15 (Docker: `postgres:15-alpine`)
-  - Connection: `DATABASE_URL` env var (`postgresql+asyncpg://...`)
-  - Client: SQLAlchemy 2.0 async engine with asyncpg driver
-  - ORM: SQLAlchemy 2.0 with `lazy="raise"` on all relationships (explicit eager loading required)
-  - Migrations: Alembic (`backend/alembic/`)
-  - Config: `backend/alembic.ini`, `backend/app/core/database.py`
-  - Connection pool: configurable via `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE`, `DB_POOL_TIMEOUT`
+  - Подключение: переменная окружения `DATABASE_URL` (`postgresql+asyncpg://...`)
+  - Клиент: асинхронный движок SQLAlchemy 2.0 с драйвером asyncpg
+  - ORM: SQLAlchemy 2.0 с `lazy="raise"` на всех связях (требуется явная жадная загрузка)
+  - Миграции: Alembic (`backend/alembic/`)
+  - Конфигурация: `backend/alembic.ini`, `backend/app/core/database.py`
+  - Пул соединений: настраивается через `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE`, `DB_POOL_TIMEOUT`
 
-**Queue / Cache:**
+**Очередь / Кеш:**
 - Redis 7.4 (Docker: `redis:7.4-alpine`)
-  - Connection: `REDIS_URL` env var (`redis://:password@host:6379`)
-  - Client: `redis.asyncio` (async Redis client)
-  - Uses: Celery broker + backend, API response cache, rate limiting, distributed locks, token blacklist
-  - Config: 640MB maxmemory, `allkeys-lru` eviction policy, AOF persistence enabled
-  - Integration: `backend/app/core/cache.py` (`CacheManager`, `DistributedLock`)
+  - Подключение: переменная окружения `REDIS_URL` (`redis://:password@host:6379`)
+  - Клиент: `redis.asyncio` (асинхронный Redis-клиент)
+  - Используется для: Celery-брокер + бэкенд, кеш API-ответов, ограничение частоты запросов, распределённые блокировки, чёрный список токенов
+  - Конфигурация: maxmemory 640MB, политика вытеснения `allkeys-lru`, AOF-персистентность включена
+  - Интеграция: `backend/app/core/cache.py` (`CacheManager`, `DistributedLock`)
 
-**File Storage:**
-- Local filesystem (Docker volume: `uploaded_books`)
-  - Path: `backend/storage/` and `backend/uploads/`
-  - Stores: EPUB/FB2 uploads, generated images
-  - Backup: Daily via Alpine container to `/root/backups/` (7-day retention)
+**Файловое хранилище:**
+- Локальная файловая система (Docker-том: `uploaded_books`)
+  - Путь: `backend/storage/` и `backend/uploads/`
+  - Хранит: загруженные EPUB/FB2, сгенерированные изображения
+  - Бэкап: ежедневно через Alpine-контейнер в `/root/backups/` (хранение 7 дней)
 
-**Frontend Offline Storage:**
-- IndexedDB via Dexie.js 4.2.1 - Caches chapters, book metadata, pending sync queue
-  - Integration: `frontend/src/services/db.ts` (centralized Dexie database)
-  - Chapter cache: `frontend/src/services/chapterCache.ts`
-  - Image cache: `frontend/src/services/imageCache.ts`
-  - Sync queue: `frontend/src/services/syncQueue.ts` (offline-first operation queue)
+**Офлайн-хранилище фронтенда:**
+- IndexedDB через Dexie.js 4.2.1 — кеширование глав, метаданных книг, очередь отложенной синхронизации
+  - Интеграция: `frontend/src/services/db.ts` (централизованная база данных Dexie)
+  - Кеш глав: `frontend/src/services/chapterCache.ts`
+  - Кеш изображений: `frontend/src/services/imageCache.ts`
+  - Очередь синхронизации: `frontend/src/services/syncQueue.ts` (offline-first очередь операций)
 
-## Authentication & Identity
+## Аутентификация и идентификация
 
-**Auth Provider:**
-- Custom (no third-party OAuth provider)
-  - Implementation: JWT (HS256) with HttpOnly cookies
-  - Token types: Access token (7 days) + Refresh token (30 days)
-  - Library: `python-jose[cryptography]` 3.5.0 (token generation/validation)
-  - Password hashing: `passlib[bcrypt]` 1.7.4
-  - Backend: `backend/app/services/auth_service.py`, `backend/app/core/auth.py`
-  - Token blacklist: Redis-backed blacklist for logout (`backend/app/services/token_blacklist.py`)
-  - Frontend: `frontend/src/api/client.ts` (automatic token refresh via axios interceptor), `frontend/src/stores/auth.ts`
+**Провайдер аутентификации:**
+- Собственный (без сторонних OAuth-провайдеров)
+  - Реализация: JWT (HS256) с HttpOnly-куки
+  - Типы токенов: Access-токен (7 дней) + Refresh-токен (30 дней)
+  - Библиотека: `python-jose[cryptography]` 3.5.0 (генерация/валидация токенов)
+  - Хеширование паролей: `passlib[bcrypt]` 1.7.4
+  - Бэкенд: `backend/app/services/auth_service.py`, `backend/app/core/auth.py`
+  - Чёрный список токенов: на основе Redis, для logout (`backend/app/services/token_blacklist.py`)
+  - Фронтенд: `frontend/src/api/client.ts` (автоматическое обновление токена через axios-интерцептор), `frontend/src/stores/auth.ts`
 
-## Monitoring & Observability
+## Мониторинг и наблюдаемость
 
-**Error Tracking:**
-- Sentry - `sentry-sdk[fastapi]` 2.51.0
-  - Integration: FastAPI integration (auto-captures exceptions)
-  - Configuration: `SENTRY_DSN` env var (not explicitly listed in `config.py` but SDK is installed)
+**Отслеживание ошибок:**
+- Sentry — `sentry-sdk[fastapi]` 2.51.0
+  - Интеграция: FastAPI-интеграция (автоматически перехватывает исключения)
+  - Конфигурация: переменная окружения `SENTRY_DSN` (явно не указана в `config.py`, но SDK установлен)
 
-**Metrics:**
-- Prometheus - `prometheus-client` 0.24.1 + `prometheus-fastapi-instrumentator` 7.1.0
-  - Metrics endpoint: `/api/v1/health/metrics` (Basic Auth protected via `METRICS_USER`/`METRICS_PASSWORD`)
-  - Custom metrics: reading sessions, LLM requests, image generation, cache hits in `backend/app/monitoring/metrics.py`
-  - Collected by: Prometheus Docker container (`monitoring/prometheus/`)
+**Метрики:**
+- Prometheus — `prometheus-client` 0.24.1 + `prometheus-fastapi-instrumentator` 7.1.0
+  - Эндпоинт метрик: `/api/v1/health/metrics` (защищён Basic Auth через `METRICS_USER`/`METRICS_PASSWORD`)
+  - Пользовательские метрики: сессии чтения, LLM-запросы, генерация изображений, попадания в кеш — в `backend/app/monitoring/metrics.py`
+  - Собираются: Prometheus Docker-контейнером (`monitoring/prometheus/`)
 
-**Logs:**
-- Loguru 0.7.3 - Structured logging in backend (`backend/app/core/logging.py`)
-- Loki + Promtail - Log aggregation (`docker-compose.monitoring.yml`)
-- Grafana 11.3.0 - Metrics and log visualization (`monitoring/grafana/`)
-- Node Exporter + cAdvisor - System and container metrics
+**Логи:**
+- Loguru 0.7.3 — структурированное логирование в бэкенде (`backend/app/core/logging.py`)
+- Loki + Promtail — агрегация логов (`docker-compose.monitoring.yml`)
+- Grafana 11.3.0 — визуализация метрик и логов (`monitoring/grafana/`)
+- Node Exporter + cAdvisor — системные метрики и метрики контейнеров
 
-## Push Notifications
+## Push-уведомления
 
 **Web Push (VAPID):**
-- pywebpush 2.2.0 - VAPID-signed Web Push notifications to browsers
-  - Integration: `backend/app/services/push_notification_service.py`
-  - Auth: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` env vars
-  - Frontend: `frontend/src/services/pushNotifications.ts`, `frontend/src/hooks/usePushNotifications.ts`
-  - Router: `backend/app/routers/push.py` (at `/api/v1/push`)
+- pywebpush 2.2.0 — подписанные VAPID Web Push-уведомления в браузеры
+  - Интеграция: `backend/app/services/push_notification_service.py`
+  - Аутентификация: переменные окружения `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+  - Фронтенд: `frontend/src/services/pushNotifications.ts`, `frontend/src/hooks/usePushNotifications.ts`
+  - Роутер: `backend/app/routers/push.py` (по адресу `/api/v1/push`)
 
-## Email
+## Электронная почта
 
-**Yandex Cloud Postbox (SES v2 compatible):**
-- Uses AWS SES v2 API protocol via `aioboto3` 13.0.0
-  - Provider: `backend/app/services/email/yandex_postbox.py`
-  - Endpoint: `https://postbox.cloud.yandex.net` (configurable via `YANDEX_POSTBOX_ENDPOINT`)
-  - Auth: `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` env vars
-  - Sender: `noreply@fancai.ru`
-  - Use cases: Password reset emails
-  - Toggle: `EMAIL_ENABLED` env var (default: `false` in dev, `true` in production)
+**Yandex Cloud Postbox (SES v2-совместимый):**
+- Использует протокол AWS SES v2 API через `aioboto3` 13.0.0
+  - Провайдер: `backend/app/services/email/yandex_postbox.py`
+  - Эндпоинт: `https://postbox.cloud.yandex.net` (настраивается через `YANDEX_POSTBOX_ENDPOINT`)
+  - Аутентификация: переменные окружения `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY`
+  - Отправитель: `noreply@fancai.ru`
+  - Применение: письма для сброса пароля
+  - Переключатель: переменная окружения `EMAIL_ENABLED` (по умолчанию: `false` в разработке, `true` в продакшене)
 
-## Payments (Configured, Not Active)
+## Платежи (настроены, не активны)
 
 **YooKassa:**
-- Config: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` env vars in `backend/app/core/config.py`
-- Status: Configured but no active integration code found
+- Конфигурация: переменные окружения `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` в `backend/app/core/config.py`
+- Статус: настроены, но активный код интеграции не найден
 
 **CloudPayments:**
-- Config: `CLOUDPAYMENTS_PUBLIC_ID` env var in `backend/app/core/config.py`
-- Status: Configured but no active integration code found
+- Конфигурация: переменная окружения `CLOUDPAYMENTS_PUBLIC_ID` в `backend/app/core/config.py`
+- Статус: настроена, но активный код интеграции не найден
 
-## Proxy / Network
+## Прокси / Сеть
 
-**VLESS Proxy:**
-- Custom VLESS-aware HTTP client: `backend/app/services/vless_http_client.py`
-- Purpose: Routes requests for specific domains (e.g., `pollinations.ai`) through a proxy
-- Config: `HTTP_PROXY_URL`, `SOCKS5_PROXY_URL` env vars (implied by implementation)
+**VLESS-прокси:**
+- Собственный VLESS-aware HTTP-клиент: `backend/app/services/vless_http_client.py`
+- Назначение: маршрутизация запросов к определённым доменам (например, `pollinations.ai`) через прокси
+- Конфигурация: переменные окружения `HTTP_PROXY_URL`, `SOCKS5_PROXY_URL` (следует из реализации)
 
-## CI/CD & Deployment
+## CI/CD и развёртывание
 
-**Hosting:**
-- Self-hosted VPS at `fancai.ru` (server in Russia, 8GB RAM / 4 CPU)
-- Docker Compose (`docker-compose.lite.yml`) - primary production deployment
+**Хостинг:**
+- Собственный VPS на `fancai.ru` (сервер в России, 8 ГБ ОЗУ / 4 CPU)
+- Docker Compose (`docker-compose.lite.yml`) — основное продакшен-развёртывание
 
-**CI Pipeline:**
-- Not detected (no GitHub Actions workflows or CI config found)
+**CI-пайплайн:**
+- Не обнаружен (GitHub Actions workflows или конфигурация CI не найдены)
 
-**Deployment Method:**
-- SSH to server, `docker compose` commands
-- Deploy skill: `/deploy` (documented in CLAUDE.md)
+**Метод развёртывания:**
+- SSH на сервер, команды `docker compose`
+- Скилл развёртывания: `/deploy` (документирован в CLAUDE.md)
 
 ## PWA / Service Worker
 
 **Workbox:**
-- Workbox 7.4.0 libraries - Service Worker caching strategies
-  - Strategy: `injectManifest` (custom SW at `frontend/src/sw.ts`)
-  - Background Sync API: offline queue auto-retry for progress updates, reading sessions, image generation
-  - iOS Safari fallback: periodic sync timer (30s) + `sendBeacon` for critical data
+- Библиотеки Workbox 7.4.0 — стратегии кеширования Service Worker
+  - Стратегия: `injectManifest` (кастомный SW в `frontend/src/sw.ts`)
+  - Background Sync API: автоматический повтор офлайн-очереди для обновлений прогресса, сессий чтения, генерации изображений
+  - Фоллбэк для iOS Safari: периодический таймер синхронизации (30с) + `sendBeacon` для критичных данных
 
 ## WebSocket
 
-**Real-time Updates:**
-- Backend WebSocket router: `backend/app/routers/websocket.py`
-- Frontend WebSocket service: `frontend/src/services/websocket.tsx`
-- Status: DISABLED on frontend (cookie auth not implemented for WS; marked `@deprecated`)
-- Events defined: `book_processing_*`, `image_generation_*`, `entities_updated`, `user_notification`
+**Обновления в реальном времени:**
+- Бэкенд WebSocket-роутер: `backend/app/routers/websocket.py`
+- Фронтенд WebSocket-сервис: `frontend/src/services/websocket.tsx`
+- Статус: ОТКЛЮЧЕНО на фронтенде (cookie-аутентификация для WS не реализована; помечен `@deprecated`)
+- Определённые события: `book_processing_*`, `image_generation_*`, `entities_updated`, `user_notification`
 
-## Environment Configuration
+## Конфигурация окружения
 
-**Required env vars (production):**
-- `DB_PASSWORD` - PostgreSQL password
-- `REDIS_PASSWORD` - Redis password
-- `SECRET_KEY` - JWT signing key (must not be default value)
-- `GOOGLE_API_KEY` or `LANGEXTRACT_API_KEY` - Google AI services
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` - Web Push
-- `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` - Email (if EMAIL_ENABLED=true)
+**Обязательные переменные окружения (продакшен):**
+- `DB_PASSWORD` — пароль PostgreSQL
+- `REDIS_PASSWORD` — пароль Redis
+- `SECRET_KEY` — ключ подписи JWT (не должен быть значением по умолчанию)
+- `GOOGLE_API_KEY` или `LANGEXTRACT_API_KEY` — сервисы Google AI
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — Web Push
+- `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` — Email (если EMAIL_ENABLED=true)
 
-**Secrets location:**
-- `.env` file at project root (loaded by pydantic-settings in backend)
-- Build-time frontend vars passed as Docker build args (VITE_ prefix)
+**Расположение секретов:**
+- Файл `.env` в корне проекта (загружается pydantic-settings в бэкенде)
+- Переменные фронтенда передаются как Docker build args (префикс VITE_)
 
 ---
 
-*Integration audit: 2026-02-27*
+*Аудит интеграций: 2026-02-27*

@@ -1,72 +1,72 @@
-# Architecture Patterns: Production Hardening
+# Архитектурные паттерны: Подготовка к продакшену
 
-**Domain:** AI-powered fiction reader (FastAPI + React SPA + Celery + PostgreSQL + Redis)
-**Researched:** 2026-02-27
-**Mode:** Production hardening of existing architecture
+**Область:** Читалка художественной литературы с ИИ (FastAPI + React SPA + Celery + PostgreSQL + Redis)
+**Исследовано:** 2026-02-27
+**Режим:** Укрепление существующей архитектуры для продакшена
 
-## Current Architecture Assessment
+## Оценка текущей архитектуры
 
-The application is a separated monolith: React 19 PWA frontend communicating via REST API with a FastAPI async backend, Celery for heavy background processing, PostgreSQL for persistence, and Redis serving triple duty as cache, Celery broker, and pub/sub channel. The architecture is fundamentally sound but has accumulated dev-mode defaults, dead code, stub endpoints, and missing production safeguards through 5.5 months of rapid feature development.
+Приложение представляет собой разделённый монолит: PWA-фронтенд на React 19, взаимодействующий через REST API с асинхронным бэкендом на FastAPI, Celery для тяжёлой фоновой обработки, PostgreSQL для хранения данных и Redis, выполняющий тройную роль кэша, брокера Celery и канала pub/sub. Архитектура принципиально корректна, но за 5,5 месяцев быстрой разработки фич накопились дефолтные настройки для разработки, мёртвый код, эндпоинты-заглушки и отсутствующие продакшен-предохранители.
 
-**Confidence:** HIGH -- based on direct codebase analysis of all layers.
+**Уверенность:** ВЫСОКАЯ -- на основе прямого анализа кодовой базы на всех уровнях.
 
-## Recommended Architecture Changes
+## Рекомендуемые изменения архитектуры
 
-The existing architecture does not need restructuring. It needs hardening: fixing the gaps between "works in dev" and "reliable in production." The component boundaries are correct; the problems are within components, not between them.
+Существующая архитектура не нуждается в реструктуризации. Она нуждается в укреплении: устранении разрывов между "работает в dev-режиме" и "надёжно в продакшене". Границы компонентов корректны; проблемы находятся внутри компонентов, а не между ними.
 
-### Component Boundaries (Current)
+### Границы компонентов (текущие)
 
-| Component | Responsibility | Communicates With | Production Gap |
-|-----------|---------------|-------------------|----------------|
-| **Nginx** | TLS termination, static files, reverse proxy | Frontend (static), Backend (proxy), Storage (file serving) | Healthy -- resource limits set, health checks configured |
-| **Frontend (React PWA)** | UI rendering, offline support, client state | Backend API (Axios/TanStack Query), IndexedDB (offline cache) | Stale cache risk, no error tracking service, WebSocket stub |
-| **Backend (FastAPI)** | REST API, auth, business logic orchestration | PostgreSQL (async ORM), Redis (cache), Celery (task dispatch) | Fake health check, DEBUG=True default, dead NLP config, stub endpoints |
-| **Celery Worker** | Book processing, image generation, cleanup | PostgreSQL (direct), Redis (broker + locks), Gemini/Imagen APIs | Single concurrency, NLP config remnants, unbounded API parallelism |
-| **Celery Beat** | Periodic task scheduling | Redis (broker) | Healthy -- schedules are reasonable |
-| **PostgreSQL** | Data persistence | Backend, Celery Worker | Healthy -- tuned for 8GB, connection pool configured |
-| **Redis** | Cache, broker, pub/sub, distributed locks | All backend services | Single point of failure -- serves cache, broker, and pub/sub simultaneously |
-| **Gemini API** | Text extraction (entities + descriptions) | Celery Worker (via gemini_extractor.py) | No circuit breaker, unbounded parallel chunk calls, sync-in-async thread pool |
-| **Imagen API** | Image generation | Celery Worker (via imagen_generator.py) | No circuit breaker, sync-in-async pattern |
+| Компонент | Ответственность | Взаимодействует с | Разрыв в продакшене |
+|-----------|----------------|-------------------|---------------------|
+| **Nginx** | TLS-терминация, статические файлы, обратный прокси | Фронтенд (статика), Бэкенд (прокси), Хранилище (раздача файлов) | В порядке -- лимиты ресурсов установлены, health-проверки настроены |
+| **Фронтенд (React PWA)** | Рендеринг UI, офлайн-поддержка, клиентское состояние | API бэкенда (Axios/TanStack Query), IndexedDB (офлайн-кэш) | Риск устаревшего кэша, нет сервиса отслеживания ошибок, WebSocket-заглушка |
+| **Бэкенд (FastAPI)** | REST API, авторизация, оркестрация бизнес-логики | PostgreSQL (async ORM), Redis (кэш), Celery (отправка задач) | Фейковый health-эндпоинт, DEBUG=True по умолчанию, мёртвая конфигурация NLP, эндпоинты-заглушки |
+| **Celery Worker** | Обработка книг, генерация изображений, очистка | PostgreSQL (напрямую), Redis (брокер + блокировки), Gemini/Imagen API | Единичная конкурентность, остатки конфигурации NLP, неограниченный параллелизм API-вызовов |
+| **Celery Beat** | Планирование периодических задач | Redis (брокер) | В порядке -- расписания разумные |
+| **PostgreSQL** | Хранение данных | Бэкенд, Celery Worker | В порядке -- настроен для 8 ГБ, пул соединений сконфигурирован |
+| **Redis** | Кэш, брокер, pub/sub, распределённые блокировки | Все бэкенд-сервисы | Единая точка отказа -- обслуживает кэш, брокер и pub/sub одновременно |
+| **Gemini API** | Извлечение текста (сущности + описания) | Celery Worker (через gemini_extractor.py) | Нет circuit breaker, неограниченные параллельные вызовы для чанков, sync-in-async пул потоков |
+| **Imagen API** | Генерация изображений | Celery Worker (через imagen_generator.py) | Нет circuit breaker, паттерн sync-in-async. **Phase 3: мигрирует на FLUX.2 через OpenRouter** |
 
-### Data Flow (Production-Relevant Paths)
+### Потоки данных (продакшен-критичные пути)
 
-**Happy path -- user reads a book:**
+**Основной путь -- пользователь читает книгу:**
 ```
-Browser -> Nginx -> Frontend (static) -> API call
-  -> Nginx (proxy) -> FastAPI -> PostgreSQL (chapter data)
-  -> Redis (cache check) -> Response
-  -> Frontend -> TanStack Query cache -> Render
-```
-
-**Heavy path -- book processing:**
-```
-Upload -> FastAPI -> Save file + DB record -> Celery task dispatch
-  -> Redis broker -> Celery Worker picks up
-  -> Worker: parse chapters -> for each chapter:
-    -> Gemini API (100K chunks, 15% overlap) -> entities + descriptions
-    -> PostgreSQL (save results)
-    -> Redis pub/sub (progress update)
-  -> Frontend polls or listens for completion
+Браузер -> Nginx -> Фронтенд (статика) -> API-вызов
+  -> Nginx (прокси) -> FastAPI -> PostgreSQL (данные глав)
+  -> Redis (проверка кэша) -> Ответ
+  -> Фронтенд -> Кэш TanStack Query -> Рендеринг
 ```
 
-**Failure cascade risk (current):**
+**Тяжёлый путь -- обработка книги:**
 ```
-Redis down -> cache unavailable AND Celery broker dead AND pub/sub dead
-  -> rate limiter disabled, new tasks can't queue, progress updates lost
-  -> but API still serves from PostgreSQL (graceful degradation exists)
+Загрузка -> FastAPI -> Сохранение файла + запись в БД -> Отправка задачи в Celery
+  -> Redis-брокер -> Celery Worker подхватывает
+  -> Worker: парсинг глав -> для каждой главы:
+    -> Gemini API (чанки по 100K, 15% перекрытие) -> сущности + описания
+    -> PostgreSQL (сохранение результатов)
+    -> Redis pub/sub (обновление прогресса)
+  -> Фронтенд поллит или слушает завершение
 ```
 
-## Patterns to Follow
+**Риск каскадного сбоя (текущий):**
+```
+Redis упал -> кэш недоступен И брокер Celery мёртв И pub/sub мёртв
+  -> rate limiter отключён, новые задачи не ставятся в очередь, обновления прогресса потеряны
+  -> но API по-прежнему обслуживает из PostgreSQL (грациозная деградация существует)
+```
 
-### Pattern 1: Real Health Checks with Dependency Probing
+## Паттерны для применения
 
-**What:** Replace the fake `"database": "checking..."` health endpoint with actual async probes of PostgreSQL, Redis, and Celery.
+### Паттерн 1: Реальные health-проверки с проверкой зависимостей
 
-**When:** Immediately -- this is the foundation of production monitoring.
+**Что:** Заменить фейковый health-эндпоинт с `"database": "checking..."` реальными асинхронными проверками PostgreSQL, Redis и Celery.
 
-**Confidence:** HIGH -- standard FastAPI pattern, verified in official docs and multiple production guides.
+**Когда:** Немедленно -- это фундамент продакшен-мониторинга.
 
-**Example:**
+**Уверенность:** ВЫСОКАЯ -- стандартный паттерн FastAPI, подтверждён в официальной документации и нескольких руководствах по продакшену.
+
+**Пример:**
 ```python
 # backend/app/routers/health.py
 import asyncio
@@ -102,203 +102,208 @@ async def health(db: AsyncSession = Depends(get_database_session)):
     return {"status": overall, "checks": {"database": db_check, "redis": redis_check}}
 ```
 
-**Sources:**
-- [FastAPI Health Check Best Practices](https://www.index.dev/blog/how-to-implement-health-check-in-python) (MEDIUM confidence)
-- [FastAPI Production Deployment](https://render.com/articles/fastapi-production-deployment-best-practices) (MEDIUM confidence)
+**Источники:**
+- [Лучшие практики Health Check в FastAPI](https://www.index.dev/blog/how-to-implement-health-check-in-python) (СРЕДНЯЯ уверенность)
+- [Развёртывание FastAPI в продакшене](https://render.com/articles/fastapi-production-deployment-best-practices) (СРЕДНЯЯ уверенность)
 
 ---
 
-### Pattern 2: Security Defaults Inversion
+### Паттерн 2: Инверсия дефолтов безопасности
 
-**What:** Flip `DEBUG: bool = True` to `DEBUG: bool = False`. Change `SECRET_KEY` default to raise on startup if not overridden. Remove dead NLP config fields and their validators.
+**Что:** Изменить `DEBUG: bool = True` на `DEBUG: bool = False`. Изменить дефолт `SECRET_KEY`, чтобы он вызывал ошибку при запуске, если не переопределён. Удалить мёртвые поля конфигурации NLP и их валидаторы.
 
-**When:** Before any public-facing deployment. This is the single highest-risk production gap.
+**Когда:** До любого публичного развёртывания. Это единственный наиболее рискованный разрыв в продакшене.
 
-**Confidence:** HIGH -- this is the codebase itself; the defaults are visible in `config.py` lines 19-22.
+**Уверенность:** ВЫСОКАЯ -- это сама кодовая база; дефолты видны в `config.py` строки 19-22.
 
-**Implementation notes:**
-- `SECRET_KEY` should use `os.urandom(32).hex()` as fallback for dev, but fail loudly in non-DEBUG mode (existing validator already does this -- just flip the default)
-- Remove `validate_nlp_weights()` validator entirely -- it validates weights for a system that no longer exists
-- Remove all NLP config fields: `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT`
-- Add `METRICS_PASSWORD` to production secrets validation
-
----
-
-### Pattern 3: Cache Invalidation Discipline
-
-**What:** The frontend already has a well-structured `queryKeys.ts` with user-scoped keys and `queryKeyUtils` for coordinated invalidation. The problem is that the *backend* Redis cache uses manual key patterns without consistent invalidation on writes. The `cache_result` decorator caches function results but the `invalidate_cache` decorator is defined but underused.
-
-**When:** During the data layer hardening phase.
-
-**Confidence:** HIGH -- verified by reading both `cache.py` and `queryKeys.ts` directly.
-
-**The actual problems:**
-1. Backend caches entity network data including future spoilers; filtering happens on read. If the cache TTL (3600s) outlasts a reading session where a user advances chapters, they get stale spoiler-free data that is *too restrictive* (not showing entities from newly-read chapters).
-2. The `CACHE_TTL["book_list"]` is 10 seconds, which is fine, but `CACHE_TTL["book_descriptions"]` is 3600 seconds. After a reprocess (which currently does NOT delete old descriptions -- commented out code in `crud.py:741-743`), stale descriptions persist in both the DB and cache for up to an hour.
-3. Frontend `apiClient.get()` adds `Cache-Control: no-cache, no-store, must-revalidate` to *every* GET request, completely bypassing browser-level HTTP caching. This is a dev-mode safety blanket that hurts production performance.
-
-**Fix approach:**
-- Backend: Invalidate Redis cache on entity/description writes, not just reads. Use the existing `invalidate_cache` decorator on mutation paths.
-- Backend: Fix the reprocess endpoint to actually delete old descriptions before re-extraction.
-- Frontend: Remove blanket no-cache headers from `apiClient.get()`. Let the backend `CacheControlMiddleware` and TanStack Query `staleTime` handle caching properly.
-- Frontend: Set appropriate `staleTime` values per query type (chapters: Infinity since content is immutable, entities: 30s since they change as user reads, book list: 5s since uploads/deletes are infrequent).
+**Замечания по реализации:**
+- `SECRET_KEY` должен использовать `os.urandom(32).hex()` как фолбэк для dev, но явно падать в не-DEBUG режиме (существующий валидатор уже это делает -- просто измените дефолт)
+- Полностью удалите валидатор `validate_nlp_weights()` -- он проверяет веса для системы, которой больше не существует
+- Удалите все поля конфигурации NLP: `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT`
+- Добавьте `METRICS_PASSWORD` в валидацию продакшен-секретов
 
 ---
 
-### Pattern 4: Circuit Breaker for External API Calls
+### Паттерн 3: Дисциплина инвалидации кэша
 
-**What:** Wrap Gemini and Imagen API calls in a circuit breaker pattern to prevent cascading failures when Google APIs are degraded. Currently, the retry decorators (`retry_llm_extraction`, `retry_image_generation`) will retry failed calls with backoff, but if the API is down for an extended period, every chapter extraction will block for up to 30 seconds of retries before failing -- multiplied by every chunk.
+**Что:** Фронтенд уже имеет хорошо структурированный `queryKeys.ts` с пользовательскими ключами и `queryKeyUtils` для координированной инвалидации. Проблема в том, что Redis-кэш *бэкенда* использует ручные паттерны ключей без согласованной инвалидации при записи. Декоратор `cache_result` кэширует результаты функций, но декоратор `invalidate_cache` определён, но недостаточно используется.
 
-**When:** During the external service resilience phase.
+**Когда:** На этапе укрепления слоя данных.
 
-**Confidence:** MEDIUM -- circuit breaker for async Python is well-documented, but specific integration with Celery tasks needs testing. The `aiobreaker` library supports async natively.
+**Уверенность:** ВЫСОКАЯ -- проверено прямым чтением `cache.py` и `queryKeys.ts`.
 
-**Example:**
+**Реальные проблемы:**
+1. Бэкенд кэширует данные сети сущностей, включая будущие спойлеры; фильтрация происходит при чтении. Если TTL кэша (3600 с) превышает продолжительность сессии чтения, где пользователь продвигается по главам, он получает устаревшие данные без спойлеров, которые *слишком ограничивающие* (не показывают сущности из только что прочитанных глав).
+2. `CACHE_TTL["book_list"]` составляет 10 секунд, что нормально, но `CACHE_TTL["book_descriptions"]` -- 3600 секунд. После переобработки (которая в настоящее время НЕ удаляет старые описания -- закомментированный код в `crud.py:741-743`), устаревшие описания сохраняются как в БД, так и в кэше до часа.
+3. Фронтенд `apiClient.get()` добавляет `Cache-Control: no-cache, no-store, must-revalidate` к *каждому* GET-запросу, полностью обходя HTTP-кэширование браузера. Это подстраховка для dev-режима, которая вредит продакшен-производительности.
+
+**Подход к исправлению:**
+- Бэкенд: Инвалидировать Redis-кэш при записи сущностей/описаний, а не только при чтении. Использовать существующий декоратор `invalidate_cache` на путях мутации.
+- Бэкенд: Исправить эндпоинт переобработки, чтобы он действительно удалял старые описания перед повторным извлечением.
+- Фронтенд: Убрать тотальные no-cache заголовки из `apiClient.get()`. Позволить бэкенд-мидлвару `CacheControlMiddleware` и `staleTime` TanStack Query обрабатывать кэширование правильно.
+- Фронтенд: Установить подходящие значения `staleTime` для каждого типа запроса (главы: Infinity, так как контент неизменяемый; сущности: 30 с, так как они меняются по мере чтения; список книг: 5 с, так как загрузки/удаления редки).
+
+---
+
+### Паттерн 4: Circuit Breaker для внешних API-вызовов
+
+**Что:** Обернуть вызовы Gemini и Imagen API в паттерн circuit breaker для предотвращения каскадных сбоев при деградации Google API. В настоящее время декораторы retry (`retry_llm_extraction`, `retry_image_generation`) будут повторять неудачные вызовы с backoff, но если API недоступен длительное время, каждое извлечение главы будет блокироваться до 30 секунд повторных попыток перед ошибкой -- умноженных на каждый чанк.
+
+**Когда:** На этапе укрепления устойчивости к внешним сервисам.
+
+**Уверенность:** СРЕДНЯЯ -- circuit breaker для async Python хорошо документирован, но конкретная интеграция с задачами Celery требует тестирования. Библиотека `aiobreaker` поддерживает async нативно.
+
+**Пример:**
 ```python
 from aiobreaker import CircuitBreaker
 
 gemini_breaker = CircuitBreaker(
-    fail_max=5,          # Open after 5 failures
-    timeout_duration=60  # Stay open for 60 seconds before half-open
+    fail_max=5,          # Открыть после 5 сбоев
+    timeout_duration=60  # Оставаться открытым 60 секунд до half-open
 )
 
 @gemini_breaker
 @retry_llm_extraction
 async def extract_with_gemini(self, chunk: str, config: GeminiConfig) -> dict:
-    # existing extraction logic
+    # существующая логика извлечения
     ...
 ```
 
-**Sources:**
-- [Circuit Breaker Pattern in FastAPI](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (MEDIUM confidence)
-- [aiobreaker PyPI](https://pypi.org/project/aiobreaker/) (HIGH confidence -- official package docs)
+**Источники:**
+- [Паттерн Circuit Breaker в FastAPI](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (СРЕДНЯЯ уверенность)
+- [aiobreaker PyPI](https://pypi.org/project/aiobreaker/) (ВЫСОКАЯ уверенность -- официальная документация пакета)
 
 ---
 
-### Pattern 5: Stub Endpoint Resolution
+### Паттерн 5: Разрешение эндпоинтов-заглушек
 
-**What:** Replace TODO stub endpoints with either real implementations or explicit 501 Not Implemented responses with documentation. Current stubs silently fail or return misleading data.
+**Что:** Заменить TODO-заглушки эндпоинтов либо реальными реализациями, либо явными ответами 501 Not Implemented с документацией. Текущие заглушки молча падают или возвращают вводящие в заблуждение данные.
 
-**When:** During the dead code cleanup phase, before feature hardening.
+**Когда:** На этапе очистки мёртвого кода, перед укреплением функций.
 
-**Confidence:** HIGH -- stubs identified directly in codebase analysis.
+**Уверенность:** ВЫСОКАЯ -- заглушки выявлены непосредственно при анализе кодовой базы.
 
-**Specific stubs to resolve:**
-| Endpoint | Current Behavior | Resolution |
-|----------|-----------------|------------|
-| `POST /sync/batch` (bookmarks, highlights) | Accepts request, returns failure for each op | Remove bookmark/highlight ops; keep reading session sync which works |
-| `GET /books/{id}/descriptions/batch` | Frontend hook permanently disabled (`enabled: false`) | Either implement or remove the hook entirely |
-| `GET /health` DB check | Returns `"checking..."` string | Implement real DB probe (Pattern 1) |
-| WebSocket service (frontend) | All methods return `Promise.resolve()` | Keep as polling-first with WebSocket as progressive enhancement; document that WS is not functional |
+**Конкретные заглушки для разрешения:**
+| Эндпоинт | Текущее поведение | Решение |
+|----------|-------------------|---------|
+| `POST /sync/batch` (закладки, выделения) | Принимает запрос, возвращает ошибку для каждой операции | Удалить операции закладок/выделений; оставить синхронизацию сессий чтения, которая работает |
+| `GET /books/{id}/descriptions/batch` | Хук фронтенда постоянно отключён (`enabled: false`) | Либо реализовать, либо полностью удалить хук |
+| `GET /health` проверка БД | Возвращает строку `"checking..."` | Реализовать реальную проверку БД (Паттерн 1) |
+| WebSocket-сервис (фронтенд) | Все методы возвращают `Promise.resolve()` | Оставить как polling-first с WebSocket в качестве прогрессивного улучшения; задокументировать, что WS не функционален |
 
 ---
 
-### Pattern 6: Celery Task Idempotency and Lock Safety
+### Паттерн 6: Идемпотентность задач Celery и безопасность блокировок
 
-**What:** The existing distributed lock pattern in `book_tasks.py` is good but has a gap: if a worker crashes between acquiring a lock and the `finally` block, the lock TTL (from Redis `SET NX EX`) is the only protection. The `DistributedLock` context manager in `cache.py` has auto-renewal but is not used by book tasks.
+**Что:** Существующий паттерн распределённых блокировок в `book_tasks.py` хорош, но имеет пробел: если воркер падает между захватом блокировки и блоком `finally`, TTL блокировки (из Redis `SET NX EX`) -- единственная защита. Контекстный менеджер `DistributedLock` в `cache.py` имеет автопродление, но не используется в задачах обработки книг.
 
-**When:** During the task reliability phase.
+**Когда:** На этапе укрепления надёжности задач.
 
-**Confidence:** HIGH -- verified by reading both `book_tasks.py` and `cache.py`.
+**Уверенность:** ВЫСОКАЯ -- проверено чтением `book_tasks.py` и `cache.py`.
 
-**Improvements:**
-1. Use the `DistributedLock` context manager (which has auto-renewal) instead of raw `acquire_lock`/`release_lock` calls in book tasks.
-2. Add Celery config: `task_acks_late=True` + `task_reject_on_worker_lost=True` are already set -- good. Verify `worker_prefetch_multiplier=1` is set in production Docker Compose (it is in `celery_app.py` but Docker Compose overrides may differ).
-3. Book processing should be idempotent: if restarted, it should detect partially-processed state and resume, not duplicate. Currently, the `is_processing` flag on the Book model serves this purpose but there is no chapter-level resume.
+**Улучшения:**
+1. Использовать контекстный менеджер `DistributedLock` (который имеет автопродление) вместо прямых вызовов `acquire_lock`/`release_lock` в задачах обработки книг.
+2. Добавить конфигурацию Celery: `task_acks_late=True` + `task_reject_on_worker_lost=True` уже установлены -- хорошо. Проверить, что `worker_prefetch_multiplier=1` установлен в продакшен Docker Compose (он есть в `celery_app.py`, но переопределения Docker Compose могут отличаться).
+3. Обработка книги должна быть идемпотентной: при перезапуске она должна обнаруживать частично обработанное состояние и продолжать, а не дублировать. В настоящее время флаг `is_processing` на модели Book служит этой цели, но нет возобновления на уровне глав.
 
-**Sources:**
-- [Celery Task Resilience](https://blog.gitguardian.com/celery-tasks-retries-errors/) (MEDIUM confidence)
-- [Celery Redis Production Guide](https://medium.com/@dewasheesh.rana/celery-redis-fastapi-the-ultimate-2025-production-guide-broker-vs-backend-explained-5b84ef508fa7) (LOW confidence -- single source)
+**Источники:**
+- [Устойчивость задач Celery](https://blog.gitguardian.com/celery-tasks-retries-errors/) (СРЕДНЯЯ уверенность)
+- [Руководство по Celery Redis для продакшена](https://medium.com/@dewasheesh.rana/celery-redis-fastapi-the-ultimate-2025-production-guide-broker-vs-backend-explained-5b84ef508fa7) (НИЗКАЯ уверенность -- единственный источник)
 
-## Anti-Patterns to Avoid
+## Антипаттерны, которых следует избегать
 
-### Anti-Pattern 1: Sync-in-Async Thread Pool Exhaustion
-**What:** `gemini_extractor.py` and `imagen_generator.py` use `asyncio.to_thread()` to call synchronous Google API clients from async Celery tasks. Each thread pool slot is a blocking OS thread.
-**Why bad:** With unbounded parallel chunk processing via `asyncio.gather()` on 20+ chunks, the default thread pool (max_workers = min(32, os.cpu_count() + 4) = ~8) can be exhausted. Additional chunks block waiting for threads while holding async event loop time.
-**Instead:** Either (a) use the async Google GenAI client if available, or (b) bound the concurrency with `asyncio.Semaphore(4)` explicitly applied to the `asyncio.gather()` call, or (c) process chunks sequentially in Celery (since it's already a background task, latency is acceptable).
-**Confidence:** HIGH -- visible in `gemini_extractor.py` lines 633-637 and 747-753.
+### Антипаттерн 1: Исчерпание пула потоков из-за Sync-in-Async
 
-### Anti-Pattern 2: Blanket Cache-Busting on All API GETs
-**What:** `apiClient.get()` adds `Cache-Control: no-cache, no-store, must-revalidate` headers to every single GET request.
-**Why bad:** Defeats browser HTTP caching entirely, forces the backend to serve every request from scratch, and negates the work done in `CacheControlMiddleware`. For immutable data like chapter content, this means unnecessary network round trips.
-**Instead:** Remove the blanket headers. Use TanStack Query's `staleTime` and `gcTime` for client-side caching. Let the backend's `CacheControlMiddleware` set appropriate `Cache-Control` headers per response type.
-**Confidence:** HIGH -- visible in `client.ts` lines 192-201.
+**Что:** `gemini_extractor.py` и `imagen_generator.py` используют `asyncio.to_thread()` для вызова синхронных Google API клиентов из асинхронных задач Celery. Каждый слот пула потоков -- это блокирующий поток ОС. **Примечание Phase 3:** После миграции на OpenRouter оба сервиса будут использовать HTTP API напрямую (httpx async), что устранит sync-in-async паттерн.
+**Почему плохо:** При неограниченной параллельной обработке чанков через `asyncio.gather()` на 20+ чанках, пул потоков по умолчанию (max_workers = min(32, os.cpu_count() + 4) = ~8) может быть исчерпан. Дополнительные чанки блокируются в ожидании потоков, занимая время асинхронного event loop.
+**Вместо этого:** Либо (а) использовать асинхронный клиент Google GenAI, если доступен, либо (б) ограничить конкурентность с помощью `asyncio.Semaphore(4)`, явно применённого к вызову `asyncio.gather()`, либо (в) обрабатывать чанки последовательно в Celery (поскольку это уже фоновая задача, задержка допустима).
+**Уверенность:** ВЫСОКАЯ -- видно в `gemini_extractor.py` строки 633-637 и 747-753.
 
-### Anti-Pattern 3: Global Singleton CacheManager Without Connection Health Monitoring
-**What:** `cache_manager` is a global singleton initialized at startup. If Redis becomes unavailable after startup, `_is_available` stays `True` (set during initialization) and every operation silently fails in the `except` clauses with a log warning.
-**Why bad:** There is no mechanism to detect Redis recovery. Once Redis goes down and comes back, the app continues treating it as available but failing, logging warnings on every cache operation.
-**Instead:** Add a periodic health check (every 30s) that updates `_is_available` based on `PING` response. Or check on each operation failure and attempt reconnection.
-**Confidence:** HIGH -- verified in `cache.py` lines 97-135 and 188-204.
+### Антипаттерн 2: Тотальный запрет кэширования на всех GET-запросах API
 
-### Anti-Pattern 4: Two Competing Celery Configurations
-**What:** Both `celery_app.py` and `celery_config.py` define Celery configurations. `celery_app.py` is the one actually used (imported by tasks). `celery_config.py` defines a `ResourceAwareCelery` class, different queue definitions, and NLP-era settings that are never imported anywhere.
-**Why bad:** Developers may edit the wrong config file. The NLP cache config, resource limits, and `create_celery_app()` factory in `celery_config.py` are completely dead code.
-**Instead:** Delete `celery_config.py` entirely. Move any useful patterns (like the `task_prerun` resource check) into `celery_app.py` if desired.
-**Confidence:** HIGH -- verified by grep that no file imports from `celery_config.py`.
+**Что:** `apiClient.get()` добавляет заголовки `Cache-Control: no-cache, no-store, must-revalidate` к каждому GET-запросу.
+**Почему плохо:** Полностью аннулирует HTTP-кэширование браузера, вынуждает бэкенд обслуживать каждый запрос с нуля и сводит на нет работу, выполненную в `CacheControlMiddleware`. Для неизменяемых данных, таких как содержимое глав, это означает ненужные сетевые обращения.
+**Вместо этого:** Убрать тотальные заголовки. Использовать `staleTime` и `gcTime` TanStack Query для клиентского кэширования. Позволить `CacheControlMiddleware` бэкенда устанавливать соответствующие заголовки `Cache-Control` для каждого типа ответа.
+**Уверенность:** ВЫСОКАЯ -- видно в `client.ts` строки 192-201.
 
-## Scalability Considerations
+### Антипаттерн 3: Глобальный синглтон CacheManager без мониторинга состояния соединения
 
-| Concern | Current (production: 8GB/4CPU) | At 100 concurrent users | At 1K concurrent users |
-|---------|-------------------------------|------------------------|----------------------|
-| **API response time** | <50ms cached, ~200ms uncached | Same (PostgreSQL pool handles 60 connections) | Need PgBouncer; consider read replicas |
-| **Book processing queue** | 1 concurrent task, ~30min per book | Queue depth grows; users wait hours | Multiple Celery workers on separate machines |
-| **Redis single instance** | 640MB max, serves all purposes | Fine -- 640MB is plenty for cache + broker | Split into 2 instances: cache vs broker |
-| **Gemini API rate limits** | Unbounded parallel calls per chunk | Risk hitting rate limits during bursts | Semaphore + circuit breaker mandatory |
-| **Image storage** | Local filesystem (`/app/storage`) | Works with Docker volume | Need S3/object storage |
-| **WebSocket connections** | Not functional (polling fallback) | Polling at 100 users = 100 requests/interval | WebSocket becomes necessary to reduce polling load |
+**Что:** `cache_manager` -- глобальный синглтон, инициализируемый при запуске. Если Redis становится недоступным после запуска, `_is_available` остаётся `True` (установлен при инициализации) и каждая операция молча завершается ошибкой в блоках `except` с логированием предупреждения.
+**Почему плохо:** Нет механизма обнаружения восстановления Redis. Когда Redis падает и возвращается, приложение продолжает считать его доступным, но операции завершаются ошибкой, логируя предупреждения при каждой операции кэширования.
+**Вместо этого:** Добавить периодическую health-проверку (каждые 30 с), обновляющую `_is_available` на основе ответа `PING`. Или проверять при каждой ошибке операции и пытаться переподключиться.
+**Уверенность:** ВЫСОКАЯ -- проверено в `cache.py` строки 97-135 и 188-204.
 
-## Build Order for Production Hardening
+### Антипаттерн 4: Две конкурирующие конфигурации Celery
 
-Based on dependency analysis of the components above, the recommended build order is:
+**Что:** И `celery_app.py`, и `celery_config.py` определяют конфигурации Celery. `celery_app.py` -- тот, который реально используется (импортируется задачами). `celery_config.py` определяет класс `ResourceAwareCelery`, другие определения очередей и настройки эпохи NLP, которые нигде не импортируются.
+**Почему плохо:** Разработчики могут редактировать не тот файл конфигурации. Конфигурация NLP-кэша, лимиты ресурсов и фабрика `create_celery_app()` в `celery_config.py` -- полностью мёртвый код.
+**Вместо этого:** Полностью удалить `celery_config.py`. При необходимости перенести полезные паттерны (например, проверку ресурсов в `task_prerun`) в `celery_app.py`.
+**Уверенность:** ВЫСОКАЯ -- проверено grep, что ни один файл не импортирует из `celery_config.py`.
 
-### Phase 1: Safety Net (no behavioral changes, just protection)
-1. Fix `DEBUG=False` default and security defaults inversion
-2. Implement real health checks (database + Redis probes)
-3. Delete dead code: `celery_config.py`, NLP config fields, NLP test files, NLP settings manager sections
-- **Rationale:** These changes protect production without altering any feature behavior. Health checks are prerequisite for monitoring. Dead code removal reduces cognitive load for all subsequent work.
+## Соображения по масштабируемости
 
-### Phase 2: Data Integrity (fix correctness bugs)
-4. Fix reprocess endpoint to delete old descriptions before re-extraction
-5. Fix cache invalidation on entity/description writes
-6. Remove blanket cache-busting headers from frontend API client
-7. Configure TanStack Query `staleTime` values per data type
-- **Rationale:** These changes fix data correctness issues (stale cache, orphaned descriptions) that directly affect user trust. Depends on Phase 1 because monitoring needs to be in place before changing caching behavior.
+| Проблема | Текущее состояние (продакшен: 8 ГБ/4 ЦПУ) | При 100 одновременных пользователях | При 1000 одновременных пользователей |
+|----------|---------------------------------------------|--------------------------------------|--------------------------------------|
+| **Время отклика API** | <50 мс с кэшем, ~200 мс без кэша | То же (пул PostgreSQL обрабатывает 60 соединений) | Нужен PgBouncer; рассмотреть read-реплики |
+| **Очередь обработки книг** | 1 параллельная задача, ~30 мин на книгу | Глубина очереди растёт; пользователи ждут часами | Несколько Celery-воркеров на отдельных машинах |
+| **Единственный экземпляр Redis** | 640 МБ максимум, обслуживает все назначения | Нормально -- 640 МБ достаточно для кэша + брокера | Разделить на 2 экземпляра: кэш vs брокер |
+| **Лимиты Gemini API** | Неограниченные параллельные вызовы для каждого чанка | Риск попадания в rate limit при пиковых нагрузках | Семафор + circuit breaker обязательны |
+| **Хранение изображений** | Локальная файловая система (`/app/storage`) | Работает с Docker volume | Нужен S3/объектное хранилище |
+| **WebSocket-соединения** | Не работает (фолбэк на polling) | Polling при 100 пользователях = 100 запросов/интервал | WebSocket становится необходимым для снижения нагрузки polling |
 
-### Phase 3: Resilience (prevent cascading failures)
-8. Add circuit breaker for Gemini/Imagen API calls
-9. Bound parallel chunk processing with explicit semaphore
-10. Fix Redis `_is_available` health monitoring for connection recovery
-11. Resolve stub endpoints (remove or implement)
-- **Rationale:** These changes prevent operational failures from cascading. Depends on Phase 2 because cache correctness must be solid before adding resilience patterns that may serve stale data during circuit-open states.
+## Порядок реализации для продакшен-укрепления
 
-### Phase 4: Structural Cleanup (reduce maintenance burden)
-12. Split oversized router files (`images.py`, `reading_sessions.py`)
-13. Migrate `python-jose` to `PyJWT`
-14. Use `DistributedLock` context manager in book tasks
-- **Rationale:** These are non-urgent improvements that reduce future maintenance cost. Placed last because they don't affect production stability directly and carry higher risk of regression.
+На основе анализа зависимостей компонентов выше, рекомендуемый порядок реализации:
 
-**Dependency chain:**
+### Фаза 1: Страховочная сетка (без изменений поведения, только защита)
+1. Исправить дефолт `DEBUG=False` и инверсию дефолтов безопасности
+2. Реализовать реальные health-проверки (проверки базы данных + Redis)
+3. Удалить мёртвый код: `celery_config.py`, поля конфигурации NLP, тестовые файлы NLP, секции NLP в settings manager
+- **Обоснование:** Эти изменения защищают продакшен без изменения поведения каких-либо функций. Health-проверки являются предпосылкой для мониторинга. Удаление мёртвого кода снижает когнитивную нагрузку для всей последующей работы.
+
+### Фаза 2: Целостность данных (исправление багов корректности)
+4. Исправить эндпоинт переобработки, чтобы удалять старые описания перед повторным извлечением
+5. Исправить инвалидацию кэша при записи сущностей/описаний
+6. Убрать тотальные cache-busting заголовки из API-клиента фронтенда
+7. Настроить значения `staleTime` TanStack Query по типам данных
+- **Обоснование:** Эти изменения исправляют проблемы корректности данных (устаревший кэш, осиротевшие описания), которые напрямую влияют на доверие пользователей. Зависит от Фазы 1, потому что мониторинг должен быть на месте перед изменением поведения кэширования.
+
+### Фаза 3: Устойчивость (предотвращение каскадных сбоев)
+8. Добавить circuit breaker для вызовов OpenRouter API (LLM + image generation, после миграции с Gemini/Imagen)
+9. Ограничить параллельную обработку чанков явным семафором
+10. Исправить мониторинг `_is_available` Redis для обнаружения восстановления соединения
+11. Разрешить эндпоинты-заглушки (удалить или реализовать)
+- **Обоснование:** Эти изменения предотвращают каскадное распространение операционных сбоев. Зависит от Фазы 2, потому что корректность кэша должна быть обеспечена перед добавлением паттернов устойчивости, которые могут обслуживать устаревшие данные во время состояния circuit-open.
+
+### Фаза 4: Структурная очистка (снижение бремени обслуживания)
+12. Разделить слишком большие файлы роутеров (`images.py`, `reading_sessions.py`)
+13. Мигрировать `python-jose` на `PyJWT`
+14. Использовать контекстный менеджер `DistributedLock` в задачах обработки книг
+- **Обоснование:** Это неотложные, но не срочные улучшения, снижающие будущие затраты на обслуживание. Размещены последними, потому что не влияют на стабильность продакшена напрямую и несут более высокий риск регрессий.
+
+**Цепочка зависимостей:**
 ```
-Phase 1 (Safety) -> Phase 2 (Data Integrity) -> Phase 3 (Resilience) -> Phase 4 (Cleanup)
-                                                                              |
-Security defaults are prerequisite for everything                    Can be parallelized
-Health checks enable monitoring changes in Phase 2+                  with Phase 3 work
+Фаза 1 (Безопасность) -> Фаза 2 (Целостность данных) -> Фаза 3 (Устойчивость) -> Фаза 4 (Очистка)
+                                                                                          |
+Дефолты безопасности -- предпосылка для всего                                    Может быть
+Health-проверки обеспечивают мониторинг изменений в Фазе 2+                  распараллелена
+                                                                          с работой Фазы 3
 ```
 
-## Sources
+## Источники
 
-- Codebase analysis: `backend/app/main.py`, `core/config.py`, `core/cache.py`, `core/celery_app.py`, `core/celery_config.py`, `core/retry.py`, `core/exceptions.py`, `frontend/src/api/client.ts`, `frontend/src/hooks/api/queryKeys.ts`, `docker-compose.lite.prod.yml`
-- [FastAPI Production Best Practices (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) (MEDIUM confidence)
-- [FastAPI Best Practices 2026 (FastLaunchAPI)](https://fastlaunchapi.dev/blog/fastapi-best-practices-production-2026) (MEDIUM confidence)
-- [zhanymkanov/fastapi-best-practices (GitHub)](https://github.com/zhanymkanov/fastapi-best-practices) (MEDIUM confidence)
-- [TanStack Query Cache Invalidation (official docs)](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) (HIGH confidence)
-- [Celery Task Resilience (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) (MEDIUM confidence)
-- [Circuit Breaker in FastAPI (Stackademic)](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (MEDIUM confidence)
-- [FastAPI Health Check Implementation (Index.dev)](https://www.index.dev/blog/how-to-implement-health-check-in-python) (MEDIUM confidence)
-- [aiobreaker (PyPI)](https://pypi.org/project/aiobreaker/) (HIGH confidence)
-- `.planning/codebase/ARCHITECTURE.md` -- existing architecture map (HIGH confidence)
-- `.planning/codebase/CONCERNS.md` -- known issues catalog (HIGH confidence)
+- Анализ кодовой базы: `backend/app/main.py`, `core/config.py`, `core/cache.py`, `core/celery_app.py`, `core/celery_config.py`, `core/retry.py`, `core/exceptions.py`, `frontend/src/api/client.ts`, `frontend/src/hooks/api/queryKeys.ts`, `docker-compose.lite.prod.yml`
+- [Лучшие практики FastAPI для продакшена (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) (СРЕДНЯЯ уверенность)
+- [Лучшие практики FastAPI 2026 (FastLaunchAPI)](https://fastlaunchapi.dev/blog/fastapi-best-practices-production-2026) (СРЕДНЯЯ уверенность)
+- [zhanymkanov/fastapi-best-practices (GitHub)](https://github.com/zhanymkanov/fastapi-best-practices) (СРЕДНЯЯ уверенность)
+- [Инвалидация кэша TanStack Query (официальная документация)](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) (ВЫСОКАЯ уверенность)
+- [Устойчивость задач Celery (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) (СРЕДНЯЯ уверенность)
+- [Circuit Breaker в FastAPI (Stackademic)](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (СРЕДНЯЯ уверенность)
+- [Реализация Health Check в FastAPI (Index.dev)](https://www.index.dev/blog/how-to-implement-health-check-in-python) (СРЕДНЯЯ уверенность)
+- [aiobreaker (PyPI)](https://pypi.org/project/aiobreaker/) (ВЫСОКАЯ уверенность)
+- `.planning/codebase/ARCHITECTURE.md` -- существующая карта архитектуры (ВЫСОКАЯ уверенность)
+- `.planning/codebase/CONCERNS.md` -- каталог известных проблем (ВЫСОКАЯ уверенность)
 
 ---
 
-*Architecture research: 2026-02-27*
+*Исследование архитектуры: 2026-02-27*

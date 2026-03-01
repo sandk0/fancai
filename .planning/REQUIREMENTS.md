@@ -1,146 +1,191 @@
-# Requirements: fancai Production Readiness
+# Требования: fancai Готовность к продакшену
 
-**Defined:** 2026-02-27
-**Core Value:** Пользователь может загрузить книгу, читать, получить AI-глоссарий без спойлеров и видеть иллюстрации — стабильно и без сбоев
+**Определены:** 2026-02-27
+**Ключевая ценность:** Пользователь может загрузить книгу, читать, получить AI-глоссарий без спойлеров и видеть иллюстрации — стабильно и без сбоев
 
-## v1 Requirements
+## Требования v1
 
-Requirements for production release. Each maps to roadmap phases.
+Требования для production-релиза. Каждое привязано к фазам дорожной карты.
 
-### Security
+### Безопасность
 
-- [ ] **SEC-01**: Fix DEBUG default to False in config.py
-- [ ] **SEC-02**: Fix hardcoded SECRET_KEY — fail startup if default key used in non-debug
-- [ ] **SEC-03**: Replace python-jose (CVE) with PyJWT for JWT operations
+- [ ] **SEC-01**: Исправить значение DEBUG по умолчанию на False в config.py
+- [ ] **SEC-02**: Исправить захардкоженный SECRET_KEY — прерывать запуск, если используется ключ по умолчанию в не-debug режиме
+- [ ] **SEC-03**: Заменить python-jose (CVE) на PyJWT для JWT-операций
 
-### Dead Code & Stubs Cleanup
+### Очистка мертвого кода и заглушек
 
-- [ ] **CLEAN-01**: Remove 14 NLP root-level test files (test_nlp_processors.py, test_gliner_integration.py, etc.)
-- [ ] **CLEAN-02**: Remove NLP config fields from config.py (SPACY_MODEL, NLTK_DATA_PATH, MULTI_NLP_MODE, etc.) and settings_manager.py (nlp_global, nlp_spacy, nlp_natasha, nlp_stanza, nlp_gliner sections)
-- [ ] **CLEAN-03**: Remove dead celery_config.py (only celery_app.py is used)
-- [ ] **CLEAN-04**: Fix sync.py TODO stubs — return 501 Not Implemented instead of silent failure
-- [ ] **CLEAN-05**: Remove NLP schemas from admin response schemas
+- [ ] **CLEAN-01**: Удалить 14 NLP тестовых файлов из корня бэкенда (test_nlp_processors.py, test_gliner_integration.py и т.д.)
+- [ ] **CLEAN-02**: Удалить NLP-поля конфигурации из config.py (SPACY_MODEL, NLTK_DATA_PATH, MULTI_NLP_MODE и т.д.) и settings_manager.py (секции nlp_global, nlp_spacy, nlp_natasha, nlp_stanza, nlp_gliner)
+- [ ] **CLEAN-03**: Удалить мертвый celery_config.py (используется только celery_app.py)
+- [ ] **CLEAN-04**: Исправить TODO-заглушки в sync.py — возвращать 501 Not Implemented вместо тихого сбоя
+- [ ] **CLEAN-05**: Удалить NLP-схемы из схем ответов админ-панели
 
-### Error Handling & UX
+### Обработка ошибок и UX
 
-- [ ] **UX-01**: Implement real health check endpoint (actual DB + Redis + Celery connectivity check)
-- [ ] **UX-02**: Standardize error messages across all failure states (use ErrorMessage.tsx consistently)
-- [ ] **UX-03**: Add user-friendly error states for book parsing failures (informative message + retry action)
-- [ ] **UX-04**: Add chapter transition loading states (shimmer/skeleton while epub.js re-renders)
-- [ ] **UX-05**: Improve AI extraction failure recovery UX (clear "what went wrong" + retry)
-- [ ] **UX-06**: Fix orphaned descriptions on book reprocess (uncomment/fix deletion of old descriptions)
+- [ ] **UX-01**: Реализовать настоящий health check endpoint (реальная проверка подключения к БД + Redis + Celery)
+- [ ] **UX-02**: Стандартизировать сообщения об ошибках для всех состояний сбоя (единообразно использовать ErrorMessage.tsx)
+- [ ] **UX-03**: Добавить пользовательские состояния ошибок при сбое парсинга книги (информативное сообщение + действие повтора)
+- [ ] **UX-04**: Добавить состояния загрузки при переходе между главами (shimmer/skeleton пока epub.js перерендеривает контент)
+- [ ] **UX-05**: Улучшить UX восстановления после сбоя AI-извлечения (понятное объяснение «что пошло не так» + повтор)
+- [ ] **UX-06**: Исправить осиротевшие описания при повторной обработке книги (раскомментировать/исправить удаление старых описаний)
 
-### Entity Wiki Quality
+### Качество Entity Wiki
 
-- [ ] **WIKI-01**: Lower fuzzy matching threshold for Russian names (0.85 → ~0.70-0.75 with validation)
-- [ ] **WIKI-02**: Fix chunk boundary entity loss — implement recursive reduce instead of truncation at 300K chars
-- [ ] **WIKI-03**: Add ConsistencyManager unit tests (merge decisions, advisory locks, LLM reduce)
-- [ ] **WIKI-04**: Add exhaustive spoiler-free filtering tests (edge cases, boundary chapters, empty entities)
+- [ ] **WIKI-01**: Снизить порог нечеткого сравнения для русских имен (0.85 -> ~0.70-0.75 с валидацией)
+- [ ] **WIKI-02**: Исправить потерю сущностей на границах чанков — реализовать рекурсивную свертку вместо обрезки на 300K символах
+- [ ] **WIKI-03**: Добавить юнит-тесты ConsistencyManager (решения о слиянии, advisory locks, LLM reduce)
+- [ ] **WIKI-04**: Добавить исчерпывающие тесты спойлер-защищенной фильтрации (граничные случаи, пограничные главы, пустые сущности)
 
-### AI Pipeline Stability
+### Стабильность AI-пайплайна
 
-- [ ] **AI-01**: Bound Gemini API semaphore — limit concurrent chunk processing to prevent rate limit hits
-- [ ] **AI-02**: Add circuit breaker for Gemini/Imagen API calls (prevent cascading timeouts)
-- [ ] **AI-03**: Fix asyncio.to_thread pattern — use async Google GenAI client or properly bounded thread pool
+- [ ] **AI-01**: Ограничить семафор Gemini API — лимитировать конкурентную обработку чанков для предотвращения превышения rate limit
+- [ ] **AI-02**: Добавить circuit breaker для вызовов Gemini/Imagen API (предотвращение каскадных таймаутов)
+- [ ] **AI-03**: Исправить паттерн asyncio.to_thread — использовать асинхронный клиент Google GenAI или правильно ограниченный пул потоков
 
-### Production Deployment
+### Продакшен-деплой
 
-- [ ] **DEPLOY-01**: Switch to Gunicorn in production (remove --reload flag from docker-compose.lite.yml)
-- [ ] **DEPLOY-02**: Initialize Sentry backend (sentry-sdk already in requirements, needs sentry_sdk.init())
-- [ ] **DEPLOY-03**: Add frontend Sentry SDK (@sentry/react) for error tracking
-- [ ] **DEPLOY-04**: Add database backup strategy (pg_dump via sidecar container with scheduled cron)
+- [ ] **DEPLOY-01**: Переключиться на Gunicorn в продакшене (убрать флаг --reload из docker-compose.lite.yml)
+- [ ] **DEPLOY-02**: Инициализировать Sentry на бэкенде (sentry-sdk уже в requirements, нужен sentry_sdk.init())
+- [ ] **DEPLOY-03**: Добавить Sentry SDK на фронтенд (@sentry/react) для отслеживания ошибок
+- [ ] **DEPLOY-04**: Добавить стратегию резервного копирования базы данных (pg_dump через sidecar-контейнер с запланированным cron)
+- [ ] **DEPLOY-05**: Исправить visibility_timeout (3600) < time_limit (10800) в Celery — увеличить до 14400 для предотвращения дублирования задач
+- [ ] **DEPLOY-06**: Синхронизировать LANGEXTRACT_MODEL в docker-compose файлах (gemini-2.0-flash → gemini-3-flash-preview)
+- [ ] **DEPLOY-07**: Обновить postgres:17-alpine → postgres:17.9-alpine (CVE-2025-8715 CRITICAL, CVE-2025-1094 HIGH)
+- [ ] **DEPLOY-08**: Унифицировать memory limits для Celery workers (3 файла — 3 разных значения: 150/300/400MB)
 
-### Reader Polish
+### Миграция сервисов (OpenRouter + Caddy)
 
-- [ ] **READ-01**: Implement bookmarks functionality (persist to backend, show in sidebar)
-- [ ] **READ-02**: Implement text highlights/annotations (SelectionMenu UI stubs exist, wire up)
-- [ ] **READ-03**: Implement bookmark/highlight sync endpoint (replace sync.py TODO stubs with real implementation)
-- [ ] **READ-04**: Add in-book text search (search within current book text)
-- [ ] **READ-05**: Add entity-to-text linking (tap character name in text → entity profile)
+- [ ] **MIGR-01**: Мигрировать entity_synthesis на OpenRouter API (только response_mime_type, низкая сложность)
+- [ ] **MIGR-02**: Мигрировать consistency_manager на OpenRouter API (только response_mime_type, средняя сложность)
+- [ ] **MIGR-03**: Мигрировать entity_dedup на OpenRouter API (response_schema с вложенными Optional полями, высокая сложность)
+- [ ] **MIGR-04**: Мигрировать gemini_extractor на OpenRouter API (response_schema с Pydantic, высокая сложность)
+- [ ] **MIGR-04.1**: Мигрировать imagen_generator с Imagen 4 (Google API) на OpenRouter image-модели (FLUX.2 Pro/Klein), удалить зависимость google-genai
+- [ ] **MIGR-05**: Реализовать fallback chain: Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite
+- [ ] **MIGR-06**: Заменить nginx на Caddy — написать Caddyfile (~80 строк вместо 748 строк nginx)
+- [ ] **MIGR-07**: Настроить auto-HTTPS в Caddy (Let's Encrypt + ZeroSSL)
+- [ ] **MIGR-08**: Добавить rate limiting через FastAPI slowapi (по user ID, не только по IP)
 
-## v2 Requirements
+### Обслуживание инфраструктуры (мониторинг + зависимости)
 
-Deferred to future release. Tracked but not in current roadmap.
+- [ ] **OPS-01**: Развернуть Netdata v2.8.5 для мониторинга сервера (~80-100MB RAM)
+- [ ] **OPS-02**: Развернуть Uptime Kuma :2 для мониторинга доступности (~50-80MB RAM)
+- [ ] **OPS-03**: Развернуть Dozzle v9.0 для просмотра логов контейнеров (~30-50MB RAM)
+- [ ] **OPS-04**: Обновить npm-зависимости: react 19.2.4, typescript 5.9.3, react-router-dom 7.13.1, tailwindcss 4.2.1
+- [ ] **OPS-05**: Обновить Docker images: nginx 1.28-alpine (или убрать при Caddy), python 3.12-slim → pin к patch
+- [ ] **OPS-06**: Настроить PostgreSQL для 32GB RAM: shared_buffers=8GB, shm_size=10g, huge_pages=try, wal_compression=zstd
+- [ ] **OPS-07**: Pin Docker images к patch-версиям для reproducible builds
 
-### Security Enhancements
+### Полировка ридера
 
-- **SEC-04**: Reduce access token expiry to 15-30 minutes
-- **SEC-05**: Fix password reset URL (localhost → production domain)
-- **SEC-06**: Add file upload magic byte validation (EPUB = ZIP magic)
-- **SEC-07**: Add METRICS_PASSWORD to production secrets check
-- **SEC-08**: Implement CSP nonce generation
+- [ ] **READ-01**: Реализовать функциональность закладок (сохранение на бэкенд, отображение в боковой панели)
+- [ ] **READ-02**: Реализовать выделения/аннотации текста (UI-заглушки SelectionMenu существуют, нужно подключить)
+- [ ] **READ-03**: Реализовать endpoint синхронизации закладок/выделений (заменить TODO-заглушки в sync.py реальной реализацией)
+- [ ] **READ-04**: Добавить поиск по тексту внутри книги (поиск в тексте текущей книги)
+- [ ] **READ-05**: Добавить связь сущность-текст (тап по имени персонажа в тексте -> профиль сущности)
 
-### Performance & Scaling
+## Требования v2
 
-- **PERF-01**: Implement Gemini Context Caching (60-70% token savings)
-- **PERF-02**: Increase Celery concurrency (currently fixed at 1)
-- **PERF-03**: Split oversized router files (images.py, reading_sessions.py)
+Отложены до будущего релиза. Отслеживаются, но не включены в текущую дорожную карту.
 
-### Features
+### Улучшения безопасности
 
-- **FEAT-01**: WebSocket real-time updates (replace polling for book processing)
-- **FEAT-02**: Batch description fetch endpoint
-- **FEAT-03**: Notes on highlights
-- **FEAT-04**: OAuth social login (Google, GitHub)
+- **SEC-04**: Сократить срок действия access-токена до 15-30 минут
+- **SEC-05**: Исправить URL сброса пароля (localhost -> production-домен)
+- **SEC-06**: Добавить валидацию magic byte при загрузке файлов (EPUB = ZIP magic)
+- **SEC-07**: Добавить METRICS_PASSWORD в проверку production-секретов
+- **SEC-08**: Реализовать генерацию CSP nonce
 
-## Out of Scope
+### Производительность и масштабирование
 
-Explicitly excluded. Documented to prevent scope creep.
+- **PERF-01**: Реализовать Gemini Context Caching (экономия 60-70% токенов)
+- **PERF-02**: Увеличить конкурентность Celery (сейчас фиксирована на 1)
+- **PERF-03**: Разделить переполненные файлы роутеров (images.py, reading_sessions.py)
 
-| Feature | Reason |
-|---------|--------|
-| Payment system (YooKassa/CloudPayments) | Monetization deferred; stubs exist but no routes |
-| Social/community features | Scope creep; reading is solitary; no competitive moat |
-| Built-in book store/marketplace | Complex legal/licensing; users source books elsewhere |
-| Text-to-speech / audio narration | Better served by OS-level accessibility tools |
-| AI book recommendations | Cold start problem; not related to core reading experience |
-| Multi-format beyond EPUB/FB2 | EPUB is the standard; recommend Calibre for conversion |
-| Collaborative annotations | Single-user first |
-| Inline dictionary/translation | Tangential to core value; OS-level dictionary available |
-| Mobile native app | Web-first approach |
+### Функциональность
 
-## Traceability
+- **FEAT-01**: WebSocket обновления в реальном времени (замена polling при обработке книг)
+- **FEAT-02**: Endpoint пакетного получения описаний
+- **FEAT-03**: Заметки к выделениям
+- **FEAT-04**: OAuth-авторизация через соцсети (Google, GitHub)
 
-Which phases cover which requirements. Updated during roadmap creation.
+## Вне скоупа
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| SEC-01 | Phase 1: Production Safety | Pending |
-| SEC-02 | Phase 1: Production Safety | Pending |
-| SEC-03 | Phase 1: Production Safety | Pending |
-| DEPLOY-01 | Phase 1: Production Safety | Pending |
-| DEPLOY-02 | Phase 1: Production Safety | Pending |
-| DEPLOY-03 | Phase 1: Production Safety | Pending |
-| DEPLOY-04 | Phase 1: Production Safety | Pending |
-| UX-01 | Phase 1: Production Safety | Pending |
-| CLEAN-01 | Phase 2: Dead Code Cleanup | Pending |
-| CLEAN-02 | Phase 2: Dead Code Cleanup | Pending |
-| CLEAN-03 | Phase 2: Dead Code Cleanup | Pending |
-| CLEAN-04 | Phase 2: Dead Code Cleanup | Pending |
-| CLEAN-05 | Phase 2: Dead Code Cleanup | Pending |
-| AI-01 | Phase 3: AI Pipeline Stability | Pending |
-| AI-02 | Phase 3: AI Pipeline Stability | Pending |
-| AI-03 | Phase 3: AI Pipeline Stability | Pending |
-| WIKI-01 | Phase 4: Entity Wiki Quality | Pending |
-| WIKI-02 | Phase 4: Entity Wiki Quality | Pending |
-| WIKI-03 | Phase 4: Entity Wiki Quality | Pending |
-| WIKI-04 | Phase 4: Entity Wiki Quality | Pending |
-| UX-06 | Phase 4: Entity Wiki Quality | Pending |
-| UX-02 | Phase 5: Error Handling & UX | Pending |
-| UX-03 | Phase 5: Error Handling & UX | Pending |
-| UX-04 | Phase 5: Error Handling & UX | Pending |
-| UX-05 | Phase 5: Error Handling & UX | Pending |
-| READ-01 | Phase 6: Reader Features | Pending |
-| READ-02 | Phase 6: Reader Features | Pending |
-| READ-03 | Phase 6: Reader Features | Pending |
-| READ-04 | Phase 6: Reader Features | Pending |
-| READ-05 | Phase 6: Reader Features | Pending |
+Явно исключено. Задокументировано для предотвращения расползания скоупа.
 
-**Coverage:**
-- v1 requirements: 30 total
-- Mapped to phases: 30
-- Unmapped: 0
+| Функциональность | Причина |
+|------------------|---------|
+| Платежная система (YooKassa/CloudPayments) | Монетизация отложена; заглушки есть, но маршрутов нет |
+| Социальные/community-функции | Расползание скоупа; чтение — занятие уединенное; нет конкурентного преимущества |
+| Встроенный магазин/маркетплейс книг | Сложные юридические/лицензионные вопросы; пользователи получают книги из других источников |
+| Озвучка текста / аудиосопровождение | Лучше обслуживается средствами доступности ОС |
+| AI-рекомендации книг | Проблема холодного старта; не связано с основным опытом чтения |
+| Поддержка форматов помимо EPUB/FB2 | EPUB — стандарт; рекомендуем Calibre для конвертации |
+| Совместные аннотации | Сначала однопользовательский режим |
+| Встроенный словарь/перевод | Касательно к основной ценности; доступен словарь уровня ОС |
+| Нативное мобильное приложение | Подход web-first |
+
+## Прослеживаемость
+
+Какие фазы покрывают какие требования. Обновляется при создании дорожной карты.
+
+| Требование | Фаза | Статус |
+|------------|------|--------|
+| SEC-01 | Фаза 1: Безопасность продакшена | Ожидает |
+| SEC-02 | Фаза 1: Безопасность продакшена | Ожидает |
+| SEC-03 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-01 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-02 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-03 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-04 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-05 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-06 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-07 | Фаза 1: Безопасность продакшена | Ожидает |
+| DEPLOY-08 | Фаза 1: Безопасность продакшена | Ожидает |
+| UX-01 | Фаза 1: Безопасность продакшена | Ожидает |
+| CLEAN-01 | Фаза 2: Очистка мертвого кода | Ожидает |
+| CLEAN-02 | Фаза 2: Очистка мертвого кода | Ожидает |
+| CLEAN-03 | Фаза 2: Очистка мертвого кода | Ожидает |
+| CLEAN-04 | Фаза 2: Очистка мертвого кода | Ожидает |
+| CLEAN-05 | Фаза 2: Очистка мертвого кода | Ожидает |
+| MIGR-01 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-02 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-03 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-04 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-05 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-06 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-07 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-08 | Фаза 3: Миграция сервисов | Ожидает |
+| OPS-01 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-02 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-03 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-04 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-05 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-06 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| OPS-07 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
+| AI-01 | Фаза 5: Стабильность AI-пайплайна | Ожидает |
+| AI-02 | Фаза 5: Стабильность AI-пайплайна | Ожидает |
+| AI-03 | Фаза 5: Стабильность AI-пайплайна | Ожидает |
+| WIKI-01 | Фаза 6: Качество Entity Wiki | Ожидает |
+| WIKI-02 | Фаза 6: Качество Entity Wiki | Ожидает |
+| WIKI-03 | Фаза 6: Качество Entity Wiki | Ожидает |
+| WIKI-04 | Фаза 6: Качество Entity Wiki | Ожидает |
+| UX-06 | Фаза 6: Качество Entity Wiki | Ожидает |
+| UX-02 | Фаза 7: Обработка ошибок и UX | Ожидает |
+| UX-03 | Фаза 7: Обработка ошибок и UX | Ожидает |
+| UX-04 | Фаза 7: Обработка ошибок и UX | Ожидает |
+| UX-05 | Фаза 7: Обработка ошибок и UX | Ожидает |
+| READ-01 | Фаза 8: Функции ридера | Ожидает |
+| READ-02 | Фаза 8: Функции ридера | Ожидает |
+| READ-03 | Фаза 8: Функции ридера | Ожидает |
+| READ-04 | Фаза 8: Функции ридера | Ожидает |
+| READ-05 | Фаза 8: Функции ридера | Ожидает |
+
+**Покрытие:**
+- Требований v1: 45 всего
+- Привязано к фазам: 45
+- Не привязано: 0
 
 ---
-*Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after roadmap creation*
+*Требования определены: 2026-02-27*
+*Последнее обновление: 2026-03-01 после обсуждения аудит-отчёта v5*

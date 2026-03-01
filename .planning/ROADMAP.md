@@ -1,125 +1,169 @@
-# Roadmap: fancai Production Readiness
+# Дорожная карта: fancai Готовность к продакшену
 
-## Overview
+## Обзор
 
-fancai is a working AI-powered book reader deployed at fancai.ru, but it runs in development mode with an exploitable JWT vulnerability, fake health checks, dead NLP code, and an AI pipeline that can exhaust thread pools on large books. This roadmap takes it from "works in dev" to "reliable in production" across six phases: first securing the foundation, then cleaning the codebase, stabilizing the AI pipeline, hardening the core entity wiki differentiator, polishing error handling, and finally delivering missing reader table-stakes features (bookmarks, highlights, search).
+fancai — это работающее AI-приложение для чтения книг, развернутое на fancai.ru на выделенном сервере (32GB RAM, 12 vCPU, PostgreSQL 17). Приложение работает, но содержит эксплуатируемую JWT-уязвимость, фейковый health check, мертвый NLP-код, незащищённые конфигурации Celery и AI-пайплайн, который может исчерпать пулы потоков на больших книгах. Кроме того, инфраструктура нуждается в модернизации: переход LLM-сервисов на OpenRouter (с fallback chain), замена 748 строк nginx на Caddy, развёртывание мониторинга и обновление зависимостей.
+
+Эта дорожная карта ведёт от состояния «работает в dev» к «надёжно работает в production» через восемь фаз: защита фундамента, очистка кодовой базы, миграция сервисов (OpenRouter + Caddy), обслуживание инфраструктуры (мониторинг + зависимости), стабилизация AI-пайплайна, укрепление Entity Wiki, полировка обработки ошибок и реализация функций ридера.
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+**Нумерация фаз:**
+- Целочисленные фазы (1, 2, 3): Запланированная работа по вехам
+- Дробные фазы (2.1, 2.2): Срочные вставки (помечены INSERTED)
 
-Decimal phases appear between their surrounding integers in numeric order.
+Дробные фазы располагаются между окружающими целочисленными в числовом порядке.
 
-- [ ] **Phase 1: Production Safety** - Fix security vulnerabilities, switch to production deployment mode, initialize monitoring, add database backups
-- [ ] **Phase 2: Dead Code Cleanup** - Remove NLP remnants, fix stub endpoints, clean dead config and schemas
-- [ ] **Phase 3: AI Pipeline Stability** - Bound Gemini concurrency, add circuit breakers, fix asyncio threading
-- [ ] **Phase 4: Entity Wiki Quality** - Harden spoiler-free filtering, improve Russian fuzzy matching, fix chunk boundary entity loss
-- [ ] **Phase 5: Error Handling & UX** - Standardize error states, add loading indicators, improve failure recovery flows
-- [ ] **Phase 6: Reader Features** - Implement bookmarks, highlights, in-book search, and entity-to-text linking
+- [ ] **Phase 1: Безопасность продакшена** — Исправить уязвимости безопасности, аварийные баги Celery, CVE PostgreSQL, переключиться на production-режим деплоя, инициализировать мониторинг, добавить резервные копии базы данных
+- [ ] **Phase 2: Очистка мертвого кода** — Удалить остатки NLP, исправить заглушки endpoints, очистить мертвые конфиги и схемы
+- [ ] **Phase 3: Миграция сервисов** — Мигрировать все 5 AI-сервисов (4 LLM + генерация изображений) на OpenRouter API с fallback chain, заменить Imagen 4 на FLUX.2, заменить nginx на Caddy
+- [ ] **Phase 4: Обслуживание инфраструктуры** — Развернуть мониторинг-стек (Netdata + Uptime Kuma + Dozzle), обновить зависимости, оптимизировать PostgreSQL для 32GB RAM
+- [ ] **Phase 5: Стабильность AI-пайплайна** — Ограничить конкурентность Gemini/OpenRouter, добавить circuit breakers, исправить asyncio-потоки
+- [ ] **Phase 6: Качество Entity Wiki** — Укрепить спойлер-защищенную фильтрацию, улучшить нечеткое сравнение русских имен, исправить потерю сущностей на границах чанков
+- [ ] **Phase 7: Обработка ошибок и UX** — Стандартизировать состояния ошибок, добавить индикаторы загрузки, улучшить флоу восстановления после сбоев
+- [ ] **Phase 8: Функции ридера** — Реализовать закладки, выделения, поиск по книге и связь сущность-текст
 
-## Phase Details
+## Детали фаз
 
-### Phase 1: Production Safety
-**Goal**: The application is safe to run in production -- no exploitable vulnerabilities, real monitoring captures errors, and the server runs in production mode with data protection
-**Depends on**: Nothing (first phase)
-**Requirements**: SEC-01, SEC-02, SEC-03, DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-04, UX-01
-**Success Criteria** (what must be TRUE):
-  1. Application starts with DEBUG=False by default and rejects startup if default SECRET_KEY is used in non-debug mode
-  2. JWT tokens are signed and verified using PyJWT (not python-jose), and forged tokens with alg=none are rejected
-  3. Health check endpoint returns actual connectivity status for PostgreSQL, Redis, and Celery (not hardcoded "checking...")
-  4. Backend errors appear in Sentry dashboard with full stack traces; frontend JavaScript errors appear in a separate Sentry project
-  5. Application runs under Gunicorn with UvicornWorker in production (no --reload flag), and database is backed up on a schedule
-**Plans**: 2 plans
+### Phase 1: Безопасность продакшена
+**Goal:** Приложение безопасно для работы в продакшене — нет эксплуатируемых уязвимостей, реальный мониторинг фиксирует ошибки, сервер работает в production-режиме с защитой данных, критические баги инфраструктуры устранены
+**Depends on:** Ничего (первая фаза)
+**Requirements**: SEC-01, SEC-02, SEC-03, DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-04, DEPLOY-05, DEPLOY-06, DEPLOY-07, DEPLOY-08, UX-01
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Приложение запускается с DEBUG=False по умолчанию и отказывается стартовать, если в не-debug режиме используется SECRET_KEY по умолчанию
+  2. JWT-токены подписываются и верифицируются через PyJWT (не python-jose), поддельные токены с alg=none отклоняются
+  3. Health check endpoint возвращает реальный статус подключения к PostgreSQL, Redis и Celery (не захардкоженный "checking...")
+  4. Ошибки бэкенда отображаются в дашборде Sentry с полными стек-трейсами; JavaScript-ошибки фронтенда отображаются в отдельном проекте Sentry
+  5. Приложение работает под Gunicorn с UvicornWorker в продакшене (без флага --reload), база данных бэкапится по расписанию
+  6. Celery visibility_timeout (14400) превышает time_limit (10800) — нет дублирования задач
+  7. LANGEXTRACT_MODEL синхронизирован во всех docker-compose файлах (gemini-3-flash-preview)
+  8. PostgreSQL образ обновлён до 17.9-alpine (CVE-2025-8715 CRITICAL, CVE-2025-1094 HIGH устранены)
+  9. Memory limits для Celery workers единообразны во всех конфигурациях
+**Plans:** 2 плана (нуждаются в обновлении с учётом новых требований DEPLOY-05..08)
 
 Plans:
-- [ ] 01-01-PLAN.md — Security hardening (JWT migration to PyJWT, DEBUG=False, SECRET_KEY validation) + production deploy config (Gunicorn, health endpoint fix, .env.example)
-- [ ] 01-02-PLAN.md — Sentry monitoring (backend + frontend + Celery) + PostgreSQL backup script with S3 upload
+- [ ] 01-01-PLAN.md — Укрепление безопасности (миграция JWT на PyJWT, DEBUG=False, валидация SECRET_KEY) + конфигурация production-деплоя (Gunicorn, исправление health endpoint, .env.example)
+- [ ] 01-02-PLAN.md — Мониторинг Sentry (бэкенд + фронтенд + Celery) + скрипт резервного копирования PostgreSQL + аварийные фиксы Celery (visibility_timeout, memory limits, LANGEXTRACT_MODEL) + обновление postgres image
 
-### Phase 2: Dead Code Cleanup
-**Goal**: The codebase contains only living code -- every config field is used, every endpoint does what it claims, and no NLP artifacts remain to confuse future development
-**Depends on**: Phase 1
+### Phase 2: Очистка мертвого кода
+**Goal:** Кодовая база содержит только живой код — каждое поле конфигурации используется, каждый endpoint делает то, что заявляет, и никаких артефактов NLP, которые могут запутать будущую разработку
+**Depends on:** Phase 1
 **Requirements**: CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04, CLEAN-05
-**Success Criteria** (what must be TRUE):
-  1. No NLP-related files exist in the backend root (14 test files removed) and no NLP config fields exist in config.py or settings_manager.py
-  2. Application starts successfully after NLP removal -- no broken validators, no missing config references
-  3. The sync endpoint returns 501 Not Implemented with a clear message instead of silently discarding data
-  4. Only celery_app.py exists for Celery configuration (dead celery_config.py removed) and admin schemas contain no NLP-specific fields
-**Plans**: TBD
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Никаких NLP-файлов в корне бэкенда (14 тестовых файлов удалены) и никаких NLP-полей конфигурации в config.py или settings_manager.py
+  2. Приложение успешно запускается после удаления NLP — нет сломанных валидаторов, нет отсутствующих ссылок на конфигурацию
+  3. Endpoint sync возвращает 501 Not Implemented с понятным сообщением вместо тихого отбрасывания данных
+  4. Только celery_app.py существует для конфигурации Celery (мертвый celery_config.py удален), а схемы админки не содержат NLP-специфичных полей
+**Plans:** Будут определены
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01: Будет определен
 
-### Phase 3: AI Pipeline Stability
-**Goal**: The AI extraction pipeline degrades gracefully under load and API failures -- large books process without hanging, rate limits are respected, and transient failures do not cascade
-**Depends on**: Phase 2
+### Phase 3: Миграция сервисов
+**Goal:** Все AI-сервисы работают через OpenRouter: LLM с fallback chain (Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite), генерация изображений через FLUX.2 Pro/Klein (вместо Imagen 4). nginx заменён на Caddy с auto-HTTPS и HTTP/3. google-genai SDK полностью удалён
+**Depends on:** Phase 2
+**Requirements**: MIGR-01, MIGR-02, MIGR-03, MIGR-04, MIGR-05, MIGR-06, MIGR-07, MIGR-08
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Все 5 AI-сервисов (entity_synthesis, consistency_manager, entity_dedup, gemini_extractor, imagen_generator) вызывают OpenRouter API вместо google-genai SDK
+  2. При сбое основной модели (Gemini 3 Flash) система автоматически переключается на Claude Haiku 4.5, затем на Gemini 2.5 Flash Lite
+  3. Structured output (response_schema) корректно работает через OpenRouter — Pydantic модели конвертируются в JSON Schema с inlining $defs
+  4. Генерация изображений работает через OpenRouter (FLUX.2 Pro/Klein вместо Imagen 4), google-genai SDK полностью удалён из проекта
+  5. Caddy обслуживает фронтенд и проксирует бэкенд — auto-HTTPS работает, HTTP/3 включен
+  6. Rate limiting реализован через FastAPI slowapi (по user ID)
+**Plans:** Будут определены
+
+Plans:
+- [ ] 03-01: Будет определен
+- [ ] 03-02: Будет определен
+
+### Phase 4: Обслуживание инфраструктуры
+**Goal:** Сервер мониторится в реальном времени, зависимости обновлены до актуальных безопасных версий, PostgreSQL оптимизирован для 32GB RAM
+**Depends on:** Phase 3
+**Requirements**: OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06, OPS-07
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Netdata показывает метрики сервера (CPU, RAM, диск, сеть) в веб-интерфейсе
+  2. Uptime Kuma :2 мониторит доступность fancai.ru и API-эндпоинтов, отправляет алерты при даунтайме
+  3. Dozzle показывает логи всех Docker-контейнеров в веб-интерфейсе
+  4. React обновлён до 19.2.4, TypeScript до 5.9.3 — приложение собирается и тесты проходят
+  5. PostgreSQL сконфигурирован для 32GB RAM: shared_buffers=8GB, effective_cache_size=24GB, huge_pages=try, wal_compression=zstd
+  6. Docker images зафиксированы на конкретных patch-версиях
+**Plans:** Будут определены
+
+Plans:
+- [ ] 04-01: Будет определен
+- [ ] 04-02: Будет определен
+
+### Phase 5: Стабильность AI-пайплайна
+**Goal:** AI-пайплайн извлечения деградирует изящно под нагрузкой и при сбоях API — большие книги обрабатываются без зависаний, rate limits соблюдаются, временные сбои не каскадируют
+**Depends on:** Phase 3
 **Requirements**: AI-01, AI-02, AI-03
-**Success Criteria** (what must be TRUE):
-  1. Gemini API calls are bounded to a maximum concurrent count (semaphore), preventing rate limit errors during large book processing
-  2. Gemini and Imagen API failures trigger a circuit breaker that prevents repeated calls to a failing service, with automatic recovery when the service returns
-  3. Async Gemini calls use a properly bounded thread pool (not the shared asyncio default), so HTTP request handling is never blocked by AI processing
-**Plans**: TBD
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Вызовы OpenRouter/Gemini API ограничены максимальным числом конкурентных запросов (семафор), что предотвращает ошибки rate limit при обработке больших книг
+  2. Сбои OpenRouter API (LLM и image generation) срабатывают circuit breaker, который предотвращает повторные вызовы к падающему сервису, с автоматическим восстановлением при возврате сервиса
+  3. Асинхронные вызовы AI-сервисов используют правильно ограниченный пул потоков (не общий пул asyncio по умолчанию), поэтому обработка HTTP-запросов никогда не блокируется AI-обработкой
+**Plans:** Будут определены
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 05-01: Будет определен
 
-### Phase 4: Entity Wiki Quality
-**Goal**: The entity wiki -- fancai's core differentiator -- is provably spoiler-free, handles Russian names accurately, and processes books of any size without silently losing entities
-**Depends on**: Phase 3
+### Phase 6: Качество Entity Wiki
+**Goal:** Entity Wiki — ключевой дифференциатор fancai — доказуемо защищена от спойлеров, точно обрабатывает русские имена и обрабатывает книги любого размера без тихой потери сущностей
+**Depends on:** Phase 5
 **Requirements**: WIKI-01, WIKI-02, WIKI-03, WIKI-04, UX-06
-**Success Criteria** (what must be TRUE):
-  1. Spoiler-free filtering has exhaustive test coverage including property-based tests, boundary chapter edge cases, and empty entity scenarios -- no future-chapter data leaks
-  2. Russian name fuzzy matching uses a lower threshold (~0.70-0.75) so that short names like "Garri" correctly match "Garri Potter" during entity deduplication
-  3. Books with 500+ entities are fully processed via recursive map-reduce instead of truncation at 300K chars -- no silent entity loss
-  4. Reprocessing a book cleans up orphaned descriptions from the previous extraction run before writing new ones
-**Plans**: TBD
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Спойлер-защищенная фильтрация имеет исчерпывающее тестовое покрытие, включая property-based тесты, граничные случаи пограничных глав и сценарии пустых сущностей — никаких утечек данных из будущих глав
+  2. Нечеткое сравнение русских имен использует пониженный порог (~0.70-0.75), чтобы короткие имена вроде «Гарри» корректно сопоставлялись с «Гарри Поттер» при дедупликации сущностей
+  3. Книги с 500+ сущностями полностью обрабатываются через рекурсивный map-reduce вместо обрезки на 300K символах — никакой тихой потери сущностей
+  4. Повторная обработка книги очищает осиротевшие описания от предыдущего запуска извлечения перед записью новых
+**Plans:** Будут определены
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 06-01: Будет определен
+- [ ] 06-02: Будет определен
 
-### Phase 5: Error Handling & UX
-**Goal**: Users see clear, helpful feedback for every failure state and every loading transition -- no silent failures, no blank screens, no mystery spinners
-**Depends on**: Phase 1
+### Phase 7: Обработка ошибок и UX
+**Goal:** Пользователи видят понятную, полезную обратную связь для каждого состояния сбоя и каждого перехода загрузки — никаких тихих сбоев, пустых экранов, загадочных спиннеров
+**Depends on:** Phase 1
 **Requirements**: UX-02, UX-03, UX-04, UX-05
-**Success Criteria** (what must be TRUE):
-  1. All API error responses display using ErrorMessage.tsx with consistent styling and actionable guidance (no raw error codes or blank error states)
-  2. Book parsing failures show an informative message explaining what went wrong and a retry button
-  3. Chapter transitions show a shimmer/skeleton loading state while epub.js re-renders content
-  4. AI extraction failures (Gemini/Imagen) show a clear explanation of what failed and offer a retry action
-**Plans**: TBD
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Все API-ошибки отображаются через ErrorMessage.tsx с единообразным стилем и действенными рекомендациями (никаких сырых кодов ошибок или пустых состояний ошибок)
+  2. Сбои парсинга книг показывают информативное сообщение, объясняющее причину, и кнопку повтора
+  3. Переходы между главами показывают shimmer/skeleton состояние загрузки, пока epub.js перерендеривает контент
+  4. Сбои AI-извлечения (OpenRouter LLM/image generation) показывают понятное объяснение причины сбоя и предлагают действие повтора
+**Plans:** Будут определены
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 07-01: Будет определен
 
-### Phase 6: Reader Features
-**Goal**: The reader has the table-stakes annotation and navigation features that users expect from a modern book reader in 2026
-**Depends on**: Phase 5
+### Phase 8: Функции ридера
+**Goal:** Ридер имеет базовые функции аннотирования и навигации, которые пользователи ожидают от современного приложения для чтения книг в 2026 году
+**Depends on:** Phase 7
 **Requirements**: READ-01, READ-02, READ-03, READ-04, READ-05
-**Success Criteria** (what must be TRUE):
-  1. User can create, view, and delete bookmarks that persist to the backend and appear in the reader sidebar
-  2. User can highlight text passages and add annotations, with highlights visually rendered in the reading view
-  3. Bookmarks and highlights sync to the backend via a real API endpoint (not a stub)
-  4. User can search within the current book text and navigate to results
-  5. Tapping a character name in the book text opens the corresponding entity profile
-**Plans**: TBD
+**Критерии успеха** (что должно быть ИСТИННО):
+  1. Пользователь может создавать, просматривать и удалять закладки, которые сохраняются на бэкенд и отображаются в боковой панели ридера
+  2. Пользователь может выделять текстовые фрагменты и добавлять аннотации, выделения визуально отображаются в представлении чтения
+  3. Закладки и выделения синхронизируются с бэкендом через реальный API endpoint (не заглушку)
+  4. Пользователь может искать по тексту текущей книги и переходить к результатам
+  5. Тап по имени персонажа в тексте книги открывает соответствующий профиль сущности
+**Plans:** Будут определены
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 08-01: Будет определен
+- [ ] 08-02: Будет определен
 
-## Progress
+## Прогресс
 
-**Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
-Note: Phases 5-6 depend on Phase 1 (not Phase 4). Phases 3-4 and 5-6 are independent tracks, but execute sequentially for solo dev workflow.
+**Порядок выполнения:**
+Фазы выполняются в числовом порядке: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Примечание: Phase 5 зависит от Phase 3 (после миграции на OpenRouter). Фазы 7-8 зависят от Phase 1 (не от Phase 6). Фазы 5-6 и 7-8 — независимые треки, но выполняются последовательно для рабочего процесса одного разработчика.
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Production Safety | 0/2 | Not started | - |
-| 2. Dead Code Cleanup | 0/1 | Not started | - |
-| 3. AI Pipeline Stability | 0/1 | Not started | - |
-| 4. Entity Wiki Quality | 0/2 | Not started | - |
-| 5. Error Handling & UX | 0/1 | Not started | - |
-| 6. Reader Features | 0/2 | Not started | - |
+| Phase | Планов выполнено | Статус | Завершена |
+|-------|------------------|--------|-----------|
+| 1. Безопасность продакшена | 0/2 | Не начата | - |
+| 2. Очистка мертвого кода | 0/1 | Не начата | - |
+| 3. Миграция сервисов | 0/2 | Не начата | - |
+| 4. Обслуживание инфраструктуры | 0/2 | Не начата | - |
+| 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
+| 6. Качество Entity Wiki | 0/2 | Не начата | - |
+| 7. Обработка ошибок и UX | 0/1 | Не начата | - |
+| 8. Функции ридера | 0/2 | Не начата | - |

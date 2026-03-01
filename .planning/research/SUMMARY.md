@@ -1,178 +1,178 @@
-# Project Research Summary
+# Сводка исследования проекта
 
-**Project:** fancai — Production Hardening
-**Domain:** AI-powered EPUB reader (React 19 PWA + FastAPI + Celery + Gemini/Imagen)
-**Researched:** 2026-02-27
-**Confidence:** HIGH
+**Проект:** fancai -- Подготовка к продакшену
+**Область:** ИИ-читалка EPUB (React 19 PWA + FastAPI + Celery + OpenRouter LLM/Images, миграция с Gemini/Imagen)
+**Исследовано:** 2026-02-27
+**Уверенность:** ВЫСОКАЯ
 
-## Executive Summary
+## Резюме
 
-fancai is a production-deployed AI book reader with two genuine competitive differentiators: a spoiler-free entity wiki (no major competitor has this) and AI-generated illustrations. The core architecture — React 19 PWA + FastAPI + Celery + PostgreSQL + Redis — is fundamentally sound and has been running in production for 5.5 months. The product is feature-rich, with 13 table-stakes reader features all implemented. The problem is not what was built, but how it was deployed: the app is running in development mode on a production server, with an abandoned JWT library containing a known CVE, a fake health check that returns "healthy" regardless of actual system state, and multiple stub endpoints that silently discard user data.
+fancai -- это развёрнутая в продакшене ИИ-читалка с двумя подлинными конкурентными дифференциаторами: вики сущностей без спойлеров (ни у одного крупного конкурента этого нет) и ИИ-генерированные иллюстрации. Базовая архитектура -- React 19 PWA + FastAPI + Celery + PostgreSQL + Redis -- принципиально корректна и работает в продакшене 5,5 месяцев. Продукт богат функциями, с 13 обязательными функциями читалки, все реализованы. Проблема не в том, что было построено, а в том, как это было развёрнуто: приложение работает в режиме разработки на продакшен-сервере, с заброшенной JWT-библиотекой, содержащей известную CVE, фейковой health-проверкой, возвращающей "healthy" независимо от реального состояния системы, и несколькими эндпоинтами-заглушками, молча отбрасывающими данные пользователей.
 
-The recommended approach is surgical hardening in four phases rather than any architectural restructuring. The component boundaries are correct; the problems live within components. Security defaults must be fixed first (they are the highest-risk issues and have zero dependencies on other changes). Data integrity issues (orphaned descriptions, cache invalidation bugs) follow. Resilience patterns (circuit breakers, bounded thread pools) come third. Structural cleanup (dead NLP code, oversized router files) is last and can partially overlap with phase 3.
+Рекомендуемый подход -- хирургическое укрепление в четырёх фазах, а не какая-либо архитектурная реструктуризация. Границы компонентов корректны; проблемы живут внутри компонентов. Дефолты безопасности должны быть исправлены в первую очередь (это риски наивысшей критичности с нулевыми зависимостями от других изменений). Проблемы целостности данных (осиротевшие описания, баги инвалидации кэша) следуют далее. Паттерны устойчивости (circuit breaker, ограниченные пулы потоков) идут третьими. Структурная очистка (мёртвый NLP-код, слишком большие файлы роутеров) -- последней и может частично пересекаться с фазой 3.
 
-The two primary risks to manage are: (1) spoiler leaks from the entity filtering system — this is product-destroying if it occurs and needs exhaustive test coverage before any entity service changes; and (2) the python-jose CVE-2025-61152 allowing JWT forgery — this is an actively exploitable vulnerability that must be replaced before any other work. Both of these risks can be addressed in phase 1 without touching the feature surface at all.
+Два основных риска для управления: (1) утечки спойлеров из системы фильтрации сущностей -- это разрушительно для продукта, если произойдёт, и требует исчерпывающего тестового покрытия до любых изменений сервиса сущностей; и (2) CVE-2025-61152 в python-jose, позволяющая подделку JWT -- это активно эксплуатируемая уязвимость, которая должна быть заменена до любой другой работы. Оба эти риска могут быть устранены в фазе 1, вообще не затрагивая функциональную поверхность.
 
-## Key Findings
+## Ключевые выводы
 
-### Recommended Stack
+### Рекомендуемый стек
 
-The existing stack needs targeted replacements and activations, not additions. The monitoring infrastructure (Grafana + Prometheus + Loki + Sentry SDK) is already installed but not initialized. The production server is ASGI server (Gunicorn) is already in requirements but the Compose file uses `uvicorn --reload` instead.
+Существующий стек нуждается в точечных заменах и активациях, а не в дополнениях. Инфраструктура мониторинга (Grafana + Prometheus + Loki + Sentry SDK) уже установлена, но не инициализирована. Продакшен-сервер ASGI (Gunicorn) уже в requirements, но Compose-файл использует `uvicorn --reload` вместо него.
 
-**Core changes required:**
-- **python-jose → PyJWT 2.11.0**: Replace the abandoned JWT library with a known CVE. Near-drop-in API replacement. This is the single highest-urgency change.
-- **Sentry initialization (backend)**: `sentry-sdk[fastapi]==2.53.0` is installed but never initialized in `main.py`. Upgrade to 2.53.0 and add 5-line init block.
-- **@sentry/react + @sentry/vite-plugin**: Not installed on frontend. React 19's `onCaughtError`/`onUncaughtError` hooks enable proper Sentry integration.
-- **Gunicorn in production**: Already in requirements, but Compose uses `uvicorn --reload`. Switch to `gunicorn --worker-class uvicorn.workers.UvicornWorker` for process management and multi-core utilization.
-- **flower 2.0.1**: Optional but useful — adds Celery monitoring UI and Prometheus metrics for queue depth alerting.
-- **Keep as-is**: loguru, prometheus-fastapi-instrumentator, custom rate limiter, SecurityHeadersMiddleware, Grafana/Prometheus/Loki stack. These are correctly configured.
+**Основные необходимые изменения:**
+- **python-jose -> PyJWT 2.11.0**: Заменить заброшенную JWT-библиотеку с известной CVE. Почти прямая замена API. Это единственное изменение наивысшей срочности.
+- **Инициализация Sentry (бэкенд)**: `sentry-sdk[fastapi]==2.53.0` установлен, но никогда не инициализирован в `main.py`. Обновить до 2.53.0 и добавить блок инициализации из 5 строк.
+- **@sentry/react + @sentry/vite-plugin**: Не установлены на фронтенде. Хуки `onCaughtError`/`onUncaughtError` React 19 обеспечивают правильную интеграцию Sentry.
+- **Gunicorn в продакшене**: Уже в requirements, но Compose использует `uvicorn --reload`. Переключить на `gunicorn --worker-class uvicorn.workers.UvicornWorker` для управления процессами и утилизации нескольких ядер.
+- **flower 2.0.1**: Опционально, но полезно -- добавляет UI мониторинга Celery и метрики Prometheus для алертов на глубину очереди.
+- **Оставить как есть**: loguru, prometheus-fastapi-instrumentator, кастомный rate limiter, SecurityHeadersMiddleware, стек Grafana/Prometheus/Loki. Всё это корректно настроено.
 
-### Expected Features
+### Ожидаемые функции
 
-fancai's core differentiators are fully implemented. The gap relative to competitors (Kindle, Kobo, Readest) is in annotating features — highlights and bookmarks — which have UI stubs but no backend implementation. These are table-stakes in 2026 and represent the most likely reason users would leave for a competing reader.
+Основные дифференциаторы fancai полностью реализованы. Разрыв относительно конкурентов (Kindle, Kobo, Readest) -- в функциях аннотирования -- выделениях и закладках -- которые имеют UI-заглушки, но не имеют бэкенд-реализации. Это обязательный минимум в 2026 году и наиболее вероятная причина, по которой пользователи уйдут к конкурирующей читалке.
 
-**Must have (table stakes — all DONE):**
-- Reliable EPUB rendering, TOC navigation, progress tracking
-- Font/theme customization (5 themes, 6 font families)
-- Resume reading position with cross-device conflict resolution
-- Offline reading via IndexedDB + service worker
-- Mobile-responsive layout with swipe/tap navigation
+**Обязательные (обязательный минимум -- все ГОТОВО):**
+- Надёжный рендеринг EPUB, навигация по оглавлению, отслеживание прогресса
+- Настройка шрифтов/тем (5 тем, 6 семейств шрифтов)
+- Возобновление позиции чтения с кросс-девайсным разрешением конфликтов
+- Офлайн-чтение через IndexedDB + service worker
+- Мобильно-адаптивная вёрстка со свайп/тап навигацией
 
-**Must fix (table stakes — currently broken or missing):**
-- Security defaults: `DEBUG=True`, forgeable `SECRET_KEY`, 7-day tokens, localhost password reset URL
-- Real health check (current returns hardcoded "checking...")
-- Bookmark/highlight sync (stub endpoint silently discards data)
-- Book reprocess cleans up orphaned descriptions (code commented out)
+**Необходимо исправить (обязательный минимум -- сейчас сломано или отсутствует):**
+- Дефолты безопасности: `DEBUG=True`, поддельный `SECRET_KEY`, 7-дневные токены, localhost URL сброса пароля
+- Реальная health-проверка (текущая возвращает захардкоженное "checking...")
+- Синхронизация закладок/выделений (эндпоинт-заглушка молча отбрасывает данные)
+- Переобработка книги очищает осиротевшие описания (код закомментирован)
 
-**Should have (differentiators — DONE):**
-- Spoiler-free entity wiki with chapter-based filtering (unique vs. all competitors)
-- AI-generated illustrations with description highlighting (unique vs. all competitors)
-- Entity relationships graph, event timeline, recap panel
-- Reading statistics, streaks, achievements
+**Желательно (дифференциаторы -- ГОТОВО):**
+- Вики сущностей без спойлеров с фильтрацией по главам (уникально vs. все конкуренты)
+- ИИ-генерированные иллюстрации с подсветкой описаний (уникально vs. все конкуренты)
+- Граф связей сущностей, таймлайн событий, панель пересказа
+- Статистика чтения, серии, достижения
 
-**Should complete (differentiators — partial/stub):**
-- Entity deduplication quality: lower fuzzy threshold 0.85 → 0.70-0.75 for Russian names
-- In-text entity linking (tap character name → entity profile): not yet built
-- WebSocket for book processing progress (currently polling with a no-op WS stub)
+**Необходимо завершить (дифференциаторы -- частично/заглушка):**
+- Качество дедупликации сущностей: снизить порог нечёткого сопоставления 0.85 -> 0.70-0.75 для русских имён
+- Связывание сущностей в тексте (нажатие на имя персонажа -> профиль сущности): ещё не реализовано
+- WebSocket для прогресса обработки книги (сейчас polling с нерабочей WS-заглушкой)
 
-**Defer to v2+:**
-- Bookmark/highlight sync full implementation (stubs become 501 Not Implemented for now)
-- Payment/subscription system
-- OAuth social login
-- Text-to-speech, inline dictionary, multi-format beyond EPUB/FB2
+**Отложить на v2+:**
+- Полная реализация синхронизации закладок/выделений (заглушки становятся 501 Not Implemented пока)
+- Система оплаты/подписки
+- OAuth социальный логин
+- Озвучка текста, встроенный словарь, мультиформатность помимо EPUB/FB2
 
-### Architecture Approach
+### Архитектурный подход
 
-The architecture is a separated monolith: React PWA → Nginx → FastAPI → (PostgreSQL + Redis + Celery). It does not need restructuring. It needs hardening: closing the gap between "works in dev" and "reliable in production." Three cross-cutting data flow issues dominate: (1) Redis serves as cache, Celery broker, pub/sub, and rate limiter simultaneously — a single point of failure with no health monitoring for recovery detection; (2) the Gemini API is called via `asyncio.to_thread()` inside `asyncio.gather()` with up to 20+ concurrent chunks, risking thread pool exhaustion; (3) the frontend's `apiClient.get()` sends `Cache-Control: no-cache, no-store, must-revalidate` on every GET request, defeating all server-side HTTP caching.
+Архитектура -- разделённый монолит: React PWA -> Nginx -> FastAPI -> (PostgreSQL + Redis + Celery). Она не нуждается в реструктуризации. Она нуждается в укреплении: закрытии разрыва между "работает в dev" и "надёжно в продакшене". Три сквозные проблемы потоков данных доминируют: (1) Redis одновременно служит кэшем, брокером Celery, pub/sub и rate limiter -- единая точка отказа без мониторинга здоровья для обнаружения восстановления; (2) Gemini API вызывается через `asyncio.to_thread()` внутри `asyncio.gather()` с до 20+ параллельных чанков, рискуя исчерпанием пула потоков; (3) `apiClient.get()` фронтенда отправляет `Cache-Control: no-cache, no-store, must-revalidate` на каждый GET-запрос, аннулируя всё серверное HTTP-кэширование.
 
-**Major components and their gaps:**
-1. **FastAPI backend** — `DEBUG=True` default, fake health check, dead NLP config fields with active validators, stub endpoints in `sync.py`, `uvicorn --reload` in production
-2. **Celery worker** — uses raw lock acquire/release instead of `DistributedLock` context manager, `asyncio.to_thread()` without bounded executor for Gemini calls, dead `celery_config.py` that nobody imports
-3. **Redis** — single instance for 4 purposes; `_is_available` flag set at startup never updated on recovery; admin routes in `parsing.py` create fresh `redis.from_url()` connections bypassing the pool
-4. **Frontend** — blanket cache-busting headers on all GETs; WebSocket service is a no-op stub; stale Redis cache can show restricted spoiler data for newly-read chapters
+**Основные компоненты и их пробелы:**
+1. **Бэкенд FastAPI** -- дефолт `DEBUG=True`, фейковая health-проверка, мёртвые поля конфигурации NLP с активными валидаторами, эндпоинты-заглушки в `sync.py`, `uvicorn --reload` в продакшене
+2. **Celery-воркер** -- использует прямые acquire/release блокировок вместо контекстного менеджера `DistributedLock`, `asyncio.to_thread()` без ограниченного executor для вызовов Gemini, мёртвый `celery_config.py` который никто не импортирует
+3. **Redis** -- один экземпляр для 4 назначений; флаг `_is_available`, установленный при запуске, никогда не обновляется при восстановлении; админские роуты в `parsing.py` создают свежие `redis.from_url()` соединения, обходя пул
+4. **Фронтенд** -- тотальные cache-busting заголовки на всех GET; WebSocket-сервис -- нерабочая заглушка; устаревший Redis-кэш может показывать ограниченные данные спойлеров для только что прочитанных глав
 
-### Critical Pitfalls
+### Критические подводные камни
 
-1. **python-jose CVE-2025-61152** — `alg=none` bypass allows forged JWT tokens including admin tokens. Replace with `PyJWT>=2.10.1`, explicitly set `algorithms=["HS256"]` in all decode calls, verify token blacklist still works. Do this first, before any other change.
+1. **CVE-2025-61152 в python-jose** -- обход `alg=none` позволяет подделку JWT-токенов, включая админские. Заменить на `PyJWT>=2.10.1`, явно указать `algorithms=["HS256"]` во всех вызовах decode, проверить работу чёрного списка токенов. Делать это первым, до любых других изменений.
 
-2. **Security defaults ship to production undetected** — `DEBUG=True` default means the production validator never runs unless the env var is explicitly set. Flip to `DEBUG=False`; add `METRICS_PASSWORD` and `PASSWORD_RESET_BASE_URL` to validator; add startup rejection if password reset URL contains `localhost` in non-debug mode.
+2. **Дефолты безопасности незаметно уезжают в продакшен** -- дефолт `DEBUG=True` означает, что продакшен-валидатор никогда не запускается, если переменная окружения явно не задана. Изменить на `DEBUG=False`; добавить `METRICS_PASSWORD` и `PASSWORD_RESET_BASE_URL` в валидатор; добавить отказ от запуска, если URL сброса пароля содержит `localhost` в не-debug режиме.
 
-3. **Spoiler leak through cache** — entity filtering happens at read time on cached unfiltered data; one bug in `_apply_chapter_filter` or `_filter_entity_detail` leaks future plot data. This is reputationally unrecoverable. Write property-based + canary integration tests before touching any entity service code.
+3. **Утечка спойлеров через кэш** -- фильтрация сущностей происходит во время чтения из кэшированных нефильтрованных данных; один баг в `_apply_chapter_filter` или `_filter_entity_detail` утекает будущие сюжетные данные. Это необратимо с точки зрения репутации. Написать property-based + интеграционные тесты-канарейки до касания любого кода сервиса сущностей.
 
-4. **Chunk boundary entity loss is silent** — `ConsistencyManager` truncates entity lists over 300K chars with no warning to users. Books with 500+ entities silently have incomplete glossaries. Implement recursive map-reduce for the reduce pass; add post-extraction audit logging.
+4. **Потеря сущностей на границах чанков молча** -- `ConsistencyManager` обрезает списки сущностей свыше 300K символов без предупреждения пользователям. Книги с 500+ сущностями молча имеют неполные глоссарии. Реализовать рекурсивный map-reduce для прохода reduce; добавить логирование пост-извлечённого аудита.
 
-5. **Thread pool exhaustion from unbounded Gemini calls** — `asyncio.gather()` on 20+ chunks via `asyncio.to_thread()` can exhaust the shared thread pool (max ~40 threads), blocking HTTP request handling. A semaphore exists but its value relative to thread pool size is undocumented. Cap at 5 concurrent Gemini calls with a dedicated `ThreadPoolExecutor`.
+5. **Исчерпание пула потоков из-за неограниченных вызовов Gemini** -- `asyncio.gather()` на 20+ чанках через `asyncio.to_thread()` может исчерпать общий пул потоков (максимум ~40 потоков), блокируя обработку HTTP-запросов. Семафор существует, но его значение относительно размера пула потоков не документировано. Ограничить до 5 параллельных вызовов Gemini с выделенным `ThreadPoolExecutor`.
 
-6. **NLP code removal breaks config validation** — `validate_nlp_weights` Pydantic validator references the NLP config fields being deleted. Deleting fields without deleting the validator crashes the app at startup. Map the full dependency graph (config → validators → settings_manager → admin schemas → frontend) before touching anything.
+6. **Удаление NLP-кода ломает валидацию конфигурации** -- Pydantic-валидатор `validate_nlp_weights` ссылается на удаляемые поля конфигурации NLP. Удаление полей без удаления валидатора крашит приложение при запуске. Построить полный граф зависимостей (config -> валидаторы -> settings_manager -> админские схемы -> фронтенд) до касания чего-либо.
 
-## Implications for Roadmap
+## Последствия для дорожной карты
 
-Based on combined research, a 4-phase structure is recommended. Each phase has hard dependencies on the previous phase being complete; they cannot be safely parallelized.
+На основе комбинированного исследования рекомендуется 4-фазная структура. Каждая фаза имеет жёсткие зависимости от завершения предыдущей фазы; их нельзя безопасно распараллелить.
 
-### Phase 1: Security and Safety Net
-**Rationale:** Security vulnerabilities (active CVE, debug defaults, forged tokens) must be fixed before any other production deployment work. These changes have zero feature dependencies and high impact. Health checks are a prerequisite for monitoring changes in all subsequent phases.
-**Delivers:** An app that is safe to run in production — no exploitable vulnerabilities, real monitoring, development mode turned off.
-**Addresses:** Security defaults (DEBUG, SECRET_KEY, token expiry, password reset URL), python-jose CVE, fake health check, Gunicorn production mode, Sentry initialization.
-**Avoids:** JWT forgery, debug mode information leakage, monitoring blindness, undetected service failures.
-**Research flag:** Standard patterns. No deeper research needed — all changes are documented and specific.
+### Фаза 1: Безопасность и страховочная сетка
+**Обоснование:** Уязвимости безопасности (активная CVE, дефолты debug, поддельные токены) должны быть исправлены до любой другой работы по развёртыванию в продакшене. Эти изменения имеют нулевые функциональные зависимости и высокий эффект. Health-проверки являются предпосылкой для мониторинга изменений во всех последующих фазах.
+**Что даёт:** Приложение, безопасное для работы в продакшене -- без эксплуатируемых уязвимостей, реальный мониторинг, режим разработки отключён.
+**Адресует:** Дефолты безопасности (DEBUG, SECRET_KEY, срок действия токена, URL сброса пароля), CVE python-jose, фейковая health-проверка, продакшен-режим Gunicorn, инициализация Sentry.
+**Предотвращает:** Подделку JWT, утечку информации через debug-режим, слепоту мониторинга, необнаруженные сбои сервисов.
+**Флаг исследования:** Стандартные паттерны. Более глубокое исследование не требуется -- все изменения документированы и конкретны.
 
-### Phase 2: Data Integrity and Dead Code Cleanup
-**Rationale:** Once production is safe, fix the correctness bugs that silently corrupt user data and confuse the codebase. Stale caches, orphaned descriptions, and silent stub failures are user-trust issues. NLP removal must be a single atomic operation to avoid breaking config validation.
-**Delivers:** A codebase where every endpoint does what it says, cached data is correct, and there is no dead code triggering false mental models.
-**Addresses:** Orphaned descriptions on reprocess, cache invalidation on entity/description writes, blanket cache-busting headers in frontend, stub endpoint resolution (501 Not Implemented), dead NLP config + validators + celery_config.py removal.
-**Avoids:** Silent data loss, spoiler cache stale data, developer confusion from dead code that looks active.
-**Research flag:** Standard patterns. Cache invalidation and dead code removal are well-understood; no research needed.
+### Фаза 2: Целостность данных и очистка мёртвого кода
+**Обоснование:** Когда продакшен безопасен, исправить баги корректности, молча повреждающие данные пользователей и путающие кодовую базу. Устаревшие кэши, осиротевшие описания и молчаливые сбои заглушек -- это вопросы доверия пользователей. Удаление NLP должно быть одной атомарной операцией, чтобы не сломать валидацию конфигурации.
+**Что даёт:** Кодовую базу, где каждый эндпоинт делает то, что заявлено, кэшированные данные корректны, и нет мёртвого кода, создающего ложные ментальные модели.
+**Адресует:** Осиротевшие описания при переобработке, инвалидацию кэша при записи сущностей/описаний, тотальные cache-busting заголовки во фронтенде, разрешение эндпоинтов-заглушек (501 Not Implemented), удаление мёртвых полей конфигурации NLP + валидаторов + celery_config.py.
+**Предотвращает:** Молчаливую потерю данных, устаревшие данные спойлеров в кэше, путаницу разработчиков из-за мёртвого кода, выглядящего активным.
+**Флаг исследования:** Стандартные паттерны. Инвалидация кэша и удаление мёртвого кода -- хорошо понятные задачи; исследование не требуется.
 
-### Phase 3: Resilience and AI Pipeline Stabilization
-**Rationale:** With data integrity solid, the focus shifts to preventing operational failures from cascading. The Gemini thread pool issue blocks increasing Celery concurrency. Circuit breakers prevent single API failures from blocking entire books. Redis recovery detection prevents phantom failures.
-**Delivers:** An AI pipeline that degrades gracefully under API failures, processes large books without hanging, and recovers automatically from transient failures.
-**Addresses:** Circuit breaker for Gemini/Imagen (aiobreaker), bounded semaphore for chunk processing (max 5 concurrent), Redis `_is_available` health monitoring for recovery, admin Redis connection pool fix, DistributedLock context manager in book tasks.
-**Avoids:** Thread pool exhaustion on large books, cascading failures when Google APIs are degraded, Redis connection leaks from admin routes.
-**Research flag:** Circuit breaker integration with Celery needs targeted testing. The `aiobreaker` async-in-Celery combination has limited documentation.
+### Фаза 3: Устойчивость и стабилизация ИИ-пайплайна
+**Обоснование:** С надёжной целостностью данных фокус смещается на предотвращение каскадных операционных сбоев. Проблема пула потоков Gemini блокирует увеличение конкурентности Celery. Circuit breaker предотвращает блокировку целых книг единичными сбоями API. Обнаружение восстановления Redis предотвращает фантомные сбои.
+**Что даёт:** ИИ-пайплайн, грациозно деградирующий при сбоях API, обрабатывающий большие книги без зависания и автоматически восстанавливающийся после транзиентных сбоев.
+**Адресует:** Circuit breaker для Gemini/Imagen (aiobreaker), ограниченный семафор для обработки чанков (максимум 5 параллельных), мониторинг `_is_available` Redis для обнаружения восстановления, исправление пула Redis-соединений админки, контекстный менеджер DistributedLock в задачах обработки книг.
+**Предотвращает:** Исчерпание пула потоков на больших книгах, каскадные сбои при деградации Google API, утечку Redis-соединений из админских роутов.
+**Флаг исследования:** Интеграция circuit breaker с Celery требует целевого тестирования. Комбинация `aiobreaker` async-в-Celery имеет ограниченную документацию.
 
-### Phase 4: Entity Wiki Quality and Reader Polish
-**Rationale:** The core differentiator must be both reliable and complete. Spoiler-free filtering needs exhaustive test coverage before any changes. Entity deduplication quality directly affects user trust in the glossary. Polish items (bookmarks as 501, in-text entity linking, empty states) round out the product.
-**Delivers:** A glossary that is provably spoiler-free (via property-based tests), more complete for Russian text (lower fuzzy threshold), and visually polished for edge cases.
-**Addresses:** Spoiler filtering test coverage (property-based + canary integration tests), fuzzy threshold lowering for Russian names (0.85 → 0.70-0.75), chunk boundary recursive reduce, bookmark/highlight stub-to-501 conversion, Sentry frontend installation.
-**Avoids:** Spoiler leaks from untested edge cases, entity deduplication misses for short Russian names, 300K char truncation silently dropping entities.
-**Research flag:** Property-based testing for the spoiler system (Hypothesis library) may need research. Recursive map-reduce implementation for `ConsistencyManager` is a targeted algorithm problem with clear solution.
+### Фаза 4: Качество вики сущностей и полировка ридера
+**Обоснование:** Основной дифференциатор должен быть и надёжным, и полным. Фильтрация без спойлеров нуждается в исчерпывающем тестовом покрытии до любых изменений. Качество дедупликации сущностей напрямую влияет на доверие пользователей к глоссарию. Элементы полировки (закладки как 501, связывание сущностей в тексте, пустые состояния) завершают продукт.
+**Что даёт:** Глоссарий, доказуемо свободный от спойлеров (через property-based тесты), более полный для русского текста (сниженный порог нечёткого сопоставления) и визуально отполированный для граничных случаев.
+**Адресует:** Тестовое покрытие фильтрации спойлеров (property-based + интеграционные тесты-канарейки), снижение порога нечёткого сопоставления для русских имён (0.85 -> 0.70-0.75), рекурсивный reduce для границ чанков, конверсия заглушек закладок/выделений в 501, установка Sentry на фронтенде.
+**Предотвращает:** Утечки спойлеров из непротестированных граничных случаев, промахи дедупликации для коротких русских имён, молчаливое удаление сущностей при обрезке 300K символов.
+**Флаг исследования:** Property-based тестирование для системы спойлеров (библиотека Hypothesis) может потребовать исследования. Реализация рекурсивного map-reduce для `ConsistencyManager` -- целевая алгоритмическая задача с ясным решением.
 
-### Phase Ordering Rationale
+### Обоснование порядка фаз
 
-- Security defaults must be first: they are the only zero-dependency changes with critical-severity risk.
-- Dead code cleanup must follow security: the NLP validator removal is risky and should happen after security is stable, not during it.
-- Resilience must follow data integrity: circuit breakers serve stale data during circuit-open states; the cache must be correct before adding resilience patterns that can bypass it.
-- Entity wiki quality last: requires exhaustive tests before changes, and those tests require a stable, correct data layer (phases 1-3).
+- Дефолты безопасности должны быть первыми: это единственные изменения с нулевыми зависимостями и критической серьёзностью риска.
+- Очистка мёртвого кода должна следовать за безопасностью: удаление NLP-валидатора рискованно и должно происходить после стабилизации безопасности, а не во время.
+- Устойчивость должна следовать за целостностью данных: circuit breaker обслуживают устаревшие данные в состоянии circuit-open; кэш должен быть корректным до добавления паттернов устойчивости, которые могут его обходить.
+- Качество вики сущностей последним: требует исчерпывающих тестов до изменений, и эти тесты требуют стабильного, корректного слоя данных (фазы 1-3).
 
-### Research Flags
+### Флаги исследования
 
-**Needs targeted research during planning:**
-- **Phase 3:** `aiobreaker` behavior inside Celery workers (async event loop interaction). Limited production documentation.
-- **Phase 4:** Hypothesis property-based testing for entity spoiler filtering — library setup and test design patterns.
+**Требуется целевое исследование при планировании:**
+- **Фаза 3:** Поведение `aiobreaker` внутри Celery-воркеров (взаимодействие с async event loop). Ограниченная продакшен-документация.
+- **Фаза 4:** Property-based тестирование Hypothesis для фильтрации спойлеров сущностей -- настройка библиотеки и паттерны дизайна тестов.
 
-**Standard patterns (skip deeper research):**
-- **Phase 1:** All changes are well-documented in official FastAPI, Sentry, and PyJWT docs.
-- **Phase 2:** Cache invalidation, dead code removal, stub-to-501 conversion — all established patterns.
+**Стандартные паттерны (пропустить более глубокое исследование):**
+- **Фаза 1:** Все изменения хорошо документированы в официальных документах FastAPI, Sentry и PyJWT.
+- **Фаза 2:** Инвалидация кэша, удаление мёртвого кода, конверсия заглушек в 501 -- все устоявшиеся паттерны.
 
-## Confidence Assessment
+## Оценка уверенности
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | All version recommendations verified via official PyPI/npm. Existing stack audited directly from codebase. |
-| Features | HIGH | Competitive analysis based on official Kindle, Kobo, Readest, ReadEra documentation. Existing feature status verified via codebase audit. |
-| Architecture | HIGH | Based on direct codebase analysis of all layers. Component gaps verified by reading source files, not inferred. |
-| Pitfalls | HIGH | CVEs verified via vulert/NVD. Configuration bugs verified by reading `config.py` directly. Code patterns (thread pool, cache invalidation) verified by reading source. |
+| Область | Уверенность | Примечания |
+|---------|-------------|------------|
+| Стек | ВЫСОКАЯ | Все рекомендации по версиям проверены через официальные PyPI/npm. Существующий стек аудирован непосредственно из кодовой базы. |
+| Функции | ВЫСОКАЯ | Конкурентный анализ на основе официальной документации Kindle, Kobo, Readest, ReadEra. Статус существующих функций проверен через аудит кодовой базы. |
+| Архитектура | ВЫСОКАЯ | На основе прямого анализа кодовой базы на всех уровнях. Пробелы компонентов проверены чтением исходных файлов, а не по умолчанию. |
+| Подводные камни | ВЫСОКАЯ | CVE проверены через vulert/NVD. Баги конфигурации проверены прямым чтением `config.py`. Паттерны кода (пул потоков, инвалидация кэша) проверены чтением исходного кода. |
 
-**Overall confidence:** HIGH
+**Общая уверенность:** ВЫСОКАЯ
 
-### Gaps to Address
+### Пробелы для устранения
 
-- **Celery + aiobreaker async interaction:** The `aiobreaker` library supports async, but Celery tasks run their own event loop. Whether `@gemini_breaker` decorator works correctly inside a Celery task context needs a targeted proof-of-concept before committing to it in Phase 3.
-- **Hypothesis test design for spoiler filtering:** The shape of property-based tests for the spoiler system is not pre-researched. Phase 4 planning should include a session to design the test corpus and property invariants before implementation.
-- **TanStack Query staleTime values:** The specific values recommended (chapters: Infinity, entities: 30s, book list: 5s) are reasonable starting points but should be validated against actual user interaction patterns in production monitoring after Phase 2 deploys.
+- **Взаимодействие Celery + aiobreaker async:** Библиотека `aiobreaker` поддерживает async, но задачи Celery запускают собственный event loop. Работает ли декоратор `@gemini_breaker` корректно внутри контекста задачи Celery, требует целевого proof-of-concept до коммита в фазе 3.
+- **Дизайн Hypothesis-тестов для фильтрации спойлеров:** Форма property-based тестов для системы спойлеров не исследована заранее. Планирование фазы 4 должно включать сессию по дизайну тестового корпуса и инвариантов свойств до реализации.
+- **Значения staleTime TanStack Query:** Конкретные рекомендованные значения (главы: Infinity, сущности: 30 с, список книг: 5 с) -- разумные отправные точки, но должны быть валидированы против реальных паттернов взаимодействия пользователей в продакшен-мониторинге после деплоя фазы 2.
 
-## Sources
+## Источники
 
-### Primary (HIGH confidence)
-- [Sentry FastAPI docs](https://docs.sentry.io/platforms/python/integrations/fastapi/) — backend Sentry initialization patterns
-- [Sentry React docs](https://docs.sentry.io/platforms/javascript/guides/react/) — React 19 error hooks
-- [FastAPI JWT tutorial (PyJWT)](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/) — official PyJWT recommendation
-- [PyPI PyJWT 2.11.0](https://pypi.org/project/PyJWT/) — version confirmed 2026-01-30
-- [PyPI sentry-sdk 2.53.0](https://pypi.org/project/sentry-sdk/) — version confirmed 2026-02-16
-- [FastAPI Server Workers docs](https://fastapi.tiangolo.com/deployment/server-workers/) — Gunicorn + UvicornWorker pattern
-- [CVE-2025-61152: python-jose alg=none bypass](https://vulert.com/vuln-db/debian-12-python-jose-362548) — vulnerability confirmed
-- [PyPI aiobreaker](https://pypi.org/project/aiobreaker/) — circuit breaker async support
-- [TanStack Query invalidation docs](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) — cache invalidation patterns
-- `.planning/codebase/ARCHITECTURE.md` — existing architecture map (project-specific)
-- `.planning/codebase/CONCERNS.md` — known issues catalog (project-specific)
+### Первичные (ВЫСОКАЯ уверенность)
+- [Документация Sentry FastAPI](https://docs.sentry.io/platforms/python/integrations/fastapi/) -- паттерны инициализации бэкенда Sentry
+- [Документация Sentry React](https://docs.sentry.io/platforms/javascript/guides/react/) -- хуки обработки ошибок React 19
+- [Туториал FastAPI JWT (PyJWT)](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/) -- официальная рекомендация PyJWT
+- [PyPI PyJWT 2.11.0](https://pypi.org/project/PyJWT/) -- версия подтверждена 2026-01-30
+- [PyPI sentry-sdk 2.53.0](https://pypi.org/project/sentry-sdk/) -- версия подтверждена 2026-02-16
+- [Документация FastAPI Server Workers](https://fastapi.tiangolo.com/deployment/server-workers/) -- паттерн Gunicorn + UvicornWorker
+- [CVE-2025-61152: обход python-jose alg=none](https://vulert.com/vuln-db/debian-12-python-jose-362548) -- уязвимость подтверждена
+- [PyPI aiobreaker](https://pypi.org/project/aiobreaker/) -- поддержка async circuit breaker
+- [Документация инвалидации TanStack Query](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) -- паттерны инвалидации кэша
+- `.planning/codebase/ARCHITECTURE.md` -- существующая карта архитектуры (проектная)
+- `.planning/codebase/CONCERNS.md` -- каталог известных проблем (проектный)
 
-### Secondary (MEDIUM confidence)
-- [FastAPI production best practices (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) — deployment patterns
-- [Celery task resilience (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) — task reliability patterns
-- [Circuit breaker in FastAPI (Stackademic)](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) — integration example
-- [Skeleton screen best practices (NN/G)](https://www.nngroup.com/articles/skeleton-screens/) — UX loading patterns
-- [PyPI flower 2.0.1](https://pypi.org/project/flower/) — Celery monitoring (maintenance pace is slow)
+### Вторичные (СРЕДНЯЯ уверенность)
+- [Лучшие практики FastAPI для продакшена (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) -- паттерны развёртывания
+- [Устойчивость задач Celery (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) -- паттерны надёжности задач
+- [Circuit breaker в FastAPI (Stackademic)](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) -- пример интеграции
+- [Лучшие практики скелетных экранов (NN/G)](https://www.nngroup.com/articles/skeleton-screens/) -- UX-паттерны загрузки
+- [PyPI flower 2.0.1](https://pypi.org/project/flower/) -- мониторинг Celery (темп поддержки медленный)
 
 ---
-*Research completed: 2026-02-27*
-*Ready for roadmap: yes*
+*Исследование завершено: 2026-02-27*
+*Готово к дорожной карте: да*
