@@ -105,6 +105,8 @@ services:
       # Disable NLP processors
       - USE_ADVANCED_PARSER=false
       - USE_NLP_PROCESSORS=false
+      # AI — OpenRouter
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       # Web Push (VAPID) - required for PWA notifications
@@ -163,6 +165,8 @@ services:
       - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
       - USE_ADVANCED_PARSER=false
       - USE_NLP_PROCESSORS=false
+      # AI — OpenRouter
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}

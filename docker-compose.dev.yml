@@ -1,0 +1,278 @@
+# =============================================================================
+# Development Docker Compose for fancai
+# =============================================================================
+# Local development on MacBook Air M4 (16GB RAM / 256GB NVMe).
+# Backend mounts source code for hot reload. Frontend builds into shared volume.
+#
+# Memory budget (~5.5GB for Docker, leaving ~10GB for macOS + IDE):
+# - PostgreSQL: 1GB
+# - Redis: 512MB
+# - Backend: 1.5GB
+# - Celery Worker: 1GB
+# - Celery Beat: 256MB
+# - Caddy: 64MB
+# - Frontend: 512MB (build-only, exits)
+# Total: ~5GB
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml up -d --build
+# =============================================================================
+
+services:
+  # Caddy Reverse Proxy (localhost with internal CA — auto-HTTPS)
+  caddy:
+    image: caddy:2-alpine
+    container_name: fancai_caddy_dev
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./backend/storage:/var/www/storage:ro
+      - frontend_build:/var/www/frontend:ro
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fancai_network
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # Frontend Build (outputs to shared volume, exits after build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_BASE_URL=/api/v1
+        - VITE_WS_URL=/ws
+        - VITE_APP_NAME=fancai
+        - VITE_ENVIRONMENT=development
+    container_name: fancai_frontend_dev
+    volumes:
+      - frontend_build:/var/www/html
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - fancai_network
+    restart: "no"
+
+  # FastAPI Backend (source mount for hot reload)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.lite
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    container_name: fancai_backend_dev
+    environment:
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}
+      # Redis
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      # Security
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - DEBUG=true
+      # CORS
+      - "CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://localhost,http://localhost:8000"
+      - DOMAIN_NAME=localhost
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      # AI
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-${LANGEXTRACT_API_KEY:?GOOGLE_API_KEY or LANGEXTRACT_API_KEY is required}}
+      - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY:-${GOOGLE_API_KEY}}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - USE_LANGEXTRACT_PRIMARY=true
+      - USE_ADVANCED_PARSER=false
+      - USE_NLP_PROCESSORS=false
+      - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
+      # Web Push
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+      # Performance
+      - WORKERS_COUNT=1
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
+    volumes:
+      - ./backend:/app
+      - uploaded_books:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fancai_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    restart: unless-stopped
+    command: gunicorn app.main:app --config gunicorn.conf.py
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.lite
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    container_name: fancai_celery_dev
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+      - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
+      - CELERY_CONCURRENCY=1
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-${LANGEXTRACT_API_KEY}}
+      - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY:-${GOOGLE_API_KEY}}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - USE_LANGEXTRACT_PRIMARY=true
+      - USE_ADVANCED_PARSER=false
+      - USE_NLP_PROCESSORS=false
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+    volumes:
+      - ./backend:/app
+      - uploaded_books:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - fancai_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.lite
+    container_name: fancai_beat_dev
+    user: root
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fancai_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+    command: celery -A app.core.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+
+  # PostgreSQL
+  postgres:
+    image: postgres:17-alpine
+    container_name: fancai_postgres_dev
+    environment:
+      POSTGRES_DB: ${DB_NAME:-fancai_dev}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=512MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c max_connections=50
+      -c random_page_cost=1.1
+      -c log_min_duration_statement=500
+      -c log_checkpoints=on
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - fancai_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-fancai_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+
+  # Redis
+  redis:
+    image: redis:7.4-alpine
+    container_name: fancai_redis_dev
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1 300 10 60 10000
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - fancai_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploaded_books:
+  frontend_build:
+  caddy_data:
+  caddy_config:
+
+networks:
+  fancai_network:
+    driver: bridge
