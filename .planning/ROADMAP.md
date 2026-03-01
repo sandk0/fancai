@@ -71,13 +71,13 @@ Plans:
   4. Генерация изображений работает через OpenRouter (FLUX.2 Pro/Klein вместо Imagen 4), google-genai SDK полностью удалён из проекта
   5. Caddy обслуживает фронтенд и проксирует бэкенд — auto-HTTPS работает, HTTP/3 включен
   6. Rate limiting реализован по user ID (расширение существующего Redis rate limiter)
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
-- [ ] 03-01-PLAN.md — OpenRouter клиент с fallback chain + миграция простых LLM-сервисов (MIGR-01, MIGR-02, MIGR-05)
+- [x] 03-01-PLAN.md — OpenRouter клиент с fallback chain + миграция простых LLM-сервисов (MIGR-01, MIGR-02, MIGR-05)
 - [ ] 03-02-PLAN.md — Миграция сложных LLM-сервисов со structured output (MIGR-03, MIGR-04)
 - [ ] 03-03-PLAN.md — Миграция генерации изображений на OpenRouter + per-user rate limiting (MIGR-04.1, MIGR-08)
-- [ ] 03-04-PLAN.md — Замена nginx на Caddy с auto-HTTPS и HTTP/3 (MIGR-06, MIGR-07)
+- [x] 03-04-PLAN.md — Замена nginx на Caddy с auto-HTTPS и HTTP/3 (MIGR-06, MIGR-07)
 
 ### Phase 4: Обслуживание инфраструктуры
 **Goal:** Сервер мониторится в реальном времени, зависимости обновлены до актуальных безопасных версий, PostgreSQL оптимизирован для 32GB RAM
@@ -164,7 +164,7 @@ Plans:
 |-------|------------------|--------|-----------|
 | 1. Безопасность продакшена | 2/2 | Complete   | 2026-03-01 |
 | 2. Очистка мертвого кода | 2/2 | Complete   | 2026-03-01 |
-| 3. Миграция сервисов | 1/4 | In Progress|  |
+| 3. Миграция сервисов | 2/4 | In Progress|  |
 | 4. Обслуживание инфраструктуры | 0/2 | Не начата | - |
 | 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
 | 6. Качество Entity Wiki | 0/2 | Не начата | - |
