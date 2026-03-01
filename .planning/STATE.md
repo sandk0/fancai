@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-01T18:57:00.000Z"
+last_updated: "2026-03-01T21:12:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 5
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Состояние проекта
@@ -23,11 +23,11 @@ progress:
 ## Текущая позиция
 
 Фаза: 3 из 8 (Миграция сервисов)
-План: 2 из 4 в текущей фазе — Plan 03-04 ЗАВЕРШЁН
-Статус: Plan 03-04 выполнен. Caddy заменил nginx (~80 vs 881 строк), docker-compose упрощён (2 файла), shared volume frontend_build реализован.
-Последняя активность: 2026-03-01 — Plan 03-04 выполнен (2/2 задачи, ~45 мин). MIGR-06, MIGR-07 закрыты.
+План: 3 из 4 в текущей фазе — Plan 03-02 ЗАВЕРШЁН
+Статус: Plan 03-02 выполнен. gemini_extractor и entity_dedup мигрированы на OpenRouter generate_structured(). Все 4 LLM-сервиса теперь на OpenRouter. asyncio.to_thread убран.
+Последняя активность: 2026-03-01 — Plan 03-02 выполнен (2/2 задачи, ~35 мин). MIGR-03, MIGR-04 закрыты.
 
-Прогресс: [██████░░░░] 35%
+Прогресс: [███████░░░] 38%
 
 ## Метрики производительности
 
@@ -43,11 +43,11 @@ progress:
 | ----------------------- | ----- | -------- | ------------ |
 | 01-production-safety    | 2/2   | ~60 мин  | ~30 мин      |
 | 02-dead-code-cleanup    | 2/2   | ~39 мин  | ~20 мин      |
-| 03-migration-services   | 2/4   | ~79 мин  | ~39 мин      |
+| 03-migration-services   | 3/4   | ~114 мин | ~38 мин      |
 
 **Недавний тренд:**
 
-- Последние 6 планов: 01-01 (~30 мин), 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин)
+- Последние 7 планов: 01-01 (~30 мин), 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин)
 - Тренд: Инфра-планы требуют больше времени (~40-45 мин) из-за интеграции компонентов и верификации; TDD-планы ~30-35 мин
 
 _Обновляется после завершения каждого плана_
@@ -83,6 +83,9 @@ _Обновляется после завершения каждого план�
 - [03-01]: DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-klein-4b" — самая быстрая/дешёвая в FLUX.2 ($0.014/MP, <1 сек), подтверждена 2026-03-01
 - [03-01]: generate_image() использует /chat/completions с modalities=["image"] — НЕ /images/generations
 - [03-01]: EntitySynthesisService убран gemini_client параметр из __init__ — прямой get_openrouter_client() вместо lazy-инициализации
+- [03-02]: asyncio.to_thread убран из gemini_extractor — httpx.AsyncClient полностью async, не нужен thread pool
+- [03-02]: google-genai остаётся в requirements.txt до Plan 03-03 — imagen_generator.py ещё использует SDK
+- [03-02]: data-обёртка legacy ответов сохранена в _call_gemini_with_retry и _call_gemini_tsa — обратная совместимость с ответами через OpenRouter
 
 ### Ожидающие задачи
 
@@ -100,5 +103,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-01
-Остановились на: Plan 03-04 завершён. Caddy заменил nginx, docker-compose упрощён (prod + dev), shared volume frontend_build реализован. Следующий: Plan 03-02 (gemini_extractor + entity_dedup миграция на OpenRouter).
-Файл возобновления: .planning/phases/03-migration-services/03-04-SUMMARY.md
+Остановились на: Plan 03-02 завершён. gemini_extractor + entity_dedup мигрированы на OpenRouter. Все 4 LLM-сервиса на OpenRouter. 60 тестов проходят. Следующий: Plan 03-03 (imagen_generator миграция + удаление google-genai).
+Файл возобновления: .planning/phases/03-migration-services/03-02-SUMMARY.md
