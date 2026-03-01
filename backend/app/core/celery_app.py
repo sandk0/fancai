@@ -27,8 +27,8 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=int(os.getenv("CELERY_MAX_TASKS_PER_CHILD", "100")),
     worker_max_memory_per_child=int(
-        os.getenv("CELERY_MAX_MEMORY_PER_CHILD", "150000")
-    ),  # 150MB default
+        os.getenv("CELERY_MAX_MEMORY_PER_CHILD", "512000")
+    ),  # DEPLOY-08: 512MB (было 150MB)
     # Task settings
     task_acks_late=True,
     task_reject_on_worker_lost=True,
@@ -39,7 +39,9 @@ celery_app.conf.update(
     result_compression="gzip",
     # Broker settings
     broker_connection_retry_on_startup=True,
-    broker_transport_options={"visibility_timeout": 3600},
+    broker_transport_options={
+        "visibility_timeout": 14400
+    },  # DEPLOY-05: 4h > max task_time_limit (10800s)
     # Rate limiting (basic)
     task_routes={
         "app.core.tasks.process_book_task": {"queue": "heavy"},
