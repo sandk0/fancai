@@ -220,10 +220,11 @@ def rate_limit(max_requests: int = 10, window_seconds: int = 60):
             # Пробуем получить user_id из current_user
             current_user = kwargs.get("current_user")
             if current_user:
-                identifier = str(current_user.id)
+                identifier = f"user:{current_user.id}"
             else:
                 # Используем IP address для неаутентифицированных
-                identifier = request.client.host if request.client else "unknown"
+                ip = request.client.host if request.client else "unknown"
+                identifier = f"ip:{ip}"
 
             # Проверяем rate limit
             endpoint = request.url.path
@@ -235,12 +236,16 @@ def rate_limit(max_requests: int = 10, window_seconds: int = 60):
             )
 
             if is_limited:
-                # Возвращаем 429 Too Many Requests
+                # Возвращаем 429 Too Many Requests с JSON телом
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Rate limit exceeded. Try again in {rate_info['reset_in_seconds']} seconds.",
+                    detail={
+                        "error": "rate_limit_exceeded",
+                        "message": "Слишком много запросов. Повторите позже.",
+                        "retry_after": rate_info["reset_in_seconds"],
+                    },
                     headers={
-                        "X-RateLimit-Limit": str(rate_info["limit"]),
+                        "X-RateLimit-Limit": str(rate_info.get("limit", max_requests)),
                         "X-RateLimit-Remaining": "0",
                         "X-RateLimit-Reset": str(rate_info["reset_in_seconds"]),
                         "Retry-After": str(rate_info["reset_in_seconds"]),
@@ -286,6 +291,16 @@ RATE_LIMIT_PRESETS = {
     "registration": {"max_requests": 2, "window_seconds": 60},  # 2/min
     # Password reset endpoints (OWASP: prevent brute force)
     "password_reset": {"max_requests": 3, "window_seconds": 60},  # 3/min
+    # AI endpoints (LLM extraction, entity processing)
+    "ai_operation": {
+        "max_requests": 10,
+        "window_seconds": 60,
+    },  # 10/min для AI операций
+    # AI image generation endpoints (ресурсоёмкие)
+    "ai_image": {
+        "max_requests": 5,
+        "window_seconds": 60,
+    },  # 5/min для генерации изображений
 }
 
 
