@@ -15,11 +15,11 @@
 
 ### Очистка мертвого кода и заглушек
 
-- [ ] **CLEAN-01**: Удалить 14 NLP тестовых файлов из корня бэкенда (test_nlp_processors.py, test_gliner_integration.py и т.д.)
-- [ ] **CLEAN-02**: Удалить NLP-поля конфигурации из config.py (SPACY_MODEL, NLTK_DATA_PATH, MULTI_NLP_MODE и т.д.) и settings_manager.py (секции nlp_global, nlp_spacy, nlp_natasha, nlp_stanza, nlp_gliner)
-- [ ] **CLEAN-03**: Удалить мертвый celery_config.py (используется только celery_app.py)
-- [ ] **CLEAN-04**: Исправить TODO-заглушки в sync.py — возвращать 501 Not Implemented вместо тихого сбоя
-- [ ] **CLEAN-05**: Удалить NLP-схемы из схем ответов админ-панели
+- [x] **CLEAN-01**: Удалить 14 NLP тестовых файлов из корня бэкенда (test_nlp_processors.py, test_gliner_integration.py и т.д.)
+- [x] **CLEAN-02**: Удалить NLP-поля конфигурации из config.py (SPACY_MODEL, NLTK_DATA_PATH, MULTI_NLP_MODE и т.д.) и settings_manager.py (секции nlp_global, nlp_spacy, nlp_natasha, nlp_stanza, nlp_gliner)
+- [x] **CLEAN-03**: Удалить мертвый celery_config.py (используется только celery_app.py)
+- [x] **CLEAN-04**: Исправить TODO-заглушки в sync.py — возвращать 501 Not Implemented вместо тихого сбоя
+- [x] **CLEAN-05**: Удалить NLP-схемы из схем ответов админ-панели
 
 ### Обработка ошибок и UX
 
