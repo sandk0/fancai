@@ -63,8 +63,8 @@ SECRETS_CONFIG = {
     # Рекомендуемые secrets (для production)
     SecretCategory.RECOMMENDED: [
         {
-            "name": "SENTRY_DSN",
-            "description": "Sentry error tracking DSN",
+            "name": "HAWK_TOKEN",
+            "description": "Hawk Tracker error tracking token",
             "required_in_production": True,
             "required_in_development": False,  # Optional in development/staging
         },
