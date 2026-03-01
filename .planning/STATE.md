@@ -94,5 +94,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-01
-Остановились на: Plan 02-02 завершён. Фаза 2 полностью выполнена (CLEAN-01..05). Следующий: Фаза 3 (OpenRouter migration + Caddy).
-Файл возобновления: .planning/phases/02-dead-code-cleanup/02-02-SUMMARY.md
+Остановились на: Plan 03-04 Task 1 выполнен (ad13975). Checkpoint: Task 2 human-verify — пользователь проверяет конфигурацию Caddy.
+Файл возобновления: .planning/phases/03-migration-services/03-04-PLAN.md (Task 2)
