@@ -115,7 +115,7 @@ services:
       # LangExtract (PRIMARY PARSER)
       - USE_LANGEXTRACT_PRIMARY=true
       - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY:?LANGEXTRACT_API_KEY is required}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-2.0-flash}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
 
       # Disable NLP processors
       - USE_ADVANCED_PARSER=false
@@ -166,7 +166,7 @@ services:
       --loglevel=${LOG_LEVEL:-warning}
       --concurrency=1
       --max-tasks-per-child=50
-      --max-memory-per-child=300000
+      --max-memory-per-child=512000
       --prefetch-multiplier=1
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
@@ -179,7 +179,7 @@ services:
       # LangExtract
       - USE_LANGEXTRACT_PRIMARY=true
       - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-2.0-flash}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
       - USE_ADVANCED_PARSER=false
       - USE_NLP_PROCESSORS=false
       # Image generation

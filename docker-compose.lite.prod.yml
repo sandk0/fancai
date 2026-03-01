@@ -122,7 +122,7 @@ services:
       # LangExtract (PRIMARY PARSER)
       - USE_LANGEXTRACT_PRIMARY=true
       - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY:?LANGEXTRACT_API_KEY is required}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-2.0-flash}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
       # Disable NLP processors
       - USE_ADVANCED_PARSER=false
       - USE_NLP_PROCESSORS=false
@@ -169,7 +169,7 @@ services:
       dockerfile: Dockerfile.lite.prod
     container_name: bookreader_celery
     command: >
-      celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-4} --max-tasks-per-child=100 --max-memory-per-child=400000 --prefetch-multiplier=1
+      celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=100 --max-memory-per-child=512000 --prefetch-multiplier=1
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -181,7 +181,7 @@ services:
       # LangExtract
       - USE_LANGEXTRACT_PRIMARY=true
       - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-2.0-flash}
+      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
       - USE_ADVANCED_PARSER=false
       - USE_NLP_PROCESSORS=false
       # Image generation
@@ -249,7 +249,7 @@ services:
 
   # PostgreSQL Database (optimized for 8GB server)
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.9-alpine
     container_name: bookreader_postgres
     environment:
       - POSTGRES_DB=${DB_NAME}

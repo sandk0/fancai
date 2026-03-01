@@ -33,9 +33,11 @@ from .routers.books.entities import router as entities_router
 from .routers.websocket import router as websocket_router
 from .core.config import settings
 from .core.cache import cache_manager
+from .core.database import AsyncSessionLocal
 from .core.secrets import startup_secrets_check
 from .core.logging import logger
 from .core.hawk import init_hawk
+from .core.celery_app import celery_app
 from .services.settings_manager import settings_manager
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.cache_control import CacheControlMiddleware
@@ -318,27 +320,68 @@ async def root() -> Dict[str, Any]:
 
 
 @app.get("/health")
-@rate_limit(max_requests=20, window_seconds=60)  # Public endpoint - stricter limit
+@rate_limit(
+    max_requests=60, window_seconds=60
+)  # Docker healthcheck вызывает каждые 30 сек
 async def health_check(request: Request) -> Dict[str, Any]:
     """
     Health check endpoint для мониторинга.
 
+    Выполняет реальные проверки подключения к PostgreSQL, Redis и Celery.
+    Возвращает статус 200 если API работает, 503 если все критические сервисы недоступны.
+
     Returns:
         Dict со статусом здоровья сервиса
     """
-    # Check Redis status
-    redis_status = "ok" if cache_manager.is_available else "unavailable"
+    from sqlalchemy import text
 
-    return {
-        "status": "healthy",
+    checks: Dict[str, str] = {"api": "ok"}
+    all_critical_down = False
+
+    # Проверка PostgreSQL
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        logger.warning("Health check: database unavailable", error=str(e))
+        checks["database"] = "error"
+
+    # Проверка Redis
+    checks["redis"] = "ok" if cache_manager.is_available else "unavailable"
+
+    # Проверка Celery (с таймаутом 2 секунды)
+    try:
+        inspect = celery_app.control.inspect(timeout=2)
+        ping_result = inspect.ping()
+        checks["celery"] = "ok" if ping_result else "unavailable"
+    except Exception as e:
+        logger.debug("Health check: celery unavailable", error=str(e))
+        checks["celery"] = "unavailable"
+
+    # Определяем общий статус
+    critical_checks = ["database"]
+    all_critical_down = all(checks.get(c) != "ok" for c in critical_checks)
+    any_degraded = any(v != "ok" for v in checks.values())
+
+    if all_critical_down:
+        status = "unhealthy"
+    elif any_degraded:
+        status = "degraded"
+    else:
+        status = "healthy"
+
+    response_data = {
+        "status": status,
         "version": VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "checks": {
-            "api": "ok",
-            "database": "checking...",  # TODO: добавить проверку БД
-            "redis": redis_status,
-        },
+        "checks": checks,
     }
+
+    if all_critical_down:
+        return JSONResponse(status_code=503, content=response_data)
+
+    return response_data
 
 
 @app.get("/api/v1/info")
