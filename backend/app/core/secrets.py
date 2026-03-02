@@ -50,7 +50,7 @@ SECRETS_CONFIG = {
         {
             "name": "DATABASE_URL",
             "description": "PostgreSQL connection string",
-            "forbidden_values": ["postgres123", "bookreader_dev"],
+            "forbidden_values": ["postgres123", "fancai_dev"],
             "forbidden_in_production_only": True,  # Allow dev credentials in dev mode
         },
         {

@@ -52,28 +52,28 @@ services:
 
   # Frontend Production Build (outputs to shared volume, exits after build)
   frontend:
-    image: bookreader-frontend:lite
+    image: fancai-frontend:lite
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
         - VITE_API_URL=${DOMAIN_URL:-http://localhost}/api/v1
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
-        - VITE_APP_NAME=BookReader AI
-    container_name: bookreader_frontend
+        - VITE_APP_NAME=fancai
+    container_name: fancai_frontend
     volumes:
       - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
     restart: "no"                        # контейнер завершается после build
     networks:
       - fancai_network
 
-  # Backend API (Lite - LangExtract only)
+  # Backend API
   backend:
-    image: bookreader-backend:lite
+    image: fancai-backend:lite
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    container_name: bookreader_backend
+    container_name: fancai_backend
     environment:
       # Database
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
@@ -130,13 +130,13 @@ services:
           cpus: '0.5'
           memory: 768M
 
-  # Celery Worker (Lite)
+  # Celery Worker
   celery-worker:
-    image: bookreader-backend:lite
+    image: fancai-backend:lite
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    container_name: bookreader_celery
+    container_name: fancai_celery
     command: >
       celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=100 --max-memory-per-child=512000 --prefetch-multiplier=1
     environment:
@@ -182,11 +182,11 @@ services:
 
   # Celery Beat Scheduler
   celery-beat:
-    image: bookreader-backend:lite
+    image: fancai-backend:lite
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    container_name: bookreader_beat
+    container_name: fancai_beat
     command: >
       celery -A app.core.celery_app beat --loglevel=${LOG_LEVEL:-info} --schedule=/tmp/celerybeat-schedule --pidfile=/tmp/celerybeat.pid
     environment:
@@ -219,7 +219,7 @@ services:
   # PostgreSQL Database (optimized for 32GB server, 12 vCPU)
   postgres:
     image: postgres:17.9-alpine
-    container_name: bookreader_postgres
+    container_name: fancai_postgres
     shm_size: 10g
     environment:
       - POSTGRES_DB=${DB_NAME}
@@ -267,7 +267,7 @@ services:
   # Redis Cache & Queue (optimized for 32GB server, 12 vCPU)
   redis:
     image: redis:7.4.8-alpine
-    container_name: bookreader_redis
+    container_name: fancai_redis
     command: >
       redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 640mb --maxmemory-policy allkeys-lru --save 900 1 300 10 60 10000
     volumes:

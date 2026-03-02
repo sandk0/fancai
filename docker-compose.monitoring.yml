@@ -8,7 +8,7 @@ services:
   # ─── Netdata — системные метрики хоста + бизнес-метрики fancai ───────────────
   netdata:
     image: netdata/netdata:stable
-    container_name: bookreader_netdata
+    container_name: fancai_netdata
     pid: host
     network_mode: host
     restart: unless-stopped
@@ -38,7 +38,7 @@ services:
   # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
   victoriametrics:
     image: victoriametrics/victoria-metrics:stable
-    container_name: bookreader_victoriametrics
+    container_name: fancai_victoriametrics
     restart: unless-stopped
     ports:
       - "8428:8428"
@@ -58,7 +58,7 @@ services:
   # ─── Uptime Kuma — мониторинг доступности сервисов ───────────────────────────
   uptime-kuma:
     image: louislam/uptime-kuma:2
-    container_name: bookreader_uptime_kuma
+    container_name: fancai_uptime_kuma
     restart: unless-stopped
     ports:
       - "3001:3001"
@@ -74,7 +74,7 @@ services:
   # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
   dozzle:
     image: amir20/dozzle:v10
-    container_name: bookreader_dozzle
+    container_name: fancai_dozzle
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -93,7 +93,7 @@ services:
   # ─── Flower — мониторинг Celery задач и воркеров ─────────────────────────────
   flower:
     image: mher/flower:2
-    container_name: bookreader_flower
+    container_name: fancai_flower
     restart: unless-stopped
     command: >
       celery

@@ -66,7 +66,7 @@ engine = create_async_engine(
     # PostgreSQL-specific connection settings
     connect_args={
         "server_settings": {
-            "application_name": "bookreader_reading_sessions",  # Для мониторинга в pg_stat_activity
+            "application_name": "fancai_reading_sessions",  # Для мониторинга в pg_stat_activity
             "statement_timeout": "30000",  # 30 seconds query timeout
         },
         "timeout": 10,  # Connection timeout (10 seconds)

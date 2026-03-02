@@ -50,7 +50,7 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: bookreader_test
+          POSTGRES_DB: fancai_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres123
         ports:
@@ -115,12 +115,12 @@ jobs:
         env:
           PGPASSWORD: postgres123
         run: |
-          psql -h localhost -U postgres -d bookreader_test -c "SELECT version();"
+          psql -h localhost -U postgres -d fancai_test -c "SELECT version();"
           echo "✅ Database connection verified"
 
       - name: Test Python Database Connection
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres123@localhost:5432/bookreader_test
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres123@localhost:5432/fancai_test
         run: |
           cd backend
           python << 'EOF'
@@ -131,7 +131,7 @@ jobs:
           async def test_connection():
               try:
                   conn = await asyncpg.connect(
-                      "postgresql://postgres:postgres123@localhost:5432/bookreader_test"
+                      "postgresql://postgres:postgres123@localhost:5432/fancai_test"
                   )
                   version = await conn.fetchval("SELECT version()")
                   print(f"✅ Python asyncpg connection SUCCESS")
@@ -150,7 +150,7 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres123@localhost:5432/bookreader_test
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres123@localhost:5432/fancai_test
           REDIS_URL: redis://127.0.0.1:6379
           SECRET_KEY: test-secret-key-for-ci
           DEBUG: false
@@ -319,7 +319,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile.prod
           push: false
-          tags: bookreader-backend:test
+          tags: fancai-backend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -329,7 +329,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile.prod
           push: false
-          tags: bookreader-frontend:test
+          tags: fancai-frontend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

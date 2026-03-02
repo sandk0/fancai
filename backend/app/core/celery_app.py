@@ -9,7 +9,7 @@ from app.core.config import settings
 
 # Create Celery instance with basic config
 celery_app = Celery(
-    "bookreader",
+    "fancai",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=["app.core.tasks", "app.tasks.reading_sessions_tasks"],

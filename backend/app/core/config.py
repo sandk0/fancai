@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # База данных
     DATABASE_URL: str = (
-        "postgresql+asyncpg://postgres:postgres123@postgres:5432/bookreader_dev"
+        "postgresql+asyncpg://postgres:postgres123@postgres:5432/fancai_dev"
     )
     TEST_DATABASE_URL: str = (
         ""  # Override via env; if empty, derived from DATABASE_URL in conftest
@@ -172,10 +172,7 @@ class Settings(BaseSettings):
                 )
 
             # Проверка DATABASE_URL
-            if (
-                "postgres123" in self.DATABASE_URL
-                or "bookreader_dev" in self.DATABASE_URL
-            ):
+            if "postgres123" in self.DATABASE_URL or "fancai_dev" in self.DATABASE_URL:
                 raise ValueError(
                     "❌ SECURITY ERROR: DATABASE_URL contains default development credentials. "
                     "Production database must use secure credentials set via environment variable."
