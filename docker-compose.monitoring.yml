@@ -111,7 +111,7 @@ services:
           memory: 128M
     networks:
       - monitoring_net
-      - bookreader_network  # Flower нужен доступ к Redis в основной сети
+      - fancai_network  # Flower нужен доступ к Redis в основной сети
 
 volumes:
   netdataconfig:
@@ -123,6 +123,6 @@ volumes:
 networks:
   monitoring_net:
     driver: bridge
-  bookreader_network:
+  fancai_network:
     external: true
-    name: bookreader_lite_network
+    name: fancai_network
