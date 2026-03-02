@@ -17,6 +17,7 @@ json.JSONDecodeError и ValidationError пробрасываются вверх 
 - $defs/$ref issue: https://github.com/pydantic/pydantic-ai/issues/3617
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -26,7 +27,13 @@ from typing import Any, Optional, Type
 import httpx
 from pydantic import BaseModel
 
-from app.monitoring.metrics import record_llm_error, record_llm_request
+from app.monitoring.metrics import (
+    record_llm_error,
+    record_llm_request,
+    record_llm_tokens,
+    llm_cost_dollars_total,
+    llm_fallback_total,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +93,53 @@ def _inline_defs(schema: dict) -> dict:
         return node
 
     return resolve(schema)
+
+
+# ---------------------------------------------------------------------------
+# Usage logging helper
+# ---------------------------------------------------------------------------
+
+
+async def _log_usage_to_db(
+    model: str,
+    service: Optional[str],
+    prompt_tokens: int,
+    completion_tokens: int,
+    cost: float,
+    request_id: Optional[str],
+) -> None:
+    """
+    Записывает использование LLM API в таблицу llm_usage_log.
+
+    Вызывается через asyncio.create_task() — не блокирует основной поток.
+    Использует прямой SQL INSERT через core.database (не зависит от DI).
+
+    Args:
+        model: Идентификатор модели OpenRouter
+        service: Имя вызывающего сервиса (опционально)
+        prompt_tokens: Количество input токенов
+        completion_tokens: Количество output токенов
+        cost: Стоимость вызова в USD
+        request_id: OpenRouter request_id для корреляции
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.llm_usage_log import LlmUsageLog
+
+        async with AsyncSessionLocal() as session:
+            log_entry = LlmUsageLog(
+                model=model,
+                service=service,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cost_dollars=cost,
+                request_id=request_id,
+            )
+            session.add(log_entry)
+            await session.commit()
+    except Exception as e:
+        # Логируем ошибку но не пробрасываем — DB logging не должна ломать основной поток
+        logger.warning(f"[OpenRouter] Не удалось записать usage в DB: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +231,29 @@ class OpenRouterClient:
                     model=current_model, status="success", duration=duration
                 )
 
+                # Парсим usage/cost из ответа и записываем в метрики
+                usage = data.get("usage", {})
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                cost = usage.get("cost", 0.0) or 0.0
+                request_id = data.get("id")
+
+                record_llm_tokens(current_model, prompt_tokens, completion_tokens)
+                if cost:
+                    llm_cost_dollars_total.labels(model=current_model).inc(cost)
+
+                # Fire-and-forget: записываем в DB без блокировки
+                asyncio.create_task(
+                    _log_usage_to_db(
+                        model=current_model,
+                        service=None,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        cost=cost,
+                        request_id=request_id,
+                    )
+                )
+
                 if i > 0:
                     logger.warning(
                         f"[OpenRouter] Fallback успешен: модель {current_model} "
@@ -193,6 +270,17 @@ class OpenRouterClient:
                     model=current_model, status="error", duration=duration
                 )
                 last_exception = e
+
+                # Записываем fallback переключение если есть следующая модель
+                if not is_last:
+                    next_model_name = (
+                        FALLBACK_MODELS[i + 1]
+                        if len(FALLBACK_MODELS) > i + 1
+                        else "none"
+                    )
+                    llm_fallback_total.labels(
+                        from_model=current_model, to_model=next_model_name
+                    ).inc()
 
                 next_model = FALLBACK_MODELS[i + 1] if not is_last else "none"
                 logger.warning(
@@ -273,6 +361,28 @@ class OpenRouterClient:
                     model=current_model, status="success", duration=duration
                 )
 
+                # Парсим usage/cost из ответа и записываем в метрики
+                usage = data.get("usage", {})
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                cost = usage.get("cost", 0.0) or 0.0
+                request_id = data.get("id")
+
+                record_llm_tokens(current_model, prompt_tokens, completion_tokens)
+                if cost:
+                    llm_cost_dollars_total.labels(model=current_model).inc(cost)
+
+                asyncio.create_task(
+                    _log_usage_to_db(
+                        model=current_model,
+                        service=None,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        cost=cost,
+                        request_id=request_id,
+                    )
+                )
+
                 if i > 0:
                     logger.warning(
                         f"[OpenRouter] Fallback успешен (structured): модель {current_model}"
@@ -287,6 +397,17 @@ class OpenRouterClient:
                 record_llm_request(
                     model=current_model, status="error", duration=duration
                 )
+
+                # Записываем fallback переключение если есть следующая модель
+                if not is_last:
+                    next_model_name = (
+                        FALLBACK_MODELS[i + 1]
+                        if len(FALLBACK_MODELS) > i + 1
+                        else "none"
+                    )
+                    llm_fallback_total.labels(
+                        from_model=current_model, to_model=next_model_name
+                    ).inc()
 
                 next_model = FALLBACK_MODELS[i + 1] if not is_last else "none"
                 logger.warning(
@@ -356,6 +477,29 @@ class OpenRouterClient:
 
             duration = time.time() - start_time
             record_llm_request(model=model, status="success", duration=duration)
+
+            # Парсим usage/cost из ответа изображения (если доступно)
+            usage = data.get("usage", {})
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
+            cost = usage.get("cost", 0.0) or 0.0
+            request_id = data.get("id")
+
+            if prompt_tokens or completion_tokens:
+                record_llm_tokens(model, prompt_tokens, completion_tokens)
+            if cost:
+                llm_cost_dollars_total.labels(model=model).inc(cost)
+
+            asyncio.create_task(
+                _log_usage_to_db(
+                    model=model,
+                    service=None,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cost=cost,
+                    request_id=request_id,
+                )
+            )
 
             return base64.b64decode(b64_data)
 

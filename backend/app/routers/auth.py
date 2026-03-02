@@ -22,10 +22,15 @@ from ..core.database import get_database_session
 from ..core.auth import get_current_active_user, security
 from ..services.auth_service import AuthService
 from ..services.token_blacklist import TokenBlacklist
-from ..core.container import get_auth_service_dep, get_token_blacklist_dep, get_email_service_dep
+from ..core.container import (
+    get_auth_service_dep,
+    get_token_blacklist_dep,
+    get_email_service_dep,
+)
 from ..models.user import User
 from ..core.config import settings
 from ..middleware.rate_limit import rate_limit, RATE_LIMIT_PRESETS
+from ..monitoring.metrics import record_auth_registration, record_auth_login
 from ..schemas.responses import (
     LoginResponse,
     RegisterResponse,
@@ -145,6 +150,9 @@ async def register_user(
             path="/api/v1/auth/refresh",
         )
 
+        # Метрика успешной регистрации
+        record_auth_registration()
+
         return RegisterResponse(
             user=UserResponse.model_validate(user),
             tokens=TokenPair(
@@ -179,12 +187,16 @@ async def login_user(
     )
 
     if not user:
+        # Метрика неудачного логина
+        record_auth_login(status="failure")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Метрика успешного логина
+    record_auth_login(status="success")
     tokens_dict = auth_svc.create_tokens_for_user(user)
 
     # Set HttpOnly Cookies
@@ -470,9 +482,7 @@ async def reset_password(
 
     is_valid, error_msg = validate_password_strength(body.new_password)
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
     success, user_email = await auth_svc.validate_and_reset_password(
         db, body.token, body.new_password
