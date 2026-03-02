@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 import redis.asyncio as redis
 
 from ..core.config import settings
+from ..monitoring.metrics import record_rate_limit_triggered
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,10 @@ def rate_limit(max_requests: int = 10, window_seconds: int = 60):
             )
 
             if is_limited:
+                # Записываем метрику срабатывания rate limit
+                limit_type = "user_id" if current_user else "ip"
+                record_rate_limit_triggered(endpoint=endpoint, limit_type=limit_type)
+
                 # Возвращаем 429 Too Many Requests с JSON телом
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,

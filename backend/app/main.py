@@ -5,6 +5,7 @@ fancai - FastAPI Main Application
 с автоматической генерацией изображений по описаниям.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from datetime import datetime, timezone
 from typing import Dict, Any
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .routers import (
     users,
@@ -33,7 +35,7 @@ from .routers.books.entities import router as entities_router
 from .routers.websocket import router as websocket_router
 from .core.config import settings
 from .core.cache import cache_manager
-from .core.database import AsyncSessionLocal
+from .core.database import AsyncSessionLocal, get_database_session
 from .core.secrets import startup_secrets_check
 from .core.logging import logger
 from .core.hawk import init_hawk
@@ -42,6 +44,10 @@ from .services.settings_manager import settings_manager
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.cache_control import CacheControlMiddleware
 from .middleware.rate_limit import rate_limiter, rate_limit
+from .monitoring.middleware import (
+    ReadingSessionsMetricsMiddleware,
+    update_gauges_periodically,
+)
 from .core.exceptions import ProblemDetail, problem_detail_exception_handler
 
 # Версия приложения
@@ -115,6 +121,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Failed to initialize settings", error=str(e))
 
+    # Prometheus: подключить prometheus-fastapi-instrumentator
+    # ТОЛЬКО instrument() — expose() НЕ вызываем, /metrics endpoint уже есть в health.py
+    try:
+        Instrumentator().instrument(app)
+        logger.info("Prometheus FastAPI Instrumentator initialized")
+    except Exception as e:
+        logger.warning("Failed to initialize Prometheus Instrumentator", error=str(e))
+
+    # Prometheus: запустить фоновую задачу обновления reading sessions gauges
+    try:
+        asyncio.create_task(
+            update_gauges_periodically(get_database_session, interval_seconds=30)
+        )
+        logger.info("Reading sessions metrics background task started")
+    except Exception as e:
+        logger.warning("Failed to start metrics background task", error=str(e))
+
     # ========================================================================
     # APPLICATION RUNS HERE
     # ========================================================================
@@ -159,6 +182,10 @@ app = FastAPI(
 
 # Middleware добавляются в обратном порядке выполнения!
 # Последний добавленный = первый выполняется
+
+# 0. Reading Sessions Metrics Middleware (добавляется самым первым, выполняется последним в цепочке)
+# Собирает API latency для /reading-sessions/* endpoints автоматически
+app.add_middleware(ReadingSessionsMetricsMiddleware)
 
 # 1. GZip Compression Middleware (добавляется первым, выполняется последним)
 # Сжимает ответы > 1KB для снижения bandwidth и latency
