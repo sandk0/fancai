@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T23:45:00.000Z"
+last_updated: "2026-03-02T14:03:05.000Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Состояние проекта
@@ -22,20 +22,20 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 4.1 из 8 (Фиксы интеграции и ребрендинг) — НЕ НАЧАТА
-План: 0 из 1 в фазе 4.1
-Статус: Фаза 4.1 создана из аудита v1.0 (gap closure). Закрывает 5 интеграционных пробелов + ребрендинг bookreader → fancai. Требуется планирование.
-Последняя активность: 2026-03-02 — Фаза 4.1 создана (plan-milestone-gaps). ROADMAP.md и REQUIREMENTS.md обновлены.
+Фаза: 4.1 из 8 (Фиксы интеграции и ребрендинг) — В ПРОЦЕССЕ
+План: 1 из 3 в фазе 4.1
+Статус: Plan 04.1-01 выполнен. Очистка мёртвого Gemini/LangExtract легаси, унификация Docker-сети, HAWK_TOKEN в Celery, .env.example.
+Последняя активность: 2026-03-02 — Plan 04.1-01 завершён (очистка интеграции).
 
-Прогресс: [████████████░] 63%
+Прогресс: [█████████████░] 69%
 
 ## Метрики производительности
 
 **Скорость:**
 
-- Всего планов выполнено: 7
-- Средняя продолжительность: ~26 мин
-- Общее время выполнения: ~3.0 часа
+- Всего планов выполнено: 8
+- Средняя продолжительность: ~24 мин
+- Общее время выполнения: ~3.1 часа
 
 **По фазам:**
 
@@ -45,11 +45,12 @@ progress:
 | 02-dead-code-cleanup         | 2/2   | ~39 мин  | ~20 мин      |
 | 03-migration-services        | 4/4   | ~129 мин | ~32 мин      |
 | 04-infrastructure-maintenance| 3/3   | ~20 мин  | ~10 мин      |
+| 04.1-integration-rebrand     | 1/3   | ~4 мин   | ~4 мин       |
 
 **Недавний тренд:**
 
-- Последние 10 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин), 04-03 (~13 мин), 04-02 (~7 мин)
-- Тренд: Dependency update планы быстрые (~13 мин); infra setup планы ~40-45 мин; monitoring config планы быстрые (~7 мин)
+- Последние 10 планов: 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин), 04-03 (~13 мин), 04-02 (~7 мин), 04.1-01 (~4 мин)
+- Тренд: Cleanup/integration планы быстрые (~4-11 мин); infra setup планы ~40-45 мин; monitoring config планы быстрые (~7 мин)
 
 _Обновляется после завершения каждого плана_
 
@@ -102,6 +103,9 @@ _Обновляется после завершения каждого план�
 - [04-02]: Flower двойная сеть: monitoring_net + bookreader_network (external) для доступа к Redis
 - [04-02]: VictoriaMetrics вместо Prometheus для хранения метрик с remote_write от Netdata, 90d retention
 - [04-02]: monitor.fancai.ru basicauth через MONITOR_PASSWORD_HASH env var (bcrypt, через caddy hash-password)
+- [04.1-01]: Все мёртвые переменные (LANGEXTRACT_*, GOOGLE_API_KEY, USE_LANGEXTRACT_PRIMARY) удалены из docker-compose, Dockerfiles, config.py
+- [04.1-01]: Docker-сеть bookreader_network -> fancai_network с явным name: для external reference из monitoring.yml
+- [04.1-01]: .env.example содержит только живые переменные — OPENROUTER_API_KEY, HAWK_TOKEN, MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD
 
 ### Ожидающие задачи
 
@@ -119,5 +123,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-02
-Остановились на: Plan 04-02 завершён (checkpoint:human-verify). Мониторинг-стек готов к развёртыванию: docker-compose.monitoring.yml с 5 сервисами, Caddyfile с monitor.fancai.ru. Task 2 требует ручной верификации на продакшен-сервере.
-Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-02-SUMMARY.md
+Остановились на: Plan 04.1-01 завершён. Очистка мёртвого Gemini/LangExtract легаси, унификация Docker-сети fancai_network, HAWK_TOKEN в Celery, .env.example создан.
+Файл возобновления: .planning/phases/04.1-integration-rebrand/04.1-01-SUMMARY.md
