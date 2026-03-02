@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate Strong Secrets for BookReader AI
+# Generate Strong Secrets for fancai
 # Usage: ./scripts/generate-secrets.sh [environment]
 # Example: ./scripts/generate-secrets.sh development
 
@@ -9,7 +9,7 @@ ENVIRONMENT=${1:-development}
 OUTPUT_FILE=".env.$ENVIRONMENT"
 
 echo "========================================="
-echo "  BookReader AI - Secret Generator"
+echo "  fancai - Secret Generator"
 echo "========================================="
 echo ""
 echo "Environment: $ENVIRONMENT"
@@ -43,7 +43,7 @@ python3 << 'EOF' > "$OUTPUT_FILE"
 import secrets
 import sys
 
-print("# BookReader AI Environment Variables")
+print("# fancai Environment Variables")
 print(f"# Generated: {__import__('datetime').datetime.now().isoformat()}")
 print("# DO NOT COMMIT THIS FILE TO GIT!")
 print()
@@ -63,8 +63,8 @@ print()
 print("# =============================================================================")
 print("# DATABASE SETTINGS")
 print("# =============================================================================")
-print("DB_NAME=bookreader_dev" if sys.argv[1] == "development" else "bookreader_prod")
-print("DB_USER=postgres" if sys.argv[1] == "development" else "bookreader_user")
+print("DB_NAME=fancai_dev" if sys.argv[1] == "development" else "fancai_prod")
+print("DB_USER=postgres" if sys.argv[1] == "development" else "fancai_user")
 print(f"DB_PASSWORD={secrets.token_urlsafe(32)}")
 print()
 print("# Full database URL (constructed from above)")
@@ -116,7 +116,7 @@ print("# FRONTEND BUILD VARIABLES")
 print("# =============================================================================")
 print("VITE_API_URL=http://localhost:8000/api/v1")
 print("VITE_WS_URL=ws://localhost:8000")
-print("VITE_APP_NAME=BookReader AI")
+print("VITE_APP_NAME=fancai")
 print("REACT_APP_API_URL=http://localhost:8000")
 print("REACT_APP_WS_URL=ws://localhost:8000")
 print()
@@ -131,7 +131,7 @@ print()
 print("# =============================================================================")
 print("# PGADMIN (DEV ONLY)")
 print("# =============================================================================")
-print("PGADMIN_EMAIL=admin@bookreader.local")
+print("PGADMIN_EMAIL=admin@fancai.local")
 print(f"PGADMIN_PASSWORD={secrets.token_urlsafe(24)}")
 print()
 print("# =============================================================================")

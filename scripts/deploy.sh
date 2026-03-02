@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BookReader AI Production Deploy Script
+# fancai Production Deploy Script
 # Usage: ./scripts/deploy.sh [command]
 
 set -e
@@ -99,7 +99,7 @@ backup_data() {
     mkdir -p $BACKUP_DIR/$BACKUP_NAME
     
     # Database backup
-    docker compose -f $COMPOSE_FILE exec -T postgres pg_dump -U bookreader_user bookreader_prod > $BACKUP_DIR/$BACKUP_NAME/database.sql
+    docker compose -f $COMPOSE_FILE exec -T postgres pg_dump -U fancai_user fancai_prod > $BACKUP_DIR/$BACKUP_NAME/database.sql
     
     # Storage backup
     cp -r ./backend/storage $BACKUP_DIR/$BACKUP_NAME/
@@ -137,7 +137,7 @@ start_services() {
 }
 
 show_help() {
-    echo "BookReader AI Deploy Script"
+    echo "fancai Deploy Script"
     echo ""
     echo "Commands:"
     echo "  init     - Initialize production deployment"

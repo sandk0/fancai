@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# BookReader AI - Comprehensive Backup Script
+# fancai - Comprehensive Backup Script
 #
 # Creates timestamped backups of:
 # - PostgreSQL database (pg_dump from container)
@@ -37,8 +37,8 @@ BACKUP_NAME="backup-${TIMESTAMP}"
 BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
 
 # Docker containers
-POSTGRES_CONTAINER="bookreader_postgres"
-REDIS_CONTAINER="bookreader_redis"
+POSTGRES_CONTAINER="fancai_postgres"
+REDIS_CONTAINER="fancai_redis"
 
 # Database credentials (from .env or defaults)
 DB_USER="${POSTGRES_USER:-postgres}"
@@ -47,8 +47,8 @@ DB_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 
 # Auto-detect database name if not set
 if [ -z "${DB_NAME}" ]; then
-    DB_NAME=$(docker exec "${POSTGRES_CONTAINER}" psql -U "${DB_USER}" -t -c "SELECT datname FROM pg_database WHERE datname LIKE 'bookreader%' LIMIT 1;" 2>/dev/null | xargs)
-    [ -z "${DB_NAME}" ] && DB_NAME="bookreader_dev"
+    DB_NAME=$(docker exec "${POSTGRES_CONTAINER}" psql -U "${DB_USER}" -t -c "SELECT datname FROM pg_database WHERE datname LIKE 'fancai%' LIMIT 1;" 2>/dev/null | xargs)
+    [ -z "${DB_NAME}" ] && DB_NAME="fancai_dev"
 fi
 
 # Default options
@@ -90,7 +90,7 @@ create_manifest() {
     local manifest_file="${BACKUP_PATH}/manifest.txt"
 
     cat > "${manifest_file}" << EOF
-BookReader AI Backup Manifest
+fancai Backup Manifest
 ==============================
 
 Backup Information:
@@ -116,7 +116,7 @@ Commit Message: $(cd "${PROJECT_ROOT}" && git log -1 --pretty=%B 2>/dev/null || 
 
 Docker Containers Status:
 ------------------------
-$(docker ps --format 'table {{.Names}}\t{{.Status}}' | grep bookreader || echo "No containers running")
+$(docker ps --format 'table {{.Names}}\t{{.Status}}' | grep fancai || echo "No containers running")
 
 Backup Contents:
 ---------------
@@ -430,7 +430,7 @@ compress_backup() {
 ################################################################################
 
 main() {
-    print_header "BookReader AI - Backup Script"
+    print_header "fancai - Backup Script"
 
     print_info "Backup started at: $(date '+%Y-%m-%d %H:%M:%S')"
     print_info "Backup type: ${BACKUP_TYPE}"
@@ -507,7 +507,7 @@ parse_args() {
                 ;;
             --help)
                 cat << EOF
-BookReader AI - Backup Script
+fancai - Backup Script
 
 Usage: $0 [OPTIONS]
 

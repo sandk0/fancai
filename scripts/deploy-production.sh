@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# BookReader AI - Production Deployment Script
+# fancai - Production Deployment Script
 # Comprehensive production deployment with safety checks and rollback
 
 set -euo pipefail
 
 # Script configuration
-PROJECT_NAME="BookReader AI"
+PROJECT_NAME="fancai"
 COMPOSE_FILE="docker-compose.production.yml"
 ENV_FILE=".env.production"
 BACKUP_DIR="/backups/$(date +%Y%m%d_%H%M%S)"
-LOG_FILE="/var/log/bookreader-deploy.log"
+LOG_FILE="/var/log/fancai-deploy.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -144,20 +144,20 @@ create_backup() {
     if docker compose -f "$COMPOSE_FILE" ps postgres | grep -q "Up"; then
         info "Creating database backup..."
         docker compose -f "$COMPOSE_FILE" exec -T postgres pg_dump \
-            -U "${DB_USER:-bookreader_user}" \
-            -d "${DB_NAME:-bookreader_prod}" \
+            -U "${DB_USER:-fancai_user}" \
+            -d "${DB_NAME:-fancai_prod}" \
             > "$BACKUP_DIR/database.sql" || true
     fi
     
     # Backup volumes
     info "Creating volume backups..."
     docker run --rm \
-        -v bookreader_postgres_data:/source:ro \
+        -v fancai_postgres_data:/source:ro \
         -v "$BACKUP_DIR":/backup \
         alpine tar czf /backup/postgres_data.tar.gz -C /source . || true
         
     docker run --rm \
-        -v bookreader_redis_data:/source:ro \
+        -v fancai_redis_data:/source:ro \
         -v "$BACKUP_DIR":/backup \
         alpine tar czf /backup/redis_data.tar.gz -C /source . || true
     
@@ -181,8 +181,8 @@ build_images() {
     
     # Tag images with timestamp for rollback capability
     local timestamp=$(date +%Y%m%d_%H%M%S)
-    docker tag "bookreader-backend:latest" "bookreader-backend:$timestamp"
-    docker tag "bookreader-frontend:latest" "bookreader-frontend:$timestamp"
+    docker tag "fancai-backend:latest" "fancai-backend:$timestamp"
+    docker tag "fancai-frontend:latest" "fancai-frontend:$timestamp"
     
     success "Images built successfully"
 }
@@ -322,13 +322,13 @@ rollback() {
             docker compose -f "$COMPOSE_FILE" up -d postgres
             sleep 10
             docker compose -f "$COMPOSE_FILE" exec -T postgres psql \
-                -U "${DB_USER:-bookreader_user}" \
-                -d "${DB_NAME:-bookreader_prod}" \
+                -U "${DB_USER:-fancai_user}" \
+                -d "${DB_NAME:-fancai_prod}" \
                 < "$backup_path/database.sql" || true
         fi
         
         # Restore previous images if available
-        local timestamp_files=($(ls -t /tmp/bookreader-images-* 2>/dev/null | head -1))
+        local timestamp_files=($(ls -t /tmp/fancai-images-* 2>/dev/null | head -1))
         if [[ ${#timestamp_files[@]} -gt 0 ]]; then
             info "Loading previous images..."
             docker load < "${timestamp_files[0]}" || true
@@ -347,7 +347,7 @@ rollback() {
 save_deployment_info() {
     step "Saving deployment information..."
     
-    local deployment_info="/var/log/bookreader-deployment-$(date +%Y%m%d_%H%M%S).info"
+    local deployment_info="/var/log/fancai-deployment-$(date +%Y%m%d_%H%M%S).info"
     
     cat > "$deployment_info" << EOF
 Deployment Information

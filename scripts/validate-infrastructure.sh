@@ -8,7 +8,7 @@
 set -e
 
 echo "=================================================="
-echo "BookReader AI Infrastructure Validation"
+echo "fancai Infrastructure Validation"
 echo "=================================================="
 echo ""
 
