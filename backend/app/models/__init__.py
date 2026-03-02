@@ -19,6 +19,7 @@ from .description_entity import DescriptionEntity
 from .entity_mention import EntityMention
 from .entity_event import EntityEvent
 from .password_reset import PasswordResetToken
+from .llm_usage_log import LlmUsageLog
 
 __all__ = [
     "User",
@@ -43,4 +44,5 @@ __all__ = [
     "EntityMention",
     "EntityEvent",
     "PasswordResetToken",
+    "LlmUsageLog",
 ]
