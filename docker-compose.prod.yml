@@ -40,7 +40,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     deploy:
       resources:
         limits:
@@ -65,7 +65,7 @@ services:
       - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
     restart: "no"                        # контейнер завершается после build
     networks:
-      - bookreader_network
+      - fancai_network
 
   # Backend API (Lite - LangExtract only)
   backend:
@@ -114,7 +114,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     healthcheck:
       test: [ "CMD", "python", "/app/healthcheck.py" ]
       interval: 30s
@@ -149,6 +149,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Monitoring
+      - HAWK_TOKEN=${HAWK_TOKEN:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
@@ -168,7 +170,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     deploy:
       resources:
         limits:
@@ -195,6 +197,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Monitoring
+      - HAWK_TOKEN=${HAWK_TOKEN:-}
     volumes:
       - beat_schedule:/tmp
     depends_on:
@@ -202,7 +206,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     deploy:
       resources:
         limits:
@@ -244,7 +248,7 @@ services:
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 10s
@@ -270,7 +274,7 @@ services:
       - redis_data:/data
     restart: unless-stopped
     networks:
-      - bookreader_network
+      - fancai_network
     healthcheck:
       test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 10s
@@ -299,10 +303,11 @@ volumes:
   frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
 
 networks:
-  bookreader_network:
+  fancai_network:
+    name: fancai_network
     driver: bridge
     ipam:
       config:
         - subnet: 172.22.0.0/16
     driver_opts:
-      com.docker.network.bridge.name: br-bookreader-lite
+      com.docker.network.bridge.name: br-fancai
