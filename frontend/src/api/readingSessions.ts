@@ -59,10 +59,7 @@ export const readingSessionsAPI = {
     };
 
     try {
-      const response = await apiClient.post<SessionResponse>(
-        '/reading-sessions/start',
-        data
-      );
+      const response = await apiClient.post<SessionResponse>('/reading-sessions/start', data);
 
       // Handle both { session: ... } and flat ReadingSession
       const session = response.session || response;
@@ -90,10 +87,7 @@ export const readingSessionsAPI = {
    * @param currentPosition - Current position (0-100%)
    * @returns Updated session
    */
-  async updateSession(
-    sessionId: string,
-    currentPosition: number
-  ): Promise<ReadingSession> {
+  async updateSession(sessionId: string, currentPosition: number): Promise<ReadingSession> {
     const data: UpdateSessionRequest = {
       current_position: Math.round(Math.max(0, Math.min(100, currentPosition))),
     };
@@ -128,10 +122,7 @@ export const readingSessionsAPI = {
    * @param endPosition - End position (0-100%)
    * @returns Ended session with duration
    */
-  async endSession(
-    sessionId: string,
-    endPosition: number
-  ): Promise<ReadingSession> {
+  async endSession(sessionId: string, endPosition: number): Promise<ReadingSession> {
     const data: EndSessionRequest = {
       end_position: Math.round(Math.max(0, Math.min(100, endPosition))),
     };
@@ -192,9 +183,7 @@ export const readingSessionsAPI = {
    * @param limit - Max sessions to return
    * @returns Session history with pagination
    */
-  async getHistory(
-    params?: PaginationParams
-  ): Promise<ReadingSessionHistory> {
+  async getHistory(params?: PaginationParams): Promise<ReadingSessionHistory> {
     const searchParams = new URLSearchParams();
     if (params?.skip) searchParams.append('skip', params.skip.toString());
     if (params?.limit) searchParams.append('limit', params.limit.toString());
@@ -238,18 +227,12 @@ export const readingSessionsAPI = {
             break;
           case 'update':
             if (item.data.session_id && item.data.current_position !== undefined) {
-              await this.updateSession(
-                item.data.session_id,
-                item.data.current_position
-              );
+              await this.updateSession(item.data.session_id, item.data.current_position);
             }
             break;
           case 'end':
             if (item.data.session_id && item.data.end_position !== undefined) {
-              await this.endSession(
-                item.data.session_id,
-                item.data.end_position
-              );
+              await this.endSession(item.data.session_id, item.data.end_position);
             }
             break;
         }
@@ -267,7 +250,7 @@ export const readingSessionsAPI = {
 // Helper Functions
 // ============================================================================
 
-const PENDING_SESSIONS_KEY = 'bookreader_pending_sessions';
+const PENDING_SESSIONS_KEY = 'fancai_pending_sessions';
 
 interface PendingSession {
   type: 'start' | 'update' | 'end';

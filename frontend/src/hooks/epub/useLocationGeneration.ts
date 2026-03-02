@@ -33,7 +33,7 @@ interface UseLocationGenerationReturn {
   error: string | null;
 }
 
-const DB_NAME = 'BookReaderAI';
+const DB_NAME = 'FancaiCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'epub_locations';
 
@@ -120,7 +120,7 @@ export const useLocationGeneration = (
         if (!spine || !spine.items || spine.items.length === 0) {
           devLog('Warning: Spine not ready yet, waiting...');
           // Wait a bit more for spine to load
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
           // Check again
           if (!spine || !spine.items || spine.items.length === 0) {
@@ -156,10 +156,12 @@ export const useLocationGeneration = (
               setLocations(book.locations);
               setIsGenerating(false);
               locationsLoaded = true;
-
             } catch (loadErr) {
               // AUTO-CLEANUP: Remove corrupted cache data and regenerate
-              logger.warn('[useLocationGeneration] Corrupted cache detected, auto-cleaning:', loadErr);
+              logger.warn(
+                '[useLocationGeneration] Corrupted cache detected, auto-cleaning:',
+                loadErr
+              );
               devLog('Warning: Cached locations corrupted, clearing cache and regenerating...');
               await clearCachedLocations(bookId);
               // locationsLoaded stays false, will regenerate below
@@ -205,7 +207,6 @@ export const useLocationGeneration = (
 
         setLocations(book.locations);
         setIsGenerating(false);
-
       } catch (err) {
         logger.error('[useLocationGeneration] Error generating locations:', err);
         if (isMounted) {

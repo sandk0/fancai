@@ -32,15 +32,15 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const { t } = useTranslation();
 
   // Fetch images for the book
-  const { 
-    data: imagesResponse, 
-    isLoading, 
+  const {
+    data: imagesResponse,
+    isLoading,
     error,
-    refetch 
+    refetch,
   } = useQuery({
     queryKey: ['book-images', bookId, chapterNumber],
     queryFn: () => imagesAPI.getBookImages(bookId, chapterNumber),
@@ -52,29 +52,28 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   // Filter images based on search and filter criteria
   const filteredImages = React.useMemo(() => {
     let filtered = images;
-    
+
     // Apply filter by description type
     if (filter !== 'all') {
-      filtered = filtered.filter(img => 
-        img.description?.type === filter
-      );
+      filtered = filtered.filter((img) => img.description?.type === filter);
     }
-    
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(img =>
-        img.description?.content.toLowerCase().includes(query) ||
-        img.description?.type.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (img) =>
+          img.description?.content.toLowerCase().includes(query) ||
+          img.description?.type.toLowerCase().includes(query)
       );
     }
-    
+
     return filtered;
   }, [images, filter, searchQuery]);
 
   // Get unique description types for filter options
   const availableTypes = React.useMemo(() => {
-    const types = new Set(images.map(img => img.description?.type).filter(Boolean));
+    const types = new Set(images.map((img) => img.description?.type).filter(Boolean));
     return Array.from(types);
   }, [images]);
 
@@ -84,7 +83,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   const handleDownload = async (image: GeneratedImage) => {
     try {
-      const filename = `bookreader-${image.id}-${Date.now()}.jpg`;
+      const filename = `fancai-${image.id}-${Date.now()}.jpg`;
       await downloadWithAuth(image.image_url, filename);
       notify.success('Download Started', 'Image download has begun');
     } catch (error) {
@@ -142,9 +141,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
         <h3 className="text-lg font-medium text-foreground mb-2">
           {t('imageGallery.empty_title')}
         </h3>
-        <p className="text-muted-foreground max-w-sm mx-auto">
-          {t('imageGallery.empty_desc')}
-        </p>
+        <p className="text-muted-foreground max-w-sm mx-auto">{t('imageGallery.empty_desc')}</p>
       </div>
     );
   }
@@ -154,25 +151,19 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-foreground mb-1">
-            {t('imageGallery.title')}
-          </h2>
+          <h2 className="text-xl font-semibold text-foreground mb-1">{t('imageGallery.title')}</h2>
           <p className="text-muted-foreground">
             {t('imageGallery.count', { filtered: filteredImages.length, total: images.length })}
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-2 mt-4 sm:mt-0">
           <button
             onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
             className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
             title={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
           >
-            {viewMode === 'grid' ? (
-              <List className="h-5 w-5" />
-            ) : (
-              <Grid className="h-5 w-5" />
-            )}
+            {viewMode === 'grid' ? <List className="h-5 w-5" /> : <Grid className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -195,7 +186,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground"
         >
           <option value="all">{t('imageGallery.all_types')}</option>
-          {availableTypes.map(type => (
+          {availableTypes.map((type) => (
             <option key={type} value={type}>
               {(type ?? '').charAt(0).toUpperCase() + (type ?? '').slice(1)}
             </option>
@@ -236,20 +227,25 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                 />
 
                 {/* Overlay - hidden on mobile since actions are always visible */}
-                <div className={cn(
-                  "absolute inset-0 transition-colors flex items-center justify-center pointer-events-none",
-                  "bg-black/0 md:group-hover:bg-black/40",
-                  "opacity-0 md:group-hover:opacity-100"
-                )} aria-hidden="true">
+                <div
+                  className={cn(
+                    'absolute inset-0 transition-colors flex items-center justify-center pointer-events-none',
+                    'bg-black/0 md:group-hover:bg-black/40',
+                    'opacity-0 md:group-hover:opacity-100'
+                  )}
+                  aria-hidden="true"
+                >
                   <Eye className="h-8 w-8 text-white" />
                 </div>
               </div>
-              
+
               {/* Actions - always visible on mobile, hover-only on desktop */}
-              <div className={cn(
-                "absolute top-2 right-2 flex space-x-1 transition-opacity",
-                "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              )}>
+              <div
+                className={cn(
+                  'absolute top-2 right-2 flex space-x-1 transition-opacity',
+                  'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                )}
+              >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -271,7 +267,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   <Share2 className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-              
+
               {/* Info */}
               <div className="p-3">
                 <p className="text-sm text-muted-foreground line-clamp-2">
@@ -308,7 +304,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   rootMargin="100px"
                 />
               </div>
-              
+
               <div className="flex-1 min-w-0">
                 <p className="text-foreground text-sm font-medium line-clamp-2">
                   {image.description?.content || 'Generated image'}
@@ -319,7 +315,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   </span>
                 )}
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => handleImageClick(image)}
@@ -355,9 +351,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           <h3 className="text-lg font-medium text-foreground mb-2">
             {t('imageGallery.no_filtered')}
           </h3>
-          <p className="text-muted-foreground">
-            {t('imageGallery.no_filtered_hint')}
-          </p>
+          <p className="text-muted-foreground">{t('imageGallery.no_filtered_hint')}</p>
         </div>
       )}
 

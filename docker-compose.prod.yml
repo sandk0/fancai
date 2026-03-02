@@ -72,7 +72,7 @@ services:
     image: bookreader-backend:lite
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite.prod
+      dockerfile: Dockerfile.prod
     container_name: bookreader_backend
     environment:
       # Database
@@ -135,7 +135,7 @@ services:
     image: bookreader-backend:lite
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite.prod
+      dockerfile: Dockerfile.prod
     container_name: bookreader_celery
     command: >
       celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=100 --max-memory-per-child=512000 --prefetch-multiplier=1
@@ -185,7 +185,7 @@ services:
     image: bookreader-backend:lite
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite.prod
+      dockerfile: Dockerfile.prod
     container_name: bookreader_beat
     command: >
       celery -A app.core.celery_app beat --loglevel=${LOG_LEVEL:-info} --schedule=/tmp/celerybeat-schedule --pidfile=/tmp/celerybeat.pid

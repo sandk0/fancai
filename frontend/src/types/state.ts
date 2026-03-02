@@ -7,7 +7,7 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  
+
   // Actions
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName?: string) => Promise<void>;
@@ -86,7 +86,7 @@ export interface UIState {
   loadingMessage: string;
   sidebarOpen: boolean;
   mobileMenuOpen: boolean;
-  
+
   // Modals and dialogs
   showUploadModal: boolean;
   showSettingsModal: boolean;
@@ -115,10 +115,14 @@ export interface ProfileState {
   profile: UserProfile | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchProfile: () => Promise<void>;
-  updateProfile: (data: { full_name?: string; current_password?: string; new_password?: string }) => Promise<void>;
+  updateProfile: (data: {
+    full_name?: string;
+    current_password?: string;
+    new_password?: string;
+  }) => Promise<void>;
   clearError: () => void;
 }
 
@@ -132,12 +136,12 @@ export interface AppState {
 
 // Local Storage Keys
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: 'bookreader_access_token',
-  REFRESH_TOKEN: 'bookreader_refresh_token',
-  USER_DATA: 'bookreader_user_data',
-  READER_SETTINGS: 'bookreader_reader_settings',
-  THEME: 'bookreader_theme',
-  READING_PROGRESS_BACKUP: 'bookreader_reading_progress_backup',
+  AUTH_TOKEN: 'fancai_access_token',
+  REFRESH_TOKEN: 'fancai_refresh_token',
+  USER_DATA: 'fancai_user_data',
+  READER_SETTINGS: 'fancai_reader_settings',
+  THEME: 'fancai_theme',
+  READING_PROGRESS_BACKUP: 'fancai_reading_progress_backup',
 } as const;
 
 // Route Paths

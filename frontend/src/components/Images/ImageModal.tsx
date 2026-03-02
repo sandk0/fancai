@@ -31,7 +31,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   description,
   imageId,
   descriptionData,
-  onImageRegenerated
+  onImageRegenerated,
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -91,7 +91,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
   const handleDownload = async () => {
     try {
-      const filename = `bookreader-image-${Date.now()}.jpg`;
+      const filename = `fancai-image-${Date.now()}.jpg`;
       await downloadWithAuth(imageUrl, filename);
     } catch (error) {
       logger.error('[ImageModal] Download failed:', error);
@@ -135,7 +135,10 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         onImageRegenerated(result.image_url);
       }
 
-      notify.success(t('images.imageRegenerated'), t('images.newImageGenerated').replace('{time}', result.generation_time.toFixed(1)));
+      notify.success(
+        t('images.imageRegenerated'),
+        t('images.newImageGenerated').replace('{time}', result.generation_time.toFixed(1))
+      );
     } catch (error) {
       logger.error('Regeneration failed:', error);
       notify.error(t('images.regenerationFailed'), t('images.regenerationFailedDesc'));
@@ -199,7 +202,11 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         >
           <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
             <div className="flex items-start justify-between gap-2">
-              <ImageMetadata title={title} description={description} descriptionData={descriptionData} />
+              <ImageMetadata
+                title={title}
+                description={description}
+                descriptionData={descriptionData}
+              />
               <ImageControls
                 isZoomed={isZoomed}
                 isRegenerating={isRegenerating}
