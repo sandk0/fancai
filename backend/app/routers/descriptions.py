@@ -90,7 +90,7 @@ async def get_chapter_descriptions(
         except LLMUnavailableError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="LLM processor unavailable. Check GOOGLE_API_KEY.",
+                detail="LLM processor unavailable. Check OPENROUTER_API_KEY.",
             )
         except ExtractionLockError:
             raise HTTPException(

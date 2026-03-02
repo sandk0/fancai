@@ -1,12 +1,7 @@
 # =============================================================================
-# Production Docker Compose for BookReader AI - Lite Version (LangExtract only)
+# Production Docker Compose for fancai
 # =============================================================================
-# Production deployment without NLP libraries.
-# Uses LangExtract (Google Gemini API) for description parsing.
-#
-# Requirements:
-# - LANGEXTRACT_API_KEY in .env file
-# - Server in supported region (US, EU, etc.)
+# Production deployment — all AI via OpenRouter (LLM + images).
 #
 # Memory requirements (optimized for 32GB server, 12 vCPU):
 # - PostgreSQL: 12GB (with shared_buffers=8GB)
@@ -98,14 +93,7 @@ services:
       # CORS and Domain
       - CORS_ORIGINS=${DOMAIN_URL:-http://localhost}
       - ALLOWED_HOSTS=${DOMAIN_NAME:-localhost},localhost,127.0.0.1
-      # LangExtract (PRIMARY PARSER)
-      - USE_LANGEXTRACT_PRIMARY=true
-      - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY:?LANGEXTRACT_API_KEY is required}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
-      # Disable NLP processors
-      - USE_ADVANCED_PARSER=false
-      - USE_NLP_PROCESSORS=false
-      # AI — OpenRouter
+      # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
@@ -159,13 +147,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # LangExtract
-      - USE_LANGEXTRACT_PRIMARY=true
-      - LANGEXTRACT_API_KEY=${LANGEXTRACT_API_KEY}
-      - LANGEXTRACT_MODEL=${LANGEXTRACT_MODEL:-gemini-3-flash-preview}
-      - USE_ADVANCED_PARSER=false
-      - USE_NLP_PROCESSORS=false
-      # AI — OpenRouter
+      # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}

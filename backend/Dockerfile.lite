@@ -1,7 +1,7 @@
 # =============================================================================
-# Lightweight Dockerfile for Backend (LangExtract only, no NLP libraries)
+# Development Dockerfile for fancai Backend
 # =============================================================================
-# This is a lightweight version without heavy NLP dependencies:
+# Lightweight version without heavy NLP dependencies:
 # - No SpaCy models (~500MB)
 # - No Stanza models (~630MB)
 # - No GLiNER models (~500MB)
@@ -18,11 +18,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/app \
-    # LangExtract as primary parser (disable NLP processors)
-    USE_LANGEXTRACT_PRIMARY=true \
-    USE_ADVANCED_PARSER=false \
-    USE_NLP_PROCESSORS=false
+    PYTHONPATH=/app
 
 # Install system dependencies (minimal set)
 RUN apt-get update && apt-get install -y \

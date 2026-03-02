@@ -119,7 +119,7 @@ class ImageGeneratorService:
         if not self.imagen_service.is_available():
             return ImageGenerationResult(
                 success=False,
-                error_message="Image generation service not available. Check GOOGLE_API_KEY.",
+                error_message="Image generation service not available. Check OPENROUTER_API_KEY.",
             )
 
         # Generate using Imagen

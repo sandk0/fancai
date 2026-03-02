@@ -498,11 +498,7 @@ class GeminiDirectExtractor:
     def __init__(self, config: Optional[GeminiConfig] = None):
         """Инициализация экстрактора."""
         self.config = config or GeminiConfig()
-        self.config.api_key = (
-            self.config.api_key
-            or os.getenv("OPENROUTER_API_KEY")
-            or os.getenv("LANGEXTRACT_API_KEY")
-        )
+        self.config.api_key = self.config.api_key or os.getenv("OPENROUTER_API_KEY")
 
         self.chunker = RecursiveTextChunker(self.config)
 
