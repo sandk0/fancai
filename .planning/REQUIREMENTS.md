@@ -83,8 +83,8 @@
 - [x] **INT-03**: Добавить HAWK_TOKEN в environment celery-worker и celery-beat в docker-compose.prod.yml
 - [x] **INT-04**: Добавить LANGEXTRACT_MODEL в environment celery-beat в docker-compose.prod.yml
 - [x] **INT-05**: Добавить MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD в .env.example
-- [ ] **REBRAND-01**: Переименовать все Docker-контейнеры, образы, сети с bookreader_* на fancai_* (prod/dev)
-- [ ] **REBRAND-02**: Переименовать APP_NAME, DB defaults, Celery app name, localStorage/IndexedDB ключи с bookreader на fancai
+- [x] **REBRAND-01**: Переименовать все Docker-контейнеры, образы, сети с bookreader_* на fancai_* (prod/dev)
+- [x] **REBRAND-02**: Переименовать APP_NAME, DB defaults, Celery app name, localStorage/IndexedDB ключи с bookreader на fancai
 
 ### Полировка ридера
 
@@ -196,7 +196,7 @@
 | INT-04 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
 | INT-05 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
 | REBRAND-01 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
-| REBRAND-02 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| REBRAND-02 | Фаза 4.1: Фиксы интеграции и ребрендинг | Завершено |
 
 **Покрытие:**
 - Требований v1: 52 всего (45 исходных + 7 из аудита v1.0)

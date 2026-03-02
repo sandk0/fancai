@@ -115,8 +115,8 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04.1-01-PLAN.md — Очистка Gemini/LangExtract легаси + интеграционные фиксы: удаление мёртвых переменных, Docker-сеть, HAWK_TOKEN, .env.example (INT-01, INT-02, INT-03, INT-04, INT-05)
-- [ ] 04.1-02-PLAN.md — Переименование Dockerfiles + ребрендинг Docker/Backend: Dockerfile.dev/prod, контейнеры, образы, celery, config, CI (REBRAND-01, REBRAND-02)
+- [x] 04.1-01-PLAN.md — Очистка Gemini/LangExtract легаси + интеграционные фиксы: удаление мёртвых переменных, Docker-сеть, HAWK_TOKEN, .env.example (INT-01, INT-02, INT-03, INT-04, INT-05)
+- [x] 04.1-02-PLAN.md — Переименование Dockerfiles + ребрендинг Docker/Backend: Dockerfile.dev/prod, контейнеры, образы, celery, config, CI (REBRAND-01, REBRAND-02)
 - [ ] 04.1-03-PLAN.md — Ребрендинг Frontend + Scripts: localStorage, IndexedDB, download filenames, shell-скрипты (REBRAND-02)
 
 ### Phase 5: Стабильность AI-пайплайна
@@ -189,7 +189,7 @@ Plans:
 | 2. Очистка мертвого кода | 2/2 | Complete   | 2026-03-01 |
 | 3. Миграция сервисов | 4/4 | Complete   | 2026-03-01 |
 | 4. Обслуживание инфраструктуры | 3/3 | Complete   | 2026-03-02 |
-| 4.1. Фиксы интеграции и ребрендинг | 0/3 | Не начата | - |
+| 4.1. Фиксы интеграции и ребрендинг | 2/3 | В процессе | - |
 | 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
 | 6. Качество Entity Wiki | 0/2 | Не начата | - |
 | 7. Обработка ошибок и UX | 0/1 | Не начата | - |
