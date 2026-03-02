@@ -54,6 +54,44 @@ fancai.ru {
     }
 }
 
+# Мониторинг-дашборд — basicauth + reverse_proxy к 5 сервисам
+monitor.fancai.ru {
+    encode zstd gzip
+
+    basic_auth {
+        admin {$MONITOR_PASSWORD_HASH}
+    }
+
+    handle /netdata/* {
+        uri strip_prefix /netdata
+        reverse_proxy localhost:19999
+    }
+
+    handle /victoria/* {
+        uri strip_prefix /victoria
+        reverse_proxy localhost:8428
+    }
+
+    handle /uptime/* {
+        uri strip_prefix /uptime
+        reverse_proxy localhost:3001
+    }
+
+    handle /dozzle/* {
+        uri strip_prefix /dozzle
+        reverse_proxy localhost:8080
+    }
+
+    handle /flower/* {
+        uri strip_prefix /flower
+        reverse_proxy localhost:5555
+    }
+
+    handle {
+        redir /netdata/ permanent
+    }
+}
+
 # www -> non-www редирект
 www.fancai.ru {
     redir https://fancai.ru{uri} permanent

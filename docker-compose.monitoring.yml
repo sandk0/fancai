@@ -1,114 +1,128 @@
-# Monitoring and logging stack for BookReader AI
+# Мониторинг-стек fancai v2
+# 5 сервисов: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower
+# Заменяет: Grafana + Prometheus + Loki + Promtail + Node Exporter + cAdvisor
+# Экономия RAM: ~1.5GB -> ~500MB
 # Note: version field removed (obsolete in Compose V2)
 
 services:
-  # Grafana for metrics visualization
-  grafana:
-    image: grafana/grafana:11.3.0
-    container_name: bookreader_grafana
+  # ─── Netdata — системные метрики хоста + бизнес-метрики fancai ───────────────
+  netdata:
+    image: netdata/netdata:stable
+    container_name: bookreader_netdata
+    pid: host
+    network_mode: host
     restart: unless-stopped
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_SERVER_ROOT_URL=https://fancai.ru/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
-    volumes:
-      - ./monitoring/grafana/data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./monitoring/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
-    networks:
-      - bookreader_network
-
-  # Prometheus for metrics collection
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: bookreader_prometheus
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-      - '--web.external-url=/prometheus/'
-      - '--web.route-prefix=/'
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./monitoring/prometheus/alerts:/etc/prometheus/alerts
-      - ./monitoring/prometheus/data:/prometheus
-    networks:
-      - bookreader_network
-
-  # Node Exporter for system metrics
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: bookreader_node_exporter
-    restart: unless-stopped
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    networks:
-      - bookreader_network
-
-  # cAdvisor for container metrics
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: bookreader_cadvisor
-    restart: unless-stopped
-    # Security: Remove privileged mode, use specific capabilities instead
     cap_add:
+      - SYS_PTRACE
       - SYS_ADMIN
     security_opt:
-      - apparmor=unconfined
+      - apparmor:unconfined
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /cgroup:/cgroup:ro
-    networks:
-      - bookreader_network
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /:/host/root:ro,rslave
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Кастомные конфиги
+      - ./monitoring/netdata/go.d/prometheus.conf:/etc/netdata/go.d/prometheus.conf:ro
+      - ./monitoring/netdata/exporting.conf:/etc/netdata/exporting.conf:ro
+      - ./monitoring/netdata/health.d/fancai.conf:/etc/netdata/health.d/fancai.conf:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    # ВАЖНО: network_mode=host — НЕ включать в bridge-сети
 
-  # Loki for log aggregation
-  loki:
-    image: grafana/loki:latest
-    container_name: bookreader_loki
+  # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:stable
+    container_name: bookreader_victoriametrics
     restart: unless-stopped
+    ports:
+      - "8428:8428"
     volumes:
-      - ./monitoring/loki/config.yml:/etc/loki/local-config.yaml
-      - ./monitoring/loki/data:/loki
+      - vm_data:/storage
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=90d
+      - -selfScrapeInterval=10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
     networks:
-      - bookreader_network
+      - monitoring_net
 
-  # Promtail for log collection
-  promtail:
-    image: grafana/promtail:latest
-    container_name: bookreader_promtail
+  # ─── Uptime Kuma — мониторинг доступности сервисов ───────────────────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: bookreader_uptime_kuma
     restart: unless-stopped
+    ports:
+      - "3001:3001"
     volumes:
-      - ./logs:/var/log/bookreader:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml
+      - kuma_data:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: 128M
     networks:
-      - bookreader_network
+      - monitoring_net
 
-networks:
-  bookreader_network:
-    name: bookreader_lite_network
-    external: true
+  # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
+  dozzle:
+    image: amir20/dozzle:v10
+    container_name: bookreader_dozzle
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOZZLE_ENABLE_ACTIONS=true
+      - DOZZLE_AUTH_PROVIDER=none
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    networks:
+      - monitoring_net
+
+  # ─── Flower — мониторинг Celery задач и воркеров ─────────────────────────────
+  flower:
+    image: mher/flower:2
+    container_name: bookreader_flower
+    restart: unless-stopped
+    command: >
+      celery
+      --broker=redis://:${REDIS_PASSWORD}@redis:6379/1
+      flower
+      --port=5555
+      --address=0.0.0.0
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - monitoring_net
+      - bookreader_network  # Flower нужен доступ к Redis в основной сети
 
 volumes:
-  grafana_data:
-  prometheus_data:
-  loki_data:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
+  vm_data:
+  kuma_data:
+
+networks:
+  monitoring_net:
+    driver: bridge
+  bookreader_network:
+    external: true
+    name: bookreader_lite_network
