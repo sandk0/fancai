@@ -78,11 +78,11 @@
 
 ### Интеграция и ребрендинг (пробелы аудита v1.0)
 
-- [ ] **INT-01**: Исправить несоответствие имени Docker-сети между prod.yml и monitoring.yml, переименовать на fancai_prod
-- [ ] **INT-02**: Добавить OPENROUTER_API_KEY и OPENROUTER_IMAGE_MODEL в .env.example с инструкцией
-- [ ] **INT-03**: Добавить HAWK_TOKEN в environment celery-worker и celery-beat в docker-compose.prod.yml
-- [ ] **INT-04**: Добавить LANGEXTRACT_MODEL в environment celery-beat в docker-compose.prod.yml
-- [ ] **INT-05**: Добавить MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD в .env.example
+- [x] **INT-01**: Исправить несоответствие имени Docker-сети между prod.yml и monitoring.yml, переименовать на fancai_prod
+- [x] **INT-02**: Добавить OPENROUTER_API_KEY и OPENROUTER_IMAGE_MODEL в .env.example с инструкцией
+- [x] **INT-03**: Добавить HAWK_TOKEN в environment celery-worker и celery-beat в docker-compose.prod.yml
+- [x] **INT-04**: Добавить LANGEXTRACT_MODEL в environment celery-beat в docker-compose.prod.yml
+- [x] **INT-05**: Добавить MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD в .env.example
 - [ ] **REBRAND-01**: Переименовать все Docker-контейнеры, образы, сети с bookreader_* на fancai_* (prod/dev)
 - [ ] **REBRAND-02**: Переименовать APP_NAME, DB defaults, Celery app name, localStorage/IndexedDB ключи с bookreader на fancai
 
