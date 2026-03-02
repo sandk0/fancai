@@ -90,10 +90,10 @@ Plans:
   4. React обновлён до 19.2.x, TypeScript до 5.9.x — приложение собирается и тесты проходят
   5. PostgreSQL сконфигурирован для 32GB RAM: shared_buffers=8GB, effective_cache_size=24GB, huge_pages=try, wal_compression=zstd
   6. Docker images зафиксированы на конкретных patch-версиях
-**Plans:** 3 plans
+**Plans:** 1/3 plans complete
 
 Plans:
-- [ ] 04-01-PLAN.md — Бизнес-метрики: подключение instrumentator, новые Prometheus-счётчики, таблица llm_usage_log, wiring в openrouter_client/auth/rate_limit (OPS-01)
+- [x] 04-01-PLAN.md — Бизнес-метрики: подключение instrumentator, новые Prometheus-счётчики, таблица llm_usage_log, wiring в openrouter_client/auth/rate_limit (OPS-01)
 - [ ] 04-02-PLAN.md — Мониторинг-стек: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower, Caddyfile для monitor.fancai.ru, удаление старого стека (OPS-01, OPS-02, OPS-03)
 - [ ] 04-03-PLAN.md — Обновление npm/pip зависимостей, PostgreSQL тюнинг для 32GB RAM, pin Docker images (OPS-04, OPS-05, OPS-06, OPS-07)
 

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-01T21:12:00.000Z"
+last_updated: "2026-03-02T01:20:00.000Z"
 progress:
   total_phases: 8
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 6
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Состояние проекта
@@ -18,37 +18,38 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-02-27)
 
 **Ключевая ценность:** Стабильное AI-приложение для чтения книг со спойлер-защищенной Entity Wiki и AI-иллюстрациями — работает надежно, без сбоев и визуальных глюков
-**Текущий фокус:** Фаза 3: Миграция сервисов
+**Текущий фокус:** Фаза 4: Обслуживание инфраструктуры
 
 ## Текущая позиция
 
-Фаза: 3 из 8 (Миграция сервисов)
-План: 4 из 4 в текущей фазе — Plan 03-03 ЗАВЕРШЁН
-Статус: Plan 03-03 выполнен. imagen_generator мигрирован на OpenRouter FLUX.2 Klein 4B, google-genai SDK удалён полностью. Rate limiting расширен: per-user ID, JSON 429, AI presets, применён к 4 AI-эндпоинтам.
-Последняя активность: 2026-03-02 — Plan 03-03 выполнен (3/3 задачи, ~15 мин). MIGR-04.1, MIGR-08 закрыты.
+Фаза: 4 из 8 (Обслуживание инфраструктуры)
+План: 1 из 3 в текущей фазе — Plan 04-01 ЗАВЕРШЁН
+Статус: Plan 04-01 выполнен. Активированы бизнес-метрики Wave 1+2: подключены Instrumentator + ReadingSessionsMetricsMiddleware, добавлены 5 новых Prometheus Counter, создана таблица llm_usage_log, wiring в openrouter_client/auth/rate_limit.
+Последняя активность: 2026-03-02 — Plan 04-01 выполнен (2/2 задачи, ~7 мин). OPS-01 закрыт.
 
-Прогресс: [████████░░] 44%
+Прогресс: [█████████░] 50%
 
 ## Метрики производительности
 
 **Скорость:**
 
-- Всего планов выполнено: 6
-- Средняя продолжительность: ~29 мин
-- Общее время выполнения: ~2.8 часа
+- Всего планов выполнено: 7
+- Средняя продолжительность: ~26 мин
+- Общее время выполнения: ~3.0 часа
 
 **По фазам:**
 
-| Фаза                    | Планы | Всего    | Среднее/План |
-| ----------------------- | ----- | -------- | ------------ |
-| 01-production-safety    | 2/2   | ~60 мин  | ~30 мин      |
-| 02-dead-code-cleanup    | 2/2   | ~39 мин  | ~20 мин      |
-| 03-migration-services   | 4/4   | ~129 мин | ~32 мин      |
+| Фаза                         | Планы | Всего    | Среднее/План |
+| ---------------------------- | ----- | -------- | ------------ |
+| 01-production-safety         | 2/2   | ~60 мин  | ~30 мин      |
+| 02-dead-code-cleanup         | 2/2   | ~39 мин  | ~20 мин      |
+| 03-migration-services        | 4/4   | ~129 мин | ~32 мин      |
+| 04-infrastructure-maintenance| 1/3   | ~7 мин   | ~7 мин       |
 
 **Недавний тренд:**
 
-- Последние 7 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин)
-- Тренд: Инфра-планы требуют больше времени (~40-45 мин) из-за интеграции компонентов и верификации; TDD-планы ~30-35 мин
+- Последние 8 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин)
+- Тренд: TDD-планы с только wiring быстрее (~7-15 мин); инфра-планы с новыми компонентами медленнее (~40-45 мин)
 
 _Обновляется после завершения каждого плана_
 
@@ -89,6 +90,10 @@ _Обновляется после завершения каждого план�
 - [03-03]: FLUX.2 Klein 4B не имеет встроенного safety filter (в отличие от Imagen 4) — SFW-защита через суффикс "SFW, safe for work, appropriate content" в промпте
 - [03-03]: Python 3.14 LOAD_GLOBAL specialization (PEP 659) — patch('...rate_limiter') не работает; используется monkey-patch на классе RateLimiter
 - [03-03]: generate_images_for_chapter: параметр 'request: BatchGenerationRequest' переименован в 'body' чтобы освободить имя 'request' для fastapi.Request
+- [04-01]: Instrumentator().instrument(app) без expose() — существующий /metrics endpoint в health.py уже работает
+- [04-01]: _log_usage_to_db() через asyncio.create_task() — fire-and-forget, не блокирует LLM поток
+- [04-01]: protect-files.sh блокирует Write tool для alembic/versions/ → миграция создаётся через bash heredoc
+- [04-01]: Alembic миграция создана вручную (без autogenerate) из-за отсутствия локальной БД
 
 ### Ожидающие задачи
 
@@ -106,5 +111,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-02
-Остановились на: Plan 03-03 завершён. Все 5 AI-сервисов на OpenRouter, google-genai удалён. Rate limiting расширен per-user/per-IP, AI presets, 4 AI-эндпоинта защищены. 106 тестов проходят. Фаза 03 полностью завершена.
-Файл возобновления: .planning/phases/03-migration-services/03-03-SUMMARY.md
+Остановились на: Plan 04-01 завершён. Бизнес-метрики Wave 1+2 активированы: prometheus-fastapi-instrumentator подключён, ReadingSessionsMetricsMiddleware + gauges background task в main.py, 5 новых Counter, LlmUsageLog модель + Alembic миграция, wiring в openrouter_client/auth/rate_limit. 28 новых TDD-тестов проходят. Следующий: Plan 04-02 (мониторинг-стек: Netdata + VictoriaMetrics + Uptime Kuma).
+Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-01-SUMMARY.md
