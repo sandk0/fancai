@@ -209,7 +209,7 @@ jobs:
       - name: Build backend image
         run: |
           cd backend
-          docker build -t bookreader-backend:test -f Dockerfile .
+          docker build -t fancai-backend:test -f Dockerfile.prod .
 
       - name: Check disk space after build
         run: |
@@ -219,7 +219,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (backend)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: bookreader-backend:test
+          image-ref: fancai-backend:test
           format: 'sarif'
           output: 'trivy-backend-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -247,7 +247,7 @@ jobs:
       - name: Run Trivy in table format
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: bookreader-backend:test
+          image-ref: fancai-backend:test
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -271,7 +271,7 @@ jobs:
       - name: Build frontend image
         run: |
           cd frontend
-          docker build -t bookreader-frontend:test -f Dockerfile .
+          docker build -t fancai-frontend:test -f Dockerfile.prod .
 
       - name: Check disk space after build
         run: |
@@ -281,7 +281,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (frontend)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: bookreader-frontend:test
+          image-ref: fancai-frontend:test
           format: 'sarif'
           output: 'trivy-frontend-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -309,7 +309,7 @@ jobs:
       - name: Run Trivy in table format
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: bookreader-frontend:test
+          image-ref: fancai-frontend:test
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH,MEDIUM'

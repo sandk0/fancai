@@ -92,10 +92,6 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio httpx
 
-      - name: Download NLP models
-        run: |
-          pip install https://github.com/explosion/spacy-models/releases/download/ru_core_news_sm-3.7.0/ru_core_news_sm-3.7.0-py3-none-any.whl
-
       - name: Wait for PostgreSQL
         run: |
           echo "Waiting for PostgreSQL to be ready..."
@@ -321,7 +317,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          file: ./backend/Dockerfile
+          file: ./backend/Dockerfile.prod
           push: false
           tags: bookreader-backend:test
           cache-from: type=gha
@@ -331,7 +327,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          file: ./frontend/Dockerfile
+          file: ./frontend/Dockerfile.prod
           push: false
           tags: bookreader-frontend:test
           cache-from: type=gha

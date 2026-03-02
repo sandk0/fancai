@@ -4,6 +4,7 @@ import { retryPendingSync } from '@/services/syncQueue';
 import { registerPeriodicSync } from '@/utils/serviceWorker';
 import { tabSync } from '@/services/tabSync';
 import { logger } from '@/lib/logger';
+import { STORAGE_KEYS } from '@/types/state';
 
 // Main store exports
 export { useAuthStore } from './auth';
@@ -15,14 +16,14 @@ export const initializeStores = () => {
   tabSync.init();
 
   try {
-    const theme = localStorage.getItem('bookreader_theme') || 'light';
+    const theme = localStorage.getItem(STORAGE_KEYS.THEME) || 'light';
     const root = document.documentElement;
     root.classList.remove('light', 'dark', 'sepia');
     root.classList.add(theme);
   } catch (error) {
     logger.warn('Failed to initialize theme:', error);
   }
-  
+
   // Auth store initialization is handled by Zustand persist's onRehydrateStorage
   // DO NOT call loadUserFromStorage here - it causes duplicate API calls and race conditions
 
@@ -45,7 +46,9 @@ export const initializeStores = () => {
       if (registered) {
         logger.debug('[Stores] Periodic Background Sync registered');
       } else {
-        logger.debug('[Stores] Periodic Background Sync not available (iOS/Firefox or not installed as PWA)');
+        logger.debug(
+          '[Stores] Periodic Background Sync not available (iOS/Firefox or not installed as PWA)'
+        );
       }
     } catch (error) {
       logger.debug('[Stores] Periodic Sync registration failed:', error);
@@ -60,13 +63,13 @@ export const initializeStores = () => {
  */
 export const cleanupStores = () => {
   logger.debug('[Stores] Cleaning up...');
-  
+
   // Stop storage monitoring interval
   stopStorageMonitoring();
-  
+
   imageCache.destroy();
 
   tabSync.destroy();
-  
+
   logger.debug('[Stores] Cleanup complete');
 };

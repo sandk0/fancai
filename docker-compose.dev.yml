@@ -71,7 +71,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite
+      dockerfile: Dockerfile.dev
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: fancai_backend_dev
@@ -126,7 +126,7 @@ services:
   celery-worker:
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite
+      dockerfile: Dockerfile.dev
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: fancai_celery_dev
@@ -164,7 +164,7 @@ services:
   celery-beat:
     build:
       context: ./backend
-      dockerfile: Dockerfile.lite
+      dockerfile: Dockerfile.dev
     container_name: fancai_beat_dev
     user: root
     environment:

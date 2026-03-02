@@ -139,7 +139,7 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
   try {
     if ('caches' in window) {
       const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
       result.serviceWorkerCacheCleared = true;
       logger.debug(`✅ [CacheManager] Service Worker cache cleared (${cacheNames.length} caches)`);
     } else {
@@ -166,7 +166,7 @@ export async function clearAllCaches(): Promise<ClearCacheResult> {
 
   // 7. Clear pending_sessions localStorage (HIGH priority)
   try {
-    localStorage.removeItem('bookreader_pending_sessions');
+    localStorage.removeItem('fancai_pending_sessions');
     result.pendingSessionsCleared = true;
     logger.debug('✅ [CacheManager] Pending sessions localStorage cleared');
   } catch (error) {
@@ -224,7 +224,7 @@ export function invalidateQueries(queryKey: string[]): void {
  * CRITICAL: Must be cleared on logout to prevent data leakage between users
  */
 async function clearEpubLocationsDB(): Promise<void> {
-  const DB_NAME = 'BookReaderAI';
+  const DB_NAME = 'FancaiCache';
   const STORE_NAME = 'epub_locations';
 
   return new Promise((resolve, reject) => {
@@ -262,7 +262,10 @@ async function clearEpubLocationsDB(): Promise<void> {
           };
 
           clearRequest.onerror = () => {
-            logger.error('❌ [CacheManager] Failed to clear EPUB locations store:', clearRequest.error);
+            logger.error(
+              '❌ [CacheManager] Failed to clear EPUB locations store:',
+              clearRequest.error
+            );
             db.close();
             reject(clearRequest.error);
           };
@@ -292,7 +295,10 @@ export interface ReadingProgressBackup {
   data: {
     readingProgress: Record<string, ReadingProgress>;
     bookmarks: Record<string, { chapter: number; page: number; text: string; createdAt: Date }[]>;
-    highlights: Record<string, { id: string; chapter: number; text: string; color: string; createdAt: Date }[]>;
+    highlights: Record<
+      string,
+      { id: string; chapter: number; text: string; color: string; createdAt: Date }[]
+    >;
   };
   savedAt: number;
   userId: string;
@@ -324,8 +330,14 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
 
   // Count items for logging
   const progressCount = Object.keys(backup.data.readingProgress).length;
-  const bookmarkCount = Object.values(backup.data.bookmarks).reduce((sum, arr) => sum + arr.length, 0);
-  const highlightCount = Object.values(backup.data.highlights).reduce((sum, arr) => sum + arr.length, 0);
+  const bookmarkCount = Object.values(backup.data.bookmarks).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  );
+  const highlightCount = Object.values(backup.data.highlights).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  );
 
   logger.debug('💾 [CacheManager] Backup created:', {
     progressCount,
@@ -403,8 +415,14 @@ export function restoreReadingProgress(userId: string): boolean {
 
     // Count restored items for logging
     const progressCount = Object.keys(backup.data.readingProgress).length;
-    const bookmarkCount = Object.values(backup.data.bookmarks).reduce((sum, arr) => sum + arr.length, 0);
-    const highlightCount = Object.values(backup.data.highlights).reduce((sum, arr) => sum + arr.length, 0);
+    const bookmarkCount = Object.values(backup.data.bookmarks).reduce(
+      (sum, arr) => sum + arr.length,
+      0
+    );
+    const highlightCount = Object.values(backup.data.highlights).reduce(
+      (sum, arr) => sum + arr.length,
+      0
+    );
 
     logger.debug('✅ [CacheManager] Reading progress restored:', {
       progressCount,
