@@ -101,10 +101,10 @@ Plans:
 ### Phase 4.1: Фиксы интеграции и ребрендинг (INSERTED)
 **Goal:** Все интеграционные пробелы аудита v1.0 закрыты — Docker-сети совпадают, env-переменные задокументированы, Hawk/Celery правильно сконфигурированы. Проект полностью ребрендирован с bookreader на fancai во всех конфигурациях, Docker-образах, контейнерах и хранилищах
 **Depends on:** Phase 4
-**Requirements**: INT-01, INT-02, INT-03, INT-04, INT-05 (интеграционные пробелы аудита)
+**Requirements**: INT-01, INT-02, INT-03, INT-04, INT-05
 **Gap Closure:** Закрывает пробелы из аудита v1.0
 **Критерии успеха** (что должно быть ИСТИННО):
-  1. Docker-сеть в prod.yml и monitoring.yml использует одинаковое имя `fancai_prod` — мониторинг-стек стартует без ошибок
+  1. Docker-сеть в prod.yml и monitoring.yml использует одинаковое имя `fancai_network` — мониторинг-стек стартует без ошибок
   2. OPENROUTER_API_KEY и OPENROUTER_IMAGE_MODEL задокументированы в .env.example с инструкцией
   3. HAWK_TOKEN передаётся в celery-worker и celery-beat через docker-compose.prod.yml
   4. LANGEXTRACT_MODEL передаётся в celery-beat через docker-compose.prod.yml
@@ -112,10 +112,11 @@ Plans:
   6. Все Docker-контейнеры, образы и сети используют префикс fancai_ вместо bookreader_
   7. Celery app name, DB defaults, localStorage/IndexedDB ключи переименованы с bookreader на fancai
   8. APP_NAME во всех .env файлах — «fancai» (не «BookReader AI»)
-**Plans:** 0/1
+**Plans:** 2 plans
 
 Plans:
-- [ ] 04.1-01-PLAN.md — Закрытие интеграционных пробелов аудита + ребрендинг bookreader → fancai
+- [ ] 04.1-01-PLAN.md — Интеграционные фиксы: Docker-сети, env-переменные в Celery, .env.example (INT-01, INT-02, INT-03, INT-04, INT-05)
+- [ ] 04.1-02-PLAN.md — Ребрендинг bookreader -> fancai: Docker, backend, frontend, CI, скрипты (REBRAND-01, REBRAND-02)
 
 ### Phase 5: Стабильность AI-пайплайна
 **Goal:** AI-пайплайн извлечения деградирует изящно под нагрузкой и при сбоях API — большие книги обрабатываются без зависаний, rate limits соблюдаются, временные сбои не каскадируют
@@ -187,7 +188,7 @@ Plans:
 | 2. Очистка мертвого кода | 2/2 | Complete   | 2026-03-01 |
 | 3. Миграция сервисов | 4/4 | Complete   | 2026-03-01 |
 | 4. Обслуживание инфраструктуры | 3/3 | Complete   | 2026-03-02 |
-| 4.1. Фиксы интеграции и ребрендинг | 0/1 | Не начата | - |
+| 4.1. Фиксы интеграции и ребрендинг | 0/2 | Не начата | - |
 | 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
 | 6. Качество Entity Wiki | 0/2 | Не начата | - |
 | 7. Обработка ошибок и UX | 0/1 | Не начата | - |
