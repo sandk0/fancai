@@ -1,6 +1,6 @@
 # Phase 4: Обслуживание инфраструктуры - Context
 
-**Gathered:** 2026-03-02
+**Gathered:** 2026-03-02 (v3, после глубокого аудита)
 **Status:** Ready for planning
 
 <domain>
@@ -16,65 +16,67 @@
 ### Мониторинг-стек: замена существующего
 
 - **Удалить полностью** старый стек: `docker-compose.monitoring.yml` (Grafana 11.3 + Prometheus + Loki + Promtail + Node Exporter + cAdvisor — 6 контейнеров, ~1.5GB RAM)
-- Удалить директорию `monitoring/` (конфиги Grafana, Prometheus, Loki, Promtail)
-- **Новый стек** (5 контейнеров, ~450MB RAM):
-  - **Netdata v2.8** — системные метрики, Docker-контейнеры, Prometheus scraping, авто-дашборды, Telegram-алерты (~200MB RAM)
-  - **VictoriaMetrics single-node** — долгосрочное хранение метрик 12+ месяцев с полным разрешением, MetricsQL (~100MB RAM)
-  - **Uptime Kuma :2** — мониторинг доступности, расширенный набор (~80MB RAM)
-  - **Dozzle v9.0** — просмотр логов Docker-контейнеров (~30-50MB RAM)
-  - **celery-exporter** — метрики очередей и задач Celery (~50MB RAM)
+- Удалить директорию `monitoring/` (конфиги Grafana, Prometheus, Loki, Promtail), **но сохранить `monitoring/prometheus/alerts/` как reference** для настройки алертов Netdata (17 alert rules, 88 дашборд-панелей — не мигрировать формально, использовать как шпаргалку)
+- **Новый стек** (5 контейнеров, ~500-600MB RAM):
+  - **Netdata v2.8** — системные метрики, Docker-контейнеры, PostgreSQL и Redis (built-in), Prometheus scraping `/metrics` endpoint, авто-дашборды, Telegram-алерты, 400+ предустановленных алертов (~150-200MB RAM)
+  - **VictoriaMetrics single-node** — долгосрочное хранение метрик с первого дня, MetricsQL (надмножество PromQL), 7-10x эффективнее Prometheus по диску, remote_write из Netdata (~50-100MB RAM)
+  - **Uptime Kuma 2.1** — мониторинг доступности endpoint'ов и Docker-контейнеров, Telegram с кастомными шаблонами, 90+ каналов уведомлений (~80MB RAM)
+  - **Dozzle v10** — просмотр логов Docker в реальном времени, SQL-поиск, shell-доступ к контейнерам, вебхуки (~20MB RAM)
+  - **Flower v2** — Celery Web UI + Prometheus /metrics в одном контейнере, мониторинг очередей, история задач, дебаг (~50-100MB RAM)
 - Размещение: **отдельный `docker-compose.monitoring.yml`** (можно поднимать/опускать мониторинг независимо от основного приложения)
 
 ### Мониторинг: алерты и мониторы
 
-- Алерты при даунтайме: **Telegram-бот** (встроенная поддержка Netdata + Uptime Kuma)
-- Мониторы Uptime Kuma: **расширенный набор** — fancai.ru (главная), `/api/v1/health` (бэкенд + БД + Redis), прямой пинг PostgreSQL, Redis, Celery worker внутри Docker-сети (5+ мониторов)
+- Алерты при даунтайме: **Telegram-бот** (встроенная поддержка Netdata + Uptime Kuma + Flower)
+- Мониторы Uptime Kuma: **расширенный набор** — fancai.ru (главная), `/api/v1/health` (бэкенд + БД + Redis), `/api/v1/health/deep` (внутренний, через Docker-сеть), прямой пинг PostgreSQL, Redis, Docker container status checks (5+ мониторов)
 
 ### Мониторинг: доступ и защита
 
-- Поддомен **`monitor.fancai.ru`** через Caddy для всех мониторинг-инструментов (Netdata, VictoriaMetrics, Uptime Kuma, Dozzle — по субпутям)
-- Защита: **Caddy basicauth + IP whitelist** по VPN-подсети (WireGuard)
-- Два уровня: без VPN вообще не попасть, с VPN нужен ещё логин/пароль
+- Поддомен **`monitor.fancai.ru`** через Caddy для всех мониторинг-инструментов (Netdata, VictoriaMetrics, Uptime Kuma, Dozzle, Flower — по субпутям)
+- Защита: **только Caddy basicauth** (без VPN/IP whitelist — упрощённый доступ с любого устройства)
 
-### Мониторинг: бизнес-метрики (4 волны)
+### Мониторинг PostgreSQL
 
-Текущее состояние: 21 кастомная метрика определена, но критические проблемы — `prometheus-fastapi-instrumentator` не подключён, `llm_tokens_total` не записывается, reading session counters мёртвые, Celery tasks без метрик.
+- **Только Netdata built-in** — авто-обнаружение PostgreSQL, базовые метрики (connections, query time, locks, buffer hit ratio). Без отдельного postgres_exporter
 
-**Wave 1 — Quick Wins (0 новых контейнеров):**
-- Подключить `prometheus-fastapi-instrumentator` в main.py (3 строки — сразу даёт http_requests_total, http_request_duration_seconds)
-- Записывать OpenRouter usage/cost из ответов API (парсить `data["usage"]`, добавить Counter `llm_cost_dollars_total`)
+### Бизнес-метрики (3 волны)
+
+**Результаты аудита кодовой базы:** 21 Prometheus-метрика определена, но 80% мёртвый код. ReadingSessionsMetricsMiddleware и update_gauges_periodically написаны, но не подключены. OpenRouter полностью игнорирует tokens/cost из ответов. В reading_sessions.py — 0 вызовов record_*. В Celery tasks — 0 метрик. В auth — 0 метрик.
+
+**Wave 1 — Quick Wins (подключение существующего кода):**
+- Подключить `prometheus-fastapi-instrumentator` в main.py (3 строки — http_requests_total, http_request_duration_seconds)
+- Подключить `ReadingSessionsMetricsMiddleware` в main.py (1 строка — авто-сбор API latency для reading sessions)
+- Запустить `update_gauges_periodically` background task (обновление gauges active/abandoned/concurrent каждые 30 сек)
+- Wiring вызовов record_session_started/ended/updated/error в reading_sessions.py (проводка к существующим helper-функциям)
+- Записывать OpenRouter usage/cost из ответов API — **Prometheus Counter `llm_cost_dollars_total` + таблица `llm_usage_log` в PostgreSQL** для истории расходов (новая миграция Alembic)
+- Вызвать существующую `record_llm_tokens()` в openrouter_client.py (парсить `usage.prompt_tokens`, `usage.completion_tokens` из ответов)
 - Добавить auth метрики (registrations, logins, login_failures)
 - Добавить fallback Counter в openrouter_client.py (`llm_fallback_total(from_model, to_model)`)
 - Добавить rate_limit метрику (`rate_limit_triggered_total`)
 
-**Wave 2 — Business Metrics:**
+**Wave 2 — Business Metrics (новые метрики):**
 - Book upload/parsing метрики (counters, histograms в book_service.py и book_tasks.py)
 - Entity Wiki метрики (entities created/deduplicated, network query duration)
 - Image generation метрики (отдельные Counter/Histogram, не смешивать с LLM text)
-- Celery task метрики (duration, success/failure/retry в каждой задаче)
-- Исправить reading session helpers (вызывать record_session_started/ended или удалить мёртвый код)
 
-**Wave 3 — Infrastructure:**
-- Настроить Netdata с Prometheus scraping существующего /metrics endpoint
-- Добавить celery-exporter контейнер
+**Wave 3 — Infrastructure (настройка контейнеров):**
+- Настроить Netdata с Prometheus scraping существующего /metrics endpoint (`go.d/prometheus`)
+- Настроить Netdata remote_write в VictoriaMetrics (`exporting.conf`)
+- Настроить Flower для Celery мониторинга (Web UI + Prometheus /metrics)
 - Настроить Uptime Kuma с расширенным набором мониторов + Telegram
-- Настроить VictoriaMetrics как long-term storage (12 месяцев, remote_write из Netdata)
-
-**Wave 4 — Business Analytics:**
-- PostgreSQL aggregate table для долгосрочной аналитики (DAU/MAU, cost/day, books/day)
-- Celery hourly task для агрегации метрик
-- Cost alerts в Telegram при превышении LLM-расходов
+- Настроить Netdata Telegram-алерты
 
 ### Обновление зависимостей
 
 - Объём: **фронтенд + бэкенд** (npm + pip)
 - Стратегия: **по группам** — сначала фронтенд, потом бэкенд, каждый с отдельным коммитом и прогоном тестов
-- Major-версии: **обновлять включая major** с breaking changes, исправлять сразу
-- Docker images: **pin к patch-версиям** (`caddy:2.9.1-alpine`, `redis:7.4.2-alpine` и т.д.) для reproducible builds
+- Major-версии: **обновлять включая major** с breaking changes, исправлять сразу (пользователей нет — идеальный момент)
+- Docker images: **pin к patch-версиям** для reproducible builds (конкретные версии исследовать на момент выполнения)
+- `prometheus-fastapi-instrumentator`: **подключить** (уже установлен, 3 строки в main.py)
 
 ### PostgreSQL-тюнинг для 32GB RAM / 12 vCPU
 
-- **Полный тюнинг** (не только OPS-06):
+- **Полный тюнинг сразу** (не только OPS-06):
   - `shared_buffers=8GB`
   - `effective_cache_size=24GB`
   - `huge_pages=try`
@@ -86,7 +88,8 @@
   - `checkpoint_completion_target=0.9`
   - `default_statistics_target=200`
 - `shm_size: 10g` в docker-compose для postgres-контейнера
-- Resource limits для postgres: Claude's Discretion (нужно рассчитать оптимальные limits с учётом shared_buffers=8GB + effective_cache_size — hint для планировщика, не аллокация)
+- Resource limits для postgres: **Claude's Discretion** (рассчитать оптимальные limits)
+- Мониторинг PG: **только Netdata built-in** (auto-discover, без postgres_exporter)
 - Стратегия применения: **прямое применение** без бэкапа (нет продакшен-данных/пользователей)
 
 ### Claude's Discretion
@@ -97,6 +100,7 @@
 - Порядок обновления пакетов внутри групп (фронтенд/бэкенд)
 - Netdata dbengine tier конфигурация (распределение диска между Tier 0/1/2)
 - Конфигурация VictoriaMetrics retention и scrape interval
+- Схема таблицы `llm_usage_log` (поля, индексы)
 
 </decisions>
 
@@ -104,23 +108,37 @@
 ## Specific Ideas
 
 - Netdata скрейпит существующий `/api/v1/health/metrics` endpoint через `go.d/prometheus` — код бэкенда для метрик не переписывается
-- OpenRouter возвращает `usage.prompt_tokens`, `usage.completion_tokens`, `usage.cost` в каждом ответе — fancai сейчас полностью игнорирует эти данные, нужно парсить и записывать
-- `prometheus-fastapi-instrumentator` уже установлен в requirements.txt, но не подключён в main.py — 3 строки кода дают базовые HTTP-метрики
-- celery-exporter (`danihodovic/celery-exporter`) скрейпит Redis для queue metrics — дополняет встроенные метрики в tasks
-- VictoriaMetrics принимает данные через Netdata remote_write (`exporting.conf`) или vmagent scrape
-- Для PostgreSQL: `effective_cache_size` — не аллокация, а подсказка планировщику запросов (сколько кеша ОС доступно)
+- Netdata remote_write в VictoriaMetrics через `exporting.conf` — данные копятся для long-term анализа
+- OpenRouter возвращает `usage.prompt_tokens`, `usage.completion_tokens`, `usage.cost` в каждом ответе — парсить и записывать в Prometheus Counter + PostgreSQL таблицу
+- `prometheus-fastapi-instrumentator` уже установлен в requirements.txt — 3 строки в main.py для generic HTTP-метрик
+- `ReadingSessionsMetricsMiddleware` уже написан в `monitoring/middleware.py` — 1 строка в main.py для подключения
+- `update_gauges_periodically` уже написана в `monitoring/middleware.py` — запустить как asyncio background task
+- Flower v2 даёт и Web UI для дебага Celery задач, и Prometheus /metrics endpoint — два в одном
+- Netdata имеет встроенный мониторинг PostgreSQL и Redis — не нужны отдельные exporters
+- Netdata имеет 400+ предустановленных алертов — покрывают базовые кейсы без ручной настройки
+- Старые Prometheus alert rules (17 шт) и Grafana дашборды (88 панелей) сохранить как reference при настройке Netdata
+- Для PostgreSQL: `effective_cache_size` — не аллокация, а подсказка планировщику запросов
 
 </specifics>
 
 <code_context>
 ## Existing Code Insights
 
-### Reusable Assets
-- `backend/app/monitoring/metrics.py` — 21 Prometheus-метрика (12 reading sessions + 9 LLM), helper-функции record_*
-- `backend/app/monitoring/middleware.py` — middleware для автоматического сбора метрик reading sessions
-- `backend/app/routers/health.py` — `/metrics` endpoint с Basic Auth, обновляет gauges при скрейпинге
-- `prometheus-fastapi-instrumentator` — установлен в requirements.txt, не подключён (3 строки для подключения)
-- `backend/app/core/openrouter_client.py` — OpenRouter клиент с fallback chain, место для добавления cost/token tracking
+### Reusable Assets (подключить, не переписывать)
+- `backend/app/monitoring/metrics.py` — 21 Prometheus-метрика (12 reading sessions + 9 LLM), 12 helper-функций record_*, MetricsCollector context manager
+- `backend/app/monitoring/middleware.py` — ReadingSessionsMetricsMiddleware (авто-сбор API latency) + update_gauges_periodically (фоновое обновление gauges). **Оба написаны, не подключены — нужна 1 строка в main.py**
+- `backend/app/routers/health.py` — 3 health endpoints + `/metrics` endpoint с Basic Auth (METRICS_USER/METRICS_PASSWORD). **Полностью работает**
+- `prometheus-fastapi-instrumentator==7.1.0` — установлен в requirements.txt, **не подключён** (3 строки для подключения)
+- `backend/app/core/openrouter_client.py` — записывает llm_requests_total и llm_errors_total, **но игнорирует tokens и cost**
+- `backend/app/core/hawk.py` — Hawk Tracker для бэкенда (FastAPI middleware + Celery task_failure signal). **Полностью работает**
+- `frontend/src/config/hawk.ts` + `ErrorBoundary.tsx` — Hawk Tracker для фронтенда. **Полностью работает**
+
+### Мёртвый код (подключить или удалить)
+- `record_llm_tokens()` — написана, никогда не вызывается
+- `record_llm_cache_hit/miss()` — написаны, никогда не вызываются
+- `MetricsCollector.measure_duration()` — написан, никогда не используется
+- `update_active_sessions_gauge()` — содержит placeholder вместо реального кода для multi-device
+- `reading_system_info` — хардкод `deployed_at: 2025-10-28`, устарел
 
 ### Established Patterns
 - Prometheus-метрики через `prometheus_client` (Counter, Histogram, Gauge, Info)
@@ -128,31 +146,38 @@
 - `/metrics` endpoint защищён Basic Auth (METRICS_USER/METRICS_PASSWORD)
 - Docker Compose с resource limits (deploy.resources.limits/reservations)
 - Caddy как reverse proxy с volumes для Caddyfile и SSL-сертификатов
+- Hawk Tracker (hawk-python-sdk + @hawk.so/javascript) для error tracking
 
 ### Integration Points
-- `docker-compose.monitoring.yml` — текущий файл для перезаписи новым стеком
-- `docker-compose.prod.yml` — postgres service (тюнинг параметров), Docker image versions (pin)
-- `Caddyfile` — добавить блок для monitor.fancai.ru с basicauth + IP whitelist
-- `backend/app/main.py` — подключить prometheus-fastapi-instrumentator
-- `backend/app/core/openrouter_client.py` — добавить парсинг usage/cost из ответов
+- `docker-compose.monitoring.yml` — перезаписать новым стеком (5 контейнеров)
+- `docker-compose.prod.yml` — postgres service (тюнинг), Docker image versions (pin к patch)
+- `Caddyfile` — добавить блок для monitor.fancai.ru с basicauth + субпути для 5 инструментов
+- `backend/app/main.py` — подключить instrumentator + ReadingSessionsMetricsMiddleware + запустить update_gauges_periodically
+- `backend/app/core/openrouter_client.py` — парсить usage/cost, вызывать record_llm_tokens(), писать в llm_usage_log
 - `backend/app/routers/auth.py` — добавить auth метрики
-- `backend/app/tasks/` — добавить Celery task метрики
+- `backend/app/routers/reading_sessions.py` — wiring вызовов record_session_* (41K строк — осторожно)
+- `backend/alembic/` — новая миграция для таблицы llm_usage_log
 - `frontend/package.json` — обновление npm-зависимостей
 - `backend/requirements.txt` — обновление pip-зависимостей
+- `monitoring/prometheus/alerts/` — сохранить как reference, не удалять с директорией
 
 </code_context>
 
 <deferred>
 ## Deferred Ideas
 
-- Grafana как 3-й контейнер для кастомных дашбордов — подключается к VictoriaMetrics если авто-дашборды Netdata окажутся недостаточными
-- Admin dashboard endpoint (`/admin/analytics`) — JSON с ключевыми бизнес-метриками за 30 дней
-- OpenTelemetry миграция — если появится микросервисная архитектура или потребность в distributed tracing
-- Бэкап базы данных (DEPLOY-04) — отложен на следующие фазы
+- **Wave 4 аналитика** — PostgreSQL aggregate table (DAU/MAU, cost/day, books/day), Celery hourly task, cost alerts в Telegram — до появления пользователей
+- **postgres_exporter** — если Netdata built-in мониторинг PG окажется недостаточно детальным
+- **Grafana** — как дополнительный контейнер для кастомных дашбордов поверх VictoriaMetrics, если авто-дашборды Netdata окажутся недостаточными
+- **OpenTelemetry** — миграция если появится микросервисная архитектура или потребность в distributed tracing
+- **Loki** — persistent log aggregation, если Dozzle недостаточно для поиска/алертинга по логам
+- **Frontend Web Vitals** — `web-vitals` библиотека для LCP/CLS/INP, отправка на свой endpoint через sendBeacon
+- **OpenRouter Broadcast** — автоматическая отправка traces в Langfuse/Datadog без кода
+- **Admin dashboard endpoint** (`/admin/analytics`) — JSON с ключевыми бизнес-метриками за 30 дней
 
 </deferred>
 
 ---
 
 *Phase: 04-infrastructure-maintenance*
-*Context gathered: 2026-03-02*
+*Context gathered: 2026-03-02 (v3, после аудита)*
