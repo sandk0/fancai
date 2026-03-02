@@ -393,6 +393,97 @@ def record_llm_cache_miss(model: str):
 
 
 # ============================================================================
+# Business Metrics — Wave 1+2 additions (Plan 04-01)
+# ============================================================================
+
+# --- LLM Cost & Fallback ---
+
+llm_cost_dollars_total = Counter(
+    "llm_cost_dollars_total",
+    "Total cost of OpenRouter LLM API calls in USD",
+    ["model"],
+)
+
+llm_fallback_total = Counter(
+    "llm_fallback_total",
+    "Total number of LLM fallback switches in the fallback chain",
+    ["from_model", "to_model"],
+)
+
+# --- Auth Metrics ---
+
+auth_registrations_total = Counter(
+    "auth_registrations_total",
+    "Total number of successful user registrations",
+)
+
+auth_logins_total = Counter(
+    "auth_logins_total",
+    "Total number of user login attempts",
+    ["status"],  # "success" | "failure"
+)
+
+# --- Rate Limit Metrics ---
+
+rate_limit_triggered_total = Counter(
+    "rate_limit_triggered_total",
+    "Total number of rate limit triggers (HTTP 429 responses)",
+    ["endpoint", "limit_type"],  # limit_type: "ip" | "user_id"
+)
+
+
+# --- Helper functions for new metrics ---
+
+
+def record_llm_cost(model: str, cost: float) -> None:
+    """
+    Записать стоимость OpenRouter LLM вызова в Prometheus Counter.
+
+    Args:
+        model: Идентификатор модели (например, "google/gemini-3-flash-preview")
+        cost: Стоимость вызова в USD
+    """
+    llm_cost_dollars_total.labels(model=model).inc(cost)
+
+
+def record_llm_fallback(from_model: str, to_model: str) -> None:
+    """
+    Записать переключение fallback chain в Prometheus Counter.
+
+    Args:
+        from_model: Модель, с которой переключились
+        to_model: Модель, на которую переключились
+    """
+    llm_fallback_total.labels(from_model=from_model, to_model=to_model).inc()
+
+
+def record_auth_registration() -> None:
+    """Записать успешную регистрацию пользователя."""
+    auth_registrations_total.inc()
+
+
+def record_auth_login(status: str) -> None:
+    """
+    Записать попытку входа пользователя.
+
+    Args:
+        status: "success" или "failure"
+    """
+    auth_logins_total.labels(status=status).inc()
+
+
+def record_rate_limit_triggered(endpoint: str, limit_type: str) -> None:
+    """
+    Записать срабатывание rate limiter (HTTP 429).
+
+    Args:
+        endpoint: URL path endpoint
+        limit_type: "ip" или "user_id"
+    """
+    rate_limit_triggered_total.labels(endpoint=endpoint, limit_type=limit_type).inc()
+
+
+# ============================================================================
 # Export all metrics for /metrics endpoint
 # ============================================================================
 
@@ -434,4 +525,15 @@ __all__ = [
     "record_visual_summary_length",
     "record_llm_cache_hit",
     "record_llm_cache_miss",
+    # Wave 1+2 additions
+    "llm_cost_dollars_total",
+    "llm_fallback_total",
+    "auth_registrations_total",
+    "auth_logins_total",
+    "rate_limit_triggered_total",
+    "record_llm_cost",
+    "record_llm_fallback",
+    "record_auth_registration",
+    "record_auth_login",
+    "record_rate_limit_triggered",
 ]
