@@ -1,14 +1,14 @@
 # FastAPI и веб-фреймворк
-fastapi==0.128.0  # Feb 2026: pydantic.v1 compat removed
-uvicorn[standard]==0.40.0
-gunicorn==25.0.1
+fastapi==0.135.1  # Mar 2026: updated from 0.128.0
+uvicorn[standard]==0.41.0
+gunicorn==25.1.0
 python-multipart==0.0.22
 PyJWT[crypto]==2.10.1
 bcrypt==5.0.0
 
 # База данных
-sqlalchemy==2.0.46
-alembic==1.18.3
+sqlalchemy==2.0.47
+alembic==1.18.4
 asyncpg==0.31.0
 
 # Redis и кэширование
@@ -33,7 +33,7 @@ aiohttp==3.13.3
 
 # Валидация и настройки
 pydantic[email]==2.12.5  # Nov 2025: Rust core improvements
-pydantic-settings==2.12.0  # Feb 2026: source priority order changed
+pydantic-settings==2.13.1  # Mar 2026: updated from 2.12.0
 
 # Логирование и мониторинг
 loguru==0.7.3
@@ -54,18 +54,18 @@ aiosqlite==0.22.1
 
 # Форматирование и линтинг
 black==26.1.0
-ruff==0.15.0
+ruff==0.15.4
 mypy==1.19.1
 
 # Type stubs для mypy
 types-requests==2.32.4.20260107
 types-aiofiles==25.1.0.20251011
-sqlalchemy[mypy]==2.0.46
+sqlalchemy[mypy]==2.0.47
 
 # Утилиты
 python-dateutil==2.9.0.post0
 pillow==12.1.1
-tenacity==9.1.2  # Retry library with exponential backoff
+tenacity==9.1.4  # Retry library with exponential backoff
 
 # Web Push Notifications (January 2026)
 pywebpush>=2.2.0

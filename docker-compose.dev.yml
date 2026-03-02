@@ -22,7 +22,7 @@
 services:
   # Caddy Reverse Proxy (localhost with internal CA — auto-HTTPS)
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.1-alpine
     container_name: fancai_caddy_dev
     ports:
       - "80:80"
@@ -201,7 +201,7 @@ services:
 
   # PostgreSQL
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.9-alpine
     container_name: fancai_postgres_dev
     environment:
       POSTGRES_DB: ${DB_NAME:-fancai_dev}
@@ -239,7 +239,7 @@ services:
 
   # Redis
   redis:
-    image: redis:7.4-alpine
+    image: redis:7.4.8-alpine
     container_name: fancai_redis_dev
     command: >
       redis-server

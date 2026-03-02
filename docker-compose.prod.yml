@@ -9,24 +9,24 @@
 # - Server in supported region (US, EU, etc.)
 #
 # Memory requirements (optimized for 32GB server, 12 vCPU):
-# - PostgreSQL: 2GB (with shared_buffers=512MB)
+# - PostgreSQL: 12GB (with shared_buffers=8GB)
 # - Redis: 768MB (maxmemory=640mb)
 # - Backend: 2GB
 # - Celery Worker: 1.5GB
 # - Celery Beat: 256MB
 # - Caddy: 128MB
 # - Frontend: 256MB (build-only, exits after completing)
-# Total: ~7GB (leaving 25GB for OS + headroom)
+# Total: ~18GB (leaving 14GB for OS + headroom)
 #
 # Usage:
-#   docker compose -f docker-compose.lite.prod.yml up -d
-#   docker compose -f docker-compose.lite.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml up -d --build
 # =============================================================================
 
 services:
   # Caddy Reverse Proxy with Auto-HTTPS and HTTP/3
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.1-alpine
     container_name: fancai_caddy
     ports:
       - "80:80"
@@ -230,10 +230,11 @@ services:
           cpus: '0.1'
           memory: 128M
 
-  # PostgreSQL Database (optimized for 8GB server)
+  # PostgreSQL Database (optimized for 32GB server, 12 vCPU)
   postgres:
     image: postgres:17.9-alpine
     container_name: bookreader_postgres
+    shm_size: 10g
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
@@ -241,7 +242,21 @@ services:
       - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
       - PGDATA=/var/lib/postgresql/data/pgdata
     command: >
-      postgres -c shared_buffers=512MB -c effective_cache_size=1GB -c work_mem=16MB -c maintenance_work_mem=128MB -c max_connections=100 -c random_page_cost=1.1 -c log_min_duration_statement=1000 -c log_checkpoints=on
+      postgres
+      -c shared_buffers=8GB
+      -c effective_cache_size=24GB
+      -c work_mem=64MB
+      -c maintenance_work_mem=1GB
+      -c huge_pages=try
+      -c wal_compression=zstd
+      -c wal_buffers=64MB
+      -c checkpoint_completion_target=0.9
+      -c max_parallel_workers_per_gather=4
+      -c default_statistics_target=200
+      -c max_connections=100
+      -c random_page_cost=1.1
+      -c log_min_duration_statement=500
+      -c log_checkpoints=on
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -257,15 +272,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 2G
+          cpus: '4.0'
+          memory: 12G
         reservations:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '1.0'
+          memory: 8G
 
-  # Redis Cache & Queue (optimized for 8GB server)
+  # Redis Cache & Queue (optimized for 32GB server, 12 vCPU)
   redis:
-    image: redis:7.4-alpine
+    image: redis:7.4.8-alpine
     container_name: bookreader_redis
     command: >
       redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 640mb --maxmemory-policy allkeys-lru --save 900 1 300 10 60 10000
