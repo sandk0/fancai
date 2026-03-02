@@ -68,9 +68,9 @@
 
 ### Обслуживание инфраструктуры (мониторинг + зависимости)
 
-- [ ] **OPS-01**: Развернуть Netdata v2.8.5 для мониторинга сервера (~80-100MB RAM)
-- [ ] **OPS-02**: Развернуть Uptime Kuma :2 для мониторинга доступности (~50-80MB RAM)
-- [ ] **OPS-03**: Развернуть Dozzle v9.0 для просмотра логов контейнеров (~30-50MB RAM)
+- [x] **OPS-01**: Развернуть Netdata v2.8.5 для мониторинга сервера (~80-100MB RAM)
+- [x] **OPS-02**: Развернуть Uptime Kuma :2 для мониторинга доступности (~50-80MB RAM)
+- [x] **OPS-03**: Развернуть Dozzle v9.0 для просмотра логов контейнеров (~30-50MB RAM)
 - [x] **OPS-04**: Обновить npm-зависимости: react 19.2.4, typescript 5.9.3, react-router-dom 7.13.1, tailwindcss 4.2.1
 - [x] **OPS-05**: Обновить Docker images: nginx 1.28-alpine (или убрать при Caddy), python 3.12-slim → pin к patch
 - [x] **OPS-06**: Настроить PostgreSQL для 32GB RAM: shared_buffers=8GB, shm_size=10g, huge_pages=try, wal_compression=zstd

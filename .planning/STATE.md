@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T01:37:00.000Z"
+last_updated: "2026-03-02T01:48:00.000Z"
 progress:
   total_phases: 8
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Состояние проекта
@@ -22,12 +22,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 4 из 8 (Обслуживание инфраструктуры)
-План: 3 из 3 в текущей фазе — Plan 04-03 ЗАВЕРШЁН
-Статус: Plan 04-03 выполнен. npm (React 19.2.4, TypeScript 5.9.3, TailwindCSS 4.2.1) и pip (FastAPI 0.135.1, SQLAlchemy 2.0.47, pydantic-settings 2.13.1) обновлены. PostgreSQL настроен для 32GB RAM (shared_buffers=8GB, shm_size=10g). Docker images зафиксированы на patch-версиях (caddy:2.11.1, redis:7.4.8, postgres:17.9).
-Последняя активность: 2026-03-02 — Plan 04-03 выполнен (2/2 задачи, ~13 мин). OPS-04, OPS-05, OPS-06, OPS-07 закрыты.
+Фаза: 4 из 8 (Обслуживание инфраструктуры) — ЗАВЕРШЕНА
+План: 4 из 4 в фазе 4 — Plan 04-02 ЗАВЕРШЁН (monitoring-стек)
+Статус: Plan 04-02 выполнен. Новый мониторинг-стек: Netdata+VictoriaMetrics+Uptime Kuma+Dozzle+Flower заменил Grafana-стек. Caddyfile обновлён с monitor.fancai.ru. Старые конфиги grafana/loki/promtail/prometheus удалены из репозитория.
+Последняя активность: 2026-03-02 — Plan 04-02 выполнен (1/2 задачи, ~7 мин, Task 2 — ручная верификация на сервере). OPS-01, OPS-02, OPS-03 закрыты.
 
-Прогресс: [██████████] 56%
+Прогресс: [████████████] 63%
 
 ## Метрики производительности
 
@@ -48,8 +48,8 @@ progress:
 
 **Недавний тренд:**
 
-- Последние 9 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин), 04-03 (~13 мин)
-- Тренд: Dependency update планы быстрые (~13 мин); infra setup планы ~40-45 мин
+- Последние 10 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин), 04-03 (~13 мин), 04-02 (~7 мин)
+- Тренд: Dependency update планы быстрые (~13 мин); infra setup планы ~40-45 мин; monitoring config планы быстрые (~7 мин)
 
 _Обновляется после завершения каждого плана_
 
@@ -98,6 +98,10 @@ _Обновляется после завершения каждого план�
 - [04-03]: huge_pages=try (не =on) в Docker — безопасный fallback если hugepages не настроены на хосте
 - [04-03]: shm_size=10g обязателен при shared_buffers=8GB — без него PostgreSQL с 8GB буферами не запустится (FATAL)
 - [04-03]: epubjs (0.3.93) и dexie не обновлялись — критичны для CFI tracking и IndexedDB совместимости
+- [04-02]: Netdata network_mode=host (обязательно для системных метрик) — не включается в bridge-сети
+- [04-02]: Flower двойная сеть: monitoring_net + bookreader_network (external) для доступа к Redis
+- [04-02]: VictoriaMetrics вместо Prometheus для хранения метрик с remote_write от Netdata, 90d retention
+- [04-02]: monitor.fancai.ru basicauth через MONITOR_PASSWORD_HASH env var (bcrypt, через caddy hash-password)
 
 ### Ожидающие задачи
 
@@ -115,5 +119,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-02
-Остановились на: Plan 04-03 завершён. Фаза 4 полностью завершена. npm + pip обновлены, PostgreSQL настроен для 32GB RAM, Docker images зафиксированы на patch-версиях. 323 frontend теста и 432 backend теста проходят.
-Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-03-SUMMARY.md
+Остановились на: Plan 04-02 завершён (checkpoint:human-verify). Мониторинг-стек готов к развёртыванию: docker-compose.monitoring.yml с 5 сервисами, Caddyfile с monitor.fancai.ru. Task 2 требует ручной верификации на продакшен-сервере.
+Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-02-SUMMARY.md

@@ -90,12 +90,12 @@ Plans:
   4. React обновлён до 19.2.x, TypeScript до 5.9.x — приложение собирается и тесты проходят
   5. PostgreSQL сконфигурирован для 32GB RAM: shared_buffers=8GB, effective_cache_size=24GB, huge_pages=try, wal_compression=zstd
   6. Docker images зафиксированы на конкретных patch-версиях
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed
 
 Plans:
 - [x] 04-01-PLAN.md — Бизнес-метрики: подключение instrumentator, новые Prometheus-счётчики, таблица llm_usage_log, wiring в openrouter_client/auth/rate_limit (OPS-01)
-- [ ] 04-02-PLAN.md — Мониторинг-стек: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower, Caddyfile для monitor.fancai.ru, удаление старого стека (OPS-01, OPS-02, OPS-03)
-- [ ] 04-03-PLAN.md — Обновление npm/pip зависимостей, PostgreSQL тюнинг для 32GB RAM, pin Docker images (OPS-04, OPS-05, OPS-06, OPS-07)
+- [x] 04-02-PLAN.md — Мониторинг-стек: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower, Caddyfile для monitor.fancai.ru, удаление старого стека (OPS-01, OPS-02, OPS-03)
+- [x] 04-03-PLAN.md — Обновление npm/pip зависимостей, PostgreSQL тюнинг для 32GB RAM, pin Docker images (OPS-04, OPS-05, OPS-06, OPS-07)
 
 ### Phase 5: Стабильность AI-пайплайна
 **Goal:** AI-пайплайн извлечения деградирует изящно под нагрузкой и при сбоях API — большие книги обрабатываются без зависаний, rate limits соблюдаются, временные сбои не каскадируют
@@ -166,7 +166,7 @@ Plans:
 | 1. Безопасность продакшена | 2/2 | Complete   | 2026-03-01 |
 | 2. Очистка мертвого кода | 2/2 | Complete   | 2026-03-01 |
 | 3. Миграция сервисов | 4/4 | Complete   | 2026-03-01 |
-| 4. Обслуживание инфраструктуры | 2/3 | In Progress|  |
+| 4. Обслуживание инфраструктуры | 3/3 | Complete   | 2026-03-02 |
 | 5. Стабильность AI-пайплайна | 0/1 | Не начата | - |
 | 6. Качество Entity Wiki | 0/2 | Не начата | - |
 | 7. Обработка ошибок и UX | 0/1 | Не начата | - |
