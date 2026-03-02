@@ -21,18 +21,20 @@ from app.core.container import (
 )
 from app.models import User, Book
 
+
 # Test database URL — derived from settings.DATABASE_URL (single source of truth)
 def _build_test_database_url() -> str:
     """Derive test database URL from settings."""
     if settings.TEST_DATABASE_URL:
         return settings.TEST_DATABASE_URL
-    # Replace db name suffix: bookreader_dev -> bookreader_test
+    # Replace db name suffix: fancai_dev -> fancai_test
     url = settings.DATABASE_URL
     base, db_name = url.rsplit("/", 1)
     if "?" in db_name:
         db_name, params = db_name.split("?", 1)
         return f"{base}/{db_name.removesuffix('_dev')}_test?{params}"
     return f"{base}/{db_name.removesuffix('_dev')}_test"
+
 
 TEST_DATABASE_URL = _build_test_database_url()
 
@@ -48,6 +50,7 @@ TestSessionLocal = sessionmaker(
 def _create_enums(sync_conn):
     """Create PG enums that have create_type=False in models."""
     from sqlalchemy import text
+
     exists = sync_conn.execute(
         text("SELECT 1 FROM pg_type WHERE typname = 'entitytype'")
     ).fetchone()
@@ -56,10 +59,13 @@ def _create_enums(sync_conn):
             text("CREATE TYPE entitytype AS ENUM ('character', 'location', 'object')")
         )
 
+
 def _drop_enums(sync_conn):
     """Drop PG enums after tests."""
     from sqlalchemy import text
+
     sync_conn.execute(text("DROP TYPE IF EXISTS entitytype CASCADE"))
+
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db():
