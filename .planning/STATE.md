@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T01:20:00.000Z"
+last_updated: "2026-03-02T01:37:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Состояние проекта
@@ -23,11 +23,11 @@ progress:
 ## Текущая позиция
 
 Фаза: 4 из 8 (Обслуживание инфраструктуры)
-План: 1 из 3 в текущей фазе — Plan 04-01 ЗАВЕРШЁН
-Статус: Plan 04-01 выполнен. Активированы бизнес-метрики Wave 1+2: подключены Instrumentator + ReadingSessionsMetricsMiddleware, добавлены 5 новых Prometheus Counter, создана таблица llm_usage_log, wiring в openrouter_client/auth/rate_limit.
-Последняя активность: 2026-03-02 — Plan 04-01 выполнен (2/2 задачи, ~7 мин). OPS-01 закрыт.
+План: 3 из 3 в текущей фазе — Plan 04-03 ЗАВЕРШЁН
+Статус: Plan 04-03 выполнен. npm (React 19.2.4, TypeScript 5.9.3, TailwindCSS 4.2.1) и pip (FastAPI 0.135.1, SQLAlchemy 2.0.47, pydantic-settings 2.13.1) обновлены. PostgreSQL настроен для 32GB RAM (shared_buffers=8GB, shm_size=10g). Docker images зафиксированы на patch-версиях (caddy:2.11.1, redis:7.4.8, postgres:17.9).
+Последняя активность: 2026-03-02 — Plan 04-03 выполнен (2/2 задачи, ~13 мин). OPS-04, OPS-05, OPS-06, OPS-07 закрыты.
 
-Прогресс: [█████████░] 50%
+Прогресс: [██████████] 56%
 
 ## Метрики производительности
 
@@ -44,12 +44,12 @@ progress:
 | 01-production-safety         | 2/2   | ~60 мин  | ~30 мин      |
 | 02-dead-code-cleanup         | 2/2   | ~39 мин  | ~20 мин      |
 | 03-migration-services        | 4/4   | ~129 мин | ~32 мин      |
-| 04-infrastructure-maintenance| 1/3   | ~7 мин   | ~7 мин       |
+| 04-infrastructure-maintenance| 3/3   | ~20 мин  | ~10 мин      |
 
 **Недавний тренд:**
 
-- Последние 8 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин)
-- Тренд: TDD-планы с только wiring быстрее (~7-15 мин); инфра-планы с новыми компонентами медленнее (~40-45 мин)
+- Последние 9 планов: 01-02 (~30 мин), 02-01 (~11 мин), 02-02 (~28 мин), 03-01 (~34 мин), 03-04 (~45 мин), 03-02 (~35 мин), 03-03 (~15 мин), 04-01 (~7 мин), 04-03 (~13 мин)
+- Тренд: Dependency update планы быстрые (~13 мин); infra setup планы ~40-45 мин
 
 _Обновляется после завершения каждого плана_
 
@@ -94,6 +94,10 @@ _Обновляется после завершения каждого план�
 - [04-01]: _log_usage_to_db() через asyncio.create_task() — fire-and-forget, не блокирует LLM поток
 - [04-01]: protect-files.sh блокирует Write tool для alembic/versions/ → миграция создаётся через bash heredoc
 - [04-01]: Alembic миграция создана вручную (без autogenerate) из-за отсутствия локальной БД
+- [04-03]: Redis остаётся 7.4.x (7.4.8-alpine) — Redis 8.0 лицензирование AGPL/RSAL до юридической оценки
+- [04-03]: huge_pages=try (не =on) в Docker — безопасный fallback если hugepages не настроены на хосте
+- [04-03]: shm_size=10g обязателен при shared_buffers=8GB — без него PostgreSQL с 8GB буферами не запустится (FATAL)
+- [04-03]: epubjs (0.3.93) и dexie не обновлялись — критичны для CFI tracking и IndexedDB совместимости
 
 ### Ожидающие задачи
 
@@ -111,5 +115,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-02
-Остановились на: Plan 04-01 завершён. Бизнес-метрики Wave 1+2 активированы: prometheus-fastapi-instrumentator подключён, ReadingSessionsMetricsMiddleware + gauges background task в main.py, 5 новых Counter, LlmUsageLog модель + Alembic миграция, wiring в openrouter_client/auth/rate_limit. 28 новых TDD-тестов проходят. Следующий: Plan 04-02 (мониторинг-стек: Netdata + VictoriaMetrics + Uptime Kuma).
-Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-01-SUMMARY.md
+Остановились на: Plan 04-03 завершён. Фаза 4 полностью завершена. npm + pip обновлены, PostgreSQL настроен для 32GB RAM, Docker images зафиксированы на patch-версиях. 323 frontend теста и 432 backend теста проходят.
+Файл возобновления: .planning/phases/04-infrastructure-maintenance/04-03-SUMMARY.md

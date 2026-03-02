@@ -58,12 +58,12 @@
 
 - [x] **MIGR-01**: Мигрировать entity_synthesis на OpenRouter API (только response_mime_type, низкая сложность)
 - [x] **MIGR-02**: Мигрировать consistency_manager на OpenRouter API (только response_mime_type, средняя сложность)
-- [ ] **MIGR-03**: Мигрировать entity_dedup на OpenRouter API (response_schema с вложенными Optional полями, высокая сложность)
-- [ ] **MIGR-04**: Мигрировать gemini_extractor на OpenRouter API (response_schema с Pydantic, высокая сложность)
+- [x] **MIGR-03**: Мигрировать entity_dedup на OpenRouter API (response_schema с вложенными Optional полями, высокая сложность)
+- [x] **MIGR-04**: Мигрировать gemini_extractor на OpenRouter API (response_schema с Pydantic, высокая сложность)
 - [x] **MIGR-04.1**: Мигрировать imagen_generator с Imagen 4 (Google API) на OpenRouter image-модели (FLUX.2 Pro/Klein), удалить зависимость google-genai
 - [x] **MIGR-05**: Реализовать fallback chain: Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite
-- [ ] **MIGR-06**: Заменить nginx на Caddy — написать Caddyfile (~80 строк вместо 748 строк nginx)
-- [ ] **MIGR-07**: Настроить auto-HTTPS в Caddy (Let's Encrypt + ZeroSSL)
+- [x] **MIGR-06**: Заменить nginx на Caddy — написать Caddyfile (~80 строк вместо 748 строк nginx)
+- [x] **MIGR-07**: Настроить auto-HTTPS в Caddy (Let's Encrypt + ZeroSSL)
 - [x] **MIGR-08**: Добавить rate limiting через FastAPI slowapi (по user ID, не только по IP)
 
 ### Обслуживание инфраструктуры (мониторинг + зависимости)
@@ -71,10 +71,10 @@
 - [ ] **OPS-01**: Развернуть Netdata v2.8.5 для мониторинга сервера (~80-100MB RAM)
 - [ ] **OPS-02**: Развернуть Uptime Kuma :2 для мониторинга доступности (~50-80MB RAM)
 - [ ] **OPS-03**: Развернуть Dozzle v9.0 для просмотра логов контейнеров (~30-50MB RAM)
-- [ ] **OPS-04**: Обновить npm-зависимости: react 19.2.4, typescript 5.9.3, react-router-dom 7.13.1, tailwindcss 4.2.1
-- [ ] **OPS-05**: Обновить Docker images: nginx 1.28-alpine (или убрать при Caddy), python 3.12-slim → pin к patch
-- [ ] **OPS-06**: Настроить PostgreSQL для 32GB RAM: shared_buffers=8GB, shm_size=10g, huge_pages=try, wal_compression=zstd
-- [ ] **OPS-07**: Pin Docker images к patch-версиям для reproducible builds
+- [x] **OPS-04**: Обновить npm-зависимости: react 19.2.4, typescript 5.9.3, react-router-dom 7.13.1, tailwindcss 4.2.1
+- [x] **OPS-05**: Обновить Docker images: nginx 1.28-alpine (или убрать при Caddy), python 3.12-slim → pin к patch
+- [x] **OPS-06**: Настроить PostgreSQL для 32GB RAM: shared_buffers=8GB, shm_size=10g, huge_pages=try, wal_compression=zstd
+- [x] **OPS-07**: Pin Docker images к patch-версиям для reproducible builds
 
 ### Полировка ридера
 
@@ -148,14 +148,14 @@
 | CLEAN-03 | Фаза 2: Очистка мертвого кода | Ожидает |
 | CLEAN-04 | Фаза 2: Очистка мертвого кода | Ожидает |
 | CLEAN-05 | Фаза 2: Очистка мертвого кода | Ожидает |
-| MIGR-01 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-02 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-03 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-04 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-05 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-06 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-07 | Фаза 3: Миграция сервисов | Ожидает |
-| MIGR-08 | Фаза 3: Миграция сервисов | Ожидает |
+| MIGR-01 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-02 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-03 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-04 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-05 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-06 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-07 | Фаза 3: Миграция сервисов | Выполнено |
+| MIGR-08 | Фаза 3: Миграция сервисов | Выполнено |
 | OPS-01 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
 | OPS-02 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
 | OPS-03 | Фаза 4: Обслуживание инфраструктуры | Ожидает |
