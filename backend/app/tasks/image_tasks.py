@@ -137,7 +137,7 @@ async def _generate_image_async(
                 "task_id": task_id,
                 "description_id": str(description_id),
                 "success": False,
-                "error": "Image generation service not available. Check GOOGLE_API_KEY.",
+                "error": "Image generation service not available. Check OPENROUTER_API_KEY.",
                 "status": "service_unavailable",
             }
 

@@ -71,7 +71,7 @@ class ExtractionLockError(DescriptionServiceError):
 
 class LLMUnavailableError(DescriptionServiceError):
     def __init__(self):
-        super().__init__("LLM processor unavailable. Check GOOGLE_API_KEY.")
+        super().__init__("LLM processor unavailable. Check OPENROUTER_API_KEY.")
 
 
 @dataclass
