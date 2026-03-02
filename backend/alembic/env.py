@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.database import Base
 from app.models.book import Book, ReadingProgress  # noqa: F401
 from app.models.chapter import Chapter  # noqa: F401
+
 # NLP REMOVAL: Description model removed
 # from app.models.description import Description  # noqa: F401
 from app.models.image import GeneratedImage  # noqa: F401
@@ -45,14 +46,13 @@ target_metadata = Base.metadata
 def get_database_url() -> str:
     """Получить URL базы данных из переменных окружения."""
     database_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://bookreader_user:bookreader_pass@localhost:5433/bookreader"
+        "DATABASE_URL", "postgresql://fancai_user:fancai_pass@localhost:5433/fancai"
     )
-    
+
     # Для Alembic нужен синхронный драйвер
     if database_url.startswith("postgresql+asyncpg://"):
         database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
-    
+
     return database_url
 
 
@@ -99,11 +99,11 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_async_migrations() -> None:
     """Run migrations in async mode."""
     database_url = get_database_url()
-    
+
     # Для async миграций используем asyncpg
     if not database_url.startswith("postgresql+asyncpg://"):
         database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
-    
+
     connectable = create_async_engine(
         database_url,
         poolclass=pool.NullPool,
@@ -124,7 +124,7 @@ def run_migrations_online() -> None:
     except Exception as e:
         print(f"Async migration failed: {e}")
         print("Falling back to sync migrations...")
-        
+
         # Fallback to sync migrations
         database_url = get_database_url()
         connectable = create_engine(
