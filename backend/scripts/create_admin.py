@@ -8,7 +8,7 @@ Usage:
     ADMIN_EMAIL=admin@fancai.ru ADMIN_PASSWORD=your_secure_password python create_admin.py
 
 Environment Variables:
-    ADMIN_EMAIL - email администратора (default: admin@bookreader.local)
+    ADMIN_EMAIL - email администратора (default: admin@fancai.local)
     ADMIN_PASSWORD - пароль администратора (REQUIRED, minimum 12 chars)
 """
 
@@ -27,6 +27,7 @@ from app.services.auth_service import auth_service
 from app.models.user import User, SubscriptionPlan
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 async def create_admin_user():
     """
     Создает администратора с заданными учетными данными из environment variables.
@@ -38,16 +39,18 @@ async def create_admin_user():
     """
 
     # Читаем credentials из environment variables
-    email = os.getenv("ADMIN_EMAIL", "admin@bookreader.local")
+    email = os.getenv("ADMIN_EMAIL", "admin@fancai.local")
     password = os.getenv("ADMIN_PASSWORD")
 
     # SECURITY CHECK: Password is required
     if not password:
         print("❌ ОШИБКА: ADMIN_PASSWORD environment variable не задана!")
         print("📝 Использование:")
-        print("   ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=your_secure_password python create_admin.py")
+        print(
+            "   ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=your_secure_password python create_admin.py"
+        )
         print("\n💡 Генерация безопасного пароля:")
-        print("   python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+        print('   python -c "import secrets; print(secrets.token_urlsafe(32))"')
         print(f"\n🎲 Случайный пароль (пример): {secrets.token_urlsafe(32)}")
         sys.exit(1)
 
@@ -56,26 +59,26 @@ async def create_admin_user():
         print("❌ ОШИБКА: Пароль должен быть минимум 12 символов!")
         print(f"   Текущая длина: {len(password)}")
         print("\n💡 Сгенерируйте безопасный пароль:")
-        print("   python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+        print('   python -c "import secrets; print(secrets.token_urlsafe(32))"')
         sys.exit(1)
 
     # SECURITY CHECK: Warn about weak passwords
     if password in ["password", "admin", "12345678", "qwerty", "admin123"]:
         print("❌ ОШИБКА: Слабый пароль! Используйте криптографически стойкий пароль.")
         print("\n💡 Сгенерируйте безопасный пароль:")
-        print("   python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
+        print('   python -c "import secrets; print(secrets.token_urlsafe(32))"')
         sys.exit(1)
-    
+
     print(f"🔐 Создание администратора с email: {email}")
-    
+
     # Получаем сессию базы данных
     async for db_session in get_database_session():
         db: AsyncSession = db_session
-        
+
         try:
             # Проверяем, существует ли уже пользователь с таким email
             existing_user = await auth_service.get_user_by_email(db, email)
-            
+
             if existing_user:
                 if existing_user.is_admin:
                     print(f"✅ Администратор с email {email} уже существует")
@@ -87,35 +90,35 @@ async def create_admin_user():
                     await db.commit()
                     print(f"✅ Пользователь {email} обновлен до администратора")
                     return existing_user
-            
+
             # Создаем нового администратора
             admin_user = await auth_service.create_user(
-                db=db,
-                email=email,
-                password=password,
-                full_name="System Administrator"
+                db=db, email=email, password=password, full_name="System Administrator"
             )
-            
+
             # Обновляем пользователя до администратора
             admin_user.is_admin = True
-            admin_user.is_verified = True  # Администратор не требует подтверждения email
+            admin_user.is_verified = (
+                True  # Администратор не требует подтверждения email
+            )
             await db.commit()
-            
+
             print(f"✅ Администратор создан успешно:")
             print(f"   Email: {admin_user.email}")
             print(f"   Full Name: {admin_user.full_name}")
             print(f"   ID: {admin_user.id}")
             print(f"   Is Admin: {admin_user.is_admin}")
             print(f"   Is Verified: {admin_user.is_verified}")
-            
+
             return admin_user
-            
+
         except Exception as e:
             print(f"❌ Ошибка создания администратора: {str(e)}")
             await db.rollback()
             raise
         finally:
             await db.close()
+
 
 async def main():
     """Главная функция скрипта."""
@@ -133,6 +136,7 @@ async def main():
     except Exception as e:
         print(f"\n💥 Критическая ошибка: {str(e)}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
