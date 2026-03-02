@@ -76,6 +76,16 @@
 - [x] **OPS-06**: Настроить PostgreSQL для 32GB RAM: shared_buffers=8GB, shm_size=10g, huge_pages=try, wal_compression=zstd
 - [x] **OPS-07**: Pin Docker images к patch-версиям для reproducible builds
 
+### Интеграция и ребрендинг (пробелы аудита v1.0)
+
+- [ ] **INT-01**: Исправить несоответствие имени Docker-сети между prod.yml и monitoring.yml, переименовать на fancai_prod
+- [ ] **INT-02**: Добавить OPENROUTER_API_KEY и OPENROUTER_IMAGE_MODEL в .env.example с инструкцией
+- [ ] **INT-03**: Добавить HAWK_TOKEN в environment celery-worker и celery-beat в docker-compose.prod.yml
+- [ ] **INT-04**: Добавить LANGEXTRACT_MODEL в environment celery-beat в docker-compose.prod.yml
+- [ ] **INT-05**: Добавить MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD в .env.example
+- [ ] **REBRAND-01**: Переименовать все Docker-контейнеры, образы, сети с bookreader_* на fancai_* (prod/dev)
+- [ ] **REBRAND-02**: Переименовать APP_NAME, DB defaults, Celery app name, localStorage/IndexedDB ключи с bookreader на fancai
+
 ### Полировка ридера
 
 - [ ] **READ-01**: Реализовать функциональность закладок (сохранение на бэкенд, отображение в боковой панели)
@@ -180,12 +190,19 @@
 | READ-03 | Фаза 8: Функции ридера | Ожидает |
 | READ-04 | Фаза 8: Функции ридера | Ожидает |
 | READ-05 | Фаза 8: Функции ридера | Ожидает |
+| INT-01 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| INT-02 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| INT-03 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| INT-04 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| INT-05 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| REBRAND-01 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
+| REBRAND-02 | Фаза 4.1: Фиксы интеграции и ребрендинг | Ожидает |
 
 **Покрытие:**
-- Требований v1: 45 всего
-- Привязано к фазам: 45
+- Требований v1: 52 всего (45 исходных + 7 из аудита v1.0)
+- Привязано к фазам: 52
 - Не привязано: 0
 
 ---
 *Требования определены: 2026-02-27*
-*Последнее обновление: 2026-03-01 после обсуждения аудит-отчёта v5*
+*Последнее обновление: 2026-03-02 — добавлены INT-01..05, REBRAND-01..02 из аудита v1.0*
