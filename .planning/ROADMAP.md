@@ -18,7 +18,7 @@ fancai — это работающее AI-приложение для чтени
 - [x] **Phase 2: Очистка мертвого кода** — Удалить остатки NLP, исправить заглушки endpoints, очистить мертвые конфиги и схемы (completed 2026-03-01)
 - [x] **Phase 3: Миграция сервисов** — Мигрировать все 5 AI-сервисов (4 LLM + генерация изображений) на OpenRouter API с fallback chain, заменить Imagen 4 на FLUX.2, заменить nginx на Caddy (completed 2026-03-01)
 - [x] **Phase 4: Обслуживание инфраструктуры** — Развернуть мониторинг-стек (Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower), активировать бизнес-метрики, обновить зависимости, оптимизировать PostgreSQL для 32GB RAM
-- [ ] **Phase 4.1: Фиксы интеграции и ребрендинг** — INSERTED — Закрыть интеграционные пробелы аудита (Docker-сеть, env-переменные, Hawk/Celery), переименовать bookreader → fancai во всей инфраструктуре
+- [ ] **Phase 4.1: Фиксы интеграции и ребрендинг** — INSERTED — Закрыть интеграционные пробелы аудита (Docker-сеть, env-переменные, Hawk/Celery), очистить мёртвые Gemini/LangExtract переменные, переименовать bookreader → fancai во всей инфраструктуре
 - [ ] **Phase 5: Стабильность AI-пайплайна** — Ограничить конкурентность Gemini/OpenRouter, добавить circuit breakers, исправить asyncio-потоки
 - [ ] **Phase 6: Качество Entity Wiki** — Укрепить спойлер-защищенную фильтрацию, улучшить нечеткое сравнение русских имен, исправить потерю сущностей на границах чанков
 - [ ] **Phase 7: Обработка ошибок и UX** — Стандартизировать состояния ошибок, добавить индикаторы загрузки, улучшить флоу восстановления после сбоев
@@ -99,15 +99,15 @@ Plans:
 - [x] 04-03-PLAN.md — Обновление npm/pip зависимостей, PostgreSQL тюнинг для 32GB RAM, pin Docker images (OPS-04, OPS-05, OPS-06, OPS-07)
 
 ### Phase 4.1: Фиксы интеграции и ребрендинг (INSERTED)
-**Goal:** Все интеграционные пробелы аудита v1.0 закрыты — Docker-сети совпадают, env-переменные задокументированы, Hawk/Celery правильно сконфигурированы. Проект полностью ребрендирован с bookreader на fancai во всех конфигурациях, Docker-образах, контейнерах и хранилищах
+**Goal:** Все интеграционные пробелы аудита v1.0 закрыты — Docker-сети совпадают, env-переменные задокументированы, Hawk/Celery правильно сконфигурированы, мёртвые Gemini/LangExtract переменные удалены. Проект полностью ребрендирован с bookreader на fancai во всех конфигурациях, Docker-образах, контейнерах и хранилищах
 **Depends on:** Phase 4
-**Requirements**: INT-01, INT-02, INT-03, INT-04, INT-05
+**Requirements**: INT-01, INT-02, INT-03, INT-04, INT-05, REBRAND-01, REBRAND-02
 **Gap Closure:** Закрывает пробелы из аудита v1.0
 **Критерии успеха** (что должно быть ИСТИННО):
   1. Docker-сеть в prod.yml и monitoring.yml использует одинаковое имя `fancai_network` — мониторинг-стек стартует без ошибок
   2. OPENROUTER_API_KEY и OPENROUTER_IMAGE_MODEL задокументированы в .env.example с инструкцией
   3. HAWK_TOKEN передаётся в celery-worker и celery-beat через docker-compose.prod.yml
-  4. LANGEXTRACT_MODEL передаётся в celery-beat через docker-compose.prod.yml
+  4. Мёртвые переменные LANGEXTRACT_MODEL, LANGEXTRACT_API_KEY, USE_LANGEXTRACT_PRIMARY, GOOGLE_API_KEY удалены из docker-compose файлов, Dockerfiles и config.py (INT-04 переосмыслен: удаление вместо добавления)
   5. MONITOR_PASSWORD_HASH, METRICS_USER, METRICS_PASSWORD задокументированы в .env.example
   6. Все Docker-контейнеры, образы и сети используют префикс fancai_ вместо bookreader_
   7. Celery app name, DB defaults, localStorage/IndexedDB ключи переименованы с bookreader на fancai
@@ -115,7 +115,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04.1-01-PLAN.md — Интеграционные фиксы: Docker-сети, env-переменные в Celery, .env.example (INT-01, INT-02, INT-03, INT-04, INT-05)
+- [ ] 04.1-01-PLAN.md — Интеграционные фиксы + очистка Gemini/LangExtract легаси: Docker-сети, HAWK_TOKEN, удаление мёртвых переменных, .env.example (INT-01, INT-02, INT-03, INT-04, INT-05)
 - [ ] 04.1-02-PLAN.md — Ребрендинг bookreader -> fancai: Docker, backend, frontend, CI, скрипты (REBRAND-01, REBRAND-02)
 
 ### Phase 5: Стабильность AI-пайплайна
