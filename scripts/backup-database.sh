@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# PostgreSQL Backup Script for BookReader AI
+# PostgreSQL Backup Script for fancai
 # ============================================================================
 # Purpose: Automated database backup with compression and retention policy
 # Target: Development/Staging environment
@@ -33,14 +33,14 @@ set -o pipefail  # Exit on pipe failure
 BACKUP_DIR="${BACKUP_DIR:-/backups/postgresql}"
 
 # Database connection settings (from environment or defaults)
-DB_NAME="${DB_NAME:-bookreader}"
+DB_NAME="${DB_NAME:-fancai}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 
 # Docker container name (if using Docker)
-DOCKER_CONTAINER="${DOCKER_CONTAINER:-bookreader_postgres}"
+DOCKER_CONTAINER="${DOCKER_CONTAINER:-fancai_postgres}"
 
 # Backup retention (days to keep backups)
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
@@ -285,7 +285,7 @@ verify_backup() {
 # Display usage information
 usage() {
     cat <<EOF
-PostgreSQL Backup Script for BookReader AI
+PostgreSQL Backup Script for fancai
 
 Usage:
     $0 [OPTIONS]
@@ -298,12 +298,12 @@ Options:
 
 Environment Variables:
     BACKUP_DIR          Backup directory path (default: /backups/postgresql)
-    DB_NAME             Database name (default: bookreader)
+    DB_NAME             Database name (default: fancai)
     DB_USER             Database user (default: postgres)
     DB_PASSWORD         Database password
     DB_HOST             Database host (default: localhost)
     DB_PORT             Database port (default: 5432)
-    DOCKER_CONTAINER    Docker container name (default: bookreader_postgres)
+    DOCKER_CONTAINER    Docker container name (default: fancai_postgres)
     RETENTION_DAYS      Days to keep backups (default: 7)
 
 Examples:
@@ -361,7 +361,7 @@ main() {
     # Print header
     echo ""
     info "============================================================================"
-    info "PostgreSQL Backup Script for BookReader AI"
+    info "PostgreSQL Backup Script for fancai"
     info "============================================================================"
     info "Date: $(date '+%Y-%m-%d %H:%M:%S')"
     info "Database: ${DB_NAME}"

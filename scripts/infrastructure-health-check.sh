@@ -1,5 +1,5 @@
 #!/bin/bash
-# Infrastructure Health Check Script for BookReader AI
+# Infrastructure Health Check Script for fancai
 # This script validates all infrastructure configurations and security settings
 
 set -e
@@ -15,7 +15,7 @@ WARNINGS=0
 CHECKS=0
 
 echo "============================================"
-echo "BookReader AI - Infrastructure Health Check"
+echo "fancai - Infrastructure Health Check"
 echo "============================================"
 echo ""
 

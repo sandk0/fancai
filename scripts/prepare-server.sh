@@ -7,7 +7,7 @@
 
 set -e
 
-echo "🚀 Starting server preparation for BookReader AI..."
+echo "🚀 Starting server preparation for fancai..."
 echo "Server: $(hostname) - $(hostname -I)"
 echo "User: $(whoami)"
 echo ""
@@ -180,9 +180,9 @@ echo ""
 # 9. Create Application Directory
 # ============================================
 echo "📁 Creating application directory..."
-mkdir -p /opt/bookreader
-chown deployer:deployer /opt/bookreader
-echo "✅ Directory created: /opt/bookreader"
+mkdir -p /opt/fancai
+chown deployer:deployer /opt/fancai
+echo "✅ Directory created: /opt/fancai"
 echo ""
 
 # ============================================
@@ -233,7 +233,7 @@ echo "  Disk:"
 df -h / | grep -v Filesystem
 echo ""
 echo "Next Steps:"
-echo "  1. Clone repository: cd /opt/bookreader && git clone <repo-url> ."
+echo "  1. Clone repository: cd /opt/fancai && git clone <repo-url> ."
 echo "  2. Configure environment: cp .env.staging.example .env.staging"
 echo "  3. Run deployment: ./scripts/deploy-staging.sh"
 echo ""

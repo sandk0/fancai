@@ -17,11 +17,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Docker container names
-POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-bookreader_postgres}"
-REDIS_CONTAINER="${REDIS_CONTAINER:-bookreader_redis}"
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-fancai_postgres}"
+REDIS_CONTAINER="${REDIS_CONTAINER:-fancai_redis}"
 
 # Database credentials
-DB_NAME="${DB_NAME:-bookreader}"
+DB_NAME="${DB_NAME:-fancai}"
 DB_USER="${DB_USER:-postgres}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 
@@ -377,7 +377,7 @@ verify_docker_compose() {
 main() {
     echo ""
     echo -e "${BLUE}============================================================================${NC}"
-    echo -e "${BLUE}Database Configuration Verification for BookReader AI${NC}"
+    echo -e "${BLUE}Database Configuration Verification for fancai${NC}"
     echo -e "${BLUE}============================================================================${NC}"
     echo -e "${BLUE}Date: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
     echo -e "${BLUE}============================================================================${NC}"

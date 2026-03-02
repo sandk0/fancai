@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# BookReader AI - Restore Script
+# fancai - Restore Script
 #
 # Restores from backups created by backup.sh:
 # - PostgreSQL database (drop and recreate)
@@ -33,8 +33,8 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 
 # Docker containers
-POSTGRES_CONTAINER="bookreader_postgres"
-REDIS_CONTAINER="bookreader_redis"
+POSTGRES_CONTAINER="fancai_postgres"
+REDIS_CONTAINER="fancai_redis"
 
 # Database credentials
 DB_USER="${POSTGRES_USER:-postgres}"
@@ -43,8 +43,8 @@ DB_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 
 # Auto-detect database name if not set
 if [ -z "${DB_NAME}" ]; then
-    DB_NAME=$(docker exec "${POSTGRES_CONTAINER}" psql -U "${DB_USER}" -t -c "SELECT datname FROM pg_database WHERE datname LIKE 'bookreader%' LIMIT 1;" 2>/dev/null | xargs)
-    [ -z "${DB_NAME}" ] && DB_NAME="bookreader_dev"
+    DB_NAME=$(docker exec "${POSTGRES_CONTAINER}" psql -U "${DB_USER}" -t -c "SELECT datname FROM pg_database WHERE datname LIKE 'fancai%' LIMIT 1;" 2>/dev/null | xargs)
+    [ -z "${DB_NAME}" ] && DB_NAME="fancai_dev"
 fi
 
 # Options
@@ -347,7 +347,7 @@ restore_git_repository() {
 ################################################################################
 
 main() {
-    print_header "BookReader AI - Restore Script"
+    print_header "fancai - Restore Script"
 
     print_info "Restore started at: $(date '+%Y-%m-%d %H:%M:%S')"
     print_info "Restore type: ${RESTORE_TYPE}"
@@ -405,7 +405,7 @@ parse_args() {
     for arg in "$@"; do
         if [ "$arg" = "--help" ]; then
             cat << EOF
-BookReader AI - Restore Script
+fancai - Restore Script
 
 Usage: $0 <backup-name> [OPTIONS]
 
@@ -443,7 +443,7 @@ EOF
 
     if [ $# -eq 0 ]; then
         cat << EOF
-BookReader AI - Restore Script
+fancai - Restore Script
 
 Usage: $0 <backup-name> [OPTIONS]
 

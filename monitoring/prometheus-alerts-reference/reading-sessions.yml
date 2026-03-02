@@ -1,4 +1,4 @@
-# Alert rules для Reading Sessions системы в BookReader AI
+# Alert rules для Reading Sessions системы в fancai
 #
 # Категории алертов:
 # 1. Critical - требуют немедленного реагирования (PagerDuty)
@@ -29,7 +29,7 @@ groups:
             This may indicate a capacity issue or sessions not being closed properly.
             Current value: {{ $value }}
             Threshold: 1000
-          runbook_url: "https://wiki.bookreader.ai/runbooks/reading-sessions/too-many-active"
+          runbook_url: "https://wiki.fancai.ru/runbooks/reading-sessions/too-many-active"
 
       # ----------------------------------------------------------------------
       # CRITICAL: High error rate in reading sessions API
@@ -48,7 +48,7 @@ groups:
             Error rate is {{ $value | humanizePercentage }} errors/sec over the last 5 minutes.
             This indicates serious issues with the reading sessions API.
             Check logs for specific error types.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/reading-sessions/high-error-rate"
+          runbook_url: "https://wiki.fancai.ru/runbooks/reading-sessions/high-error-rate"
 
       # ----------------------------------------------------------------------
       # WARNING: Abandoned sessions accumulating
@@ -66,7 +66,7 @@ groups:
             {{ $value }} sessions have been active for more than 24 hours.
             This may indicate the cleanup Celery task is not running.
             Check Celery worker status and task queue.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/reading-sessions/abandoned-sessions"
+          runbook_url: "https://wiki.fancai.ru/runbooks/reading-sessions/abandoned-sessions"
 
       # ----------------------------------------------------------------------
       # WARNING: Cleanup task failed
@@ -85,7 +85,7 @@ groups:
             The Celery task 'close_abandoned_sessions' has failed {{ $value }} times.
             Abandoned sessions may accumulate in the database.
             Check Celery worker logs for errors.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/celery/task-failures"
+          runbook_url: "https://wiki.fancai.ru/runbooks/celery/task-failures"
 
       # ----------------------------------------------------------------------
       # WARNING: High API latency
@@ -106,7 +106,7 @@ groups:
             95th percentile latency is {{ $value }}s, exceeding 1 second threshold.
             This may impact user experience during reading.
             Check database performance and API endpoint logs.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/reading-sessions/high-latency"
+          runbook_url: "https://wiki.fancai.ru/runbooks/reading-sessions/high-latency"
 
       # ----------------------------------------------------------------------
       # WARNING: Session duration anomaly (too short)
@@ -126,7 +126,7 @@ groups:
             Average session duration is {{ $value }}s (< 1 minute).
             This may indicate users are experiencing issues or poor UX.
             Investigate user feedback and error logs.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/reading-sessions/duration-anomaly"
+          runbook_url: "https://wiki.fancai.ru/runbooks/reading-sessions/duration-anomaly"
 
       # ----------------------------------------------------------------------
       # INFO: No active sessions (off-hours is OK)
@@ -156,7 +156,7 @@ groups:
       # ----------------------------------------------------------------------
       - alert: DatabaseConnectionFailed
         expr: |
-          up{job="bookreader-backend"} == 0
+          up{job="fancai-backend"} == 0
         for: 1m
         labels:
           severity: critical
@@ -168,7 +168,7 @@ groups:
             The backend application has lost connection to PostgreSQL.
             All reading sessions functionality is unavailable.
             Check database server status immediately.
-          runbook_url: "https://wiki.bookreader.ai/runbooks/database/connection-failure"
+          runbook_url: "https://wiki.fancai.ru/runbooks/database/connection-failure"
 
       # ----------------------------------------------------------------------
       # CRITICAL: High memory usage

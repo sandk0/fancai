@@ -12,8 +12,8 @@ DOMAIN_NAME=localhost
 DOMAIN_URL=https://localhost
 
 # Database
-DB_NAME=bookreader_prod
-DB_USER=bookreader_user
+DB_NAME=fancai_prod
+DB_USER=fancai_user
 DB_PASSWORD=your_secure_password_here
 
 # Redis
@@ -37,7 +37,7 @@ CELERY_CONCURRENCY=2
 # Frontend
 VITE_API_URL=https://localhost/api/v1
 VITE_WS_URL=wss://localhost/ws
-VITE_APP_NAME=BookReader AI
+VITE_APP_NAME=fancai
 
 # Security
 ALLOWED_HOSTS=localhost,127.0.0.1,fancai.ru

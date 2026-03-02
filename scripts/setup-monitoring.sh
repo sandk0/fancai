@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# BookReader AI Monitoring Setup Script
+# fancai Monitoring Setup Script
 # This script sets up Grafana, Prometheus, and Loki for monitoring
 
 set -e
@@ -88,14 +88,14 @@ show_logs() {
 }
 
 create_dashboard() {
-    log_info "Creating basic BookReader AI dashboard..."
+    log_info "Creating basic fancai dashboard..."
     
-    cat > ./monitoring/grafana/dashboards/bookreader-dashboard.json << 'EOF'
+    cat > ./monitoring/grafana/dashboards/fancai-dashboard.json << 'EOF'
 {
   "dashboard": {
     "id": null,
-    "title": "BookReader AI Dashboard",
-    "tags": ["bookreader"],
+    "title": "fancai Dashboard",
+    "tags": ["fancai"],
     "timezone": "browser",
     "panels": [
       {
@@ -142,7 +142,7 @@ EOF
 }
 
 show_help() {
-    echo "BookReader AI Monitoring Setup Script"
+    echo "fancai Monitoring Setup Script"
     echo ""
     echo "Commands:"
     echo "  setup    - Create directories and set permissions"
