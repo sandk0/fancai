@@ -161,6 +161,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
+      - METRICS_PASSWORD=${METRICS_PASSWORD:-}
       # Image generation
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
@@ -215,6 +216,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
+      - METRICS_PASSWORD=${METRICS_PASSWORD:-}
     volumes:
       - beat_schedule:/tmp
     depends_on:
