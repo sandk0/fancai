@@ -65,6 +65,7 @@ services:
         - VITE_API_BASE_URL=/api/v1
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
         - VITE_APP_NAME=fancai
+        - VITE_HAWK_TOKEN=${HAWK_TOKEN:-}
     container_name: fancai_frontend
     volumes:
       - frontend_build:/var/www/html    # shared volume: frontend пишет, caddy читает
