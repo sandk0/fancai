@@ -23,6 +23,8 @@ services:
   caddy:
     image: caddy:2.11.1-alpine
     container_name: fancai_caddy
+    environment:
+      - MONITOR_PASSWORD_HASH=${MONITOR_PASSWORD_HASH}
     ports:
       - "80:80"
       - "443:443"
