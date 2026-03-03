@@ -109,6 +109,7 @@ services:
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
+      - METRICS_PASSWORD=${METRICS_PASSWORD:-}
       # Performance
       - WORKERS_COUNT=${WORKERS_COUNT:-2}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
