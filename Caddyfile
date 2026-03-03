@@ -3,9 +3,11 @@
 }
 
 fancai.ru {
-    # IP whitelist
+    # IP whitelist — handle @blocked MUST be the first handle block
     @blocked not remote_ip 77.246.110.17
-    respond @blocked 403
+    handle @blocked {
+        respond 403
+    }
 
     # Сжатие
     encode zstd gzip
