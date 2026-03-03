@@ -47,7 +47,7 @@ fancai.ru {
 
     # Security headers
     header {
-        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.fancai.ru wss://*.fancai.ru; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self';"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.fancai.ru wss://*.fancai.ru https://fonts.googleapis.com https://fonts.gstatic.com wss://*.hawk.so https://image.pollinations.ai; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self';"
         X-Frame-Options SAMEORIGIN
         X-Content-Type-Options nosniff
         Referrer-Policy strict-origin-when-cross-origin
