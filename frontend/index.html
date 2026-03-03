@@ -8,9 +8,7 @@
   <meta name="description"
     content="Transform your reading experience with AI-powered image generation from book descriptions. Upload EPUB and FB2 files and watch your stories come to life." />
 
-  <!-- Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.fancai.ru wss://*.fancai.ru https://image.pollinations.ai; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self';" />
+  <!-- CSP is set via Caddy HTTP header (Caddyfile) — single source of truth -->
 
   <!-- Favicon and Icons -->
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
