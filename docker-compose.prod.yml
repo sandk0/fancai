@@ -219,6 +219,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/celerybeat.pid && kill -0 $(cat /tmp/celerybeat.pid)"]
       interval: 30s
