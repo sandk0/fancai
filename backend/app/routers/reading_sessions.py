@@ -364,10 +364,10 @@ async def start_reading_session(
     except HTTPException:
         # Re-raise HTTPExceptions (including BookNotFoundException) to let FastAPI handle them
         raise
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid book_id format: {str(e)}",
+            detail="Invalid book_id format",
         )
     except Exception as e:
         logger.exception(f"Error starting reading session: {e}")
@@ -535,7 +535,7 @@ async def update_reading_session_beacon(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid data format: {str(e)}",
+            detail="Invalid data format",
         )
     except Exception as e:
         logger.exception(f"Error updating reading session via beacon: {e}")
@@ -729,7 +729,7 @@ async def end_reading_session_beacon(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid data format: {str(e)}",
+            detail="Invalid data format",
         )
     except Exception as e:
         logger.exception(f"Error ending reading session via beacon: {e}")

@@ -228,8 +228,15 @@ async def batch_sync(
     timestamp = datetime.now(timezone.utc).isoformat()
 
     try:
+        # Enforce body size limit before reading (sendBeacon max is ~64KB)
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > 65536:
+            raise HTTPException(status_code=413, detail="Request body too large")
+
         # Read raw body (sendBeacon sends as text/plain)
         body = await request.body()
+        if len(body) > 65536:
+            raise HTTPException(status_code=413, detail="Request body too large")
 
         if not body:
             logger.debug("Empty batch sync request")
@@ -319,7 +326,7 @@ async def batch_sync(
 
             except Exception as e:
                 failed += 1
-                errors.append(f"Operation error: {str(e)}")
+                errors.append("Operation error")
                 logger.warning("Error processing sync operation", error=str(e))
 
         # Commit any changes

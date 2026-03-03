@@ -62,20 +62,7 @@ class Settings(BaseSettings):
         "black-forest-labs/flux.2-klein-4b"  # FLUX.2 Klein 4B — быстрая/дешёвая ($0.014/MP, <1 сек), подтверждена доступной 2026-03-01
     )
 
-    GEMINI_MODEL: str = (
-        "gemini-3-flash-preview"  # Dec 2025: gemini-3-flash-preview (not 3.0)
-    )
-    IMAGEN_ENABLED: bool = True
-    IMAGEN_MODEL: str = (
-        "imagen-4.0-generate-001"  # GA models: imagen-4.0-generate-001, imagen-4.0-fast-generate-001, imagen-4.0-ultra-generate-001
-    )
-    IMAGEN_ASPECT_RATIO: str = "4:3"  # 1:1, 3:4, 4:3, 9:16, 16:9
-    IMAGEN_SAFETY_LEVEL: str = (
-        "block_low_and_above"  # Only block_low_and_above is supported
-    )
-    IMAGEN_TIMEOUT_SECONDS: int = 60
-
-    # Legacy AI services (optional)
+    # Legacy: kept for secrets validation compatibility, not used at runtime
     OPENAI_API_KEY: Optional[str] = None
     MIDJOURNEY_API_KEY: Optional[str] = None
 
@@ -183,6 +170,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "❌ SECURITY ERROR: REDIS_URL contains default development password. "
                     "Production Redis must use secure credentials set via environment variable."
+                )
+
+            # Проверка METRICS_PASSWORD
+            if self.METRICS_PASSWORD == "metrics_secure_password":
+                raise ValueError(
+                    "❌ SECURITY ERROR: METRICS_PASSWORD must be overridden in production. "
+                    "Default metrics password is not allowed in production."
                 )
 
         return self

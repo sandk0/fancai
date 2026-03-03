@@ -20,7 +20,7 @@ fi
 
 if [ -z "$DATABASE_URI" ]; then
   echo "ERROR: DATABASE_URI not set. Create .env.mcp with:" >&2
-  echo '  DATABASE_URI=postgresql://postgres:PASSWORD@localhost:5433/bookreader_dev' >&2
+  echo '  DATABASE_URI=postgresql://postgres:PASSWORD@localhost:5433/fancai_dev' >&2
   exit 1
 fi
 

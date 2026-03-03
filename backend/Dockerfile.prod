@@ -1,10 +1,9 @@
 # =============================================================================
 # Production Dockerfile for fancai Backend
 # =============================================================================
-# Lightweight production image — all AI via OpenRouter.
-# No heavy NLP dependencies.
+# Production image — all AI via OpenRouter.
 #
-# Image size: ~600MB (vs ~2GB for full production image)
+# Image size: ~600MB
 # =============================================================================
 
 # Multi-stage build for minimal production image
@@ -26,9 +25,9 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python dependencies
 WORKDIR /tmp
-COPY requirements.lite.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.lite.txt
+    pip install --no-cache-dir -r requirements.txt
 
 # =============================================================================
 # Production stage
@@ -59,11 +58,12 @@ WORKDIR /app
 # Copy application code
 COPY --chown=appuser:appuser . .
 
-# Create necessary directories with proper permissions
+# Create necessary directories with proper permissions and make entrypoint executable
 RUN mkdir -p /app/logs /app/storage/books /app/storage/books/covers /app/storage/images /app/uploads && \
     chown -R appuser:appuser /app && \
     chmod -R 755 /app && \
-    chmod -R 777 /app/storage /app/uploads /app/logs
+    chmod -R 775 /app/storage /app/uploads /app/logs && \
+    chmod +x /app/entrypoint.prod.sh
 
 # Switch to non-root user
 USER appuser
@@ -75,19 +75,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Production command with optimized Gunicorn settings
-# Reduced workers since no NLP processing overhead
-CMD gunicorn app.main:app \
-    --workers ${WORKERS_COUNT:-2} \
-    --worker-class uvicorn.workers.UvicornWorker \
-    --bind 0.0.0.0:8000 \
-    --timeout 120 \
-    --keep-alive 5 \
-    --max-requests 1000 \
-    --max-requests-jitter 100 \
-    --worker-tmp-dir /dev/shm \
-    --preload \
-    --access-logfile /app/logs/access.log \
-    --error-logfile /app/logs/error.log \
-    --capture-output \
-    --log-level ${LOG_LEVEL:-info}
+# Entrypoint handles env validation, then hands off to CMD via exec "$@"
+ENTRYPOINT ["/app/entrypoint.prod.sh"]
+
+# Default: gunicorn using config file (single source of truth)
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app.main:app"]

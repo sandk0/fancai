@@ -7,6 +7,7 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Depends,
+    Query,
     status,
     BackgroundTasks,
     Request,
@@ -592,8 +593,8 @@ async def get_image_for_description(
 @router.get("/images/book/{book_id}", response_model=BookImagesResponse)
 async def get_book_images(
     book_id: UUID,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> BookImagesResponse:

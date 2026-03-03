@@ -13,13 +13,20 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.database import Base
 from app.models.book import Book, ReadingProgress  # noqa: F401
 from app.models.chapter import Chapter  # noqa: F401
-
-# NLP REMOVAL: Description model removed
-# from app.models.description import Description  # noqa: F401
+from app.models.description import Description  # noqa: F401
+from app.models.description_entity import DescriptionEntity  # noqa: F401
+from app.models.entity import Entity  # noqa: F401
+from app.models.entity_event import EntityEvent  # noqa: F401
+from app.models.entity_mention import EntityMention  # noqa: F401
+from app.models.entity_relationship import EntityRelationship  # noqa: F401
+from app.models.feature_flag import FeatureFlag  # noqa: F401
 from app.models.image import GeneratedImage  # noqa: F401
-from app.models.user import Subscription, User  # noqa: F401
-from app.models.reading_session import ReadingSession  # noqa: F401
+from app.models.llm_usage_log import LlmUsageLog  # noqa: F401
 from app.models.password_reset import PasswordResetToken  # noqa: F401
+from app.models.push_subscription import PushSubscription  # noqa: F401
+from app.models.reading_goal import ReadingGoal  # noqa: F401
+from app.models.reading_session import ReadingSession  # noqa: F401
+from app.models.user import Subscription, User  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

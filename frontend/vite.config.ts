@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { visualizer } from 'rollup-plugin-visualizer'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -27,10 +27,7 @@ export default defineConfig({
       injectRegister: false, // We register manually in main.tsx
 
       // Static assets to include in precache
-      includeAssets: [
-        'icon-192.png',
-        'manifest.json',
-      ],
+      includeAssets: ['icon-192.png', 'manifest.json'],
 
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
@@ -67,9 +64,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    // Disable host checking completely (required for direct domain access without nginx)
-    // In Vite 5.x, 'true' disables all host checks
-    allowedHosts: true,
+    allowedHosts: ['localhost', '127.0.0.1', 'fancai.ru'],
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
@@ -173,4 +168,4 @@ export default defineConfig({
     // ✅ FIX: Removed exclude - allow Vite to pre-bundle all dependencies
     // This fixes the DOMParser import error from @xmldom/xmldom
   },
-})
+});

@@ -7,7 +7,7 @@
 services:
   # ─── Netdata — системные метрики хоста + бизнес-метрики fancai ───────────────
   netdata:
-    image: netdata/netdata:stable
+    image: netdata/netdata:v2.5.0
     container_name: fancai_netdata
     pid: host
     network_mode: host
@@ -17,6 +17,9 @@ services:
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
+    environment:
+      # Bind to localhost only — доступ через Caddy reverse proxy
+      - NETDATA_LISTENER_PORT=127.0.0.1:19999
     volumes:
       - netdataconfig:/etc/netdata
       - netdatalib:/var/lib/netdata
@@ -34,14 +37,15 @@ services:
         limits:
           memory: 256M
     # ВАЖНО: network_mode=host — НЕ включать в bridge-сети
+    # Порт 19999 привязан к 127.0.0.1 через NETDATA_LISTENER_PORT
 
   # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
   victoriametrics:
-    image: victoriametrics/victoria-metrics:stable
+    image: victoriametrics/victoria-metrics:v1.112.0
     container_name: fancai_victoriametrics
     restart: unless-stopped
     ports:
-      - "8428:8428"
+      - "127.0.0.1:8428:8428"
     volumes:
       - vm_data:/storage
     command:
@@ -57,11 +61,11 @@ services:
 
   # ─── Uptime Kuma — мониторинг доступности сервисов ───────────────────────────
   uptime-kuma:
-    image: louislam/uptime-kuma:2
+    image: louislam/uptime-kuma:2.4.1
     container_name: fancai_uptime_kuma
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       - kuma_data:/app/data
     deploy:
@@ -72,17 +76,17 @@ services:
       - monitoring_net
 
   # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
+  # Auth: порт на 127.0.0.1 — доступ только через Caddy basic_auth
   dozzle:
-    image: amir20/dozzle:v10
+    image: amir20/dozzle:v10.0.3
     container_name: fancai_dozzle
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - DOZZLE_ENABLE_ACTIONS=true
-      - DOZZLE_AUTH_PROVIDER=none
     deploy:
       resources:
         limits:
@@ -92,7 +96,7 @@ services:
 
   # ─── Flower — мониторинг Celery задач и воркеров ─────────────────────────────
   flower:
-    image: mher/flower:2
+    image: mher/flower:2.0.1
     container_name: fancai_flower
     restart: unless-stopped
     command: >
@@ -101,8 +105,9 @@ services:
       flower
       --port=5555
       --address=0.0.0.0
+      --basic-auth=${MONITOR_USER:-admin}:${MONITOR_PASSWORD}
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     deploy:

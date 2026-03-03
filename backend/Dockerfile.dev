@@ -31,14 +31,14 @@ RUN apt-get update && apt-get install -y \
 # Create working directory
 WORKDIR /app
 
-# Copy lite requirements
-COPY requirements.lite.txt .
+# Copy requirements
+COPY requirements.txt .
 
-# Install Python dependencies (much faster without NLP)
+# Install Python dependencies
 # Note: --no-cache-dir forces fresh download, ensuring latest versions
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.lite.txt && \
-    echo "✅ Lite dependencies installed (December 2025)"
+    pip install --no-cache-dir -r requirements.txt && \
+    echo "✅ Dependencies installed"
 
 # Copy source code
 COPY . .

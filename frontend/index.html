@@ -10,7 +10,7 @@
 
   <!-- Content Security Policy -->
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.fancai.ru wss://*.fancai.ru https://image.pollinations.ai; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self';" />
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' blob: https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.fancai.ru wss://*.fancai.ru https://image.pollinations.ai; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self';" />
 
   <!-- Favicon and Icons -->
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -93,9 +93,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- Preload Google Fonts stylesheet for non-blocking load -->
-  <link rel="preload"
+  <link rel="preload" id="font-preload"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap"
-    as="style" onload="this.onload=null;this.rel='stylesheet'">
+    as="style">
   <noscript>
     <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Fira+Code:wght@300;400;500&display=swap">
@@ -220,30 +220,8 @@
       color: #8d6e63;
     }
   </style>
-  <!-- Theme initialization (prevents FOUC) -->
-  <script>
-    (function () {
-      try {
-        var theme = localStorage.getItem('app-theme');
-        if (theme === 'system' || !theme) {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-
-        // Set data-theme attribute for CSS custom properties
-        document.documentElement.setAttribute('data-theme', theme);
-
-        // Set class for Tailwind compatibility
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else if (theme === 'sepia') {
-          document.documentElement.classList.add('sepia');
-        }
-
-        // Set color-scheme for native elements (scrollbars, inputs, etc.)
-        document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
-      } catch (e) { }
-    })();
-  </script>
+  <!-- Theme initialization (prevents FOUC) — must load synchronously -->
+  <script src="/js/theme-init.js"></script>
 </head>
 
 <body>
@@ -259,28 +237,7 @@
   <div id="root"></div>
 
   <!-- Remove loading screen once React loads -->
-  <script>
-    // Hide loading screen once the page is loaded
-    window.addEventListener('load', function () {
-      const loadingElement = document.getElementById('initial-loading');
-      if (loadingElement) {
-        setTimeout(() => {
-          loadingElement.classList.add('hidden');
-          setTimeout(() => {
-            loadingElement.remove();
-          }, 300);
-        }, 100);
-      }
-    });
-
-    // Fallback: remove loading screen after maximum wait time
-    setTimeout(function () {
-      const loadingElement = document.getElementById('initial-loading');
-      if (loadingElement) {
-        loadingElement.remove();
-      }
-    }, 5000);
-  </script>
+  <script src="/js/loading-screen.js"></script>
 
   <script type="module" src="/src/main.tsx"></script>
 </body>

@@ -2,7 +2,7 @@
 
 Все файлы, генерируемые GSD-агентами и workflow, ДОЛЖНЫ быть на русском языке:
 
-- Заголовки разделов (## Обзор, ## Фазы, ## Прогресс, ## Критерии успеха)
+- Заголовки разделов (## Обзор, ## Прогресс, ## Критерии успеха) — кроме структурных ключей (см. ниже)
 - Описания фаз, планов, задач
 - Критерии успеха (must_haves.truths)
 - Описания артефактов (must_haves.artifacts.provides)
@@ -16,7 +16,11 @@
 - VERIFICATION.md — отчёты верификации
 
 **Не переводить:**
+
 - YAML frontmatter ключи (phase, plan, type, wave, depends_on, files_modified, autonomous, requirements)
+- Структурные ключи, парсируемые GSD-тулами:
+  - PROJECT.md: `## What This Is`, `## Core Value`, `## Requirements`
+  - ROADMAP.md: `## Phases`, `### Phase N:`, `**Goal:**`, `**Depends on:**`, `**Requirements**:`, `**Plans:**`, `Plans:`
 - Пути к файлам
 - Идентификаторы требований (SEC-01, WIKI-02)
 - Имена технологий и библиотек

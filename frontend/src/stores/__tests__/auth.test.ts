@@ -1,6 +1,6 @@
 /**
  * Auth Store Tests
- * 
+ *
  * Tests authentication with HttpOnly cookie-based auth.
  * Note: Tokens are managed by HttpOnly cookies, not stored in state.
  */
@@ -43,7 +43,11 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import { clearAllCaches, backupReadingProgress, restoreReadingProgress } from '@/utils/cacheManager';
+import {
+  clearAllCaches,
+  backupReadingProgress,
+  restoreReadingProgress,
+} from '@/utils/cacheManager';
 import { tabSync } from '@/services/tabSync';
 
 describe('Auth Store', () => {
@@ -447,7 +451,9 @@ describe('Auth Store', () => {
 
   describe('refreshAccessToken', () => {
     it('should call refresh API', async () => {
-      vi.mocked(authAPI.refreshToken).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof authAPI.refreshToken>>);
+      vi.mocked(authAPI.refreshToken).mockResolvedValue(
+        undefined as unknown as Awaited<ReturnType<typeof authAPI.refreshToken>>
+      );
 
       useAuthStore.setState({
         user: {
@@ -468,7 +474,7 @@ describe('Auth Store', () => {
         await result.current.refreshAccessToken();
       });
 
-      expect(authAPI.refreshToken).toHaveBeenCalledWith('');
+      expect(authAPI.refreshToken).toHaveBeenCalledWith();
     });
 
     it('should logout on refresh failure', async () => {
@@ -563,17 +569,24 @@ describe('Auth Store', () => {
 
     it('should set loading state during session check', async () => {
       vi.mocked(authAPI.getCurrentUser).mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({
-          user: {
-            id: '1',
-            email: 'test@example.com',
-            full_name: 'Test',
-            is_active: true,
-            is_verified: true,
-            is_admin: false,
-            created_at: new Date().toISOString(),
-          },
-        }), 200))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  user: {
+                    id: '1',
+                    email: 'test@example.com',
+                    full_name: 'Test',
+                    is_active: true,
+                    is_verified: true,
+                    is_admin: false,
+                    created_at: new Date().toISOString(),
+                  },
+                }),
+              200
+            )
+          )
       );
 
       const { result } = renderHook(() => useAuthStore());

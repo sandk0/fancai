@@ -2,7 +2,7 @@
 Admin API routes for user management.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -16,8 +16,8 @@ router = APIRouter()
 
 @router.get("/users")
 async def get_users_list(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     admin_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
 ):

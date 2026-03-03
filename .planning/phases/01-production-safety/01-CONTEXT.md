@@ -1,85 +1,72 @@
-# Phase 1: Production Safety - Context
+# Фаза 1: Безопасность продакшена — Контекст
 
-**Gathered:** 2026-02-27
-**Status:** Ready for planning
+**Собран:** 2026-02-27
+**Статус:** Готов к планированию
 
 <domain>
-## Phase Boundary
+## Границы фазы
 
-Fix security vulnerabilities (JWT migration to PyJWT, reject alg=none, reject default SECRET_KEY), switch to production deployment mode (Gunicorn + UvicornWorker, DEBUG=False), implement real health checks (PostgreSQL, Redis, Celery connectivity), add Sentry monitoring (backend + frontend + Celery), and set up database backups. No new user-facing features.
+Исправить уязвимости безопасности (миграция JWT на PyJWT, отклонение alg=none, отклонение дефолтного SECRET_KEY), перейти на продакшен-режим деплоя (Gunicorn + UvicornWorker, DEBUG=False), реализовать реальные health check-и (подключение к PostgreSQL, Redis, Celery), добавить мониторинг Sentry (бэкенд + фронтенд + Celery) и настроить резервное копирование базы данных. Никаких новых пользовательских функций.
 
 </domain>
 
 <decisions>
-## Implementation Decisions
+## Решения по реализации
 
-### Monitoring & Sentry
-- Self-hosted Sentry on the same server (server upgrade from 8 GB to 16+ GB planned)
-- Two separate Sentry projects: Python backend and React frontend
-- 100% sample rate for errors (self-hosted, no limits)
-- Errors + performance traces enabled (API latency, Celery task duration)
-- Celery integration mandatory — track AI pipeline failures (Gemini/Imagen)
-- AI API call tracing: latency, error rate, timeouts for Gemini/Imagen
-- Only internal health check endpoint (no external uptime monitoring)
-- Logs to stdout via Docker (no structured JSON logging to files)
-- No push notifications (Telegram/email) — Sentry UI only for now
+### Мониторинг ошибок: Hawk Tracker (обновлено 2026-03-01)
+- **Hawk Tracker SaaS** (https://hawk-tracker.ru/) вместо Sentry (российские серверы, бесплатный, open source)
+- Backend: `hawk-python-sdk[fastapi]` — HawkFastapi integration с FastAPI app instance
+- Frontend: `@hawk.so/javascript` — React support, source maps из коробки
+- Два отдельных проекта: Python-бэкенд и React-фронтенд
+- Интеграция с Celery — отслеживание сбоев AI-пайплайна
+- Только внутренний health check эндпоинт (без внешнего мониторинга аптайма)
+- Логи в stdout через Docker (без структурированного JSON-логирования в файлы)
 
-### Backup Strategy
-- Daily PostgreSQL backups at 03:00 MSK via cron on host
-- Only PostgreSQL — no file backups (EPUBs/images can be regenerated)
-- Storage: Yandex Object Storage (S3-compatible, need to create bucket)
-- Compression: pg_dump | gzip before upload
-- Retention: 7 days
-- Backup failures reported to Sentry as events
-- No encryption — private S3 bucket access is sufficient
+### Конфигурация деплоя (обновлено 2026-03-01)
+- nginx в качестве реверс-прокси уже настроен с Let's Encrypt SSL
+- Gunicorn: уже в Dockerfile.lite.prod (2 воркера с UvicornWorker)
+- Celery: memory limit 512MB для всех окружений (было 150/300/400)
+- **Сервер: 32GB RAM, 12 vCPU, NVMe SSD** (апгрейд уже выполнен)
+- Лимиты памяти Docker на контейнер (предотвращение OOM)
+- Политика restart: unless-stopped для всех контейнеров
+- Кратковременный даунтайм при деплоях допустим (zero-downtime не требуется)
+- Единый docker-compose.lite.yml для продакшена (без отдельного prod-файла)
+- Без rate limiting в этой фазе
 
-### Deploy Configuration
-- nginx reverse proxy already configured with Let's Encrypt SSL
-- Gunicorn: 2 workers with UvicornWorker (conservative for RAM)
-- Celery: 2 workers (parallel AI task processing)
-- Server: 4 CPU cores, 8 GB RAM (upgrade to 16+ GB planned for Sentry)
-- Docker memory limits per container (prevent OOM)
-- restart: unless-stopped policy for all containers
-- Short downtime during deploys is acceptable (no zero-downtime needed)
-- Single docker-compose.lite.yml for production (no separate prod file)
-- No rate limiting in this phase
+### Управление секретами
+- Файл .env на сервере (не в git), Docker Compose читает env_file
+- SECRET_KEY уже читается из окружения (есть дефолтный fallback — нужно удалить)
+- Ручная генерация SECRET_KEY (надёжный ключ, без ротации)
+- Создать шаблон .env.example в репозитории с placeholder-значениями
+- Проверить, что .env в .gitignore
+- Fail-fast при запуске: приложение отказывается запускаться, если отсутствуют обязательные переменные окружения (SECRET_KEY, DATABASE_URL)
 
-### Secret Management
-- .env file on server (not in git), Docker Compose reads env_file
-- SECRET_KEY already reads from environment (has default fallback — must remove)
-- Manual SECRET_KEY generation (strong key, no rotation)
-- Create .env.example template in repository with placeholder values
-- Verify .env is in .gitignore
-- Fail-fast startup: app refuses to start if required env vars missing (SECRET_KEY, DATABASE_URL)
-
-### Claude's Discretion
-- Exact Sentry version and Docker Compose configuration for self-hosted
-- Deploy flow improvements to docker-compose.lite.yml
-- Full list of required env vars to validate at startup (Claude inspects code)
-- Memory limit values per container (distribute 16 GB across services)
-- Health check response format and timeout values
-- Gunicorn timeout and keep-alive configuration
+### На усмотрение Claude
+- Точная версия Sentry и конфигурация Docker Compose для self-hosted
+- Улучшения процесса деплоя в docker-compose.lite.yml
+- Полный список обязательных переменных окружения для валидации при запуске (Claude проверяет код)
+- Значения лимитов памяти на контейнер (распределение 16 ГБ между сервисами)
+- Формат ответа health check и значения таймаутов
+- Конфигурация таймаута и keep-alive для Gunicorn
 
 </decisions>
 
 <specifics>
-## Specific Ideas
+## Конкретные идеи
 
-- Server upgrade to 16+ GB RAM is prerequisite for self-hosted Sentry
-- Yandex Object Storage chosen for S3 (Russian datacenter, matches fancai.ru hosting)
-- Backup script should be simple bash + pg_dump + aws-cli (s3 compatible)
-- Current deployment is ssh root@server -> docker compose
+- Сервер уже 32GB RAM / 12 vCPU — Hawk Tracker SaaS не требует серверных ресурсов
+- Текущий деплой: ssh root@server -> docker compose
 
 </specifics>
 
 <deferred>
-## Deferred Ideas
+## Отложенные идеи
 
-None — discussion stayed within phase scope
+Нет — обсуждение не выходило за рамки фазы
 
 </deferred>
 
 ---
 
-*Phase: 01-production-safety*
-*Context gathered: 2026-02-27*
+*Фаза: 01-production-safety*
+*Контекст собран: 2026-02-27*

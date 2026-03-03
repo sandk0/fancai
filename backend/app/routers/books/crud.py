@@ -9,7 +9,7 @@ Core CRUD operations для работы с книгами.
 - Получение обложек книг
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -217,8 +217,8 @@ async def upload_book(
 
 @router.get("/", response_model=BookListResponse)
 async def get_user_books(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     sort_by: str = "created_desc",
     db: AsyncSession = Depends(get_database_session),
     current_user: User = Depends(get_current_active_user),
@@ -369,7 +369,13 @@ async def get_book(
     try:
         progress_percent = await book.get_reading_progress_percent(db, current_user.id)
 
-        current_chapter, current_page, current_position, reading_location_cfi, max_chapter_reached = (
+        (
+            current_chapter,
+            current_page,
+            current_position,
+            reading_location_cfi,
+            max_chapter_reached,
+        ) = (
             1,
             1,
             0,
@@ -754,9 +760,14 @@ async def reprocess_book_descriptions(
     try:
         pattern = f"user:{current_user.id}:books:*"
         deleted_count = await cache_manager.delete_pattern(pattern)
-        logger.debug("Book list cache invalidated after reprocess start", keys_deleted=deleted_count)
+        logger.debug(
+            "Book list cache invalidated after reprocess start",
+            keys_deleted=deleted_count,
+        )
     except Exception as e:
-        logger.warning("Failed to invalidate book list cache after reprocess start", error=str(e))
+        logger.warning(
+            "Failed to invalidate book list cache after reprocess start", error=str(e)
+        )
 
     # Запускаем Celery task
     task_id = None

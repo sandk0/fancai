@@ -134,6 +134,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=true
       - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       - CELERY_CONCURRENCY=1
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
@@ -166,11 +167,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     container_name: fancai_beat_dev
-    user: root
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=true
     volumes:
       - ./backend:/app
     depends_on:
@@ -214,7 +215,7 @@ services:
     networks:
       - fancai_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-fancai_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-fancai_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -234,7 +235,7 @@ services:
       --appendonly yes
       --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy volatile-lru
       --save 900 1 300 10 60 10000
     volumes:
       - redis_data:/data

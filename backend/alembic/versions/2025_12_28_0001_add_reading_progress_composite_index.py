@@ -26,16 +26,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Add composite unique index on reading_progress (user_id, book_id)."""
-    # Create unique composite index for efficient lookups and constraint
-    op.create_index(
-        "idx_reading_progress_user_book",
-        "reading_progress",
-        ["user_id", "book_id"],
-        unique=True,
-    )
+    """No-op: index idx_reading_progress_user_book already created in 2025_12_25_0001."""
+    pass
 
 
 def downgrade() -> None:
-    """Remove composite index."""
-    op.drop_index("idx_reading_progress_user_book", table_name="reading_progress")
+    """No-op: index lifecycle managed by 2025_12_25_0001."""
+    pass

@@ -90,26 +90,44 @@ class EntityDeduplicationService:
     async def suggest_merges(self, book_id: UUID) -> DeduplicationResponse:
         logger.info(f"[EntityDedup] Analyzing entities for book_id={book_id}")
 
-        entities = await self._load_entities(book_id)
-        if len(entities) < 2:
-            logger.info("[EntityDedup] Less than 2 entities, nothing to deduplicate")
-            return DeduplicationResponse(no_duplicates_found=True)
+        # Distributed lock to prevent concurrent deduplication for same book
+        from app.core.cache import cache_manager
 
-        # Load chapter numbers for each entity via mentions
-        entity_chapters = await self._load_entity_chapters(book_id)
+        lock_key = f"entity:dedup:{book_id}"
+        lock_acquired = await cache_manager.acquire_lock(lock_key, ttl=300)
+        if not lock_acquired:
+            from fastapi import HTTPException
 
-        entities_for_analysis = self._prepare_entities(entities, entity_chapters)
+            raise HTTPException(
+                status_code=409,
+                detail="Deduplication already in progress for this book",
+            )
 
         try:
-            response = await self._call_gemini(entities_for_analysis)
-            logger.info(
-                f"[EntityDedup] Found {len(response.merge_groups)} merge groups"
-            )
-            return response
-        except Exception as e:
-            logger.exception(f"[EntityDedup] LLM call failed: {e}")
-            record_llm_error("deduplication", str(e))
-            return DeduplicationResponse(no_duplicates_found=True)
+            entities = await self._load_entities(book_id)
+            if len(entities) < 2:
+                logger.info(
+                    "[EntityDedup] Less than 2 entities, nothing to deduplicate"
+                )
+                return DeduplicationResponse(no_duplicates_found=True)
+
+            # Load chapter numbers for each entity via mentions
+            entity_chapters = await self._load_entity_chapters(book_id)
+
+            entities_for_analysis = self._prepare_entities(entities, entity_chapters)
+
+            try:
+                response = await self._call_gemini(entities_for_analysis)
+                logger.info(
+                    f"[EntityDedup] Found {len(response.merge_groups)} merge groups"
+                )
+                return response
+            except Exception as e:
+                logger.exception(f"[EntityDedup] LLM call failed: {e}")
+                record_llm_error("openrouter-dedup", type(e).__name__)
+                return DeduplicationResponse(no_duplicates_found=True)
+        finally:
+            await cache_manager.release_lock(lock_key)
 
     async def _load_entities(self, book_id: UUID) -> List[Entity]:
         result = await self.db.execute(

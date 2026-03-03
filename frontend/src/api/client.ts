@@ -23,17 +23,20 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor: auth token + FormData handling
     this.client.interceptors.request.use(
       (config) => {
         if (import.meta.env.DEV) {
-          logger.debug(`🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`);
+          logger.debug(
+            `🌐 [AXIOS] Outgoing ${config.method?.toUpperCase()} request to ${config.url}`
+          );
         }
 
         // КРИТИЧЕСКИ ВАЖНО: Если data это FormData, удаляем Content-Type
         // чтобы браузер сам установил multipart/form-data с boundary
         if (config.data instanceof FormData) {
-          if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] Detected FormData, removing Content-Type header');
+          if (import.meta.env.DEV)
+            logger.debug('🌐 [AXIOS] Detected FormData, removing Content-Type header');
           if (config.headers) {
             delete config.headers['Content-Type'];
           }
@@ -51,16 +54,22 @@ class ApiClient {
     // Response interceptor for token refresh
     this.client.interceptors.response.use(
       (response) => {
-        if (import.meta.env.DEV) logger.debug(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
+        if (import.meta.env.DEV)
+          logger.debug(`🌐 [AXIOS] Response received for ${response.config.url}:`, response.status);
         return response;
       },
       async (error) => {
         const originalRequest = error.config;
 
+        // If config is missing (e.g. cancelled request), skip processing
+        if (!originalRequest) {
+          return Promise.reject(error);
+        }
+
         // Skip logging for 401s that we're about to retry (reduces noise)
         if (error.response?.status !== 401 || originalRequest._retry) {
           logger.error('🌐 [AXIOS] Response error:', {
-            url: error.config?.url,
+            url: originalRequest.url,
             status: error.response?.status,
             message: error.message,
           });
@@ -69,26 +78,34 @@ class ApiClient {
         // Skip token refresh for auth endpoints - they handle their own auth
         const isAuthEndpoint = originalRequest.url?.includes('/auth/');
         // Skip refresh for metrics/health endpoints to prevent loops
-        const isIgnoredEndpoint = originalRequest.url?.includes('/metrics') || originalRequest.url?.includes('/health');
-        
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint && !isIgnoredEndpoint) {
-          if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] 401 error, attempting token refresh...');
+        const isIgnoredEndpoint =
+          originalRequest.url?.includes('/metrics') || originalRequest.url?.includes('/health');
+
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          !isAuthEndpoint &&
+          !isIgnoredEndpoint
+        ) {
+          if (import.meta.env.DEV)
+            logger.debug('🌐 [AXIOS] 401 error, attempting token refresh...');
           originalRequest._retry = true;
 
           try {
             await this.refreshToken();
-            if (import.meta.env.DEV) logger.debug('🌐 [AXIOS] Token refreshed, retrying request...');
+            if (import.meta.env.DEV)
+              logger.debug('🌐 [AXIOS] Token refreshed, retrying request...');
             return this.client(originalRequest);
           } catch (refreshError: unknown) {
             // Refresh failed
-            
+
             // Don't logout on 429 (Rate Limit) or Network Error
             // Just fail the request and let the user try again later
             const isAxios = this.isAxiosError(refreshError);
             const status = isAxios ? refreshError.response?.status : undefined;
             if (status === 429 || (isAxios && refreshError.code === 'ERR_NETWORK')) {
-               logger.warn('🔄 Token refresh failed (temporary):', status || 'Network Error');
-               return Promise.reject(refreshError);
+              logger.warn('🔄 Token refresh failed (temporary):', status || 'Network Error');
+              return Promise.reject(refreshError);
             }
 
             logger.warn('🔄 Token refresh failed (permanent):', refreshError);
@@ -127,7 +144,9 @@ class ApiClient {
       .finally(() => {
         // Keep promise for a bit to prevent stampede?
         // Actually we should clear it immediately or shortly after
-        setTimeout(() => { this.refreshPromise = null; }, 1000);
+        setTimeout(() => {
+          this.refreshPromise = null;
+        }, 1000);
       });
 
     return this.refreshPromise;
@@ -160,7 +179,10 @@ class ApiClient {
         const responseData = error.response.data as Record<string, unknown> | undefined;
         return {
           error: (responseData?.error as string) || 'Server Error',
-          message: (responseData?.detail as string) || (responseData?.message as string) || 'An error occurred',
+          message:
+            (responseData?.detail as string) ||
+            (responseData?.message as string) ||
+            'An error occurred',
           details: responseData,
           timestamp: new Date().toISOString(),
         };
@@ -195,8 +217,8 @@ class ApiClient {
       headers: {
         ...config?.headers,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     });
     return response.data;

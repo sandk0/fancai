@@ -2,7 +2,7 @@
 API роуты для управления пользователями в fancai.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select, func
 from loguru import logger
@@ -38,10 +38,11 @@ router = APIRouter()
 
 @router.get("/users/test-db", response_model=DatabaseTestResponse)
 async def test_database_connection(
+    current_admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> DatabaseTestResponse:
     """
-    Тестовый endpoint для проверки подключения к базе данных.
+    Тестовый endpoint для проверки подключения к базе данных (только для администраторов).
 
     Returns:
         Информация о подключении к базе данных
@@ -62,14 +63,12 @@ async def test_database_connection(
             )
 
         # Проверим, что таблицы созданы
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
             SELECT COUNT(*) as table_count
             FROM information_schema.tables
             WHERE table_schema = 'public'
             AND table_name IN ('users', 'books', 'chapters', 'descriptions', 'generated_images')
-        """)
-        )
+        """))
         table_count_row = result.fetchone()
         table_count = table_count_row[0] if table_count_row else 0
 
@@ -238,8 +237,8 @@ async def get_user_subscription(
 
 @router.get("/users/admin/users", response_model=AdminUsersListResponse)
 async def list_all_users(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     current_admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> AdminUsersListResponse:

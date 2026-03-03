@@ -240,8 +240,8 @@ async def merge_entities(
             message=f"Successfully merged {merged_count} entities into master",
         )
 
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Entity not found")
     except Exception as e:
         await db.rollback()
         logger.exception(f"[AdminEntities] Merge failed: {e}")
