@@ -4,7 +4,7 @@
 # Production deployment — all AI via OpenRouter (LLM + images).
 #
 # Memory requirements (optimized for 32GB server, 12 vCPU):
-# - PostgreSQL: 12GB (with shared_buffers=8GB)
+# - PostgreSQL: 12GB (with shared_buffers=4GB)
 # - Redis: 768MB (maxmemory=640mb)
 # - Backend: 2GB
 # - Celery Worker: 1.5GB
@@ -39,6 +39,11 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - fancai_network
     deploy:
@@ -52,12 +57,12 @@ services:
 
   # Frontend Production Build (outputs to shared volume, exits after build)
   frontend:
-    image: fancai-frontend:lite
+    image: fancai-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        - VITE_API_URL=${DOMAIN_URL:-http://localhost}/api/v1
+        - VITE_API_BASE_URL=/api/v1
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
         - VITE_APP_NAME=fancai
     container_name: fancai_frontend
@@ -69,11 +74,12 @@ services:
 
   # Backend API
   backend:
-    image: fancai-backend:lite
+    image: fancai-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
     container_name: fancai_backend
+    init: true
     environment:
       # Database
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
@@ -83,9 +89,8 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/2
       # Security
       - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       # Environment
       - DEBUG=false
       - ENVIRONMENT=production
@@ -101,6 +106,8 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+      # Monitoring
+      - HAWK_TOKEN=${HAWK_TOKEN:-}
       # Performance
       - WORKERS_COUNT=${WORKERS_COUNT:-2}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
@@ -132,11 +139,12 @@ services:
 
   # Celery Worker
   celery-worker:
-    image: fancai-backend:lite
+    image: fancai-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
     container_name: fancai_celery
+    init: true
     command: >
       celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=100 --max-memory-per-child=512000 --prefetch-multiplier=1
     environment:
@@ -169,6 +177,12 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping --timeout 10"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
     networks:
       - fancai_network
     deploy:
@@ -182,7 +196,7 @@ services:
 
   # Celery Beat Scheduler
   celery-beat:
-    image: fancai-backend:lite
+    image: fancai-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
@@ -205,6 +219,11 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/celerybeat.pid && kill -0 $(cat /tmp/celerybeat.pid)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - fancai_network
     deploy:
@@ -229,8 +248,8 @@ services:
       - PGDATA=/var/lib/postgresql/data/pgdata
     command: >
       postgres
-      -c shared_buffers=8GB
-      -c effective_cache_size=24GB
+      -c shared_buffers=4GB
+      -c effective_cache_size=8GB
       -c work_mem=64MB
       -c maintenance_work_mem=1GB
       -c huge_pages=try
@@ -239,14 +258,19 @@ services:
       -c checkpoint_completion_target=0.9
       -c max_parallel_workers_per_gather=4
       -c default_statistics_target=200
-      -c max_connections=100
+      -c max_connections=150
       -c random_page_cost=1.1
       -c log_min_duration_statement=500
       -c log_checkpoints=on
+      -c max_wal_size=4GB
+      -c effective_io_concurrency=200
+      -c autovacuum_vacuum_cost_limit=2000
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
+    stop_signal: SIGINT
+    stop_grace_period: 60s
     networks:
       - fancai_network
     healthcheck:
@@ -269,7 +293,7 @@ services:
     image: redis:7.4.8-alpine
     container_name: fancai_redis
     command: >
-      redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 640mb --maxmemory-policy allkeys-lru --save 900 1 300 10 60 10000
+      redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 640mb --maxmemory-policy volatile-lru --save 900 1 300 10 60 10000
     volumes:
       - redis_data:/data
     restart: unless-stopped

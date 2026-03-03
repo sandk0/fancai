@@ -186,8 +186,8 @@ class ErrorBoundary extends Component<Props, State> {
               {!isAppLevel && !isPageLevel && 'An error occurred while rendering this component.'}
             </p>
 
-            {/* Error Details - показываем всегда для PWA отладки */}
-            {error && (
+            {/* Error Details - только в dev mode */}
+            {import.meta.env.DEV && error && (
               <details className="mb-8 text-left bg-card border border-border rounded-lg p-4 overflow-auto">
                 <summary className="cursor-pointer font-semibold mb-2 text-destructive">
                   Error details

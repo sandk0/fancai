@@ -23,6 +23,9 @@ keepalive = 5
 max_requests = int(os.getenv("WORKER_MAX_REQUESTS", "1000"))
 max_requests_jitter = int(os.getenv("WORKER_MAX_REQUESTS_JITTER", "100"))
 
+# Temp directory (tmpfs for faster heartbeat checks)
+worker_tmp_dir = "/dev/shm"
+
 # Logging
 accesslog = "-"  # stdout
 errorlog = "-"  # stderr

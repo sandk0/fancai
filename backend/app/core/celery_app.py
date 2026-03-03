@@ -10,8 +10,8 @@ from app.core.config import settings
 # Create Celery instance with basic config
 celery_app = Celery(
     "fancai",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=os.getenv("CELERY_BROKER_URL", settings.REDIS_URL),
+    backend=os.getenv("CELERY_RESULT_BACKEND", settings.REDIS_URL),
     include=["app.core.tasks", "app.tasks.reading_sessions_tasks"],
 )
 

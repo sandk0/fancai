@@ -1,7 +1,7 @@
 {
   "mode": "interactive",
   "depth": "standard",
-  "model_profile": "balanced",
+  "model_profile": "quality",
   "commit_docs": false,
   "search_gitignored": false,
   "branching_strategy": "none",

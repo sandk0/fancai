@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Script configuration
 PROJECT_NAME="fancai"
-COMPOSE_FILE="docker-compose.production.yml"
+COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 BACKUP_DIR="/backups/$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="/var/log/fancai-deploy.log"
@@ -80,7 +80,7 @@ check_prerequisites() {
     fi
     
     # Check if required directories exist
-    local required_dirs=("logs" "nginx/ssl" "postgres")
+    local required_dirs=("logs" "postgres")
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             warning "Creating missing directory: $dir"
@@ -99,10 +99,9 @@ validate_environment() {
     
     local required_vars=(
         "DOMAIN_NAME"
-        "DB_PASSWORD" 
+        "DB_PASSWORD"
         "REDIS_PASSWORD"
         "SECRET_KEY"
-        "JWT_SECRET_KEY"
     )
     
     local missing_vars=()
@@ -170,7 +169,7 @@ build_images() {
     step "Building production images..."
     
     # Pull base images first
-    docker compose -f "$COMPOSE_FILE" pull postgres redis nginx logrotate watchtower || true
+    docker compose -f "$COMPOSE_FILE" pull postgres redis caddy || true
     
     # Build our custom images
     info "Building backend image..."
@@ -233,7 +232,9 @@ deploy_application() {
     docker compose -f "$COMPOSE_FILE" down --timeout 30 || true
     
     # Clean up orphaned containers and networks
-    docker system prune -f --volumes || true
+    docker container prune -f || true
+    docker image prune -f || true
+    # NOTE: --volumes intentionally removed to protect postgres_data and redis_data
     
     # Start infrastructure services first
     info "Starting infrastructure services..."
@@ -253,13 +254,9 @@ deploy_application() {
     # Wait for backend to be ready
     sleep 30
     
-    # Start frontend and nginx
-    info "Starting frontend and nginx..."
-    docker compose -f "$COMPOSE_FILE" up -d frontend nginx
-    
-    # Start auxiliary services
-    info "Starting auxiliary services..."
-    docker compose -f "$COMPOSE_FILE" up -d logrotate
+    # Start frontend and caddy
+    info "Starting frontend and caddy..."
+    docker compose -f "$COMPOSE_FILE" up -d frontend caddy
     
     success "Application deployed"
 }
@@ -269,7 +266,7 @@ verify_deployment() {
     step "Verifying deployment..."
     
     # Check if all expected containers are running
-    local expected_services=("postgres" "redis" "backend" "celery-worker" "celery-beat" "frontend" "nginx" "logrotate")
+    local expected_services=("postgres" "redis" "backend" "celery-worker" "celery-beat" "frontend" "caddy")
     local failed_services=()
     
     for service in "${expected_services[@]}"; do
@@ -419,7 +416,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  --with-monitoring    Start monitoring services (Prometheus, Grafana)"
+    echo "  --with-monitoring    Start monitoring services"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"

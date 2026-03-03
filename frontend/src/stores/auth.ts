@@ -5,9 +5,42 @@ import { persist } from 'zustand/middleware';
 import { authAPI } from '@/api/auth';
 import type { AuthState } from '@/types/state';
 import { STORAGE_KEYS } from '@/types/state';
-import { clearAllCaches, backupReadingProgress, restoreReadingProgress } from '@/utils/cacheManager';
+import {
+  clearAllCaches,
+  backupReadingProgress,
+  restoreReadingProgress,
+} from '@/utils/cacheManager';
 import { tabSync } from '@/services/tabSync';
 import { logger } from '@/lib/logger';
+
+const USER_DATA_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** Store user data with expiration timestamp */
+function setUserDataWithTTL(user: unknown): void {
+  localStorage.setItem(
+    STORAGE_KEYS.USER_DATA,
+    JSON.stringify({ data: user, expiresAt: Date.now() + USER_DATA_TTL_MS })
+  );
+}
+
+/** Read user data, returning null if expired */
+function getUserDataWithTTL(): unknown | null {
+  const raw = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    // Backward compat: old format stored user directly
+    const userData = parsed.expiresAt ? parsed.data : parsed;
+    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+      localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+      return null;
+    }
+    return userData;
+  } catch {
+    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+    return null;
+  }
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -30,9 +63,9 @@ export const useAuthStore = create<AuthState>()(
           const { user } = response; // Tokens are now in HttpOnly cookies
 
           logger.debug('🔐 Login successful for:', user.email);
-          
-          // Store user data in localStorage for offline access
-          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+
+          // Store user data in localStorage for offline access (with TTL)
+          setUserDataWithTTL(user);
 
           // IMPORTANT: Restore reading progress AFTER successful login
           logger.debug('📂 Checking for reading progress backup...');
@@ -62,11 +95,11 @@ export const useAuthStore = create<AuthState>()(
           const response = await authAPI.register({
             email,
             password,
-            full_name: fullName
+            full_name: fullName,
           });
           const { user } = response;
 
-          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+          setUserDataWithTTL(user);
 
           set({
             user,
@@ -86,6 +119,11 @@ export const useAuthStore = create<AuthState>()(
         if (userId) {
           logger.debug('💾 Backing up reading progress before logout...');
           backupReadingProgress(userId);
+        }
+
+        // Notify service worker to clear cached API data
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'LOGOUT' });
         }
 
         // TD-FRONT-130: Properly await logout API call (clears cookies + blacklists token)
@@ -121,7 +159,7 @@ export const useAuthStore = create<AuthState>()(
       refreshAccessToken: async () => {
         // Just call API, cookies handled automatically
         try {
-          await authAPI.refreshToken(''); // Argument ignored in new implementation
+          await authAPI.refreshToken();
         } catch (error) {
           get().logout();
           throw error;
@@ -130,7 +168,7 @@ export const useAuthStore = create<AuthState>()(
 
       updateUser: (user) => {
         set({ user });
-        localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+        setUserDataWithTTL(user);
       },
 
       loadUserFromStorage: async () => {
@@ -138,25 +176,24 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          // Optimistically load user data for UI
-          const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-          if (userData) {
-            set({ user: JSON.parse(userData) });
+          // Optimistically load user data for UI (TTL-aware)
+          const cachedUser = getUserDataWithTTL();
+          if (cachedUser) {
+            set({ user: cachedUser as AuthState['user'] });
           }
 
           // Verify session with API (checks HttpOnly cookies)
           const response = await authAPI.getCurrentUser();
           logger.debug('✅ Session valid for:', response.user.email);
-          
+
           set({
             user: response.user,
             isAuthenticated: true,
             isLoading: false,
           });
-          
-          // Update cached user data
-          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
-          
+
+          // Update cached user data with TTL
+          setUserDataWithTTL(response.user);
         } catch {
           logger.debug('❌ Session invalid or expired');
           set({

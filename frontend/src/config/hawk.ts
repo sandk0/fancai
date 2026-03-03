@@ -14,6 +14,9 @@ let hawk: HawkCatcher | null = null;
  * Вызывается один раз при запуске приложения в main.tsx.
  */
 export function initHawk(): void {
+  // VITE_HAWK_TOKEN is embedded in the build bundle.
+  // This is acceptable: it's a write-only error reporting token, not a secret.
+  // If abuse becomes an issue, proxy error reports through backend.
   const token = import.meta.env.VITE_HAWK_TOKEN;
   if (!token) {
     console.info('Hawk Tracker отключен (VITE_HAWK_TOKEN не установлен)');

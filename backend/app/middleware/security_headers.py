@@ -104,6 +104,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "font-src": [
                 "'self'",
                 "data:",
+                "blob:",  # epub.js loads EPUB-embedded fonts as blob: URLs
                 "https://fonts.gstatic.com",
                 "https://fonts.googleapis.com",
             ],

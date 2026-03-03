@@ -12,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ class UserRegistrationRequest(BaseModel):
     """Модель запроса регистрации пользователя."""
 
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=12, max_length=128)
     full_name: Optional[str] = None
 
 
@@ -63,7 +63,7 @@ class UserLoginRequest(BaseModel):
     """Модель запроса входа пользователя."""
 
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class TokenRefreshRequest(BaseModel):
@@ -76,8 +76,8 @@ class UserProfileUpdateRequest(BaseModel):
     """Модель запроса обновления профиля."""
 
     full_name: Optional[str] = None
-    current_password: Optional[str] = None
-    new_password: Optional[str] = None
+    current_password: Optional[str] = Field(None, max_length=128)
+    new_password: Optional[str] = Field(None, min_length=12, max_length=128)
 
 
 # UserResponse уже импортирован из app.schemas.responses
@@ -465,7 +465,7 @@ class ResetPasswordRequest(BaseModel):
     """Запрос на установку нового пароля."""
 
     token: str
-    new_password: str
+    new_password: str = Field(..., min_length=12, max_length=128)
 
 
 @router.post("/auth/reset-password", response_model=ResetPasswordResponse)

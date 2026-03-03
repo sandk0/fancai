@@ -1,255 +1,255 @@
-# Codebase Concerns
+# Проблемы кодовой базы
 
-**Analysis Date:** 2026-02-27
+**Дата анализа:** 2026-02-27
 
-## Tech Debt
+## Технический долг
 
-**NLP System Remnants (Post-Removal Cleanup Incomplete):**
-- Issue: NLP system was removed in Dec 2025 but dead config and settings remain active
-- Files:
-  - `backend/app/core/config.py` (lines 79-90): `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT` all unused
-  - `backend/app/services/settings_manager.py`: Full `nlp_global`, `nlp_spacy`, `nlp_natasha`, `nlp_stanza`, `nlp_gliner` config sections still active
-  - `backend/app/schemas/responses/admin.py`: Admin schemas expose NLP settings that no longer exist
-  - `backend/test_nlp_processors.py`, `backend/test_gliner_integration.py`, `backend/test_deeppavlov_integration.py`, `backend/test_advanced_parser*.py`, `backend/test_langextract_processor.py`, `backend/test_enrichment_integration.py`: 14 root-level test files for removed NLP system clutter the project root
-- Impact: Misleads future developers; dead config increases cognitive load; root-level test files fail or are ignored
+**Остатки NLP-системы (неполная очистка после удаления):**
+- Проблема: NLP-система была удалена в декабре 2025, но мёртвая конфигурация и настройки остаются активными
+- Файлы:
+  - `backend/app/core/config.py` (строки 79-90): `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT` — все не используются
+  - `backend/app/services/settings_manager.py`: полные секции конфигурации `nlp_global`, `nlp_spacy`, `nlp_natasha`, `nlp_stanza`, `nlp_gliner` всё ещё активны
+  - `backend/app/schemas/responses/admin.py`: админ-схемы раскрывают NLP-настройки, которых больше не существует
+  - `backend/test_nlp_processors.py`, `backend/test_gliner_integration.py`, `backend/test_deeppavlov_integration.py`, `backend/test_advanced_parser*.py`, `backend/test_langextract_processor.py`, `backend/test_enrichment_integration.py`: 14 тестовых файлов корневого уровня для удалённой NLP-системы засоряют корень проекта
+- Влияние: вводит в заблуждение будущих разработчиков; мёртвая конфигурация увеличивает когнитивную нагрузку; тестовые файлы корневого уровня падают или игнорируются
 
-**Unimplemented Sync Endpoints:**
-- Issue: The `/api/v1/sync/batch` endpoint accepts bookmark and reading-session sync ops but immediately fails them with TODO stubs
-- Files: `backend/app/routers/sync.py` (lines 297-310)
-- Impact: Frontend offline sync for bookmarks and highlights returns errors, data is silently lost when user goes offline
+**Нереализованные эндпоинты синхронизации:**
+- Проблема: эндпоинт `/api/v1/sync/batch` принимает операции синхронизации закладок и сессий чтения, но немедленно завершает их с ошибкой через TODO-заглушки
+- Файлы: `backend/app/routers/sync.py` (строки 297-310)
+- Влияние: офлайн-синхронизация закладок и выделений на фронтенде возвращает ошибки, данные молча теряются при переходе пользователя в офлайн
 
-**Missing Batch Description API Endpoint:**
-- Issue: `useBookDescriptions` hook in frontend is permanently disabled — stub returns `[]` with `enabled: false`
-- Files: `frontend/src/hooks/api/useDescriptions.ts` (lines 355-369)
-- Impact: Cannot fetch all descriptions for a book at once; feature is a no-op
+**Отсутствует API-эндпоинт пакетного получения описаний:**
+- Проблема: хук `useBookDescriptions` на фронтенде постоянно отключён — заглушка возвращает `[]` с `enabled: false`
+- Файлы: `frontend/src/hooks/api/useDescriptions.ts` (строки 355-369)
+- Влияние: невозможно получить все описания книги за один запрос; функция не работает
 
-**WebSocket Disabled (Backend Cookie Auth Gap):**
-- Issue: `WebSocketService` in frontend is a no-op stub; all methods return `Promise.resolve()`. The backend WebSocket router exists at `backend/app/routers/websocket.py` but no cookie auth is implemented
-- Files: `frontend/src/services/websocket.tsx`
-- Impact: All real-time push updates (book processing, image generation, entity updates) fall back to polling; user experience is degraded for long-running operations
+**WebSocket отключён (пробел в cookie-аутентификации бэкенда):**
+- Проблема: `WebSocketService` на фронтенде — заглушка-пустышка; все методы возвращают `Promise.resolve()`. WebSocket-роутер бэкенда существует в `backend/app/routers/websocket.py`, но cookie-аутентификация не реализована
+- Файлы: `frontend/src/services/websocket.tsx`
+- Влияние: все push-обновления в реальном времени (обработка книг, генерация изображений, обновления сущностей) откатываются на поллинг; пользовательский опыт ухудшается для длительных операций
 
-**Incomplete Reprocess — Orphaned Descriptions:**
-- Issue: When triggering a book reprocess, old descriptions are NOT deleted. The code to delete them is commented out
-- Files: `backend/app/routers/books/crud.py` (lines 741-743)
-- Impact: After reprocessing, stale descriptions from the old analysis may persist in the database alongside new ones
+**Неполная переобработка — осиротевшие описания:**
+- Проблема: при запуске переобработки книги старые описания НЕ удаляются. Код их удаления закомментирован
+- Файлы: `backend/app/routers/books/crud.py` (строки 741-743)
+- Влияние: после переобработки устаревшие описания из старого анализа могут сохраняться в базе данных наряду с новыми
 
-**LLM Reduce Without Recursion:**
-- Issue: `ConsistencyManager.optimize_entities()` truncates entity lists >300K chars instead of splitting into recursive reduce passes
-- Files: `backend/app/services/consistency_manager.py` (lines 581-585)
-- Impact: For large books (>500 entities), the deduplication reduce step silently drops entities at the end of the list
+**LLM Reduce без рекурсии:**
+- Проблема: `ConsistencyManager.optimize_entities()` обрезает списки сущностей >300K символов вместо разделения на рекурсивные проходы reduce
+- Файлы: `backend/app/services/consistency_manager.py` (строки 581-585)
+- Влияние: для больших книг (>500 сущностей) шаг дедупликации reduce молча отбрасывает сущности в конце списка
 
-**Unimplemented Health Check:**
-- Issue: The `/health` endpoint in `main.py` returns `"database": "checking..."` as a hardcoded string, not an actual check
-- Files: `backend/app/main.py` (line 331)
-- Impact: Health monitoring and alerting tools may report false-positive healthy status when DB is down
+**Нереализованная проверка здоровья:**
+- Проблема: эндпоинт `/health` в `main.py` возвращает `"database": "checking..."` как захардкоженную строку, а не реальную проверку
+- Файлы: `backend/app/main.py` (строка 331)
+- Влияние: инструменты мониторинга и алертинга могут сообщать ложноположительный статус здоровья, когда БД не работает
 
-**Payment System Stubs:**
-- Issue: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `CLOUDPAYMENTS_PUBLIC_ID` are defined in config but no payment routes exist. Subscription tier enforcement is present but upgrading subscription requires manual DB edits
-- Files: `backend/app/core/config.py` (lines 75-78)
-- Impact: Premium subscription is a one-way door — users can't self-serve upgrade; monetization is non-functional
+**Заглушки платёжной системы:**
+- Проблема: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `CLOUDPAYMENTS_PUBLIC_ID` определены в конфигурации, но платёжных маршрутов нет. Ограничения уровня подписки присутствуют, но повышение подписки требует ручного редактирования БД
+- Файлы: `backend/app/core/config.py` (строки 75-78)
+- Влияние: премиум-подписка — дорога в одну сторону — пользователи не могут самостоятельно повысить подписку; монетизация нефункциональна
 
-## Known Bugs
+## Известные баги
 
-**Chunk Boundary Entity Loss:**
-- Symptoms: Entities mentioned only once near a 100K-char chunk boundary may not appear in the glossary
-- Files: `backend/app/services/gemini_extractor.py` (lines 231-234, 370-382)
-- Trigger: Books with chapters longer than 100K characters; 15% overlap partially mitigates but doesn't guarantee boundary entities are captured
-- Workaround: None; increasing `chunk_overlap_percent` reduces frequency but increases LLM cost
+**Потеря сущностей на границах чанков:**
+- Симптомы: сущности, упомянутые только один раз вблизи границы чанка в 100K символов, могут не появиться в глоссарии
+- Файлы: `backend/app/services/gemini_extractor.py` (строки 231-234, 370-382)
+- Триггер: книги с главами длиннее 100K символов; перекрытие 15% частично смягчает проблему, но не гарантирует захват сущностей на границах
+- Обходное решение: отсутствует; увеличение `chunk_overlap_percent` снижает частоту, но увеличивает стоимость LLM
 
-**Fuzzy Entity Matching Misses Short Russian Names:**
-- Symptoms: "Гарри" and "Гарри Поттер" may not be recognized as the same entity by TSA parser (threshold 0.85 too high)
-- Files:
-  - `backend/app/services/tsa_parser.py` (lines 59, 62): `FUZZY_THRESHOLD = 0.85`
-  - `backend/app/services/gemini_extractor.py` (line 245): `tsa_fuzzy_threshold: float = 0.85`
-- Trigger: Russian proper names where short form has ≤0.85 SequenceMatcher similarity to long form
-- Workaround: LLM deduplication pass catches some missed cases, but not all
+**Нечёткое сопоставление сущностей пропускает короткие русские имена:**
+- Симптомы: «Гарри» и «Гарри Поттер» могут не распознаваться как одна сущность TSA-парсером (порог 0.85 слишком высок)
+- Файлы:
+  - `backend/app/services/tsa_parser.py` (строки 59, 62): `FUZZY_THRESHOLD = 0.85`
+  - `backend/app/services/gemini_extractor.py` (строка 245): `tsa_fuzzy_threshold: float = 0.85`
+- Триггер: русские имена собственные, где короткая форма имеет сходство SequenceMatcher <=0.85 по сравнению с полной формой
+- Обходное решение: проход LLM-дедупликации перехватывает некоторые пропущенные случаи, но не все
 
-**Password Reset URL Hardcodes localhost:**
-- Symptoms: Password reset emails sent in production contain `http://localhost:5173/reset-password` links
-- Files: `backend/app/core/config.py` (line 135): `PASSWORD_RESET_BASE_URL: str = "http://localhost:5173/reset-password"`
-- Trigger: Any user requesting password reset in production (email feature must be enabled via `EMAIL_ENABLED=True`)
-- Workaround: Must override `PASSWORD_RESET_BASE_URL` env var in production deployment
+**URL сброса пароля захардкожен на localhost:**
+- Симптомы: письма сброса пароля, отправленные в продакшене, содержат ссылки `http://localhost:5173/reset-password`
+- Файлы: `backend/app/core/config.py` (строка 135): `PASSWORD_RESET_BASE_URL: str = "http://localhost:5173/reset-password"`
+- Триггер: любой пользователь, запрашивающий сброс пароля в продакшене (функция email должна быть включена через `EMAIL_ENABLED=True`)
+- Обходное решение: необходимо переопределить переменную окружения `PASSWORD_RESET_BASE_URL` при продакшен-развёртывании
 
-**Gemini Sync API Called in Async Context via `asyncio.to_thread`:**
-- Symptoms: Thread pool blocking under high Celery concurrency; potential deadlocks if thread pool exhausted
-- Files:
-  - `backend/app/services/gemini_extractor.py` (lines 747-753): `asyncio.to_thread(self._client.models.generate_content, ...)`
-  - `backend/app/services/imagen_generator.py` (lines 176, 668-670)
-- Trigger: Multiple concurrent book processing tasks; Celery concurrency >1
-- Workaround: `CELERY_CONCURRENCY=1` (current default) reduces risk but limits throughput
+**Синхронный API Gemini вызывается в асинхронном контексте через `asyncio.to_thread`:**
+- Симптомы: блокировка пула потоков при высокой конкурентности Celery; возможные дедлоки при исчерпании пула потоков
+- Файлы:
+  - `backend/app/services/gemini_extractor.py` (строки 747-753): `asyncio.to_thread(self._client.models.generate_content, ...)`
+  - `backend/app/services/imagen_generator.py` (строки 176, 668-670) (Phase 3: мигрирует на FLUX.2 через OpenRouter; google-genai SDK удаляется)
+- Триггер: несколько параллельных задач обработки книг; конкурентность Celery >1
+- Обходное решение: `CELERY_CONCURRENCY=1` (текущее значение по умолчанию) снижает риск, но ограничивает пропускную способность
 
-## Security Considerations
+## Вопросы безопасности
 
-**Default Debug Mode in Production:**
-- Risk: `DEBUG: bool = True` is the default; if env var is not set, production runs in debug mode exposing SQL queries, tracebacks, and stack traces
-- Files: `backend/app/core/config.py` (lines 19-21)
-- Current mitigation: `validate_production_settings()` validator checks SECRET_KEY and DB passwords in non-debug mode, but only fires when `DEBUG=False`
-- Recommendations: Flip default to `DEBUG = False`; add startup warning if DEBUG is True in production context
+**Режим отладки по умолчанию в продакшене:**
+- Риск: `DEBUG: bool = True` — значение по умолчанию; если переменная окружения не задана, продакшен работает в режиме отладки, раскрывая SQL-запросы, трейсбэки и стектрейсы
+- Файлы: `backend/app/core/config.py` (строки 19-21)
+- Текущее смягчение: валидатор `validate_production_settings()` проверяет SECRET_KEY и пароли БД в не-отладочном режиме, но срабатывает только при `DEBUG=False`
+- Рекомендации: изменить значение по умолчанию на `DEBUG = False`; добавить предупреждение при запуске, если DEBUG=True в продакшен-контексте
 
-**Default Secret Key Hardcoded:**
-- Risk: `SECRET_KEY: str = "dev-secret-key-change-in-production"` — if DEBUG env var is misconfigured, JWTs signed with this key are trivially forgeable
-- Files: `backend/app/core/config.py` (line 22)
-- Current mitigation: Production validator rejects this value when `DEBUG=False`
-- Recommendations: Generate random key at startup if not set; log critical error on startup
+**Секретный ключ по умолчанию захардкожен:**
+- Риск: `SECRET_KEY: str = "dev-secret-key-change-in-production"` — если переменная окружения DEBUG настроена неправильно, JWT, подписанные этим ключом, тривиально подделываются
+- Файлы: `backend/app/core/config.py` (строка 22)
+- Текущее смягчение: продакшен-валидатор отклоняет это значение при `DEBUG=False`
+- Рекомендации: генерировать случайный ключ при запуске, если не задан; логировать критическую ошибку при старте
 
-**Access Token Expiry Extended to 7 Days:**
-- Risk: `ACCESS_TOKEN_EXPIRE_MINUTES = 10080` (7 days). Stolen access tokens remain valid for a week without any rotation mechanism
-- Files: `backend/app/core/config.py` (lines 46-48)
-- Current mitigation: Refresh token is 30 days; no token revocation on logout observed unless blacklist is invoked
-- Recommendations: Reduce access token to 15-30 minutes; verify token blacklist is consistently applied on logout
+**Время жизни access-токена увеличено до 7 дней:**
+- Риск: `ACCESS_TOKEN_EXPIRE_MINUTES = 10080` (7 дней). Украденные access-токены остаются действительными в течение недели без механизма ротации
+- Файлы: `backend/app/core/config.py` (строки 46-48)
+- Текущее смягчение: refresh-токен действует 30 дней; отзыв токена при logout не наблюдается, если чёрный список не задействован
+- Рекомендации: уменьшить access-токен до 15-30 минут; убедиться, что чёрный список токенов последовательно применяется при logout
 
-**CSP Nonce Not Implemented:**
-- Risk: CSP `script-src` directive has `'unsafe-inline'` removed but there is no nonce generation — any inline scripts will be blocked, potentially breaking the frontend; or the CSP is less restrictive than intended
-- Files: `backend/app/middleware/security_headers.py` (lines 76, 84-90)
-- Current mitigation: Comment states nonces are TODO
-- Recommendations: Implement nonce generation per-request or document that no inline scripts are used
+**CSP Nonce не реализован:**
+- Риск: директива CSP `script-src` имеет удалённый `'unsafe-inline'`, но nonce-генерация отсутствует — любые инлайн-скрипты будут заблокированы, что потенциально сломает фронтенд; или CSP менее строгая, чем предполагалось
+- Файлы: `backend/app/middleware/security_headers.py` (строки 76, 84-90)
+- Текущее смягчение: в комментарии указано, что nonce — TODO
+- Рекомендации: реализовать генерацию nonce для каждого запроса или задокументировать, что инлайн-скрипты не используются
 
-**Metrics Endpoint Uses Hardcoded Default Password:**
-- Risk: `METRICS_PASSWORD: str = "metrics_secure_password"` — Prometheus `/health/metrics` is protected only by HTTP Basic Auth with this default
-- Files: `backend/app/core/config.py` (line 126)
-- Current mitigation: Must be overridden via env var; production validator does not check this value
-- Recommendations: Add `METRICS_PASSWORD` to production secrets check
+**Эндпоинт метрик использует захардкоженный пароль по умолчанию:**
+- Риск: `METRICS_PASSWORD: str = "metrics_secure_password"` — Prometheus `/health/metrics` защищён только HTTP Basic Auth с этим паролем по умолчанию
+- Файлы: `backend/app/core/config.py` (строка 126)
+- Текущее смягчение: необходимо переопределить через переменную окружения; продакшен-валидатор не проверяет это значение
+- Рекомендации: добавить `METRICS_PASSWORD` в проверку продакшен-секретов
 
-**File Upload: Extension-Only Validation (No Magic Bytes Check):**
-- Risk: EPUB/FB2 file type is validated by extension only; a malicious file with `.epub` extension but arbitrary content would pass validation
-- Files: `backend/app/core/config.py` (line 55): `ALLOWED_EXTENSIONS: list = [".epub", ".fb2"]`; `backend/app/routers/books/validation.py`
-- Current mitigation: ebooklib parser will fail to parse invalid EPUBs and raise exceptions
-- Recommendations: Add magic byte validation (EPUB is a ZIP; ZIP magic = `PK\x03\x04`)
+**Загрузка файлов: валидация только по расширению (без проверки магических байтов):**
+- Риск: тип файла EPUB/FB2 проверяется только по расширению; вредоносный файл с расширением `.epub`, но произвольным содержимым, пройдёт валидацию
+- Файлы: `backend/app/core/config.py` (строка 55): `ALLOWED_EXTENSIONS: list = [".epub", ".fb2"]`; `backend/app/routers/books/validation.py`
+- Текущее смягчение: парсер ebooklib не сможет разобрать невалидные EPUB и выбросит исключения
+- Рекомендации: добавить валидацию магических байтов (EPUB — это ZIP; магические байты ZIP = `PK\x03\x04`)
 
-## Performance Bottlenecks
+## Узкие места производительности
 
-**Large Router Files (Monolithic):**
-- Problem: Two router files are significantly oversized, making them slow to parse, test, and modify
-- Files:
-  - `backend/app/routers/images.py` — 950 lines (noted in MEMORY.md as "33K lines", likely from earlier state)
-  - `backend/app/routers/reading_sessions.py` — 1,088 lines (noted as "41K lines")
-- Cause: All image generation, admin, stats, and batch endpoints in one file; all reading session CRUD and analytics in one file
-- Improvement path: Split by concern — `images_crud.py`, `images_generation.py`, `images_admin.py`; separate `reading_sessions_service.py` logic is already extracted
+**Большие файлы роутеров (монолитные):**
+- Проблема: два файла роутеров значительно превышают допустимый размер, что замедляет их парсинг, тестирование и модификацию
+- Файлы:
+  - `backend/app/routers/images.py` — 950 строк (в MEMORY.md указано как «33K строк», вероятно из более раннего состояния)
+  - `backend/app/routers/reading_sessions.py` — 1 088 строк (указано как «41K строк»)
+- Причина: все эндпоинты генерации изображений, админки, статистики и пакетные — в одном файле; весь CRUD сессий чтения и аналитика — в одном файле
+- Путь улучшения: разделить по ответственности — `images_crud.py`, `images_generation.py`, `images_admin.py`; логика `reading_sessions_service.py` уже вынесена
 
-**No Gemini Context Caching:**
-- Problem: System prompt is resent with every Gemini API call; the system prompt alone (extraction + TSA instructions) is several KB
-- Files: `backend/app/services/gemini_extractor.py` — full prompt rebuilt per chunk call
-- Cause: Google Gemini Context Caching API (which can cache static system prompts for 60-70% token savings) is not implemented
-- Improvement path: Use `google.genai.caching.CachedContent` to cache static portions of the extraction prompt; documented as 60-70% savings available in project audit
+**Отсутствует кеширование контекста Gemini:**
+- Проблема: системный промпт пересылается с каждым вызовом Gemini API; один только системный промпт (инструкции извлечения + TSA) занимает несколько КБ
+- Файлы: `backend/app/services/gemini_extractor.py` — полный промпт пересобирается при каждом вызове для чанка
+- Причина: Google Gemini Context Caching API (который может кешировать статические системные промпты с экономией 60-70% токенов) не реализован
+- Путь улучшения: использовать `google.genai.caching.CachedContent` для кеширования статических частей промпта извлечения; в аудите проекта задокументирована доступная экономия 60-70% (Phase 3: google-genai SDK удаляется; аналогичная оптимизация через OpenRouter prompt caching)
 
-**Celery Concurrency Fixed at 1:**
-- Problem: `CELERY_CONCURRENCY=1` means only one book can be processed at a time; queued books block
-- Files: `backend/app/core/config.py` (line 107)
-- Cause: Server memory constraints (4GB RAM / 2 CPU); each book processing task can use significant memory
-- Improvement path: Implement priority queues; enable concurrency=2 with lower max memory per child
+**Конкурентность Celery зафиксирована на 1:**
+- Проблема: `CELERY_CONCURRENCY=1` означает, что за раз обрабатывается только одна книга; книги в очереди блокируются
+- Файлы: `backend/app/core/config.py` (строка 107)
+- Причина: ограничения памяти сервера (4 ГБ ОЗУ / 2 CPU); каждая задача обработки книги может потреблять значительный объём памяти
+- Путь улучшения: реализовать приоритетные очереди; включить concurrency=2 с более низким лимитом памяти на дочерний процесс
 
-**Parallel Chunk Processing with Unbounded Semaphore:**
-- Problem: `asyncio.gather()` on all chunks runs all chunks in parallel; for a large book this could fire 20+ simultaneous Gemini API calls
-- Files: `backend/app/services/gemini_extractor.py` (lines 633-637)
-- Cause: Semaphore exists (`_semaphore`) but its max limit and its interaction with Celery task concurrency is not documented
-- Improvement path: Document semaphore value and tune to stay within Gemini rate limits
+**Параллельная обработка чанков с неограниченным семафором:**
+- Проблема: `asyncio.gather()` для всех чанков запускает их параллельно; для большой книги это может означать 20+ одновременных вызовов Gemini API
+- Файлы: `backend/app/services/gemini_extractor.py` (строки 633-637)
+- Причина: семафор существует (`_semaphore`), но его максимальный лимит и взаимодействие с конкурентностью задач Celery не задокументированы
+- Путь улучшения: задокументировать значение семафора и настроить его в соответствии с лимитами частоты Gemini
 
-## Fragile Areas
+## Хрупкие области
 
-**EpubReader.tsx — Hottest File:**
-- Files: `frontend/src/components/Reader/EpubReader.tsx`
-- Why fragile: 84 git changes — highest churn in the codebase; epub.js `CFI` tracking, touch navigation, description highlighting all converge here
-- Safe modification: Extract logic into hooks before editing (pattern already started with 25+ hooks); read `useDescriptionHighlighting.ts` before any highlighting changes
-- Test coverage: Unit tests in `frontend/src/components/Reader/__tests__/EpubReader.test.tsx` (1,069 lines); Playwright integration tests exist
+**EpubReader.tsx — самый горячий файл:**
+- Файлы: `frontend/src/components/Reader/EpubReader.tsx`
+- Почему хрупкий: 84 изменения в git — наибольшая частота изменений в кодовой базе; отслеживание CFI epub.js, тач-навигация, подсветка описаний — всё сходится здесь
+- Безопасная модификация: выносить логику в хуки перед редактированием (паттерн уже начат с 25+ хуков); прочитать `useDescriptionHighlighting.ts` перед любыми изменениями подсветки
+- Покрытие тестами: модульные тесты в `frontend/src/components/Reader/__tests__/EpubReader.test.tsx` (1 069 строк); интеграционные тесты Playwright существуют
 
-**Description Highlighting — 8 Fallback Strategies:**
-- Files: `frontend/src/hooks/epub/useDescriptionHighlighting.ts`
-- Why fragile: 8 ordered search strategies with complex fallback chain; breaking any strategy degrades highlighting without obvious failure
-- Safe modification: Run `frontend/src/hooks/epub/__tests__/useDescriptionHighlighting.test.tsx` (679 lines) before and after changes
-- Test coverage: Tests exist but do not cover all strategy fallbacks exhaustively
+**Подсветка описаний — 8 стратегий с фоллбэком:**
+- Файлы: `frontend/src/hooks/epub/useDescriptionHighlighting.ts`
+- Почему хрупкий: 8 упорядоченных стратегий поиска со сложной цепочкой фоллбэков; поломка любой стратегии ухудшает подсветку без очевидного сбоя
+- Безопасная модификация: запускать `frontend/src/hooks/epub/__tests__/useDescriptionHighlighting.test.tsx` (679 строк) до и после изменений
+- Покрытие тестами: тесты существуют, но не покрывают все фоллбэки стратегий исчерпывающе
 
-**ConsistencyManager — Entity Merge Logic:**
-- Files: `backend/app/services/consistency_manager.py` (722 lines)
-- Why fragile: Complex LLM-driven merge + PostgreSQL advisory locks + Celery task context; no dedicated unit test file; only tested indirectly via integration tests
-- Safe modification: Use the advisory lock pattern (`_acquire_entity_lock`) for any new entity creation; never modify without running `tests/integration/test_entity_concurrent_upsert.py`
-- Test coverage: No dedicated unit tests; `test_entity_concurrent_upsert.py` is the only direct test
+**ConsistencyManager — логика слияния сущностей:**
+- Файлы: `backend/app/services/consistency_manager.py` (722 строки)
+- Почему хрупкий: сложное LLM-управляемое слияние + консультативные блокировки PostgreSQL + контекст задач Celery; выделенного файла модульных тестов нет; тестируется только косвенно через интеграционные тесты
+- Безопасная модификация: использовать паттерн консультативной блокировки (`_acquire_entity_lock`) для любого нового создания сущностей; никогда не модифицировать без запуска `tests/integration/test_entity_concurrent_upsert.py`
+- Покрытие тестами: выделенных модульных тестов нет; `test_entity_concurrent_upsert.py` — единственный прямой тест
 
-**Entity Spoiler-Free Filtering — Runtime Chapter Filtering:**
-- Files: `backend/app/services/entity_service.py` (lines 546-614)
-- Why fragile: Spoiler filtering happens at response time by applying chapter filters to cached raw data; cache stores ALL data including future spoilers; if filtering logic has a bug, spoilers leak to users
-- Safe modification: Run `tests/services/test_entity_spoiler_free.py` after any changes to `_apply_chapter_filter` or `_filter_entity_detail`
-- Test coverage: `test_entity_spoiler_free.py` exists and covers key paths
+**Фильтрация сущностей без спойлеров — фильтрация глав в рантайме:**
+- Файлы: `backend/app/services/entity_service.py` (строки 546-614)
+- Почему хрупкий: фильтрация спойлеров происходит во время ответа путём применения фильтров глав к кешированным «сырым» данным; кеш хранит ВСЕ данные, включая будущие спойлеры; если логика фильтрации содержит баг, спойлеры утекают к пользователям
+- Безопасная модификация: запускать `tests/services/test_entity_spoiler_free.py` после любых изменений в `_apply_chapter_filter` или `_filter_entity_detail`
+- Покрытие тестами: `test_entity_spoiler_free.py` существует и покрывает ключевые пути
 
-**TSA Parser Fuzzy Matching:**
-- Files: `backend/app/services/tsa_parser.py`
-- Why fragile: Position-sensitive fuzzy matching; wrong threshold changes affect every description highlight position across all books; changing `FUZZY_THRESHOLD` has cascading effects on highlighting accuracy
-- Safe modification: Test changes against multiple real book samples; threshold is baked into `GeminiConfig.tsa_fuzzy_threshold = 0.85`
+**Нечёткое сопоставление TSA-парсера:**
+- Файлы: `backend/app/services/tsa_parser.py`
+- Почему хрупкий: позиционно-чувствительное нечёткое сопоставление; неверный порог изменяет каждую позицию подсветки описания во всех книгах; изменение `FUZZY_THRESHOLD` имеет каскадный эффект на точность подсветки
+- Безопасная модификация: тестировать изменения на нескольких реальных образцах книг; порог зашит в `GeminiConfig.tsa_fuzzy_threshold = 0.85`
 
-## Scaling Limits
+## Ограничения масштабирования
 
-**Redis Single Instance:**
-- Current capacity: Single Redis instance at `REDIS_URL` handles caching, rate limiting, Celery broker, and pub/sub simultaneously
-- Limit: If Redis goes down, the entire application degrades — rate limiting disabled, cache unavailable, Celery tasks unable to queue
-- Scaling path: Separate Redis instances for cache vs. Celery broker; add Redis Sentinel or Redis Cluster for HA
+**Redis — единственный экземпляр:**
+- Текущая ёмкость: один экземпляр Redis по `REDIS_URL` одновременно обслуживает кеширование, ограничение частоты, Celery-брокер и pub/sub
+- Ограничение: если Redis выходит из строя, всё приложение деградирует — ограничение частоты отключается, кеш недоступен, задачи Celery не могут быть поставлены в очередь
+- Путь масштабирования: разделить экземпляры Redis для кеша и Celery-брокера; добавить Redis Sentinel или Redis Cluster для высокой доступности
 
-**PostgreSQL Connection Pool:**
-- Current capacity: Pool size 20, max overflow 40 (60 total connections) — appropriate for current load
-- Limit: At high concurrent user load (hundreds of simultaneous reading sessions), connection pool exhaustion causes 503 errors
-- Scaling path: PgBouncer connection pooling layer between app and PostgreSQL
+**Пул соединений PostgreSQL:**
+- Текущая ёмкость: размер пула 20, максимальное переполнение 40 (60 соединений всего) — достаточно для текущей нагрузки
+- Ограничение: при высокой параллельной нагрузке (сотни одновременных сессий чтения) исчерпание пула соединений вызывает ошибки 503
+- Путь масштабирования: слой PgBouncer для пулинга соединений между приложением и PostgreSQL
 
-**Book Processing Queue:**
-- Current capacity: Single Celery worker, concurrency=1 — one book processed at a time
-- Limit: Queue depth grows linearly with uploaded books; users may wait hours for processing during peak upload periods
-- Scaling path: Scale Celery workers horizontally; priority queues so premium users process faster
+**Очередь обработки книг:**
+- Текущая ёмкость: один Celery-воркер, concurrency=1 — одна книга обрабатывается за раз
+- Ограничение: глубина очереди растёт линейно с загруженными книгами; пользователи могут ждать часами обработки в период пиковых загрузок
+- Путь масштабирования: горизонтальное масштабирование Celery-воркеров; приоритетные очереди, чтобы премиум-пользователи обрабатывались быстрее
 
-## Dependencies at Risk
+## Зависимости с риском
 
-**`python-jose` (JWT Library):**
-- Risk: `python-jose` has known security vulnerabilities and is no longer actively maintained; it's used for all JWT encode/decode operations
-- Files: `backend/app/services/auth_service.py` (line 10): `from jose import JWTError, jwt`
-- Impact: Potential JWT vulnerabilities in auth layer
-- Migration plan: Replace with `python-jwt` or `PyJWT` (actively maintained); API is similar
+**`python-jose` (библиотека JWT):**
+- Риск: `python-jose` имеет известные уязвимости безопасности и больше не поддерживается активно; используется для всех операций кодирования/декодирования JWT
+- Файлы: `backend/app/services/auth_service.py` (строка 10): `from jose import JWTError, jwt`
+- Влияние: потенциальные JWT-уязвимости в слое аутентификации
+- План миграции: заменить на `python-jwt` или `PyJWT` (активно поддерживаются); API аналогичен
 
-**`ebooklib` (EPUB Parsing):**
-- Risk: `ebooklib` has limited active maintenance; some EPUB 3.0 features are unsupported; errors on malformed EPUBs surface as unhandled exceptions in book_parser.py
-- Files: `backend/app/services/book_parser.py` (lines 20-27): wrapped in `try/except ImportError`
-- Impact: EPUB books with unusual structures may fail to parse without informative errors
-- Migration plan: No obvious drop-in replacement; contribute fixes upstream or add more robust exception handling
+**`ebooklib` (парсинг EPUB):**
+- Риск: `ebooklib` имеет ограниченную активную поддержку; некоторые функции EPUB 3.0 не поддерживаются; ошибки на неправильно сформированных EPUB всплывают как необработанные исключения в book_parser.py
+- Файлы: `backend/app/services/book_parser.py` (строки 20-27): обёрнуто в `try/except ImportError`
+- Влияние: EPUB-книги с необычной структурой могут не парситься без информативных сообщений об ошибках
+- План миграции: очевидной замены «один к одному» нет; контрибьютить исправления в upstream или добавить более надёжную обработку исключений
 
-## Missing Critical Features
+## Отсутствующие критичные функции
 
-**Email Service Disabled by Default:**
-- Problem: `EMAIL_ENABLED: bool = False` in config; password reset flow generates tokens but silently skips email delivery unless explicitly enabled
-- Files: `backend/app/core/config.py` (line 138)
-- Blocks: Password reset is non-functional in any deployment without setting `EMAIL_ENABLED=True` and Yandex Postbox credentials
+**Почтовый сервис отключён по умолчанию:**
+- Проблема: `EMAIL_ENABLED: bool = False` в конфигурации; процесс сброса пароля генерирует токены, но молча пропускает отправку email, если явно не включён
+- Файлы: `backend/app/core/config.py` (строка 138)
+- Блокирует: сброс пароля нефункционален в любом развёртывании без установки `EMAIL_ENABLED=True` и учётных данных Yandex Postbox
 
-**Bookmark and Highlight Sync Not Implemented:**
-- Problem: The sync endpoint accepts bookmark and highlight operations but immediately returns failure; frontend offline queue accumulates these operations and they are never applied
-- Files: `backend/app/routers/sync.py` (lines 297-310)
-- Blocks: Reading bookmarks created offline are lost when device comes online; feature is documented but broken
+**Синхронизация закладок и выделений не реализована:**
+- Проблема: эндпоинт синхронизации принимает операции с закладками и выделениями, но немедленно возвращает ошибку; офлайн-очередь фронтенда накапливает эти операции, и они никогда не применяются
+- Файлы: `backend/app/routers/sync.py` (строки 297-310)
+- Блокирует: закладки чтения, созданные офлайн, теряются при подключении устройства к сети; функция задокументирована, но не работает
 
-## Test Coverage Gaps
+## Пробелы в тестовом покрытии
 
-**ConsistencyManager — No Unit Tests:**
-- What's not tested: Entity merge decisions, PostgreSQL advisory lock behavior, LLM reduce truncation logic
-- Files: `backend/app/services/consistency_manager.py` (722 lines)
-- Risk: Silent entity data corruption on concurrent book processing
-- Priority: High
+**ConsistencyManager — нет модульных тестов:**
+- Что не протестировано: решения о слиянии сущностей, поведение консультативных блокировок PostgreSQL, логика усечения LLM reduce
+- Файлы: `backend/app/services/consistency_manager.py` (722 строки)
+- Риск: бесшумное повреждение данных сущностей при параллельной обработке книг
+- Приоритет: высокий
 
-**Gemini Extractor Chunk Boundary Behavior:**
-- What's not tested: Entity extraction at 100K-char chunk boundaries; overlap deduplication correctness
-- Files: `backend/app/services/gemini_extractor.py` (1,319 lines); `backend/tests/services/test_gemini_extractor.py` (mocked tests only)
-- Risk: Entity loss at chunk boundaries goes undetected; real API calls never tested in CI
-- Priority: High
+**Поведение Gemini Extractor на границах чанков:**
+- Что не протестировано: извлечение сущностей на границах чанков в 100K символов; корректность дедупликации перекрытий
+- Файлы: `backend/app/services/gemini_extractor.py` (1 319 строк); `backend/tests/services/test_gemini_extractor.py` (только мокированные тесты)
+- Риск: потеря сущностей на границах чанков остаётся незамеченной; реальные API-вызовы никогда не тестируются в CI
+- Приоритет: высокий
 
-**Sync Router — All TODO Paths Untested:**
-- What's not tested: Bookmark sync, highlight sync, reading session sync (all return errors currently)
-- Files: `backend/app/routers/sync.py`
-- Risk: When sync is implemented, regression testing baseline does not exist
-- Priority: Medium
+**Sync-роутер — все TODO-пути без тестов:**
+- Что не протестировано: синхронизация закладок, синхронизация выделений, синхронизация сессий чтения (все возвращают ошибки в данный момент)
+- Файлы: `backend/app/routers/sync.py`
+- Риск: когда синхронизация будет реализована, базовая линия регрессионного тестирования отсутствует
+- Приоритет: средний
 
-**Frontend WebSocket Service:**
-- What's not tested: `frontend/src/services/websocket.tsx` is a no-op stub with no tests; reconnection logic, message parsing, event routing are all untested
-- Files: `frontend/src/services/websocket.tsx`
-- Risk: When WebSocket auth is implemented, untested reconnection logic may cause memory leaks or missed events
-- Priority: Medium
+**WebSocket-сервис фронтенда:**
+- Что не протестировано: `frontend/src/services/websocket.tsx` — заглушка-пустышка без тестов; логика переподключения, парсинг сообщений, маршрутизация событий — всё без тестов
+- Файлы: `frontend/src/services/websocket.tsx`
+- Риск: когда WebSocket-аутентификация будет реализована, непротестированная логика переподключения может вызвать утечки памяти или пропуск событий
+- Приоритет: средний
 
-**Imagen Generator — No Integration Tests:**
-- What's not tested: Actual image generation flow, base64 PNG detection fallback, retries on rate limit
-- Files: `backend/tests/services/test_image_generator_TEMPLATE.py` — filename ends in `_TEMPLATE.py` indicating it was never implemented
-- Risk: Image generation failures in production are discovered by users, not CI
-- Priority: Medium
+**Imagen Generator — нет интеграционных тестов:** (Phase 3: imagen_generator мигрирует на FLUX.2 через OpenRouter)
+- Что не протестировано: реальный поток генерации изображений, фоллбэк определения base64 PNG, повторные попытки при ограничении частоты
+- Файлы: `backend/tests/services/test_image_generator_TEMPLATE.py` — имя файла оканчивается на `_TEMPLATE.py`, что указывает на то, что он так и не был реализован
+- Риск: ошибки генерации изображений в продакшене обнаруживаются пользователями, а не CI
+- Приоритет: средний
 
 ---
 
-*Concerns audit: 2026-02-27*
+*Аудит проблем: 2026-02-27*

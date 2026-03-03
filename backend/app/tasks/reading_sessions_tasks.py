@@ -62,9 +62,9 @@ def close_abandoned_sessions(self) -> dict:
         deadline = datetime.now(timezone.utc) - timedelta(hours=2)
 
         # Синхронно вызываем async функцию
-        import asyncio
+        from app.tasks.common import run_async
 
-        closed_count = asyncio.run(_close_abandoned_sessions_impl(deadline))
+        closed_count = run_async(_close_abandoned_sessions_impl(deadline))
 
         execution_time_ms = (
             datetime.now(timezone.utc) - start_time
@@ -173,7 +173,9 @@ async def _close_abandoned_sessions_impl(deadline: datetime) -> int:
 
         except Exception as e:
             await db.rollback()
-            logger.opt(exception=True).error(f"Database error while closing sessions: {e}")
+            logger.opt(exception=True).error(
+                f"Database error while closing sessions: {e}"
+            )
             raise
 
 
@@ -199,9 +201,9 @@ def get_cleanup_statistics(hours: int = 24) -> dict:
         >>> print(stats.get())
         {"total_closed": 150, "total_active": 45, "avg_duration_minutes": 23.5}
     """
-    import asyncio
+    from app.tasks.common import run_async
 
-    return asyncio.run(_get_cleanup_statistics_impl(hours))
+    return run_async(_get_cleanup_statistics_impl(hours))
 
 
 async def _get_cleanup_statistics_impl(hours: int) -> dict:

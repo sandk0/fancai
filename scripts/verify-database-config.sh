@@ -72,18 +72,12 @@ verify_postgresql() {
 
     # Check container
     if ! check_container "${POSTGRES_CONTAINER}"; then
-        log_error "PostgreSQL container not found. Start it with: docker-compose up -d postgres"
+        log_error "PostgreSQL container not found. Start it with: docker compose up -d postgres"
         return 1
     fi
 
-    # Check config file
-    log_info "Checking postgresql.conf..."
-    if docker exec "${POSTGRES_CONTAINER}" test -f /etc/postgresql/postgresql.conf; then
-        log_success "postgresql.conf is mounted"
-    else
-        log_error "postgresql.conf not found in container"
-        return 1
-    fi
+    # Check configuration (via CLI args in docker-compose, not mounted file)
+    log_info "Checking PostgreSQL configuration (CLI args)..."
 
     # Check key settings
     log_info "Verifying key PostgreSQL settings..."
@@ -197,18 +191,12 @@ verify_redis() {
 
     # Check container
     if ! check_container "${REDIS_CONTAINER}"; then
-        log_error "Redis container not found. Start it with: docker-compose up -d redis"
+        log_error "Redis container not found. Start it with: docker compose up -d redis"
         return 1
     fi
 
-    # Check config file
-    log_info "Checking redis.conf..."
-    if docker exec "${REDIS_CONTAINER}" test -f /usr/local/etc/redis/redis.conf; then
-        log_success "redis.conf is mounted"
-    else
-        log_error "redis.conf not found in container"
-        return 1
-    fi
+    # Check configuration (via CLI args in docker-compose, not mounted file)
+    log_info "Checking Redis configuration (CLI args)..."
 
     # Check key settings
     log_info "Verifying key Redis settings..."
@@ -339,20 +327,20 @@ verify_backup() {
 verify_docker_compose() {
     section "Docker Compose Configuration Verification"
 
-    local compose_file="./docker-compose.production.yml"
+    local compose_file="./docker-compose.prod.yml"
     if [ ! -f "${compose_file}" ]; then
-        log_error "docker-compose.production.yml not found"
+        log_error "docker-compose.prod.yml not found"
         return 1
     fi
 
-    log_success "docker-compose.production.yml exists"
+    log_success "docker-compose.prod.yml exists"
 
-    # Check PostgreSQL volume mounts
-    log_info "Checking PostgreSQL volume mounts..."
-    if grep -q "postgresql.conf:/etc/postgresql/postgresql.conf" "${compose_file}"; then
-        log_success "postgresql.conf is mounted in docker-compose"
+    # Check PostgreSQL config (inline in compose command section)
+    log_info "Checking PostgreSQL configuration..."
+    if grep -q "shared_buffers" "${compose_file}"; then
+        log_success "PostgreSQL tuning parameters present in docker-compose"
     else
-        log_error "postgresql.conf mount missing in docker-compose"
+        log_warning "PostgreSQL tuning parameters missing in docker-compose"
     fi
 
     if grep -q "postgres/init:/docker-entrypoint-initdb.d" "${compose_file}"; then
@@ -361,12 +349,12 @@ verify_docker_compose() {
         log_warning "init scripts mount missing in docker-compose"
     fi
 
-    # Check Redis volume mounts
-    log_info "Checking Redis volume mounts..."
-    if grep -q "redis.conf:/usr/local/etc/redis/redis.conf" "${compose_file}"; then
-        log_success "redis.conf is mounted in docker-compose"
+    # Check Redis config (inline in compose command section)
+    log_info "Checking Redis configuration..."
+    if grep -q "maxmemory" "${compose_file}"; then
+        log_success "Redis memory configuration present in docker-compose"
     else
-        log_error "redis.conf mount missing in docker-compose"
+        log_error "Redis memory configuration missing in docker-compose"
     fi
 }
 
@@ -403,7 +391,7 @@ main() {
     echo "  1. Monitor resource usage: docker stats ${POSTGRES_CONTAINER} ${REDIS_CONTAINER}"
     echo "  2. Check slow queries: docker exec ${POSTGRES_CONTAINER} psql -U ${DB_USER} -d ${DB_NAME} -c \"SELECT * FROM get_slow_queries(10);\""
     echo "  3. Setup automated backups: crontab -e"
-    echo "  4. Review full documentation: docs/operations/deployment/database-optimization-4gb-server.md"
+    echo "  4. Review docker-compose.prod.yml for PostgreSQL/Redis inline configuration"
     echo ""
 }
 

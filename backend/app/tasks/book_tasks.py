@@ -97,6 +97,13 @@ def process_book_task(self, book_id_str: str) -> Dict[str, Any]:
     async def task_wrapper():
         nonlocal book_id, redis_lock
 
+        # Fix: asyncio.run() creates a new event loop each call and closes it after.
+        # The module-level SQLAlchemy engine's connection pool retains connections
+        # bound to the old (closed) loop. Disposing forces fresh connections.
+        from app.core.database import engine
+
+        await engine.dispose()
+
         try:
             # Phase 4: Acquire distributed lock
             # Note: redis-py is sync here, but that's fine inside async wrapper
@@ -375,7 +382,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     "all rights reserved",
                                 ]
 
-                                content_lower = (local_chapter.content or "")[:500].lower()
+                                content_lower = (local_chapter.content or "")[
+                                    :500
+                                ].lower()
                                 title_lower = (local_chapter.title or "").lower()
 
                                 is_service = any(
@@ -416,7 +425,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                                 for raw_entity in result.entities:
                                     if raw_entity.chapter_event_action:
-                                        resolved = entity_map.get(raw_entity.name.casefold()[:255])
+                                        resolved = entity_map.get(
+                                            raw_entity.name.casefold()[:255]
+                                        )
                                         if resolved:
                                             event = EntityEvent(
                                                 entity_id=resolved.id,
@@ -432,7 +443,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 from app.models.description import (
                                     Description as DescriptionModel,
                                 )
-                                from app.models.description_entity import DescriptionEntity
+                                from app.models.description_entity import (
+                                    DescriptionEntity,
+                                )
 
                                 for i, d in enumerate(descriptions_data):
                                     d_dict = cast(
@@ -464,7 +477,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                         confidence_score=d_dict.get(
                                             "confidence_score", 0.8
                                         ),
-                                        priority_score=d_dict.get("priority_score", 0.5),
+                                        priority_score=d_dict.get(
+                                            "priority_score", 0.5
+                                        ),
                                         position_in_chapter=i,
                                         word_count=d_dict.get("word_count", 0),
                                     )
@@ -481,7 +496,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     for entity_name in entities_mentioned:
                                         if not entity_name:
                                             continue
-                                        entity = find_entity_fuzzy(entity_name, entity_map)
+                                        entity = find_entity_fuzzy(
+                                            entity_name, entity_map
+                                        )
                                         if entity:
                                             desc_entity = DescriptionEntity(
                                                 description_id=new_desc.id,
@@ -509,7 +526,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                                 f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
                                             )
 
-                                local_chapter.descriptions_found = len(descriptions_data)
+                                local_chapter.descriptions_found = len(
+                                    descriptions_data
+                                )
                                 local_chapter.is_description_parsed = True
                                 local_chapter.parsed_at = datetime.now(timezone.utc)
                                 local_chapter.parsing_error = None
@@ -547,7 +566,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 try:
                                     await session.rollback()
                                     if local_chapter:
-                                        local_chapter = await session.get(Chapter, chapter_id)
+                                        local_chapter = await session.get(
+                                            Chapter, chapter_id
+                                        )
                                         # Use chapter_id (function arg) instead of local_chapter.id
                                         # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
                                         if local_chapter:
@@ -572,13 +593,18 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
             results = await asyncio.gather(
-                *(process_chapter_safe(idx, chapter.id) for idx, chapter in enumerate(chapters, start=1)),
+                *(
+                    process_chapter_safe(idx, chapter.id)
+                    for idx, chapter in enumerate(chapters, start=1)
+                ),
                 return_exceptions=True,
             )
 
             # Log results and retry failed chapters sequentially
             succeeded = sum(1 for r in results if not isinstance(r, BaseException))
-            failed_indices = [i for i, r in enumerate(results) if isinstance(r, BaseException)]
+            failed_indices = [
+                i for i, r in enumerate(results) if isinstance(r, BaseException)
+            ]
 
             for i in failed_indices:
                 logger.error(

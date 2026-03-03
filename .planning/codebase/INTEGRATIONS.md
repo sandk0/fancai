@@ -159,7 +159,7 @@
 - `DB_PASSWORD` — пароль PostgreSQL
 - `REDIS_PASSWORD` — пароль Redis
 - `SECRET_KEY` — ключ подписи JWT (не должен быть значением по умолчанию)
-- `GOOGLE_API_KEY` или `LANGEXTRACT_API_KEY` — сервисы Google AI
+- `GOOGLE_API_KEY` или `LANGEXTRACT_API_KEY` — сервисы Google AI (Phase 3: заменяется на OPENROUTER_API_KEY)
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — Web Push
 - `YANDEX_POSTBOX_ACCESS_KEY`, `YANDEX_POSTBOX_SECRET_KEY` — Email (если EMAIL_ENABLED=true)
 

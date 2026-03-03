@@ -65,6 +65,13 @@ async def update_system_settings(
         await settings_manager.set_setting(
             "system", "supported_book_formats", settings.supported_book_formats
         )
+        from ...core.config import settings as app_settings
+
+        if settings.enable_debug_mode and not app_settings.DEBUG:
+            raise HTTPException(
+                status_code=400,
+                detail="Debug mode can only be enabled via environment variable in production",
+            )
         await settings_manager.set_setting(
             "system", "enable_debug_mode", settings.enable_debug_mode
         )

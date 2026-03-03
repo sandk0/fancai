@@ -168,8 +168,8 @@ app = FastAPI(
     title="fancai API",
     description="API для чтения книг с ИИ-генерацией изображений",
     version=VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
     # Отключаем автоматический редирект с trailing slash
     # Это предотвращает 307 редиректы которые могут нарушить HTTPS
     redirect_slashes=False,
@@ -201,6 +201,13 @@ app.add_middleware(
 # - Static files: public, max-age=31536000, immutable (агрессивное кэширование)
 # - Admin/Auth: no-store (максимальная безопасность)
 app.add_middleware(CacheControlMiddleware)
+
+# 2.5. CSRF Protection Middleware (Double Submit Cookie)
+# DISABLED: Frontend does not implement CSRF token handling.
+# JWT Bearer auth in Authorization header is not vulnerable to CSRF.
+# Re-enable only after frontend integration (X-CSRF-Token header support).
+# from .core.csrf import CSRFProtectMiddleware
+# app.add_middleware(CSRFProtectMiddleware)
 
 # 3. Security Headers Middleware (добавляется третьим, выполняется предпоследним)
 # Защита от XSS, clickjacking, MIME sniffing, etc.
@@ -337,13 +344,15 @@ async def root() -> Dict[str, Any]:
     Returns:
         Dict с информацией о сервисе
     """
-    return {
+    response: Dict[str, Any] = {
         "message": "fancai API",
         "version": VERSION,
         "status": "running",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "docs": "/docs",
     }
+    if settings.DEBUG:
+        response["docs"] = "/docs"
+    return response
 
 
 @app.get("/health")
@@ -468,7 +477,7 @@ async def internal_error_handler(request, exc):
         status_code=500,
         content={
             "error": "Internal Server Error",
-            "message": f"An internal server error occurred: {str(exc)}",
+            "message": "An unexpected error occurred. Please try again later.",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )

@@ -1,307 +1,307 @@
-# Pitfalls Research
+# Исследование подводных камней
 
-**Domain:** Production hardening of an AI-powered EPUB reader (FastAPI + React + Celery + Gemini/Imagen)
-**Researched:** 2026-02-27
-**Confidence:** HIGH (based on codebase analysis + verified external research)
+**Область:** Подготовка к продакшену AI-powered EPUB-ридера (FastAPI + React + Celery + Gemini/Imagen; Phase 3: все AI-сервисы мигрируют на OpenRouter)
+**Исследовано:** 2026-02-27
+**Уверенность:** ВЫСОКАЯ (на основе анализа кодовой базы + проверенных внешних источников)
 
-## Critical Pitfalls
+## Критические подводные камни
 
-### Pitfall 1: Security Defaults Ship to Production Undetected
+### Подводный камень 1: Небезопасные настройки по умолчанию попадают в продакшен незамеченными
 
-**What goes wrong:**
-The app has `DEBUG = True` as default, `SECRET_KEY = "dev-secret-key-change-in-production"`, `METRICS_PASSWORD = "metrics_secure_password"`, and `PASSWORD_RESET_BASE_URL = "http://localhost:5173/reset-password"` all hardcoded in `config.py`. The production validator only fires when `DEBUG=False`, meaning if the env var is missing or misconfigured, the entire security gate is bypassed. Password reset emails go to localhost. Prometheus metrics are accessible with a known default password. JWTs are signed with a guessable key.
+**Что идёт не так:**
+В приложении `DEBUG = True` установлен по умолчанию, `SECRET_KEY = "dev-secret-key-change-in-production"`, `METRICS_PASSWORD = "metrics_secure_password"` и `PASSWORD_RESET_BASE_URL = "http://localhost:5173/reset-password"` — всё это захардкожено в `config.py`. Продакшен-валидатор срабатывает только при `DEBUG=False`, то есть если переменная окружения отсутствует или настроена неправильно, весь механизм защиты обходится. Письма для сброса пароля ведут на localhost. Метрики Prometheus доступны с известным паролем по умолчанию. JWT подписываются легко угадываемым ключом.
 
-**Why it happens:**
-Development-friendly defaults are the path of least resistance. The production validator is a chicken-and-egg problem: it only validates when `DEBUG=False`, but `DEBUG` itself defaults to `True`. Admin endpoints (`/health/metrics`) have their own separate credentials that the validator does not check.
+**Почему это происходит:**
+Удобные для разработки значения по умолчанию — путь наименьшего сопротивления. Продакшен-валидатор — это проблема курицы и яйца: он проверяет только при `DEBUG=False`, но сам `DEBUG` по умолчанию равен `True`. Админские эндпоинты (`/health/metrics`) имеют собственные отдельные учётные данные, которые валидатор не проверяет.
 
-**How to avoid:**
-1. Flip `DEBUG` default to `False` -- force developers to explicitly opt into debug mode
-2. Generate a random `SECRET_KEY` at startup if not set via env var, and log a CRITICAL warning
-3. Add `METRICS_PASSWORD` and `PASSWORD_RESET_BASE_URL` to the production validator
-4. Add a startup check: if `PASSWORD_RESET_BASE_URL` contains `localhost` and `DEBUG=False`, refuse to start
-5. Use `python-decouple` or Pydantic's `SecretStr` for all secrets so they never appear in logs or tracebacks
+**Как избежать:**
+1. Поменять значение `DEBUG` по умолчанию на `False` — заставить разработчиков явно включать режим отладки
+2. Генерировать случайный `SECRET_KEY` при запуске, если он не задан через переменную окружения, и логировать CRITICAL-предупреждение
+3. Добавить `METRICS_PASSWORD` и `PASSWORD_RESET_BASE_URL` в продакшен-валидатор
+4. Добавить проверку при запуске: если `PASSWORD_RESET_BASE_URL` содержит `localhost` и `DEBUG=False`, отказываться стартовать
+5. Использовать `python-decouple` или `SecretStr` из Pydantic для всех секретов, чтобы они никогда не появлялись в логах или трейсбеках
 
-**Warning signs:**
-- Health check shows `database: "checking..."` (proves you are running the fake health endpoint)
-- Password reset links in emails point to `localhost:5173`
-- `/health/metrics` accessible without custom credentials
-- Stack traces visible in API error responses (indicates DEBUG mode)
+**Тревожные признаки:**
+- Health check показывает `database: "checking..."` (доказывает, что работает фейковый health-эндпоинт)
+- Ссылки для сброса пароля в письмах ведут на `localhost:5173`
+- `/health/metrics` доступен без пользовательских учётных данных
+- Stack trace видны в ответах API на ошибки (указывает на режим DEBUG)
 
-**Phase to address:**
-Security hardening phase -- this must be the FIRST thing fixed, before any other production deployment work.
-
----
-
-### Pitfall 2: TODO Stubs Masquerading as Working Features
-
-**What goes wrong:**
-Three distinct areas pretend to work but silently fail: (1) The sync router accepts bookmark/highlight/reading-session operations but immediately returns failures with `# TODO: Implement` comments. (2) The `useBookDescriptions` hook is permanently `enabled: false`, returning `[]`. (3) The health endpoint returns `"database": "checking..."` as a string, not an actual DB check. Users and monitoring systems see "success" responses from endpoints that do nothing.
-
-**Why it happens:**
-Stubs were created as scaffolding during rapid development. They compile, they return HTTP 200 (or structured errors), and they pass cursory testing. Nobody goes back to remove or implement them. The frontend offline sync queue accumulates operations that are silently lost when replayed.
-
-**How to avoid:**
-1. Audit every `TODO` and `FIXME` in the codebase. For each: implement, remove the endpoint entirely, or return HTTP 501 (Not Implemented) with a clear message
-2. For sync: either implement bookmark/highlight sync or remove the endpoint and disable the frontend sync queue for those operation types. Silent data loss is worse than a visible "not supported" error
-3. For health: implement actual PostgreSQL `SELECT 1` check and Redis `PING`. Monitoring tools (Docker healthcheck, uptime services) depend on this being real
-4. For `useBookDescriptions`: either implement the batch endpoint or remove the hook entirely so it does not confuse future developers
-
-**Warning signs:**
-- `grep -r "TODO\|FIXME\|STUB\|HACK" backend/app/` returns hits in router/service files (not just comments)
-- Frontend sync queue grows without bound (check IndexedDB `syncQueue` table size)
-- Health monitoring shows 100% uptime even during known outages
-
-**Phase to address:**
-Dead code cleanup phase -- pair with NLP remnant removal. Must be completed before UX polishing (so users do not encounter broken features that look intentional).
+**Фаза для исправления:**
+Фаза усиления безопасности — это должно быть исправлено ПЕРВЫМ, до любой другой работы по подготовке к продакшену.
 
 ---
 
-### Pitfall 3: Removing Dead NLP Code Breaks Working Config Validation
+### Подводный камень 2: TODO-заглушки, маскирующиеся под работающие функции
 
-**What goes wrong:**
-The NLP system was removed in Dec 2025, but `config.py` still has `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT` fields. Critically, there is a `validate_nlp_weights` Pydantic validator that sums the NLP weights and rejects the config if total is outside 0.5-10.0. If you naively delete the NLP fields without deleting the validator, the app crashes on startup. If you delete just the validator, you might miss other code that references these fields.
+**Что идёт не так:**
+Три отдельные области притворяются рабочими, но молча ломаются: (1) Роутер синхронизации принимает операции с закладками/выделениями/сессиями чтения, но немедленно возвращает ошибки с комментариями `# TODO: Implement`. (2) Хук `useBookDescriptions` постоянно имеет `enabled: false`, возвращая `[]`. (3) Health-эндпоинт возвращает `"database": "checking..."` как строку, а не реальную проверку БД. Пользователи и системы мониторинга видят "успешные" ответы от эндпоинтов, которые ничего не делают.
 
-**Why it happens:**
-Incremental deletion is dangerous when config has cross-field validators. The 14 root-level test files (`test_nlp_processors.py`, `test_gliner_integration.py`, etc.) also import from removed modules, which may cause import-time failures if test discovery touches them.
+**Почему это происходит:**
+Заглушки были созданы как строительные леса во время быстрой разработки. Они компилируются, возвращают HTTP 200 (или структурированные ошибки) и проходят поверхностное тестирование. Никто не возвращается, чтобы удалить или реализовать их. Очередь офлайн-синхронизации на фронтенде накапливает операции, которые молча теряются при воспроизведении.
 
-**How to avoid:**
-1. Map the full dependency graph of NLP config fields BEFORE deleting anything: `config.py` fields -> validators -> `settings_manager.py` sections -> admin schemas -> admin frontend
-2. Delete in one atomic PR: config fields + validators + settings_manager NLP sections + admin schemas + root test files
-3. Run the full test suite after deletion, including `pytest --collect-only` to verify no import failures in test discovery
-4. Check `settings_manager.py` for `nlp_global`, `nlp_spacy`, `nlp_natasha`, `nlp_stanza`, `nlp_gliner` config sections -- these expose NLP settings to the admin panel and will cause frontend errors if the admin panel tries to read/write them
+**Как избежать:**
+1. Провести аудит каждого `TODO` и `FIXME` в кодовой базе. Для каждого: реализовать, полностью удалить эндпоинт или возвращать HTTP 501 (Not Implemented) с понятным сообщением
+2. Для синхронизации: либо реализовать синхронизацию закладок/выделений, либо удалить эндпоинт и отключить очередь синхронизации на фронтенде для этих типов операций. Молчаливая потеря данных хуже, чем видимая ошибка "не поддерживается"
+3. Для health: реализовать реальную проверку PostgreSQL `SELECT 1` и Redis `PING`. Инструменты мониторинга (Docker healthcheck, сервисы аптайма) зависят от того, что это реальная проверка
+4. Для `useBookDescriptions`: либо реализовать batch-эндпоинт, либо полностью удалить хук, чтобы он не путал будущих разработчиков
 
-**Warning signs:**
-- `python -c "from app.core.config import settings"` fails after partial deletion
-- Admin panel shows NLP configuration sections with no effect
-- `pytest --collect-only` shows import errors in root-level test files
+**Тревожные признаки:**
+- `grep -r "TODO\|FIXME\|STUB\|HACK" backend/app/` находит совпадения в файлах роутеров/сервисов (не только в комментариях)
+- Очередь синхронизации на фронтенде растёт бесконечно (проверьте размер таблицы `syncQueue` в IndexedDB)
+- Мониторинг показывает 100% аптайм даже во время известных сбоев
 
-**Phase to address:**
-Dead code cleanup phase -- do this as a single focused operation, not piecemeal across multiple PRs.
-
----
-
-### Pitfall 4: Spoiler Leak Through Cache Poisoning
-
-**What goes wrong:**
-The entity spoiler-free system stores ALL entity data (including future spoilers) in Redis cache, then filters at response time based on the reader's current chapter. If the filtering logic in `entity_service.py` (`_apply_chapter_filter`, `_filter_entity_detail`) has a bug, future character deaths, plot twists, or relationship reveals leak to users who have not reached that chapter. This is a product-destroying bug for a spoiler-free reading app.
-
-**Why it happens:**
-Caching raw unfiltered data is a performance optimization that trades safety for speed. The filtering is a runtime operation that must be correct every time, for every entity type, across chapter boundaries. The test file `test_entity_spoiler_free.py` exists but may not cover all edge cases (e.g., entity relationships where one entity is revealed in chapter 5 but the relationship with another entity is not established until chapter 12).
-
-**How to avoid:**
-1. Write exhaustive property-based tests for spoiler filtering: generate random entity data with chapter assignments, query at each chapter, verify no future data leaks
-2. Add a "spoiler canary" integration test: create a book with a known twist at chapter 10, read at chapter 5, assert the twist is not visible
-3. Consider caching already-filtered data per chapter (trades cache size for safety), or at minimum add a post-filter assertion that no entity mention has a chapter number > current chapter
-4. Treat ANY change to `entity_service.py` filtering as a high-risk change requiring the full spoiler test suite
-
-**Warning signs:**
-- Entity detail responses contain `chapter_first_mentioned` values greater than the requested chapter
-- Users report seeing information about characters they have not met yet
-- Entity relationship data references events from later chapters
-
-**Phase to address:**
-Entity Wiki quality phase -- must add comprehensive tests before making any changes to entity filtering logic.
+**Фаза для исправления:**
+Фаза очистки мёртвого кода — совместить с удалением остатков NLP. Должна быть завершена до полировки UX (чтобы пользователи не сталкивались со сломанными функциями, которые выглядят как намеренные).
 
 ---
 
-### Pitfall 5: python-jose JWT Library Has Known Critical Vulnerability
+### Подводный камень 3: Удаление мёртвого NLP-кода ломает работающую валидацию конфигурации
 
-**What goes wrong:**
-The app uses `python-jose[cryptography]==3.5.0` for all JWT operations. CVE-2025-61152 allows JWT tokens with `alg=none` to be decoded and accepted without signature verification, meaning an attacker can forge arbitrary JWT tokens. The library is unmaintained and will not receive patches.
+**Что идёт не так:**
+NLP-система была удалена в декабре 2025, но `config.py` всё ещё содержит поля `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT`. Критично: существует Pydantic-валидатор `validate_nlp_weights`, который суммирует NLP-веса и отклоняет конфигурацию, если сумма выходит за пределы 0.5-10.0. Если наивно удалить NLP-поля без удаления валидатора, приложение упадёт при запуске. Если удалить только валидатор, можно пропустить другой код, который ссылается на эти поля.
 
-**Why it happens:**
-python-jose was the FastAPI tutorial default for years. Migration seems low-priority because "auth works." But `alg=none` bypass means any attacker who knows the vulnerability can forge admin tokens.
+**Почему это происходит:**
+Инкрементальное удаление опасно, когда конфигурация имеет кросс-полевые валидаторы. 14 тестовых файлов корневого уровня (`test_nlp_processors.py`, `test_gliner_integration.py` и т.д.) также импортируют из удалённых модулей, что может вызвать ошибки на этапе импорта, если обнаружение тестов затронет их.
 
-**How to avoid:**
-1. Replace `python-jose` with `PyJWT>=2.10.1` (actively maintained, API-compatible for HS256)
-2. Migration is straightforward: change `from jose import JWTError, jwt` to `from jwt import PyJWTError as JWTError; import jwt`
-3. Explicitly set `algorithms=["HS256"]` in all `jwt.decode()` calls to prevent algorithm confusion attacks
-4. Pin PyJWT to `>=2.10.1` to include the fix for CVE-2025-45768
-5. After migration, verify token blacklist behavior still works (`token_blacklist.py`)
+**Как избежать:**
+1. Построить полный граф зависимостей NLP-полей конфигурации ПЕРЕД удалением чего-либо: поля `config.py` -> валидаторы -> секции `settings_manager.py` -> схемы админки -> фронтенд админки
+2. Удалять в одном атомарном PR: поля конфигурации + валидаторы + NLP-секции settings_manager + схемы админки + тестовые файлы корневого уровня
+3. Запустить полный набор тестов после удаления, включая `pytest --collect-only` для проверки отсутствия ошибок импорта при обнаружении тестов
+4. Проверить `settings_manager.py` на наличие секций конфигурации `nlp_global`, `nlp_spacy`, `nlp_natasha`, `nlp_stanza`, `nlp_gliner` — они показывают NLP-настройки в админ-панели и вызовут ошибки фронтенда, если админ-панель попытается их читать/записывать
 
-**Warning signs:**
-- `pip audit` or `safety check` flags python-jose
-- Dependabot/Snyk alerts for the dependency
-- Auth tests pass with `alg: "none"` tokens (should fail)
+**Тревожные признаки:**
+- `python -c "from app.core.config import settings"` падает после частичного удаления
+- Админ-панель показывает секции конфигурации NLP, не имеющие эффекта
+- `pytest --collect-only` показывает ошибки импорта в тестовых файлах корневого уровня
 
-**Phase to address:**
-Security hardening phase -- combine with other security fixes (DEBUG default, secrets, token expiry).
-
----
-
-### Pitfall 6: Gemini Sync API in Async Context Creates Thread Pool Exhaustion
-
-**What goes wrong:**
-`gemini_extractor.py` calls the synchronous Gemini client via `asyncio.to_thread()`, and `asyncio.gather()` runs ALL chunks in parallel. For a large book with 20+ chunks, this fires 20+ simultaneous threads, each making a blocking Gemini API call. The default thread pool (40 threads, shared with FastAPI/Starlette) can be exhausted, blocking all HTTP request handling. At `CELERY_CONCURRENCY=1` this is masked; at concurrency >1, the app deadlocks.
-
-**Why it happens:**
-The Google `genai` Python client is synchronous. Wrapping it in `asyncio.to_thread` is the textbook solution, but without a bounded semaphore limiting concurrent calls, the unbounded `asyncio.gather()` can spawn more threads than the pool supports. The semaphore (`_semaphore`) exists in the code but its interaction with the thread pool size is undocumented.
-
-**How to avoid:**
-1. Document and enforce the semaphore value: set it to max 5 concurrent Gemini calls (well within both thread pool and API rate limits)
-2. Consider using the async Gemini client (`google.genai.aio`) if available, eliminating the thread pool dependency entirely
-3. If staying with `asyncio.to_thread`, create a dedicated `ThreadPoolExecutor` for Gemini calls (not the shared default) with explicit max workers
-4. Add monitoring: log when semaphore wait time exceeds 30 seconds (indicates pool pressure)
-
-**Warning signs:**
-- Book processing hangs indefinitely for large books
-- FastAPI stops responding to HTTP requests during book processing
-- Thread count in process metrics spikes during processing
-- Celery tasks hit the 3-hour soft time limit without completing
-
-**Phase to address:**
-AI pipeline stabilization phase -- must be fixed before considering `CELERY_CONCURRENCY > 1`.
+**Фаза для исправления:**
+Фаза очистки мёртвого кода — делать это как единую сфокусированную операцию, а не по частям в нескольких PR.
 
 ---
 
-### Pitfall 7: Chunk Boundary Entity Loss is Silent and Undetectable
+### Подводный камень 4: Утечка спойлеров через отравление кеша
 
-**What goes wrong:**
-When a book chapter exceeds 100K characters, it is split into chunks with 15% overlap. Entities mentioned only in the overlap zone or at the exact boundary may be extracted by one chunk but not the other, leading to duplicate or missing entities. The `ConsistencyManager` truncates entity lists over 300K chars instead of recursively reducing, silently dropping entities at the end of the list. For large books (500+ entities), this means the glossary is incomplete with no error or warning visible to users.
+**Что идёт не так:**
+Система защиты от спойлеров для сущностей хранит ВСЕ данные сущностей (включая будущие спойлеры) в кеше Redis, а затем фильтрует при формировании ответа на основе текущей главы читателя. Если логика фильтрации в `entity_service.py` (`_apply_chapter_filter`, `_filter_entity_detail`) содержит баг, будущие смерти персонажей, сюжетные повороты или раскрытие отношений утекают к пользователям, которые ещё не дочитали до этой главы. Это баг, уничтожающий продукт, для приложения, позиционирующего себя как средство чтения без спойлеров.
 
-**Why it happens:**
-Chunk boundaries are an inherent problem with any LLM-based extraction over long documents. The 15% overlap mitigates but does not solve it. The truncation in `ConsistencyManager` (line 581-585) is a TODO stub that was never replaced with proper recursive reduce. The entities dropped are whichever happen to be at the end of the serialized list -- effectively random.
+**Почему это происходит:**
+Кеширование сырых нефильтрованных данных — это оптимизация производительности, которая жертвует безопасностью ради скорости. Фильтрация — это операция времени выполнения, которая должна быть корректной каждый раз, для каждого типа сущности, на границах глав. Тестовый файл `test_entity_spoiler_free.py` существует, но может не покрывать все граничные случаи (например, связи сущностей, где одна сущность раскрывается в главе 5, но её связь с другой сущностью устанавливается только в главе 12).
 
-**How to avoid:**
-1. Implement recursive reduce: if entity list exceeds 300K chars, split into groups, reduce each group, then reduce the results. This is a standard map-reduce pattern
-2. Add a post-extraction audit: count entities per chapter, flag chapters with suspiciously few entities compared to text length
-3. Track entity extraction coverage: store chunk boundaries and overlap regions, verify entities from overlap zones appear in the merged result
-4. Add a warning in the book's processing log when truncation occurs, visible to the admin panel
+**Как избежать:**
+1. Написать исчерпывающие property-based тесты для фильтрации спойлеров: генерировать случайные данные сущностей с привязкой к главам, запрашивать на каждой главе, проверять отсутствие утечки будущих данных
+2. Добавить интеграционный тест "канарейка спойлеров": создать книгу с известным поворотом в главе 10, читать на главе 5, убедиться, что поворот не виден
+3. Рассмотреть кеширование уже отфильтрованных данных по главам (увеличение размера кеша ради безопасности), или как минимум добавить пост-фильтрационную проверку, что ни одно упоминание сущности не имеет номера главы больше текущей
+4. Рассматривать ЛЮБОЕ изменение логики фильтрации в `entity_service.py` как высокорисковое изменение, требующее полного набора тестов на спойлеры
 
-**Warning signs:**
-- Log message "Too many entities for single Reduce pass. Truncating" appears in production logs
-- Books with 50+ chapters have noticeably fewer entities per chapter in later chapters
-- Users report missing characters from the glossary
+**Тревожные признаки:**
+- Ответы с деталями сущностей содержат значения `chapter_first_mentioned` больше запрошенной главы
+- Пользователи сообщают, что видят информацию о персонажах, с которыми ещё не встречались
+- Данные о связях сущностей ссылаются на события из более поздних глав
 
-**Phase to address:**
-AI pipeline stabilization phase -- requires careful testing with real large books.
+**Фаза для исправления:**
+Фаза качества Entity Wiki — необходимо добавить исчерпывающие тесты перед внесением каких-либо изменений в логику фильтрации сущностей.
+
+---
+
+### Подводный камень 5: Библиотека python-jose для JWT имеет известную критическую уязвимость
+
+**Что идёт не так:**
+Приложение использует `python-jose[cryptography]==3.5.0` для всех операций с JWT. CVE-2025-61152 позволяет декодировать и принимать JWT-токены с `alg=none` без проверки подписи, что означает, что злоумышленник может подделать произвольные JWT-токены. Библиотека не поддерживается и не получит патчей.
+
+**Почему это происходит:**
+python-jose был стандартным выбором из туториалов FastAPI на протяжении многих лет. Миграция кажется низкоприоритетной, потому что "авторизация работает". Но обход `alg=none` означает, что любой злоумышленник, знающий об уязвимости, может подделать токены администратора.
+
+**Как избежать:**
+1. Заменить `python-jose` на `PyJWT>=2.10.1` (активно поддерживается, API-совместим для HS256)
+2. Миграция проста: заменить `from jose import JWTError, jwt` на `from jwt import PyJWTError as JWTError; import jwt`
+3. Явно указывать `algorithms=["HS256"]` во всех вызовах `jwt.decode()` для предотвращения атак подмены алгоритма
+4. Зафиксировать PyJWT на `>=2.10.1`, чтобы включить исправление для CVE-2025-45768
+5. После миграции проверить, что поведение чёрного списка токенов по-прежнему работает (`token_blacklist.py`)
+
+**Тревожные признаки:**
+- `pip audit` или `safety check` помечают python-jose
+- Алерты Dependabot/Snyk для этой зависимости
+- Тесты авторизации проходят с токенами `alg: "none"` (должны падать)
+
+**Фаза для исправления:**
+Фаза усиления безопасности — совместить с другими исправлениями безопасности (DEBUG по умолчанию, секреты, истечение токенов).
 
 ---
 
-## Technical Debt Patterns
+### Подводный камень 6: Синхронный API Gemini в асинхронном контексте приводит к исчерпанию пула потоков
 
-Shortcuts that seem reasonable but create long-term problems.
+**Что идёт не так:**
+`gemini_extractor.py` вызывает синхронный клиент Gemini через `asyncio.to_thread()`, а `asyncio.gather()` запускает ВСЕ чанки параллельно. Для большой книги с 20+ чанками это порождает 20+ одновременных потоков, каждый из которых выполняет блокирующий вызов API Gemini. Пул потоков по умолчанию (40 потоков, разделяемый с FastAPI/Starlette) может быть исчерпан, блокируя обработку всех HTTP-запросов. При `CELERY_CONCURRENCY=1` это маскируется; при concurrency >1 приложение впадает в дедлок.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| `asyncio.to_thread` for Gemini sync client | Quick integration without rewriting to async | Thread pool exhaustion at scale, deadlock risk | Only with bounded semaphore AND dedicated thread pool |
-| Redis single instance for cache + broker + rate limiting + pub/sub | Simple deployment, one service to manage | Single point of failure -- Redis down = entire app degrades | Only at current scale (<100 concurrent users) |
-| 7-day access token with no rotation | Users stay logged in for reading sessions | Stolen tokens valid for a week; no revocation mechanism | Never in production -- reduce to 30-60 minutes with proper refresh flow |
-| `enabled: false` hooks as feature stubs | Compiles, does not break anything | Confuses developers, dead code in bundle, false feature impression | Only if clearly documented with `@deprecated` annotation |
-| Admin Redis `from_url` with localhost fallback | Works in dev without config | Production admin endpoints may connect to wrong Redis or fail silently | Never -- always use `settings.REDIS_URL` from config |
-| Inline localhost in CSP connect-src | WebSocket works in dev | CSP allows localhost connections in production (potential security issue) | Only behind `DEBUG` conditional |
+**Почему это происходит:**
+Python-клиент Google `genai` — синхронный. Обёртка в `asyncio.to_thread` — учебниковое решение, но без ограниченного семафора, лимитирующего параллельные вызовы, неограниченный `asyncio.gather()` может породить больше потоков, чем поддерживает пул. Семафор (`_semaphore`) существует в коде, но его взаимодействие с размером пула потоков не задокументировано.
 
-## Integration Gotchas
+**Как избежать:**
+1. Задокументировать и контролировать значение семафора: установить максимум 5 параллельных вызовов Gemini (в пределах как пула потоков, так и лимитов API)
+2. Рассмотреть использование асинхронного клиента Gemini (`google.genai.aio`), если он доступен, полностью устранив зависимость от пула потоков (Phase 3: google-genai SDK удаляется; OpenRouter использует httpx async напрямую)
+3. Если остаётся `asyncio.to_thread`, создать выделенный `ThreadPoolExecutor` для вызовов Gemini (не общий по умолчанию) с явным ограничением воркеров
+4. Добавить мониторинг: логировать, когда время ожидания семафора превышает 30 секунд (указывает на давление на пул)
 
-Common mistakes when connecting to external services.
+**Тревожные признаки:**
+- Обработка книги зависает бесконечно для больших книг
+- FastAPI перестаёт отвечать на HTTP-запросы во время обработки книги
+- Счётчик потоков в метриках процесса резко возрастает во время обработки
+- Задачи Celery достигают 3-часового мягкого лимита времени без завершения
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Gemini API | Not handling 429 rate limits with per-dimension awareness (RPM vs TPM vs RPD) | Implement exponential backoff that reads `Retry-After` header; track RPM and TPM separately; Google can change quotas without notice (happened Dec 2025) |
-| Gemini API | Assuming response format is stable | Always unwrap potential `data` wrapper; validate response structure with Pydantic before processing; Gemini response format has changed between versions |
-| Imagen 4 | Not handling content safety rejections | Imagen rejects prompts it deems unsafe; book descriptions of violence, intimacy, etc. will fail. Implement fallback (retry with sanitized prompt, or skip image) instead of crashing the task |
-| Imagen 4 | Assuming image generation always succeeds | Base64 PNG detection fallback exists but is untested (test file is `_TEMPLATE.py`). Image generation can fail silently, leaving descriptions without illustrations |
-| Redis | Creating new `from_url` connections per request instead of using the connection pool | Admin routes in `parsing.py` create fresh Redis connections with `redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))` instead of using `cache_manager`. This bypasses connection pooling and can leak connections |
-| ebooklib | Assuming all EPUBs are well-formed | `ebooklib` has limited error handling for malformed EPUBs. Add ZIP magic byte validation (`PK\x03\x04`) before parsing, and wrap all ebooklib calls in try/except with informative error messages |
-
-## Performance Traps
-
-Patterns that work at small scale but fail as usage grows.
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Unbounded `asyncio.gather()` for chunk processing | Process hangs, thread pool exhaustion | Cap semaphore at 5 concurrent calls | Books with >10 chunks (~1M+ chars) |
-| Spoiler filtering on every request (no per-chapter cache) | Slow entity drawer loading | Cache filtered results keyed by `(book_id, chapter)` with invalidation on new extraction | Books with 500+ entities, frequent entity drawer opens |
-| Single Celery worker, concurrency=1 | Book processing queue grows, hours-long waits | Priority queues, increase concurrency after thread pool fix | >5 concurrent book uploads |
-| No IndexedDB cleanup | Browser storage grows unbounded, eventual quota exceeded | Implement LRU eviction for cached chapters/images based on last-read date | After user reads ~20+ books without clearing cache |
-| Full entity list serialization for LLM dedup | Truncation at 300K chars, entity loss | Recursive map-reduce pattern | Books with >300 entities |
-
-## Security Mistakes
-
-Domain-specific security issues beyond general web security.
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| `python-jose` with `alg=none` vulnerability (CVE-2025-61152) | Attacker forges admin JWT tokens, gains full system access | Replace with `PyJWT>=2.10.1`, explicitly set `algorithms=["HS256"]` |
-| CSP `connect-src` includes `ws://localhost:*` in production | Allows malicious scripts to exfiltrate data to local services | Make localhost CSP entries conditional on `DEBUG` mode |
-| CSP `script-src` has no nonce, but `unsafe-inline` is removed | Legitimate inline scripts break; OR CSP is silently ineffective | Implement per-request nonce generation, or verify zero inline scripts exist |
-| File upload validates extension only, not magic bytes | Malicious files with `.epub` extension bypass validation | Add ZIP magic byte check (`PK\x03\x04`) for EPUB, XML check for FB2 |
-| Access token valid for 7 days with no revocation on logout | Stolen tokens remain valid; logout is cosmetic | Reduce to 15-30 minutes; implement token blacklist check on every request |
-| `METRICS_PASSWORD` not checked by production validator | Prometheus metrics endpoint accessible with default password | Add to `validate_production_settings()` alongside SECRET_KEY check |
-
-## UX Pitfalls
-
-Common user experience mistakes in this domain (EPUB reader + AI features).
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Fake health endpoint returning `"checking..."` | Users see "healthy" status when DB is down; no one investigates outages | Implement real PostgreSQL + Redis health checks; return HTTP 503 when unhealthy |
-| Sync endpoint silently losing bookmarks | User creates bookmarks offline, goes online, bookmarks vanish with no error | Either implement sync or disable bookmark creation in offline mode with a clear message |
-| Password reset emails pointing to localhost | User clicks reset link, gets "page not found" in browser | Use `PASSWORD_RESET_BASE_URL` from env, validate it does not contain localhost in production |
-| Book processing queue with no user feedback | User uploads a book, sees spinning forever, does not know 3 books are ahead | Show queue position and estimated time; WebSocket exists but is a no-op stub, so enhance polling with queue depth info |
-| Reprocess creates orphaned descriptions | User triggers reprocess expecting fresh results, sees old + new descriptions mixed | Delete old descriptions before reprocessing (code exists but is commented out in `books/crud.py` lines 741-743) |
-| Fuzzy matching misses short Russian names | "Garri" and "Garri Potter" treated as different entities in the glossary | Lower `FUZZY_THRESHOLD` from 0.85 to ~0.75 for Russian text; add name-form normalization |
-
-## "Looks Done But Isn't" Checklist
-
-Things that appear complete but are missing critical pieces.
-
-- [ ] **Health endpoint:** Returns "healthy" but does not check database -- verify `SELECT 1` runs against PostgreSQL
-- [ ] **Sync endpoint:** Accepts requests but TODO-stubs all operations -- verify bookmarks/highlights actually persist
-- [ ] **WebSocket service:** Frontend service exists but all methods return `Promise.resolve()` -- verify actual WS connection is established
-- [ ] **Batch descriptions hook:** `useBookDescriptions` exists but is `enabled: false` -- verify it returns real data
-- [ ] **Token blacklist on logout:** `token_blacklist.py` exists but verify it is actually called during logout flow
-- [ ] **Email service:** `EMAIL_ENABLED=False` by default -- verify password reset emails actually send in production
-- [ ] **CSP security headers:** `unsafe-inline` removed from `script-src` but no nonce system -- verify frontend does not use inline scripts
-- [ ] **Reprocess flow:** Button exists but old descriptions are not deleted (commented out) -- verify clean reprocess
-- [ ] **Image generation tests:** Test file exists as `_TEMPLATE.py` (never implemented) -- verify image generation error handling works
-- [ ] **NLP admin panel:** Admin UI may show NLP config sections that do nothing -- verify no dead UI sections remain after cleanup
-- [ ] **Production CORS:** Default is `localhost` origins only -- verify production `CORS_ORIGINS` env var includes `fancai.ru`
-
-## Recovery Strategies
-
-When pitfalls occur despite prevention, how to recover.
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Security defaults shipped to production | MEDIUM | Rotate SECRET_KEY (invalidates all JWTs, logs everyone out); change METRICS_PASSWORD; fix PASSWORD_RESET_BASE_URL; redeploy. Check logs for suspicious auth activity during exposure window |
-| Spoiler data leaked to users | HIGH | Cannot un-spoil a reader. Add post-hoc filtering verification. If widespread, communicate transparently. The reputational damage is permanent for affected users |
-| python-jose `alg=none` exploited | HIGH | Immediately replace with PyJWT; rotate SECRET_KEY; invalidate all tokens; audit all admin actions during exposure; check for unauthorized data access |
-| Dead code removal breaks startup | LOW | Revert the PR; map dependencies more carefully; re-attempt with full dependency graph |
-| Entity loss from chunk truncation | MEDIUM | Re-extract affected books with fixed reduce logic; notify users that their glossary has been updated |
-| Thread pool exhaustion during processing | LOW | Restart Celery worker; reduce semaphore value; the system recovers automatically once threads free |
-| Orphaned descriptions after reprocess | MEDIUM | Write a migration script to identify and delete orphaned descriptions; uncomment the deletion code |
-
-## Pitfall-to-Phase Mapping
-
-How roadmap phases should address these pitfalls.
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Security defaults ship to production | Security Hardening (FIRST) | `pytest` with `DEBUG=False` passes; startup check rejects insecure defaults; `pip audit` clean |
-| TODO stubs masquerading as features | Dead Code Cleanup | `grep -r "TODO\|FIXME" backend/app/routers/` returns zero hits in active endpoints; all endpoints return real data or HTTP 501 |
-| NLP removal breaks config | Dead Code Cleanup | `python -c "from app.core.config import settings"` succeeds; `pytest --collect-only` has no import errors; admin panel shows no NLP sections |
-| Spoiler leak through cache | Entity Wiki Quality | Property-based tests pass; spoiler canary integration test passes; no entity response contains future chapter data |
-| python-jose vulnerability | Security Hardening | `pip audit` reports no critical vulnerabilities; auth tests verify `alg=none` tokens are rejected |
-| Thread pool exhaustion | AI Pipeline Stabilization | Semaphore value documented and tested; book with 20+ chunks processes without hanging; FastAPI stays responsive during processing |
-| Chunk boundary entity loss | AI Pipeline Stabilization | Recursive reduce implemented; no truncation warnings in logs for test corpus; entity count per chapter is consistent |
-| Orphaned descriptions on reprocess | Bug Fixes | Reprocess test: old descriptions deleted, new descriptions present, no duplicates |
-| Fuzzy matching misses short names | Entity Wiki Quality | Test with Russian name pairs at various similarity thresholds; "Garri"/"Garri Potter" recognized as same entity |
-| Admin Redis connection leaks | Code Quality | All Redis usage goes through `cache_manager`; no `redis.from_url` calls in router code |
-| CSP incomplete (no nonces, localhost in prod) | Security Hardening | CSP header inspection in production shows no localhost entries; inline script test verifies no breakage |
-
-## Sources
-
-- Codebase analysis: `backend/app/core/config.py`, `backend/app/routers/sync.py`, `backend/app/services/gemini_extractor.py`, `backend/app/services/consistency_manager.py`, `backend/app/services/entity_service.py`, `backend/app/middleware/security_headers.py` -- HIGH confidence (direct code inspection)
-- [CVE-2025-61152: python-jose alg=none bypass](https://vulert.com/vuln-db/debian-12-python-jose-362548) -- HIGH confidence
-- [PyJWT migration guide from python-jose](https://github.com/jpadilla/pyjwt/issues/942) -- HIGH confidence
-- [Celery + asyncio event loop problem](https://medium.com/@termtrix/using-celery-with-fastapi-the-async-inside-tasks-event-loop-problem-and-how-endpoints-save-79e33676ade9) -- MEDIUM confidence
-- [FastAPI security guide - debug mode risks](https://docs.securesauce.dev/rules/PY524) -- MEDIUM confidence
-- [Gemini API rate limits and Dec 2025 quota changes](https://ai.google.dev/gemini-api/docs/rate-limits) -- HIGH confidence
-- [Dead code removal best practices](https://axify.io/blog/dead-code) -- MEDIUM confidence
-- `.planning/codebase/CONCERNS.md` -- HIGH confidence (project-specific audit)
-- `.planning/codebase/ARCHITECTURE.md` -- HIGH confidence (project-specific analysis)
+**Фаза для исправления:**
+Фаза стабилизации AI-пайплайна — должно быть исправлено до рассмотрения `CELERY_CONCURRENCY > 1`.
 
 ---
-*Pitfalls research for: fancai production hardening*
-*Researched: 2026-02-27*
+
+### Подводный камень 7: Потеря сущностей на границах чанков — молчаливая и необнаруживаемая
+
+**Что идёт не так:**
+Когда глава книги превышает 100K символов, она разбивается на чанки с 15% перекрытием. Сущности, упомянутые только в зоне перекрытия или на точной границе, могут быть извлечены одним чанком, но не другим, что приводит к дублированию или пропуску сущностей. `ConsistencyManager` обрезает списки сущностей свыше 300K символов вместо рекурсивного сведения, молча отбрасывая сущности в конце списка. Для больших книг (500+ сущностей) это означает, что глоссарий неполон, без какой-либо ошибки или предупреждения, видимого пользователям.
+
+**Почему это происходит:**
+Границы чанков — это неотъемлемая проблема любого LLM-извлечения из длинных документов. Перекрытие 15% смягчает, но не решает проблему. Обрезка в `ConsistencyManager` (строки 581-585) — это TODO-заглушка, которая так и не была заменена правильным рекурсивным сведением. Отбрасываемые сущности — это те, которые оказались в конце сериализованного списка, по сути случайные.
+
+**Как избежать:**
+1. Реализовать рекурсивное сведение: если список сущностей превышает 300K символов, разбить на группы, свести каждую группу, затем свести результаты. Это стандартный паттерн map-reduce
+2. Добавить пост-экстракционный аудит: подсчитывать сущности по главам, помечать главы с подозрительно малым количеством сущностей относительно объёма текста
+3. Отслеживать покрытие извлечения сущностей: сохранять границы чанков и зоны перекрытия, проверять, что сущности из зон перекрытия присутствуют в объединённом результате
+4. Добавить предупреждение в лог обработки книги при обрезке, видимое в админ-панели
+
+**Тревожные признаки:**
+- В продакшен-логах появляется сообщение "Too many entities for single Reduce pass. Truncating"
+- Книги с 50+ главами имеют заметно меньше сущностей на главу в более поздних главах
+- Пользователи сообщают о пропущенных персонажах в глоссарии
+
+**Фаза для исправления:**
+Фаза стабилизации AI-пайплайна — требует тщательного тестирования с реальными большими книгами.
+
+---
+
+## Паттерны технического долга
+
+Упрощения, которые кажутся разумными, но создают долгосрочные проблемы.
+
+| Упрощение | Немедленная выгода | Долгосрочная цена | Когда допустимо |
+|-----------|-------------------|-------------------|-----------------|
+| `asyncio.to_thread` для синхронного клиента Gemini | Быстрая интеграция без переписывания на async | Исчерпание пула потоков при масштабировании, риск дедлока | Только с ограниченным семафором И выделенным пулом потоков |
+| Один экземпляр Redis для кеша + брокера + rate limiting + pub/sub | Простой деплой, один сервис для управления | Единая точка отказа — Redis упал = всё приложение деградирует | Только при текущем масштабе (<100 одновременных пользователей) |
+| 7-дневный access token без ротации | Пользователи остаются залогиненными для сессий чтения | Украденные токены действительны неделю; нет механизма отзыва | Никогда в продакшене — сократить до 30-60 минут с правильным refresh-потоком |
+| Хуки с `enabled: false` как заглушки фич | Компилируется, ничего не ломает | Путает разработчиков, мёртвый код в бандле, ложное впечатление о фичах | Только если чётко задокументировано с аннотацией `@deprecated` |
+| Админский Redis `from_url` с фоллбэком на localhost | Работает в dev без конфигурации | Продакшен-админские эндпоинты могут подключаться к неправильному Redis или молча падать | Никогда — всегда использовать `settings.REDIS_URL` из конфигурации |
+| Inline localhost в CSP connect-src | WebSocket работает в dev | CSP разрешает подключения к localhost в продакшене (потенциальная проблема безопасности) | Только за условием `DEBUG` |
+
+## Ловушки интеграций
+
+Типичные ошибки при подключении к внешним сервисам.
+
+| Интеграция | Типичная ошибка | Правильный подход |
+|------------|-----------------|-------------------|
+| Gemini API | Не обрабатывать 429 rate limits с учётом отдельных измерений (RPM vs TPM vs RPD) | Реализовать экспоненциальный backoff, читающий заголовок `Retry-After`; отслеживать RPM и TPM отдельно; Google может изменить квоты без предупреждения (произошло в декабре 2025) |
+| Gemini API | Предполагать, что формат ответа стабилен | Всегда разворачивать возможную обёртку `data`; валидировать структуру ответа с помощью Pydantic перед обработкой; формат ответа Gemini менялся между версиями |
+| Imagen 4 (Phase 3: мигрирует на FLUX.2 через OpenRouter) | Не обрабатывать отклонения по безопасности контента | Imagen отклоняет промпты, которые считает небезопасными; описания из книг с насилием, интимными сценами и т.д. будут отклонены. Реализовать фоллбэк (повторить с очищенным промптом или пропустить изображение) вместо падения задачи |
+| Imagen 4 (Phase 3: мигрирует на FLUX.2 через OpenRouter) | Предполагать, что генерация изображений всегда успешна | Фоллбэк обнаружения Base64 PNG существует, но не протестирован (тестовый файл — `_TEMPLATE.py`). Генерация изображений может молча упасть, оставляя описания без иллюстраций |
+| Redis | Создавать новые подключения `from_url` на каждый запрос вместо использования пула соединений | Админские роуты в `parsing.py` создают свежие подключения к Redis через `redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))` вместо использования `cache_manager`. Это обходит пулинг соединений и может приводить к утечке соединений |
+| ebooklib | Предполагать, что все EPUB-файлы правильно сформированы | `ebooklib` имеет ограниченную обработку ошибок для некорректных EPUB. Добавить валидацию magic bytes ZIP (`PK\x03\x04`) перед парсингом и обернуть все вызовы ebooklib в try/except с информативными сообщениями об ошибках |
+
+## Ловушки производительности
+
+Паттерны, которые работают при малом масштабе, но ломаются при росте нагрузки.
+
+| Ловушка | Симптомы | Предотвращение | Когда ломается |
+|---------|----------|----------------|----------------|
+| Неограниченный `asyncio.gather()` для обработки чанков | Процесс зависает, исчерпание пула потоков | Ограничить семафор 5 параллельными вызовами | Книги с >10 чанками (~1M+ символов) |
+| Фильтрация спойлеров на каждый запрос (нет кеша по главам) | Медленная загрузка панели сущностей | Кешировать отфильтрованные результаты с ключом `(book_id, chapter)` с инвалидацией при новом извлечении | Книги с 500+ сущностями, частое открытие панели сущностей |
+| Один воркер Celery, concurrency=1 | Очередь обработки книг растёт, многочасовые ожидания | Приоритетные очереди, увеличить concurrency после исправления пула потоков | >5 одновременных загрузок книг |
+| Нет очистки IndexedDB | Хранилище браузера растёт неограниченно, в итоге превышение квоты | Реализовать LRU-вытеснение для кешированных глав/изображений по дате последнего чтения | После прочтения пользователем ~20+ книг без очистки кеша |
+| Полная сериализация списка сущностей для LLM-дедупликации | Обрезка на 300K символах, потеря сущностей | Паттерн рекурсивного map-reduce | Книги с >300 сущностями |
+
+## Ошибки безопасности
+
+Специфичные для домена проблемы безопасности, выходящие за рамки общей веб-безопасности.
+
+| Ошибка | Риск | Предотвращение |
+|--------|------|----------------|
+| `python-jose` с уязвимостью `alg=none` (CVE-2025-61152) | Злоумышленник подделывает админские JWT-токены, получает полный доступ к системе | Заменить на `PyJWT>=2.10.1`, явно указать `algorithms=["HS256"]` |
+| CSP `connect-src` включает `ws://localhost:*` в продакшене | Позволяет вредоносным скриптам передавать данные на локальные сервисы | Сделать localhost-записи CSP условными в зависимости от режима `DEBUG` |
+| CSP `script-src` не имеет nonce, но `unsafe-inline` удалён | Легитимные инлайн-скрипты ломаются; ИЛИ CSP молча неэффективен | Реализовать генерацию nonce для каждого запроса или проверить, что инлайн-скрипты полностью отсутствуют |
+| Загрузка файлов проверяет только расширение, а не magic bytes | Вредоносные файлы с расширением `.epub` обходят валидацию | Добавить проверку magic bytes ZIP (`PK\x03\x04`) для EPUB, проверку XML для FB2 |
+| Access token действителен 7 дней без отзыва при выходе | Украденные токены остаются действительными; логаут — косметический | Сократить до 15-30 минут; реализовать проверку чёрного списка токенов на каждый запрос |
+| `METRICS_PASSWORD` не проверяется продакшен-валидатором | Эндпоинт метрик Prometheus доступен с паролем по умолчанию | Добавить в `validate_production_settings()` наряду с проверкой SECRET_KEY |
+
+## UX-подводные камни
+
+Типичные ошибки пользовательского опыта в данной области (EPUB-ридер + AI-функции).
+
+| Подводный камень | Влияние на пользователя | Лучший подход |
+|------------------|------------------------|---------------|
+| Фейковый health-эндпоинт, возвращающий `"checking..."` | Пользователи видят статус "здоров", когда БД лежит; никто не расследует сбои | Реализовать реальные проверки PostgreSQL + Redis; возвращать HTTP 503, когда нездоров |
+| Эндпоинт синхронизации молча теряет закладки | Пользователь создаёт закладки офлайн, выходит в онлайн, закладки исчезают без ошибки | Либо реализовать синхронизацию, либо отключить создание закладок в офлайн-режиме с понятным сообщением |
+| Письма сброса пароля ведут на localhost | Пользователь нажимает ссылку сброса, видит "страница не найдена" в браузере | Использовать `PASSWORD_RESET_BASE_URL` из переменных окружения, проверять, что не содержит localhost в продакшене |
+| Очередь обработки книг без обратной связи | Пользователь загружает книгу, видит бесконечный спиннер, не знает, что 3 книги впереди | Показывать позицию в очереди и ориентировочное время; WebSocket существует, но является заглушкой, поэтому улучшить поллинг информацией о глубине очереди |
+| Переобработка создаёт осиротевшие описания | Пользователь запускает переобработку, ожидая свежие результаты, видит смесь старых + новых описаний | Удалять старые описания перед переобработкой (код существует, но закомментирован в `books/crud.py`, строки 741-743) |
+| Нечёткий поиск пропускает короткие русские имена | "Гарри" и "Гарри Поттер" обрабатываются как разные сущности в глоссарии | Снизить `FUZZY_THRESHOLD` с 0.85 до ~0.75 для русского текста; добавить нормализацию форм имён |
+
+## Чеклист "Выглядит готовым, но не готово"
+
+Вещи, которые кажутся завершёнными, но в которых не хватает критических частей.
+
+- [ ] **Health-эндпоинт:** Возвращает "healthy", но не проверяет базу данных — убедиться, что `SELECT 1` выполняется к PostgreSQL
+- [ ] **Эндпоинт синхронизации:** Принимает запросы, но все операции — TODO-заглушки — убедиться, что закладки/выделения действительно сохраняются
+- [ ] **WebSocket-сервис:** Фронтенд-сервис существует, но все методы возвращают `Promise.resolve()` — убедиться, что реальное WS-подключение устанавливается
+- [ ] **Хук пакетных описаний:** `useBookDescriptions` существует, но `enabled: false` — убедиться, что возвращает реальные данные
+- [ ] **Чёрный список токенов при выходе:** `token_blacklist.py` существует, но убедиться, что он реально вызывается при процессе выхода
+- [ ] **Сервис электронной почты:** `EMAIL_ENABLED=False` по умолчанию — убедиться, что письма сброса пароля реально отправляются в продакшене
+- [ ] **CSP-заголовки безопасности:** `unsafe-inline` удалён из `script-src`, но нет системы nonce — убедиться, что фронтенд не использует инлайн-скрипты
+- [ ] **Поток переобработки:** Кнопка существует, но старые описания не удаляются (закомментировано) — убедиться в чистой переобработке
+- [ ] **Тесты генерации изображений:** Тестовый файл существует как `_TEMPLATE.py` (никогда не реализован) — убедиться, что обработка ошибок генерации изображений работает
+- [ ] **NLP в админ-панели:** Админский UI может показывать секции конфигурации NLP, которые ничего не делают — убедиться, что мёртвые секции UI не остаются после очистки
+- [ ] **CORS в продакшене:** По умолчанию только `localhost` origins — убедиться, что продакшен-переменная `CORS_ORIGINS` включает `fancai.ru`
+
+## Стратегии восстановления
+
+Когда подводные камни случаются несмотря на профилактику — как восстановиться.
+
+| Подводный камень | Стоимость восстановления | Шаги восстановления |
+|------------------|--------------------------|---------------------|
+| Небезопасные настройки попали в продакшен | СРЕДНЯЯ | Ротировать SECRET_KEY (инвалидирует все JWT, разлогинит всех); сменить METRICS_PASSWORD; исправить PASSWORD_RESET_BASE_URL; задеплоить. Проверить логи на подозрительную активность авторизации за период уязвимости |
+| Данные спойлеров утекли к пользователям | ВЫСОКАЯ | Нельзя "раз-спойлерить" читателя. Добавить пост-фактум верификацию фильтрации. Если проблема массовая — коммуницировать прозрачно. Репутационный ущерб необратим для затронутых пользователей |
+| Эксплуатация `alg=none` в python-jose | ВЫСОКАЯ | Немедленно заменить на PyJWT; ротировать SECRET_KEY; инвалидировать все токены; проверить все админские действия за период уязвимости; проверить на несанкционированный доступ к данным |
+| Удаление мёртвого кода ломает запуск | НИЗКАЯ | Откатить PR; тщательнее построить граф зависимостей; повторить попытку с полным графом зависимостей |
+| Потеря сущностей из-за обрезки чанков | СРЕДНЯЯ | Переизвлечь затронутые книги с исправленной логикой сведения; уведомить пользователей, что их глоссарий обновлён |
+| Исчерпание пула потоков при обработке | НИЗКАЯ | Перезапустить воркер Celery; уменьшить значение семафора; система восстанавливается автоматически после освобождения потоков |
+| Осиротевшие описания после переобработки | СРЕДНЯЯ | Написать миграционный скрипт для выявления и удаления осиротевших описаний; раскомментировать код удаления |
+
+## Маппинг подводных камней на фазы
+
+Как фазы дорожной карты должны адресовать эти подводные камни.
+
+| Подводный камень | Фаза предотвращения | Верификация |
+|------------------|---------------------|-------------|
+| Небезопасные настройки попадают в продакшен | Усиление безопасности (ПЕРВАЯ) | `pytest` с `DEBUG=False` проходит; проверка при запуске отклоняет небезопасные значения; `pip audit` чист |
+| TODO-заглушки, маскирующиеся под фичи | Очистка мёртвого кода | `grep -r "TODO\|FIXME" backend/app/routers/` возвращает ноль совпадений в активных эндпоинтах; все эндпоинты возвращают реальные данные или HTTP 501 |
+| Удаление NLP ломает конфигурацию | Очистка мёртвого кода | `python -c "from app.core.config import settings"` выполняется успешно; `pytest --collect-only` без ошибок импорта; админ-панель не показывает секции NLP |
+| Утечка спойлеров через кеш | Качество Entity Wiki | Property-based тесты проходят; интеграционный тест "канарейка спойлеров" проходит; ни один ответ сущности не содержит данных из будущих глав |
+| Уязвимость python-jose | Усиление безопасности | `pip audit` не сообщает о критических уязвимостях; тесты авторизации проверяют, что токены с `alg=none` отклоняются |
+| Исчерпание пула потоков | Стабилизация AI-пайплайна | Значение семафора задокументировано и протестировано; книга с 20+ чанками обрабатывается без зависания; FastAPI остаётся отзывчивым во время обработки |
+| Потеря сущностей на границах чанков | Стабилизация AI-пайплайна | Рекурсивное сведение реализовано; нет предупреждений об обрезке в логах для тестового корпуса; количество сущностей по главам стабильно |
+| Осиротевшие описания при переобработке | Исправление багов | Тест переобработки: старые описания удалены, новые описания присутствуют, нет дубликатов |
+| Нечёткий поиск пропускает короткие имена | Качество Entity Wiki | Тест с русскими парами имён при различных порогах сходства; "Гарри"/"Гарри Поттер" распознаются как одна сущность |
+| Утечки подключений к Redis из админки | Качество кода | Все обращения к Redis идут через `cache_manager`; нет вызовов `redis.from_url` в коде роутеров |
+| CSP неполный (нет nonce, localhost в проде) | Усиление безопасности | Инспекция CSP-заголовка в продакшене не показывает localhost-записей; тест инлайн-скриптов подтверждает отсутствие поломок |
+
+## Источники
+
+- Анализ кодовой базы: `backend/app/core/config.py`, `backend/app/routers/sync.py`, `backend/app/services/gemini_extractor.py`, `backend/app/services/consistency_manager.py`, `backend/app/services/entity_service.py`, `backend/app/middleware/security_headers.py` — ВЫСОКАЯ уверенность (прямая инспекция кода)
+- [CVE-2025-61152: обход alg=none в python-jose](https://vulert.com/vuln-db/debian-12-python-jose-362548) — ВЫСОКАЯ уверенность
+- [Руководство по миграции с python-jose на PyJWT](https://github.com/jpadilla/pyjwt/issues/942) — ВЫСОКАЯ уверенность
+- [Проблема Celery + asyncio event loop](https://medium.com/@termtrix/using-celery-with-fastapi-the-async-inside-tasks-event-loop-problem-and-how-endpoints-save-79e33676ade9) — СРЕДНЯЯ уверенность
+- [Руководство по безопасности FastAPI — риски режима отладки](https://docs.securesauce.dev/rules/PY524) — СРЕДНЯЯ уверенность
+- [Rate limits Gemini API и изменения квот в декабре 2025](https://ai.google.dev/gemini-api/docs/rate-limits) — ВЫСОКАЯ уверенность
+- [Лучшие практики удаления мёртвого кода](https://axify.io/blog/dead-code) — СРЕДНЯЯ уверенность
+- `.planning/codebase/CONCERNS.md` — ВЫСОКАЯ уверенность (аудит проекта)
+- `.planning/codebase/ARCHITECTURE.md` — ВЫСОКАЯ уверенность (анализ проекта)
+
+---
+*Исследование подводных камней для: подготовка fancai к продакшену*
+*Исследовано: 2026-02-27*

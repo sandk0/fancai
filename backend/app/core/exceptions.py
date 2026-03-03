@@ -322,178 +322,178 @@ class ParsingServiceUnavailableException(HTTPException):
 class BookProcessingException(HTTPException):
     """Исключение при ошибке обработки книги."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing book: {error_message}",
+            detail="Error processing book",
         )
 
 
 class ChapterFetchException(HTTPException):
     """Исключение при ошибке получения главы."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching chapter: {error_message}",
+            detail="Error fetching chapter",
         )
 
 
 class DescriptionFetchException(HTTPException):
     """Исключение при ошибке получения описаний."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching descriptions: {error_message}",
+            detail="Error fetching descriptions",
         )
 
 
 class ImageGenerationException(HTTPException):
     """Исключение при ошибке генерации изображения."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Image generation failed: {error_message}",
+            detail="Image generation failed",
         )
 
 
 class ImageDeletionException(HTTPException):
     """Исключение при ошибке удаления изображения."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete image: {error_message}",
+            detail="Failed to delete image",
         )
 
 
 class ImageRegenerationException(HTTPException):
     """Исключение при ошибке перегенерации изображения."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Image regeneration failed: {error_message}",
+            detail="Image regeneration failed",
         )
 
 
 class FileReadException(HTTPException):
     """Исключение при ошибке чтения файла."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read file: {error_message}",
+            detail="Failed to read file",
         )
 
 
 class BookRetrievalException(HTTPException):
     """Исключение при ошибке получения файла книги."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving book file: {error_message}",
+            detail="Error retrieving book file",
         )
 
 
 class CoverFetchException(HTTPException):
     """Исключение при ошибке получения обложки."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching cover: {error_message}",
+            detail="Error fetching cover",
         )
 
 
 class ParsingStatusException(HTTPException):
     """Исключение при ошибке получения статуса парсинга."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching parsing status: {error_message}",
+            detail="Error fetching parsing status",
         )
 
 
 class BookListFetchException(HTTPException):
     """Исключение при ошибке получения списка книг."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching books: {error_message}",
+            detail="Error fetching books",
         )
 
 
 class BookFetchException(HTTPException):
     """Исключение при ошибке получения книги."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching book: {error_message}",
+            detail="Error fetching book",
         )
 
 
 class ChapterAnalysisException(HTTPException):
     """Исключение при ошибке анализа главы."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error analyzing chapter: {error_message}",
+            detail="Error analyzing chapter",
         )
 
 
 class BatchGenerationException(HTTPException):
     """Исключение при ошибке пакетной генерации."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch generation failed: {error_message}",
+            detail="Batch generation failed",
         )
 
 
 class UnexpectedGenerationException(HTTPException):
     """Исключение при неожиданной ошибке генерации."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error during generation: {error_message}",
+            detail="Unexpected error during generation",
         )
 
 
 class UnexpectedRegenerationException(HTTPException):
     """Исключение при неожиданной ошибке перегенерации."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error during regeneration: {error_message}",
+            detail="Unexpected error during regeneration",
         )
 
 
 class ParsingStartException(HTTPException):
     """Исключение при ошибке запуска парсинга."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error starting book processing: {error_message}",
+            detail="Error starting book processing",
         )
 
 
 class ChapterDescriptionFetchException(HTTPException):
     """Исключение при ошибке получения описаний главы."""
 
-    def __init__(self, error_message: str):
+    def __init__(self, error_message: str = ""):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching chapter descriptions: {error_message}",
+            detail="Error fetching chapter descriptions",
         )

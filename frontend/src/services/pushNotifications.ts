@@ -36,7 +36,7 @@ const API_BASE = '/api/v1/push';
 function getAuthHeaders(): HeadersInit {
   return {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
 }
 
@@ -58,11 +58,7 @@ class PushNotificationManager {
    * @returns {boolean} True if Push API is supported
    */
   isSupported(): boolean {
-    return (
-      'serviceWorker' in navigator &&
-      'PushManager' in window &&
-      'Notification' in window
-    );
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   }
 
   /**
@@ -94,7 +90,8 @@ class PushNotificationManager {
     return (
       window.matchMedia('(display-mode: standalone)').matches ||
       // iOS Safari standalone detection
-      ('standalone' in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true)
+      ('standalone' in navigator &&
+        (navigator as Navigator & { standalone?: boolean }).standalone === true)
     );
   }
 
@@ -223,7 +220,7 @@ class PushNotificationManager {
     const response = await fetch(`${API_BASE}/vapid-public-key`, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
       credentials: 'include',
     });
@@ -248,20 +245,23 @@ class PushNotificationManager {
    * @returns {Uint8Array} Decoded bytes
    */
   urlBase64ToUint8Array(base64String: string): Uint8Array {
-    // Add padding if needed
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+    try {
+      // Add padding if needed
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
 
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      return outputArray;
+    } catch (e) {
+      logger.error('[Push] Invalid VAPID key format:', e);
+      throw new Error('Invalid VAPID public key format');
     }
-
-    return outputArray;
   }
 
   // ===========================================================================

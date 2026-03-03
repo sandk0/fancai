@@ -84,8 +84,15 @@ export function useReadingSession({
 
   // Mutation to start session
   const startMutation = useMutation({
-    mutationFn: ({ bookId, position, force }: { bookId: string; position: number; force?: boolean }) =>
-      readingSessionsAPI.startSession(bookId, position, undefined, force),
+    mutationFn: ({
+      bookId,
+      position,
+      force,
+    }: {
+      bookId: string;
+      position: number;
+      force?: boolean;
+    }) => readingSessionsAPI.startSession(bookId, position, undefined, force),
     onSuccess: (newSession) => {
       logger.debug('✅ [useReadingSession] Session started:', newSession.id);
       setSession(newSession);
@@ -97,21 +104,28 @@ export function useReadingSession({
     },
     onError: (error: unknown) => {
       logger.error('❌ [useReadingSession] Failed to start session:', error);
-      
+
       // Handle Split Brain (409 Conflict)
-      const axiosError = error as { response?: { status?: number; data?: { detail?: { started_at?: string; message?: string } } } };
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: { detail?: { started_at?: string; message?: string } };
+        };
+      };
       if (axiosError?.response?.status === 409) {
         const detail = axiosError.response.data?.detail;
         logger.warn('⚠️ [useReadingSession] Split brain detected:', detail);
-        
+
         notify.warning(
           i18n.t('hooks.readingSession.conflict_title'),
-          i18n.t('hooks.readingSession.conflict_message', { time: new Date(detail?.started_at || '').toLocaleTimeString() }),
+          i18n.t('hooks.readingSession.conflict_message', {
+            time: new Date(detail?.started_at || '').toLocaleTimeString(),
+          }),
           {
             label: i18n.t('hooks.readingSession.take_over'),
             onClick: () => {
               startMutation.mutate({ bookId, position: positionRef.current, force: true });
-            }
+            },
           }
         );
         return;
@@ -137,29 +151,29 @@ export function useReadingSession({
     },
     onError: (error: unknown) => {
       logger.error('❌ [useReadingSession] Failed to update session:', error);
-      
+
       const axiosErr = error as { response?: { status?: number; data?: { detail?: string } } };
       const status = axiosErr?.response?.status;
       const detail = axiosErr?.response?.data?.detail || '';
-      
+
       if (status === 400) {
         if (detail.includes('inactive') || detail.includes('ended')) {
           logger.warn('[useReadingSession] Session inactive/ended, stopping updates');
-          
+
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          
+
           queryClient.invalidateQueries({ queryKey: sessionKeys.active(userId) });
-          
+
           if (enabled && bookId) {
             logger.debug('[useReadingSession] Attempting to restart session...');
             startMutation.mutate({ bookId, position: positionRef.current });
           }
           return;
         }
-        
+
         logger.warn('[useReadingSession] Validation error:', detail);
         return;
       }
@@ -298,12 +312,7 @@ export function useReadingSession({
         startMutationRef.current.mutate({ bookId, position: positionRef.current });
       }
     }
-  }, [
-    enabled,
-    bookId,
-    activeSession,
-    isLoadingActive,
-  ]);
+  }, [enabled, bookId, activeSession, isLoadingActive]);
 
   /**
    * Effect 2: Periodic position updates
@@ -414,7 +423,7 @@ export function useReadingSession({
             onError: () => {
               // If graceful end fails, use beacon API as fallback
               try {
-                const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
+                const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
                 navigator.sendBeacon(
                   `${apiUrl}/reading-sessions/${sessionId}/end`,
                   JSON.stringify({
@@ -455,7 +464,7 @@ export function useReadingSession({
 
         // Try beacon API first (works even when page is closing)
         try {
-          const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
           const beaconData = new Blob(
             [

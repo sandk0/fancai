@@ -15,7 +15,7 @@ export interface TestUser {
  */
 export const testUsers = {
   regular: {
-    email: 'test.user@bookreader.ai',
+    email: 'test.user@fancai.ru',
     username: 'testuser',
     password: 'TestPassword123!',
     firstName: 'Test',
@@ -23,7 +23,7 @@ export const testUsers = {
   } as TestUser,
 
   premium: {
-    email: 'premium.user@bookreader.ai',
+    email: 'premium.user@fancai.ru',
     username: 'premiumuser',
     password: 'PremiumPass123!',
     firstName: 'Premium',
@@ -31,7 +31,7 @@ export const testUsers = {
   } as TestUser,
 
   newUser: {
-    email: `test.${Date.now()}@bookreader.ai`,
+    email: `test.${Date.now()}@fancai.ru`,
     username: `testuser${Date.now()}`,
     password: 'NewUserPass123!',
     firstName: 'New',
@@ -45,7 +45,7 @@ export const testUsers = {
 export function generateTestUser(prefix = 'testuser'): TestUser {
   const timestamp = Date.now();
   return {
-    email: `${prefix}.${timestamp}@bookreader.ai`,
+    email: `${prefix}.${timestamp}@fancai.ru`,
     username: `${prefix}${timestamp}`,
     password: 'TestPassword123!',
     firstName: 'Test',

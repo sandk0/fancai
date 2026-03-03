@@ -41,29 +41,29 @@ check_warn() {
 echo "=== 1. Docker Compose Configuration ==="
 echo ""
 
-# Check docker-compose.yml syntax
-if docker compose config > /dev/null 2>&1; then
-    check_pass "docker-compose.yml syntax is valid"
+# Check dev docker-compose syntax
+if docker compose -f docker-compose.dev.yml config > /dev/null 2>&1; then
+    check_pass "docker-compose.dev.yml syntax is valid"
 else
-    check_fail "docker-compose.yml has syntax errors"
+    check_fail "docker-compose.dev.yml has syntax errors"
 fi
 
 # Check production docker-compose syntax
-if docker compose -f docker-compose.production.yml config > /dev/null 2>&1; then
-    check_pass "docker-compose.production.yml syntax is valid"
+if docker compose -f docker-compose.prod.yml config > /dev/null 2>&1; then
+    check_pass "docker-compose.prod.yml syntax is valid"
 else
-    check_fail "docker-compose.production.yml has syntax errors"
+    check_fail "docker-compose.prod.yml has syntax errors"
 fi
 
 # Check for version field (should not exist in Compose V2)
-if grep -q "^version:" docker-compose.yml; then
-    check_fail "docker-compose.yml contains obsolete 'version' field"
+if grep -q "^version:" docker-compose.dev.yml 2>/dev/null; then
+    check_fail "docker-compose.dev.yml contains obsolete 'version' field"
 else
-    check_pass "docker-compose.yml follows Compose V2 format (no version field)"
+    check_pass "docker-compose.dev.yml follows Compose V2 format (no version field)"
 fi
 
-# Check for health checks in dev compose
-HEALTH_CHECKS=$(grep -c "healthcheck:" docker-compose.yml || true)
+# Check for health checks in prod compose
+HEALTH_CHECKS=$(grep -c "healthcheck:" docker-compose.prod.yml || true)
 if [ "$HEALTH_CHECKS" -ge 4 ]; then
     check_pass "Health checks configured for all services ($HEALTH_CHECKS found)"
 else
@@ -76,55 +76,41 @@ echo ""
 echo "=== 2. Dockerfile Security & Optimization ==="
 echo ""
 
-# Check backend Dockerfile
-if [ -f backend/Dockerfile ]; then
+# Check backend production Dockerfile
+if [ -f backend/Dockerfile.prod ]; then
     # Check for non-root user
-    if grep -q "useradd\|adduser" backend/Dockerfile; then
+    if grep -q "useradd\|adduser" backend/Dockerfile.prod; then
         check_pass "Backend Dockerfile creates non-root user"
     else
         check_warn "Backend Dockerfile may be running as root"
     fi
 
     # Check for health check
-    if grep -q "HEALTHCHECK" backend/Dockerfile; then
+    if grep -q "HEALTHCHECK" backend/Dockerfile.prod; then
         check_pass "Backend Dockerfile includes HEALTHCHECK"
     else
         check_warn "Backend Dockerfile missing HEALTHCHECK instruction"
     fi
 
-    # Check for layer optimization
-    if grep -c "RUN" backend/Dockerfile | awk '{if ($1 <= 5) exit 0; else exit 1}'; then
-        check_pass "Backend Dockerfile has reasonable layer count"
-    else
-        check_warn "Backend Dockerfile may have too many layers (consider combining RUN commands)"
-    fi
-fi
-
-# Check backend production Dockerfile
-if [ -f backend/Dockerfile.prod ]; then
+    # Check for multi-stage build
     if grep -q "FROM.*as\|FROM.*AS" backend/Dockerfile.prod; then
-        check_pass "Backend production Dockerfile uses multi-stage build"
+        check_pass "Backend Dockerfile uses multi-stage build"
     else
-        check_warn "Backend production Dockerfile not using multi-stage build"
+        check_warn "Backend Dockerfile not using multi-stage build"
     fi
-fi
-
-# Check frontend Dockerfile
-if [ -f frontend/Dockerfile ]; then
-    if grep -q "adduser\|addgroup" frontend/Dockerfile; then
-        check_pass "Frontend Dockerfile creates non-root user"
-    else
-        check_warn "Frontend Dockerfile may be running as root"
-    fi
+else
+    check_fail "backend/Dockerfile.prod not found"
 fi
 
 # Check frontend production Dockerfile
 if [ -f frontend/Dockerfile.prod ]; then
-    if grep -q "FROM.*AS" frontend/Dockerfile.prod; then
-        check_pass "Frontend production Dockerfile uses multi-stage build"
+    if grep -q "FROM.*AS\|FROM.*as" frontend/Dockerfile.prod; then
+        check_pass "Frontend Dockerfile uses multi-stage build"
     else
-        check_fail "Frontend production Dockerfile should use multi-stage build"
+        check_fail "Frontend Dockerfile should use multi-stage build"
     fi
+else
+    check_fail "frontend/Dockerfile.prod not found"
 fi
 
 echo ""
@@ -165,22 +151,17 @@ else
 fi
 
 # Check for hardcoded passwords in production configs
-if grep -E "password.*=.*(123|test|admin|root)" docker-compose.production.yml 2>/dev/null | grep -v "\${" | grep -q .; then
+if grep -E "password.*=.*(123|test|admin|root)" docker-compose.prod.yml 2>/dev/null | grep -v "\${" | grep -q .; then
     check_fail "Hardcoded passwords found in production config!"
 else
     check_pass "No hardcoded passwords in production config"
 fi
 
-# Check .env.example exists and is documented
-if [ -f .env.example ]; then
-    check_pass ".env.example file exists"
-    if grep -q "CHANGE IN PRODUCTION" .env.example; then
-        check_pass ".env.example includes security warnings"
-    else
-        check_warn ".env.example should include security warnings"
-    fi
+# Check .env.production exists (production environment)
+if [ -f .env.production ]; then
+    check_pass ".env.production file exists"
 else
-    check_fail ".env.example missing"
+    check_warn ".env.production not found (required for production deployment)"
 fi
 
 # Check for .env in .gitignore
@@ -281,7 +262,7 @@ echo ""
 
 # Check for resource limits in compose files
 MEMORY_LIMITS_DEV=$(grep -c "memory:" docker-compose.yml 2>/dev/null || echo 0)
-MEMORY_LIMITS_PROD=$(grep -c "memory:" docker-compose.production.yml 2>/dev/null || echo 0)
+MEMORY_LIMITS_PROD=$(grep -c "memory:" docker-compose.prod.yml 2>/dev/null || echo 0)
 MEMORY_LIMITS=$((MEMORY_LIMITS_DEV + MEMORY_LIMITS_PROD))
 if [ "$MEMORY_LIMITS" -ge 4 ]; then
     check_pass "Memory limits configured for services ($MEMORY_LIMITS found)"
@@ -291,7 +272,7 @@ fi
 
 # Check for CPU limits
 CPU_LIMITS_DEV=$(grep "cpus:" docker-compose.yml 2>/dev/null | wc -l | tr -d ' ')
-CPU_LIMITS_PROD=$(grep "cpus:" docker-compose.production.yml 2>/dev/null | wc -l | tr -d ' ')
+CPU_LIMITS_PROD=$(grep "cpus:" docker-compose.prod.yml 2>/dev/null | wc -l | tr -d ' ')
 CPU_LIMITS=$((CPU_LIMITS_DEV + CPU_LIMITS_PROD))
 if [ "$CPU_LIMITS" -ge 1 ]; then
     check_pass "CPU limits configured ($CPU_LIMITS services)"
