@@ -173,8 +173,6 @@ services:
       - ./backend/storage:/app/storage
       - /dev/shm:/dev/shm
     depends_on:
-      backend:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
