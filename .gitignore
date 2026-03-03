@@ -202,6 +202,11 @@ frontend/.htpasswd
 # Auto Claude data directory
 .auto-claude/
 
+# Server setup reports (contain IPs, passwords, security details)
+docs/reports/2026-03-*-server-*.md
+docs/reports/2026-03-*-vps-*.md
+docs/reports/2026-03-*-pre-deploy-*.md
+
 # Auto Claude generated files
 .auto-claude-security.json
 .auto-claude-status
