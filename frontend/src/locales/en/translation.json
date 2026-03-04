@@ -1229,5 +1229,31 @@
       "book_ready": "Book ready!",
       "descriptions_extracted": "Descriptions extracted for all chapters ({{progress}}%)"
     }
+  },
+  "errors": {
+    "ai_overloaded": "AI service is temporarily overloaded. Please try again in a few minutes.",
+    "server_unavailable": "Server is temporarily unavailable. Please try again later.",
+    "service_unavailable": "Service is temporarily unavailable. Please try again later.",
+    "rate_limit": "Too many requests. Please wait a moment.",
+    "network": "Check your internet connection and try again.",
+    "timeout": "Request timed out. Please try again.",
+    "not_found": "Requested resource not found.",
+    "unauthorized": "Session expired. Please log in again.",
+    "forbidden": "Access denied.",
+    "format_error": "Book format error. Try uploading a different file.",
+    "unknown": "An unexpected error occurred. Please refresh the page.",
+    "retry": "Retry"
+  },
+  "errorBoundary": {
+    "app_title": "Oops! Something went wrong",
+    "page_title": "Page load error",
+    "component_title": "Component error",
+    "app_message": "We apologize for the inconvenience. Please try refreshing the page or return to the home page.",
+    "page_message": "Failed to load page content. Try refreshing or going back.",
+    "component_message": "An error occurred while rendering this component.",
+    "reload": "Reload page",
+    "try_again": "Try again",
+    "home": "Home",
+    "help": "If the problem persists, please contact support"
   }
 }

@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { logger } from '@/lib/logger';
 import { getHawk } from '@/config/hawk';
+import i18n from '@/lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -173,17 +174,16 @@ class ErrorBoundary extends Component<Props, State> {
             <h1
               className={`font-bold mb-4 text-foreground ${isAppLevel ? 'text-3xl' : 'text-2xl'}`}
             >
-              {isAppLevel && 'Ups! Something went wrong'}
-              {isPageLevel && 'Page load error'}
-              {!isAppLevel && !isPageLevel && 'Component error'}
+              {isAppLevel && i18n.t('errorBoundary.app_title')}
+              {isPageLevel && i18n.t('errorBoundary.page_title')}
+              {!isAppLevel && !isPageLevel && i18n.t('errorBoundary.component_title')}
             </h1>
 
             {/* Error Message */}
             <p className="text-base mb-8 text-muted-foreground leading-relaxed">
-              {isAppLevel &&
-                'We apologize for the inconvenience. Please try refreshing the page or return to the home page.'}
-              {isPageLevel && 'Failed to load page content. Try refreshing or going back.'}
-              {!isAppLevel && !isPageLevel && 'An error occurred while rendering this component.'}
+              {isAppLevel && i18n.t('errorBoundary.app_message')}
+              {isPageLevel && i18n.t('errorBoundary.page_message')}
+              {!isAppLevel && !isPageLevel && i18n.t('errorBoundary.component_message')}
             </p>
 
             {/* Error Details - только в dev mode */}
@@ -244,7 +244,7 @@ class ErrorBoundary extends Component<Props, State> {
                 onClick={this.handleReset}
                 className="bg-primary text-primary-foreground px-6 py-3 rounded-lg text-base font-semibold cursor-pointer transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 border-none"
               >
-                {isAppLevel ? 'Reload page' : 'Try again'}
+                {isAppLevel ? i18n.t('errorBoundary.reload') : i18n.t('errorBoundary.try_again')}
               </button>
 
               {isAppLevel && (
@@ -252,16 +252,14 @@ class ErrorBoundary extends Component<Props, State> {
                   onClick={this.handleGoHome}
                   className="bg-secondary text-foreground px-6 py-3 rounded-lg text-base font-semibold cursor-pointer transition-all duration-200 border border-border hover:bg-muted hover:-translate-y-0.5"
                 >
-                  Home
+                  {i18n.t('errorBoundary.home')}
                 </button>
               )}
             </div>
 
             {/* Help Text */}
             {isAppLevel && (
-              <p className="mt-8 text-sm text-muted-foreground">
-                If the problem persists, please contact support
-              </p>
+              <p className="mt-8 text-sm text-muted-foreground">{i18n.t('errorBoundary.help')}</p>
             )}
           </div>
         </div>
