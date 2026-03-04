@@ -1,522 +1,449 @@
 # Паттерны тестирования
 
-**Дата анализа:** 2026-02-27
+**Дата анализа:** 2026-03-04
 
-## Тестовый фреймворк
+## Фреймворк (Frontend)
 
-### Фронтенд
-
-**Раннер:**
+**Запускатель:**
 - Vitest 4.x
-- Конфигурация: `frontend/vitest.config.ts`
+- Конфиг: `frontend/vitest.config.ts`
+- Среда: jsdom (браузерное окружение)
+- Setup: `frontend/src/test/setup.ts`
 
-**Библиотека утверждений:**
-- Встроенный `expect` Vitest + матчеры `@testing-library/jest-dom`
+**Библиотеки утверждений:**
+- `@testing-library/react` v16 — рендеринг компонентов и хуков
+- `@testing-library/jest-dom` v6 — DOM-матчеры (`toBeInTheDocument`, `toHaveClass`)
+- `@testing-library/user-event` v14 — симуляция пользовательских событий
+
+**E2E:**
+- Playwright 1.49 — браузерные тесты
+- Конфиг: `frontend/playwright.config.ts`
+- Браузеры: Chromium, Firefox, WebKit, Mobile Chrome (Pixel 5), Mobile Safari (iPhone 12)
 
 **Команды запуска:**
 ```bash
-cd frontend && npm test              # Запуск всех тестов (vitest run)
-cd frontend && npm run test:watch    # Режим наблюдения
-cd frontend && npm run test:ui       # Vitest UI (браузер)
-cd frontend && npm run test:e2e      # E2E-тесты Playwright
+cd frontend && npm test                    # Все unit-тесты (vitest run)
+cd frontend && npm run test:watch          # Watch-режим
+cd frontend && npm run test:ui             # Vitest UI
+cd frontend && npm run test:e2e            # Playwright E2E
+cd frontend && npm run test:e2e:chromium   # E2E только Chromium
+cd frontend && npm run test:e2e:debug      # E2E с отладкой
 ```
 
-### Бэкенд
+## Фреймворк (Backend)
 
-**Раннер:**
-- pytest с `pytest-asyncio` (asyncio_mode = auto)
-- Конфигурация: `backend/pytest.ini`
-
-**Библиотека утверждений:**
-- Встроенный `assert` pytest
+**Запускатель:**
+- pytest с плагинами: `pytest-asyncio`, `pytest-cov`, `httpx`
+- Конфиг: `backend/pytest.ini`
+- Режим asyncio: `asyncio_mode = auto` (все async-тесты запускаются автоматически)
 
 **Команды запуска:**
 ```bash
-cd backend && pytest -v                           # Запуск всех тестов с покрытием
-cd backend && pytest tests/routers/ -v           # Только роутеры
-cd backend && pytest tests/integration/ -v       # Только интеграционные тесты
-cd backend && pytest -m unit -v                  # Только модульные тесты
-cd backend && pytest -m "not slow" -v            # Исключить медленные тесты
+cd backend && pytest -v                         # Все тесты
+cd backend && pytest -v --tb=short              # Краткий трейсбек
+cd backend && pytest -v -m unit                 # Только unit-тесты
+cd backend && pytest -v -m integration          # Только интеграционные
+cd backend && pytest -v -m "not slow"           # Без медленных тестов
+cd backend && pytest tests/services/ -v         # Конкретная директория
 ```
 
 ## Организация тестовых файлов
 
-### Фронтенд
+**Frontend:**
+- Расположение: co-located `__tests__/` директории рядом с тестируемым кодом
+- Именование: `<ModuleName>.test.ts` или `<ModuleName>.test.tsx`
+- `.skip` суффикс для временно отключённых тестов (`BookReader.test.tsx.skip`, `client.test.ts.skip`)
 
-**Расположение:** совмещённый подкаталог `__tests__/` внутри дерева исходного кода
-
-**Паттерн именования:** `{ИмяИсходногоФайла}.test.{ts|tsx}`
-
-**Структура:**
 ```
 frontend/src/
-├── api/
-│   └── __tests__/
-│       └── books.test.ts
-├── components/
-│   ├── __tests__/
-│   │   └── ErrorBoundary.test.tsx
-│   └── Reader/
-│       └── __tests__/
-│           └── EpubReader.test.tsx
-├── hooks/
-│   ├── __tests__/
-│   │   ├── useReadingSession.test.ts
-│   │   └── useOnlineStatus.test.tsx
-│   ├── api/
-│   │   └── __tests__/
-│   │       └── useBooks.test.tsx
-│   └── epub/
-│       └── __tests__/
-│           ├── useDescriptionHighlighting.test.tsx
-│           ├── useChapterMapping.test.ts
-│           ├── useProgressSync.test.tsx
-│           └── useProgressSync.simple.test.tsx
-├── pages/
-│   └── __tests__/
-│       ├── LibraryPage.test.tsx
-│       ├── ForgotPasswordPage.test.tsx
-│       └── ResetPasswordPage.test.tsx
-├── services/
-│   └── __tests__/
-│       ├── chapterCache.test.ts
-│       └── syncQueue.test.ts
-├── stores/
-│   └── __tests__/
-│       └── auth.test.ts
-└── utils/
-    └── text-search/
-        └── __tests__/
-            ├── normalization.test.ts
-            └── strategies.test.ts
+├── stores/__tests__/auth.test.ts
+├── components/Reader/__tests__/EpubReader.test.tsx
+├── components/__tests__/ErrorBoundary.test.tsx
+├── hooks/__tests__/useReadingSession.test.ts
+├── hooks/api/__tests__/useBooks.test.tsx
+├── hooks/epub/__tests__/useDescriptionHighlighting.test.tsx
+├── hooks/epub/__tests__/useChapterMapping.test.ts
+├── hooks/epub/__tests__/useProgressSync.simple.test.tsx
+├── pages/__tests__/LibraryPage.test.tsx
+├── api/__tests__/books.test.ts
+└── services/__tests__/chapterCache.test.ts
 ```
 
-**Глобальная настройка тестов:** `frontend/src/test/setup.ts`
+**Backend:**
+- Расположение: отдельная директория `backend/tests/`
+- Иерархия: `tests/routers/`, `tests/services/`, `tests/integration/`, `tests/performance/`, `tests/core/`, `tests/schemas/`, `tests/middleware/`
+- Именование: `test_<module_name>.py`
+- Общие фикстуры: `backend/tests/conftest.py` (глобальные), `backend/tests/routers/conftest.py` (роутеры)
+- Маркеры: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`, `@pytest.mark.benchmark`
 
-### Бэкенд
-
-**Расположение:** выделенный каталог `backend/tests/` (отдельно от исходного кода)
-
-**Паттерн именования:** `test_{имя_модуля}.py`
-
-**Структура:**
 ```
 backend/tests/
-├── conftest.py                      # Общие фикстуры для всех тестов
-├── fixtures/
-│   ├── __init__.py
-│   └── reading_sessions.py
+├── conftest.py                         # Глобальные фикстуры
+├── test_auth.py                        # Unit-тесты аутентификации
+├── test_books.py
+├── test_security.py
 ├── routers/
-│   ├── conftest.py                  # Фикстуры для роутеров
-│   ├── test_auth.py (via test_auth.py)
-│   ├── test_chapters.py
-│   ├── test_descriptions.py
-│   ├── test_health.py
-│   ├── test_reading_progress.py
+│   ├── conftest.py                     # Фикстуры роутеров (feature flags)
 │   ├── test_reading_sessions.py
-│   └── test_feature_flags_api.py
+│   └── test_reading_progress.py
+├── services/
+│   ├── test_entity_deduplication.py
+│   └── test_feature_flag_model.py
 ├── integration/
 │   ├── test_auth_flow_integration.py
 │   ├── test_books_router_integration.py
-│   ├── test_book_parsing_service_integration.py
-│   ├── test_reading_sessions_flow.py
 │   └── test_entity_concurrent_upsert.py
 ├── performance/
-│   └── test_reading_sessions_load.py
-├── schemas/
-│   ├── test_response_schemas_phase11.py
-│   └── test_response_schemas_phase12.py
-└── tasks/
-    └── test_reading_sessions_tasks.py
+│   └── test_reading_sessions_load.py   # Locust нагрузочные тесты
+├── fixtures/
+│   └── reading_sessions.py
+└── core/
+    └── test_openrouter_client.py
 ```
 
 ## Структура тестов
 
-### Организация тестовых наборов фронтенда
-
+**Frontend (suite-организация):**
 ```typescript
 /**
- * Краткое описание того, что тестируется
+ * Tests for useDescriptionHighlighting hook
+ *
+ * Блок описания покрываемых сценариев
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 
-describe('ComponentOrHookName', () => {
-  // Общая настройка
+describe('useDescriptionHighlighting', () => {
+  let mockRendition: Partial<Rendition>;
+
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
     vi.clearAllMocks();
-    // Настройка моков
+    // Подавление console-вывода в тестах
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    vi.useRealTimers();  // если использовались фейковые таймеры
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  describe('Логическая группа', () => {
-    it('should describe specific behavior', async () => {
-      // Arrange
-      // Act
-      // Assert
-    });
+  describe('Initial Setup', () => {
+    it('should skip highlighting when rendition is null', () => { ... });
+  });
+
+  describe('Event Listeners', () => {
+    it('should register "rendered" event listener on mount', () => { ... });
   });
 });
 ```
 
-**Наблюдаемые паттерны:**
-- Структура Arrange/Act/Assert (часто неявная, без комментариев на фронтенде)
-- Вложенные блоки `describe` группируют связанные поведения
-- `beforeEach` / `afterEach` для настройки/очистки
-- `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync()` для логики, зависящей от времени
-- Всегда `vi.clearAllMocks()` в `beforeEach`
-
-### Организация тестовых наборов бэкенда
-
+**Backend (class-организация):**
 ```python
-class TestComponentName:
-    """Тестовый набор для конкретного компонента."""
+"""
+Docstring описания тестового модуля с перечнем покрываемых сценариев.
+"""
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+
+class TestStartSession:
+    """Test suite для POST /reading-sessions/start endpoint."""
 
     @pytest.mark.asyncio
-    async def test_behavior_description(
+    async def test_start_session_success(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         test_user: User,
+        test_book: Book,
     ):
-        """Краткое описание того, что проверяет этот тест."""
+        """Test successful start of a new reading session."""
         # Arrange
-        ...
+        request_data = { ... }
 
         # Act
-        response = await client.get("/api/v1/endpoint")
+        response = await client.post(...)
 
         # Assert
-        assert response.status_code == 200
-        data = response.json()
-        assert data["field"] == expected_value
+        assert response.status_code == 201
 ```
 
-**Наблюдаемые паттерны:**
-- Тестовые наборы на основе классов: `class TestSuiteName:` группирует связанные тесты
-- Явные комментарии `# Arrange / # Act / # Assert` в сложных тестах
-- `@pytest.mark.asyncio` (хотя `asyncio_mode = auto` делает это избыточным — всё равно используется для ясности)
-- `monkeypatch.setattr()` для замены функций на уровне модуля
-- `db_session.add()` + `await db_session.commit()` для подготовки тестовых данных
+## Моки
 
-## Мокирование
+**Frontend (Vitest):**
 
-### Фронтенд: `vitest` (`vi`)
-
-**Мокирование на уровне модуля:**
+Паттерн мока API-модуля:
 ```typescript
-// Мокирование всего модуля — размещать в начале файла, перед импортами
-vi.mock('@/api/books');
-vi.mock('@/services/chapterCache');
-vi.mock('@/stores/auth');
+vi.mock('@/api/auth', () => ({
+  authAPI: {
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    getCurrentUser: vi.fn(),
+    refreshToken: vi.fn(),
+  },
+}));
 
-// Мокирование с пользовательской реализацией
+// Использование
+vi.mocked(authAPI.login).mockResolvedValue(mockResponse);
+vi.mocked(authAPI.login).mockRejectedValue(new Error('Invalid credentials'));
+```
+
+Паттерн мока хука с конкретными возвращаемыми значениями:
+```typescript
+vi.mock('@/hooks/useReadingSession', () => ({
+  useReadingSession: vi.fn(() => ({})),
+}));
+```
+
+Мок с частичной реализацией (`importOriginal`):
+```typescript
 vi.mock('@/utils/text-search/cache', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/text-search/cache')>();
   return {
     ...actual,
-    getFromCache: () => undefined,  // Переопределение конкретных экспортов
+    getFromCache: () => undefined,
+    addToCache: () => {},
   };
 });
 ```
 
-**Инлайн-шпионы:**
-```typescript
-vi.spyOn(console, 'log').mockImplementation(() => {});
-vi.spyOn(console, 'warn').mockImplementation(() => {});
-const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery');
-```
+Что мокировать:
+- Все API-вызовы (`@/api/*`)
+- Сторонние сервисы (IndexedDB через `fake-indexeddb`)
+- Браузерные API (IntersectionObserver, ResizeObserver, matchMedia, localStorage — в setup.ts)
+- epub.js Rendition и Book объекты (сложные внешние зависимости)
 
-**Использование мок-функций:**
-```typescript
-// Установка возвращаемого значения
-vi.mocked(booksAPI.getBooks).mockResolvedValue(mockBooks);
-vi.mocked(booksAPI.getBooks)
-  .mockResolvedValueOnce(firstResponse)
-  .mockResolvedValueOnce(secondResponse);
+**Backend (unittest.mock):**
 
-// Имитация реализаций
-vi.mocked(booksAPI.uploadBook).mockImplementation(async (_formData, config) => {
-  if (config?.onUploadProgress) {
-    config.onUploadProgress({ loaded: 50, total: 100 } as any);
-  }
-  return { book: {...} };
-});
-```
-
-**Что мокировать:**
-- Все внешние API-вызовы (`booksAPI`, `authAPI` и др.)
-- Браузерные API, отсутствующие в jsdom: `IntersectionObserver`, `ResizeObserver`, `matchMedia`, `localStorage`, `scrollTo`
-- Сервисы с побочными эффектами: `chapterCache`, `imageCache`, `tabSync`
-- Логгер: `vi.mock('@/lib/logger', ...)`
-
-**Что НЕ мокировать:**
-- Сам тестируемый модуль
-- Чистые утилитарные функции (нормализация, стратегии)
-- Dexie/IndexedDB — использовать `fake-indexeddb` из глобальной настройки (`frontend/src/test/setup.ts`)
-
-### Бэкенд: `unittest.mock` + фикстуры `pytest`
-
-**AsyncMock для асинхронных методов:**
 ```python
-from unittest.mock import AsyncMock, MagicMock
+# AsyncMock для async-методов
+mock = AsyncMock()
+mock.extract.return_value = [{"content": "...", "type": "location"}]
 
-mock_book_parser = AsyncMock()
-mock_book_parser.parse_book.return_value = MockParsedBook()
-mock_book_parser.detect_format.return_value = "epub"
-```
+# MagicMock для sync-методов
+mock = MagicMock()
+mock.is_available.return_value = True
+mock.generate_image = AsyncMock(return_value=MockImageGenerationResult())
 
-**monkeypatch для замены функций:**
-```python
-async def mock_check_database(db):
-    return ComponentHealthResponse(status="ok", message="DB OK", latency_ms=5.2)
-
-monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
-```
-
-**Переопределение внедрения зависимостей FastAPI:**
-```python
-# Переопределение через app.dependency_overrides
+# Переопределение FastAPI dependency
 app.dependency_overrides[get_book_parser_dep] = lambda: mock_book_parser
-# Всегда очищать после теста
+# Очистка после теста
 app.dependency_overrides.clear()
 DependencyContainer.reset_all()
 DependencyContainer.clear_caches()
 ```
 
-**Что мокировать:**
-- Внешние сервисы: Gemini API, Imagen API (Phase 3: мигрируют на OpenRouter), почтовый сервис
-- Задачи Celery (использовать фикстуру `app_with_mock_services`)
-- Функции проверки здоровья для изолированного тестирования
-
-**Что НЕ мокировать:**
-- Операции с БД в интеграционных тестах — использовать реальную тестовую БД
-- Хеширование паролей в auth-сервисе — использовать реальный `AuthService`
-
 ## Фикстуры и фабрики
 
-### Фронтенд
-
-**Паттерн обёртки QueryClient:**
+**Frontend (setup.ts — глобальные моки браузера):**
 ```typescript
+// frontend/src/test/setup.ts
+import 'fake-indexeddb/auto';        // IndexedDB для Dexie
+import '@testing-library/jest-dom';  // DOM-матчеры
+
+global.IntersectionObserver = class IntersectionObserver { ... };
+global.ResizeObserver = vi.fn(() => ({ ... }));
+window.matchMedia = vi.fn().mockImplementation(query => ({ ... }));
+global.localStorage = localStorageMock;
+```
+
+**Backend (conftest.py — иерархические фикстуры):**
+```python
+# Тестовая БД: автоматически создаётся/удаляется для каждого теста
+@pytest_asyncio.fixture(scope="function")
+async def test_db():
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+# Сессия БД
+@pytest_asyncio.fixture(scope="function")
+async def db_session(test_db): ...
+
+# HTTP-клиент с тестовой БД
+@pytest_asyncio.fixture(scope="function")
+async def client(override_get_database):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+# Готовые объекты данных
+@pytest_asyncio.fixture
+async def test_user(db_session, sample_user_data): ...  # Пользователь в БД
+
+@pytest_asyncio.fixture
+async def test_book(db_session, test_user): ...          # Книга с главами
+
+@pytest_asyncio.fixture
+async def auth_headers(db_session, client): ...         # Bearer-заголовки
+
+@pytest_asyncio.fixture
+async def admin_auth_headers(db_session, client): ...   # Admin Bearer-заголовки
+```
+
+Мок-сервисы (в conftest.py, для инжекции через DI):
+- `mock_book_parser` — мок BookParser
+- `mock_image_generator_service` — мок ImageGeneratorService
+- `mock_gemini_extractor` — мок GeminiDirectExtractor
+- `mock_auth_service` — мок AuthService (реальное хэширование паролей)
+- `mock_token_blacklist` — мок TokenBlacklist
+- `app_with_mock_services` — приложение со всеми мок-сервисами, но реальной БД
+
+Вспомогательная функция для DI-переопределений:
+```python
+overrides = create_mock_dependency_overrides(
+    book_parser=mock_book_parser,
+    image_generator=mock_image_generator,
+)
+app.dependency_overrides.update(overrides)
+```
+
+## Покрытие
+
+**Frontend:**
+- Провайдер: `@vitest/coverage-v8`
+- Форматы отчётов: text, json, html, lcov
+- Минимальный порог: 40% (lines, functions, branches, statements) с `autoUpdate: true`
+- Текущее состояние: критически низкое (~1.9% компонентов UI имеют тесты — см. `frontend/TEST_COVERAGE_AUDIT.md`)
+- Просмотр: `npm run test:ui` → Coverage вкладка
+
+**Backend:**
+- Провайдер: pytest-cov
+- Минимальный порог: **70%** (`--cov-fail-under=70`)
+- Отчёты: terminal (term-missing) + HTML (`backend/htmlcov/`)
+- Покрывается: `app/` директория (`--cov=app`)
+
+## Виды тестов
+
+**Unit-тесты (Frontend):**
+- Хуки: `renderHook()` из `@testing-library/react`
+- Сторы Zustand: `renderHook(() => useAuthStore())` + `useAuthStore.setState()`
+- Утилиты: прямой вызов функций
+- Сервисы (IndexedDB): реальная IndexedDB через `fake-indexeddb`
+- Примеры: `src/stores/__tests__/auth.test.ts`, `src/services/__tests__/chapterCache.test.ts`
+
+**Unit-тесты (Backend):**
+- Сервисы с мок-зависимостями: `@patch`, `AsyncMock`, `MagicMock`
+- Pydantic-схемы: прямое создание объектов
+- Примеры: `tests/core/test_openrouter_client.py`, `tests/services/test_entity_deduplication.py`
+
+**Интеграционные тесты (Backend):**
+- Маркер: `@pytest.mark.integration`
+- Реальная тестовая БД PostgreSQL + мок внешних сервисов
+- Фикстуры: `client`, `db_session`, `auth_headers`
+- Паттерн: step-by-step flow с промежуточными ассертами
+- Примеры: `tests/integration/test_auth_flow_integration.py`
+
+**E2E-тесты (Frontend):**
+- Playwright в директории `frontend/tests/`
+- Базовый URL: `http://localhost:5173` (dev-сервер)
+- Таймаут теста: 60s, таймаут действия: 10s, таймаут навигации: 30s
+- Автоматический запуск dev-сервера перед тестами
+
+**Нагрузочные тесты (Backend):**
+- Locust: `tests/performance/test_reading_sessions_load.py`
+- Запуск: `locust -f tests/performance/... --host=http://localhost:8000`
+- Условно пропускаются, если locust не установлен
+
+## Паттерны async-тестирования (Frontend)
+
+```typescript
+// Использование fake timers для debounce/timeout
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: false });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+// Продвижение времени вперёд
+await act(async () => {
+  await vi.advanceTimersByTimeAsync(300);
+});
+
+// Ожидание асинхронного состояния
+await waitFor(() => {
+  expect(result.current.isLoading).toBe(false);
+});
+```
+
+## Паттерны тестирования ошибок
+
+**Frontend:**
+```typescript
+// Ожидание выброса исключения
+await expect(
+  act(async () => {
+    await result.current.register('existing@example.com', 'password');
+  })
+).rejects.toThrow('Email already exists');
+
+// Проверка состояния после ошибки
+try {
+  await act(async () => { await result.current.login(...); });
+} catch {
+  // Ожидаемое исключение
+}
+expect(result.current.isAuthenticated).toBe(false);
+```
+
+**Backend:**
+```python
+# HTTP-статус коды
+assert response.status_code == 422  # Validation error
+assert response.status_code == 401  # Unauthorized
+
+# Содержимое ответа об ошибке
+data = response.json()
+assert "detail" in data
+```
+
+## Тестирование QueryClientProvider (Frontend)
+
+Паттерн обёртки для TanStack Query-хуков:
+```typescript
+let queryClient: QueryClient;
+
 const createWrapper = () => {
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };
 
-// Свежий QueryClient для каждого теста
-queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: false, gcTime: 0 },
-    mutations: { retry: false },
-  },
-});
-```
-
-**Инлайн-фабрики мок-данных (без общих фабричных функций):**
-```typescript
-const mockBooks = {
-  books: [{ id: '1', title: 'Book 1', author: 'Author 1' }] as Book[],
-  total: 1,
-  skip: 0,
-  limit: 10,
-};
-```
-
-**Расположение:** инлайн в тестовых файлах; общего каталога фикстур на фронтенде нет
-
-### Бэкенд
-
-**Общие фикстуры:** `backend/tests/conftest.py` — загружаются глобально для всех тестов
-
-**Ключевые фикстуры:**
-- `test_db` — создаёт/удаляет все таблицы для каждого теста (scope: function)
-- `db_session` — асинхронная сессия SQLAlchemy, привязанная к тестовой БД
-- `client` — `httpx.AsyncClient` с ASGI-транспортом к тестовому приложению
-- `test_user` — сохранённая модель `User` в тестовой БД
-- `test_book` — сохранённые модели `Book` + 3 `Chapter` в тестовой БД
-- `auth_headers` / `admin_auth_headers` — JWT bearer-заголовки для аутентифицированных запросов
-- `mock_book_parser` / `mock_gemini_extractor` / `mock_image_generator_service` — предварительно настроенные объекты `AsyncMock`
-- `app_with_mock_services` — приложение с мокированными внешними сервисами, реальная БД
-
-**Фабрики на основе dataclass:**
-```python
-@dataclass
-class MockImageGenerationResult:
-    success: bool = True
-    image_url: Optional[str] = "https://example.com/test-image.png"
-    local_path: Optional[str] = "/app/storage/test-image.png"
-    generation_time_seconds: Optional[float] = 5.0
-    model_used: Optional[str] = "imagen-4"  # Phase 3: мигрирует на FLUX.2 через OpenRouter
-
-@dataclass
-class MockParsedBook:
-    metadata: Metadata = None
-    chapters: List = None
-    file_format: str = "epub"
-```
-
-## Покрытие
-
-### Фронтенд
-
-**Требования:** 40% строк/функций/ветвлений/выражений (задано через `vitest.config.ts`)
-- `autoUpdate: true` — пороги автоматически обновляются после прохождения
-
-**Просмотр покрытия:**
-```bash
-cd frontend && npm test -- --coverage
-```
-
-**Форматы отчётов:** text, json, html, lcov (провайдер: v8)
-
-### Бэкенд
-
-**Требования:** минимум 70% (`--cov-fail-under=70` в `pytest.ini`)
-
-**Просмотр покрытия:**
-```bash
-cd backend && pytest --cov=app --cov-report=html:htmlcov
-open backend/htmlcov/index.html
-```
-
-**Форматы отчётов:** term-missing (консоль), html (htmlcov/)
-
-## Типы тестов
-
-### Фронтенд
-
-**Модульные тесты:**
-- Область: отдельные хуки, сервисы, утилитарные функции
-- Примеры: `useChapterMapping.test.ts`, `normalization.test.ts`, `chapterCache.test.ts`
-- Паттерн: тесты чистых функций или `renderHook` для React-хуков
-
-**Интеграционные тесты:**
-- Область: хук + API + взаимодействие QueryClient
-- Примеры: `useBooks.test.tsx`, `auth.test.ts`
-- Паттерн: `renderHook` с обёрткой `QueryClientProvider`, API мокирован
-
-**Компонентные тесты:**
-- Область: отрендеренные React-компоненты
-- Примеры: `EpubReader.test.tsx`, `ErrorBoundary.test.tsx`, `LibraryPage.test.tsx`
-- Паттерн: `render` + `screen.getBy*` + `userEvent`
-
-**E2E-тесты:**
-- Фреймворк: Playwright (отдельно от Vitest)
-- Расположение: `frontend/tests/`
-- Конфигурация: `frontend/playwright.config.ts`
-- Запуск: `npm run test:e2e`
-
-### Бэкенд
-
-**Модульные тесты:** (`@pytest.mark.unit`) — логика сервисов с мокированной БД
-**Интеграционные тесты:** (`@pytest.mark.integration`) — реальная тестовая БД, мокированные внешние сервисы
-**Тесты роутеров:** — `httpx.AsyncClient` поверх реального FastAPI-приложения + тестовая БД
-**Тесты производительности:** (`@pytest.mark.benchmark`) — нагрузочные/конкурентные тесты
-
-## Общие паттерны
-
-### Фронтенд: Асинхронное тестирование
-
-```typescript
-// Хуки, возвращающие асинхронное состояние — использовать waitFor
-await waitFor(() => {
-  expect(result.current.isSuccess).toBe(true);
+beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },     // Отключить retry в тестах
+      mutations: { retry: false },
+    },
+  });
 });
 
-// Запуск асинхронных мутаций
-await act(async () => {
-  await result.current.mutateAsync({ file: mockFile });
+afterEach(() => {
+  queryClient.clear();
 });
 
-// Хуки, зависящие от времени — использовать фейковые таймеры
-vi.useFakeTimers({ shouldAdvanceTime: true });
-await act(async () => {
-  await vi.advanceTimersByTimeAsync(11000);
-});
-
-// EPUB-рендеринг с idle-коллбэками
-await act(async () => {
-  await vi.advanceTimersByTimeAsync(300);
-  await vi.advanceTimersByTimeAsync(300);
-  await vi.advanceTimersByTimeAsync(300);
-});
+// Использование
+const { result } = renderHook(() => useBooks(), { wrapper: createWrapper() });
 ```
 
-### Фронтенд: Тестирование ошибок
+## Пробелы в покрытии
 
-```typescript
-// Ошибки асинхронных мутаций
-await expect(
-  act(async () => {
-    await result.current.mutateAsync({ file: mockFile });
-  })
-).rejects.toThrow('Upload failed');
+**Frontend (критические):**
+- Компоненты UI (`src/components/UI/`) — практически не покрыты (см. `frontend/TEST_COVERAGE_AUDIT.md`)
+- Страницы (`src/pages/`) — частично: только `LibraryPage`, `ForgotPasswordPage`, `ResetPasswordPage`
+- Компоненты `Entities/` (`EntityCard`, `EntityList`, `EntityDrawer`) — не покрыты
+- `EpubReader.tsx` — частичное покрытие (35 тестов, но сложные интеграционные сценарии не покрыты)
 
-// Состояние ошибки запроса
-vi.mocked(booksAPI.getBooks).mockRejectedValue(new Error('Network error'));
-await waitFor(() => {
-  expect(result.current.isError).toBe(true);
-});
-expect(result.current.error).toEqual(error);
-```
-
-### Фронтенд: Тестирование оптимистичных обновлений
-
-```typescript
-// Использовать localQC с gcTime > 0, чтобы предотвратить GC до проверки утверждения
-const localQC = new QueryClient({
-  defaultOptions: { queries: { retry: false, gcTime: 30000 }, mutations: { retry: false } },
-});
-localQC.setQueryData(['books', mockUser.id, 'list', undefined], mockBooks);
-
-// Медленный мок для перехвата оптимистичного состояния
-vi.mocked(booksAPI.deleteBook).mockImplementation(
-  () => new Promise((resolve) => setTimeout(() => resolve(mockResponse), 5000))
-);
-
-// Проверка оптимистичного удаления до подтверждения сервером
-await waitFor(() => {
-  const data = localQC.getQueryData<typeof mockBooks>([...]);
-  expect(data!.books.find((b) => b.id === 'book-1')).toBeUndefined();
-});
-```
-
-### Бэкенд: Тестирование роутеров
-
-```python
-# Стандартный паттерн тестирования роутера
-@pytest.mark.asyncio
-async def test_endpoint(
-    self,
-    client: AsyncClient,
-    auth_headers: dict,  # из фикстуры conftest
-    test_book: Book,     # из фикстуры conftest
-):
-    response = await client.get(
-        f"/api/v1/books/{test_book.id}/chapters/1",
-        headers=auth_headers,
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "chapter" in data
-```
-
-### Бэкенд: Тестирование сервисов с БД
-
-```python
-# Создание тестовых данных в сессии без коммита до готовности
-db_session.add(entity)
-await db_session.flush()  # Получить ID без коммита
-
-await db_session.commit()
-await db_session.refresh(entity)  # Загрузить поля, установленные сервером
-```
+**Backend (заметные):**
+- `services/gemini_extractor.py` (1221 строк) — тесты минимальны
+- `routers/images.py` (957 строк) — интеграционные тесты ограничены
+- `services/entity_service.py` — споилер-фри фильтрация не тестирована
 
 ---
 
-*Анализ тестирования: 2026-02-27*
+*Анализ тестирования: 2026-03-04*

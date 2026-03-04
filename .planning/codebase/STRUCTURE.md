@@ -1,290 +1,434 @@
 # Структура кодовой базы
 
-**Дата анализа:** 2026-02-27
+**Дата анализа:** 2026-03-04
 
-## Схема каталогов
+## Общая компоновка директорий
 
 ```
-fancai-vibe-hackathon/             # Корень репозитория
-├── backend/                       # Python-бэкенд на FastAPI
-│   ├── app/                       # Код приложения
-│   │   ├── core/                  # Инфраструктура: конфигурация, БД, Redis, аутентификация, Celery
-│   │   ├── models/                # ORM-модели SQLAlchemy
-│   │   ├── routers/               # Обработчики маршрутов FastAPI (API-эндпоинты)
-│   │   │   ├── books/             # Модульный суб-роутер книг
-│   │   │   └── admin/             # Эндпоинты только для администраторов
-│   │   ├── schemas/               # Pydantic v2 схемы запросов/ответов
-│   │   │   └── responses/         # Схемы только для ответов
-│   │   ├── services/              # Бизнес-логика и AI-интеграция
-│   │   │   ├── book/              # Сервисы для книг (паттерн SRP)
-│   │   │   └── email/             # Почтовый сервис
-│   │   ├── tasks/                 # Асинхронные задачи Celery
-│   │   ├── middleware/            # Middleware FastAPI (безопасность, кеш, ограничение частоты)
-│   │   ├── monitoring/            # Метрики Prometheus
-│   │   ├── parsers/               # Устаревший код парсеров
-│   │   ├── utils/                 # Утилитарные функции бэкенда
-│   │   └── main.py                # Точка входа FastAPI-приложения
-│   ├── alembic/                   # Миграции базы данных
-│   │   └── versions/              # Файлы миграций (с временными метками)
-│   ├── tests/                     # Тестовый набор бэкенда (pytest)
-│   ├── scripts/                   # Утилитарные скрипты
-│   ├── sql/                       # Чистый SQL (init.sql)
-│   ├── storage/                   # Локальное файловое хранилище (книги, обложки)
-│   └── docs/                      # Документация, специфичная для бэкенда
-├── frontend/                      # React TypeScript PWA-фронтенд
-│   └── src/
-│       ├── api/                   # Axios API-клиент + доменные API-функции
-│       ├── components/            # React-компоненты (организованы по доменам)
-│       │   ├── Reader/            # UI-компоненты EPUB-ридера
-│       │   ├── Entities/          # UI глоссария/вики сущностей
-│       │   ├── Books/             # Модалки загрузки и удаления книг
-│       │   ├── UI/                # Примитивы дизайн-системы
-│       │   ├── Admin/             # Админ-панель
-│       │   ├── Auth/              # AuthGuard, формы входа
-│       │   ├── Layout/            # Оболочка приложения, навигация
-│       │   ├── Library/           # Компоненты страницы библиотеки
-│       │   ├── Home/              # Компоненты главной страницы
-│       │   ├── Images/            # Компоненты галереи изображений
-│       │   ├── Settings/          # UI настроек
-│       │   └── SEO/               # Мета-теги
-│       ├── hooks/                 # React-хуки
-│       │   ├── api/               # Хуки TanStack Query (серверное состояние)
-│       │   ├── epub/              # Хуки интеграции с epub.js (25+ хуков)
-│       │   ├── reader/            # Специфичные для ридера хуки (не epub)
-│       │   ├── pwa/               # PWA-хуки
-│       │   └── shared/            # Общие утилитарные хуки
-│       ├── pages/                 # Компоненты страниц уровня маршрутов
-│       ├── services/              # Клиентские сервисы (IndexedDB, PWA, кеширование)
-│       ├── stores/                # Zustand-хранилища состояния
-│       ├── lib/                   # Утилиты: queryClient, i18n, logger, zIndex
-│       ├── utils/                 # Утилитарные функции
-│       ├── types/                 # Определения TypeScript-типов
-│       ├── config/                # Константы фронтенда
-│       ├── styles/                # Глобальный CSS (темы, переменные)
-│       ├── locales/               # Файлы переводов i18n
-│       ├── assets/                # Статические ресурсы
-│       ├── test/                  # Настройка и утилиты тестов
-│       ├── App.tsx                # Корневой компонент с маршрутизацией
-│       ├── main.tsx               # Точка входа React
-│       └── sw.ts                  # Service Worker
-├── nginx/                         # Конфигурация Nginx для продакшена
-├── docker/                        # Вспомогательные файлы Docker
-├── monitoring/                    # Конфигурация Prometheus/Grafana
-├── postgres/                      # Конфигурация PostgreSQL
-├── redis/                         # Конфигурация Redis
-├── scripts/                       # Утилитарные скрипты корневого уровня
-├── deploy/                        # Скрипты развёртывания
-├── docs/                          # Документация уровня проекта
-├── docker-compose.lite.yml        # Основной compose-файл для разработки/продакшена
-├── docker-compose.lite.prod.yml   # Продакшен-специфичные переопределения
-└── CLAUDE.md                      # Инструкции проекта для Claude
+fancai-vibe-hackathon/
+├── frontend/               # React 19 SPA (TypeScript 5.7 + Vite 7)
+├── backend/                # FastAPI + Python 3.12
+├── monitoring/             # Конфигурации мониторинга (Grafana, Loki, Prometheus, Netdata)
+├── postgres/               # Инициализационные SQL-скрипты
+├── redis/                  # Конфигурация Redis
+├── scripts/                # Bash-скрипты деплоя и обслуживания
+├── docs/                   # Документация и отчёты
+├── Caddyfile               # Конфигурация реверс-прокси (продакшн)
+├── Caddyfile.dev           # Конфигурация Caddy (локальная разработка)
+├── docker-compose.prod.yml # Продакшн Docker Compose
+├── docker-compose.dev.yml  # Разработческий Docker Compose
+├── docker-compose.monitoring.yml  # Стек мониторинга
+├── .env                    # Переменные окружения (не коммитится)
+├── .env.example            # Шаблон env-переменных (dev)
+├── .env.production.example # Шаблон env-переменных (prod)
+├── .planning/              # GSD-планирование (ROADMAP, STATE, фазы)
+└── .claude/                # Claude Code конфигурация (agents, hooks, skills, rules)
 ```
 
-## Назначение каталогов
+## Frontend: структура
 
-**`backend/app/core/`:**
-- Назначение: сквозная инфраструктура, общая для всех слоёв бэкенда
-- Содержит: `config.py` (Pydantic-настройки), `database.py` (асинхронный движок SQLAlchemy + фабрика сессий), `cache.py` (менеджер кеша Redis), `auth.py` (JWT-хелперы), `celery_app.py` (Celery + расписание beat), `dependencies.py` (функции зависимостей FastAPI), `exceptions.py` (RFC 9457 ProblemDetail), `retry.py` (декораторы tenacity для вызовов LLM), `container.py` (DI-контейнер с Protocol-интерфейсами), `rate_limiter.py`, `validation.py`
-- Ключевые файлы: `backend/app/core/config.py`, `backend/app/core/database.py`, `backend/app/core/container.py`
+```
+frontend/
+├── src/
+│   ├── api/                # HTTP-клиент и API-вызовы
+│   │   ├── client.ts       # Axios singleton (автоматический refresh токенов)
+│   │   ├── books.ts        # CRUD книг
+│   │   ├── auth.ts         # Аутентификация
+│   │   ├── images.ts       # Генерация изображений
+│   │   ├── descriptions.ts # Описания главы
+│   │   ├── readingSessions.ts
+│   │   ├── push.ts         # Web Push
+│   │   ├── health.ts
+│   │   ├── admin.ts
+│   │   └── index.ts
+│   ├── components/         # UI-компоненты
+│   │   ├── Reader/         # Читалка EPUB (23 файла + поддиректории)
+│   │   │   ├── EpubReader.tsx              # Главный компонент (286 строк, ~84 коммита)
+│   │   │   ├── Core/                       # Слои UI читалки
+│   │   │   │   ├── ReaderUI.tsx
+│   │   │   │   ├── ReaderModals.tsx
+│   │   │   │   ├── ReaderOverlays.tsx
+│   │   │   │   ├── ReaderContext.tsx
+│   │   │   │   └── useReaderContext.ts
+│   │   │   ├── ReaderSettingsPanel/        # Панель настроек
+│   │   │   ├── ReaderControls.tsx
+│   │   │   ├── ReaderHeader.tsx
+│   │   │   ├── ReaderContent.tsx
+│   │   │   ├── TocSidebar.tsx
+│   │   │   ├── BookInfo.tsx
+│   │   │   ├── DescriptionPeek.tsx
+│   │   │   └── ...
+│   │   ├── Entities/       # Система сущностей (12 файлов)
+│   │   │   ├── EntityCard.tsx
+│   │   │   ├── EntityDrawer.tsx
+│   │   │   ├── EntityList.tsx
+│   │   │   ├── EntityProfile.tsx
+│   │   │   ├── EntityGallery.tsx
+│   │   │   ├── EntityMiniCard.tsx
+│   │   │   ├── EntityEventTimeline.tsx
+│   │   │   ├── RecapPanel.tsx
+│   │   │   ├── RelationshipCard.tsx
+│   │   │   ├── SpoilerText.tsx
+│   │   │   └── index.ts
+│   │   ├── Books/          # Компоненты работы с книгами
+│   │   ├── Library/        # Библиотека + BookCard/
+│   │   ├── Auth/           # Формы аутентификации
+│   │   ├── Admin/          # Панель администратора
+│   │   ├── Navigation/     # Навигация приложения
+│   │   ├── Layout/         # Обёртки раскладки
+│   │   ├── Settings/       # Страница настроек + sections/
+│   │   ├── Home/           # Главная страница
+│   │   ├── Images/         # Галерея изображений
+│   │   ├── Stats/          # Статистика чтения
+│   │   ├── SEO/            # SEO-компоненты
+│   │   ├── UI/             # Общие UI-примитивы
+│   │   └── ErrorBoundary/  # Обработка ошибок
+│   ├── hooks/              # React-хуки
+│   │   ├── epub/           # 26 хуков для EPUB (CFI, навигация, подсветка и т.д.)
+│   │   │   ├── useEpubLoader.ts            # Загрузка книги в epub.js
+│   │   │   ├── useCFITracking.ts           # Отслеживание CFI-позиции
+│   │   │   ├── useDescriptionHighlighting.ts # 8 стратегий поиска текста
+│   │   │   ├── useEpubNavigation.ts
+│   │   │   ├── useChapterManagement.ts
+│   │   │   ├── useProgressSync.ts          # Синхронизация прогресса с backend
+│   │   │   ├── useSwipeNavigation.ts       # Свайп-навигация (iOS)
+│   │   │   ├── useEpubThemes.ts            # Темы читалки
+│   │   │   ├── useEntityCFIPopulation.ts   # Привязка сущностей к CFI
+│   │   │   └── index.ts
+│   │   ├── api/            # TanStack Query хуки (8 файлов)
+│   │   │   ├── queryKeys.ts                # Типизированные ключи запросов
+│   │   │   ├── useBooks.ts                 # CRUD книг
+│   │   │   ├── useChapter.ts               # Данные главы
+│   │   │   ├── useDescriptions.ts          # Описания
+│   │   │   ├── useImages/                  # Генерация изображений
+│   │   │   ├── useParsingStatus.ts         # Статус обработки
+│   │   │   ├── useRecap.ts                 # Рекап сущностей
+│   │   │   └── index.ts
+│   │   ├── reader/         # Хуки специфичные для Reader
+│   │   │   ├── useReaderPosition.ts
+│   │   │   ├── useChapterNavigation.ts
+│   │   │   ├── useReadingProgress.ts
+│   │   │   ├── useAutoParser.ts
+│   │   │   ├── useDescriptionManagement.ts
+│   │   │   └── usePagination.ts
+│   │   ├── library/        # Хуки для библиотеки
+│   │   ├── pwa/            # PWA (установка, уведомления)
+│   │   └── shared/         # Общие утилитарные хуки
+│   ├── stores/             # Zustand-хранилища
+│   │   ├── auth.ts         # Пользователь, состояние аутентификации
+│   │   ├── reader.ts       # Настройки читалки, прогресс чтения
+│   │   └── ui.ts           # Уведомления, глобальный UI
+│   ├── services/           # Frontend-сервисы (офлайн, кэш)
+│   │   ├── chapterCache.ts # IndexedDB через Dexie (TTL 7 дней, LRU)
+│   │   ├── db.ts           # Dexie схема базы данных
+│   │   ├── imageCache.ts   # Кэш изображений
+│   │   ├── syncQueue.ts    # Офлайн-очередь операций
+│   │   ├── tabSync.ts      # Синхронизация между вкладками
+│   │   ├── downloadManager.ts
+│   │   ├── EntityService.ts
+│   │   ├── pushNotifications.ts
+│   │   ├── storageManager.ts
+│   │   ├── visibilityManager.ts
+│   │   └── websocket.tsx   # ЗАГЛУШКА — WS отключён (нет cookie auth)
+│   ├── pages/              # Страницы-маршруты
+│   │   ├── LibraryPage.tsx
+│   │   ├── BookReaderPage.tsx
+│   │   ├── BookPage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── RegisterPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   ├── SettingsPage.tsx
+│   │   ├── AdminDashboardEnhanced.tsx
+│   │   └── ...             # ещё 8 страниц
+│   ├── types/              # TypeScript-типы
+│   ├── lib/                # Утилитарные библиотеки (logger)
+│   ├── utils/              # Утилиты
+│   │   └── text-search/    # Нормализация и стратегии поиска для подсветки
+│   ├── config/             # Конфигурация frontend
+│   ├── styles/             # Глобальные CSS-стили (globals.css с CSS-переменными тем)
+│   ├── locales/            # i18n переводы
+│   │   ├── ru/             # Русский
+│   │   └── en/             # Английский
+│   ├── assets/             # Статические ресурсы
+│   └── test/               # Утилиты тестирования
+├── public/                 # Статические файлы (manifest.json, иконки)
+├── tests/                  # Playwright E2E тесты
+├── vite.config.ts          # Vite конфигурация (PWA, chunks, aliases)
+├── vitest.config.ts        # Vitest конфигурация
+├── tsconfig.json           # TypeScript конфигурация
+├── eslint.config.js        # ESLint конфигурация
+├── Dockerfile.prod         # Production Docker образ (static build)
+└── Dockerfile.dev          # Dev Docker образ (hot reload)
+```
 
-**`backend/app/models/`:**
-- Назначение: все определения ORM-моделей SQLAlchemy
-- Содержит: `book.py` (Book, ReadingProgress), `chapter.py`, `entity.py`, `entity_mention.py`, `entity_relationship.py`, `description.py`, `description_entity.py`, `user.py`, `reading_session.py`, `image.py`, `entity_event.py`
-- Ключевые файлы: `backend/app/models/book.py`, `backend/app/models/entity.py`
+## Backend: структура
 
-**`backend/app/services/`:**
-- Назначение: вся бизнес-логика, AI-пайплайн и доменные операции
-- Содержит: плоские файлы сервисов + подкаталог `book/` (декомпозиция по SRP)
-- AI-файлы: `gemini_extractor.py` (Gemini 3.0 Flash, извлечение описаний + сущностей), `imagen_generator.py` (Imagen 4; мигрирует на FLUX.2 через OpenRouter), `description_extraction_service.py`
-- Файлы сущностей: `entity_service.py`, `entity_deduplication_service.py`, `entity_synthesis_service.py`, `graph_service.py`
-- Ключевые файлы: `backend/app/services/gemini_extractor.py`, `backend/app/services/entity_service.py`, `backend/app/services/book_parser.py`
+```
+backend/
+├── app/
+│   ├── main.py             # Точка входа FastAPI; middleware, роутеры, lifespan
+│   ├── core/               # Инфраструктура приложения
+│   │   ├── config.py       # Settings (pydantic-settings, из env)
+│   │   ├── database.py     # Async SQLAlchemy engine + AsyncSessionLocal
+│   │   ├── auth.py         # JWT dependency (cookie + Bearer)
+│   │   ├── openrouter_client.py  # Единый AI-клиент (537 строк)
+│   │   ├── celery_app.py   # Celery + Beat конфигурация
+│   │   ├── cache.py        # Redis кэш (DB0)
+│   │   ├── pubsub.py       # Redis PubSub (прогресс обработки)
+│   │   ├── exceptions.py   # RFC 9457 ProblemDetail
+│   │   ├── retry.py        # Tenacity декораторы
+│   │   ├── logging.py      # Loguru настройка
+│   │   ├── hawk.py         # Hawk Tracker инициализация
+│   │   ├── dependencies.py # FastAPI dependencies (get_user_book и др.)
+│   │   ├── rate_limiter.py # Redis rate limiter
+│   │   ├── secrets.py      # Проверка секретов при старте
+│   │   ├── tasks.py        # Обёртки задач Celery
+│   │   └── types.py        # Общие типы
+│   ├── routers/            # HTTP-маршруты (25 файлов)
+│   │   ├── books/          # Подпакет книг (рефакторинг 2026-03-01)
+│   │   │   ├── __init__.py # Сборка books_router из sub-routers
+│   │   │   ├── crud.py     # Загрузка, список, детали, файлы (792 строки)
+│   │   │   ├── entities.py # Эндпоинты сущностей книги
+│   │   │   ├── processing.py  # Запуск обработки, статус парсинга
+│   │   │   └── validation.py  # Валидация и preview операции
+│   │   ├── admin/          # Подпакет администрирования
+│   │   │   ├── __init__.py # Сборка admin_router
+│   │   │   ├── stats.py
+│   │   │   ├── parsing.py
+│   │   │   ├── images.py
+│   │   │   ├── system.py
+│   │   │   ├── users.py
+│   │   │   ├── reading_sessions.py
+│   │   │   ├── cache.py
+│   │   │   ├── feature_flags.py
+│   │   │   └── entities.py
+│   │   ├── auth.py         # /auth/* (login, logout, refresh)
+│   │   ├── users.py        # /users/* (профиль, настройки)
+│   │   ├── images.py       # /images/* (957 строк, 13 маршрутов)
+│   │   ├── chapters.py     # /books/{id}/chapters/*
+│   │   ├── descriptions.py # /books/{id}/descriptions/*
+│   │   ├── reading_progress.py
+│   │   ├── reading_sessions.py  # 1089 строк, 8 маршрутов
+│   │   ├── health.py       # /health, /metrics (Prometheus)
+│   │   ├── push.py         # Web Push уведомления
+│   │   ├── sync.py         # PWA offline sync
+│   │   └── websocket.py    # /ws/book-progress/{book_id}
+│   ├── services/           # Бизнес-логика (28 сервисов)
+│   │   ├── gemini_extractor.py      # Извлечение описаний+сущностей (1221 строка)
+│   │   ├── book_parser.py           # EPUB/FB2 парсер (1199 строк)
+│   │   ├── entity_service.py        # Управление сущностями (680 строк)
+│   │   ├── entity_deduplication_service.py
+│   │   ├── entity_synthesis_service.py
+│   │   ├── graph_service.py         # Граф отношений сущностей
+│   │   ├── image_generator.py       # Оркестрация генерации изображений
+│   │   ├── imagen_generator.py      # Прямые вызовы OpenRouter Images
+│   │   ├── auth_service.py          # JWT, пароли
+│   │   ├── reading_session_service.py
+│   │   ├── reading_session_cache.py
+│   │   ├── push_notification_service.py
+│   │   ├── settings_manager.py
+│   │   ├── user_statistics_service.py
+│   │   ├── tsa_parser.py            # TSA (XML-теги) формат ответа LLM
+│   │   ├── llm_cache_service.py     # Кэш LLM-ответов
+│   │   ├── consistency_manager.py
+│   │   ├── description_extraction_service.py
+│   │   ├── feature_flag_manager.py
+│   │   ├── image_crud_service.py
+│   │   ├── parsing_manager.py
+│   │   ├── token_blacklist.py
+│   │   ├── vless_http_client.py
+│   │   ├── book/                    # Утилиты парсинга книги
+│   │   └── email/                   # Email-сервис
+│   ├── models/             # SQLAlchemy ORM-модели (18 моделей)
+│   │   ├── book.py
+│   │   ├── chapter.py
+│   │   ├── user.py
+│   │   ├── entity.py
+│   │   ├── entity_mention.py
+│   │   ├── entity_relationship.py
+│   │   ├── entity_event.py
+│   │   ├── description.py
+│   │   ├── description_entity.py
+│   │   ├── image.py
+│   │   ├── reading_session.py
+│   │   ├── reading_goal.py
+│   │   ├── llm_usage_log.py
+│   │   ├── feature_flag.py
+│   │   ├── password_reset.py
+│   │   ├── push_subscription.py
+│   │   └── ...
+│   ├── schemas/            # Pydantic-схемы
+│   │   ├── responses/      # Схемы ответов API (15 файлов)
+│   │   │   ├── entities.py
+│   │   │   ├── books_validation.py
+│   │   │   ├── chapters.py
+│   │   │   ├── descriptions.py
+│   │   │   ├── images.py
+│   │   │   └── ...
+│   │   └── push.py
+│   ├── tasks/              # Celery-задачи (10 задач)
+│   │   ├── book_tasks.py            # Обработка книги (soft limit 3h)
+│   │   ├── image_tasks.py           # Генерация изображений (soft limit 300s)
+│   │   ├── cleanup_tasks.py
+│   │   ├── reading_sessions_tasks.py
+│   │   ├── auth_tasks.py
+│   │   ├── utility_tasks.py
+│   │   └── common.py
+│   ├── middleware/         # FastAPI middleware
+│   │   ├── security_headers.py
+│   │   ├── cache_control.py
+│   │   └── rate_limit.py
+│   ├── monitoring/         # Prometheus метрики
+│   │   ├── metrics.py
+│   │   └── middleware.py
+│   ├── parsers/            # Дополнительные парсеры
+│   ├── api/                # Дополнительные API-утилиты
+│   └── utils/              # Вспомогательные утилиты
+├── alembic/                # Миграции БД
+│   ├── versions/           # 48 файлов миграций
+│   └── env.py
+├── tests/                  # Тесты pytest (46 файлов)
+│   ├── services/
+│   ├── routers/
+│   ├── integration/
+│   ├── performance/
+│   ├── core/
+│   ├── middleware/
+│   ├── schemas/
+│   ├── tasks/
+│   └── fixtures/
+├── storage/                # Хранилище файлов книг
+│   └── books/
+│       └── covers/
+├── uploads/                # Временные загрузки
+│   └── covers/
+├── scripts/                # Утилитарные скрипты backend
+├── sql/                    # Сырые SQL-запросы
+├── Dockerfile.prod         # Production образ (uvicorn, 2 workers)
+├── Dockerfile.dev          # Dev образ (hot reload, volume mount)
+├── requirements.txt        # Python зависимости
+└── pyproject.toml          # Конфигурация инструментов (ruff, mypy)
+```
 
-**`backend/app/routers/`:**
-- Назначение: обработчики HTTP-запросов/ответов; тонкий слой, делегирующий сервисам
-- Тяжёлые файлы (известный технический долг): `images.py` (33K строк), `reading_sessions.py` (41K строк)
-- Модульные: `books/` разделён на `crud.py`, `entities.py`, `processing.py`, `validation.py`
-- Ключевые файлы: `backend/app/routers/books/crud.py`, `backend/app/routers/websocket.py`
-
-**`backend/app/tasks/`:**
-- Назначение: определения асинхронных задач Celery
-- Содержит: `book_tasks.py` (лимит 3ч, распределённая Redis-блокировка), `image_tasks.py`, `reading_sessions_tasks.py`, `cleanup_tasks.py`, `auth_tasks.py`, `utility_tasks.py`
-- Ключевые файлы: `backend/app/tasks/book_tasks.py`, `backend/app/tasks/image_tasks.py`
-
-**`backend/alembic/versions/`:**
-- Назначение: файлы миграций базы данных, по одному на каждое изменение схемы
-- Именование: `YYYY_MM_DD_HHMM-{hash}_{description}.py`
-- Ключевые файлы: актуально `backend/alembic/versions/` (48 файлов по состоянию на 2026-02-27)
-
-**`frontend/src/api/`:**
-- Назначение: вся сетевая коммуникация; Axios-клиент + доменные API-функции
-- Содержит: `client.ts` (класс-синглтон с интерцепторами), `books.ts`, `images.ts`, `readingSessions.ts`, `auth.ts`, `admin.ts`, `descriptions.ts`, `health.ts`, `push.ts`
-- Ключевые файлы: `frontend/src/api/client.ts`, `frontend/src/api/books.ts`
-
-**`frontend/src/hooks/api/`:**
-- Назначение: хуки TanStack Query, оборачивающие API-слой; всё получение серверных данных — здесь
-- Содержит: `useBooks.ts`, `useChapter.ts`, `useDescriptions.ts`, `useImages/`, `useParsingStatus.ts`, `queryKeys.ts`
-- Ключевые файлы: `frontend/src/hooks/api/queryKeys.ts`, `frontend/src/hooks/api/useBooks.ts`
-
-**`frontend/src/hooks/epub/`:**
-- Назначение: интеграция с epub.js; отслеживание CFI, навигация, темы, подсветка
-- Содержит: 25+ хуков, включая `useEpubLoader.ts`, `useCFITracking.ts`, `useDescriptionHighlighting.ts`, `useChapterMapping.ts`, `useEpubNavigation.ts`, `useSwipeNavigation.ts`, `useTouchNavigation.ts`
-- Ключевые файлы: `frontend/src/hooks/epub/useEpubLoader.ts`, `frontend/src/hooks/epub/useDescriptionHighlighting.ts`
-
-**`frontend/src/components/Reader/`:**
-- Назначение: UI EPUB-ридера — наиболее изменяемая область фронтенда
-- Содержит: `EpubReader.tsx` (главный компонент, 84+ изменений), `BookReader.tsx`, `ReaderControls.tsx`, `TocSidebar.tsx`, `SelectionMenu.tsx`, `IOSTapZones.tsx` и подкаталог `Core/`
-- Ключевые файлы: `frontend/src/components/Reader/EpubReader.tsx`
-
-**`frontend/src/components/Entities/`:**
-- Назначение: UI-компоненты глоссария/вики сущностей
-- Содержит: `EntityList.tsx`, `EntityCard.tsx`, `EntityDrawer.tsx`, `EntityProfile.tsx`, `EntityEventTimeline.tsx`, `RelationshipCard.tsx`, `RecapPanel.tsx`, `SpoilerText.tsx`
-- Ключевые файлы: `frontend/src/components/Entities/EntityProfile.tsx`, `frontend/src/components/Entities/EntityDrawer.tsx`
-
-**`frontend/src/services/`:**
-- Назначение: клиентская инфраструктура — IndexedDB, офлайн, PWA, синхронизация
-- Содержит: `chapterCache.ts`, `epubCache.ts`, `imageCache.ts`, `db.ts`, `storageManager.ts`, `downloadManager.ts`, `syncQueue.ts`, `pushNotifications.ts`, `tabSync.ts`
-- Ключевые файлы: `frontend/src/services/chapterCache.ts`, `frontend/src/services/db.ts`
-
-**`frontend/src/stores/`:**
-- Назначение: глобальное клиентское состояние на Zustand
-- Содержит: `auth.ts` (JWT-токены + пользователь), `reader.ts` (режим навигации, настройки), `ui.ts` (тосты, модалки), `index.ts` (инициализация + очистка)
-- Ключевые файлы: `frontend/src/stores/auth.ts`, `frontend/src/stores/reader.ts`
-
-## Расположение ключевых файлов
+## Ключевые расположения файлов
 
 **Точки входа:**
-- `backend/app/main.py`: FastAPI-приложение, стек middleware, регистрация роутеров
-- `frontend/src/main.tsx`: корень React DOM, оборачивает в ErrorBoundary
-- `frontend/src/App.tsx`: React Router, определения маршрутов, QueryClientProvider
-- `backend/app/core/celery_app.py`: Celery-приложение + расписание beat
+- `backend/app/main.py` — FastAPI приложение
+- `frontend/src/main.tsx` — React приложение
+- `backend/app/core/celery_app.py` — Celery воркер
+- `Caddyfile` — реверс-прокси (продакшн)
+- `Caddyfile.dev` — реверс-прокси (разработка)
 
 **Конфигурация:**
-- `backend/app/core/config.py`: все настройки бэкенда через pydantic-settings (из переменных окружения)
-- `frontend/src/lib/queryClient.ts`: конфигурация клиента TanStack Query
-- `docker-compose.lite.yml`: основной compose-файл для всех окружений
+- `backend/app/core/config.py` — все настройки через env (pydantic-settings)
+- `frontend/vite.config.ts` — Vite, PWA, chunks, алиасы
+- `.env` — переменные окружения (не коммитится); `.env.example` — шаблон
+- `docker-compose.prod.yml` — продакшн деплой
+- `docker-compose.dev.yml` — локальная разработка
 
-**Основная логика:**
-- `backend/app/services/gemini_extractor.py`: AI-пайплайн извлечения Gemini
-- `backend/app/services/entity_service.py`: фильтрация сущностей без спойлеров
-- `backend/app/services/book_parser.py`: парсинг EPUB/FB2
-- `backend/app/tasks/book_tasks.py`: задача Celery для обработки книг
-- `frontend/src/hooks/epub/useDescriptionHighlighting.ts`: подсветка описаний с 8 стратегиями
-- `frontend/src/hooks/epub/useChapterMapping.ts`: маппинг EPUB spine на номер главы
-- `frontend/src/components/Reader/EpubReader.tsx`: главная оркестрация ридера
+**Главный AI-клиент:**
+- `backend/app/core/openrouter_client.py` — единственная точка входа для всех AI-вызовов
 
-**База данных:**
-- `backend/alembic/versions/`: история миграций (48 миграций с августа 2025)
-- `backend/app/models/`: все ORM-модели
+**Горячие файлы (менять осторожно):**
+- `frontend/src/components/Reader/EpubReader.tsx` — ~84 коммита
+- `frontend/src/hooks/epub/useDescriptionHighlighting.ts` — 8 fallback-стратегий
+- `backend/app/services/gemini_extractor.py` — 1221 строка, LLM extraction
+- `backend/app/services/entity_service.py` — спойлер-безопасная фильтрация
+- `backend/app/routers/images.py` — 957 строк
+- `backend/app/routers/reading_sessions.py` — 1089 строк
 
-**Тестирование:**
-- `backend/tests/`: тестовый набор pytest
-- `frontend/src/components/__tests__/`: тесты компонентов фронтенда
-- `frontend/src/hooks/__tests__/`: тесты хуков фронтенда
-- `frontend/src/hooks/epub/__tests__/`: тесты EPUB-хуков
+**Базы данных:**
+- `backend/alembic/versions/` — 48 миграций (alembic 1.18.4)
+- `postgres/init/` — инициализационные SQL-скрипты
 
 ## Соглашения об именовании
 
-**Файлы бэкенда:**
+**Файлы frontend:**
+- Компоненты: `PascalCase.tsx` (например, `EntityCard.tsx`, `EpubReader.tsx`)
+- Хуки: `camelCase` с префиксом `use` (например, `useDescriptionHighlighting.ts`, `useBooks.ts`)
+- Сервисы: `camelCase.ts` (например, `chapterCache.ts`, `tabSync.ts`)
+- Хранилища: `camelCase.ts` (например, `auth.ts`, `reader.ts`)
+- API-файлы: `camelCase.ts` (например, `books.ts`, `readingSessions.ts`)
+- Типы: `camelCase.ts` / `PascalCase` для интерфейсов
+
+**Файлы backend:**
+- Роутеры: `snake_case.py` (например, `reading_sessions.py`, `images.py`)
 - Сервисы: `snake_case_service.py` (например, `entity_service.py`, `auth_service.py`)
-- Модели: `snake_case.py`, соответствующие имени таблицы (например, `book.py`, `entity_mention.py`)
-- Роутеры: `snake_case.py` (например, `reading_sessions.py`, `descriptions.py`)
+- Модели: `snake_case.py` совпадает с именем таблицы (например, `entity.py` → таблица `entities`)
+- Схемы: `snake_case.py` (например, `books_validation.py`, `entities.py`)
 - Задачи: `snake_case_tasks.py` (например, `book_tasks.py`, `image_tasks.py`)
-- Миграции: `YYYY_MM_DD_HHMM-{hash}_{description}.py`
 
-**Файлы фронтенда:**
-- Компоненты: `PascalCase.tsx` (например, `EntityProfile.tsx`, `BookUploadModal.tsx`)
-- Хуки: `camelCase.ts` с префиксом `use` (например, `useEpubLoader.ts`, `useCFITracking.ts`)
-- API-функции: `camelCase.ts` по домену (например, `books.ts`, `readingSessions.ts`)
-- Сторы: `camelCase.ts` (например, `auth.ts`, `reader.ts`)
-- Типы: `camelCase.ts` (например, `api.ts`, `epub.ts`, `entity.ts`)
-- Сервисы: `camelCase.ts` (например, `chapterCache.ts`, `storageManager.ts`)
+**Директории:**
+- Frontend: `PascalCase` для компонентов (`Reader/`, `Entities/`), `camelCase` для хуков/сервисов (`epub/`, `api/`)
+- Backend: `snake_case` для всех модулей
 
-**Каталоги:**
-- Бэкенд: `snake_case/` (например, `reading_sessions/`, `book/`)
-- Компоненты фронтенда: `PascalCase/` (например, `Reader/`, `Entities/`, `UI/`)
-- Хуки фронтенда: `camelCase/` (например, `epub/`, `api/`, `reader/`)
+## Куда добавлять новый код
 
-## Где добавлять новый код
+**Новый API-эндпоинт:**
+- Роутер: `backend/app/routers/{domain}.py` или новый модуль в существующем подпакете
+- Схемы: `backend/app/schemas/responses/{domain}.py`
+- Подключение: в `backend/app/main.py` через `app.include_router(...)`
 
-**Новая фича бэкенда (REST-эндпоинт):**
-- Сервис: `backend/app/services/{feature}_service.py`
-- Роутер: `backend/app/routers/{feature}.py` или расширение существующего роутера
-- Схема: `backend/app/schemas/responses/{feature}.py`
-- Зарегистрировать роутер в `backend/app/main.py`
-- Миграция при изменениях БД: `cd backend && alembic revision --autogenerate -m "description"`
+**Новый компонент React:**
+- Компонент: `frontend/src/components/{Feature}/{ComponentName}.tsx`
+- Тест: `frontend/src/components/{Feature}/__tests__/{ComponentName}.test.tsx` или рядом
 
-**Новая модель бэкенда:**
-- Файл: `backend/app/models/{model_name}.py`, наследующий `Base` из `core/database.py`
-- Импортировать в `backend/app/models/__init__.py`
-- Создать миграцию: `alembic revision --autogenerate`
+**Новый API-хук (TanStack Query):**
+- Файл: `frontend/src/hooks/api/use{Domain}.ts`
+- Ключи запросов: добавить в `frontend/src/hooks/api/queryKeys.ts`
 
-**Новая задача Celery:**
-- Файл: `backend/app/tasks/{domain}_tasks.py`
-- Использовать декоратор `@celery_app.task` с `bind=True`
-- Зарегистрировать в `celery_app.conf.update(task_routes=...)` для маршрутизации в очередь
-
-**Новый хук API фронтенда:**
-- Добавить API-функцию в `frontend/src/api/{domain}.ts`
-- Добавить фабрику ключей запросов в `frontend/src/hooks/api/queryKeys.ts`
-- Создать хук в `frontend/src/hooks/api/use{Feature}.ts`
-- Экспортировать из `frontend/src/hooks/api/index.ts`
-
-**Новый компонент фронтенда:**
-- Доменный компонент: `frontend/src/components/{Domain}/MyComponent.tsx`
-- UI-примитив: `frontend/src/components/UI/MyComponent.tsx`
-- Экспортировать из доменного `index.ts`
-
-**Новая страница фронтенда:**
-- Файл: `frontend/src/pages/{Name}Page.tsx`
-- Добавить ленивый импорт и маршрут в `frontend/src/App.tsx`
-
-**Новый EPUB-хук:**
+**Новый хук EPUB:**
 - Файл: `frontend/src/hooks/epub/use{Feature}.ts`
-- Экспортировать из `frontend/src/hooks/epub/index.ts`
-- Импортировать в `EpubReader.tsx` и подключить через пропсы
+- Экспорт: добавить в `frontend/src/hooks/epub/index.ts`
 
-**Новый Zustand-стор:**
-- Файл: `frontend/src/stores/{name}.ts`
-- Экспортировать из `frontend/src/stores/index.ts`
-- Инициализировать в `initializeStores()` при необходимости
+**Новая бизнес-логика backend:**
+- Сервис: `backend/app/services/{domain}_service.py`
+- Импортировать в роутер через FastAPI Depends
 
-## Специальные каталоги
+**Новая Celery-задача:**
+- Файл: `backend/app/tasks/{domain}_tasks.py`
+- Зарегистрировать в `backend/app/core/celery_app.py` (include или beat_schedule)
 
-**`backend/storage/`:**
-- Назначение: локальное файловое хранилище для загруженных EPUB и сгенерированных изображений
-- Генерируется: да (при выполнении)
-- Коммитится: нет (`.gitignore`)
+**Новая SQLAlchemy-модель:**
+- Модель: `backend/app/models/{name}.py` наследуется от `Base`
+- Миграция: `cd backend && alembic revision --autogenerate -m "description"`
 
-**`backend/alembic/versions/`:**
-- Назначение: история миграций базы данных
-- Генерируется: через `alembic revision --autogenerate`
-- Коммитится: да (необходимо для воспроизводимых развёртываний)
+**Новая страница:**
+- Страница: `frontend/src/pages/{Name}Page.tsx`
+- Маршрут: добавить в конфигурацию React Router (обычно в `frontend/src/main.tsx` или отдельный файл маршрутов)
 
-**`frontend/src/locales/`:**
-- Назначение: файлы переводов i18n (русский — основной язык)
-- Генерируется: нет
-- Коммитится: да
-
-**`backend/htmlcov/`:**
-- Назначение: HTML-отчёт о покрытии pytest
-- Генерируется: да (`pytest --cov`)
-- Коммитится: нет
+## Особые директории
 
 **`.planning/`:**
-- Назначение: документы планирования GSD (архитектура, спецификации, фазы)
-- Генерируется: инструментами GSD
-- Коммитится: да
+- Назначение: GSD-планирование проекта (ROADMAP, STATE, фазы)
+- `codebase/` — документы анализа кодовой базы (этот файл)
+- `phases/` — PLAN-файлы по фазам
+- Генерируется: нет (ручное и автоматическое через GSD-агентов)
 
-**`.claude/`:**
-- Назначение: скиллы, правила, хуки, агенты Claude Code
-- Генерируется: частично (часть автогенерируется, часть написана вручную)
-- Коммитится: да
+**`backend/storage/`:**
+- Назначение: Файлы книг (EPUB/FB2) и обложки
+- Монтируется в Caddy как `/storage/*`
+- Генерируется: да (при загрузке файлов пользователем)
+- Коммитится: нет (в `.gitignore`)
 
-**`nginx/`:**
-- Назначение: конфигурация Nginx для продакшен-прокси
-- Генерируется: нет
-- Коммитится: да
+**`backend/alembic/versions/`:**
+- Назначение: История миграций PostgreSQL (48 файлов)
+- Генерируется: частично (через `alembic revision --autogenerate`)
+- Коммитится: да (обязательно)
+
+**`frontend/dist/`:**
+- Назначение: Продакшн-сборка (статические файлы)
+- Генерируется: при `npm run build`
+- Коммитится: нет
+
+**`backend/.venv/`:**
+- Назначение: Python virtual environment
+- Коммитится: нет
+
+**`monitoring/`:**
+- Назначение: Конфигурации Grafana, Prometheus, Loki, Netdata
+- Используется: `docker-compose.monitoring.yml`
 
 ---
 
-*Анализ структуры: 2026-02-27*
+*Анализ структуры: 2026-03-04*

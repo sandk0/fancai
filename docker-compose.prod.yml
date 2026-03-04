@@ -11,6 +11,7 @@
 # - Celery Beat: 256MB
 # - Caddy: 128MB
 # - Frontend: 256MB (build-only, exits after completing)
+# - pgbackup: 256MB
 # Total: ~18GB (leaving 14GB for OS + headroom)
 #
 # Usage:
@@ -318,6 +319,36 @@ services:
           cpus: '0.2'
           memory: 384M
 
+  # PostgreSQL Backup (daily, 7-day retention)
+  pgbackup:
+    image: prodrigestivill/postgres-backup-local:17
+    container_name: fancai_pgbackup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_EXTRA_OPTS=-Z6 --format=custom --blobs
+      - SCHEDULE=@daily
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=0
+      - BACKUP_KEEP_MONTHS=0
+      - HEALTHCHECK_PORT=8080
+    volumes:
+      - pgbackup_data:/backups
+    networks:
+      - fancai_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
 volumes:
   postgres_data:
     driver: local
@@ -330,6 +361,13 @@ volumes:
   caddy_config:       # Caddy конфигурационный кеш
     driver: local
   frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
+  # mkdir -p /backups/postgres && chown 999:999 /backups/postgres
+  pgbackup_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /backups/postgres
 
 networks:
   fancai_network:
