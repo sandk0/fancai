@@ -1,265 +1,279 @@
 # Архитектура
 
-**Дата анализа:** 2026-02-27
+**Дата анализа:** 2026-03-04
 
-## Обзор паттернов
+## Обзор паттерна
 
-**В целом:** Полностековый разделённый монолит с асинхронным бэкендом и PWA-фронтендом
+**Общий паттерн:** Fullstack SPA с асинхронным AI-конвейером
 
 **Ключевые характеристики:**
-- Бэкенд — асинхронный REST + WebSocket API на FastAPI, с Celery для тяжёлых асинхронных задач
-- Фронтенд — React SPA (PWA) с TanStack Query для серверного состояния и Zustand для клиентского состояния
-- Два отдельных AI-пайплайна: извлечение Gemini (сущности/описания) и генерация Imagen (изображения). Оба мигрируют на OpenRouter в Phase 3 (Imagen 4 → FLUX.2)
-- Offline-first фронтенд с кешированием в IndexedDB через `chapterCache`, `epubCache`, `imageCache`
-- Система сущностей без спойлеров, использующая CFI-позиции EPUB для фильтрации данных сущностей до текущей позиции чтения
+- Frontend — React SPA (PWA) отдаётся Caddy как статика; все запросы проксируются через единый домен
+- Backend — FastAPI с async SQLAlchemy; тяжёлые AI-задачи вынесены в Celery-воркер
+- Все AI-вызовы (LLM + генерация изображений) идут через единый клиент `openrouter_client.py` → OpenRouter API
+- Сессии аутентификации — HttpOnly cookie с JWT; token blacklist хранится в Redis
+- Прогресс обработки книги передаётся через Redis PubSub → WebSocket (endpoint `/ws/book-progress/{book_id}`)
 
 ## Слои
 
-**Бэкенд: Базовая инфраструктура:**
-- Назначение: конфигурация, фабрика DB-сессий, кеш Redis, аутентификация, ограничение частоты запросов, Celery
-- Расположение: `backend/app/core/`
-- Содержит: `config.py`, `database.py`, `cache.py`, `auth.py`, `celery_app.py`, `dependencies.py`, `exceptions.py`, `retry.py`, `container.py`
-- Зависит от: ничего внутреннего
-- Используется: всеми остальными слоями бэкенда
+### Frontend
 
-**Бэкенд: Модели данных:**
-- Назначение: определения ORM-моделей SQLAlchemy
-- Расположение: `backend/app/models/`
-- Содержит: `book.py`, `chapter.py`, `entity.py`, `entity_mention.py`, `entity_relationship.py`, `description.py`, `description_entity.py`, `user.py`, `reading_session.py`, `image.py`
-- Зависит от: `core/database.py` (базовый класс)
-- Используется: сервисами, роутерами (через внедрение зависимостей)
-
-**Бэкенд: Сервисы (бизнес-логика):**
-- Назначение: вся бизнес-логика, AI-интеграция, операции с данными
-- Расположение: `backend/app/services/`
-- Содержит:
-  - AI: `gemini_extractor.py` (Gemini API для извлечения сущностей/описаний), `imagen_generator.py` (генерация изображений Imagen 4; мигрирует на FLUX.2 через OpenRouter в Phase 3)
-  - Сущности: `entity_service.py`, `entity_deduplication_service.py`, `entity_synthesis_service.py`, `graph_service.py`
-  - Книги: `book/book_service.py`, `book/book_progress_service.py`, `book/book_parsing_service.py`, `book/book_statistics_service.py`
-  - Парсинг: `book_parser.py` (парсер EPUB/FB2), `description_extraction_service.py`
-  - Аутентификация: `auth_service.py`, `token_blacklist.py`
-  - Чтение: `reading_session_service.py`, `reading_session_cache.py`
-  - Инфраструктура: `settings_manager.py`, `push_notification_service.py`, `llm_cache_service.py`
-- Зависит от: моделей, базовой инфраструктуры
-- Используется: роутерами, задачами Celery
-
-**Бэкенд: Роутеры (API-эндпоинты):**
-- Назначение: обработка HTTP-запросов, валидация входных данных, сериализация ответов
-- Расположение: `backend/app/routers/`
-- Содержит: `auth.py`, `users.py`, `images.py` (33K строк), `reading_sessions.py` (41K строк), `chapters.py`, `descriptions.py`, `health.py`, `push.py`, `sync.py`, `websocket.py`
-- Модульные суб-роутеры: `books/crud.py`, `books/entities.py`, `books/processing.py`, `books/validation.py`
-- Админка: каталог `admin/` с отдельными admin-эндпоинтами
-- Зависит от: сервисов, базовой инфраструктуры (для зависимостей/аутентификации), схем
-- Используется: FastAPI-приложением в `main.py`
-
-**Бэкенд: Схемы:**
-- Назначение: валидация запросов/ответов через Pydantic v2
-- Расположение: `backend/app/schemas/`
-- Содержит: `push.py`, `responses/` (entities, images, reading_sessions и др.)
-- Зависит от: ничего
-- Используется: роутерами
-
-**Бэкенд: Задачи Celery:**
-- Назначение: тяжёлая асинхронная обработка: парсинг книг, генерация изображений, очистка сессий
-- Расположение: `backend/app/tasks/`
-- Содержит: `book_tasks.py` (лимит 3ч, распределённая блокировка), `image_tasks.py` (300с), `reading_sessions_tasks.py`, `cleanup_tasks.py`, `auth_tasks.py`
-- Зависит от: сервисов, моделей, базовой инфраструктуры
-- Используется: роутерами (запуск через task.delay()), Celery Beat (по расписанию)
-
-**Фронтенд: API-слой:**
-- Назначение: вся HTTP-коммуникация с бэкендом
-- Расположение: `frontend/src/api/`
-- Содержит: `client.ts` (Axios-синглтон с интерцепторами + автоматическое обновление токена), `books.ts`, `images.ts`, `readingSessions.ts`, `admin.ts`, `auth.ts`, `descriptions.ts`, `push.ts`
-- Зависит от: ничего во фронтенде
-- Используется: хуками TanStack Query
-
-**Фронтенд: Хуки TanStack Query:**
-- Назначение: управление серверным состоянием — получение данных, кеширование, мутации
-- Расположение: `frontend/src/hooks/api/`
-- Содержит: `useBooks.ts`, `useChapter.ts`, `useDescriptions.ts`, `useImages/`, `useParsingStatus.ts`, `queryKeys.ts`
-- Зависит от: API-слоя
-- Используется: страницами, компонентами
-
-**Фронтенд: EPUB-хуки:**
-- Назначение: интеграция с epub.js, отслеживание CFI-позиций, навигация по главам, подсветка описаний
-- Расположение: `frontend/src/hooks/epub/`
-- Содержит: `useEpubLoader.ts`, `useEpubNavigation.ts`, `useEpubRendition.ts`, `useCFITracking.ts`, `useDescriptionHighlighting.ts`, `useChapterMapping.ts`, `useEpubThemes.ts`, `useSwipeNavigation.ts`, `useTouchNavigation.ts`, всего 25+ хуков
-- Зависит от: API-слоя, слоя сервисов, сторов
-- Используется: исключительно `EpubReader.tsx`
-
-**Фронтенд: Хранилища состояния (Zustand):**
-- Назначение: глобальное клиентское состояние
-- Расположение: `frontend/src/stores/`
-- Содержит: `auth.ts` (JWT + пользователь), `reader.ts` (режим навигации, настройки), `ui.ts` (уведомления, модалки), `index.ts` (инициализация)
-- Зависит от: ничего
-- Используется: всеми компонентами/хуками, которым нужно глобальное состояние
-
-**Фронтенд: Сервисы (клиентские):**
-- Назначение: IndexedDB, PWA, кеширование, офлайн-функциональность
-- Расположение: `frontend/src/services/`
-- Содержит: `chapterCache.ts`, `epubCache.ts`, `imageCache.ts`, `db.ts` (обёртка IndexedDB), `storageManager.ts`, `downloadManager.ts`, `syncQueue.ts`, `pushNotifications.ts`
-- Зависит от: ничего
-- Используется: хуками, компонентами
-
-**Фронтенд: Страницы:**
-- Назначение: компоненты уровня маршрутов, компонуют доменные компоненты
+**Слой страниц:**
+- Назначение: Точки входа маршрутов, компоновка UI
 - Расположение: `frontend/src/pages/`
-- Содержит: `LibraryPage.tsx`, `BookPage.tsx`, `BookReaderPage.tsx`, `BookImagesPage.tsx`, `ProfilePage.tsx`, `AdminDashboardEnhanced.tsx` и др.
-- Зависит от: хуков TanStack Query, компонентов, сторов
-- Используется: роутером в `App.tsx`
+- Содержит: `LibraryPage.tsx`, `BookReaderPage.tsx`, `AdminDashboardEnhanced.tsx`, и ещё 13 страниц
+- Зависит от: компонентов, хуков API, хранилищ Zustand
 
-**Фронтенд: Компоненты:**
-- Назначение: переиспользуемые UI-компоненты
+**Слой компонентов:**
+- Назначение: UI-блоки с изоляцией логики
 - Расположение: `frontend/src/components/`
-- Ключевые домены: `Reader/` (UI EPUB-ридера), `Entities/` (UI глоссария сущностей), `Books/`, `UI/` (дизайн-система), `Admin/`, `Auth/`
+- Ключевые группы: `Reader/` (23 файла), `Entities/` (12 файлов), `Books/`, `Auth/`, `Admin/`, `UI/`
+- Reader декомпозирован: `EpubReader.tsx` (286 строк) + `Core/` (4 файла) + 25+ хуков в `hooks/epub/`
 
-## Потоки данных
+**Слой хуков:**
+- Назначение: Логика взаимодействия с API и EPUB
+- Расположение: `frontend/src/hooks/`
+- Подгруппы:
+  - `hooks/api/` — 8 файлов TanStack Query (useBooks, useChapter, useDescriptions, useImages, useRecap и др.)
+  - `hooks/epub/` — 26 хуков для EPUB: CFI-трекинг, навигация, подсветка описаний, темы, свайпы
+  - `hooks/reader/` — хуки специфичные для Reader (позиция, навигация по главам)
 
-**Поток загрузки и обработки книги:**
-1. Пользователь загружает EPUB/FB2 через `BookUploadModal.tsx` → `POST /api/v1/books`
-2. Роутер сохраняет файл, создаёт запись Book с `is_processing=True`
-3. Роутер запускает `process_book_task.delay(book_id)` (Celery)
-4. Задача Celery парсит книгу через `book_parser.py`, создаёт записи `Chapter`
-5. Фронтенд опрашивает `GET /api/v1/books/{id}` или подписывается на WebSocket `wss://.../ws/book-progress/{id}`
-6. WebSocket транслирует обновления прогресса через Redis PubSub (поддержка нескольких воркеров)
-7. По завершении `is_processing=False`, кеш TanStack Query на фронтенде инвалидируется
+**Слой сервисов (frontend):**
+- Назначение: Офлайн-кэширование, фоновая синхронизация
+- Расположение: `frontend/src/services/`
+- Ключевые: `chapterCache.ts` (IndexedDB через Dexie, TTL 7 дней), `imageCache.ts`, `syncQueue.ts`, `tabSync.ts`, `websocket.tsx` (заглушка — WS cookie auth не реализован)
 
-**Поток AI-извлечения (по запросу, для каждой главы):**
-1. Ридер открывает главу через `GET /api/v1/books/{id}/chapters/{num}`
-2. Если извлечение ещё не выполнялось, запускается `description_extraction_service.py`
-3. `gemini_extractor.py` вызывает Gemini 3.0 Flash с чанками по 100K символов + перекрытие 15%
-4. Извлекаются описания (визуальные абзацы) и сущности (персонажи/локации/объекты)
-5. Два режима: TSA (XML-теги, по умолчанию) и Legacy (JSON)
-6. Результаты сохраняются в таблицы `descriptions`, `entities`, `entity_mentions`
-7. Последующие запросы обслуживаются из БД + кеша Redis
+**Слой хранилищ (Zustand):**
+- Назначение: Клиентское глобальное состояние
+- Расположение: `frontend/src/stores/`
+- Три хранилища: `auth.ts` (пользователь, токены), `reader.ts` (настройки читалки, прогресс), `ui.ts` (уведомления)
 
-**Поток сущностей без спойлеров:**
-1. Читатель доходит до главы N (отслеживается по CFI-позиции)
-2. Фронтенд вызывает `GET /api/v1/books/{id}/entities?chapter={N}`
-3. `entity_service.py` фильтрует сущности, оставляя только те, что впервые упомянуты в главах <= N
-4. Детали сущностей (описания, связи) также фильтруются до главы <= N
-5. `EntityDrawer.tsx` → `EntityProfile.tsx` отображает вики без спойлеров
-
-**Поток генерации изображений:**
-1. Описания извлечены → задача генерации изображений ставится в очередь
-2. `image_tasks.py` вызывает `imagen_generator.py`
-3. `imagen_generator.py` переводит RU→EN через Gemini, затем вызывает Imagen 4 API (мигрирует на FLUX.2 через OpenRouter в Phase 3)
-4. Сгенерированное изображение сохраняется, запись `Image` создаётся в БД
-5. Ридер показывает изображения, наложенные на соответствующие текстовые фрагменты, через `useDescriptionHighlighting.ts`
-
-**Поток сессий чтения:**
-1. `useReadingSession.ts` отслеживает активное время чтения
-2. Прогресс синхронизируется через `useProgressSync.ts` на `PUT /api/v1/books/{id}/progress`
-3. Офлайн-чтения ставятся в очередь `syncQueue.ts`, воспроизводятся при подключении к сети
-4. Сессии чтения записываются в таблицу `reading_sessions` для статистики
-
-**Управление состоянием:**
-- Серверное состояние: TanStack Query с ключами, привязанными к пользователю (`['books', userId, ...]`)
-- Клиентское UI-состояние: Zustand-сторы (`auth`, `reader`, `ui`)
-- Офлайн-данные: IndexedDB через `db.ts` (книги, главы, изображения)
-- Синхронизация между вкладками: `tabSync.ts` транслирует изменения состояния
-
-## Ключевые абстракции
-
-**GeminiDirectExtractor:**
-- Назначение: унифицированное AI-извлечение, производящее описания и сущности одновременно
-- Файлы: `backend/app/services/gemini_extractor.py`
-- Паттерн: структурированный вывод Pydantic с `GeminiEntitySchema`, `GeminiRelationshipSchema`; повторные попытки через tenacity `retry_llm_extraction`
-
-**EntityService:**
-- Назначение: фильтрация данных сущностей без спойлеров и сортировка на основе CFI
-- Файлы: `backend/app/services/entity_service.py`
-- Паттерн: класс-сервис, внедряемый через FastAPI `Depends(get_database_session)`
-
-**BookParser:**
-- Назначение: парсинг файлов EPUB/FB2 в структурированные записи Chapter
-- Файлы: `backend/app/services/book_parser.py`
-- Паттерн: класс-сервис с методами `parse_book()`, `detect_format()`; использует `ebooklib` и `lxml`
-
-**ApiClient:**
-- Назначение: Axios-синглтон с автоматическим обновлением JWT и нормализацией ошибок
-- Файлы: `frontend/src/api/client.ts`
-- Паттерн: класс-синглтон, экспортируемый как `apiClient`; HttpOnly cookie-аутентификация; дедупликация одиночного обновления
-
-**EpubReader:**
-- Назначение: основной интерфейс чтения EPUB, оркестрирует 25+ хуков
-- Файлы: `frontend/src/components/Reader/EpubReader.tsx`
-- Паттерн: функциональный компонент, делегирующий всю логику хукам; UI разделён на `ReaderUI`, `ReaderModals`, `ReaderOverlays`
-
-**QueryKeys:**
-- Назначение: централизованный реестр ключей TanStack Query, привязанных к пользователю для безопасности
-- Файлы: `frontend/src/hooks/api/queryKeys.ts`
-- Паттерн: фабрики `bookKeys`, `chapterKeys` и др., требующие параметр `userId`
-
-**DI-контейнер:**
-- Назначение: внедрение зависимостей для сервисов бэкенда
-- Файлы: `backend/app/core/container.py`
-- Паттерн: абстракции Protocol/Interface + фабрики `lru_cache`; поддерживает переопределение в тестах
-
-## Точки входа
-
-**API бэкенда:**
-- Расположение: `backend/app/main.py`
-- Запуск: HTTP-сервер uvicorn
-- Обязанности: создание FastAPI-приложения, стек middleware, регистрация роутеров, жизненный цикл (инициализация/закрытие Redis + ограничителя частоты)
-
-**Фронтенд-приложение:**
-- Расположение: `frontend/src/main.tsx`, `frontend/src/App.tsx`
-- Запуск: дев-сервер Vite или раздача статических файлов
-- Обязанности: корень React-дерева, определения маршрутов, провайдер TanStack Query, ленивая загрузка чанков, регистрация Service Worker
-
-**Celery-воркер:**
-- Расположение: `backend/app/core/celery_app.py`
-- Запуск: `celery -A app.core.celery_app worker`
-- Обязанности: маршрутизация задач (очередь `heavy` для обработки книг, `normal` для изображений, `light` для очистки), расписание beat
-
-**WebSocket-сервер:**
-- Расположение: `backend/app/routers/websocket.py`
-- Запуск: клиент подключается к `wss://.../ws/book-progress/{book_id}`
-- Обязанности: подписка на Redis PubSub по книге, рассылка подключённым клиентам, JWT cookie-аутентификация
-
-## Обработка ошибок
-
-**Стратегия:** RFC 9457 Problem Details на бэкенде, типизированные ответы об ошибках на фронтенде
-
-**Паттерны бэкенда:**
-- Кастомный `ProblemDetail(HTTPException)` из `backend/app/core/exceptions.py` для структурированных ответов об ошибках
-- `problem_detail_exception_handler` зарегистрирован глобально в `main.py`
-- CORS-заголовки сохраняются во всех ответах с ошибками через кастомные обработчики исключений
-- Декораторы повторных попыток tenacity из `backend/app/core/retry.py` для всех вызовов LLM и внешних API
-- Задачи Celery: `max_retries=3`, `default_retry_delay=60`, обработка `SoftTimeLimitExceeded`
-
-**Паттерны фронтенда:**
-- `ErrorBoundary` оборачивает всё приложение на корневом уровне (`main.tsx`) и по маршрутам через `ChunkLoadErrorBoundary`
-- Axios-интерцептор в `client.ts` обрабатывает 401 → автоматическое обновление токена → повтор
-- Встроенные повторные попытки TanStack Query с экспоненциальной задержкой
-- Определение офлайн-режима через `useOnlineStatus.ts`, очередь синхронизации через `syncQueue.ts`
-
-## Сквозные задачи
-
-**Логирование:**
-- Бэкенд: на основе `structlog` через `backend/app/core/logging.py`, структурированный JSON-вывод
-- Фронтенд: обёртка `frontend/src/lib/logger.ts`, подавляющая логи в продакшене
-
-**Валидация:**
-- Бэкенд: Pydantic v2 для всех схем запросов/ответов; кастомные валидаторы в `core/validation.py`
-- Фронтенд: TypeScript-типы в `frontend/src/types/api.ts`, `types/epub.ts`, `types/entity.ts`
-
-**Аутентификация:**
-- HttpOnly JWT-куки (access + refresh токены)
-- `ACCESS_TOKEN_EXPIRE_MINUTES=10080` (7 дней), `REFRESH_TOKEN_EXPIRE_DAYS=30`
-- Бэкенд: `core/auth.py`, `services/auth_service.py`, `services/token_blacklist.py`
-- Фронтенд: хранится в `useAuthStore` (Zustand), cookie отправляется браузером автоматически
-
-**Ограничение частоты запросов:**
-- Ограничитель на основе Redis в `backend/app/core/rate_limiter.py`
-- Применяется через декоратор `@rate_limit()` на чувствительных эндпоинтах
-- Деградирует плавно при недоступности Redis
-
-**Кеширование:**
-- Бэкенд: менеджер кеша Redis в `backend/app/core/cache.py`; кеш результатов LLM в `services/llm_cache_service.py`
-- Фронтенд: TanStack Query (сетевые ответы), IndexedDB (главы, EPUB, изображения)
+**Слой API-клиента:**
+- Назначение: HTTP-обёртка над axios
+- Расположение: `frontend/src/api/client.ts`
+- Синглтон `apiClient`; автоматический refresh токена при 401; поддержка FormData
 
 ---
 
-*Анализ архитектуры: 2026-02-27*
+### Backend
+
+**Слой роутеров (API):**
+- Назначение: HTTP-эндпоинты, валидация входящих данных через Pydantic
+- Расположение: `backend/app/routers/`
+- Состав: 25 файлов, 97 маршрутов + 1 WebSocket
+- Ключевые модули:
+  - `routers/books/` — подпакет (рефакторинг 2026-03-01): `crud.py` (792 строки), `entities.py`, `processing.py`, `validation.py`, `__init__.py` (сборка)
+  - `routers/admin/` — подпакет: 9 модулей (stats, parsing, images, system, users, reading_sessions, cache, feature_flags, entities)
+  - `routers/images.py` — 957 строк (13 маршрутов)
+  - `routers/reading_sessions.py` — 1089 строк (8 маршрутов)
+  - `routers/websocket.py` — WebSocket для прогресса обработки книги
+
+**Слой сервисов:**
+- Назначение: Бизнес-логика, AI-вызовы, парсинг книг
+- Расположение: `backend/app/services/`
+- Ключевые сервисы:
+  - `gemini_extractor.py` — 1221 строк; извлечение описаний и сущностей за один вызов `analyze_chapter()`; чанки 100K символов с 15% перекрытием
+  - `book_parser.py` — 1199 строк; парсинг EPUB (ebooklib) и FB2 (lxml)
+  - `entity_service.py` — 680 строк; управление сущностями, спойлер-безопасная фильтрация по CFI
+  - `entity_deduplication_service.py` — fuzzy matching + LLM семантический merge
+  - `image_generator.py` / `imagen_generator.py` — генерация изображений через OpenRouter (FLUX.2 Klein); перевод RU→EN перед запросом
+  - `reading_session_service.py` / `reading_session_cache.py` — сессии чтения с кэшированием в Redis
+
+**Слой ядра (core):**
+- Назначение: Инфраструктура, конфигурация, утилиты
+- Расположение: `backend/app/core/`
+- Ключевые файлы:
+  - `openrouter_client.py` — 537 строк; единый AI-клиент с цепочкой fallback-моделей
+  - `config.py` — `Settings` через pydantic-settings; все параметры из env
+  - `database.py` — async SQLAlchemy engine, connection pool (pool_size=20, max_overflow=40)
+  - `auth.py` — JWT из HttpOnly cookie или Bearer-заголовка; token blacklist проверка
+  - `celery_app.py` — Celery с Redis DB1 как брокером, DB2 как backend; очереди: heavy/normal/light
+  - `cache.py` — Redis DB0 для кэширования; TTL управляемый
+  - `pubsub.py` — Redis PubSub для прогресса обработки книги
+  - `exceptions.py` — RFC 9457 ProblemDetail исключения
+  - `retry.py` — tenacity декораторы для внешних вызовов
+
+**Слой моделей:**
+- Назначение: SQLAlchemy ORM-модели
+- Расположение: `backend/app/models/`
+- 18 моделей; все с `lazy="raise"` (требует явного selectinload/joinedload)
+- Ключевые: `book.py`, `entity.py`, `entity_relationship.py`, `entity_mention.py`, `description.py`, `chapter.py`, `user.py`, `reading_session.py`
+
+**Слой задач Celery:**
+- Назначение: Фоновые AI-задачи и периодические задания
+- Расположение: `backend/app/tasks/`
+- Файлы: `book_tasks.py` (soft limit 3h), `image_tasks.py` (soft limit 300s), `cleanup_tasks.py`, `reading_sessions_tasks.py`, `auth_tasks.py`, `utility_tasks.py`
+
+**Слой схем:**
+- Назначение: Pydantic-схемы запросов и ответов
+- Расположение: `backend/app/schemas/` и `backend/app/schemas/responses/`
+- 15 файлов схем ответов
+
+**Слой миддлвара:**
+- Расположение: `backend/app/middleware/`
+- `security_headers.py` — XSS, clickjacking, MIME-sniffing защита
+- `cache_control.py` — HTTP-кэширование
+- `rate_limit.py` — ограничение запросов через Redis
+
+## Потоки данных
+
+### Загрузка и обработка книги
+
+1. Frontend: `POST /api/v1/books/upload` (multipart form) → `routers/books/crud.py`
+2. Backend: сохраняет EPUB-файл в `backend/storage/books/`, создаёт запись `Book` в PostgreSQL
+3. Frontend: `POST /api/v1/books/{id}/process` → `routers/books/processing.py`
+4. Backend: ставит задачу `process_book_task` в Celery очередь `heavy`
+5. Celery Worker: парсит книгу (`book_parser.py`) → делит текст на чанки по 100K символов с 15% перекрытием
+6. Для каждого чанка: вызов `gemini_extractor.analyze_chapter()` через `openrouter_client.py` → OpenRouter API (Gemini 3 Flash)
+7. Результат: создаются записи `Description` и `Entity` в PostgreSQL
+8. Прогресс: каждый шаг публикует в Redis PubSub → WebSocket → Frontend
+9. Frontend: опрашивает `GET /api/v1/books/{id}/parsing-status` (polling), обновляет UI
+
+### Генерация изображений
+
+1. Frontend: `POST /api/v1/images/generate` → `routers/images.py`
+2. Backend: ставит задачу `generate_image_task` в Celery очередь `normal`
+3. Celery Worker: переводит описание RU→EN (OpenRouter LLM), генерирует изображение (FLUX.2 Klein через OpenRouter)
+4. Сохраняет изображение в `backend/storage/books/` (или S3 при настройке)
+5. Frontend: опрашивает статус изображения
+
+### Чтение с EPUB
+
+1. Frontend: `GET /api/v1/books/{id}/file` → файл EPUB отдаётся из `backend/storage/`
+2. epub.js рендерит EPUB в iframe; позиция отслеживается через CFI (не номера страниц)
+3. При переходе по CFI: хук `useProgressSync` сохраняет позицию в `POST /api/v1/books/{id}/reading-progress`
+4. Описания загружаются через `GET /api/v1/books/{id}/descriptions`; `useDescriptionHighlighting` применяет 8 стратегий поиска для подсветки текста
+5. Данные главы кэшируются в IndexedDB (Dexie, `chapterCache.ts`) для офлайн-доступа
+
+### Система сущностей (спойлер-безопасная)
+
+1. Frontend: при изменении главы вызывает `GET /api/v1/books/{id}/entities/network?current_chapter=N`
+2. Backend `entity_service.py`: фильтрует сущности по CFI текущей главы — показывает только те, что появились не позже текущей позиции читателя
+3. Данные возвращаются как граф (узлы + рёбра отношений)
+4. Frontend: компоненты `Entities/EntityDrawer.tsx`, `EntityList.tsx`, `EntityProfile.tsx` рендерят энциклопедию
+
+### Управление состоянием
+
+- Серверное состояние: TanStack Query (кэш, инвалидация, фоновое обновление)
+- Клиентское состояние: Zustand (3 хранилища)
+- Офлайн: IndexedDB (Dexie) + Service Worker (Workbox)
+- Сессия: HttpOnly cookie (access_token, refresh_token)
+
+## Ключевые абстракции
+
+### AI-конвейер (OpenRouter Client)
+
+- Назначение: Единая точка входа для всех AI-вызовов
+- Файл: `backend/app/core/openrouter_client.py`
+- Паттерн: Facade с fallback chain (Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite)
+- Методы: `generate_text()`, `generate_structured()`, `generate_image()`
+- Fallback триггер: только на `httpx.HTTPStatusError` и `httpx.TimeoutException`; `JSONDecodeError` и `ValidationError` не вызывают fallback
+
+### Система сущностей
+
+- Назначение: Интерактивная энциклопедия персонажей/локаций/объектов
+- Backend: `entity_service.py`, `entity_deduplication_service.py`, `graph_service.py`, `entity_synthesis_service.py`
+- Модели: `entity.py`, `entity_mention.py`, `entity_relationship.py`, `description_entity.py`, `entity_event.py`
+- Frontend: `components/Entities/` (12 файлов)
+- Ключевая особенность: спойлер-безопасность — CFI первого упоминания сущности сравнивается с текущей позицией читателя
+
+### EPUB Reader
+
+- Назначение: Читалка с подсветкой описаний и навигацией
+- Главный файл: `frontend/src/components/Reader/EpubReader.tsx` (286 строк, ~84 коммита)
+- Декомпозиция: 25+ хуков в `hooks/epub/`, UI-слои в `Core/` (ReaderUI, ReaderModals, ReaderOverlays)
+- Критично: позиция = CFI (не номера страниц), iOS-специфичные фиксы в `useEpubIOSFixes.ts`
+- Подсветка: 8 fallback-стратегий поиска в `useDescriptionHighlighting.ts`
+
+### Аутентификация
+
+- Схема: HttpOnly cookie (`access_token`) + опционально Bearer-заголовок
+- Access token: JWT HS256, срок действия 7 дней
+- Refresh token: 30 дней
+- Token blacklist: хранится в Redis (инвалидация при logout)
+- Frontend: автоматический refresh в `api/client.ts` при 401
+
+## Точки входа
+
+**Backend — `backend/app/main.py`:**
+- Создаёт FastAPI app с lifespan-менеджером
+- Порядок middleware (выполняется в обратном порядке добавления): CORS → SecurityHeaders → CacheControl → GZip → ReadingSessionsMetrics
+- Подключает 12+ роутеров с префиксом `/api/v1`
+- Инициализирует при старте: Hawk Tracker, Rate Limiter, Redis Cache, Settings Manager, Prometheus
+
+**Frontend — `frontend/src/main.tsx`:**
+- React 19 StrictMode + React Router + TanStack Query Provider
+- PWA Service Worker регистрация (Workbox)
+
+**Celery — `backend/app/core/celery_app.py`:**
+- Подключается к Redis DB1 как брокер
+- Beat schedule: закрытие брошенных сессий каждые 30 минут
+
+## Обработка ошибок
+
+**Backend:**
+- RFC 9457 `ProblemDetail` исключения (`core/exceptions.py`)
+- Кастомные исключения: `InvalidFileFormatException`, `ParsingStartException` и др.
+- Общий обработчик в `main.py` гарантирует наличие CORS-заголовков даже в error responses
+- Tenacity retry декораторы (`core/retry.py`) для всех внешних вызовов
+
+**Frontend:**
+- `ErrorBoundary` компонент (`components/ErrorBoundary/`)
+- TanStack Query обрабатывает network errors и retry
+- `api/client.ts` конвертирует ошибки axios в типизированный `ApiError`
+
+## Сквозные заботы
+
+**Логирование:**
+- Backend: loguru (`core/logging.py`); структурированные логи
+- Frontend: `lib/logger.ts`; только в dev-режиме подробный вывод
+
+**Мониторинг ошибок:**
+- Backend: Hawk Tracker (`hawk-python-sdk[fastapi]`) инициализируется в `core/hawk.py`
+- Frontend: `@hawk.so/javascript`
+- Метрики: Prometheus (`monitoring/metrics.py`) + prometheus-fastapi-instrumentator
+
+**Валидация:**
+- Backend: Pydantic v2 для всех схем; входные данные валидируются в роутерах
+- Frontend: Zod + react-hook-form
+
+**Аутентификация:**
+- Dependency Injection через FastAPI `Depends(get_current_active_user)` на каждом защищённом маршруте
+
+## Архитектура деплоя
+
+```
+Internet
+    │
+    ▼
+Caddy 2.11.1 (Auto-HTTPS, HTTP/3, zstd/gzip)
+    │  /api/*     → backend:8000 (FastAPI)
+    │  /ws/*      → backend:8000 (WebSocket)
+    │  /storage/* → /var/www/storage (файлы с диска)
+    │  /*         → /var/www/frontend (SPA static build)
+    │
+    ├─► FastAPI (Uvicorn, 2 workers, 2G RAM limit)
+    │       │
+    │       ├─► PostgreSQL 17 (12G RAM, shared_buffers=4GB)
+    │       ├─► Redis 7.4 (640MB, volatile-lru)
+    │       │     ├── DB0: кэш API-ответов
+    │       │     ├── DB1: Celery broker (НЕ очищать!)
+    │       │     └── DB2: Celery results
+    │       └─► Celery Worker (1.5G RAM, concurrency=2)
+    │               └─► OpenRouter API (LLM + Images)
+    │
+    └─► monitor.fancai.ru (basicauth)
+            ├── /netdata  → Netdata :19999
+            ├── /victoria → VictoriaMetrics :8428
+            ├── /uptime   → Uptime Kuma :3001
+            ├── /dozzle   → Dozzle (логи) :8080
+            └── /flower   → Flower (Celery UI) :5555
+```
+
+**Docker Compose:**
+- Prod: `docker-compose.prod.yml` — сеть `fancai_network` (172.22.0.0/16)
+- Dev: `docker-compose.dev.yml` — hot reload через volume mount источника backend
+- Frontend: build-контейнер (exits after build) записывает в shared volume `frontend_build`; Caddy читает из него
+
+---
+
+*Анализ архитектуры: 2026-03-04*
