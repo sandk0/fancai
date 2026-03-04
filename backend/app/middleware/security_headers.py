@@ -95,10 +95,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             ],
             "img-src": [
                 "'self'",
-                "data:",  # Allow data URIs for inline images (Google Imagen returns base64)
+                "data:",  # Allow data URIs for inline images
                 "blob:",  # Allow blob URIs for dynamic content
-                "https://*.googleusercontent.com",  # Google Imagen generated images
-                "https://*.googleapis.com",  # Google API endpoints
                 "https://*.cloudfront.net",  # CDN для uploaded covers
             ],
             "font-src": [
@@ -110,8 +108,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             ],
             "connect-src": [
                 "'self'",
-                "https://generativelanguage.googleapis.com",  # Google Imagen API
-                "https://*.googleapis.com",  # Google API endpoints
+                "https://openrouter.ai",  # OpenRouter API (LLM + images)
                 "wss://",  # Allow WebSocket connections (for real-time features)
                 "ws://localhost:*",  # Development WebSocket
             ],

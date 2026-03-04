@@ -89,7 +89,6 @@ services:
       - ALLOWED_HOSTS=localhost,127.0.0.1
       # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       # Web Push
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
@@ -135,7 +134,6 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=true
-      - POLLINATIONS_ENABLED=${POLLINATIONS_ENABLED:-true}
       - CELERY_CONCURRENCY=1
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
