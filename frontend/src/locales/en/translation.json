@@ -1242,7 +1242,10 @@
     "forbidden": "Access denied.",
     "format_error": "Book format error. Try uploading a different file.",
     "unknown": "An unexpected error occurred. Please refresh the page.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "parsing_failed": "Book processing error",
+    "parsing_retry_started": "Reprocessing started",
+    "parsing_chapter_error": "Error processing chapter: {{error}}"
   },
   "errorBoundary": {
     "app_title": "Oops! Something went wrong",
