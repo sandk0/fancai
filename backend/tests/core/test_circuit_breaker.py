@@ -13,12 +13,12 @@ Tests:
 
 import json
 import time
+from time import monotonic
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
-# Will be imported after implementation
 from app.core.openrouter_client import (
     OpenRouterClient,
     openrouter_breaker,
@@ -28,11 +28,12 @@ from app.core.openrouter_client import (
 from app.monitoring.metrics import circuit_breaker_state
 
 
-def _reset_breaker():
+def _reset_breaker() -> None:
     """Reset circuit breaker state before each test."""
     openrouter_breaker._failure_count = 0
     openrouter_breaker._state = "closed"
-    openrouter_breaker._opened = 0
+    openrouter_breaker._opened = monotonic()
+    openrouter_breaker._last_failure = None
 
 
 def _make_client() -> OpenRouterClient:
@@ -96,27 +97,23 @@ async def test_cb_opens_after_5_timeouts():
     mock_http.is_closed = False
 
     with patch.object(client, "_get_client", return_value=mock_http):
-        # First 5 calls should raise TimeoutException (through fallback chain exhaustion)
+        # With model="test-model" (single model, no fallback chain),
+        # each call goes through _post_with_breaker once.
+        # After 5 failures, CB opens.
         for i in range(5):
-            _reset_breaker()
-            openrouter_breaker._failure_count = i
-            if i < 4:
-                # Not yet at threshold, TimeoutException propagates
-                with pytest.raises(httpx.TimeoutException):
-                    await client.generate_text("test prompt", model="test-model")
-                openrouter_breaker._failure_count = i + 1
+            with pytest.raises(httpx.TimeoutException):
+                await client.generate_text("test prompt", model="test-model")
 
-    # After 5 failures, CB should be open
-    openrouter_breaker._failure_count = 5
-    openrouter_breaker._state = "open"
-    openrouter_breaker._opened = time.time()
+        assert openrouter_breaker.state == "open"
+        assert openrouter_breaker.failure_count == 5
 
-    with patch.object(client, "_get_client", return_value=mock_http):
+        # 6th call should raise CircuitBreakerError without HTTP request
+        call_count_before = mock_http.post.call_count
         with pytest.raises(CircuitBreakerError):
             await client.generate_text("test prompt", model="test-model")
 
-    # Verify no additional HTTP calls were made (CB blocked before HTTP)
-    # The mock was called during the 5 failures but not for the CB-blocked call
+        # No additional HTTP calls were made (CB blocked before HTTP)
+        assert mock_http.post.call_count == call_count_before
 
 
 @pytest.mark.asyncio
@@ -128,10 +125,10 @@ async def test_cb_half_open_after_recovery_timeout():
     mock_http = AsyncMock()
     mock_http.is_closed = False
 
-    # Set CB to open state with expired timeout
+    # Set CB to open state with expired timeout (uses monotonic clock)
     openrouter_breaker._failure_count = 5
     openrouter_breaker._state = "open"
-    openrouter_breaker._opened = time.time() - 61  # 61 seconds ago (> 60s recovery)
+    openrouter_breaker._opened = monotonic() - 61  # 61 seconds ago (> 60s recovery)
 
     # Probe request should succeed
     mock_http.post = AsyncMock(return_value=_mock_success_response())
@@ -141,12 +138,12 @@ async def test_cb_half_open_after_recovery_timeout():
 
     assert result == '{"result": "ok"}'
     # CB should now be closed after successful probe
-    assert openrouter_breaker._state == "closed"
+    assert openrouter_breaker.state == "closed"
 
 
 @pytest.mark.asyncio
 async def test_json_decode_error_does_not_trigger_cb():
-    """Test 3: JSONDecodeError does NOT increase failure count - CB stays closed."""
+    """Test 3: JSONDecodeError does NOT increase failure count -- CB stays closed."""
     client = _make_client()
 
     # Mock response that returns invalid JSON for structured endpoint
@@ -163,38 +160,41 @@ async def test_json_decode_error_does_not_trigger_cb():
     mock_http.post = AsyncMock(return_value=mock_resp)
     mock_http.is_closed = False
 
+    from pydantic import BaseModel
+
+    class TestSchema(BaseModel):
+        result: str
+
     with patch.object(client, "_get_client", return_value=mock_http):
         # generate_structured will fail on json.loads() but CB should stay closed
         with pytest.raises(json.JSONDecodeError):
-            from pydantic import BaseModel
-
-            class TestSchema(BaseModel):
-                result: str
-
             await client.generate_structured("test", TestSchema, model="test-model")
 
     # CB failure count should still be 0
-    assert openrouter_breaker._failure_count == 0
-    assert openrouter_breaker._state == "closed"
+    assert openrouter_breaker.failure_count == 0
+    assert openrouter_breaker.state == "closed"
 
 
 @pytest.mark.asyncio
 async def test_validation_error_does_not_trigger_cb():
-    """Test 4: ValidationError does NOT increase failure count - CB stays closed."""
+    """Test 4: ValidationError does NOT increase failure count -- CB stays closed."""
     from pydantic import ValidationError as PydanticValidationError
 
-    client = _make_client()
-
-    # We simulate a scenario where validation fails AFTER a successful HTTP call.
-    # The CB should not count this as a failure since it's not a network issue.
-    initial_failure_count = openrouter_breaker._failure_count
-
-    # ValidationError is not in CIRCUIT_BREAKER_EXCEPTIONS
+    # Verify ValidationError is not in CIRCUIT_BREAKER_EXCEPTIONS
     assert PydanticValidationError not in CIRCUIT_BREAKER_EXCEPTIONS
 
+    # Verify JSONDecodeError is also not in the exception list
+    assert json.JSONDecodeError not in CIRCUIT_BREAKER_EXCEPTIONS
+
+    # Only network errors are in the list
+    assert httpx.HTTPStatusError in CIRCUIT_BREAKER_EXCEPTIONS
+    assert httpx.TimeoutException in CIRCUIT_BREAKER_EXCEPTIONS
+    assert ConnectionError in CIRCUIT_BREAKER_EXCEPTIONS
+    assert OSError in CIRCUIT_BREAKER_EXCEPTIONS
+
     # CB should remain closed
-    assert openrouter_breaker._state == "closed"
-    assert openrouter_breaker._failure_count == initial_failure_count
+    assert openrouter_breaker.state == "closed"
+    assert openrouter_breaker.failure_count == 0
 
 
 @pytest.mark.asyncio
@@ -211,7 +211,7 @@ async def test_connection_and_os_errors_increase_failure_count():
         with pytest.raises(ConnectionError):
             await client.generate_text("test", model="test-model")
 
-    assert openrouter_breaker._failure_count == 1
+    assert openrouter_breaker.failure_count == 1
 
     # Test OSError
     mock_http.post = AsyncMock(side_effect=OSError("network unreachable"))
@@ -219,22 +219,22 @@ async def test_connection_and_os_errors_increase_failure_count():
         with pytest.raises(OSError):
             await client.generate_text("test", model="test-model")
 
-    assert openrouter_breaker._failure_count == 2
+    assert openrouter_breaker.failure_count == 2
 
 
 @pytest.mark.asyncio
 async def test_generate_image_protected_by_cb():
-    """Test 6: generate_image() is also protected by circuit breaker -
+    """Test 6: generate_image() is also protected by circuit breaker --
     raises CircuitBreakerError when open."""
     client = _make_client()
 
     mock_http = AsyncMock()
     mock_http.is_closed = False
 
-    # Set CB to open state
+    # Set CB to open state (uses monotonic clock)
     openrouter_breaker._failure_count = 5
     openrouter_breaker._state = "open"
-    openrouter_breaker._opened = time.time()
+    openrouter_breaker._opened = monotonic()
 
     with patch.object(client, "_get_client", return_value=mock_http):
         with pytest.raises(CircuitBreakerError):
@@ -254,29 +254,22 @@ async def test_prometheus_gauge_updated_on_open():
     mock_http.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
     mock_http.is_closed = False
 
-    # Drive CB to open state through 5 failures with single model (no fallback)
-    for i in range(5):
-        _reset_breaker()
-        openrouter_breaker._failure_count = i
-        with patch.object(client, "_get_client", return_value=mock_http):
+    with patch.object(client, "_get_client", return_value=mock_http):
+        # Drive CB to open state through 5 failures with single model (no fallback)
+        for _ in range(5):
             try:
                 await client.generate_text("test", model="test-model")
-            except (httpx.TimeoutException, CircuitBreakerError):
+            except httpx.TimeoutException:
                 pass
 
-    # Force CB open
-    openrouter_breaker._failure_count = 5
-    openrouter_breaker._state = "open"
-    openrouter_breaker._opened = time.time()
+        assert openrouter_breaker.state == "open"
 
-    # Now try a call that should hit CircuitBreakerError
-    with patch.object(client, "_get_client", return_value=mock_http):
+        # Now try a call that should hit CircuitBreakerError
         try:
             await client.generate_text("test", model="test-model")
         except CircuitBreakerError:
             pass
 
     # Verify Prometheus gauge was set to 2 (open)
-    # Get the current value from the gauge
     gauge_value = circuit_breaker_state.labels(name="openrouter_api")._value.get()
     assert gauge_value == 2.0, f"Expected gauge=2.0 (open), got {gauge_value}"

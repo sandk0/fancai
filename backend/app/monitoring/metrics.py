@@ -396,6 +396,20 @@ def record_llm_cache_miss(model: str):
 # Business Metrics — Wave 1+2 additions (Plan 04-01)
 # ============================================================================
 
+# --- Circuit Breaker ---
+
+circuit_breaker_state = Gauge(
+    "circuit_breaker_state",
+    "Circuit breaker state: 0=closed, 1=half-open, 2=open",
+    ["name"],
+)
+
+circuit_breaker_failure_count = Gauge(
+    "circuit_breaker_failure_count",
+    "Current failure count of circuit breaker",
+    ["name"],
+)
+
 # --- LLM Cost & Fallback ---
 
 llm_cost_dollars_total = Counter(
@@ -525,6 +539,9 @@ __all__ = [
     "record_visual_summary_length",
     "record_llm_cache_hit",
     "record_llm_cache_miss",
+    # Circuit breaker
+    "circuit_breaker_state",
+    "circuit_breaker_failure_count",
     # Wave 1+2 additions
     "llm_cost_dollars_total",
     "llm_fallback_total",

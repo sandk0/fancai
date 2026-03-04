@@ -10,6 +10,10 @@ OpenRouter API клиент для fancai.
 Fallback срабатывает ТОЛЬКО на httpx.HTTPStatusError и httpx.TimeoutException.
 json.JSONDecodeError и ValidationError пробрасываются вверх без fallback.
 
+Circuit breaker: размыкается после 5 последовательных сетевых сбоев,
+автоматически восстанавливается через 60 секунд (half-open probe).
+Защищает все HTTP-вызовы через _post_with_breaker().
+
 Источники:
 - OpenRouter API: https://openrouter.ai/docs
 - Image generation: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
@@ -25,6 +29,7 @@ import time
 from typing import Any, Optional, Type
 
 import httpx
+from circuitbreaker import CircuitBreaker, CircuitBreakerError
 from pydantic import BaseModel
 
 from app.monitoring.metrics import (
@@ -33,6 +38,8 @@ from app.monitoring.metrics import (
     record_llm_tokens,
     llm_cost_dollars_total,
     llm_fallback_total,
+    circuit_breaker_state,
+    circuit_breaker_failure_count,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +63,40 @@ FALLBACK_MODELS = [
 # ВАЖНО: используется /chat/completions с modalities=["image"], НЕ /images/generations.
 # Ответ: choices[0].message.images[0].image_url.url (base64 data URL).
 DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-klein-4b"
+
+# ---------------------------------------------------------------------------
+# Circuit Breaker
+# ---------------------------------------------------------------------------
+
+# Типы исключений, которые увеличивают failure count в circuit breaker.
+# Только сетевые ошибки — JSONDecodeError, ValidationError и т.п. НЕ вызывают
+# переход в open state (это ошибки парсинга ответа, а не проблемы с API).
+CIRCUIT_BREAKER_EXCEPTIONS = (
+    httpx.HTTPStatusError,
+    httpx.TimeoutException,
+    ConnectionError,
+    OSError,
+)
+
+# Единый circuit breaker для всех OpenRouter HTTP-вызовов.
+# failure_threshold=5: после 5 последовательных сетевых сбоев — open state.
+# recovery_timeout=60: через 60 секунд — half-open, пропускает пробный запрос.
+openrouter_breaker = CircuitBreaker(
+    failure_threshold=5,
+    recovery_timeout=60,
+    expected_exception=CIRCUIT_BREAKER_EXCEPTIONS,
+    name="openrouter_api",
+)
+
+
+def _update_cb_metrics() -> None:
+    """Update Prometheus gauges for circuit breaker state."""
+    state = openrouter_breaker.state
+    state_value = {"closed": 0, "half_open": 1, "open": 2}.get(state, -1)
+    circuit_breaker_state.labels(name="openrouter_api").set(state_value)
+    circuit_breaker_failure_count.labels(name="openrouter_api").set(
+        openrouter_breaker.failure_count
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +195,7 @@ class OpenRouterClient:
     Использует httpx.AsyncClient напрямую (без OpenAI SDK).
     Реализует client-side fallback chain для LLM.
     Image generation использует /chat/completions с modalities.
+    Все HTTP-вызовы защищены единым circuit breaker (openrouter_breaker).
     """
 
     def __init__(self, api_key: str, timeout: int = 120):
@@ -176,6 +218,54 @@ class OpenRouterClient:
             )
         return self._client
 
+    async def _post_with_breaker(self, endpoint: str, body: dict) -> httpx.Response:
+        """
+        HTTP POST через circuit breaker.
+
+        Все HTTP-вызовы OpenRouter проходят через этот метод.
+        Circuit breaker отслеживает только сетевые ошибки (CIRCUIT_BREAKER_EXCEPTIONS).
+        JSONDecodeError, ValidationError и прочие ошибки парсинга не увеличивают failure count.
+
+        Args:
+            endpoint: URL path (например, "/chat/completions")
+            body: JSON body для POST запроса
+
+        Returns:
+            httpx.Response
+
+        Raises:
+            CircuitBreakerError: Если circuit breaker в open state
+            httpx.HTTPStatusError: При HTTP ошибках (5xx и т.п.)
+            httpx.TimeoutException: При таймауте
+            ConnectionError: При ошибке подключения
+            OSError: При сетевых ошибках
+        """
+
+        # Check CB state BEFORE making the HTTP call (same logic as decorator pattern).
+        # call_async only counts failures but doesn't block when open.
+        if openrouter_breaker.opened:
+            logger.error(
+                "[OpenRouter] Circuit breaker OPEN -- "
+                "запросы заблокированы на 60 сек"
+            )
+            _update_cb_metrics()
+            raise CircuitBreakerError(openrouter_breaker)
+
+        async def _do_post() -> httpx.Response:
+            resp = await self._get_client().post(endpoint, json=body)
+            resp.raise_for_status()
+            return resp
+
+        try:
+            result = await openrouter_breaker.call_async(_do_post)
+            # Successful call — update metrics (CB is closed or just recovered)
+            _update_cb_metrics()
+            return result
+        except CIRCUIT_BREAKER_EXCEPTIONS:
+            # Network error counted by CB — update metrics
+            _update_cb_metrics()
+            raise
+
     async def generate_text(
         self,
         prompt: str,
@@ -189,17 +279,20 @@ class OpenRouterClient:
         Заменяет response_mime_type="application/json" в google-genai SDK.
         Для: entity_synthesis_service, consistency_manager.
 
-        Fallback: httpx.HTTPStatusError и httpx.TimeoutException → следующая модель.
-        json.JSONDecodeError → пробрасывается вверх (не fallback).
+        Fallback: httpx.HTTPStatusError и httpx.TimeoutException -> следующая модель.
+        json.JSONDecodeError -> пробрасывается вверх (не fallback).
 
         Args:
             prompt: Текст запроса
             system_prompt: Системный промпт (опционально)
             temperature: Температура генерации (0.0 - 1.0)
-            model: Конкретная модель (если None — используется FALLBACK_MODELS)
+            model: Конкретная модель (если None -- используется FALLBACK_MODELS)
 
         Returns:
             Строка с ответом модели (обычно JSON).
+
+        Raises:
+            CircuitBreakerError: Если circuit breaker в open state
         """
         messages = []
         if system_prompt:
@@ -221,8 +314,7 @@ class OpenRouterClient:
                     "response_format": {"type": "json_object"},
                 }
 
-                resp = await self._get_client().post("/chat/completions", json=body)
-                resp.raise_for_status()
+                resp = await self._post_with_breaker("/chat/completions", body)
                 data = resp.json()
                 content: str = data["choices"][0]["message"]["content"]
 
@@ -261,6 +353,10 @@ class OpenRouterClient:
                     )
 
                 return content
+
+            except CircuitBreakerError:
+                # CB open — нет смысла пробовать другие модели (весь OpenRouter недоступен)
+                raise
 
             except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
                 # HTTP ошибки (5xx, timeout) — переключаемся на следующую модель
@@ -302,23 +398,24 @@ class OpenRouterClient:
         Генерация со структурированным выводом (JSON Schema).
 
         Для: gemini_extractor, entity_deduplication_service.
-        Использует JSON Schema inlining (без $defs/$ref) — обязательно для Google моделей.
+        Использует JSON Schema inlining (без $defs/$ref) -- обязательно для Google моделей.
 
-        Fallback: httpx.HTTPStatusError и httpx.TimeoutException → следующая модель.
-        json.JSONDecodeError и ValidationError → пробрасываются вверх без fallback.
+        Fallback: httpx.HTTPStatusError и httpx.TimeoutException -> следующая модель.
+        json.JSONDecodeError и ValidationError -> пробрасываются вверх без fallback.
 
         Args:
             prompt: Текст запроса
             schema_class: Pydantic модель (класс) для структуры ответа
             system_prompt: Системный промпт (опционально)
             temperature: Температура генерации
-            model: Конкретная модель (если None — используется FALLBACK_MODELS)
+            model: Конкретная модель (если None -- используется FALLBACK_MODELS)
 
         Returns:
             dict, соответствующий JSON Schema модели.
 
         Raises:
-            json.JSONDecodeError: Если ответ модели — невалидный JSON (fallback НЕ вызывается)
+            json.JSONDecodeError: Если ответ модели -- невалидный JSON (fallback НЕ вызывается)
+            CircuitBreakerError: Если circuit breaker в open state
         """
         raw_schema = schema_class.model_json_schema()
         inlined_schema = _inline_defs(raw_schema)
@@ -348,8 +445,7 @@ class OpenRouterClient:
                     },
                 }
 
-                resp = await self._get_client().post("/chat/completions", json=body)
-                resp.raise_for_status()
+                resp = await self._post_with_breaker("/chat/completions", body)
                 data = resp.json()
                 content: str = data["choices"][0]["message"]["content"]
 
@@ -389,6 +485,10 @@ class OpenRouterClient:
                     )
 
                 return result
+
+            except CircuitBreakerError:
+                # CB open — нет смысла пробовать другие модели
+                raise
 
             except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
                 # HTTP ошибки — переключаемся на следующую модель
@@ -445,7 +545,10 @@ class OpenRouterClient:
             image_size: Размер изображения ("1K", "2K", "4K", "0.5K")
 
         Returns:
-            bytes — изображение в PNG/JPEG формате.
+            bytes -- изображение в PNG/JPEG формате.
+
+        Raises:
+            CircuitBreakerError: Если circuit breaker в open state
         """
         body = {
             "model": model,
@@ -459,8 +562,7 @@ class OpenRouterClient:
 
         start_time = time.time()
         try:
-            resp = await self._get_client().post("/chat/completions", json=body)
-            resp.raise_for_status()
+            resp = await self._post_with_breaker("/chat/completions", body)
             data = resp.json()
 
             # Ответ: choices[0].message.images[0].image_url.url
@@ -502,6 +604,10 @@ class OpenRouterClient:
             )
 
             return base64.b64decode(b64_data)
+
+        except CircuitBreakerError:
+            # Already logged in _post_with_breaker
+            raise
 
         except Exception as e:
             duration = time.time() - start_time
