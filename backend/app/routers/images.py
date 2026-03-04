@@ -313,7 +313,7 @@ async def get_generation_status(
             remaining_quota=None,
         ),
         api_info=APIProviderInfo(
-            provider="Google Imagen 4",
+            provider="OpenRouter/FLUX.2 Klein",
             supported_formats=["PNG"],
             max_resolution="1024x1024",
             estimated_time_per_image="5-15 seconds",
@@ -791,7 +791,7 @@ async def get_admin_image_stats(
         ),
         system_status=SystemStatus(
             service_operational=True,
-            api_provider="Google Imagen 4",
+            api_provider="OpenRouter/FLUX.2 Klein",
             supported_types=sup_types,
             queue_backend=q_backend,
         ),

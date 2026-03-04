@@ -154,7 +154,6 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379
           SECRET_KEY: test-secret-key-for-ci
           DEBUG: false
-          POLLINATIONS_ENABLED: false
           PYTHONPATH: ${{ github.workspace }}/backend
         run: |
           cd backend
