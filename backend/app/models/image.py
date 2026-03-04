@@ -30,7 +30,7 @@ class ImageService(enum.Enum):
     OPENAI_DALLE = "openai_dalle"  # OpenAI DALL-E 3
     MIDJOURNEY = "midjourney"  # Midjourney API
     STABLE_DIFFUSION = "stable_diffusion"  # Stable Diffusion
-    IMAGEN = "imagen"  # Google Imagen 4 (основной)
+    IMAGEN = "imagen"  # OpenRouter/FLUX.2 Klein (основной)
 
 
 class ImageStatus(enum.Enum):

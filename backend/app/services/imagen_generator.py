@@ -1,7 +1,7 @@
 """
 OpenRouter FLUX.2 Klein 4B Image Generator.
 
-Мигрирован с Google Imagen 4 на OpenRouter FLUX.2 Klein 4B (Plan 03-03).
+Использует OpenRouter FLUX.2 Klein 4B (мигрирован в Plan 03-03).
 Использует единый openrouter_client.py для всех AI-вызовов.
 
 Features:
@@ -328,7 +328,7 @@ class ImagenService:
     """
     Основной сервис генерации изображений через OpenRouter FLUX.2 Klein 4B.
 
-    Заменяет Google Imagen 4 (Plan 03-03).
+    Мигрирован с Google Imagen на OpenRouter FLUX.2 Klein (Plan 03-03).
     """
 
     def __init__(self):
