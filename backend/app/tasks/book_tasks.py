@@ -684,7 +684,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                 auto_merged = 0
                 for group in dedup_response.merge_groups:
-                    if group.confidence >= 0.85:
+                    if group.confidence >= 0.75:
                         try:
                             await _merge_entities_internal(
                                 db=db,

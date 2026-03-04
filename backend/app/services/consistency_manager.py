@@ -127,7 +127,7 @@ class ConsistencyManager:
             overlap = name_tokens & entity_tokens
             if overlap:
                 ratio = len(overlap) / max(len(name_tokens), len(entity_tokens))
-                if ratio > 0.5:
+                if ratio >= 0.5:
                     return entity
 
         for key, entity in existing_entities.items():
