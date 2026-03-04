@@ -744,11 +744,13 @@ async def reprocess_book_descriptions(
             detail="Книга уже обрабатывается. Дождитесь завершения или отмените.",
         )
 
-    # TODO: Удалить существующие описания
-    # from ...models.description import Description
-    # await db.execute(delete(Description).where(Description.book_id == book.id))
+    # Полная очистка AI-данных перед переобработкой
+    from app.services.book_cleanup_service import cleanup_book_data
 
-    # Сбрасываем статус и блокируем
+    cleanup_result = await cleanup_book_data(db, book.id)
+    logger.info(f"Book {book.id} cleanup before reprocess: {cleanup_result}")
+
+    # Блокируем книгу для обработки
     book.is_processing = True
     book.parsing_progress = 0
     book.descriptions_extracted = False
