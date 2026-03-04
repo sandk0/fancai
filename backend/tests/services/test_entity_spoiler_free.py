@@ -5,6 +5,11 @@
 1. _filter_aliases_from_raw() — видимость псевдонимов по позиции чтения
 2. _process_visual_summary() — фильтрация visual_summary по маркерам [Глава N]
 3. _filter_entity_detail() — передача first_mention_chapter в схему
+4. _get_current_milestone() — выбор актуального milestone по главе
+5. _filter_events_by_chapter() — фильтрация событий по главе
+6. notes spoiler marking — пометка заметок из будущих глав как спойлер
+7. _filter_edge_detail() — фильтрация описания связей по relationship milestones
+8. Граничные случаи — глава 0, None, max+1, пустые данные
 
 Критические пути системы антиспойлеров глоссария сущностей.
 """
@@ -15,7 +20,6 @@ from unittest.mock import MagicMock
 
 from app.services.entity_service import EntityService
 from app.models.entity import Entity
-
 
 # =============================================================================
 # Fixtures и хелперы
@@ -58,6 +62,9 @@ def _make_entity(
 def _make_detail_data(
     entity: MagicMock,
     all_aliases: list = None,
+    notes: list = None,
+    events: list = None,
+    biography_milestones: list = None,
 ) -> dict:
     """Построить минимальный dict в формате RAW-кеша из мок-сущности для _filter_entity_detail."""
     meta = entity.entity_metadata or {}
@@ -77,12 +84,34 @@ def _make_detail_data(
         "avatar_url": None,
         "base_role": None,
         "mentions": [],
-        "notes": [],
+        "notes": notes if notes is not None else [],
         "_aliases_with_reveal": entity.aliases_with_reveal or [],
         "_all_aliases": computed_aliases,
-        "_all_events": [],
-        "_biography_milestones": None,
+        "_all_events": events if events is not None else [],
+        "_biography_milestones": biography_milestones,
         "_raw_visual_summary": entity.visual_summary,
+    }
+
+
+def _make_edge_data(
+    source_id=None,
+    target_id=None,
+    edge_type="ally",
+    weight=5,
+    context=None,
+    relationship_milestones=None,
+    first_interaction_chapter=None,
+) -> dict:
+    """Построить минимальный dict в формате RAW-кеша для _filter_edge_detail."""
+    return {
+        "source": str(source_id or uuid4()),
+        "target": str(target_id or uuid4()),
+        "type": edge_type,
+        "weight": weight,
+        "_context": context,
+        "_relationship_milestones": relationship_milestones,
+        "first_interaction_cfi": None,
+        "first_interaction_chapter": first_interaction_chapter,
     }
 
 
@@ -197,10 +226,14 @@ class TestFilterAliasesFromRaw:
         )
         assert result == ["Настоящее имя"]
 
-    def test_current_chapter_none_через_filter_entity_detail_возвращает_все(self, service):
+    def test_current_chapter_none_через_filter_entity_detail_возвращает_все(
+        self, service
+    ):
         """current_chapter=None в _filter_entity_detail возвращает все псевдонимы."""
         entity = _make_entity(
-            entity_metadata={"aliases": ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]},
+            entity_metadata={
+                "aliases": ["Белый Волк", "Ведьмак", "Мясник из Блавикена"]
+            },
             aliases_with_reveal=[
                 {"name": "Белый Волк", "reveal_chapter": 1},
                 {"name": "Ведьмак", "reveal_chapter": 3},
@@ -292,11 +325,7 @@ class TestProcessVisualSummary:
 
     def test_все_маркеры_в_будущем_возвращает_только_базу(self, service):
         """Если все маркеры в будущем — возвращается только базовый текст."""
-        summary = (
-            "Базовое."
-            "\n\n[Глава 10]: Будущее 1."
-            "\n\n[Глава 20]: Будущее 2."
-        )
+        summary = "Базовое." "\n\n[Глава 10]: Будущее 1." "\n\n[Глава 20]: Будущее 2."
 
         result = service._process_visual_summary(summary, current_chapter=1)
         assert result == "Базовое."
@@ -321,7 +350,9 @@ class TestFirstMentionChapterPropagation:
     которые читатель ещё не встретил.
     """
 
-    def test_first_mention_chapter_сохраняется_для_непрочитанной_сущности(self, service):
+    def test_first_mention_chapter_сохраняется_для_непрочитанной_сущности(
+        self, service
+    ):
         """first_mention_chapter=5 сохраняется в схеме при current_chapter=2."""
         entity = _make_entity(
             first_mention_chapter=5,
@@ -359,3 +390,491 @@ class TestFirstMentionChapterPropagation:
         detail = service._filter_entity_detail(data, current_chapter=5)
 
         assert detail.first_mention_chapter is None
+
+
+# =============================================================================
+# _get_current_milestone — тесты
+# =============================================================================
+
+
+class TestGetCurrentMilestone:
+    """Тесты для EntityService._get_current_milestone() — выбор актуального milestone."""
+
+    def test_пустой_список_возвращает_none(self):
+        """Пустой список milestones -> None."""
+        result = EntityService._get_current_milestone([], current_chapter=5)
+        assert result is None
+
+    def test_none_вход_возвращает_none(self):
+        """None вместо списка milestones -> None."""
+        result = EntityService._get_current_milestone(None, current_chapter=5)
+        assert result is None
+
+    def test_все_в_будущем_возвращает_none(self):
+        """Все milestones в будущих главах -> None."""
+        milestones = [
+            {"up_to_chapter": 10, "biography": "Био 10"},
+            {"up_to_chapter": 20, "biography": "Био 20"},
+        ]
+        result = EntityService._get_current_milestone(milestones, current_chapter=5)
+        assert result is None
+
+    def test_один_milestone_в_прошлом(self):
+        """Единственный milestone до текущей главы -> возвращает его."""
+        milestones = [{"up_to_chapter": 3, "biography": "Био 3"}]
+        result = EntityService._get_current_milestone(milestones, current_chapter=5)
+        assert result is not None
+        assert result["up_to_chapter"] == 3
+        assert result["biography"] == "Био 3"
+
+    def test_несколько_milestones_берётся_максимальный(self):
+        """Несколько допустимых milestones -> берётся с максимальным up_to_chapter."""
+        milestones = [
+            {"up_to_chapter": 1, "biography": "Начало"},
+            {"up_to_chapter": 3, "biography": "Развитие"},
+            {"up_to_chapter": 5, "biography": "Кульминация"},
+            {"up_to_chapter": 10, "biography": "Финал"},
+        ]
+        result = EntityService._get_current_milestone(milestones, current_chapter=5)
+        assert result["up_to_chapter"] == 5
+        assert result["biography"] == "Кульминация"
+
+    def test_milestone_точно_на_текущей_главе_включается(self):
+        """Milestone с up_to_chapter == current_chapter включается (<=)."""
+        milestones = [{"up_to_chapter": 7, "biography": "Глава 7"}]
+        result = EntityService._get_current_milestone(milestones, current_chapter=7)
+        assert result is not None
+        assert result["up_to_chapter"] == 7
+
+
+# =============================================================================
+# _filter_events_by_chapter — тесты
+# =============================================================================
+
+
+class TestFilterEventsByChapter:
+    """Тесты для EntityService._filter_events_by_chapter() — фильтрация событий."""
+
+    def test_пустой_список_возвращает_пустой(self):
+        """Пустой список events -> пустой результат."""
+        result = EntityService._filter_events_by_chapter([], current_chapter=5)
+        assert result == []
+
+    def test_все_в_будущем_возвращает_пустой(self):
+        """Все events в будущих главах -> пустой результат."""
+        events = [
+            {"chapter_number": 10, "event_action": "Событие 10"},
+            {"chapter_number": 20, "event_action": "Событие 20"},
+        ]
+        result = EntityService._filter_events_by_chapter(events, current_chapter=5)
+        assert result == []
+
+    def test_смешанные_events_фильтруются(self):
+        """Events из прошлых и текущей глав включены, будущие отфильтрованы."""
+        events = [
+            {"chapter_number": 1, "event_action": "Прибытие"},
+            {"chapter_number": 3, "event_action": "Встреча"},
+            {"chapter_number": 5, "event_action": "Битва"},
+            {"chapter_number": 8, "event_action": "Поражение"},
+        ]
+        result = EntityService._filter_events_by_chapter(events, current_chapter=5)
+        assert len(result) == 3
+        actions = [e["event_action"] for e in result]
+        assert "Прибытие" in actions
+        assert "Встреча" in actions
+        assert "Битва" in actions
+        assert "Поражение" not in actions
+
+    def test_event_текущей_главы_включается(self):
+        """Event с chapter_number == current_chapter включается (<=)."""
+        events = [{"chapter_number": 5, "event_action": "Текущее событие"}]
+        result = EntityService._filter_events_by_chapter(events, current_chapter=5)
+        assert len(result) == 1
+        assert result[0]["event_action"] == "Текущее событие"
+
+
+# =============================================================================
+# Notes spoiler marking — тесты
+# =============================================================================
+
+
+class TestNotesSpoilerMarking:
+    """Тесты пометки notes из будущих глав как спойлер через _filter_entity_detail."""
+
+    def test_note_из_будущей_главы_помечена_is_spoiler_true(self, service):
+        """Note с chapter_index > current_chapter -> is_spoiler=True."""
+        entity = _make_entity(name="Персонаж")
+        notes = [
+            {
+                "text": "Прошлая заметка",
+                "chapter_index": 2,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {
+                "text": "Будущая заметка",
+                "chapter_index": 8,
+                "cfi": None,
+                "type": "ACTION",
+            },
+        ]
+        data = _make_detail_data(entity, notes=notes)
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        past_note = next(n for n in detail.notes if n.text == "Прошлая заметка")
+        future_note = next(n for n in detail.notes if n.text == "Будущая заметка")
+        assert past_note.is_spoiler is False
+        assert future_note.is_spoiler is True
+
+    def test_note_текущей_главы_не_спойлер(self, service):
+        """Note с chapter_index == current_chapter -> is_spoiler=False."""
+        entity = _make_entity(name="Персонаж")
+        notes = [
+            {
+                "text": "Текущая заметка",
+                "chapter_index": 5,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+        ]
+        data = _make_detail_data(entity, notes=notes)
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        assert detail.notes[0].is_spoiler is False
+
+    def test_notes_при_current_chapter_none_все_не_спойлер(self, service):
+        """current_chapter=None -> все notes имеют is_spoiler=False."""
+        entity = _make_entity(name="Персонаж")
+        notes = [
+            {
+                "text": "Заметка глава 1",
+                "chapter_index": 1,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {
+                "text": "Заметка глава 50",
+                "chapter_index": 50,
+                "cfi": None,
+                "type": "ACTION",
+            },
+        ]
+        data = _make_detail_data(entity, notes=notes)
+
+        detail = service._filter_entity_detail(data, current_chapter=None)
+
+        for note in detail.notes:
+            assert note.is_spoiler is False
+
+    def test_несколько_notes_из_прошлых_глав_все_не_спойлер(self, service):
+        """Несколько notes из прошлых глав -> все is_spoiler=False."""
+        entity = _make_entity(name="Герой")
+        notes = [
+            {
+                "text": "Заметка 1",
+                "chapter_index": 1,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {"text": "Заметка 2", "chapter_index": 2, "cfi": None, "type": "ACTION"},
+            {
+                "text": "Заметка 3",
+                "chapter_index": 3,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+        ]
+        data = _make_detail_data(entity, notes=notes)
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        assert all(not n.is_spoiler for n in detail.notes)
+
+
+# =============================================================================
+# _filter_edge_detail — тесты
+# =============================================================================
+
+
+class TestEdgeFiltering:
+    """Тесты для EntityService._filter_edge_detail() — фильтрация описания связей."""
+
+    def test_с_milestones_описание_текущей_главы(self):
+        """Relationship milestone текущей главы используется как description."""
+        edge_data = _make_edge_data(
+            context="Начальный контекст",
+            relationship_milestones=[
+                {"up_to_chapter": 3, "description": "Знакомство"},
+                {"up_to_chapter": 7, "description": "Дружба"},
+                {"up_to_chapter": 15, "description": "Вражда"},
+            ],
+        )
+
+        result = EntityService._filter_edge_detail(edge_data, current_chapter=10)
+
+        assert result.description == "Дружба"
+
+    def test_с_milestones_будущее_описание_скрыто(self):
+        """Relationship milestone из будущей главы не используется."""
+        edge_data = _make_edge_data(
+            context="Начальный контекст",
+            relationship_milestones=[
+                {"up_to_chapter": 10, "description": "Описание из будущего"},
+            ],
+        )
+
+        result = EntityService._filter_edge_detail(edge_data, current_chapter=5)
+
+        # Milestone из будущего не применяется -> fallback на _context
+        assert result.description == "Начальный контекст"
+
+    def test_без_milestones_используется_context(self):
+        """Без relationship_milestones -> используется _context как description."""
+        edge_data = _make_edge_data(
+            context="Контекст связи",
+            relationship_milestones=None,
+        )
+
+        result = EntityService._filter_edge_detail(edge_data, current_chapter=5)
+
+        assert result.description == "Контекст связи"
+
+    def test_current_chapter_none_используется_context(self):
+        """current_chapter=None -> используется _context без milestone фильтрации."""
+        edge_data = _make_edge_data(
+            context="Базовый контекст",
+            relationship_milestones=[
+                {"up_to_chapter": 3, "description": "Milestone описание"},
+            ],
+        )
+
+        result = EntityService._filter_edge_detail(edge_data, current_chapter=None)
+
+        assert result.description == "Базовый контекст"
+
+    def test_пустые_milestones_используется_context(self):
+        """Пустой список milestones -> fallback на _context."""
+        edge_data = _make_edge_data(
+            context="Fallback контекст",
+            relationship_milestones=[],
+        )
+
+        result = EntityService._filter_edge_detail(edge_data, current_chapter=5)
+
+        assert result.description == "Fallback контекст"
+
+
+# =============================================================================
+# Граничные случаи — тесты
+# =============================================================================
+
+
+class TestBoundaryConditions:
+    """Граничные случаи спойлер-фильтрации: глава 0, None, max+1, пустые данные."""
+
+    def test_глава_0_entity_с_first_mention_chapter_0_видна(self, service):
+        """Entity с first_mention_chapter=0 видна при current_chapter=0."""
+        entity = _make_entity(
+            first_mention_chapter=0,
+            name="Нулевая сущность",
+        )
+        notes = [
+            {
+                "text": "Заметка глава 0",
+                "chapter_index": 0,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+        ]
+        data = _make_detail_data(entity, notes=notes)
+
+        detail = service._filter_entity_detail(data, current_chapter=0)
+
+        assert detail.first_mention_chapter == 0
+        assert detail.notes[0].is_spoiler is False
+
+    def test_entity_без_chapter_number_none_обрабатывается(self, service):
+        """Entity с first_mention_chapter=None корректно обрабатывается."""
+        entity = _make_entity(first_mention_chapter=None, name="Без главы")
+        data = _make_detail_data(entity)
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        assert detail.first_mention_chapter is None
+        assert detail.name == "Без главы"
+
+    def test_current_chapter_больше_максимальной_все_данные_видны(self, service):
+        """current_chapter=999 (больше max) -> все данные видны."""
+        entity = _make_entity(name="Финальный герой")
+        notes = [
+            {
+                "text": "Ранняя заметка",
+                "chapter_index": 1,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {
+                "text": "Поздняя заметка",
+                "chapter_index": 50,
+                "cfi": None,
+                "type": "ACTION",
+            },
+        ]
+        events = [
+            {"chapter_number": 1, "event_action": "Рождение"},
+            {"chapter_number": 25, "event_action": "Поход"},
+            {"chapter_number": 50, "event_action": "Финал"},
+        ]
+        milestones = [
+            {
+                "up_to_chapter": 1,
+                "biography": "Молодость",
+                "dynamic_role": "Юноша",
+                "visual_summary_clean": "Молодой",
+            },
+            {
+                "up_to_chapter": 25,
+                "biography": "Зрелость",
+                "dynamic_role": "Воин",
+                "visual_summary_clean": "Сильный",
+            },
+            {
+                "up_to_chapter": 50,
+                "biography": "Старость",
+                "dynamic_role": "Мудрец",
+                "visual_summary_clean": "Седой",
+            },
+        ]
+        data = _make_detail_data(
+            entity, notes=notes, events=events, biography_milestones=milestones
+        )
+
+        detail = service._filter_entity_detail(data, current_chapter=999)
+
+        # Все notes не спойлер
+        assert all(not n.is_spoiler for n in detail.notes)
+        # Все events видны
+        assert len(detail.events) == 3
+        # Последний milestone выбран
+        assert detail.biography == "Старость"
+        assert detail.dynamic_role == "Мудрец"
+
+    def test_пустые_milestones_и_events_не_ломают_фильтрацию(self, service):
+        """Пустые milestones=[] и events=[] -> фильтрация не ломается."""
+        entity = _make_entity(name="Простая сущность")
+        data = _make_detail_data(
+            entity,
+            notes=[],
+            events=[],
+            biography_milestones=[],
+        )
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        assert detail.biography is None
+        assert detail.events == []
+        assert detail.notes == []
+
+    def test_entity_упоминается_в_нескольких_главах_все_до_current_видны(self, service):
+        """Entity с events в нескольких главах -> все события до current_chapter видны."""
+        entity = _make_entity(name="Многоглавный герой")
+        events = [
+            {"chapter_number": 1, "event_action": "Появление"},
+            {"chapter_number": 3, "event_action": "Развитие"},
+            {"chapter_number": 5, "event_action": "Конфликт"},
+            {"chapter_number": 7, "event_action": "Разрешение"},
+            {"chapter_number": 10, "event_action": "Эпилог"},
+        ]
+        notes = [
+            {
+                "text": "Заметка 1",
+                "chapter_index": 1,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {"text": "Заметка 3", "chapter_index": 3, "cfi": None, "type": "ACTION"},
+            {
+                "text": "Заметка 5",
+                "chapter_index": 5,
+                "cfi": None,
+                "type": "APPEARANCE",
+            },
+            {"text": "Заметка 7", "chapter_index": 7, "cfi": None, "type": "ACTION"},
+        ]
+        data = _make_detail_data(entity, notes=notes, events=events)
+
+        detail = service._filter_entity_detail(data, current_chapter=5)
+
+        # 3 events видны (главы 1, 3, 5)
+        assert len(detail.events) == 3
+        event_actions = [e.event_action for e in detail.events]
+        assert "Появление" in event_actions
+        assert "Развитие" in event_actions
+        assert "Конфликт" in event_actions
+        assert "Разрешение" not in event_actions
+
+        # Notes: главы 1, 3, 5 не спойлер, глава 7 спойлер
+        non_spoiler = [n for n in detail.notes if not n.is_spoiler]
+        spoiler = [n for n in detail.notes if n.is_spoiler]
+        assert len(non_spoiler) == 3
+        assert len(spoiler) == 1
+        assert spoiler[0].text == "Заметка 7"
+
+    def test_milestones_через_filter_entity_detail_biography_и_dynamic_role(
+        self, service
+    ):
+        """_filter_entity_detail корректно извлекает biography и dynamic_role из milestones."""
+        entity = _make_entity(name="Эволюционирующий герой")
+        milestones = [
+            {
+                "up_to_chapter": 1,
+                "biography": "Новичок",
+                "dynamic_role": "Ученик",
+                "visual_summary_clean": "Юный",
+            },
+            {
+                "up_to_chapter": 5,
+                "biography": "Опытный",
+                "dynamic_role": "Мастер",
+                "visual_summary_clean": "Зрелый",
+            },
+            {
+                "up_to_chapter": 10,
+                "biography": "Легенда",
+                "dynamic_role": "Наставник",
+                "visual_summary_clean": "Мудрый",
+            },
+        ]
+        data = _make_detail_data(entity, biography_milestones=milestones)
+
+        # Глава 5 -> milestone с up_to_chapter=5
+        detail = service._filter_entity_detail(data, current_chapter=5)
+        assert detail.biography == "Опытный"
+        assert detail.dynamic_role == "Мастер"
+        assert detail.visual_summary_clean == "Зрелый"
+
+    def test_milestones_current_chapter_none_берётся_максимальный(self, service):
+        """current_chapter=None -> берётся milestone с максимальным up_to_chapter."""
+        entity = _make_entity(name="Полный герой")
+        milestones = [
+            {
+                "up_to_chapter": 1,
+                "biography": "Начало",
+                "dynamic_role": "Юноша",
+                "visual_summary_clean": "Молод",
+            },
+            {
+                "up_to_chapter": 50,
+                "biography": "Конец",
+                "dynamic_role": "Старец",
+                "visual_summary_clean": "Сед",
+            },
+        ]
+        data = _make_detail_data(entity, biography_milestones=milestones)
+
+        detail = service._filter_entity_detail(data, current_chapter=None)
+
+        assert detail.biography == "Конец"
+        assert detail.dynamic_role == "Старец"
