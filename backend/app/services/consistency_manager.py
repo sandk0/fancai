@@ -547,44 +547,31 @@ class ConsistencyManager:
         # TD-P17-3 FIX: Single commit after loop instead of N commits inside loop
         await self.db.commit()
 
-    async def optimize_book_entities(self, book_id: str):
+    # --- Batched Reduce constants ---
+    BATCH_SIZE = 50
+    MAX_DEPTH = 2
+
+    async def _single_reduce_pass(self, entities: list) -> dict:
         """
-        [Phase 2] Map-Reduce Barrier: Reduce Phase.
+        Execute a single LLM reduce pass on a list of entities.
 
-        Optimizes entities for the entire book AFTER parallel extraction is done.
-        1. Fetches ALL entities for the book.
-        2. Sends list to Gemini with instructions to:
-           - Merge duplicates (Harry = Potter)
-           - Filter out Importance < 7 (Garbage collection)
-        3. Updates DB (Merge & Delete).
+        Formats entity data, sends to OpenRouter with REDUCE_PROMPT,
+        parses the response via parse_json_safe.
+
+        Args:
+            entities: List of Entity objects to reduce.
+
+        Returns:
+            dict with 'merge_operations' and 'delete_operations' keys.
         """
-        logger.info(f"Starting Entity Optimization (Reduce Phase) for book {book_id}")
-
-        # 1. Fetch all entities
-        query = select(Entity).where(Entity.book_id == book_id)
-        result = await self.db.execute(query)
-        entities = result.scalars().all()
-
-        if not entities:
-            logger.warning("No entities found to optimize")
-            return
-
-        logger.info(
-            f"Fetched {len(entities)} raw entities. Preparing LLM Reduce payload..."
-        )
-
         entity_list_text = ""
         for e in entities:
             summary = (e.visual_summary or "")[:100]
-            entity_list_text += f"ID: {e.id} | Name: {e.name} | Type: {e.type} | Importance: {e.importance} | Summary: {summary}...\n"
-
-        if len(entity_list_text) > 300000:
-            logger.warning(
-                "Too many entities for single Reduce pass. Truncating (TODO: Implement Recursive Reduce)"
+            entity_list_text += (
+                f"ID: {e.id} | Name: {e.name} | Type: {e.type} "
+                f"| Importance: {e.importance} | Summary: {summary}...\n"
             )
-            entity_list_text = entity_list_text[:300000]
 
-        # 3. Call LLM via OpenRouter (Reduce Phase)
         REDUCE_PROMPT = f"""You are a Data Consistency Expert for a book entity database.
 
 INPUT DATA:
@@ -607,8 +594,8 @@ TASK:
 OUTPUT JSON:
 {{
     "merge_operations": [
-        {{ 
-            "keep_id": "uuid-of-most-detailed", 
+        {{
+            "keep_id": "uuid-of-most-detailed",
             "merge_ids": ["uuid", "uuid"],
             "merged_aliases": [
                 {{ "name": "Potter", "reveal_chapter": null }},
@@ -625,71 +612,157 @@ CRITICAL RULES:
 - ALWAYS preserve chapter information for spoiler protection
 """
 
-        try:
-            # Вызов через OpenRouter вместо прямого google.genai SDK
-            openrouter = get_openrouter_client()
-            raw_text = await openrouter.generate_text(
-                prompt=REDUCE_PROMPT,
-                system_prompt="Respond ONLY with valid JSON, no markdown.",
-                temperature=0.1,
+        openrouter = get_openrouter_client()
+        raw_text = await openrouter.generate_text(
+            prompt=REDUCE_PROMPT,
+            system_prompt="Respond ONLY with valid JSON, no markdown.",
+            temperature=0.1,
+        )
+
+        raw_plan = parse_json_safe(raw_text)
+        plan: dict = raw_plan if isinstance(raw_plan, dict) else {}
+        return plan
+
+    async def _execute_reduce_operations(self, plan: dict, book_id: str) -> None:
+        """
+        Execute merge and delete operations from a reduce plan.
+
+        For merge_operations: re-links EntityRelationship edges from merged
+        entities to the kept entity, then deletes the merged entities.
+        For delete_operations: deletes garbage entities.
+
+        Args:
+            plan: dict with 'merge_operations' and 'delete_operations'.
+            book_id: Book ID for logging.
+        """
+        from sqlalchemy import delete
+
+        # A. Merges
+        merge_ops = plan.get("merge_operations", [])
+        for merge in merge_ops:
+            if not isinstance(merge, dict):
+                continue
+            keep_id = merge.get("keep_id")
+            merge_ids = merge.get("merge_ids", [])
+
+            if not keep_id or not merge_ids:
+                continue
+
+            try:
+                # Update source edges
+                stmt_source = (
+                    update(EntityRelationship)
+                    .where(EntityRelationship.source_id.in_(merge_ids))
+                    .values(source_id=keep_id)
+                )
+                await self.db.execute(stmt_source)
+
+                # Update target edges
+                stmt_target = (
+                    update(EntityRelationship)
+                    .where(EntityRelationship.target_id.in_(merge_ids))
+                    .values(target_id=keep_id)
+                )
+                await self.db.execute(stmt_target)
+
+                # Delete merged entities
+                stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
+                await self.db.execute(stmt_del)
+
+            except Exception as e:
+                logger.error(f"Failed merge op for {keep_id}: {e}")
+
+        # B. Deletes (Garbage Collection)
+        delete_ids = plan.get("delete_operations", [])
+        if delete_ids:
+            stmt_del_garbage = delete(Entity).where(Entity.id.in_(delete_ids))
+            await self.db.execute(stmt_del_garbage)
+
+        total_merges = len(merge_ops)
+        total_deletes = len(delete_ids)
+        if total_merges or total_deletes:
+            logger.info(
+                f"Reduce ops applied for book {book_id}: "
+                f"Merged: {total_merges}, Deleted: {total_deletes}"
             )
 
-            from typing import Dict, Any
+    async def optimize_book_entities(self, book_id: str) -> None:
+        """
+        [Phase 2] Map-Reduce Barrier: Reduce Phase (Batched).
 
-            raw_plan = parse_json_safe(raw_text)
-            plan: Dict[str, Any] = raw_plan if isinstance(raw_plan, dict) else {}
+        Optimizes entities for the entire book AFTER parallel extraction is done.
+        Uses batched reduce for books with many entities (> BATCH_SIZE).
+        Recurses up to MAX_DEPTH times to catch cross-batch duplicates.
 
-            # 4. Execute Plan (DB Updates)
+        1. Fetches ALL entities for the book.
+        2. If <= BATCH_SIZE: single reduce pass.
+        3. If > BATCH_SIZE: split into batches of ~BATCH_SIZE, reduce each.
+        4. Repeat up to MAX_DEPTH if list shrank (cross-batch merges possible).
+        5. Updates DB (Merge & Delete) after each pass.
+        """
+        logger.info(f"Starting Entity Optimization (Reduce Phase) for book {book_id}")
 
-            # A. Merges
-            merge_ops = plan.get("merge_operations", [])
-            for merge in merge_ops:
-                if not isinstance(merge, dict):
-                    continue
-                keep_id = merge.get("keep_id")
-                merge_ids = merge.get("merge_ids", [])
+        # 1. Fetch all entities
+        query = select(Entity).where(Entity.book_id == book_id)
+        result = await self.db.execute(query)
+        entities = list(result.scalars().all())
 
-                # Logic: Re-link relationships from merged_ids to keep_id, then delete merged_ids
-                if not keep_id or not merge_ids:
-                    continue
+        if not entities:
+            logger.warning("No entities found to optimize")
+            return
 
-                try:
-                    # Update source edges
-                    stmt_source = (
-                        update(EntityRelationship)
-                        .where(EntityRelationship.source_id.in_(merge_ids))
-                        .values(source_id=keep_id)
+        logger.info(
+            f"Fetched {len(entities)} raw entities. "
+            f"BATCH_SIZE={self.BATCH_SIZE}, MAX_DEPTH={self.MAX_DEPTH}"
+        )
+
+        try:
+            for depth in range(self.MAX_DEPTH):
+                old_count = len(entities)
+
+                if len(entities) <= self.BATCH_SIZE:
+                    # Single pass for small lists
+                    plan = await self._single_reduce_pass(entities)
+                    await self._execute_reduce_operations(plan, book_id)
+                    break
+                else:
+                    # Batched reduce for large lists
+                    batches = [
+                        entities[i : i + self.BATCH_SIZE]
+                        for i in range(0, len(entities), self.BATCH_SIZE)
+                    ]
+                    all_ops: dict = {"merge_operations": [], "delete_operations": []}
+
+                    for batch in batches:
+                        batch_plan = await self._single_reduce_pass(batch)
+                        all_ops["merge_operations"].extend(
+                            batch_plan.get("merge_operations", [])
+                        )
+                        all_ops["delete_operations"].extend(
+                            batch_plan.get("delete_operations", [])
+                        )
+
+                    await self._execute_reduce_operations(all_ops, book_id)
+
+                    # Reload entities for next round
+                    result = await self.db.execute(query)
+                    entities = list(result.scalars().all())
+
+                    if len(entities) >= old_count:
+                        logger.info(
+                            f"Entity count did not decrease ({old_count} -> {len(entities)}). "
+                            f"Stopping reduce at depth {depth + 1}."
+                        )
+                        break
+
+                    logger.info(
+                        f"Reduce depth {depth + 1}: {old_count} -> {len(entities)} entities"
                     )
-                    await self.db.execute(stmt_source)
-
-                    # Update target edges
-                    stmt_target = (
-                        update(EntityRelationship)
-                        .where(EntityRelationship.target_id.in_(merge_ids))
-                        .values(target_id=keep_id)
-                    )
-                    await self.db.execute(stmt_target)
-
-                    # Delete merged entities
-                    from sqlalchemy import delete
-
-                    stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
-                    await self.db.execute(stmt_del)
-
-                except Exception as e:
-                    logger.error(f"Failed merge op for {keep_id}: {e}")
-
-            # B. Deletes (Garbage Collection)
-            delete_ids = plan.get("delete_operations", [])
-            if delete_ids:
-                from sqlalchemy import delete
-
-                stmt_del_garbage = delete(Entity).where(Entity.id.in_(delete_ids))
-                await self.db.execute(stmt_del_garbage)
 
             await self.db.commit()
             logger.info(
-                f"Optimization Complete. Merged: {len(merge_ops)}, Deleted: {len(delete_ids)}"
+                f"Optimization Complete for book {book_id}. "
+                f"Final entity count: {len(entities)}"
             )
 
         except Exception as e:
