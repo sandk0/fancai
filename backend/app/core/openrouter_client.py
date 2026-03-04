@@ -530,7 +530,7 @@ class OpenRouterClient:
         """
         Генерация изображений через OpenRouter FLUX.2.
 
-        Заменяет Google Imagen 4 в imagen_generator.py.
+        Используется из imagen_generator.py для FLUX.2 Klein.
 
         КРИТИЧНО: Использует /chat/completions с modalities=["image"],
         НЕ /images/generations endpoint!

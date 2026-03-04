@@ -60,13 +60,15 @@ class APIProviderInfo(BaseModel):
     Используется в ImageGenerationStatusResponse.
 
     Attributes:
-        provider: Название провайдера (Google Imagen 4, DALL-E, etc.)
+        provider: Название провайдера (OpenRouter/FLUX.2 Klein, etc.)
         supported_formats: Поддерживаемые форматы (PNG, JPG, etc.)
         max_resolution: Максимальное разрешение
         estimated_time_per_image: Ориентировочное время генерации
     """
 
-    provider: str = Field(default="Google Imagen 4", description="API provider name")
+    provider: str = Field(
+        default="OpenRouter/FLUX.2 Klein", description="API provider name"
+    )
     supported_formats: List[str] = Field(
         default=["PNG"], description="Supported image formats"
     )
@@ -270,7 +272,7 @@ class SystemStatus(BaseModel):
     """System status for admin stats."""
 
     service_operational: bool = True
-    api_provider: str = "Google Imagen 4"
+    api_provider: str = "OpenRouter/FLUX.2 Klein"
     supported_types: List[str]
     queue_backend: str = "celery_redis"
 

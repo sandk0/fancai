@@ -1,8 +1,8 @@
 """
 Image Generation Service for fancai.
 
-Uses Google Imagen 4 API for high-quality image generation from book descriptions.
-Replaces legacy Pollinations.ai integration.
+Uses OpenRouter FLUX.2 Klein for image generation from book descriptions.
+Replaced legacy Pollinations.ai and Google Imagen integrations.
 
 Features:
 - Automatic Russian -> English prompt translation
@@ -75,7 +75,7 @@ class ImageGeneratorService:
     """
     Main service for generating images from book descriptions.
 
-    Uses Google Imagen 4 for high-quality image generation.
+    Uses OpenRouter FLUX.2 Klein for image generation.
 
     Queue Architecture (December 2025):
     - Replaced in-memory queue with Celery tasks
