@@ -294,10 +294,21 @@ async function clearEpubLocationsDB(): Promise<void> {
 export interface ReadingProgressBackup {
   data: {
     readingProgress: Record<string, ReadingProgress>;
-    bookmarks: Record<string, { chapter: number; page: number; text: string; createdAt: Date }[]>;
+    bookmarks: Record<
+      string,
+      { cfi: string; chapter: number; page?: number; text: string; createdAt: Date }[]
+    >;
     highlights: Record<
       string,
-      { id: string; chapter: number; text: string; color: string; createdAt: Date }[]
+      {
+        id: string;
+        cfiRange: string;
+        chapter: number;
+        text: string;
+        color: string;
+        note?: string;
+        createdAt: Date;
+      }[]
     >;
   };
   savedAt: number;
