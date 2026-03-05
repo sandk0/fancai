@@ -30,17 +30,20 @@ export interface LocalReadingProgress {
 }
 
 export interface LocalBookmark {
+  cfi: string;
   chapter: number;
-  page: number;
+  page?: number; // optional for backward compatibility
   text: string;
   createdAt: Date;
 }
 
 export interface LocalHighlight {
   id: string;
+  cfiRange: string;
   chapter: number;
   text: string;
   color: string;
+  note?: string;
   createdAt: Date;
 }
 
@@ -69,9 +72,16 @@ export interface ReaderState {
   updateMargin: (margin: number) => void;
   updateNavigationMode: (mode: NavigationMode) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
-  addBookmark: (bookId: string, chapter: number, page: number, text: string) => void;
-  removeBookmark: (bookId: string, index: number) => void;
-  addHighlight: (bookId: string, chapter: number, text: string, color: string) => void;
+  addBookmark: (bookId: string, chapter: number, cfi: string, text: string) => void;
+  removeBookmark: (bookId: string, cfi: string) => void;
+  addHighlight: (
+    bookId: string,
+    chapter: number,
+    cfiRange: string,
+    text: string,
+    color: string,
+    note?: string
+  ) => void;
   removeHighlight: (bookId: string, highlightId: string) => void;
   resetSettings: () => void;
   reset: () => void;

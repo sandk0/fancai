@@ -63,18 +63,8 @@ export const bookKeys = {
    * @param limit - Лимит записей (default: 10)
    * @param sortBy - Сортировка (default: undefined)
    */
-  listPaginated: (
-    userId: string,
-    skip = 0,
-    limit = 10,
-    sortBy?: string
-  ) => [
-    ...bookKeys.all(userId),
-    'list',
-    skip,
-    limit,
-    sortBy ?? 'default',
-  ] as const,
+  listPaginated: (userId: string, skip = 0, limit = 10, sortBy?: string) =>
+    [...bookKeys.all(userId), 'list', skip, limit, sortBy ?? 'default'] as const,
 
   /**
    * Детали конкретной книги
@@ -88,7 +78,8 @@ export const bookKeys = {
    * @param userId - ID пользователя
    * @param bookId - ID книги
    */
-  progress: (userId: string, bookId: string) => [...bookKeys.all(userId), bookId, 'progress'] as const,
+  progress: (userId: string, bookId: string) =>
+    [...bookKeys.all(userId), bookId, 'progress'] as const,
 
   /**
    * Статус парсинга книги
@@ -113,15 +104,14 @@ export const bookKeys = {
 
   /**
    * Книги для HomePage (recently accessed)
-   * 
+   *
    * ВАЖНО: Этот ключ наследует от bookKeys.all(userId), поэтому
    * автоматически инвалидируется при upload/delete книг.
-   * 
+   *
    * @param userId - ID пользователя
    * @param limit - Лимит записей (default: 20)
    */
-  homepage: (userId: string, limit = 20) => 
-    [...bookKeys.all(userId), 'homepage', limit] as const,
+  homepage: (userId: string, limit = 20) => [...bookKeys.all(userId), 'homepage', limit] as const,
 };
 
 /**
@@ -221,8 +211,8 @@ export const imageKeys = {
    */
   byBook: (userId: string, bookId: string, chapterNumber?: number) =>
     chapterNumber !== undefined
-      ? [...imageKeys.all(userId), 'book', bookId, 'chapter', chapterNumber] as const
-      : [...imageKeys.all(userId), 'book', bookId] as const,
+      ? ([...imageKeys.all(userId), 'book', bookId, 'chapter', chapterNumber] as const)
+      : ([...imageKeys.all(userId), 'book', bookId] as const),
 
   /**
    * Изображения книги с пагинацией (стабильный ключ с примитивами)
@@ -236,18 +226,8 @@ export const imageKeys = {
    * @param skip - Смещение для пагинации (default: 0)
    * @param limit - Лимит записей (default: 50)
    */
-  byBookPaginated: (
-    userId: string,
-    bookId: string,
-    chapterNumber?: number,
-    skip = 0,
-    limit = 50
-  ) => [
-    ...imageKeys.byBook(userId, bookId, chapterNumber),
-    'paginated',
-    skip,
-    limit,
-  ] as const,
+  byBookPaginated: (userId: string, bookId: string, chapterNumber?: number, skip = 0, limit = 50) =>
+    [...imageKeys.byBook(userId, bookId, chapterNumber), 'paginated', skip, limit] as const,
 
   /**
    * Изображение для конкретного описания
@@ -273,6 +253,27 @@ export const imageKeys = {
    * Админ-статистика по изображениям (не зависит от userId)
    */
   adminStats: () => ['images', 'admin', 'stats'] as const,
+};
+
+/**
+ * Query keys для закладок и выделений (March 2026)
+ *
+ * SECURITY: Все keys требуют userId для изоляции данных между пользователями
+ */
+export const syncKeys = {
+  /**
+   * Закладки конкретной книги
+   * @param userId - ID пользователя
+   * @param bookId - ID книги
+   */
+  bookmarks: (userId: string, bookId: string) => ['books', userId, bookId, 'bookmarks'] as const,
+
+  /**
+   * Выделения конкретной книги
+   * @param userId - ID пользователя
+   * @param bookId - ID книги
+   */
+  highlights: (userId: string, bookId: string) => ['books', userId, bookId, 'highlights'] as const,
 };
 
 /**
@@ -308,8 +309,8 @@ export const sessionKeys = {
    */
   history: (userId: string, bookId?: string) =>
     bookId
-      ? [...sessionKeys.all(userId), 'history', bookId] as const
-      : [...sessionKeys.all(userId), 'history'] as const,
+      ? ([...sessionKeys.all(userId), 'history', bookId] as const)
+      : ([...sessionKeys.all(userId), 'history'] as const),
 };
 
 /**

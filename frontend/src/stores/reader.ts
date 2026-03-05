@@ -4,6 +4,17 @@ import { booksAPI } from '@/api/books';
 import { tabSync } from '@/services/tabSync';
 import { logger } from '@/lib/logger';
 
+// Migrate localStorage from old key to new (bookreader → fancai rebrand)
+const OLD_STORAGE_KEY = 'reader-storage';
+const STORAGE_KEY = 'fancai-reader';
+if (typeof window !== 'undefined') {
+  const oldData = localStorage.getItem(OLD_STORAGE_KEY);
+  if (oldData && !localStorage.getItem(STORAGE_KEY)) {
+    localStorage.setItem(STORAGE_KEY, oldData);
+    localStorage.removeItem(OLD_STORAGE_KEY);
+  }
+}
+
 export interface ReadingProgress {
   bookId: string;
   currentChapter: number;
@@ -38,8 +49,22 @@ interface ReaderState {
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
-  bookmarks: Record<string, { chapter: number; page: number; text: string; createdAt: Date }[]>;
-  highlights: Record<string, { id: string; chapter: number; text: string; color: string; createdAt: Date }[]>;
+  bookmarks: Record<
+    string,
+    { cfi: string; chapter: number; page?: number; text: string; createdAt: Date }[]
+  >;
+  highlights: Record<
+    string,
+    {
+      id: string;
+      cfiRange: string;
+      chapter: number;
+      text: string;
+      color: string;
+      note?: string;
+      createdAt: Date;
+    }[]
+  >;
 
   // Actions
   updateFontSize: (size: number) => void;
@@ -52,9 +77,16 @@ interface ReaderState {
   updateNameHighlighting: (enabled: boolean) => void;
   updateDescriptionDensity: (density: DescriptionDensity) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
-  addBookmark: (bookId: string, chapter: number, page: number, text: string) => void;
-  removeBookmark: (bookId: string, index: number) => void;
-  addHighlight: (bookId: string, chapter: number, text: string, color: string) => void;
+  addBookmark: (bookId: string, chapter: number, cfi: string, text: string) => void;
+  removeBookmark: (bookId: string, cfi: string) => void;
+  addHighlight: (
+    bookId: string,
+    chapter: number,
+    cfiRange: string,
+    text: string,
+    color: string,
+    note?: string
+  ) => void;
   removeHighlight: (bookId: string, highlightId: string) => void;
   resetSettings: () => void;
   reset: () => void; // Clear all data (for logout)
@@ -105,20 +137,20 @@ export const useReaderStore = create<ReaderState>()(
       readingProgress: {},
       bookmarks: {},
       highlights: {},
-      
+
       // Settings actions
       updateFontSize: (size: number) => {
         set({ fontSize: Math.max(12, Math.min(32, size)) });
       },
-      
+
       updateFontFamily: (family: string) => {
         set({ fontFamily: family });
       },
-      
+
       updateLineHeight: (height: number) => {
         set({ lineHeight: Math.max(1.2, Math.min(2.5, height)) });
       },
-      
+
       updateTheme: (theme: ReaderTheme) => {
         const settings = themeSettings[theme];
         set({
@@ -153,18 +185,21 @@ export const useReaderStore = create<ReaderState>()(
         const currentProgress = get().readingProgress[bookId];
         const now = new Date();
         const actualPage = page || currentProgress?.currentPage || 1;
-        
+
         const updatedProgress: ReadingProgress = {
           bookId,
           currentChapter: chapter,
           currentPage: actualPage,
           progress: Math.max(0, Math.min(100, progress)),
           lastReadAt: now,
-          totalTimeRead: (currentProgress?.totalTimeRead || 0) + (currentProgress ? 
-            (now.getTime() - new Date(currentProgress.lastReadAt).getTime()) / 1000 : 0),
+          totalTimeRead:
+            (currentProgress?.totalTimeRead || 0) +
+            (currentProgress
+              ? (now.getTime() - new Date(currentProgress.lastReadAt).getTime()) / 1000
+              : 0),
         };
-        
-        set(state => ({
+
+        set((state) => ({
           readingProgress: {
             ...state.readingProgress,
             [bookId]: updatedProgress,
@@ -180,67 +215,78 @@ export const useReaderStore = create<ReaderState>()(
         });
 
         // Background sync with server (fire-and-forget)
-        booksAPI.updateReadingProgress(bookId, {
-          current_chapter: chapter,
-          current_position_percent: 0,
-        }).catch(error => {
-          logger.error('Failed to sync reading progress:', error);
-        });
+        booksAPI
+          .updateReadingProgress(bookId, {
+            current_chapter: chapter,
+            current_position_percent: 0,
+          })
+          .catch((error) => {
+            logger.error('Failed to sync reading progress:', error);
+          });
       },
-      
-      // Bookmarks actions
-      addBookmark: (bookId: string, chapter: number, page: number, text: string) => {
+
+      // Bookmarks actions (CFI-based)
+      addBookmark: (bookId: string, chapter: number, cfi: string, text: string) => {
         const bookmark = {
+          cfi,
           chapter,
-          page,
           text: text.slice(0, 200), // Limit text length
           createdAt: new Date(),
         };
-        
-        set(state => ({
+
+        set((state) => ({
           bookmarks: {
             ...state.bookmarks,
             [bookId]: [...(state.bookmarks[bookId] || []), bookmark],
           },
         }));
       },
-      
-      removeBookmark: (bookId: string, index: number) => {
-        set(state => ({
+
+      removeBookmark: (bookId: string, cfi: string) => {
+        set((state) => ({
           bookmarks: {
             ...state.bookmarks,
-            [bookId]: (state.bookmarks[bookId] || []).filter((_, i) => i !== index),
+            [bookId]: (state.bookmarks[bookId] || []).filter((b) => b.cfi !== cfi),
           },
         }));
       },
-      
-      // Highlights actions
-      addHighlight: (bookId: string, chapter: number, text: string, color: string = '#fbbf24') => {
+
+      // Highlights actions (CFI range)
+      addHighlight: (
+        bookId: string,
+        chapter: number,
+        cfiRange: string,
+        text: string,
+        color: string = '#fbbf24',
+        note?: string
+      ) => {
         const highlight = {
           id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          cfiRange,
           chapter,
           text: text.slice(0, 500), // Limit text length
           color,
+          note,
           createdAt: new Date(),
         };
-        
-        set(state => ({
+
+        set((state) => ({
           highlights: {
             ...state.highlights,
             [bookId]: [...(state.highlights[bookId] || []), highlight],
           },
         }));
       },
-      
+
       removeHighlight: (bookId: string, highlightId: string) => {
-        set(state => ({
+        set((state) => ({
           highlights: {
             ...state.highlights,
-            [bookId]: (state.highlights[bookId] || []).filter(h => h.id !== highlightId),
+            [bookId]: (state.highlights[bookId] || []).filter((h) => h.id !== highlightId),
           },
         }));
       },
-      
+
       // Utility actions
       resetSettings: () => {
         set({
@@ -280,20 +326,22 @@ export const useReaderStore = create<ReaderState>()(
           highlights: {},
         });
         // Also clear persisted storage
+        localStorage.removeItem('fancai-reader');
+        // Migration: clean up old key
         localStorage.removeItem('reader-storage');
       },
-      
+
       getReadingProgress: (bookId: string) => {
         return get().readingProgress[bookId] || null;
       },
-      
+
       getTotalReadingTime: () => {
         const progress = get().readingProgress;
         return Object.values(progress).reduce((total, p) => total + p.totalTimeRead, 0);
       },
     }),
     {
-      name: 'reader-storage',
+      name: 'fancai-reader',
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
