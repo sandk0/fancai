@@ -205,7 +205,7 @@ Plans:
 
 Plans:
 
-- [ ] 08-01-PLAN.md — Бэкенд-фундамент: модели Bookmark/Highlight, Alembic миграция, CRUD endpoints в sync.py, Zustand store (CFI), TanStack Query хуки (READ-03, READ-01, READ-02)
+- [x] 08-01-PLAN.md — Бэкенд-фундамент: модели Bookmark/Highlight, Alembic миграция, CRUD endpoints в sync.py, Zustand store (CFI), TanStack Query хуки (READ-03, READ-01, READ-02)
 - [ ] 08-02-PLAN.md — Фронтенд закладок и выделений: SelectionMenu с цветами/заметками, annotation rendering, BookmarksList/HighlightsList, вкладки в TocSidebar (READ-01, READ-02)
 - [ ] 08-03-PLAN.md — Поиск по книге + Entity-text linking: SearchPanel, useBookSearch, EntityPopup при тапе на имя персонажа (READ-04, READ-05)
 
@@ -225,4 +225,4 @@ Plans:
 | 5. Стабилизация AI и техдолг       | 2/2              | Complete  | 2026-03-04 |
 | 6. Качество Entity Wiki            | 2/2              | Complete  | 2026-03-04 |
 | 7. Обработка ошибок и UX           | 2/2              | Complete  | 2026-03-05 |
-| 8. Функции ридера                  | 0/3              | Не начата | -          |
+| 8. Функции ридера                  | 1/3              | В процессе | -          |

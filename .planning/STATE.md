@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-05T00:03:12.168Z"
+last_updated: "2026-03-05T11:05:32Z"
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 23
+  completed_plans: 21
 ---
 
 # Состояние проекта
@@ -18,24 +18,24 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-02-27)
 
 **Ключевая ценность:** Стабильное AI-приложение для чтения книг со спойлер-защищенной Entity Wiki и AI-иллюстрациями — работает надежно, без сбоев и визуальных глюков
-**Текущий фокус:** Фаза 7 завершена (2/2 плана). Все фазы 1-7 выполнены. Готово к фазе 8.
+**Текущий фокус:** Фаза 8 в процессе (1/3 плана выполнен). Bookmark/Highlight data layer готов.
 
 ## Текущая позиция
 
-Фаза: 7 из 8 (UX-улучшения) — Завершена
-План: 2 из 2 в фазе 7 (все планы выполнены)
-Статус: Фаза 7 полностью завершена. Готово к фазе 8.
-Последняя активность: 2026-03-05 — Выполнен план 07-02 (Обработка ошибок парсинга и извлечения + retry). ParsingOverlay error state, ExtractionIndicator в EpubReader.
+Фаза: 8 из 8 (Reader Features) — В процессе
+План: 1 из 3 в фазе 8 (data layer закладок/выделений)
+Статус: План 08-01 выполнен. Готово к плану 08-02 (визуальный UI).
+Последняя активность: 2026-03-05 — Выполнен план 08-01 (Bookmark/Highlight data layer). SQLAlchemy модели, 7 REST endpoints, Zustand CFI store, TanStack Query хуки.
 
-Прогресс: [██████████] 100%
+Прогресс: [█████████▒] 91%
 
 ## Метрики производительности
 
 **Скорость:**
 
-- Всего планов выполнено: 20
+- Всего планов выполнено: 21
 - Средняя продолжительность: ~15 мин
-- Общее время выполнения: ~5.1 часа
+- Общее время выполнения: ~5.2 часа
 
 **По фазам:**
 
@@ -49,6 +49,7 @@ progress:
 | 05-stabilization-ai-techdebt  | 2/2   | ~16 мин  | ~8 мин       |
 | 06-entity-wiki                | 2/2   | ~15 мин  | ~8 мин       |
 | 07-ux                         | 2/2   | ~11 мин  | ~6 мин       |
+| 08-reader-features            | 1/3   | ~7 мин   | ~7 мин       |
 
 _Обновляется после завершения каждого плана_
 
@@ -81,6 +82,10 @@ _Обновляется после завершения каждого план�
 - [Фаза 7 Plan 02]: Retry парсинга через processBook (POST /api/books/{id}/process), не reprocess-descriptions
 - [Фаза 7 Plan 02]: useChapterData проксирует error и refetch -> useChapterManagement -> EpubReader -> ExtractionIndicator
 - [Фаза 7 Plan 02]: CircuitBreakerError (isRetryable=false) скрывает retry кнопку в обоих компонентах
+- [Фаза 8 Plan 01]: UniqueConstraint(user_id, book_id, cfi) предотвращает дубликаты закладок
+- [Фаза 8 Plan 01]: page поле стало опциональным в bookmarks для обратной совместимости с localStorage
+- [Фаза 8 Plan 01]: Optimistic updates: Zustand в onMutate, rollback в onError, invalidate в onSettled
+- [Фаза 8 Plan 01]: Batch sync использует process_bookmark_sync/process_highlight_sync вместо 501 заглушек
 
 ### Ожидающие задачи
 
@@ -93,5 +98,5 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-05
-Остановились на: Выполнен план 07-02-PLAN.md (Обработка ошибок парсинга и извлечения + retry). Фаза 7 завершена.
-Файл возобновления: .planning/phases/08-testing/08-01-PLAN.md
+Остановились на: Выполнен план 08-01-PLAN.md (Bookmark/Highlight data layer). Готово к плану 08-02.
+Файл возобновления: .planning/phases/08-reader-features/08-02-PLAN.md
