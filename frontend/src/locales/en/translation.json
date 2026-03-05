@@ -133,7 +133,10 @@
       "analyzing": "AI analyzing chapter...",
       "usually_takes": "Usually takes 5-15 seconds",
       "cancel": "Cancel",
-      "cancel_analysis": "Cancel analysis"
+      "cancel_analysis": "Cancel analysis",
+      "error": "Failed to analyze chapter",
+      "retry_hint": "Tap to retry",
+      "retries_exhausted": "Please try again later"
     },
     "image_generation": {
       "generating": "Generating image...",
