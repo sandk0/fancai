@@ -23,6 +23,7 @@ interface ReaderUIProps {
     onInfoOpen: () => void;
     onSettingsOpen: () => void;
     onEntitiesOpen: () => void;
+    onSearchToggle: () => void;
   };
   settings: {
     isOpen: boolean;
@@ -73,6 +74,7 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
         onInfoOpen={header.onInfoOpen}
         onSettingsOpen={header.onSettingsOpen}
         onEntitiesOpen={header.onEntitiesOpen}
+        onSearchToggle={header.onSearchToggle}
       />
 
       <div className="fixed top-16 right-4 z-[100]">

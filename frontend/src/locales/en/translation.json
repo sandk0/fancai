@@ -241,7 +241,17 @@
       "info": "About book",
       "entities": "Encyclopedia",
       "settings": "Settings",
+      "search": "Search",
       "progress_label": "Reading progress: {{percent}}%"
+    },
+    "search": {
+      "placeholder": "Search in book...",
+      "results": "{{current}} of {{total}}",
+      "searching": "Searching: chapter {{current}} of {{total}}...",
+      "no_results": "No results found",
+      "previous": "Previous result",
+      "next": "Next result",
+      "close": "Close search"
     },
     "info": {
       "title": "About book",

@@ -39,6 +39,7 @@ import { ReaderModals } from './Core/ReaderModals';
 import { ReaderOverlays } from './Core/ReaderOverlays';
 import { ReaderUI } from './Core/ReaderUI';
 import { ExtractionIndicator } from './ExtractionIndicator';
+import { SearchPanel } from './SearchPanel';
 import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
@@ -254,6 +255,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       ),
   });
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
   const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
     book.id,
@@ -440,6 +442,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onInfoOpen: () => setIsBookInfoOpen(true),
           onSettingsOpen: () => setIsSettingsOpen(!isSettingsOpen),
           onEntitiesOpen: handleEntitiesOpen,
+          onSearchToggle: () => setIsSearchOpen((prev) => !prev),
         }}
         settings={{
           isOpen: isSettingsOpen,
@@ -463,6 +466,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           descriptionPreview,
         }}
         saveStatus={{ lastSaved: lastSaved ? new Date(lastSaved) : null, isSaving }}
+      />
+
+      <SearchPanel
+        book={epubBook}
+        rendition={rendition}
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
       />
 
       <ReaderModals

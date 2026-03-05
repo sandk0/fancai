@@ -54,7 +54,7 @@ interface BookReaderProps {
 
 export const BookReader: React.FC<BookReaderProps> = ({
   bookId: propBookId,
-  chapterNumber: propChapterNumber
+  chapterNumber: propChapterNumber,
 }) => {
   const { t } = useTranslation();
   const params = useParams();
@@ -91,18 +91,22 @@ export const BookReader: React.FC<BookReaderProps> = ({
   });
 
   // Fetch chapter data
-  const { data: chapter, isLoading: chapterLoading, error: chapterError, refetch } = useQuery({
+  const {
+    data: chapter,
+    isLoading: chapterLoading,
+    error: chapterError,
+    refetch,
+  } = useQuery({
     queryKey: ['chapter', bookId, currentChapter],
     queryFn: () => booksAPI.getChapter(bookId, currentChapter),
     enabled: !!bookId,
   });
 
   // Hook 1: Pagination
-  const { pages, currentPage, setCurrentPage } = usePagination(
-    chapter,
-    contentRef,
-    { fontSize, lineHeight }
-  );
+  const { pages, currentPage, setCurrentPage } = usePagination(chapter, contentRef, {
+    fontSize,
+    lineHeight,
+  });
 
   // Hook 2: Reading progress
   const { hasRestoredPosition } = useReadingProgress({
@@ -120,7 +124,13 @@ export const BookReader: React.FC<BookReaderProps> = ({
   useAutoParser(bookId, chapter, refetch);
 
   // Hook 4: Image modal
-  const { selectedImage, isOpen: isModalOpen, openModal, closeModal, updateImageUrl } = useReaderImageModal();
+  const {
+    selectedImage,
+    isOpen: isModalOpen,
+    openModal,
+    closeModal,
+    updateImageUrl,
+  } = useReaderImageModal();
 
   // Hook 5: Description management
   const {
@@ -178,12 +188,14 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
     // Save progress for chapter change
     if (book && hasRestoredPosition) {
-      booksAPI.updateReadingProgress(bookId, {
-        current_chapter: currentChapter,
-        current_position_percent: 0
-      }).catch(err => {
-        logger.error('[BookReader] Failed to update progress:', err);
-      });
+      booksAPI
+        .updateReadingProgress(bookId, {
+          current_chapter: currentChapter,
+          current_position_percent: 0,
+        })
+        .catch((err) => {
+          logger.error('[BookReader] Failed to update progress:', err);
+        });
     }
   }, [currentChapter, book, bookId, hasRestoredPosition, setCurrentPage]);
 
@@ -216,14 +228,14 @@ export const BookReader: React.FC<BookReaderProps> = ({
 
     // Update highlighted descriptions
     if (selectedImage?.description) {
-      const updatedDescriptions = highlightedDescriptions.map(d => {
+      const updatedDescriptions = highlightedDescriptions.map((d) => {
         if (d.id === selectedImage.description!.id && d.generated_image) {
           return {
             ...d,
             generated_image: {
               ...d.generated_image,
-              image_url: newImageUrl
-            }
+              image_url: newImageUrl,
+            },
           };
         }
         return d;
@@ -251,7 +263,10 @@ export const BookReader: React.FC<BookReaderProps> = ({
           <ErrorMessage
             title={t('reader.authRequired')}
             message={t('reader.authRequiredDesc')}
-            action={{ label: t('reader.goToLogin'), onClick: () => window.location.href = '/login' }}
+            action={{
+              label: t('reader.goToLogin'),
+              onClick: () => (window.location.href = '/login'),
+            }}
           />
         </div>
       );
@@ -306,10 +321,11 @@ export const BookReader: React.FC<BookReaderProps> = ({
           currentPage={currentPage}
           totalPages={pages.length}
           onBack={() => window.history.back()}
-          onTocToggle={() => { }}
-          onInfoOpen={() => { }}
+          onTocToggle={() => {}}
+          onInfoOpen={() => {}}
           onSettingsOpen={() => setShowSettings(!showSettings)}
-          onEntitiesOpen={() => { }}
+          onEntitiesOpen={() => {}}
+          onSearchToggle={() => {}}
         />
 
         {/* Settings Panel */}
