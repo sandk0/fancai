@@ -241,7 +241,17 @@
       "info": "О книге",
       "entities": "Энциклопедия",
       "settings": "Настройки",
+      "search": "Поиск",
       "progress_label": "Прогресс чтения: {{percent}}%"
+    },
+    "search": {
+      "placeholder": "Поиск по книге...",
+      "results": "{{current}} из {{total}}",
+      "searching": "Поиск: глава {{current}} из {{total}}...",
+      "no_results": "Ничего не найдено",
+      "previous": "Предыдущий результат",
+      "next": "Следующий результат",
+      "close": "Закрыть поиск"
     },
     "info": {
       "title": "О книге",
