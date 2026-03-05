@@ -42,6 +42,7 @@ interface ReaderModalsProps {
     currentChapter: number;
     maxChapterReached: number;
     currentCFI: string;
+    initialEntityId?: string | null;
   };
   selection: {
     data: Selection | null;
@@ -88,15 +89,25 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         <ImageModal
           imageUrl={imageModal.selectedImage.image_url}
           title={imageModal.selectedImage.description?.type || 'Generated Image'}
-          description={imageModal.selectedImage.description?.text || imageModal.selectedImage.description?.content || ''}
+          description={
+            imageModal.selectedImage.description?.text ||
+            imageModal.selectedImage.description?.content ||
+            ''
+          }
           imageId={imageModal.selectedImage.id}
-          descriptionData={imageModal.selectedImage.description ? {
-            id: imageModal.selectedImage.description.id,
-            type: imageModal.selectedImage.description.type,
-            content: imageModal.selectedImage.description.text || imageModal.selectedImage.description.content,
-            confidence_score: 0,
-            priority_score: imageModal.selectedImage.description.priority_score,
-          } : undefined}
+          descriptionData={
+            imageModal.selectedImage.description
+              ? {
+                  id: imageModal.selectedImage.description.id,
+                  type: imageModal.selectedImage.description.type,
+                  content:
+                    imageModal.selectedImage.description.text ||
+                    imageModal.selectedImage.description.content,
+                  confidence_score: 0,
+                  priority_score: imageModal.selectedImage.description.priority_score,
+                }
+              : undefined
+          }
           isOpen={imageModal.isOpen}
           onClose={imageModal.onClose}
           onImageRegenerated={imageModal.onImageRegenerated}
@@ -120,6 +131,7 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         maxChapterReached={entityDrawer.maxChapterReached}
         currentCFI={entityDrawer.currentCFI}
         isLoading={entityDrawer.isLoading}
+        initialEntityId={entityDrawer.initialEntityId}
       />
 
       <SelectionMenu
