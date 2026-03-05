@@ -253,6 +253,9 @@
       "next": "Next result",
       "close": "Close search"
     },
+    "entity_popup": {
+      "details": "Details"
+    },
     "info": {
       "title": "About book",
       "close": "Close",

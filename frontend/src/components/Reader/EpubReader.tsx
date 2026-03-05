@@ -40,6 +40,8 @@ import { ReaderOverlays } from './Core/ReaderOverlays';
 import { ReaderUI } from './Core/ReaderUI';
 import { ExtractionIndicator } from './ExtractionIndicator';
 import { SearchPanel } from './SearchPanel';
+import { EntityPopup } from './EntityPopup';
+import { useEntityNameHighlighting } from '@/hooks/epub/useEntityNameHighlighting';
 import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
@@ -256,6 +258,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
+    null
+  );
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
+  const [drawerInitialEntityId, setDrawerInitialEntityId] = useState<string | null>(null);
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
   const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
     book.id,
@@ -266,7 +273,46 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (book.id) prefetchEntityNetwork(book.id);
   }, [book.id, prefetchEntityNetwork]);
 
-  const handleEntitiesOpen = useCallback(() => setIsEntityDrawerOpen(true), []);
+  const { nameHighlightingEnabled } = useReaderStore();
+
+  const handleEntityClick = useCallback(
+    (entity: import('@/types/entity').EntityDetail, position: { x: number; y: number }) => {
+      setPopupEntity(entity);
+      setPopupPosition(position);
+    },
+    []
+  );
+
+  const entityList = useMemo(() => {
+    if (!entityNetwork?.entities) return [];
+    return Object.values(entityNetwork.entities);
+  }, [entityNetwork?.entities]);
+
+  useEntityNameHighlighting({
+    rendition,
+    entities: entityList,
+    currentChapter,
+    currentCFI,
+    enabled: renditionReady && nameHighlightingEnabled,
+    onEntityClick: handleEntityClick,
+  });
+
+  const handleEntityPopupOpenDrawer = useCallback((entityId: string) => {
+    setDrawerInitialEntityId(entityId);
+    setIsEntityDrawerOpen(true);
+    setPopupEntity(null);
+    setPopupPosition(null);
+  }, []);
+
+  const handleEntityPopupClose = useCallback(() => {
+    setPopupEntity(null);
+    setPopupPosition(null);
+  }, []);
+
+  const handleEntitiesOpen = useCallback(() => {
+    setDrawerInitialEntityId(null);
+    setIsEntityDrawerOpen(true);
+  }, []);
   const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
   const [isTocOpen, setIsTocOpen] = useState(
     () => localStorage.getItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`) === 'true'
@@ -468,6 +514,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         saveStatus={{ lastSaved: lastSaved ? new Date(lastSaved) : null, isSaving }}
       />
 
+      <EntityPopup
+        entity={popupEntity}
+        position={popupPosition}
+        onClose={handleEntityPopupClose}
+        onOpenDrawer={handleEntityPopupOpenDrawer}
+      />
+
       <SearchPanel
         book={epubBook}
         rendition={rendition}
@@ -495,6 +548,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           currentChapter,
           maxChapterReached,
           currentCFI,
+          initialEntityId: drawerInitialEntityId,
         }}
         selection={{ data: selection, onCopy: handleCopy, onClose: clearSelection }}
         toc={{

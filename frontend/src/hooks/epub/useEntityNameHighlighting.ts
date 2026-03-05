@@ -9,7 +9,7 @@ interface UseEntityNameHighlightingOptions {
   currentChapter: number;
   currentCFI?: string | null;
   enabled?: boolean;
-  onEntityClick?: (entity: EntityDetail) => void;
+  onEntityClick?: (entity: EntityDetail, position: { x: number; y: number }) => void;
 }
 
 const DEBOUNCE_DELAY_MS = 150;
@@ -29,8 +29,8 @@ export const useEntityNameHighlighting = ({
   // Only include met entities with their names + aliases
   const visibleEntities = useMemo(() => {
     if (!enabled) return [];
-    return entities.filter(e =>
-      e.type === 'character' && isEntityMetCFI(e, currentCFI ?? null, currentChapter)
+    return entities.filter(
+      (e) => e.type === 'character' && isEntityMetCFI(e, currentCFI ?? null, currentChapter)
     );
   }, [entities, currentChapter, currentCFI, enabled]);
 
@@ -55,7 +55,7 @@ export const useEntityNameHighlighting = ({
   const processContents = useCallback(async () => {
     if (!rendition || !enabled || searchTerms.length === 0 || processingRef.current) return;
 
-    const key = searchTerms.map(t => t.entityId).join(',') + ':' + currentChapter;
+    const key = searchTerms.map((t) => t.entityId).join(',') + ':' + currentChapter;
     if (key === lastProcessedKey.current) return;
 
     try {
@@ -69,9 +69,12 @@ export const useEntityNameHighlighting = ({
 
       // Cleanup existing entity-mention spans
       const existing = doc.querySelectorAll('.entity-mention');
-      existing.forEach(el => {
+      existing.forEach((el) => {
         const p = el.parentNode;
-        if (p) { p.replaceChild(doc.createTextNode(el.textContent || ''), el); p.normalize(); }
+        if (p) {
+          p.replaceChild(doc.createTextNode(el.textContent || ''), el);
+          p.normalize();
+        }
       });
 
       // Inject styles
@@ -87,7 +90,10 @@ export const useEntityNameHighlighting = ({
         acceptNode: (n) => {
           const parent = n.parentElement;
           if (!parent) return NodeFilter.FILTER_REJECT;
-          if (parent.classList.contains('entity-mention') || parent.classList.contains('description-highlight')) {
+          if (
+            parent.classList.contains('entity-mention') ||
+            parent.classList.contains('description-highlight')
+          ) {
             return NodeFilter.FILTER_REJECT;
           }
           return NodeFilter.FILTER_ACCEPT;
@@ -151,8 +157,19 @@ export const useEntityNameHighlighting = ({
         if (id && onEntityClick) {
           e.preventDefault();
           e.stopPropagation();
-          const entity = visibleEntities.find(x => x.id === id);
-          if (entity) onEntityClick(entity);
+          const entity = visibleEntities.find((x) => x.id === id);
+          if (entity) {
+            // Compute position relative to the main viewport (accounting for iframe offset)
+            const rect = t.getBoundingClientRect();
+            const contents = rendition!.getContents();
+            const iframe = contents?.[0]?.document?.defaultView?.frameElement as HTMLElement | null;
+            const iframeRect = iframe?.getBoundingClientRect();
+            const position = {
+              x: (iframeRect?.left || 0) + rect.left + rect.width / 2,
+              y: (iframeRect?.top || 0) + rect.bottom,
+            };
+            onEntityClick(entity, position);
+          }
         }
       }
     };
@@ -174,4 +191,6 @@ export const useEntityNameHighlighting = ({
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [rendition, processContents, enabled, visibleEntities, onEntityClick]);
+
+  return { processContents };
 };
