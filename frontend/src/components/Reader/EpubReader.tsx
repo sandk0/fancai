@@ -38,6 +38,7 @@ import { mapApiError } from '@/utils/errorMessages';
 import { ReaderModals } from './Core/ReaderModals';
 import { ReaderOverlays } from './Core/ReaderOverlays';
 import { ReaderUI } from './Core/ReaderUI';
+import { ExtractionIndicator } from './ExtractionIndicator';
 import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
@@ -112,13 +113,36 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setInitialProgress,
   });
 
-  const { currentChapter, descriptions, images } = useChapterManagement({
+  const {
+    currentChapter,
+    descriptions,
+    images,
+    isLoadingChapter,
+    descriptionError,
+    refetchDescriptions,
+  } = useChapterManagement({
     book: epubBook,
     rendition,
     bookId: book.id,
     getChapterNumberByLocation,
     isRestoringPosition,
   });
+
+  // Extraction retry state
+  const [extractionRetryCount, setExtractionRetryCount] = useState(0);
+  const MAX_EXTRACTION_RETRIES = 3;
+
+  const handleExtractionRetry = useCallback(() => {
+    if (extractionRetryCount < MAX_EXTRACTION_RETRIES) {
+      setExtractionRetryCount((prev) => prev + 1);
+      refetchDescriptions();
+    }
+  }, [extractionRetryCount, refetchDescriptions]);
+
+  // Reset retry count on chapter change
+  useEffect(() => {
+    setExtractionRetryCount(0);
+  }, [currentChapter]);
 
   // max_chapter_reached приходит с сервера (монотонно возрастающее значение)
   // Дополнительно берём max с currentChapter на случай задержки синхронизации
@@ -388,6 +412,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onDescriptionClick: handleDescriptionClick,
           onCenterTap: handleCenterTap,
         }}
+      />
+
+      <ExtractionIndicator
+        isExtracting={isLoadingChapter}
+        extractionError={descriptionError ? mapApiError(descriptionError).message : null}
+        retryCount={extractionRetryCount}
+        maxRetries={MAX_EXTRACTION_RETRIES}
+        onRetry={
+          descriptionError && mapApiError(descriptionError).isRetryable
+            ? handleExtractionRetry
+            : undefined
+        }
       />
 
       <ReaderUI

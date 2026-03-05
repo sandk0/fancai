@@ -9,11 +9,11 @@ import { logger } from '@/lib/logger';
 // Conditional logging
 const devLog = import.meta.env.DEV
   ? (...args: unknown[]) => logger.debug('[useChapterManagement]', ...args)
-  : () => { };
+  : () => {};
 
 const devWarn = import.meta.env.DEV
   ? (...args: unknown[]) => logger.warn('[useChapterManagement]', ...args)
-  : () => { };
+  : () => {};
 
 interface UseChapterManagementOptions {
   book: Book | null;
@@ -38,33 +38,42 @@ export const useChapterManagement = ({
   /**
    * Extract chapter number from EPUB location
    */
-  const getChapterFromLocation_Internal = useCallback((location: Location): number => {
-    try {
-      if (!book) return 1;
+  const getChapterFromLocation_Internal = useCallback(
+    (location: Location): number => {
+      try {
+        if (!book) return 1;
 
-      // 1. Try mapping function
-      if (getChapterNumberByLocation) {
-        const mappedChapter = getChapterNumberByLocation(location);
-        if (mappedChapter !== null) return mappedChapter;
+        // 1. Try mapping function
+        if (getChapterNumberByLocation) {
+          const mappedChapter = getChapterNumberByLocation(location);
+          if (mappedChapter !== null) return mappedChapter;
+        }
+
+        // 2. Fallback: spine index
+        const currentHref = location?.start?.href;
+        if (!currentHref || !book.spine) return 1;
+
+        const spineIndex = book.spine.items.findIndex(
+          (item) => item.href === currentHref || item.href.includes(currentHref)
+        );
+
+        return spineIndex === -1 ? 1 : Math.max(1, spineIndex + 1);
+      } catch {
+        return 1;
       }
-
-      // 2. Fallback: spine index
-      const currentHref = location?.start?.href;
-      if (!currentHref || !book.spine) return 1;
-
-      const spineIndex = book.spine.items.findIndex((item) => 
-        item.href === currentHref || item.href.includes(currentHref)
-      );
-
-      return spineIndex === -1 ? 1 : Math.max(1, spineIndex + 1);
-    } catch {
-      return 1;
-    }
-  }, [book, getChapterNumberByLocation]);
+    },
+    [book, getChapterNumberByLocation]
+  );
 
   // Hook 1: Load data for current chapter
   // Automatically handles caching, API calls, and abortion on change
-  const { descriptions, images, isLoading: isLoadingChapter } = useChapterData({
+  const {
+    descriptions,
+    images,
+    isLoading: isLoadingChapter,
+    error: descriptionError,
+    refetch: refetchDescriptions,
+  } = useChapterData({
     bookId,
     chapter: currentChapter,
     userId,
@@ -132,5 +141,7 @@ export const useChapterManagement = ({
     descriptions,
     images,
     isLoadingChapter,
+    descriptionError,
+    refetchDescriptions,
   };
 };

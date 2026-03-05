@@ -21,48 +21,73 @@ export const useChapterData = ({
   const [descriptions, setDescriptions] = useState<Description[]>([]);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const bgAbortControllerRef = useRef<AbortController | null>(null);
 
-  const revalidateInBackground = useCallback(async (
-    currentBookId: string,
-    currentChapter: number,
-    cachedDescriptions: Description[],
-  ) => {
-    // Cancel previous background revalidation
-    bgAbortControllerRef.current?.abort();
-    const bgController = new AbortController();
-    bgAbortControllerRef.current = bgController;
+  const revalidateInBackground = useCallback(
+    async (currentBookId: string, currentChapter: number, cachedDescriptions: Description[]) => {
+      // Cancel previous background revalidation
+      bgAbortControllerRef.current?.abort();
+      const bgController = new AbortController();
+      bgAbortControllerRef.current = bgController;
 
-    try {
-      const response = await booksAPI.getChapterDescriptions(currentBookId, currentChapter, false, bgController.signal);
-      if (bgController.signal.aborted) return;
-
-      const freshDescriptions = response.nlp_analysis.descriptions || [];
-
-      // Compare by sorted IDs — more reliable than length comparison
-      const freshIds = freshDescriptions.map(d => d.id).sort().join(',');
-      const cachedIds = cachedDescriptions.map(d => d.id).sort().join(',');
-
-      if (freshIds !== cachedIds) {
-        logger.debug(`[useChapterData] Background revalidation: descriptions changed`);
-        const imagesResponse = await imagesAPI.getBookImages(currentBookId, currentChapter, 0, 50, bgController.signal);
+      try {
+        const response = await booksAPI.getChapterDescriptions(
+          currentBookId,
+          currentChapter,
+          false,
+          bgController.signal
+        );
         if (bgController.signal.aborted) return;
 
-        const freshImages = imagesResponse.images;
-        await chapterCache.set(userId, currentBookId, currentChapter, freshDescriptions, freshImages);
+        const freshDescriptions = response.nlp_analysis.descriptions || [];
 
-        if (!bgController.signal.aborted) {
-          setDescriptions(freshDescriptions);
-          setImages(freshImages);
+        // Compare by sorted IDs — more reliable than length comparison
+        const freshIds = freshDescriptions
+          .map((d) => d.id)
+          .sort()
+          .join(',');
+        const cachedIds = cachedDescriptions
+          .map((d) => d.id)
+          .sort()
+          .join(',');
+
+        if (freshIds !== cachedIds) {
+          logger.debug(`[useChapterData] Background revalidation: descriptions changed`);
+          const imagesResponse = await imagesAPI.getBookImages(
+            currentBookId,
+            currentChapter,
+            0,
+            50,
+            bgController.signal
+          );
+          if (bgController.signal.aborted) return;
+
+          const freshImages = imagesResponse.images;
+          await chapterCache.set(
+            userId,
+            currentBookId,
+            currentChapter,
+            freshDescriptions,
+            freshImages
+          );
+
+          if (!bgController.signal.aborted) {
+            setDescriptions(freshDescriptions);
+            setImages(freshImages);
+          }
         }
+      } catch {
+        // Background revalidation failure is non-critical
+        logger.debug(
+          `[useChapterData] Background revalidation failed for chapter ${currentChapter}`
+        );
       }
-    } catch {
-      // Background revalidation failure is non-critical
-      logger.debug(`[useChapterData] Background revalidation failed for chapter ${currentChapter}`);
-    }
-  }, [userId]);
+    },
+    [userId]
+  );
 
   const loadData = useCallback(async () => {
     if (!bookId || !userId || chapter <= 0 || !enabled) return;
@@ -74,6 +99,7 @@ export const useChapterData = ({
 
     try {
       setIsLoading(true);
+      setError(null);
       logger.debug(`[useChapterData] Loading chapter ${chapter}`);
 
       // 1. Check Cache
@@ -92,7 +118,10 @@ export const useChapterData = ({
 
       // 2. Fetch from API
       const descriptionsResponse = await booksAPI.getChapterDescriptions(
-        bookId, chapter, false, signal
+        bookId,
+        chapter,
+        false,
+        signal
       );
       if (signal.aborted) return;
 
@@ -108,11 +137,12 @@ export const useChapterData = ({
 
       setDescriptions(loadedDescriptions);
       setImages(loadedImages);
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      logger.error(`[useChapterData] Error loading chapter ${chapter}:`, error);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      logger.error(`[useChapterData] Error loading chapter ${chapter}:`, err);
       setDescriptions([]);
       setImages([]);
+      setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       if (!signal.aborted) {
         setIsLoading(false);
@@ -129,5 +159,5 @@ export const useChapterData = ({
     };
   }, [loadData]);
 
-  return { descriptions, images, isLoading };
+  return { descriptions, images, isLoading, error, refetch: loadData };
 };
