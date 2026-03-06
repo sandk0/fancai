@@ -39,6 +39,8 @@ interface ReaderUIProps {
     onWakeLockChange: (enabled: boolean) => void;
     navigationMode: 'swipe' | 'tap';
     onNavigationModeChange: (mode: 'swipe' | 'tap') => void;
+    nameHighlightingEnabled: boolean;
+    onNameHighlightingChange: (enabled: boolean) => void;
   };
   imageStatus: {
     status: GenerationStatus;
@@ -92,6 +94,8 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
           onWakeLockChange={settings.onWakeLockChange}
           navigationMode={settings.navigationMode}
           onNavigationModeChange={settings.onNavigationModeChange}
+          nameHighlightingEnabled={settings.nameHighlightingEnabled}
+          onNameHighlightingChange={settings.onNameHighlightingChange}
         />
       </div>
 

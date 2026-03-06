@@ -131,6 +131,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     isRestoringPosition,
   });
 
+  // Debounce isLoadingChapter — only show extraction indicator after 2s
+  // (fast cache/API fetches won't flash the "AI analyzing" UI)
+  const [showExtractionIndicator, setShowExtractionIndicator] = useState(false);
+  useEffect(() => {
+    if (!isLoadingChapter) {
+      setShowExtractionIndicator(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowExtractionIndicator(true), 2000);
+    return () => clearTimeout(timer);
+  }, [isLoadingChapter]);
+
   // Extraction retry state
   const [extractionRetryCount, setExtractionRetryCount] = useState(0);
   const MAX_EXTRACTION_RETRIES = 3;
@@ -273,7 +285,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (book.id) prefetchEntityNetwork(book.id);
   }, [book.id, prefetchEntityNetwork]);
 
-  const { nameHighlightingEnabled } = useReaderStore();
+  const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
 
   const handleEntityClick = useCallback(
     (entity: import('@/types/entity').EntityDetail, position: { x: number; y: number }) => {
@@ -463,7 +475,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       />
 
       <ExtractionIndicator
-        isExtracting={isLoadingChapter}
+        isExtracting={showExtractionIndicator}
         extractionError={descriptionError ? mapApiError(descriptionError).message : null}
         retryCount={extractionRetryCount}
         maxRetries={MAX_EXTRACTION_RETRIES}
@@ -504,6 +516,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onWakeLockChange: handleWakeLockToggle,
           navigationMode,
           onNavigationModeChange: updateNavigationMode,
+          nameHighlightingEnabled,
+          onNameHighlightingChange: updateNameHighlighting,
         }}
         imageStatus={{
           status: generationStatus,
