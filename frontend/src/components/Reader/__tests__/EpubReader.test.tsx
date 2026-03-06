@@ -37,29 +37,33 @@ const mockUser = {
 vi.mock('@/api/books', () => ({
   booksAPI: {
     getBookFileUrl: vi.fn((id: string) => `/api/v1/books/${id}/file`),
-    updateReadingProgress: vi.fn(() => Promise.resolve({
-      progress: {
-        book_id: 'test-book-id',
-        current_chapter: 1,
-        current_page: 1,
-        current_position: 0,
-        reading_location_cfi: undefined,
-        progress_percent: 0,
-        last_read_at: '2025-01-01T00:00:00Z',
-      },
-      message: 'Progress updated successfully',
-    })),
-    getReadingProgress: vi.fn(() => Promise.resolve({
-      progress: {
-        book_id: 'test-book-id',
-        current_chapter: 1,
-        current_page: 1,
-        current_position: 0,
-        reading_location_cfi: undefined,
-        progress_percent: 0,
-        last_read_at: '2025-01-01T00:00:00Z',
-      },
-    })),
+    updateReadingProgress: vi.fn(() =>
+      Promise.resolve({
+        progress: {
+          book_id: 'test-book-id',
+          current_chapter: 1,
+          current_page: 1,
+          current_position: 0,
+          reading_location_cfi: undefined,
+          progress_percent: 0,
+          last_read_at: '2025-01-01T00:00:00Z',
+        },
+        message: 'Progress updated successfully',
+      })
+    ),
+    getReadingProgress: vi.fn(() =>
+      Promise.resolve({
+        progress: {
+          book_id: 'test-book-id',
+          current_chapter: 1,
+          current_page: 1,
+          current_position: 0,
+          reading_location_cfi: undefined,
+          progress_percent: 0,
+          last_read_at: '2025-01-01T00:00:00Z',
+        },
+      })
+    ),
   },
 }));
 
@@ -124,6 +128,7 @@ const mockBook: Book = {
   spine: {
     get: vi.fn(() => undefined),
     each: vi.fn(),
+    first: vi.fn(() => undefined),
     items: [],
     length: 0,
   },
@@ -312,12 +317,13 @@ const createMockBook = (overrides?: Partial<BookDetail>): BookDetail => ({
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: { retry: false },
-    mutations: { retry: false },
-  },
-});
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
 
 const renderEpubReader = (book: BookDetail = createMockBook()) => {
   const queryClient = createTestQueryClient();
@@ -333,7 +339,7 @@ const renderEpubReader = (book: BookDetail = createMockBook()) => {
 describe('EpubReader Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     vi.mocked(useAuthStore.getState).mockReturnValue({
       user: mockUser,
       isAuthenticated: true,
@@ -345,7 +351,7 @@ describe('EpubReader Component', () => {
       updateUser: vi.fn(),
       loadUserFromStorage: vi.fn(),
     });
-    
+
     localStorage.setItem('auth_token', 'mock-token');
   });
 
@@ -389,7 +395,9 @@ describe('EpubReader Component', () => {
       renderEpubReader();
 
       await waitFor(() => {
-        expect(screen.getByText(/Загрузка книги|Восстановление позиции|Подготовка книги/)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Загрузка книги|Восстановление позиции|Подготовка книги/)
+        ).toBeInTheDocument();
       });
     });
 
@@ -412,7 +420,8 @@ describe('EpubReader Component', () => {
     });
 
     it('renders chapter content correctly', async () => {
-      const { useEpubLoader, useBookMetadata, useLocationGeneration } = await import('@/hooks/epub');
+      const { useEpubLoader, useBookMetadata, useLocationGeneration } =
+        await import('@/hooks/epub');
 
       vi.mocked(useEpubLoader).mockReturnValue({
         book: mockBook,
@@ -707,7 +716,8 @@ describe('EpubReader Component', () => {
         nextPage: mockNextPage,
         prevPage: vi.fn(),
         canGoNext: true,
-        canGoPrev: true, debugInfo: null,
+        canGoPrev: true,
+        debugInfo: null,
       });
 
       renderEpubReader();
@@ -725,7 +735,8 @@ describe('EpubReader Component', () => {
         nextPage: vi.fn(),
         prevPage: mockPrevPage,
         canGoNext: true,
-        canGoPrev: true, debugInfo: null,
+        canGoPrev: true,
+        debugInfo: null,
       });
 
       renderEpubReader();
@@ -901,9 +912,7 @@ describe('EpubReader Component', () => {
     it('failed save triggers retry logic', async () => {
       const { booksAPI } = await import('@/api/books');
 
-      vi.mocked(booksAPI.updateReadingProgress).mockRejectedValue(
-        new Error('Network error')
-      );
+      vi.mocked(booksAPI.updateReadingProgress).mockRejectedValue(new Error('Network error'));
 
       renderEpubReader();
 
@@ -996,7 +1005,8 @@ describe('EpubReader Component', () => {
         nextPage: mockNextPage,
         prevPage: vi.fn(),
         canGoNext: true,
-        canGoPrev: true, debugInfo: null,
+        canGoPrev: true,
+        debugInfo: null,
       });
 
       renderEpubReader();
@@ -1035,7 +1045,8 @@ describe('EpubReader Component', () => {
         nextPage: vi.fn(),
         prevPage: mockPrevPage,
         canGoNext: true,
-        canGoPrev: true, debugInfo: null,
+        canGoPrev: true,
+        debugInfo: null,
       });
 
       renderEpubReader();
