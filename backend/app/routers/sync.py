@@ -1,14 +1,14 @@
 """
-Sync Router - Handles batch sync operations and CRUD for bookmarks/highlights.
+Sync Router - Handles batch sync operations and CRUD for unified bookmarks.
 
 Features:
 - Accepts sendBeacon requests (text/plain with JSON body) for batch sync
-- CRUD endpoints for bookmarks (CFI-based)
-- CRUD endpoints for highlights (CFI range, color, note)
+- CRUD endpoints for bookmarks (CFI range, color, style, note)
+- /highlights alias routes for backward compatibility
 - All endpoints require authentication via get_current_active_user
 
 Created: January 2026
-Updated: March 2026 (Phase 8: bookmarks & highlights)
+Updated: March 2026 (unified bookmarks model)
 Author: fancai Team
 """
 
@@ -28,13 +28,10 @@ from ..services.auth_service import auth_service
 from ..services.token_blacklist import token_blacklist
 from ..models.user import User
 from ..models.bookmark import Bookmark
-from ..models.highlight import Highlight
 from ..schemas.sync import (
     BookmarkCreate,
+    BookmarkUpdate,
     BookmarkResponse,
-    HighlightCreate,
-    HighlightUpdate,
-    HighlightResponse,
 )
 from ..services.book import book_progress_service
 
@@ -137,25 +134,12 @@ async def process_progress_operation(
     endpoint: str,
     body: Optional[Dict[str, Any]],
 ) -> bool:
-    """
-    Process a reading progress update operation.
-
-    Args:
-        db: Database session
-        user: Authenticated user
-        endpoint: API endpoint (e.g., /api/v1/books/{book_id}/progress)
-        body: Operation body with progress data
-
-    Returns:
-        True if successful, False otherwise
-    """
+    """Process a reading progress update operation."""
     if not body:
         return False
 
-    # Extract book_id from endpoint: /api/v1/books/{book_id}/progress
     try:
         parts = endpoint.split("/")
-        # Find "books" index and get the next element as book_id
         books_idx = parts.index("books")
         book_id_str = parts[books_idx + 1]
         book_id = UUID(book_id_str)
@@ -163,14 +147,12 @@ async def process_progress_operation(
         logger.warning("Invalid progress endpoint", endpoint=endpoint, error=str(e))
         return False
 
-    # Extract progress data (handle both frontend formats)
     chapter_number = body.get("chapter_number") or body.get("chapter", 1)
     reading_location_cfi = body.get("reading_location_cfi") or body.get("cfi")
     scroll_offset_percent = body.get("scroll_offset_percent") or body.get(
         "scrollPercent", 0.0
     )
 
-    # Validate scroll_offset_percent
     if scroll_offset_percent is not None:
         scroll_offset_percent = max(0.0, min(100.0, float(scroll_offset_percent)))
 
@@ -180,7 +162,7 @@ async def process_progress_operation(
             user_id=user.id,
             book_id=book_id,
             chapter_number=int(chapter_number),
-            position_percent=0.0,  # Default position
+            position_percent=0.0,
             reading_location_cfi=reading_location_cfi,
             scroll_offset_percent=scroll_offset_percent,
         )
@@ -213,34 +195,50 @@ async def process_bookmark_sync(
         book_id = _extract_book_id_from_endpoint(endpoint)
 
         if method == "POST" and body:
-            # Check for duplicate
-            existing = await db.execute(
-                select(Bookmark).where(
-                    and_(
-                        Bookmark.user_id == user.id,
-                        Bookmark.book_id == book_id,
-                        Bookmark.cfi == body.get("cfi", ""),
-                    )
-                )
-            )
-            if existing.scalar_one_or_none():
-                return True  # Already exists, consider success
-
             bookmark = Bookmark(
                 user_id=user.id,
                 book_id=book_id,
-                cfi=body.get("cfi", ""),
+                cfi_range=body.get("cfi_range", ""),
                 chapter_number=body.get("chapter_number", 0),
-                text_excerpt=body.get("text_excerpt", "")[:500],
+                text=body.get("text", "")[:2000],
+                color=body.get("color"),
+                text_color=body.get("text_color"),
+                style=body.get("style", "none"),
+                note=body.get("note"),
             )
             db.add(bookmark)
             return True
 
-        elif method == "DELETE":
+        elif method == "PUT" and body:
             # Extract bookmark_id from endpoint: .../bookmarks/{bookmark_id}
             parts = endpoint.split("/")
-            bookmark_idx = parts.index("bookmarks")
-            bookmark_id = UUID(parts[bookmark_idx + 1])
+            bookmarks_idx = parts.index("bookmarks")
+            bookmark_id = UUID(parts[bookmarks_idx + 1])
+
+            result = await db.execute(
+                select(Bookmark).where(
+                    and_(
+                        Bookmark.id == bookmark_id,
+                        Bookmark.user_id == user.id,
+                    )
+                )
+            )
+            bookmark = result.scalar_one_or_none()
+            if bookmark:
+                if "color" in body:
+                    bookmark.color = body["color"]
+                if "text_color" in body:
+                    bookmark.text_color = body["text_color"]
+                if "style" in body:
+                    bookmark.style = body["style"]
+                if "note" in body:
+                    bookmark.note = body["note"]
+            return True
+
+        elif method == "DELETE":
+            parts = endpoint.split("/")
+            bookmarks_idx = parts.index("bookmarks")
+            bookmark_id = UUID(parts[bookmarks_idx + 1])
 
             result = await db.execute(
                 select(Bookmark).where(
@@ -258,76 +256,6 @@ async def process_bookmark_sync(
         return False
     except Exception as e:
         logger.warning("Failed to process bookmark sync", error=str(e))
-        return False
-
-
-async def process_highlight_sync(
-    db: AsyncSession,
-    user: User,
-    endpoint: str,
-    method: str,
-    body: Optional[Dict[str, Any]],
-) -> bool:
-    """Process a highlight sync operation from batch sync."""
-    try:
-        book_id = _extract_book_id_from_endpoint(endpoint)
-
-        if method == "POST" and body:
-            highlight = Highlight(
-                user_id=user.id,
-                book_id=book_id,
-                cfi_range=body.get("cfi_range", ""),
-                chapter_number=body.get("chapter_number", 0),
-                text=body.get("text", "")[:2000],
-                color=body.get("color", "#fbbf24"),
-                note=body.get("note"),
-            )
-            db.add(highlight)
-            return True
-
-        elif method == "PUT" and body:
-            # Extract highlight_id from endpoint: .../highlights/{highlight_id}
-            parts = endpoint.split("/")
-            highlights_idx = parts.index("highlights")
-            highlight_id = UUID(parts[highlights_idx + 1])
-
-            result = await db.execute(
-                select(Highlight).where(
-                    and_(
-                        Highlight.id == highlight_id,
-                        Highlight.user_id == user.id,
-                    )
-                )
-            )
-            highlight = result.scalar_one_or_none()
-            if highlight:
-                if "color" in body:
-                    highlight.color = body["color"]
-                if "note" in body:
-                    highlight.note = body["note"]
-            return True
-
-        elif method == "DELETE":
-            parts = endpoint.split("/")
-            highlights_idx = parts.index("highlights")
-            highlight_id = UUID(parts[highlights_idx + 1])
-
-            result = await db.execute(
-                select(Highlight).where(
-                    and_(
-                        Highlight.id == highlight_id,
-                        Highlight.user_id == user.id,
-                    )
-                )
-            )
-            highlight = result.scalar_one_or_none()
-            if highlight:
-                await db.delete(highlight)
-            return True
-
-        return False
-    except Exception as e:
-        logger.warning("Failed to process highlight sync", error=str(e))
         return False
 
 
@@ -354,7 +282,7 @@ async def get_bookmarks(
                 Bookmark.book_id == book_id,
             )
         )
-        .order_by(Bookmark.created_at.desc())
+        .order_by(Bookmark.chapter_number, Bookmark.created_at)
     )
     bookmarks = result.scalars().all()
     return [BookmarkResponse.model_validate(b) for b in bookmarks]
@@ -371,31 +299,61 @@ async def create_bookmark(
     db: AsyncSession = Depends(get_database_session),
     current_user: User = Depends(get_current_active_user),
 ) -> BookmarkResponse:
-    """Create a bookmark. Returns 409 if duplicate CFI."""
-    # Check for duplicate
-    existing = await db.execute(
-        select(Bookmark).where(
-            and_(
-                Bookmark.user_id == current_user.id,
-                Bookmark.book_id == book_id,
-                Bookmark.cfi == data.cfi,
-            )
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Bookmark already exists at this CFI position",
-        )
-
+    """Create a bookmark."""
     bookmark = Bookmark(
         user_id=current_user.id,
         book_id=book_id,
-        cfi=data.cfi,
+        cfi_range=data.cfi_range,
         chapter_number=data.chapter_number,
-        text_excerpt=data.text_excerpt,
+        text=data.text,
+        color=data.color,
+        text_color=data.text_color,
+        style=data.style,
+        note=data.note,
     )
     db.add(bookmark)
+    await db.commit()
+    await db.refresh(bookmark)
+    return BookmarkResponse.model_validate(bookmark)
+
+
+@router.put(
+    "/books/{book_id}/bookmarks/{bookmark_id}",
+    response_model=BookmarkResponse,
+)
+async def update_bookmark(
+    book_id: UUID,
+    bookmark_id: UUID,
+    data: BookmarkUpdate,
+    db: AsyncSession = Depends(get_database_session),
+    current_user: User = Depends(get_current_active_user),
+) -> BookmarkResponse:
+    """Update bookmark color, style, and/or note. Checks ownership."""
+    result = await db.execute(
+        select(Bookmark).where(
+            and_(
+                Bookmark.id == bookmark_id,
+                Bookmark.user_id == current_user.id,
+                Bookmark.book_id == book_id,
+            )
+        )
+    )
+    bookmark = result.scalar_one_or_none()
+    if not bookmark:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bookmark not found",
+        )
+
+    if data.color is not None:
+        bookmark.color = data.color
+    if data.text_color is not None:
+        bookmark.text_color = data.text_color
+    if data.style is not None:
+        bookmark.style = data.style
+    if data.note is not None:
+        bookmark.note = data.note
+
     await db.commit()
     await db.refresh(bookmark)
     return BookmarkResponse.model_validate(bookmark)
@@ -433,128 +391,36 @@ async def delete_bookmark(
 
 
 # ============================================================================
-# Highlight CRUD Endpoints
+# Backward-compatible /highlights aliases → redirect to /bookmarks
 # ============================================================================
 
 
 @router.get(
     "/books/{book_id}/highlights",
-    response_model=List[HighlightResponse],
+    response_model=List[BookmarkResponse],
 )
-async def get_highlights(
+async def get_highlights_alias(
     book_id: UUID,
     db: AsyncSession = Depends(get_database_session),
     current_user: User = Depends(get_current_active_user),
-) -> List[HighlightResponse]:
-    """Get all highlights for a book."""
-    result = await db.execute(
-        select(Highlight)
-        .where(
-            and_(
-                Highlight.user_id == current_user.id,
-                Highlight.book_id == book_id,
-            )
-        )
-        .order_by(Highlight.chapter_number, Highlight.created_at)
-    )
-    highlights = result.scalars().all()
-    return [HighlightResponse.model_validate(h) for h in highlights]
+) -> List[BookmarkResponse]:
+    """Backward-compatible alias for GET /bookmarks."""
+    return await get_bookmarks(book_id, db, current_user)
 
 
 @router.post(
     "/books/{book_id}/highlights",
-    response_model=HighlightResponse,
+    response_model=BookmarkResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_highlight(
+async def create_highlight_alias(
     book_id: UUID,
-    data: HighlightCreate,
+    data: BookmarkCreate,
     db: AsyncSession = Depends(get_database_session),
     current_user: User = Depends(get_current_active_user),
-) -> HighlightResponse:
-    """Create a highlight."""
-    highlight = Highlight(
-        user_id=current_user.id,
-        book_id=book_id,
-        cfi_range=data.cfi_range,
-        chapter_number=data.chapter_number,
-        text=data.text,
-        color=data.color,
-        note=data.note,
-    )
-    db.add(highlight)
-    await db.commit()
-    await db.refresh(highlight)
-    return HighlightResponse.model_validate(highlight)
-
-
-@router.put(
-    "/books/{book_id}/highlights/{highlight_id}",
-    response_model=HighlightResponse,
-)
-async def update_highlight(
-    book_id: UUID,
-    highlight_id: UUID,
-    data: HighlightUpdate,
-    db: AsyncSession = Depends(get_database_session),
-    current_user: User = Depends(get_current_active_user),
-) -> HighlightResponse:
-    """Update highlight color and/or note. Checks ownership."""
-    result = await db.execute(
-        select(Highlight).where(
-            and_(
-                Highlight.id == highlight_id,
-                Highlight.user_id == current_user.id,
-                Highlight.book_id == book_id,
-            )
-        )
-    )
-    highlight = result.scalar_one_or_none()
-    if not highlight:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Highlight not found",
-        )
-
-    if data.color is not None:
-        highlight.color = data.color
-    if data.note is not None:
-        highlight.note = data.note
-
-    await db.commit()
-    await db.refresh(highlight)
-    return HighlightResponse.model_validate(highlight)
-
-
-@router.delete(
-    "/books/{book_id}/highlights/{highlight_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_highlight(
-    book_id: UUID,
-    highlight_id: UUID,
-    db: AsyncSession = Depends(get_database_session),
-    current_user: User = Depends(get_current_active_user),
-) -> None:
-    """Delete a highlight. Checks ownership."""
-    result = await db.execute(
-        select(Highlight).where(
-            and_(
-                Highlight.id == highlight_id,
-                Highlight.user_id == current_user.id,
-                Highlight.book_id == book_id,
-            )
-        )
-    )
-    highlight = result.scalar_one_or_none()
-    if not highlight:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Highlight not found",
-        )
-
-    await db.delete(highlight)
-    await db.commit()
+) -> BookmarkResponse:
+    """Backward-compatible alias for POST /bookmarks."""
+    return await create_bookmark(book_id, data, db, current_user)
 
 
 # ============================================================================
@@ -576,25 +442,6 @@ async def batch_sync(
 
     Note: sendBeacon sends data as text/plain with JSON string body,
     not as application/json. We need to handle the raw body.
-
-    Args:
-        request: FastAPI request object
-        db: Database session
-
-    Returns:
-        BatchSyncResponse with processed/failed counts
-
-    Example payload (sent via sendBeacon):
-        {
-            "operations": [
-                {
-                    "endpoint": "/api/v1/books/123/progress",
-                    "method": "PUT",
-                    "body": {"chapter_number": 5, "cfi": "epubcfi(...)"}
-                }
-            ],
-            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        }
     """
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -641,8 +488,6 @@ async def batch_sync(
 
         if not user:
             logger.warning("Batch sync without valid authentication")
-            # Return partial success - we received the data but couldn't process
-            # This is intentional to not lose data that might be resent later
             return BatchSyncResponse(
                 processed=0,
                 failed=len(operations),
@@ -672,7 +517,7 @@ async def batch_sync(
                         failed += 1
                         errors.append(f"Failed to process progress: {endpoint}")
 
-                elif "/bookmarks" in endpoint:
+                elif "/bookmarks" in endpoint or "/highlights" in endpoint:
                     success = await process_bookmark_sync(
                         db=db,
                         user=user,
@@ -685,20 +530,6 @@ async def batch_sync(
                     else:
                         failed += 1
                         errors.append(f"Failed to process bookmark: {endpoint}")
-
-                elif "/highlights" in endpoint:
-                    success = await process_highlight_sync(
-                        db=db,
-                        user=user,
-                        endpoint=endpoint,
-                        method=method,
-                        body=op_body,
-                    )
-                    if success:
-                        processed += 1
-                    else:
-                        failed += 1
-                        errors.append(f"Failed to process highlight: {endpoint}")
 
                 elif "/reading-sessions" in endpoint:
                     # NOT IMPLEMENTED

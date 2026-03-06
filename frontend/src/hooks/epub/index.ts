@@ -33,6 +33,5 @@ export { useTextSelection, type Selection } from './useTextSelection';
 export { useToc, type UseTocReturn } from './useToc';
 export { useCFIGenerator } from './useCFIGenerator';
 export { useEntityCFIPopulation } from './useEntityCFIPopulation';
-export { useBookmarkActions } from './useBookmarks';
-export { useHighlightActions, HIGHLIGHT_COLORS } from './useHighlights';
+export { useBookmarkActions, BOOKMARK_COLORS, BOOKMARK_STYLES } from './useBookmarks';
 export { useAnnotationRendering } from './useAnnotationRendering';

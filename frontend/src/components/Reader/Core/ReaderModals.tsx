@@ -47,9 +47,12 @@ interface ReaderModalsProps {
   selection: {
     data: Selection | null;
     onCopy: () => void;
-    onBookmark?: () => void;
-    onHighlightWithColor?: (color: string) => void;
-    onNoteWithColor?: (color: string, note: string) => void;
+    onBookmark?: (opts: {
+      color?: string | null;
+      style?: string;
+      note?: string;
+      text_color?: string | null;
+    }) => void;
     onClose: () => void;
   };
   toc: {
@@ -59,27 +62,10 @@ interface ReaderModalsProps {
     currentHref: string;
     onChapterClick: (href: string) => void;
     bookId?: string;
-    bookmarks?: {
-      id: string;
-      cfi: string;
-      chapter_number: number;
-      text_excerpt: string;
-      created_at: string;
-    }[];
-    highlights?: {
-      id: string;
-      cfi_range: string;
-      chapter_number: number;
-      text: string;
-      color: string;
-      note: string | null;
-      created_at: string;
-      updated_at: string;
-    }[];
-    onNavigateToCfi?: (cfi: string) => void;
-    onDeleteBookmark?: (bookmarkId: string) => void;
-    onDeleteHighlight?: (highlightId: string, cfiRange: string) => void;
-    onUpdateHighlightNote?: (highlightId: string, note: string) => void;
+    bookmarks?: import('@/hooks/api/useSync').BookmarkResponse[];
+    onNavigateToCfi?: (cfi: string, bookmarkId?: string) => void;
+    onDeleteBookmark?: (bookmarkId: string, cfiRange: string) => void;
+    onUpdateBookmarkNote?: (bookmarkId: string, note: string) => void;
   };
   positionConflict: {
     data: {
@@ -163,8 +149,6 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         selection={selection.data}
         onCopy={selection.onCopy}
         onBookmark={selection.onBookmark}
-        onHighlightWithColor={selection.onHighlightWithColor}
-        onNoteWithColor={selection.onNoteWithColor}
         onClose={selection.onClose}
       />
 
@@ -176,11 +160,9 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         onClose={toc.onClose}
         bookId={toc.bookId}
         bookmarks={toc.bookmarks}
-        highlights={toc.highlights}
         onNavigateToCfi={toc.onNavigateToCfi}
         onDeleteBookmark={toc.onDeleteBookmark}
-        onDeleteHighlight={toc.onDeleteHighlight}
-        onUpdateHighlightNote={toc.onUpdateHighlightNote}
+        onUpdateBookmarkNote={toc.onUpdateBookmarkNote}
       />
     </>
   );

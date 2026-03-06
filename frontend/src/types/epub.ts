@@ -11,7 +11,7 @@ export interface NavItem {
   id: string;
   href: string;
   label: string;
-  type?: string;     // epub:type для landmarks (например "bodymatter", "toc")
+  type?: string; // epub:type для landmarks (например "bodymatter", "toc")
   subitems?: NavItem[];
   parent?: string;
 }
@@ -62,7 +62,11 @@ export interface Rendition {
   next(): Promise<void>;
   destroy(): void;
   themes: {
-    default(styles: Record<string, string | number> | { [key: string]: Record<string, string | number> | string | number }): void;
+    default(
+      styles:
+        | Record<string, string | number>
+        | { [key: string]: Record<string, string | number> | string | number }
+    ): void;
     register(name: string, styles: Record<string, string | number>): void;
     select(name: string): void;
     fontSize(size: string): void;
@@ -87,6 +91,13 @@ export interface Rendition {
     ): void;
     remove(cfiRange: string, type: string): void;
     highlight(
+      cfiRange: string,
+      data?: Record<string, unknown>,
+      cb?: () => void,
+      className?: string,
+      styles?: Record<string, string>
+    ): void;
+    underline(
       cfiRange: string,
       data?: Record<string, unknown>,
       cb?: () => void,
@@ -244,11 +255,7 @@ export interface EpubRenderedEvent {
 // Type guards
 export function isEpubSelection(obj: unknown): obj is EpubSelection {
   return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'cfiRange' in obj &&
-    'text' in obj &&
-    'range' in obj
+    typeof obj === 'object' && obj !== null && 'cfiRange' in obj && 'text' in obj && 'range' in obj
   );
 }
 

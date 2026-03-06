@@ -294,22 +294,7 @@ async function clearEpubLocationsDB(): Promise<void> {
 export interface ReadingProgressBackup {
   data: {
     readingProgress: Record<string, ReadingProgress>;
-    bookmarks: Record<
-      string,
-      { cfi: string; chapter: number; page?: number; text: string; createdAt: Date }[]
-    >;
-    highlights: Record<
-      string,
-      {
-        id: string;
-        cfiRange: string;
-        chapter: number;
-        text: string;
-        color: string;
-        note?: string;
-        createdAt: Date;
-      }[]
-    >;
+    bookmarks: Record<string, import('@/stores/reader').StoreBookmark[]>;
   };
   savedAt: number;
   userId: string;
@@ -333,7 +318,6 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
     data: {
       readingProgress: readerState.readingProgress,
       bookmarks: readerState.bookmarks,
-      highlights: readerState.highlights,
     },
     savedAt: Date.now(),
     userId,
@@ -345,15 +329,10 @@ export function backupReadingProgress(userId: string): ReadingProgressBackup {
     (sum, arr) => sum + arr.length,
     0
   );
-  const highlightCount = Object.values(backup.data.highlights).reduce(
-    (sum, arr) => sum + arr.length,
-    0
-  );
 
   logger.debug('💾 [CacheManager] Backup created:', {
     progressCount,
     bookmarkCount,
-    highlightCount,
   });
 
   // Save to localStorage
@@ -418,10 +397,6 @@ export function restoreReadingProgress(userId: string): boolean {
         ...readerStore.bookmarks,
         ...backup.data.bookmarks,
       },
-      highlights: {
-        ...readerStore.highlights,
-        ...backup.data.highlights,
-      },
     });
 
     // Count restored items for logging
@@ -430,15 +405,10 @@ export function restoreReadingProgress(userId: string): boolean {
       (sum, arr) => sum + arr.length,
       0
     );
-    const highlightCount = Object.values(backup.data.highlights).reduce(
-      (sum, arr) => sum + arr.length,
-      0
-    );
 
     logger.debug('✅ [CacheManager] Reading progress restored:', {
       progressCount,
       bookmarkCount,
-      highlightCount,
       backupAge: Math.round((Date.now() - backup.savedAt) / 1000 / 60) + ' minutes',
     });
 

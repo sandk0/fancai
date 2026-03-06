@@ -21,7 +21,6 @@ from .entity_event import EntityEvent
 from .password_reset import PasswordResetToken
 from .llm_usage_log import LlmUsageLog
 from .bookmark import Bookmark
-from .highlight import Highlight
 
 __all__ = [
     "User",
@@ -48,5 +47,4 @@ __all__ = [
     "PasswordResetToken",
     "LlmUsageLog",
     "Bookmark",
-    "Highlight",
 ]

@@ -1,5 +1,5 @@
 /**
- * TanStack Query hooks for bookmarks and highlights CRUD
+ * TanStack Query hooks for unified bookmarks CRUD
  *
  * Provides optimistic updates via Zustand store for instant UI feedback,
  * with background server sync through REST API.
@@ -17,41 +17,33 @@ import { logger } from '@/lib/logger';
 // Types (matching backend schemas)
 // ============================================================================
 
-interface BookmarkResponse {
-  id: string;
-  cfi: string;
-  chapter_number: number;
-  text_excerpt: string;
-  created_at: string;
-}
-
-interface HighlightResponse {
+export interface BookmarkResponse {
   id: string;
   cfi_range: string;
   chapter_number: number;
   text: string;
-  color: string;
+  color: string | null;
+  text_color: string | null;
+  style: string;
   note: string | null;
   created_at: string;
   updated_at: string;
 }
 
-interface BookmarkCreatePayload {
-  cfi: string;
-  chapter_number: number;
-  text_excerpt: string;
-}
-
-interface HighlightCreatePayload {
+export interface BookmarkCreatePayload {
   cfi_range: string;
   chapter_number: number;
   text: string;
-  color: string;
+  color?: string | null;
+  text_color?: string | null;
+  style?: string;
   note?: string;
 }
 
-interface HighlightUpdatePayload {
-  color?: string;
+export interface BookmarkUpdatePayload {
+  color?: string | null;
+  text_color?: string | null;
+  style?: string;
   note?: string;
 }
 
@@ -86,25 +78,30 @@ export function useCreateBookmark(bookId: string) {
       apiClient.post<BookmarkResponse>(`/sync/books/${bookId}/bookmarks`, data),
 
     onMutate: async (data) => {
-      // Cancel outgoing queries
       await queryClient.cancelQueries({
         queryKey: syncKeys.bookmarks(userId, bookId),
       });
 
-      // Snapshot for rollback
       const previousBookmarks = queryClient.getQueryData<BookmarkResponse[]>(
         syncKeys.bookmarks(userId, bookId)
       );
       const previousStoreBookmarks = useReaderStore.getState().bookmarks[bookId] || [];
 
       // Optimistic update in Zustand
-      addBookmark(bookId, data.chapter_number, data.cfi, data.text_excerpt);
+      addBookmark(
+        bookId,
+        data.chapter_number,
+        data.cfi_range,
+        data.text,
+        data.color,
+        data.style,
+        data.note
+      );
 
       return { previousBookmarks, previousStoreBookmarks };
     },
 
     onError: (_error, _data, context) => {
-      // Rollback Zustand store
       if (context?.previousStoreBookmarks) {
         useReaderStore.setState((state) => ({
           bookmarks: {
@@ -113,7 +110,6 @@ export function useCreateBookmark(bookId: string) {
           },
         }));
       }
-      // Rollback query cache
       if (context?.previousBookmarks) {
         queryClient.setQueryData(syncKeys.bookmarks(userId, bookId), context.previousBookmarks);
       }
@@ -121,6 +117,25 @@ export function useCreateBookmark(bookId: string) {
     },
 
     onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: syncKeys.bookmarks(userId, bookId),
+      });
+    },
+  });
+}
+
+/**
+ * Update a bookmark (color/style/note)
+ */
+export function useUpdateBookmark(bookId: string) {
+  const queryClient = useQueryClient();
+  const userId = getCurrentUserId();
+
+  return useMutation({
+    mutationFn: ({ bookmarkId, data }: { bookmarkId: string; data: BookmarkUpdatePayload }) =>
+      apiClient.put<BookmarkResponse>(`/sync/books/${bookId}/bookmarks/${bookmarkId}`, data),
+
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: syncKeys.bookmarks(userId, bookId),
       });
@@ -150,13 +165,10 @@ export function useDeleteBookmark(bookId: string) {
       );
       const previousStoreBookmarks = useReaderStore.getState().bookmarks[bookId] || [];
 
-      // Find the bookmark CFI to remove from Zustand
-      const bookmarkToRemove = previousBookmarks?.find((b) => b.id === bookmarkId);
-      if (bookmarkToRemove) {
-        removeBookmark(bookId, bookmarkToRemove.cfi);
-      }
+      // Optimistic remove from Zustand
+      removeBookmark(bookId, bookmarkId);
 
-      // Optimistic update in query cache
+      // Optimistic remove from query cache
       if (previousBookmarks) {
         queryClient.setQueryData(
           syncKeys.bookmarks(userId, bookId),
@@ -185,153 +197,6 @@ export function useDeleteBookmark(bookId: string) {
     onSettled: () => {
       queryClient.invalidateQueries({
         queryKey: syncKeys.bookmarks(userId, bookId),
-      });
-    },
-  });
-}
-
-// ============================================================================
-// Highlight Hooks
-// ============================================================================
-
-/**
- * Fetch highlights for a book
- */
-export function useHighlights(bookId: string) {
-  const userId = getCurrentUserId();
-
-  return useQuery({
-    queryKey: syncKeys.highlights(userId, bookId),
-    queryFn: () => apiClient.get<HighlightResponse[]>(`/sync/books/${bookId}/highlights`),
-    staleTime: 5 * 60 * 1000,
-    enabled: !!bookId,
-  });
-}
-
-/**
- * Create a highlight with optimistic update
- */
-export function useCreateHighlight(bookId: string) {
-  const queryClient = useQueryClient();
-  const userId = getCurrentUserId();
-  const addHighlight = useReaderStore((s) => s.addHighlight);
-
-  return useMutation({
-    mutationFn: (data: HighlightCreatePayload) =>
-      apiClient.post<HighlightResponse>(`/sync/books/${bookId}/highlights`, data),
-
-    onMutate: async (data) => {
-      await queryClient.cancelQueries({
-        queryKey: syncKeys.highlights(userId, bookId),
-      });
-
-      const previousHighlights = queryClient.getQueryData<HighlightResponse[]>(
-        syncKeys.highlights(userId, bookId)
-      );
-      const previousStoreHighlights = useReaderStore.getState().highlights[bookId] || [];
-
-      // Optimistic update in Zustand
-      addHighlight(bookId, data.chapter_number, data.cfi_range, data.text, data.color, data.note);
-
-      return { previousHighlights, previousStoreHighlights };
-    },
-
-    onError: (_error, _data, context) => {
-      if (context?.previousStoreHighlights) {
-        useReaderStore.setState((state) => ({
-          highlights: {
-            ...state.highlights,
-            [bookId]: context.previousStoreHighlights,
-          },
-        }));
-      }
-      if (context?.previousHighlights) {
-        queryClient.setQueryData(syncKeys.highlights(userId, bookId), context.previousHighlights);
-      }
-      logger.error('[useCreateHighlight] Failed:', _error);
-    },
-
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: syncKeys.highlights(userId, bookId),
-      });
-    },
-  });
-}
-
-/**
- * Update a highlight (color/note)
- */
-export function useUpdateHighlight(bookId: string) {
-  const queryClient = useQueryClient();
-  const userId = getCurrentUserId();
-
-  return useMutation({
-    mutationFn: ({ highlightId, data }: { highlightId: string; data: HighlightUpdatePayload }) =>
-      apiClient.put<HighlightResponse>(`/sync/books/${bookId}/highlights/${highlightId}`, data),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: syncKeys.highlights(userId, bookId),
-      });
-    },
-  });
-}
-
-/**
- * Delete a highlight with optimistic update
- */
-export function useDeleteHighlight(bookId: string) {
-  const queryClient = useQueryClient();
-  const userId = getCurrentUserId();
-  const removeHighlight = useReaderStore((s) => s.removeHighlight);
-
-  return useMutation({
-    mutationFn: (highlightId: string) =>
-      apiClient.delete(`/sync/books/${bookId}/highlights/${highlightId}`),
-
-    onMutate: async (highlightId) => {
-      await queryClient.cancelQueries({
-        queryKey: syncKeys.highlights(userId, bookId),
-      });
-
-      const previousHighlights = queryClient.getQueryData<HighlightResponse[]>(
-        syncKeys.highlights(userId, bookId)
-      );
-      const previousStoreHighlights = useReaderStore.getState().highlights[bookId] || [];
-
-      // Optimistic remove from Zustand
-      removeHighlight(bookId, highlightId);
-
-      // Optimistic remove from query cache
-      if (previousHighlights) {
-        queryClient.setQueryData(
-          syncKeys.highlights(userId, bookId),
-          previousHighlights.filter((h) => h.id !== highlightId)
-        );
-      }
-
-      return { previousHighlights, previousStoreHighlights };
-    },
-
-    onError: (_error, _highlightId, context) => {
-      if (context?.previousStoreHighlights) {
-        useReaderStore.setState((state) => ({
-          highlights: {
-            ...state.highlights,
-            [bookId]: context.previousStoreHighlights,
-          },
-        }));
-      }
-      if (context?.previousHighlights) {
-        queryClient.setQueryData(syncKeys.highlights(userId, bookId), context.previousHighlights);
-      }
-      logger.error('[useDeleteHighlight] Failed:', _error);
-    },
-
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: syncKeys.highlights(userId, bookId),
       });
     },
   });
