@@ -5,6 +5,7 @@ export interface SearchResult {
   cfi: string;
   excerpt: string;
   sectionIndex: number;
+  sectionHref?: string;
   sectionLabel?: string;
 }
 
@@ -38,6 +39,24 @@ interface UseBookSearchReturn {
  */
 const BATCH_SIZE = 5;
 
+/**
+ * Suppress epub.js IndexSizeError thrown inside requestAnimationFrame.
+ * These are uncatchable via try/catch because they escape the Promise chain.
+ */
+const suppressEpubDisplayError = (handler: () => void): (() => void) => {
+  const onError = (e: ErrorEvent) => {
+    if (e.message?.includes('IndexSizeError') || e.message?.includes('setStart')) {
+      e.preventDefault(); // Suppress console error
+    }
+  };
+  window.addEventListener('error', onError);
+  handler();
+  // Remove after a tick — errors fire in next rAF
+  const cleanup = () => window.removeEventListener('error', onError);
+  setTimeout(cleanup, 500);
+  return cleanup;
+};
+
 export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBookSearchReturn => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -46,6 +65,36 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const [progress, setProgress] = useState<SearchProgress | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const highlightedCfiRef = useRef<string | null>(null);
+
+  const removeHighlight = useCallback(() => {
+    if (highlightedCfiRef.current && rendition) {
+      try {
+        rendition.annotations.remove(highlightedCfiRef.current, 'highlight');
+      } catch {
+        // Ignore cleanup errors
+      }
+      highlightedCfiRef.current = null;
+    }
+  }, [rendition]);
+
+  const applyHighlight = useCallback(
+    (cfi: string) => {
+      if (!rendition) return;
+      removeHighlight();
+      try {
+        rendition.annotations.highlight(cfi, {}, undefined, 'search-highlight', {
+          fill: 'rgba(255, 213, 0, 0.4)',
+          'fill-opacity': '0.4',
+          'mix-blend-mode': 'multiply',
+        });
+        highlightedCfiRef.current = cfi;
+      } catch {
+        // Ignore annotation errors
+      }
+    },
+    [rendition, removeHighlight]
+  );
 
   const searchBook = useCallback(
     async (searchQuery: string) => {
@@ -83,6 +132,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
 
           const item = spineItems[i] as {
             index: number;
+            href: string;
             load: (loader: unknown) => Promise<void>;
             find: (query: string) => Array<{ cfi: string; excerpt: string }>;
             unload: () => void;
@@ -102,6 +152,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
                 cfi: r.cfi,
                 excerpt: r.excerpt,
                 sectionIndex: item.index,
+                sectionHref: item.href,
               });
             }
 
@@ -123,14 +174,13 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
           setIsSearching(false);
           setProgress(null);
 
-          // Navigate to first result if any
+          // Navigate to first result using CFI for precise positioning
           if (allResults.length > 0 && rendition) {
-            try {
-              await rendition.display(allResults[0].cfi);
-              setCurrentIndex(0);
-            } catch {
-              // Ignore navigation errors
-            }
+            suppressEpubDisplayError(() => {
+              rendition.display(allResults[0].cfi);
+            });
+            setCurrentIndex(0);
+            applyHighlight(allResults[0].cfi);
           }
         }
       } catch {
@@ -140,21 +190,22 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
         }
       }
     },
-    [book, rendition]
+    [book, rendition, applyHighlight]
   );
 
   const navigateToResult = useCallback(
     (index: number) => {
       if (!rendition || results.length === 0) return;
       const safeIndex = ((index % results.length) + results.length) % results.length;
+      const result = results[safeIndex];
       setCurrentIndex(safeIndex);
-      try {
-        rendition.display(results[safeIndex].cfi);
-      } catch {
-        // Ignore navigation errors
-      }
+      // Use CFI for precise positioning; suppress epub.js IndexSizeError (thrown in rAF, uncatchable)
+      suppressEpubDisplayError(() => {
+        rendition.display(result.cfi);
+      });
+      applyHighlight(result.cfi);
     },
-    [rendition, results]
+    [rendition, results, applyHighlight]
   );
 
   const nextResult = useCallback(() => {
@@ -172,12 +223,13 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       abortRef.current.abort();
       abortRef.current = null;
     }
+    removeHighlight();
     setQuery('');
     setResults([]);
     setIsSearching(false);
     setCurrentIndex(0);
     setProgress(null);
-  }, []);
+  }, [removeHighlight]);
 
   return {
     query,
