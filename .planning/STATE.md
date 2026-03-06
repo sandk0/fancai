@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-05T11:05:32Z"
+last_updated: "2026-03-06T09:17:10.892Z"
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Состояние проекта
@@ -18,24 +18,24 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-02-27)
 
 **Ключевая ценность:** Стабильное AI-приложение для чтения книг со спойлер-защищенной Entity Wiki и AI-иллюстрациями — работает надежно, без сбоев и визуальных глюков
-**Текущий фокус:** Фаза 8 в процессе (1/3 плана выполнен). Bookmark/Highlight data layer готов.
+**Текущий фокус:** Фаза 8 в процессе (2/3 плана выполнены). Поиск по книге и entity popup готовы.
 
 ## Текущая позиция
 
 Фаза: 8 из 8 (Reader Features) — В процессе
-План: 1 из 3 в фазе 8 (data layer закладок/выделений)
-Статус: План 08-01 выполнен. Готово к плану 08-02 (визуальный UI).
-Последняя активность: 2026-03-05 — Выполнен план 08-01 (Bookmark/Highlight data layer). SQLAlchemy модели, 7 REST endpoints, Zustand CFI store, TanStack Query хуки.
+План: 3 из 3 в фазе 8 (поиск по книге и entity-linking)
+Статус: План 08-03 выполнен. Готово к плану 08-02 (визуальный UI закладок/выделений).
+Последняя активность: 2026-03-06 — Выполнен план 08-03 (Поиск + Entity Popup). Полнотекстовый поиск через spine iteration, SearchPanel UI, EntityPopup при тапе на имя.
 
-Прогресс: [█████████▒] 91%
+Прогресс: [██████████] 96%
 
 ## Метрики производительности
 
 **Скорость:**
 
-- Всего планов выполнено: 21
+- Всего планов выполнено: 22
 - Средняя продолжительность: ~15 мин
-- Общее время выполнения: ~5.2 часа
+- Общее время выполнения: ~5.5 часа
 
 **По фазам:**
 
@@ -49,7 +49,7 @@ progress:
 | 05-stabilization-ai-techdebt  | 2/2   | ~16 мин  | ~8 мин       |
 | 06-entity-wiki                | 2/2   | ~15 мин  | ~8 мин       |
 | 07-ux                         | 2/2   | ~11 мин  | ~6 мин       |
-| 08-reader-features            | 1/3   | ~7 мин   | ~7 мин       |
+| 08-reader-features            | 2/3   | ~22 мин  | ~11 мин      |
 
 _Обновляется после завершения каждого плана_
 
@@ -86,6 +86,9 @@ _Обновляется после завершения каждого план�
 - [Фаза 8 Plan 01]: page поле стало опциональным в bookmarks для обратной совместимости с localStorage
 - [Фаза 8 Plan 01]: Optimistic updates: Zustand в onMutate, rollback в onError, invalidate в onSettled
 - [Фаза 8 Plan 01]: Batch sync использует process_bookmark_sync/process_highlight_sync вместо 501 заглушек
+- [Фаза 8 Plan 03]: Batch search по 5 глав с setTimeout(0) между батчами для non-blocking UI
+- [Фаза 8 Plan 03]: Позиция EntityPopup через iframe.getBoundingClientRect() + target.getBoundingClientRect()
+- [Фаза 8 Plan 03]: onEntityClick расширен до (entity, position) -- обратная совместимость сохранена
 
 ### Ожидающие задачи
 
@@ -97,6 +100,6 @@ _Обновляется после завершения каждого план�
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-05
-Остановились на: Выполнен план 08-01-PLAN.md (Bookmark/Highlight data layer). Готово к плану 08-02.
+Последняя сессия: 2026-03-06
+Остановились на: Выполнен план 08-03-PLAN.md (Поиск по книге + Entity Popup). Готово к плану 08-02.
 Файл возобновления: .planning/phases/08-reader-features/08-02-PLAN.md
