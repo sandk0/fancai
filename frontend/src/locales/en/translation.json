@@ -281,40 +281,26 @@
     "menu": {
       "aria_label": "Text selection menu",
       "copy": "Copy",
-      "bookmark": "Bookmark",
-      "highlight": "Highlight",
       "note": "Note",
-      "pick_color": "Pick color",
+      "bg_color": "Background",
+      "text_color": "Text color",
       "add_note": "Add note",
-      "note_placeholder": "Write a note...",
+      "note_placeholder": "Write a note (optional)...",
       "save": "Save",
       "characters": "characters selected"
     },
     "sidebar": {
       "toc": "Contents",
-      "bookmarks": "Bookmarks",
-      "highlights": "Highlights"
+      "notes": "Notes"
     },
     "bookmarks": {
-      "empty": "No bookmarks",
-      "empty_hint": "Select text and tap \"Bookmark\"",
+      "empty": "No notes",
+      "empty_hint": "Select text and tap \"Note\"",
       "chapter": "Chapter {{number}}",
-      "delete": "Delete bookmark"
-    },
-    "highlights": {
-      "empty": "No highlights",
-      "empty_hint": "Select text and tap \"Highlight\"",
-      "chapter": "Chapter {{number}}",
-      "delete": "Delete highlight",
+      "delete": "Delete note",
       "edit_note": "Edit note",
       "note_placeholder": "Add a note...",
-      "save_note": "Save",
-      "has_note": "With note"
-    },
-    "highlight_popup": {
-      "note": "Note",
-      "delete": "Delete",
-      "no_note": "No note"
+      "save_note": "Save"
     },
     "authRequired": "Authentication required",
     "authRequiredDesc": "Sign in to read this book",
