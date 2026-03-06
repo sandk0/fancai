@@ -6,29 +6,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Z_INDEX } from '@/lib/zIndex';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { BookmarksList } from './BookmarksList';
-import { HighlightsList } from './HighlightsList';
+import type { BookmarkResponse } from '@/hooks/api/useSync';
 import type { NavItem } from 'epubjs';
 
-type SidebarTab = 'toc' | 'bookmarks' | 'highlights';
-
-interface BookmarkData {
-  id: string;
-  cfi: string;
-  chapter_number: number;
-  text_excerpt: string;
-  created_at: string;
-}
-
-interface HighlightData {
-  id: string;
-  cfi_range: string;
-  chapter_number: number;
-  text: string;
-  color: string;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type SidebarTab = 'toc' | 'notes';
 
 interface TocSidebarProps {
   toc: NavItem[];
@@ -38,14 +19,11 @@ interface TocSidebarProps {
   onClose: () => void;
   chapterProgress?: Map<string, number>;
   totalChapters?: number;
-  // Bookmark/highlight props (optional for backward compat)
   bookId?: string;
-  bookmarks?: BookmarkData[];
-  highlights?: HighlightData[];
-  onNavigateToCfi?: (cfi: string) => void;
-  onDeleteBookmark?: (bookmarkId: string) => void;
-  onDeleteHighlight?: (highlightId: string, cfiRange: string) => void;
-  onUpdateHighlightNote?: (highlightId: string, note: string) => void;
+  bookmarks?: BookmarkResponse[];
+  onNavigateToCfi?: (cfi: string, bookmarkId?: string) => void;
+  onDeleteBookmark?: (bookmarkId: string, cfiRange: string) => void;
+  onUpdateBookmarkNote?: (bookmarkId: string, note: string) => void;
 }
 
 const normalizeHref = (href: string) => href.split('#')[0].split('?')[0];
@@ -125,11 +103,9 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
   isOpen,
   onClose,
   bookmarks = [],
-  highlights = [],
   onNavigateToCfi,
   onDeleteBookmark,
-  onDeleteHighlight,
-  onUpdateHighlightNote,
+  onUpdateBookmarkNote,
 }) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SidebarTab>('toc');
@@ -177,9 +153,9 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
   }, [isOpen, scrollToActive, activeTab]);
 
   const handleNavigateToCfi = useCallback(
-    (cfi: string) => {
+    (cfi: string, bookmarkId?: string) => {
       if (onNavigateToCfi) {
-        onNavigateToCfi(cfi);
+        onNavigateToCfi(cfi, bookmarkId);
         onClose();
       }
     },
@@ -197,14 +173,9 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
   const tabs: { key: SidebarTab; label: string; count?: number }[] = [
     { key: 'toc', label: t('reader.sidebar.toc', 'Contents') },
     {
-      key: 'bookmarks',
-      label: t('reader.sidebar.bookmarks', 'Bookmarks'),
+      key: 'notes',
+      label: t('reader.sidebar.notes', 'Notes'),
       count: bookmarks.length,
-    },
-    {
-      key: 'highlights',
-      label: t('reader.sidebar.highlights', 'Highlights'),
-      count: highlights.length,
     },
   ];
 
@@ -336,20 +307,12 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
                 </>
               )}
 
-              {activeTab === 'bookmarks' && (
+              {activeTab === 'notes' && (
                 <BookmarksList
                   bookmarks={bookmarks}
                   onNavigate={handleNavigateToCfi}
                   onDelete={onDeleteBookmark || (() => {})}
-                />
-              )}
-
-              {activeTab === 'highlights' && (
-                <HighlightsList
-                  highlights={highlights}
-                  onNavigate={handleNavigateToCfi}
-                  onDelete={onDeleteHighlight || (() => {})}
-                  onUpdateNote={onUpdateHighlightNote || (() => {})}
+                  onUpdateNote={onUpdateBookmarkNote || (() => {})}
                 />
               )}
             </div>

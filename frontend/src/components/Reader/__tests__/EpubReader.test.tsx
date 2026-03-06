@@ -100,6 +100,7 @@ const mockRendition: Rendition = {
   annotations: {
     add: vi.fn(),
     highlight: vi.fn(),
+    underline: vi.fn(),
     remove: vi.fn(),
   },
   destroy: vi.fn(),

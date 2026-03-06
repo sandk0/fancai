@@ -33,6 +33,20 @@ export type NavigationMode = 'swipe' | 'tap';
 // Description density
 export type DescriptionDensity = 'all' | 'key' | 'off';
 
+// Bookmark style type
+export type BookmarkStyle = 'none' | 'highlight' | 'underline' | 'bold' | 'italic';
+
+export interface StoreBookmark {
+  id: string;
+  cfiRange: string;
+  chapter: number;
+  text: string;
+  color?: string | null;
+  style: BookmarkStyle;
+  note?: string;
+  createdAt: Date;
+}
+
 interface ReaderState {
   // Settings
   fontSize: number;
@@ -49,22 +63,7 @@ interface ReaderState {
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
-  bookmarks: Record<
-    string,
-    { cfi: string; chapter: number; page?: number; text: string; createdAt: Date }[]
-  >;
-  highlights: Record<
-    string,
-    {
-      id: string;
-      cfiRange: string;
-      chapter: number;
-      text: string;
-      color: string;
-      note?: string;
-      createdAt: Date;
-    }[]
-  >;
+  bookmarks: Record<string, StoreBookmark[]>;
 
   // Actions
   updateFontSize: (size: number) => void;
@@ -77,17 +76,16 @@ interface ReaderState {
   updateNameHighlighting: (enabled: boolean) => void;
   updateDescriptionDensity: (density: DescriptionDensity) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
-  addBookmark: (bookId: string, chapter: number, cfi: string, text: string) => void;
-  removeBookmark: (bookId: string, cfi: string) => void;
-  addHighlight: (
+  addBookmark: (
     bookId: string,
     chapter: number,
     cfiRange: string,
     text: string,
-    color: string,
+    color?: string | null,
+    style?: string,
     note?: string
   ) => void;
-  removeHighlight: (bookId: string, highlightId: string) => void;
+  removeBookmark: (bookId: string, bookmarkId: string) => void;
   resetSettings: () => void;
   reset: () => void; // Clear all data (for logout)
   getReadingProgress: (bookId: string) => ReadingProgress | null;
@@ -136,7 +134,6 @@ export const useReaderStore = create<ReaderState>()(
       // Initial state
       readingProgress: {},
       bookmarks: {},
-      highlights: {},
 
       // Settings actions
       updateFontSize: (size: number) => {
@@ -225,12 +222,24 @@ export const useReaderStore = create<ReaderState>()(
           });
       },
 
-      // Bookmarks actions (CFI-based)
-      addBookmark: (bookId: string, chapter: number, cfi: string, text: string) => {
-        const bookmark = {
-          cfi,
+      // Unified bookmarks actions (CFI range-based)
+      addBookmark: (
+        bookId: string,
+        chapter: number,
+        cfiRange: string,
+        text: string,
+        color?: string | null,
+        style?: string,
+        note?: string
+      ) => {
+        const bookmark: StoreBookmark = {
+          id: `bookmark_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          cfiRange,
           chapter,
-          text: text.slice(0, 200), // Limit text length
+          text: text.slice(0, 500),
+          color: color ?? null,
+          style: (style || 'none') as BookmarkStyle,
+          note,
           createdAt: new Date(),
         };
 
@@ -242,47 +251,11 @@ export const useReaderStore = create<ReaderState>()(
         }));
       },
 
-      removeBookmark: (bookId: string, cfi: string) => {
+      removeBookmark: (bookId: string, bookmarkId: string) => {
         set((state) => ({
           bookmarks: {
             ...state.bookmarks,
-            [bookId]: (state.bookmarks[bookId] || []).filter((b) => b.cfi !== cfi),
-          },
-        }));
-      },
-
-      // Highlights actions (CFI range)
-      addHighlight: (
-        bookId: string,
-        chapter: number,
-        cfiRange: string,
-        text: string,
-        color: string = '#fbbf24',
-        note?: string
-      ) => {
-        const highlight = {
-          id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          cfiRange,
-          chapter,
-          text: text.slice(0, 500), // Limit text length
-          color,
-          note,
-          createdAt: new Date(),
-        };
-
-        set((state) => ({
-          highlights: {
-            ...state.highlights,
-            [bookId]: [...(state.highlights[bookId] || []), highlight],
-          },
-        }));
-      },
-
-      removeHighlight: (bookId: string, highlightId: string) => {
-        set((state) => ({
-          highlights: {
-            ...state.highlights,
-            [bookId]: (state.highlights[bookId] || []).filter((h) => h.id !== highlightId),
+            [bookId]: (state.bookmarks[bookId] || []).filter((b) => b.id !== bookmarkId),
           },
         }));
       },
@@ -306,7 +279,7 @@ export const useReaderStore = create<ReaderState>()(
 
       // Full reset - clears all data (for logout)
       reset: () => {
-        logger.debug('🧹 [ReaderStore] Resetting all data');
+        logger.debug('[ReaderStore] Resetting all data');
         set({
           // Reset settings to defaults
           fontSize: 18,
@@ -323,7 +296,6 @@ export const useReaderStore = create<ReaderState>()(
           // Clear all user data
           readingProgress: {},
           bookmarks: {},
-          highlights: {},
         });
         // Also clear persisted storage
         localStorage.removeItem('fancai-reader');
@@ -342,6 +314,7 @@ export const useReaderStore = create<ReaderState>()(
     }),
     {
       name: 'fancai-reader',
+      version: 2,
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
@@ -356,8 +329,72 @@ export const useReaderStore = create<ReaderState>()(
         descriptionDensity: state.descriptionDensity,
         readingProgress: state.readingProgress,
         bookmarks: state.bookmarks,
-        highlights: state.highlights,
       }),
+      migrate: (persisted, version) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          // Migrate old highlights into bookmarks
+          const oldHighlights = (state.highlights || {}) as Record<
+            string,
+            {
+              id: string;
+              cfiRange: string;
+              chapter: number;
+              text: string;
+              color: string;
+              note?: string;
+              createdAt: Date;
+            }[]
+          >;
+          const oldBookmarks = (state.bookmarks || {}) as Record<string, unknown[]>;
+          const newBookmarks: Record<string, StoreBookmark[]> = {};
+
+          // Convert old highlights → unified bookmarks
+          for (const [bookId, items] of Object.entries(oldHighlights)) {
+            if (!newBookmarks[bookId]) newBookmarks[bookId] = [];
+            for (const h of items) {
+              newBookmarks[bookId].push({
+                id: h.id,
+                cfiRange: h.cfiRange,
+                chapter: h.chapter,
+                text: h.text,
+                color: h.color,
+                style: 'highlight',
+                note: h.note,
+                createdAt: h.createdAt,
+              });
+            }
+          }
+
+          // Convert old bookmarks (position-only) → unified bookmarks
+          for (const [bookId, items] of Object.entries(oldBookmarks)) {
+            if (!newBookmarks[bookId]) newBookmarks[bookId] = [];
+            for (const rawItem of items) {
+              const item = rawItem as {
+                cfi?: string;
+                chapter?: number;
+                text?: string;
+                createdAt?: Date;
+              };
+              if (item.cfi) {
+                newBookmarks[bookId].push({
+                  id: `migrated_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  cfiRange: item.cfi,
+                  chapter: item.chapter || 0,
+                  text: item.text || '',
+                  color: null,
+                  style: 'none',
+                  createdAt: item.createdAt || new Date(),
+                });
+              }
+            }
+          }
+
+          state.bookmarks = newBookmarks;
+          delete state.highlights;
+        }
+        return state;
+      },
     }
   )
 );

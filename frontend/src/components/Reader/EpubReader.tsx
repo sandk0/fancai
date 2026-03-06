@@ -26,7 +26,6 @@ import {
 import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
 import { useBookmarkActions } from '@/hooks/epub/useBookmarks';
-import { useHighlightActions } from '@/hooks/epub/useHighlights';
 import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
 import { isIOS } from '@/utils/iosSupport';
 import { useReaderStore } from '@/stores/reader';
@@ -272,66 +271,64 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       ),
   });
 
-  // Bookmark/highlight hooks
-  const { bookmarks, createBookmark, deleteBookmark } = useBookmarkActions({
+  // Unified bookmark hooks
+  const { bookmarks, createBookmark, updateBookmark, deleteBookmark } = useBookmarkActions({
     bookId: book.id,
     currentChapter,
   });
 
-  const { highlights, createHighlight, updateHighlight, deleteHighlight } = useHighlightActions({
-    bookId: book.id,
-    currentChapter,
-    rendition,
-  });
-
-  useAnnotationRendering({
+  const { flashAnnotation } = useAnnotationRendering({
     rendition,
     bookId: book.id,
     currentChapter,
     enabled: renditionReady,
   });
 
-  const handleBookmark = useCallback(() => {
-    if (!selection) return;
-    createBookmark(selection.cfiRange, selection.text);
-    clearSelection();
-  }, [selection, createBookmark, clearSelection]);
-
-  const handleHighlightWithColor = useCallback(
-    (color: string) => {
+  const handleBookmark = useCallback(
+    (opts: {
+      color?: string | null;
+      style?: string;
+      note?: string;
+      text_color?: string | null;
+    }) => {
       if (!selection) return;
-      createHighlight(selection.cfiRange, selection.text, color);
+      createBookmark(
+        selection.cfiRange,
+        selection.text,
+        opts.color ?? undefined,
+        opts.style,
+        opts.note,
+        opts.text_color
+      );
       clearSelection();
     },
-    [selection, createHighlight, clearSelection]
-  );
-
-  const handleNoteWithColor = useCallback(
-    (color: string, note: string) => {
-      if (!selection) return;
-      createHighlight(selection.cfiRange, selection.text, color, note);
-      clearSelection();
-    },
-    [selection, createHighlight, clearSelection]
+    [selection, createBookmark, clearSelection]
   );
 
   const handleNavigateToCfi = useCallback(
-    async (cfi: string) => {
+    async (cfi: string, bookmarkId?: string) => {
       if (!rendition) return;
       try {
         await rendition.display(cfi);
+        if (bookmarkId) {
+          const onRendered = () => {
+            setTimeout(() => flashAnnotation(bookmarkId), 350);
+            rendition.off('rendered', onRendered as (...args: unknown[]) => void);
+          };
+          rendition.on('rendered', onRendered as (...args: unknown[]) => void);
+        }
       } catch (err) {
         logger.error('[EpubReader] Failed to navigate to CFI:', err);
       }
     },
-    [rendition]
+    [rendition, flashAnnotation]
   );
 
-  const handleUpdateHighlightNote = useCallback(
-    (highlightId: string, note: string) => {
-      updateHighlight(highlightId, { note });
+  const handleUpdateBookmarkNote = useCallback(
+    (bookmarkId: string, note: string) => {
+      updateBookmark(bookmarkId, { note });
     },
-    [updateHighlight]
+    [updateBookmark]
   );
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -633,8 +630,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           data: selection,
           onCopy: handleCopy,
           onBookmark: handleBookmark,
-          onHighlightWithColor: handleHighlightWithColor,
-          onNoteWithColor: handleNoteWithColor,
           onClose: clearSelection,
         }}
         toc={{
@@ -645,11 +640,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onChapterClick: handleTocChapterClick,
           bookId: book.id,
           bookmarks,
-          highlights,
           onNavigateToCfi: handleNavigateToCfi,
           onDeleteBookmark: deleteBookmark,
-          onDeleteHighlight: deleteHighlight,
-          onUpdateHighlightNote: handleUpdateHighlightNote,
+          onUpdateBookmarkNote: handleUpdateBookmarkNote,
         }}
         positionConflict={{
           data: positionConflict,

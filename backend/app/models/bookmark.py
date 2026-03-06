@@ -1,15 +1,16 @@
 """
-Модель закладки для fancai.
+Unified bookmark model for fancai.
 
-Позволяет пользователям сохранять закладки на конкретных позициях (CFI) в книге.
+Combines previous bookmarks (position-only) and highlights (text+color+note)
+into a single entity with optional color, style, and note fields.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 import uuid as uuid_module
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -23,16 +24,18 @@ if TYPE_CHECKING:
 
 class Bookmark(Base):
     """
-    Закладка пользователя в книге.
+    Unified bookmark — combines bookmarks and highlights.
 
-    Использует CFI (Canonical Fragment Identifier) для точного позиционирования
-    в EPUB. chapter_number используется для группировки закладок по главам.
+    Uses CFI range for precise text selection in EPUB.
+    Supports optional color, text style (highlight/underline/bold/italic),
+    and notes. A bookmark with no color and style='none' is a plain bookmark
+    (visible only in sidebar).
     """
 
     __tablename__ = "bookmarks"
 
     __table_args__ = (
-        UniqueConstraint("user_id", "book_id", "cfi", name="uq_bookmark_user_book_cfi"),
+        Index("ix_bookmark_user_book_chapter", "user_id", "book_id", "chapter_number"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -52,12 +55,24 @@ class Bookmark(Base):
         index=True,
     )
 
-    cfi: Mapped[str] = mapped_column(String(500), nullable=False)
+    cfi_range: Mapped[str] = mapped_column(String(1000), nullable=False)
     chapter_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    text_excerpt: Mapped[str] = mapped_column(String(500), nullable=False)
+    text: Mapped[str] = mapped_column(String(2000), nullable=False)
+    color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    text_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    style: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="none"
+    )
+    note: Mapped[Optional[str]] = mapped_column(String(5000), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     # Relationships
@@ -65,4 +80,4 @@ class Bookmark(Base):
     book: Mapped["Book"] = relationship("Book", lazy="raise")
 
     def __repr__(self) -> str:
-        return f"<Bookmark(user={self.user_id}, book={self.book_id}, cfi='{self.cfi[:30]}...')>"
+        return f"<Bookmark(user={self.user_id}, book={self.book_id}, style='{self.style}')>"

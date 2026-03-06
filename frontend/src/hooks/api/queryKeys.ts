@@ -262,18 +262,11 @@ export const imageKeys = {
  */
 export const syncKeys = {
   /**
-   * Закладки конкретной книги
+   * Закладки конкретной книги (unified: bookmarks + highlights)
    * @param userId - ID пользователя
    * @param bookId - ID книги
    */
   bookmarks: (userId: string, bookId: string) => ['books', userId, bookId, 'bookmarks'] as const,
-
-  /**
-   * Выделения конкретной книги
-   * @param userId - ID пользователя
-   * @param bookId - ID книги
-   */
-  highlights: (userId: string, bookId: string) => ['books', userId, bookId, 'highlights'] as const,
 };
 
 /**

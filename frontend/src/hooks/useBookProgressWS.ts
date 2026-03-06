@@ -121,7 +121,7 @@ export function useBookProgressWS({
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    const port = import.meta.env.DEV ? '8000' : window.location.port;
+    const port = window.location.port;
     const portSuffix = port ? `:${port}` : '';
 
     return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}`;

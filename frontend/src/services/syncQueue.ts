@@ -33,12 +33,12 @@ import {
   type SyncPriority,
   type SyncStatus,
   MAX_SYNC_RETRIES,
-} from './db'
+} from './db';
 
 function getAuthHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-  }
+  };
 }
 
 // ============================================================================
@@ -46,38 +46,38 @@ function getAuthHeaders(): Record<string, string> {
 // ============================================================================
 
 interface AddOperationOptions {
-  type: SyncOperationType
-  endpoint: string
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  body?: unknown
-  headers?: Record<string, string>
-  userId: string
-  bookId?: string
-  priority?: SyncPriority
-  maxRetries?: number
+  type: SyncOperationType;
+  endpoint: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: unknown;
+  headers?: Record<string, string>;
+  userId: string;
+  bookId?: string;
+  priority?: SyncPriority;
+  maxRetries?: number;
 }
 
 interface SyncEventDetail {
-  operation: SyncOperation
-  success?: boolean
-  error?: string
+  operation: SyncOperation;
+  success?: boolean;
+  error?: string;
 }
 
 // ============================================================================
 // iOS Safari Fallback Configuration
 // ============================================================================
 
-const PERIODIC_SYNC_INTERVAL = 30000
-const MAX_QUEUE_SIZE = 50
-const MAX_PENDING_RETRY_COUNT = 3
+const PERIODIC_SYNC_INTERVAL = 30000;
+const MAX_QUEUE_SIZE = 50;
+const MAX_PENDING_RETRY_COUNT = 3;
 
-import { logger } from '@/lib/logger'
+import { logger } from '@/lib/logger';
 
 function sendWithBeaconOrFetch(url: string, blob: Blob): boolean {
   try {
     if (navigator.sendBeacon) {
-      const queued = navigator.sendBeacon(url, blob)
-      if (queued) return true
+      const queued = navigator.sendBeacon(url, blob);
+      if (queued) return true;
     }
   } catch {
     // sendBeacon threw — fall through to fetch
@@ -91,10 +91,10 @@ function sendWithBeaconOrFetch(url: string, blob: Blob): boolean {
       credentials: 'include',
     }).catch(() => {
       // fire-and-forget during unload
-    })
-    return true
+    });
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -107,14 +107,14 @@ async function persistFailedRequest(url: string, method: string, body: string): 
       body,
       timestamp: Date.now(),
       retryCount: 0,
-    }
-    await db.pendingSyncRequests.add(request)
+    };
+    await db.pendingSyncRequests.add(request);
 
-    const count = await db.pendingSyncRequests.count()
+    const count = await db.pendingSyncRequests.count();
     if (count > MAX_QUEUE_SIZE) {
-      const oldest = await db.pendingSyncRequests.orderBy('timestamp').first()
+      const oldest = await db.pendingSyncRequests.orderBy('timestamp').first();
       if (oldest) {
-        await db.pendingSyncRequests.delete(oldest.id)
+        await db.pendingSyncRequests.delete(oldest.id);
       }
     }
   } catch {
@@ -137,7 +137,9 @@ async function updateBadge(count: number): Promise<void> {
 
   try {
     if (count > 0) {
-      await (navigator as Navigator & { setAppBadge: (count: number) => Promise<void> }).setAppBadge(count);
+      await (
+        navigator as Navigator & { setAppBadge: (count: number) => Promise<void> }
+      ).setAppBadge(count);
     } else {
       await (navigator as Navigator & { clearAppBadge: () => Promise<void> }).clearAppBadge();
     }
@@ -152,14 +154,14 @@ async function updateBadge(count: number): Promise<void> {
 // ============================================================================
 
 class SyncQueue {
-  private isProcessing = false
-  private processingPromise: Promise<void> | null = null
-  private listeners: Set<() => void> = new Set()
-  private periodicSyncInterval: number | null = null
+  private isProcessing = false;
+  private processingPromise: Promise<void> | null = null;
+  private listeners: Set<() => void> = new Set();
+  private periodicSyncInterval: number | null = null;
 
   constructor() {
-    this.setupEventListeners()
-    this.setupIOSFallback()
+    this.setupEventListeners();
+    this.setupIOSFallback();
   }
 
   /**
@@ -169,46 +171,46 @@ class SyncQueue {
     // iOS does not support Background Sync - use visibilitychange as fallback
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        logger.debug('[SyncQueue] App visible, processing queue...')
-        this.startPeriodicSync()
-        this.processQueue()
+        logger.debug('[SyncQueue] App visible, processing queue...');
+        this.startPeriodicSync();
+        this.processQueue();
       } else {
         // Stop periodic sync when app goes to background to save battery
-        this.stopPeriodicSync()
+        this.stopPeriodicSync();
       }
-    })
+    });
 
     // Process when network is restored
     window.addEventListener('online', async () => {
-      logger.debug('[SyncQueue] Online event - triggering sync')
+      logger.debug('[SyncQueue] Online event - triggering sync');
       // Immediate sync attempt when coming back online
-      await this.processQueue()
-    })
+      await this.processQueue();
+    });
 
     // Listen for messages from Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data?.type === 'SYNC_SUCCESS') {
-          logger.debug('[SyncQueue] SW sync success:', event.data.url)
+          logger.debug('[SyncQueue] SW sync success:', event.data.url);
           window.dispatchEvent(
             new CustomEvent('sync:success', {
               detail: event.data,
             })
-          )
-          this.notifyListeners()
+          );
+          this.notifyListeners();
         } else if (event.data?.type === 'SYNC_REQUESTED') {
           // Service Worker requested queue processing
-          logger.debug('[SyncQueue] SW requested sync:', event.data.tag)
-          this.processQueue()
+          logger.debug('[SyncQueue] SW requested sync:', event.data.tag);
+          this.processQueue();
         }
-      })
+      });
     }
 
     // Also listen to custom app:online event from useOnlineStatus
     window.addEventListener('app:online', () => {
-      logger.debug('[SyncQueue] App online event, processing queue...')
-      this.processQueue()
-    })
+      logger.debug('[SyncQueue] App online event, processing queue...');
+      this.processQueue();
+    });
   }
 
   /**
@@ -218,21 +220,21 @@ class SyncQueue {
   private setupIOSFallback(): void {
     // Start periodic sync if document is already visible
     if (document.visibilityState === 'visible') {
-      this.startPeriodicSync()
+      this.startPeriodicSync();
     }
 
     // beforeunload handler for last-chance sync
     window.addEventListener('beforeunload', () => {
-      this.handleBeforeUnload()
-    })
+      this.handleBeforeUnload();
+    });
 
     // pagehide is more reliable than beforeunload on iOS Safari
     window.addEventListener('pagehide', (event) => {
       // persisted = true means page might be restored from bfcache
       if (!event.persisted) {
-        this.handleBeforeUnload()
+        this.handleBeforeUnload();
       }
-    })
+    });
   }
 
   /**
@@ -241,20 +243,20 @@ class SyncQueue {
    */
   private startPeriodicSync(): void {
     if (this.periodicSyncInterval !== null) {
-      return // Already running
+      return; // Already running
     }
 
     this.periodicSyncInterval = window.setInterval(async () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
-        const pending = await this.getPendingCount()
+        const pending = await this.getPendingCount();
         if (pending > 0) {
-          logger.debug('[SyncQueue] Periodic sync triggered, pending:', pending)
-          await this.processQueue()
+          logger.debug('[SyncQueue] Periodic sync triggered, pending:', pending);
+          await this.processQueue();
         }
       }
-    }, PERIODIC_SYNC_INTERVAL)
+    }, PERIODIC_SYNC_INTERVAL);
 
-    logger.debug('[SyncQueue] Periodic sync started (interval:', PERIODIC_SYNC_INTERVAL, 'ms)')
+    logger.debug('[SyncQueue] Periodic sync started (interval:', PERIODIC_SYNC_INTERVAL, 'ms)');
   }
 
   /**
@@ -262,9 +264,9 @@ class SyncQueue {
    */
   private stopPeriodicSync(): void {
     if (this.periodicSyncInterval !== null) {
-      clearInterval(this.periodicSyncInterval)
-      this.periodicSyncInterval = null
-      logger.debug('[SyncQueue] Periodic sync stopped')
+      clearInterval(this.periodicSyncInterval);
+      this.periodicSyncInterval = null;
+      logger.debug('[SyncQueue] Periodic sync stopped');
     }
   }
 
@@ -273,28 +275,28 @@ class SyncQueue {
    * sendBeacon is reliable for sending data when page is being unloaded
    */
   private handleBeforeUnload(): void {
-    const criticalData = localStorage.getItem('syncQueue_critical')
-    if (!criticalData) return
+    const criticalData = localStorage.getItem('syncQueue_critical');
+    if (!criticalData) return;
 
     try {
-      const data = JSON.parse(criticalData) as unknown
-      if (!Array.isArray(data) || data.length === 0) return
+      const data = JSON.parse(criticalData) as unknown;
+      if (!Array.isArray(data) || data.length === 0) return;
 
-      const bodyStr = JSON.stringify({ operations: data })
-      const blob = new Blob([bodyStr], { type: 'application/json' })
-      const url = '/api/v1/sync/batch'
+      const bodyStr = JSON.stringify({ operations: data });
+      const blob = new Blob([bodyStr], { type: 'application/json' });
+      const url = '/api/v1/sync/batch';
 
-      const sent = sendWithBeaconOrFetch(url, blob)
+      const sent = sendWithBeaconOrFetch(url, blob);
 
       if (sent) {
-        localStorage.removeItem('syncQueue_critical')
-        logger.debug('[SyncQueue] Critical data sent during unload')
+        localStorage.removeItem('syncQueue_critical');
+        logger.debug('[SyncQueue] Critical data sent during unload');
       } else {
-        persistFailedRequest(url, 'POST', bodyStr)
-        logger.debug('[SyncQueue] Persisted failed unload request to IndexedDB')
+        persistFailedRequest(url, 'POST', bodyStr);
+        logger.debug('[SyncQueue] Persisted failed unload request to IndexedDB');
       }
     } catch {
-      logger.debug('[SyncQueue] handleBeforeUnload failed')
+      logger.debug('[SyncQueue] handleBeforeUnload failed');
     }
   }
 
@@ -308,7 +310,7 @@ class SyncQueue {
         .where('priority')
         .equals('critical')
         .filter((op) => op.status === 'pending')
-        .toArray()
+        .toArray();
 
       if (criticalOps.length > 0) {
         // Store minimal data needed for sync
@@ -316,13 +318,13 @@ class SyncQueue {
           endpoint: op.endpoint,
           method: op.method,
           body: op.body,
-        }))
-        localStorage.setItem('syncQueue_critical', JSON.stringify(minimalData))
+        }));
+        localStorage.setItem('syncQueue_critical', JSON.stringify(minimalData));
       } else {
-        localStorage.removeItem('syncQueue_critical')
+        localStorage.removeItem('syncQueue_critical');
       }
     } catch (error) {
-      logger.debug('[SyncQueue] Failed to cache critical data:', error)
+      logger.debug('[SyncQueue] Failed to cache critical data:', error);
     }
   }
 
@@ -330,15 +332,15 @@ class SyncQueue {
    * Add a listener for queue changes
    */
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /**
    * Notify all listeners of queue changes
    */
   private notifyListeners(): void {
-    this.listeners.forEach((listener) => listener())
+    this.listeners.forEach((listener) => listener());
   }
 
   /**
@@ -359,7 +361,7 @@ class SyncQueue {
       retries: 0,
       maxRetries: options.maxRetries || MAX_SYNC_RETRIES,
       status: 'pending',
-    }
+    };
 
     // For progress updates, remove existing operations for the same book to avoid duplicates
     if (options.type === 'progress' && options.bookId) {
@@ -367,46 +369,43 @@ class SyncQueue {
         .where('userId')
         .equals(options.userId)
         .filter(
-          (op) =>
-            op.bookId === options.bookId &&
-            op.type === 'progress' &&
-            op.status === 'pending'
+          (op) => op.bookId === options.bookId && op.type === 'progress' && op.status === 'pending'
         )
-        .delete()
+        .delete();
     }
 
-    const queueSize = await db.syncQueue.count()
+    const queueSize = await db.syncQueue.count();
     if (queueSize >= MAX_QUEUE_SIZE) {
-      const oldest = await db.syncQueue.orderBy('createdAt').first()
+      const oldest = await db.syncQueue.orderBy('createdAt').first();
       if (oldest) {
-        await db.syncQueue.delete(oldest.id)
-        logger.debug('[SyncQueue] Queue full, dropped oldest:', oldest.type, oldest.endpoint)
+        await db.syncQueue.delete(oldest.id);
+        logger.debug('[SyncQueue] Queue full, dropped oldest:', oldest.type, oldest.endpoint);
       }
     }
 
-    await db.syncQueue.add(operation)
-    logger.debug('[SyncQueue] Added operation:', operation.type, operation.endpoint)
+    await db.syncQueue.add(operation);
+    logger.debug('[SyncQueue] Added operation:', operation.type, operation.endpoint);
 
     // Update badge with new pending count
-    const pendingCount = await this.getPendingCount()
-    await updateBadge(pendingCount)
+    const pendingCount = await this.getPendingCount();
+    await updateBadge(pendingCount);
 
-    this.notifyListeners()
+    this.notifyListeners();
 
     // Cache critical data for beforeunload sync (iOS fallback)
     if (operation.priority === 'critical') {
-      await this.cacheCriticalData()
+      await this.cacheCriticalData();
     }
 
     // If online - try to send immediately
     if (navigator.onLine) {
-      this.processQueue()
+      this.processQueue();
     } else {
       // Try to register Background Sync
-      this.registerBackgroundSync()
+      this.registerBackgroundSync();
     }
 
-    return operation.id
+    return operation.id;
   }
 
   /**
@@ -415,18 +414,22 @@ class SyncQueue {
    */
   private async registerBackgroundSync(): Promise<void> {
     if (!('serviceWorker' in navigator)) {
-      return
+      return;
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready
+      const registration = await navigator.serviceWorker.ready;
       // Check if SyncManager is available (not on iOS)
       if ('sync' in registration) {
-        await (registration as ServiceWorkerRegistration & { sync: { register: (tag: string) => Promise<void> } }).sync.register('fancai-sync')
-        logger.debug('[SyncQueue] Background Sync registered')
+        await (
+          registration as ServiceWorkerRegistration & {
+            sync: { register: (tag: string) => Promise<void> };
+          }
+        ).sync.register('fancai-sync');
+        logger.debug('[SyncQueue] Background Sync registered');
       }
     } catch (error) {
-      logger.debug('[SyncQueue] Background Sync registration failed:', error)
+      logger.debug('[SyncQueue] Background Sync registration failed:', error);
     }
   }
 
@@ -435,31 +438,31 @@ class SyncQueue {
    */
   async processQueue(): Promise<void> {
     if (this.isProcessing) {
-      return this.processingPromise || Promise.resolve()
+      return this.processingPromise || Promise.resolve();
     }
 
-    this.isProcessing = true
-    this.processingPromise = this.doProcessQueue()
+    this.isProcessing = true;
+    this.processingPromise = this.doProcessQueue();
 
     try {
-      await this.processingPromise
+      await this.processingPromise;
     } finally {
-      this.isProcessing = false
-      this.processingPromise = null
+      this.isProcessing = false;
+      this.processingPromise = null;
     }
   }
 
   private async doProcessQueue(): Promise<void> {
     if (!navigator.onLine) {
-      logger.debug('[SyncQueue] Offline, skipping queue processing')
-      return
+      logger.debug('[SyncQueue] Offline, skipping queue processing');
+      return;
     }
 
     // Get pending operations
-    const operations = await db.syncQueue.where('status').equals('pending').toArray()
+    const operations = await db.syncQueue.where('status').equals('pending').toArray();
 
     if (operations.length === 0) {
-      return
+      return;
     }
 
     // Sort by priority and creation date
@@ -468,25 +471,25 @@ class SyncQueue {
       high: 1,
       normal: 2,
       low: 3,
-    }
+    };
 
     operations.sort((a, b) => {
-      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
-      if (priorityDiff !== 0) return priorityDiff
-      return a.createdAt - b.createdAt
-    })
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      return a.createdAt - b.createdAt;
+    });
 
-    logger.debug(`[SyncQueue] Processing ${operations.length} operations...`)
+    logger.debug(`[SyncQueue] Processing ${operations.length} operations...`);
 
     for (const op of operations) {
-      await this.processOperation(op)
+      await this.processOperation(op);
     }
 
     // Update badge after processing (may have succeeded or failed)
-    const remainingCount = await this.getPendingCount()
-    await updateBadge(remainingCount)
+    const remainingCount = await this.getPendingCount();
+    await updateBadge(remainingCount);
 
-    this.notifyListeners()
+    this.notifyListeners();
   }
 
   /**
@@ -494,7 +497,7 @@ class SyncQueue {
    */
   private async processOperation(op: SyncOperation): Promise<void> {
     // Mark as syncing
-    await db.syncQueue.update(op.id, { status: 'syncing' as SyncStatus })
+    await db.syncQueue.update(op.id, { status: 'syncing' as SyncStatus });
 
     try {
       const response = await fetch(op.endpoint, {
@@ -505,30 +508,30 @@ class SyncQueue {
         },
         body: op.body ? JSON.stringify(op.body) : undefined,
         credentials: 'include',
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+        throw new Error(`HTTP ${response.status}`);
       }
 
       // Success - remove from queue
-      await db.syncQueue.delete(op.id)
-      logger.debug('[SyncQueue] Operation completed:', op.type, op.endpoint)
+      await db.syncQueue.delete(op.id);
+      logger.debug('[SyncQueue] Operation completed:', op.type, op.endpoint);
 
       // Update critical data cache after successful sync
-      await this.cacheCriticalData()
+      await this.cacheCriticalData();
 
       // Notify UI
       window.dispatchEvent(
         new CustomEvent<SyncEventDetail>('sync:operation-complete', {
           detail: { operation: op, success: true },
         })
-      )
+      );
     } catch (error) {
-      const newRetries = op.retries + 1
-      const errorMessage = (error as Error).message
+      const newRetries = op.retries + 1;
+      const errorMessage = (error as Error).message;
 
-      logger.debug('[SyncQueue] Operation failed:', op.type, errorMessage)
+      logger.debug('[SyncQueue] Operation failed:', op.type, errorMessage);
 
       if (newRetries >= op.maxRetries) {
         // Max retries exceeded
@@ -536,20 +539,20 @@ class SyncQueue {
           status: 'failed' as SyncStatus,
           lastError: errorMessage,
           retries: newRetries,
-        })
+        });
 
         window.dispatchEvent(
           new CustomEvent<SyncEventDetail>('sync:operation-failed', {
             detail: { operation: op, error: errorMessage },
           })
-        )
+        );
       } else {
         // Return to pending with increased retry count
         await db.syncQueue.update(op.id, {
           status: 'pending' as SyncStatus,
           lastError: errorMessage,
           retries: newRetries,
-        })
+        });
       }
     }
   }
@@ -558,28 +561,28 @@ class SyncQueue {
    * Get pending operations count
    */
   async getPendingCount(): Promise<number> {
-    return db.syncQueue.where('status').equals('pending').count()
+    return db.syncQueue.where('status').equals('pending').count();
   }
 
   /**
    * Get failed operations count
    */
   async getFailedCount(): Promise<number> {
-    return db.syncQueue.where('status').equals('failed').count()
+    return db.syncQueue.where('status').equals('failed').count();
   }
 
   /**
    * Get all operations for a user
    */
   async getUserOperations(userId: string): Promise<SyncOperation[]> {
-    return db.syncQueue.where('userId').equals(userId).toArray()
+    return db.syncQueue.where('userId').equals(userId).toArray();
   }
 
   /**
    * Get pending operations (for UI display)
    */
   async getPendingOperations(): Promise<SyncOperation[]> {
-    return db.syncQueue.where('status').equals('pending').toArray()
+    return db.syncQueue.where('status').equals('pending').toArray();
   }
 
   /**
@@ -589,44 +592,44 @@ class SyncQueue {
     await db.syncQueue
       .where('status')
       .equals('failed')
-      .modify({ status: 'pending' as SyncStatus, retries: 0 })
+      .modify({ status: 'pending' as SyncStatus, retries: 0 });
 
-    this.notifyListeners()
-    this.processQueue()
+    this.notifyListeners();
+    this.processQueue();
   }
 
   /**
    * Remove an operation
    */
   async removeOperation(id: string): Promise<boolean> {
-    const count = await db.syncQueue.where('id').equals(id).delete()
+    const count = await db.syncQueue.where('id').equals(id).delete();
     if (count > 0) {
-      this.notifyListeners()
-      return true
+      this.notifyListeners();
+      return true;
     }
-    return false
+    return false;
   }
 
   /**
    * Clear all failed operations
    */
   async clearFailed(): Promise<number> {
-    const count = await db.syncQueue.where('status').equals('failed').delete()
-    this.notifyListeners()
-    return count
+    const count = await db.syncQueue.where('status').equals('failed').delete();
+    this.notifyListeners();
+    return count;
   }
 
   /**
    * Clear all operations for a user
    */
   async clearUserQueue(userId: string): Promise<number> {
-    const count = await db.syncQueue.where('userId').equals(userId).delete()
+    const count = await db.syncQueue.where('userId').equals(userId).delete();
 
     // Clear the badge when user queue is cleared
-    await updateBadge(0)
+    await updateBadge(0);
 
-    this.notifyListeners()
-    return count
+    this.notifyListeners();
+    return count;
   }
 
   /**
@@ -635,28 +638,28 @@ class SyncQueue {
   getQueueLength(): number {
     // Note: This is a sync method for backward compatibility
     // For accurate count, use getPendingCount() async method
-    return 0 // Will be updated via listeners
+    return 0; // Will be updated via listeners
   }
 
   /**
    * Clear all pending operations (use with caution)
    */
   async clearQueue(): Promise<void> {
-    await db.syncQueue.clear()
-    localStorage.removeItem('syncQueue_critical')
+    await db.syncQueue.clear();
+    localStorage.removeItem('syncQueue_critical');
 
     // Clear the badge when queue is cleared
-    await updateBadge(0)
+    await updateBadge(0);
 
-    this.notifyListeners()
-    logger.debug('[SyncQueue] Queue cleared')
+    this.notifyListeners();
+    logger.debug('[SyncQueue] Queue cleared');
   }
 
   /**
    * Cleanup resources (for testing or app shutdown)
    */
   destroy(): void {
-    this.stopPeriodicSync()
+    this.stopPeriodicSync();
   }
 }
 
@@ -664,19 +667,19 @@ class SyncQueue {
 // Singleton Export
 // ============================================================================
 
-export const syncQueue = new SyncQueue()
+export const syncQueue = new SyncQueue();
 
 export async function retryPendingSync(): Promise<void> {
-  let requests: PendingSyncRequest[]
+  let requests: PendingSyncRequest[];
   try {
-    requests = await db.pendingSyncRequests.toArray()
+    requests = await db.pendingSyncRequests.toArray();
   } catch {
-    return
+    return;
   }
 
-  if (requests.length === 0) return
+  if (requests.length === 0) return;
 
-  logger.debug(`[SyncQueue] Retrying ${requests.length} persisted requests`)
+  logger.debug(`[SyncQueue] Retrying ${requests.length} persisted requests`);
 
   for (const req of requests) {
     try {
@@ -685,21 +688,21 @@ export async function retryPendingSync(): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body: req.body,
         credentials: 'include',
-      })
+      });
 
       if (response.ok) {
-        await db.pendingSyncRequests.delete(req.id)
-        logger.debug('[SyncQueue] Persisted request retried successfully:', req.url)
+        await db.pendingSyncRequests.delete(req.id);
+        logger.debug('[SyncQueue] Persisted request retried successfully:', req.url);
       } else {
-        throw new Error(`HTTP ${response.status}`)
+        throw new Error(`HTTP ${response.status}`);
       }
     } catch {
-      const newRetryCount = req.retryCount + 1
+      const newRetryCount = req.retryCount + 1;
       if (newRetryCount > MAX_PENDING_RETRY_COUNT) {
-        await db.pendingSyncRequests.delete(req.id)
-        logger.debug('[SyncQueue] Persisted request exceeded max retries, dropped:', req.url)
+        await db.pendingSyncRequests.delete(req.id);
+        logger.debug('[SyncQueue] Persisted request exceeded max retries, dropped:', req.url);
       } else {
-        await db.pendingSyncRequests.update(req.id, { retryCount: newRetryCount })
+        await db.pendingSyncRequests.update(req.id, { retryCount: newRetryCount });
       }
     }
   }
@@ -719,14 +722,14 @@ export function addToSyncQueue(
   data: Record<string, unknown>
 ): string {
   // Generate a temporary ID - the real ID will be assigned async
-  const tempId = crypto.randomUUID()
+  const tempId = crypto.randomUUID();
 
   // Get userId from data or use a placeholder
-  const userId = (data.userId as string) || 'anonymous'
+  const userId = (data.userId as string) || 'anonymous';
 
   // Map old format to new format
-  const endpoint = mapTypeToEndpoint(type, bookId, data)
-  const method = mapTypeToMethod(type)
+  const endpoint = mapTypeToEndpoint(type, bookId, data);
+  const method = mapTypeToMethod(type);
 
   syncQueue.addOperation({
     type,
@@ -736,9 +739,9 @@ export function addToSyncQueue(
     userId,
     bookId,
     priority: type === 'progress' || type === 'reading_session' ? 'critical' : 'normal',
-  })
+  });
 
-  return tempId
+  return tempId;
 }
 
 function mapTypeToEndpoint(
@@ -748,50 +751,48 @@ function mapTypeToEndpoint(
 ): string {
   switch (type) {
     case 'progress':
-      return `/api/v1/books/${bookId}/progress`
+      return `/api/v1/books/${bookId}/progress`;
     case 'reading_session':
       if (data.action === 'start') return '/api/v1/reading-sessions/start';
       if (data.action === 'update') return `/api/v1/reading-sessions/${data.sessionId}/update`;
       if (data.action === 'end') return `/api/v1/reading-sessions/${data.sessionId}/end`;
       return data.sessionId
         ? `/api/v1/reading-sessions/${data.sessionId}/update`
-        : '/api/v1/reading-sessions/start'
+        : '/api/v1/reading-sessions/start';
     case 'bookmark':
-      return `/api/v1/books/${bookId}/bookmarks`
-    case 'highlight':
-      return `/api/v1/books/${bookId}/highlights`
+      return `/api/v1/books/${bookId}/bookmarks`;
     case 'image_generation':
-      return `/api/v1/images/generate/${data.descriptionId}`
+      return `/api/v1/images/generate/${data.descriptionId}`;
     default:
-      return `/api/v1/books/${bookId}`
+      return `/api/v1/books/${bookId}`;
   }
 }
 
 function mapTypeToMethod(type: SyncOperationType): 'POST' | 'PUT' {
   switch (type) {
     case 'progress':
-      return 'PUT'
+      return 'PUT';
     case 'reading_session':
-      return 'POST'
+      return 'POST';
     default:
-      return 'POST'
+      return 'POST';
   }
 }
 
-export const processSyncQueue = syncQueue.processQueue.bind(syncQueue)
-export const getSyncQueueLength = syncQueue.getQueueLength.bind(syncQueue)
-export const subscribeSyncQueue = syncQueue.subscribe.bind(syncQueue)
+export const processSyncQueue = syncQueue.processQueue.bind(syncQueue);
+export const getSyncQueueLength = syncQueue.getQueueLength.bind(syncQueue);
+export const subscribeSyncQueue = syncQueue.subscribe.bind(syncQueue);
 
 /**
  * Get pending operations count (async version for UI)
  * Use this for displaying sync status in the UI
  */
-export const getPendingCount = syncQueue.getPendingCount.bind(syncQueue)
+export const getPendingCount = syncQueue.getPendingCount.bind(syncQueue);
 
 /**
  * Get failed operations count (async version for UI)
  */
-export const getFailedCount = syncQueue.getFailedCount.bind(syncQueue)
+export const getFailedCount = syncQueue.getFailedCount.bind(syncQueue);
 
 // ============================================================================
 // Specialized Queue Functions
@@ -817,7 +818,7 @@ export async function queueProgressUpdate(
     userId,
     bookId,
     priority: 'critical',
-  })
+  });
 }
 
 /**
@@ -827,7 +828,13 @@ export async function queueReadingSession(
   userId: string,
   bookId: string,
   action: 'start' | 'update' | 'end',
-  data?: { sessionId?: string; duration?: number; pagesRead?: number; currentPosition?: number; endPosition?: number }
+  data?: {
+    sessionId?: string;
+    duration?: number;
+    pagesRead?: number;
+    currentPosition?: number;
+    endPosition?: number;
+  }
 ): Promise<string> {
   let endpoint = '/api/v1/reading-sessions';
   if (action === 'start') {
@@ -859,7 +866,7 @@ export async function queueReadingSession(
     userId,
     bookId,
     priority: 'critical',
-  })
+  });
 }
 
 /**
@@ -877,11 +884,11 @@ export async function queueImageGeneration(
     userId,
     bookId,
     priority: 'low',
-  })
+  });
 }
 
 // ============================================================================
 // Re-export Types
 // ============================================================================
 
-export type { SyncOperation, SyncOperationType, SyncPriority, SyncStatus }
+export type { SyncOperation, SyncOperationType, SyncPriority, SyncStatus };
