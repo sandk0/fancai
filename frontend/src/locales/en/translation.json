@@ -278,6 +278,44 @@
       "expand": "Expand subsections",
       "aria_label": "Table of contents"
     },
+    "menu": {
+      "aria_label": "Text selection menu",
+      "copy": "Copy",
+      "bookmark": "Bookmark",
+      "highlight": "Highlight",
+      "note": "Note",
+      "pick_color": "Pick color",
+      "add_note": "Add note",
+      "note_placeholder": "Write a note...",
+      "save": "Save",
+      "characters": "characters selected"
+    },
+    "sidebar": {
+      "toc": "Contents",
+      "bookmarks": "Bookmarks",
+      "highlights": "Highlights"
+    },
+    "bookmarks": {
+      "empty": "No bookmarks",
+      "empty_hint": "Select text and tap \"Bookmark\"",
+      "chapter": "Chapter {{number}}",
+      "delete": "Delete bookmark"
+    },
+    "highlights": {
+      "empty": "No highlights",
+      "empty_hint": "Select text and tap \"Highlight\"",
+      "chapter": "Chapter {{number}}",
+      "delete": "Delete highlight",
+      "edit_note": "Edit note",
+      "note_placeholder": "Add a note...",
+      "save_note": "Save",
+      "has_note": "With note"
+    },
+    "highlight_popup": {
+      "note": "Note",
+      "delete": "Delete",
+      "no_note": "No note"
+    },
     "authRequired": "Authentication required",
     "authRequiredDesc": "Sign in to read this book",
     "chapterLabel": "Chapter",
