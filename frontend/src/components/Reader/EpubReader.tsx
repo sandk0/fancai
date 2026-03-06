@@ -25,6 +25,9 @@ import {
 } from '@/hooks/epub';
 import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
+import { useBookmarkActions } from '@/hooks/epub/useBookmarks';
+import { useHighlightActions } from '@/hooks/epub/useHighlights';
+import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
 import { isIOS } from '@/utils/iosSupport';
 import { useReaderStore } from '@/stores/reader';
 import { useReaderPosition } from '@/hooks/reader/useReaderPosition';
@@ -268,6 +271,68 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         t('reader.notification.session_stats', { minutes: s.duration_minutes, pages: s.pages_read })
       ),
   });
+
+  // Bookmark/highlight hooks
+  const { bookmarks, createBookmark, deleteBookmark } = useBookmarkActions({
+    bookId: book.id,
+    currentChapter,
+  });
+
+  const { highlights, createHighlight, updateHighlight, deleteHighlight } = useHighlightActions({
+    bookId: book.id,
+    currentChapter,
+    rendition,
+  });
+
+  useAnnotationRendering({
+    rendition,
+    bookId: book.id,
+    currentChapter,
+    enabled: renditionReady,
+  });
+
+  const handleBookmark = useCallback(() => {
+    if (!selection) return;
+    createBookmark(selection.cfiRange, selection.text);
+    clearSelection();
+  }, [selection, createBookmark, clearSelection]);
+
+  const handleHighlightWithColor = useCallback(
+    (color: string) => {
+      if (!selection) return;
+      createHighlight(selection.cfiRange, selection.text, color);
+      clearSelection();
+    },
+    [selection, createHighlight, clearSelection]
+  );
+
+  const handleNoteWithColor = useCallback(
+    (color: string, note: string) => {
+      if (!selection) return;
+      createHighlight(selection.cfiRange, selection.text, color, note);
+      clearSelection();
+    },
+    [selection, createHighlight, clearSelection]
+  );
+
+  const handleNavigateToCfi = useCallback(
+    async (cfi: string) => {
+      if (!rendition) return;
+      try {
+        await rendition.display(cfi);
+      } catch (err) {
+        logger.error('[EpubReader] Failed to navigate to CFI:', err);
+      }
+    },
+    [rendition]
+  );
+
+  const handleUpdateHighlightNote = useCallback(
+    (highlightId: string, note: string) => {
+      updateHighlight(highlightId, { note });
+    },
+    [updateHighlight]
+  );
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
@@ -564,13 +629,27 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           currentCFI,
           initialEntityId: drawerInitialEntityId,
         }}
-        selection={{ data: selection, onCopy: handleCopy, onClose: clearSelection }}
+        selection={{
+          data: selection,
+          onCopy: handleCopy,
+          onBookmark: handleBookmark,
+          onHighlightWithColor: handleHighlightWithColor,
+          onNoteWithColor: handleNoteWithColor,
+          onClose: clearSelection,
+        }}
         toc={{
           isOpen: isTocOpen,
           onClose: () => setIsTocOpen(false),
           items: toc,
           currentHref: currentHref || '',
           onChapterClick: handleTocChapterClick,
+          bookId: book.id,
+          bookmarks,
+          highlights,
+          onNavigateToCfi: handleNavigateToCfi,
+          onDeleteBookmark: deleteBookmark,
+          onDeleteHighlight: deleteHighlight,
+          onUpdateHighlightNote: handleUpdateHighlightNote,
         }}
         positionConflict={{
           data: positionConflict,
