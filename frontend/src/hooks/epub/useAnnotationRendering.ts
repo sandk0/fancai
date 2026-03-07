@@ -69,6 +69,68 @@ function getContentDocument(rendition: Rendition): Document | null {
 }
 
 /**
+ * Fallback CFI range resolver using getElementById.
+ *
+ * epub.js may wrap body content in an anonymous <span>, shifting CFI paths.
+ * When rendition.getRange() fails (path mismatch), this function extracts the
+ * element ID assertion from the CFI, finds the element via getElementById,
+ * then navigates to the correct child and text offsets to build a Range.
+ *
+ * CFI format: epubcfi(/6/N!/path[elementId]/childStep,/1:startOffset,/1:endOffset)
+ */
+function resolveRangeFallback(doc: Document, cfi: string): Range | null {
+  // Parse: ....[elementId]/childStep,/textStep:startOffset,/textStep:endOffset
+  const match = cfi.match(/\[([^\]]+)\]\/(\d+),\/(\d+):(\d+),\/(\d+):(\d+)/);
+  if (!match) return null;
+
+  const [, elementId, childStepStr, , startOffsetStr, , endOffsetStr] = match;
+  const element = doc.getElementById(elementId);
+  if (!element) return null;
+
+  // CFI child step: even numbers = element nodes (/2N = Nth element, 1-indexed)
+  const childElementIndex = Math.floor(parseInt(childStepStr) / 2) - 1;
+  const targetChild = element.children[childElementIndex];
+  if (!targetChild) return null;
+
+  const startOffset = parseInt(startOffsetStr);
+  const endOffset = parseInt(endOffsetStr);
+
+  // Walk text nodes to find correct positions (handles split text nodes from highlighting)
+  const walker = doc.createTreeWalker(targetChild, NodeFilter.SHOW_TEXT);
+  let accum = 0;
+  let startNode: Text | null = null;
+  let startNodeOffset = 0;
+  let endNode: Text | null = null;
+  let endNodeOffset = 0;
+
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const len = (node as Text).length;
+    if (!startNode && accum + len > startOffset) {
+      startNode = node as Text;
+      startNodeOffset = startOffset - accum;
+    }
+    if (!endNode && accum + len >= endOffset) {
+      endNode = node as Text;
+      endNodeOffset = endOffset - accum;
+      break;
+    }
+    accum += len;
+  }
+
+  if (!startNode || !endNode) return null;
+
+  try {
+    const range = doc.createRange();
+    range.setStart(startNode, Math.min(startNodeOffset, startNode.length));
+    range.setEnd(endNode, Math.min(endNodeOffset, endNode.length));
+    return range;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Clean up all existing user-annotation spans, restoring original text nodes
  */
 function cleanupAnnotations(doc: Document): void {
@@ -126,18 +188,29 @@ function isInsideProtectedHighlight(node: Node): boolean {
 }
 
 /**
- * Wrap text nodes within a Range with annotation spans
+ * Wrap text nodes within a Range with annotation spans.
+ *
+ * TreeWalker walks descendants of root — it does NOT include the root itself.
+ * When a range is entirely within one text node, commonAncestorContainer IS
+ * that text node (no descendants), so we use parentNode as walker root.
  */
 function wrapRangeWithSpan(doc: Document, range: Range, bookmark: BookmarkResponse): void {
-  // Collect text nodes within the range using TreeWalker
-  const walker = doc.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT, {
+  // Use parent element as walker root when range ancestor is a text node
+  const walkerRoot =
+    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? (range.commonAncestorContainer.parentNode ?? range.commonAncestorContainer)
+      : range.commonAncestorContainer;
+
+  const walker = doc.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) => {
-      // Skip nodes outside range
+      // Skip nodes entirely outside range:
+      // - START_TO_END compares this.END vs source.START → < 0 means node ends before range starts
+      // - END_TO_START compares this.START vs source.END → > 0 means node starts after range ends
       const nodeRange = doc.createRange();
       nodeRange.selectNodeContents(node);
       if (
-        nodeRange.compareBoundaryPoints(Range.END_TO_START, range) >= 0 ||
-        nodeRange.compareBoundaryPoints(Range.START_TO_END, range) <= 0
+        nodeRange.compareBoundaryPoints(Range.START_TO_END, range) < 0 ||
+        nodeRange.compareBoundaryPoints(Range.END_TO_START, range) > 0
       ) {
         return NodeFilter.FILTER_REJECT;
       }
@@ -329,20 +402,22 @@ export function useAnnotationRendering({
     applyingRef.current = true;
 
     try {
-      // Cleanup existing annotations
       cleanupAnnotations(doc);
 
       if (!chapterBookmarks.length) return;
 
-      // Apply each bookmark
       for (const bookmark of chapterBookmarks) {
         try {
-          const range = rendition.getRange(bookmark.cfi_range);
+          // Try native getRange first, fallback for CFI path mismatches
+          let range = rendition.getRange(bookmark.cfi_range);
+          if (!range) {
+            range = resolveRangeFallback(doc, bookmark.cfi_range);
+          }
           if (!range) continue;
 
           wrapRangeWithSpan(doc, range, bookmark);
         } catch (err) {
-          logger.error('[useAnnotationRendering] Failed to apply annotation:', err);
+          logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
         }
       }
     } finally {
