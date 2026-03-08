@@ -23,7 +23,7 @@ fancai — это работающее AI-приложение для чтени
 - [x] **Phase 5: Стабилизация AI и очистка техдолга** — Добавить circuit breaker для OpenRouter, настроить бэкап БД, очистить остаточный техдолг (мёртвый код, устаревшие провайдеры в метаданных, стале конфиги), исправить осиротевшие описания (completed 2026-03-04)
 - [x] **Phase 6: Качество Entity Wiki** — Снизить порог нечёткого сравнения для русских имён, реализовать рекурсивный reduce для больших книг, добавить исчерпывающие тесты спойлер-защиты и ConsistencyManager (completed 2026-03-04)
 - [x] **Phase 7: Обработка ошибок и UX** — Стандартизировать состояния ошибок, улучшить UX восстановления после сбоев AI и парсинга (completed 2026-03-05)
-- [ ] **Phase 8: Функции ридера** — Реализовать закладки, выделения, синхронизацию, поиск по книге и связь сущность-текст
+- [x] **Phase 8: Функции ридера** — Реализовать закладки, выделения, синхронизацию, поиск по книге и связь сущность-текст (completed 2026-03-07)
 
 ## Детали фаз
 
@@ -201,13 +201,13 @@ Plans:
 3. Закладки и выделения синхронизируются с бэкендом через реальный API endpoint (sync.py возвращает данные, а не 501)
 4. Пользователь может искать по тексту текущей книги и переходить к результатам поиска
 5. Тап по имени персонажа в тексте книги открывает соответствующий профиль сущности из Entity Wiki
-   **Plans:** 3 plans
+   **Plans:** 3/3 plans complete
 
 Plans:
 
 - [x] 08-01-PLAN.md — Бэкенд-фундамент: модели Bookmark/Highlight, Alembic миграция, CRUD endpoints в sync.py, Zustand store (CFI), TanStack Query хуки (READ-03, READ-01, READ-02)
-- [ ] 08-02-PLAN.md — Фронтенд закладок и выделений: SelectionMenu с цветами/заметками, annotation rendering, BookmarksList/HighlightsList, вкладки в TocSidebar (READ-01, READ-02)
-- [ ] 08-03-PLAN.md — Поиск по книге + Entity-text linking: SearchPanel, useBookSearch, EntityPopup при тапе на имя персонажа (READ-04, READ-05)
+- [x] 08-02-PLAN.md — Фронтенд заметок: SelectionMenu с цветами/заметками, DOM annotation rendering, BookmarksList, вкладки в TocSidebar + слияние highlights в bookmarks (READ-01, READ-02) (completed 2026-03-07)
+- [x] 08-03-PLAN.md — Поиск по книге + Entity-text linking: SearchPanel, useBookSearch, EntityPopup при тапе на имя персонажа (READ-04, READ-05)
 
 ## Прогресс
 
@@ -225,4 +225,4 @@ Plans:
 | 5. Стабилизация AI и техдолг       | 2/2              | Complete  | 2026-03-04 |
 | 6. Качество Entity Wiki            | 2/2              | Complete  | 2026-03-04 |
 | 7. Обработка ошибок и UX           | 2/2              | Complete  | 2026-03-05 |
-| 8. Функции ридера                  | 1/3              | В процессе | -          |
+| 8. Функции ридера                  | 3/3              | Complete  | 2026-03-07 |
