@@ -1,395 +1,246 @@
-# Исследование стека: Инструментарий для продакшен-готовности
+# Исследование стека: Mobile/PWA Reader
 
-**Область:** Продакшен-укрепление ИИ-читалки (React 19 + FastAPI + Celery + PostgreSQL + Redis)
-**Исследовано:** 2026-02-27
-**Уверенность:** ВЫСОКАЯ (большинство рекомендаций проверены через официальные документы/PyPI/npm)
+**Область:** Плавные свайпы follow-finger, качественное PWA, мобильные анимации для EPUB-ридера
+**Исследовано:** 2026-03-09
+**Уверенность:** ВЫСОКАЯ
 
 ## Контекст: Что уже есть
 
-Прежде чем рекомендовать дополнения, вот что уже есть в кодовой базе:
+Прежде чем рекомендовать дополнения -- критически важно понимать текущее состояние:
 
 | Категория | Уже на месте | Статус |
 |-----------|-------------|--------|
-| Отслеживание ошибок (бэкенд) | `sentry-sdk[fastapi]==2.51.0` в requirements.txt | Установлен, но НЕ инициализирован в main.py |
-| Отслеживание ошибок (фронтенд) | Компонент ErrorBoundary существует | Sentry SDK не установлен |
-| Метрики | `prometheus-fastapi-instrumentator==7.1.0` + `prometheus-client==0.24.1` | Установлены, стек Prometheus/Grafana в docker-compose.monitoring.yml |
-| Логирование | `loguru==0.7.3` с JSON-режимом для продакшена | Настроен, работает |
-| Заголовки безопасности | SecurityHeadersMiddleware (HSTS, CSP, X-Frame-Options и т.д.) | Реализовано, CSP nonces -- TODO |
-| Rate limiting | Кастомный Redis-based RateLimiter со скользящим окном | Реализовано, преднастройки для каждого эндпоинта |
-| Валидация секретов | SecretsValidator с проверкой при старте | Реализовано, принудительно в продакшене |
-| Health-проверки | Docker Compose healthcheck на всех сервисах | Работают, но эндпоинт приложения /health -- фейковый |
-| Бэкапы | Бэкап хранилища (ретенция 7 дней) | Работает, но НЕТ бэкапа базы данных |
-| Стек мониторинга | Grafana + Prometheus + Loki + Promtail + Node Exporter + cAdvisor | Определён в docker-compose.monitoring.yml |
-| JWT-авторизация | `python-jose==3.5.0` | УЯЗВИМОСТЬ: не поддерживается, известные проблемы безопасности |
+| Анимации | `motion` 12.31.0 (40 файлов импортируют) | Глубоко интегрирован, spring-анимации используются повсюду |
+| Touch-навигация | `useSwipeNavigation.ts` + `useTouchNavigation.ts` | Кастомная реализация на raw touch events, привязка через `rendition.hooks.content.register()` к iframe document |
+| iOS tap zones | `IOSTapZones.tsx` + `TapZone.tsx` + `TapFeedback.tsx` | Отдельная система для iOS -- overlay поверх iframe |
+| iOS fixes | `useEpubIOSFixes.ts` | Блокировка epub.js snap/gestures, fix layout divisor |
+| PWA Service Worker | `sw.ts` (878 строк) + Workbox 7.4 | Полноценный: precaching, runtime caching, background sync, push notifications, navigation preload |
+| PWA Plugin | `vite-plugin-pwa` 1.2.0 (injectManifest) | Настроен, dev mode включен |
+| Manifest | `manifest.json` | Полный: shortcuts, file_handlers, share_target, launch_handler |
+| iOS Support | `iosSupport.ts` (486 строк) | Platform detection, persistence, install prompt, background sync fallback |
+| Swipe overlay | `SwipeOverlay.tsx` + `SwipeIndicator.tsx` | motion/react для spring-анимаций индикаторов |
 
-**Ключевой вывод:** Инфраструктура мониторинга уже обширна. Основные пробелы: (1) фактическая инициализация Sentry, (2) добавление Sentry на фронтенд, (3) замена python-jose, (4) бэкапы базы данных, (5) исправление health-проверки и (6) Gunicorn для продакшена.
+**Ключевой вывод:** PWA-инфраструктура уже зрелая. Service worker, манифест, Workbox -- всё настроено и работает. Основной пробел -- качество свайпов: текущая реализация на raw `touchstart/touchmove/touchend` не дает настоящего "follow-finger" UX, анимация перехода страницы идет ПОСЛЕ завершения жеста (через `setTimeout` 200-300ms), а не ВО ВРЕМЯ движения пальца.
 
 ---
 
 ## Рекомендуемые дополнения стека
 
-### 1. Мониторинг ошибок -- Бэкенд (инициализация Sentry)
+### 1. НЕ добавлять @use-gesture/react
 
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| sentry-sdk[fastapi] | 2.53.0 | Отслеживание ошибок + мониторинг производительности | Уже установлен (2.51.0), нужна только инициализация и обновление версии. Автоинтеграция с FastAPI, Celery, SQLAlchemy, Redis. Индустриальный стандарт. | ВЫСОКАЯ |
+| Решение | Обоснование | Уверенность |
+|---------|-------------|-------------|
+| **Отклонено** | Не решает ключевую проблему (iframe) и дублирует motion | ВЫСОКАЯ |
 
-**Действие:** Обновить с 2.51.0 до 2.53.0. Инициализировать в lifespan main.py:
+**Почему не нужен:**
 
-```python
-import sentry_sdk
+1. **Проблема iframe:** epub.js рендерит контент в `<iframe>` с blob: URL. Touch events не всплывают из iframe в parent document. `@use-gesture/react` привязывает хендлеры к React-элементам в parent -- он физически не получит events из iframe. Проект уже решает это через `rendition.hooks.content.register()` для прямой привязки к iframe document. @use-gesture не имеет API для привязки к произвольному document/element внутри iframe.
 
-sentry_sdk.init(
-    dsn=settings.SENTRY_DSN,
-    traces_sample_rate=0.2,          # 20% в продакшене (контроль затрат)
-    profiles_sample_rate=0.1,        # 10% профилирование
-    send_default_pii=False,          # GDPR: без PII пользователей
-    environment="production",
-    release=VERSION,
-    integrations=[],                  # FastAPI/Celery автодетектируются
-    before_send=filter_sensitive_data, # Убираем API-ключи из breadcrumbs
-)
-```
+2. **motion уже делает то же:** `motion` v12 (уже установлен) имеет `onPan`, `onPanStart`, `onPanEnd`, `drag` gesture support, spring physics. Добавлять @use-gesture = дублирование.
 
-**Почему эти значения:** traces_sample_rate 0.2 балансирует видимость и затраты при развёртывании на одном сервере. `send_default_pii=False`, потому что приложение обрабатывает данные чтения пользователей (потенциально чувствительные).
+3. **Устаревший:** Последний релиз v10.3.1 -- 2+ года назад. Не обновлялся для React 19.
 
-**Источник:** [Документация Sentry FastAPI](https://docs.sentry.io/platforms/python/integrations/fastapi/), [PyPI sentry-sdk](https://pypi.org/project/sentry-sdk/) -- версия 2.53.0 подтверждена 2026-02-16
+4. **@use-gesture/vanilla** (10.3.1) теоретически позволяет привязку к DOM-элементу, но: (a) не протестирован с iframe document, (b) не поддерживается активно, (c) проект и без того справляется с raw events.
 
-### 2. Мониторинг ошибок -- Фронтенд (Sentry SDK)
+**Вместо этого:** Улучшить существующую реализацию в `useSwipeNavigation.ts` -- она уже корректно привязана к iframe document через content hooks.
 
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| @sentry/react | ^10.40.0 | Отслеживание ошибок фронтенда | Поддержка React 19 (хуки onCaughtError/onUncaughtError). Единое отслеживание ошибок с бэкенд Sentry. | ВЫСОКАЯ |
-| @sentry/vite-plugin | ^5.1.0 | Загрузка source map | Маппинг минифицированных продакшен-ошибок на исходный TypeScript-код. Необходим для осмысленных отчётов об ошибках фронтенда. | ВЫСОКАЯ |
+### 2. Нет новых npm-зависимостей для жестов и анимаций
 
-**Действие:** Установить и инициализировать:
+| Технология | Версия | Назначение | Почему хватает текущего стека | Уверенность |
+|------------|--------|------------|-------------------------------|-------------|
+| motion | 12.31.0 (уже есть) | Spring-анимации, page transitions | 40 файлов уже используют. `useSpring`, `useMotionValue`, `AnimatePresence` -- все инструменты для follow-finger. Обновить до ~12.35.x для последних bugfixes. | ВЫСОКАЯ |
+
+**Действие:** Обновить motion до последней 12.x:
 
 ```bash
-# Зависимости фронтенда
-cd frontend && npm install @sentry/react
-cd frontend && npm install -D @sentry/vite-plugin
+cd frontend && npm install motion@^12.35.0
 ```
 
-**Паттерн инициализации для React 19:**
+**Что дает обновление до 12.35.x:**
+- 12.34.0: `useScroll` с hardware accelerated animations
+- 12.34.3: fix velocity transfer для spring анимаций (критично для follow-finger)
+- 12.33.2: улучшенная детекция detached elements
+
+**Источник:** [Motion Changelog](https://motion.dev/changelog), [npm motion](https://www.npmjs.com/package/motion) -- 12.35.1 подтверждена
+
+---
+
+## Архитектура follow-finger свайпов (без новых зависимостей)
+
+Ключевое изменение -- НЕ в библиотеках, а в архитектуре анимации:
+
+### Текущая архитектура (проблемная):
+
+```
+iframe touchstart → записать startX
+iframe touchmove  → обновить offset в React state (setState)
+iframe touchend   → навигация через rendition.next()/prev()
+                    → setTimeout(300ms) → сбросить overlay
+```
+
+**Проблема:** `setState` на каждый touchmove -- React re-render каждые ~16ms. Overlay двигается, но СТРАНИЦА не двигается -- она переключается мгновенно в конце.
+
+### Целевая архитектура (follow-finger):
+
+```
+iframe touchstart → создать MotionValue(0)
+iframe touchmove  → motionValue.set(deltaX) -- БЕЗ setState
+                    → CSS transform на container/overlay
+iframe touchend   → velocity > threshold?
+                    ДА: spring анимация до +-width → onComplete → rendition.next()/prev()
+                    НЕТ: spring анимация до 0 (snap back)
+```
+
+**Ключевые технологии из motion (уже есть):**
+
+| API | Назначение | Как использовать |
+|-----|-----------|------------------|
+| `useMotionValue(0)` | Отслеживание offset БЕЗ re-render | Обновлять из touchmove handler |
+| `useTransform(x, [input], [output])` | Производные значения (opacity, scale) | Fade previous page по мере свайпа |
+| `animate(motionValue, target, { type: 'spring' })` | Императивная spring-анимация | Завершение свайпа с физикой |
+| `useMotionValueEvent(x, 'change', cb)` | Подписка на изменения | Отладка, boundary detection |
+
+**Паттерн интеграции с iframe:**
 
 ```typescript
-import * as Sentry from "@sentry/react";
+// В useSwipeNavigation.ts -- заменить setState на MotionValue
+const offsetX = useMotionValue(0);
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: import.meta.env.VITE_ENVIRONMENT,
-  tracesSampleRate: 0.1,           // 10% для фронтенда
-  replaysSessionSampleRate: 0.1,   // 10% session replay
-  replaysOnErrorSampleRate: 1.0,   // 100% replay при ошибке
-});
+// touchmove handler (привязан к iframe document):
+const handleTouchMove = (e: TouchEvent) => {
+  const deltaX = e.touches[0].clientX - startX;
+  offsetX.set(deltaX); // Нет setState, нет re-render
+};
 
-// В createRoot (хуки React 19):
-const root = createRoot(document.getElementById("root")!, {
-  onCaughtError: Sentry.reactErrorHandler(),
-  onUncaughtError: Sentry.reactErrorHandler((error, errorInfo) => {
-    console.warn("Uncaught error", error, errorInfo.componentStack);
-  }),
-});
+// touchend handler:
+const handleTouchEnd = async (e: TouchEvent) => {
+  const velocity = calculateVelocity();
+  if (Math.abs(velocity) > VELOCITY_THRESHOLD || Math.abs(offsetX.get()) > WIDTH * 0.3) {
+    // Свайп принят: spring к следующей странице
+    const target = offsetX.get() > 0 ? viewportWidth : -viewportWidth;
+    await animate(offsetX, target, {
+      type: 'spring',
+      stiffness: 300,
+      damping: 30,
+      velocity: velocity * 1000, // передаем скорость жеста
+    });
+    await onNavigate(target > 0 ? 'prev' : 'next');
+    offsetX.set(0); // мгновенный сброс после навигации
+  } else {
+    // Свайп отменен: spring назад
+    animate(offsetX, 0, {
+      type: 'spring',
+      stiffness: 400,
+      damping: 35,
+    });
+  }
+};
 ```
 
-**Дополнение конфигурации Vite:**
+---
+
+## PWA: Что доработать (без новых зависимостей)
+
+PWA-стек уже полноценный. Доработки -- конфигурация и настройка, не новые библиотеки.
+
+### 2.1 Manifest: улучшения для мобильной читалки
+
+| Что изменить | Текущее | Рекомендуемое | Зачем |
+|-------------|---------|---------------|-------|
+| `display` | `standalone` | `standalone` (оставить) | Правильно для ридера. `fullscreen` убирает статус-бар -- плохо для iOS. |
+| `orientation` | `portrait-primary` | Убрать или `any` | Многие читают landscape на планшетах. Не ограничивать. |
+| `theme_color` | `#FFFFFF` | Динамический через meta tag | Должен меняться с темой (light/dark/sepia). Manifest фиксирован, но meta tag можно менять. |
+| `icons` | 192px + 512px | Добавить 72px, 128px, 384px | iOS и Android запрашивают разные размеры для splash screen и home screen. |
+| `screenshots` | Нет | Добавить 2-3 скриншота | Chrome показывает "richer install UI" со скриншотами (Chromium 118+). |
+
+### 2.2 Service Worker: уже настроен правильно
+
+Текущая конфигурация Workbox в `sw.ts` покрывает:
+- Precaching static assets
+- Runtime caching с правильными стратегиями (CacheFirst для шрифтов, StaleWhileRevalidate для API)
+- Background sync для reading progress + image generation
+- Navigation preload
+- Push notifications с типизированными payload-ами
+- Offline fallback
+- iOS visibility/online fallback (через `iosSupport.ts`)
+
+**Единственная доработка:** добавить кэширование EPUB-файлов для полного offline-чтения:
 
 ```typescript
-import { sentryVitePlugin } from "@sentry/vite-plugin";
-
-export default defineConfig({
-  build: { sourcemap: true },
-  plugins: [
-    sentryVitePlugin({
-      org: "fancai",
-      project: "fancai-frontend",
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-    }),
-  ],
-});
+// В sw.ts -- добавить route для скачанных книг
+registerRoute(
+  ({ url }) => url.pathname.match(/\/api\/v1\/books\/[^/]+\/download/) !== null,
+  new CacheFirst({
+    cacheName: 'epub-files-cache',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }),
+      new ExpirationPlugin({
+        maxEntries: 20, // Макс 20 книг offline
+        maxAgeSeconds: 60 * 60 * 24 * 90, // 90 дней
+      }),
+    ],
+  })
+);
 ```
 
-**Источник:** [Документация Sentry React](https://docs.sentry.io/platforms/javascript/guides/react/), [@sentry/react npm](https://www.npmjs.com/package/@sentry/react) -- версия 10.40.0 подтверждена, [@sentry/vite-plugin npm](https://www.npmjs.com/package/@sentry/vite-plugin) -- версия 5.1.0 подтверждена
+### 2.3 iOS-специфичные доработки
 
-### 3. Замена JWT-библиотеки (КРИТИЧЕСКАЯ БЕЗОПАСНОСТЬ)
-
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| PyJWT | 2.11.0 | Кодирование/декодирование JWT | Заменяет заброшенный `python-jose`. Активно поддерживается, документация FastAPI официально рекомендует PyJWT. Почти прямая замена. | ВЫСОКАЯ |
-
-**Действие:** Заменить python-jose на PyJWT:
-
-```bash
-# В requirements.txt:
-# УДАЛИТЬ: python-jose[cryptography]==3.5.0
-# ДОБАВИТЬ: PyJWT[crypto]==2.11.0
-```
-
-**Миграция (минимальные изменения кода):**
-
-```python
-# ДО (python-jose):
-from jose import JWTError, jwt
-token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-
-# ПОСЛЕ (PyJWT):
-import jwt
-from jwt.exceptions import InvalidTokenError  # заменяет JWTError
-token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-```
-
-**Почему критично:** python-jose не выпускал релизов более 3 лет, имеет известные уязвимости безопасности в зависимостях, и FastAPI официально перевёл свою документацию на PyJWT. JWT -- это слой авторизации -- он должен активно поддерживаться.
-
-**Источник:** [Туториал FastAPI JWT](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/), [Обсуждение FastAPI #11345](https://github.com/fastapi/fastapi/discussions/11345), [PyPI PyJWT](https://pypi.org/project/PyJWT/) -- версия 2.11.0 подтверждена 2026-01-30
-
-### 4. Реализация health-проверки
-
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| (встроенное в FastAPI) | -- | Реальный health-эндпоинт | Текущий /health возвращает фейковую строку "checking...". Docker healthcheck зависит от этого. Должен реально проверять подключение к PostgreSQL + Redis. | ВЫСОКАЯ |
-
-**Действие:** Заменить фейковую health-проверку реальной:
-
-```python
-@app.get("/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
-    checks = {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
-
-    # Проверка базы данных
-    try:
-        await db.execute(text("SELECT 1"))
-        checks["database"] = "connected"
-    except Exception:
-        checks["database"] = "disconnected"
-        checks["status"] = "unhealthy"
-
-    # Проверка Redis
-    try:
-        await cache_manager.ping()
-        checks["redis"] = "connected"
-    except Exception:
-        checks["redis"] = "disconnected"
-        checks["status"] = "unhealthy"
-
-    status_code = 200 if checks["status"] == "healthy" else 503
-    return JSONResponse(content=checks, status_code=status_code)
-```
-
-**Почему важно:** Docker Compose healthcheck вызывает `curl -f http://localhost:8000/health`. Если он всегда возвращает 200, Docker никогда не перезапускает нездоровые контейнеры. Стек мониторинга (алерты Prometheus) тоже зависит от того, отражает ли этот эндпоинт реальность.
-
-### 5. Бэкап базы данных
-
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| pg_dump (через cron-контейнер) | Встроенный в PostgreSQL 15 | Ежедневный бэкап базы данных | Текущий бэкап покрывает только загруженные файлы (volume хранилища). Бэкапа базы данных не существует. Потеря данных при сбое PostgreSQL -- полная. | ВЫСОКАЯ |
-
-**Действие:** Добавить сервис бэкапа базы данных в docker-compose.lite.yml:
-
-```yaml
-db-backup:
-  image: postgres:15-alpine
-  container_name: bookreader_db_backup
-  environment:
-    - PGPASSWORD=${DB_PASSWORD}
-    - TZ=Europe/Moscow
-  volumes:
-    - /root/backups/db:/backups
-  entrypoint: /bin/sh
-  command: |
-    -c "
-      while true; do
-        BACKUP_FILE=/backups/db-$$(date +%Y%m%d-%H%M%S).sql.gz
-        pg_dump -h postgres -U $${DB_USER:-postgres} $${DB_NAME:-bookreader_dev} | gzip > $$BACKUP_FILE
-        echo \"[$$(/bin/date)] DB backup: $$(du -h $$BACKUP_FILE | cut -f1)\"
-        find /backups -name 'db-*.sql.gz' -mtime +14 -delete
-        sleep 86400
-      done
-    "
-  depends_on:
-    postgres:
-      condition: service_healthy
-  networks:
-    - bookreader_network
-  deploy:
-    resources:
-      limits:
-        cpus: '0.2'
-        memory: 256M
-  restart: unless-stopped
-```
-
-**Ретенция:** 14 дней для бэкапов базы данных (vs 7 для хранилища). Базу данных сложнее воссоздать.
-
-### 6. Gunicorn для продакшена
-
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| gunicorn | 25.0.1 | Продакшен ASGI-сервер | Уже в requirements.txt, но НЕ используется в docker-compose. Продакшен запускает голый uvicorn с флагом `--reload` (режим разработки). Gunicorn обеспечивает управление процессами, переработку воркеров, грациозные перезапуски. | ВЫСОКАЯ |
-
-**Действие:** Изменить команду бэкенда в docker-compose.lite.yml:
-
-```yaml
-# ДО (режим разработки в продакшене!):
-command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# ПОСЛЕ (продакшен-режим):
-command: >
-  gunicorn app.main:app
-  --worker-class uvicorn.workers.UvicornWorker
-  --workers ${WORKERS_COUNT:-4}
-  --bind 0.0.0.0:8000
-  --timeout ${WORKER_TIMEOUT:-300}
-  --max-requests ${WORKER_MAX_REQUESTS:-1000}
-  --max-requests-jitter ${WORKER_MAX_REQUESTS_JITTER:-100}
-  --graceful-timeout 30
-  --access-logfile -
-```
-
-**Почему критично:** `--reload` в продакшене означает, что сервер отслеживает все файлы на изменения и перезапускается при любом событии файловой системы. Это тратит ЦПУ, вызывает случайные перезапуски при изменении файлов бэкапа и не даёт никакой продакшен-пользы. Gunicorn добавляет изоляцию сбоев (падение воркера не убивает сервер), защиту от утечек памяти (max-requests) и утилизацию нескольких ядер.
-
-**Источник:** [Документация FastAPI Server Workers](https://fastapi.tiangolo.com/deployment/server-workers/)
-
-### 7. Мониторинг Celery (Flower)
-
-| Технология | Версия | Назначение | Почему рекомендуется | Уверенность |
-|------------|--------|------------|----------------------|-------------|
-| flower | 2.0.1 | UI мониторинга задач Celery + метрики Prometheus | Задачи обработки книг выполняются минуты-часы. Без Flower диагностика застрявших/упавших задач требует просмотра логов. Flower экспортирует метрики Prometheus для алертов на глубину очереди и частоту сбоев. | СРЕДНЯЯ |
-
-**Действие:** Добавить в docker-compose.monitoring.yml:
-
-```yaml
-flower:
-  build:
-    context: ./backend
-    dockerfile: Dockerfile.lite
-  container_name: bookreader_flower
-  environment:
-    - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:?FLOWER_PASSWORD required}
-  command: celery -A app.core.celery_app flower --port=5555 --broker_api=redis://:${REDIS_PASSWORD}@redis:6379/0 --prometheus_metrics
-  networks:
-    - bookreader_network
-  deploy:
-    resources:
-      limits:
-        cpus: '0.3'
-        memory: 256M
-  restart: unless-stopped
-```
-
-**Почему СРЕДНЯЯ уверенность:** Flower 2.0.1 был выпущен в августе 2023 и не получал свежих обновлений. Он работает, но темп поддержки проекта медленный. По-прежнему стандартный инструмент для мониторинга Celery.
-
-**Источник:** [Документация Flower](https://flower.readthedocs.io/en/latest/prometheus-integration.html), [PyPI flower](https://pypi.org/project/flower/) -- версия 2.0.1 подтверждена
+| Область | Текущее состояние | Что доработать |
+|---------|-------------------|----------------|
+| Safe area | `env(safe-area-inset-*)` используется в IOSTapZones | Проверить на всех страницах (library, settings) |
+| Status bar | Нет `apple-mobile-web-app-status-bar-style` meta | Добавить `black-translucent` для edge-to-edge |
+| Splash screens | Нет `apple-touch-startup-image` | Добавить для мгновенного запуска (без белого экрана) |
+| Overscroll | `overscroll-behavior: none` в CSS | Убедиться что работает в standalone mode |
+| 300ms delay | Не адресовано | `touch-action: manipulation` на интерактивных элементах |
 
 ---
 
-## Существующий стек: Оставить как есть
+## Существующий стек: обновления
 
-Уже корректно настроены и не требуют изменений:
-
-| Технология | Текущая версия | Назначение | Оценка |
-|------------|---------------|------------|--------|
-| loguru | 0.7.3 | Структурированное логирование | Корректно настроен: JSON в продакшене, цветное в dev. Изменения не нужны. |
-| prometheus-fastapi-instrumentator | 7.1.0 | HTTP-метрики | Последняя версия. Уже собирает количество запросов, задержку, размеры ответов. |
-| prometheus-client | 0.24.1 | Кастомные метрики | Стандартный Prometheus-клиент. |
-| SecurityHeadersMiddleware | кастомный | Заголовки безопасности | HSTS, CSP, X-Frame-Options, X-Content-Type-Options -- всё на месте. Единственный пробел: CSP nonces (TODO). |
-| Rate limiter | кастомный на Redis | Защита от злоупотребления API | Скользящее окно, per-user + per-IP, грациозная деградация. Хорошо реализовано. |
-| SecretsValidator | кастомный | Проверка секретов при старте | Валидирует SECRET_KEY, DATABASE_URL, REDIS_URL в продакшене. |
-| Docker Compose healthcheck | -- | Здоровье сервисов | Все сервисы имеют healthcheck с правильными интервалами, повторами, start_period. |
-| Grafana + Prometheus + Loki | -- | Стек мониторинга | Полный стек наблюдаемости уже определён. |
+| Технология | Текущая | Целевая | Зачем обновлять | Уверенность |
+|------------|---------|---------|-----------------|-------------|
+| motion | 12.31.0 | ~12.35.x | Bugfix velocity в spring анимациях (критично для follow-finger), hardware-accelerated scroll | ВЫСОКАЯ |
+| vite-plugin-pwa | 1.2.0 | Оставить | Работает стабильно с injectManifest, нет breaking changes | ВЫСОКАЯ |
+| workbox-* | 7.4.0 | Оставить | Последняя стабильная 7.x серия, активно поддерживается | ВЫСОКАЯ |
 
 ---
 
-## Существующий стек: Требуется обновление
-
-| Технология | Текущая | Целевая | Зачем обновлять |
-|------------|---------|---------|-----------------|
-| sentry-sdk[fastapi] | 2.51.0 | 2.53.0 | Исправления багов, последние интеграции. Минорное обновление. |
-| python-jose | 3.5.0 | УДАЛИТЬ | Заменить на PyJWT 2.11.0 (см. раздел 3). |
-
----
-
-## Что НЕ использовать
+## Что НЕ добавлять
 
 | Избегать | Почему | Использовать вместо |
 |----------|--------|---------------------|
-| python-jose | Заброшен 3+ года, известные уязвимости, FastAPI снял официальную поддержку | PyJWT 2.11.0 |
-| slowapi | Последний релиз февраль 2024 (v0.1.9), всё ещё 0.x, ограниченная поддержка | Оставить существующий кастомный Redis rate limiter (уже лучше: распределённый, скользящее окно, грациозная деградация) |
-| uvicorn --reload в продакшене | Отслеживание файлов тратит ЦПУ, вызывает случайные перезапуски | gunicorn с UvicornWorker |
-| Datadog / New Relic | Дорогой SaaS для односерверного проекта | Self-hosted Sentry + Prometheus/Grafana (уже настроено) |
-| structlog | Добавляет сложность поверх loguru без выгоды для этого проекта | loguru (уже настроен с JSON + dev режимами) |
-| celery-exporter | Отдельный контейнер для метрик Celery | Flower с --prometheus_metrics (также даёт UI) |
-| passlib | Мягко deprecated, медленная разработка | Оставить пока (нет срочной проблемы безопасности, бэкенд bcrypt стабилен). Рассмотреть argon2-cffi в долгосрочной перспективе. |
+| `@use-gesture/react` | Не работает с iframe epub.js; дублирует motion; заброшен (2+ года без релиза) | Существующие raw touch events + motion MotionValue |
+| `@use-gesture/vanilla` | Теоретически привязывается к DOM, но не тестирован с iframe, заброшен | Raw touch events через `rendition.hooks.content.register()` |
+| `react-spring` | Дублирует motion (уже 40 файлов). Два animation runtime = больше bundle, больше когнитивной нагрузки | motion (уже интегрирован) |
+| `hammer.js` | Заброшен с 2016 года, не поддерживает Pointer Events, не работает с iframe | Raw touch events |
+| `swipeable-react` / `react-swipeable` | Работает только с React elements, не с iframe content | Raw touch events в iframe |
+| `workbox-window` для update prompt | Уже есть `PWAUpdatePrompt.tsx` с кастомной логикой | Текущая реализация |
+| Нативный `Pointer Events` вместо `Touch Events` | epub.js iframe на iOS не forwarding pointer events. Touch events работают через content hook. Переход на Pointer Events = регрессия на iOS. | Touch Events (текущий подход) |
 
 ---
 
-## Укрепление конфигурации (без новых библиотек)
+## Паттерны по сценариям
 
-Эти изменения не требуют новых зависимостей, только исправления конфигурации:
+**Для follow-finger свайпов:**
+- Использовать `useMotionValue` + `useTransform` из motion (не setState)
+- Touch events привязывать через `rendition.hooks.content.register()` к iframe document
+- Spring анимация через `animate()` из motion
+- Velocity передавать из жеста в spring для естественного ощущения
 
-### Дефолты безопасности
+**Для page transition анимации:**
+- Двухслойная архитектура: текущая страница (iframe) + overlay/next page preview
+- CSS `will-change: transform` на анимируемых контейнерах
+- `transform: translateX()` для GPU-ускорения (не `left`/`right`)
 
-| Настройка | Текущее | Рекомендуемое | Почему |
-|-----------|---------|---------------|--------|
-| Дефолт `DEBUG` | `True` | `False` | Если переменная окружения не задана, продакшен работает в debug-режиме. Измените дефолт, чтобы отсутствие конфигурации = безопасно. |
-| Дефолт `SECRET_KEY` | `"dev-secret-key..."` | Генерировать случайный при старте | Если переменная окружения отсутствует, приложение должно упасть или сгенерировать случайный ключ, а не использовать подделываемый дефолт. |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 10080 (7 дней) | 1440 (1 день) | 7-дневные access-токены слишком долгие. Использовать 1-дневный access + 30-дневный refresh. UX читалки сохраняется через refresh-токен. |
-| Дефолт `METRICS_PASSWORD` | `"metrics_secure_password"` | Добавить в продакшен-валидатор | Сейчас не проверяется. Любой с этим дефолтом может скрейпить все метрики Prometheus. |
-| `PASSWORD_RESET_BASE_URL` | `"http://localhost:5173/..."` | `""` (требовать переопределение через env) | Продакшен-письма отправляют ссылки на localhost. Пустой дефолт требует явной конфигурации. |
+**Для iOS PWA:**
+- IOSTapZones overlay остается (iframe touch events не работают на iOS в standalone)
+- Свайпы на iOS -- через центральную зону IOSTapZones (уже реализовано)
+- `touch-action: pan-x pan-y` (не `manipulation` -- он включает pinch-zoom)
 
-### Укрепление CORS
-
-| Настройка | Текущее | Рекомендуемое |
-|-----------|---------|---------------|
-| Дефолт `CORS_ORIGINS` | `"http://localhost:3000,http://localhost:5173,http://localhost:5174"` | Оставить только localhost:5173 для dev; требовать переопределение через env в продакшене |
-
-### CSP Nonces (TODO в текущем коде)
-
-CSP в настоящее время не имеет nonce-based script-src. Поскольку Vite производит внешние JS-файлы (без инлайн-скриптов), текущий `script-src 'self'` на самом деле корректен и достаточен. Задокументируйте это решение вместо реализации nonces.
-
----
-
-## Сводка по установке
-
-### Бэкенд (изменения requirements.txt)
-
-```diff
-# БЕЗОПАСНОСТЬ: Замена заброшенной JWT-библиотеки
-- python-jose[cryptography]==3.5.0
-+ PyJWT[crypto]==2.11.0
-
-# МОНИТОРИНГ: Обновление Sentry
-- sentry-sdk[fastapi]==2.51.0
-+ sentry-sdk[fastapi]==2.53.0
-
-# МОНИТОРИНГ: Добавление Flower (опционально, в requirements.monitoring.txt)
-+ flower==2.0.1
-```
-
-### Фронтенд (изменения npm)
-
-```bash
-# Мониторинг ошибок
-npm install @sentry/react
-
-# Dev-зависимости (загрузка source map)
-npm install -D @sentry/vite-plugin
-```
-
-### Переменные окружения для добавления
-
-```bash
-# Sentry (бэкенд + фронтенд)
-SENTRY_DSN=https://xxx@sentry.io/xxx          # Бэкенд
-VITE_SENTRY_DSN=https://xxx@sentry.io/xxx      # Фронтенд (другой проект)
-SENTRY_AUTH_TOKEN=sntrys_xxx                    # Загрузка source map в CI/CD
-
-# Flower (стек мониторинга)
-FLOWER_USER=admin
-FLOWER_PASSWORD=<strong-password>
-```
+**Для offline чтения:**
+- EPUB файлы кэшировать через CacheFirst + ExpirationPlugin
+- IndexedDB (Dexie) для глав и метаданных -- уже реализовано
+- Background sync для прогресса -- уже реализовано
 
 ---
 
@@ -397,46 +248,50 @@ FLOWER_PASSWORD=<strong-password>
 
 | Пакет | Совместим с | Примечания |
 |-------|-------------|------------|
-| PyJWT 2.11.0 | Python >= 3.9, FastAPI 0.128.0 | Требует `PyJWT[crypto]` для RS256 (сейчас используется HS256, так что базовый PyJWT работает, но crypto extra безопаснее) |
-| sentry-sdk 2.53.0 | FastAPI >= 0.79.0, Python >= 3.7 | Автодетектирует интеграции FastAPI, Celery, SQLAlchemy, Redis |
-| @sentry/react 10.40.0 | React >= 17, Vite 7.x | Хуки React 19 onCaughtError/onUncaughtError поддерживаются |
-| @sentry/vite-plugin 5.1.0 | Vite >= 4.x | Загрузка source map во время `vite build` |
-| flower 2.0.1 | Celery >= 5.0 | Метрики Prometheus через флаг `--prometheus_metrics` |
+| motion 12.35.x | React 19, TypeScript 5.7, Vite 7 | Полная совместимость, tree-shakeable |
+| vite-plugin-pwa 1.2.0 | Vite 7.x, Workbox 7.x | Стабилен, injectManifest mode |
+| workbox 7.4.0 | Chrome 80+, Safari 15.4+, Firefox 85+ | Background Sync только Chrome; iOS fallback через visibility events |
+| epub.js 0.3.93 | Все браузеры, но iOS requires spread('none') fix | Наш useEpubIOSFixes.ts решает известные проблемы |
 
 ---
 
-## Приоритетный порядок реализации
+## Сводка по установке
 
-На основе серьёзности и зависимостей:
+### Единственная npm-команда:
 
-1. **Заменить python-jose на PyJWT** -- КРИТИЧЕСКАЯ БЕЗОПАСНОСТЬ, нулевая зависимость от других изменений
-2. **Исправить дефолт DEBUG на False** -- КРИТИЧЕСКАЯ БЕЗОПАСНОСТЬ, изменение одной строки
-3. **Инициализировать Sentry (бэкенд)** -- ВЫСОКАЯ ЦЕННОСТЬ, библиотека уже установлена
-4. **Переключить на Gunicorn в продакшене** -- ВЫСОКАЯ ЦЕННОСТЬ, библиотека уже установлена
-5. **Реализовать реальный /health эндпоинт** -- ВЫСОКАЯ ЦЕННОСТЬ, без новых зависимостей
-6. **Добавить бэкап базы данных** -- ВЫСОКАЯ ЦЕННОСТЬ, без новых зависимостей
-7. **Добавить Sentry на фронтенд** -- СРЕДНЯЯ ЦЕННОСТЬ, новые npm-зависимости
-8. **Исправить дефолты безопасности** (срок действия токена, пароль метрик, URL сброса пароля) -- СРЕДНЯЯ ЦЕННОСТЬ
-9. **Добавить Flower в стек мониторинга** -- НИЗКАЯ ЦЕННОСТЬ, приятное дополнение
+```bash
+cd frontend && npm install motion@^12.35.0
+```
+
+**Это все.** Никаких новых зависимостей. Вся работа -- рефакторинг существующего кода:
+
+1. `useSwipeNavigation.ts` -- переписать на MotionValue вместо useState
+2. `SwipeOverlay.tsx` -- привязать transform к MotionValue
+3. `IOSTapZones.tsx` -- добавить swipe velocity tracking
+4. `manifest.json` -- orientation, screenshots, дополнительные иконки
+5. `sw.ts` -- добавить route для EPUB files cache
+6. HTML meta tags -- apple-mobile-web-app-status-bar-style, splash screens
 
 ---
 
 ## Источники
 
-- [Документация Sentry FastAPI](https://docs.sentry.io/platforms/python/integrations/fastapi/) -- паттерны интеграции, sample rates (ВЫСОКАЯ уверенность)
-- [Документация Sentry React](https://docs.sentry.io/platforms/javascript/guides/react/) -- хуки React 19, инициализация (ВЫСОКАЯ уверенность)
-- [PyPI sentry-sdk 2.53.0](https://pypi.org/project/sentry-sdk/) -- версия подтверждена 2026-02-16 (ВЫСОКАЯ уверенность)
-- [npm @sentry/react 10.40.0](https://www.npmjs.com/package/@sentry/react) -- версия подтверждена (ВЫСОКАЯ уверенность)
-- [npm @sentry/vite-plugin 5.1.0](https://www.npmjs.com/package/@sentry/vite-plugin) -- версия подтверждена (ВЫСОКАЯ уверенность)
-- [Туториал FastAPI JWT (PyJWT)](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/) -- официальная документация FastAPI теперь использует PyJWT (ВЫСОКАЯ уверенность)
-- [Обсуждение FastAPI #11345](https://github.com/fastapi/fastapi/discussions/11345) -- deprecated python-jose (ВЫСОКАЯ уверенность)
-- [PyPI PyJWT 2.11.0](https://pypi.org/project/PyJWT/) -- версия подтверждена 2026-01-30 (ВЫСОКАЯ уверенность)
-- [Документация FastAPI Server Workers](https://fastapi.tiangolo.com/deployment/server-workers/) -- паттерн Gunicorn + Uvicorn (ВЫСОКАЯ уверенность)
-- [PyPI flower 2.0.1](https://pypi.org/project/flower/) -- версия подтверждена, последний релиз август 2023 (СРЕДНЯЯ уверенность по поддержке)
-- [Интеграция Flower Prometheus](https://flower.readthedocs.io/en/latest/prometheus-integration.html) -- конфигурация метрик (ВЫСОКАЯ уверенность)
-- [PyPI slowapi 0.1.9](https://pypi.org/project/slowapi/) -- последний релиз февраль 2024, не рекомендуется (ВЫСОКАЯ уверенность)
-- [Документация Sentry Vite source maps](https://docs.sentry.io/platforms/javascript/sourcemaps/uploading/vite/) -- интеграция сборки (ВЫСОКАЯ уверенность)
+- [Motion Changelog](https://motion.dev/changelog) -- версии 12.33-12.35, bugfixes для spring velocity (ВЫСОКАЯ уверенность)
+- [Motion React Gestures](https://motion.dev/docs/react-gestures) -- pan, drag, gesture API (ВЫСОКАЯ уверенность)
+- [Motion React Drag](https://motion.dev/docs/react-drag) -- drag animation guide (ВЫСОКАЯ уверенность)
+- [npm motion 12.35.1](https://www.npmjs.com/package/motion) -- версия подтверждена (ВЫСОКАЯ уверенность)
+- [npm @use-gesture/react 10.3.1](https://www.npmjs.com/package/@use-gesture/react) -- последний релиз 2+ года назад (ВЫСОКАЯ уверенность)
+- [GitHub pmndrs/use-gesture](https://github.com/pmndrs/use-gesture) -- документация по vanilla variant (СРЕДНЯЯ уверенность)
+- [epub.js Tips and Tricks v0.3](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3)) -- swipe implementation patterns (ВЫСОКАЯ уверенность)
+- [epub.js Issue #34 -- Page transition animation](https://github.com/futurepress/epub.js/issues/34) -- community approach (СРЕДНЯЯ уверенность)
+- [Vite PWA injectManifest Guide](https://vite-pwa-org.netlify.app/guide/inject-manifest) -- конфигурация (ВЫСОКАЯ уверенность)
+- [Workbox Background Sync Issue #2516](https://github.com/GoogleChrome/workbox/issues/2516) -- iOS fallback (ВЫСОКАЯ уверенность)
+- [PWA iOS Limitations](https://brainhub.eu/library/pwa-on-ios) -- обзор ограничений iOS 2025 (СРЕДНЯЯ уверенность)
+- [PWA iOS Complete Guide](https://www.mobiloud.com/blog/progressive-web-apps-ios) -- 2026 обзор (СРЕДНЯЯ уверенность)
+- [Apple Safe Area CSS](https://gist.github.com/cvan/6c022ff9b14cf8840e9d28730f75fc14) -- env(safe-area-inset) patterns (ВЫСОКАЯ уверенность)
+- [CSS-Tricks Simple Swipe](https://css-tricks.com/simple-swipe-with-vanilla-javascript/) -- vanilla swipe pattern (СРЕДНЯЯ уверенность)
+- [Motion useSpring](https://www.framer.com/motion/use-spring/) -- spring physics API (ВЫСОКАЯ уверенность)
 
 ---
-*Исследование стека для: продакшен-готовность fancai*
-*Исследовано: 2026-02-27*
+*Исследование стека для: Mobile/PWA Reader v1.1*
+*Исследовано: 2026-03-09*

@@ -1,309 +1,664 @@
-# Архитектурные паттерны: Подготовка к продакшену
+# Архитектура интеграции Mobile/PWA в существующий ридер
 
-**Область:** Читалка художественной литературы с ИИ (FastAPI + React SPA + Celery + PostgreSQL + Redis)
-**Исследовано:** 2026-02-27
-**Режим:** Укрепление существующей архитектуры для продакшена
+**Область:** Мобильный ридер EPUB с follow-finger свайпами, offline-чтением и iOS PWA
+**Исследовано:** 2026-03-09
+**Уверенность:** ВЫСОКАЯ -- на основе прямого анализа кодовой базы (~25 файлов) и исследования ограничений платформ
 
-## Оценка текущей архитектуры
+## Обзор текущей системы
 
-Приложение представляет собой разделённый монолит: PWA-фронтенд на React 19, взаимодействующий через REST API с асинхронным бэкендом на FastAPI, Celery для тяжёлой фоновой обработки, PostgreSQL для хранения данных и Redis, выполняющий тройную роль кэша, брокера Celery и канала pub/sub. Архитектура принципиально корректна, но за 5,5 месяцев быстрой разработки фич накопились дефолтные настройки для разработки, мёртвый код, эндпоинты-заглушки и отсутствующие продакшен-предохранители.
-
-**Уверенность:** ВЫСОКАЯ -- на основе прямого анализа кодовой базы на всех уровнях.
-
-## Рекомендуемые изменения архитектуры
-
-Существующая архитектура не нуждается в реструктуризации. Она нуждается в укреплении: устранении разрывов между "работает в dev-режиме" и "надёжно в продакшене". Границы компонентов корректны; проблемы находятся внутри компонентов, а не между ними.
-
-### Границы компонентов (текущие)
-
-| Компонент | Ответственность | Взаимодействует с | Разрыв в продакшене |
-|-----------|----------------|-------------------|---------------------|
-| **Nginx** | TLS-терминация, статические файлы, обратный прокси | Фронтенд (статика), Бэкенд (прокси), Хранилище (раздача файлов) | В порядке -- лимиты ресурсов установлены, health-проверки настроены |
-| **Фронтенд (React PWA)** | Рендеринг UI, офлайн-поддержка, клиентское состояние | API бэкенда (Axios/TanStack Query), IndexedDB (офлайн-кэш) | Риск устаревшего кэша, нет сервиса отслеживания ошибок, WebSocket-заглушка |
-| **Бэкенд (FastAPI)** | REST API, авторизация, оркестрация бизнес-логики | PostgreSQL (async ORM), Redis (кэш), Celery (отправка задач) | Фейковый health-эндпоинт, DEBUG=True по умолчанию, мёртвая конфигурация NLP, эндпоинты-заглушки |
-| **Celery Worker** | Обработка книг, генерация изображений, очистка | PostgreSQL (напрямую), Redis (брокер + блокировки), Gemini/Imagen API (Phase 3: мигрируют на OpenRouter) | Единичная конкурентность, остатки конфигурации NLP, неограниченный параллелизм API-вызовов |
-| **Celery Beat** | Планирование периодических задач | Redis (брокер) | В порядке -- расписания разумные |
-| **PostgreSQL** | Хранение данных | Бэкенд, Celery Worker | В порядке -- настроен для 8 ГБ, пул соединений сконфигурирован |
-| **Redis** | Кэш, брокер, pub/sub, распределённые блокировки | Все бэкенд-сервисы | Единая точка отказа -- обслуживает кэш, брокер и pub/sub одновременно |
-| **Gemini API** | Извлечение текста (сущности + описания) | Celery Worker (через gemini_extractor.py) | Нет circuit breaker, неограниченные параллельные вызовы для чанков, sync-in-async пул потоков |
-| **Imagen API** | Генерация изображений | Celery Worker (через imagen_generator.py) | Нет circuit breaker, паттерн sync-in-async. **Phase 3: мигрирует на FLUX.2 через OpenRouter** |
-
-### Потоки данных (продакшен-критичные пути)
-
-**Основной путь -- пользователь читает книгу:**
 ```
-Браузер -> Nginx -> Фронтенд (статика) -> API-вызов
-  -> Nginx (прокси) -> FastAPI -> PostgreSQL (данные глав)
-  -> Redis (проверка кэша) -> Ответ
-  -> Фронтенд -> Кэш TanStack Query -> Рендеринг
-```
-
-**Тяжёлый путь -- обработка книги:**
-```
-Загрузка -> FastAPI -> Сохранение файла + запись в БД -> Отправка задачи в Celery
-  -> Redis-брокер -> Celery Worker подхватывает
-  -> Worker: парсинг глав -> для каждой главы:
-    -> Gemini API (чанки по 100K, 15% перекрытие) -> сущности + описания
-    -> PostgreSQL (сохранение результатов)
-    -> Redis pub/sub (обновление прогресса)
-  -> Фронтенд поллит или слушает завершение
+┌─────────────────────────────────────────────────────────────────────┐
+│                      EpubReader.tsx (655 строк)                     │
+│  Оркестрирует 25+ хуков, 5 дочерних компонентов                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────┐  ┌───────────────┐  ┌──────────────┐              │
+│  │ useSwipe    │  │ useTouchNav   │  │ IOSTapZones  │              │
+│  │ Navigation  │  │ (tap mode)    │  │ (iOS overlay)│              │
+│  │ (iframe     │  │ (iframe       │  │ (parent DOM) │              │
+│  │  events)    │  │  events)      │  │              │              │
+│  └──────┬──────┘  └──────┬────────┘  └──────┬───────┘              │
+│         │                │                  │                       │
+│  ┌──────┴────────────────┴──────────────────┴───────────────┐      │
+│  │              useEpubNavigation                            │      │
+│  │  directScroll() + getMeasuredScrollUnit() + epub.js API  │      │
+│  └──────────────────────┬───────────────────────────────────┘      │
+│                         │                                           │
+│  ┌──────────────────────┴───────────────────────────────────┐      │
+│  │              epub.js Rendition (iframe)                    │      │
+│  │  manager.stage.container → scrollLeft навигация            │      │
+│  │  hooks.content.register() → привязка событий               │      │
+│  └──────────────────────────────────────────────────────────┘      │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐     │
+│  │ SwipeOverlay │  │ useEpubIOSFi-│  │ useEpubRendition     │     │
+│  │ (visual      │  │ xes (layout  │  │ (safe-area, height   │     │
+│  │  feedback)   │  │  patches)    │  │  calculation)        │     │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘     │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  Данные: Zustand (reader.ts) + IndexedDB (epubCache, chapterCache) │
+│  Сеть: TanStack Query + Service Worker (sw.ts, Workbox)            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Риск каскадного сбоя (текущий):**
+### Ключевые характеристики текущей архитектуры
+
+1. **Навигация разделена на 3 параллельных механизма:**
+   - `useSwipeNavigation` -- свайп-жесты внутри iframe (через `rendition.hooks.content.register()`)
+   - `useTouchNavigation` -- тап-навигация внутри iframe (тот же механизм)
+   - `IOSTapZones` -- DOM-оверлеи поверх iframe (обход WebKit бага с событиями iframe)
+
+2. **epub.js навигация уже переписана:** `useEpubNavigation` использует `directScroll()` с прямым управлением `stage.scrollLeft` вместо нестабильных `rendition.next()/prev()`. Включает 5-уровневую цепочку fallback для измерения ширины колонки.
+
+3. **iOS fix-слой объемный:** `useEpubIOSFixes` отключает `manager.snap()`, `manager.gestures`, блокирует `stage.scrollBy()`, фиксирует layout.divisor -- все из-за несовместимостей epub.js 0.3.93 с iOS Safari.
+
+4. **Service Worker полноценный:** 870+ строк, Workbox injectManifest, включает: precaching, runtime caching (API, изображения, шрифты), Background Sync (reading progress, sessions), Push Notifications, Navigation Preload, offline fallback.
+
+5. **Кэширование книг работает:** `epubCache.ts` (IndexedDB через Dexie) -- LRU, TTL 30 дней, лимит 200MB, user isolation. Книга загружается из кэша если доступна.
+
+---
+
+## Карта интеграции: Новое vs Модифицируемое
+
+### Новые компоненты
+
+| Компонент | Назначение | Зависит от |
+|-----------|-----------|------------|
+| `useFollowFingerSwipe.ts` | Follow-finger свайп с трансформами на контейнере | rendition, useEpubNavigation |
+| `SwipePagePreview.tsx` | Рендеринг preview следующей/предыдущей страницы во время свайпа | rendition manager |
+| `useViewportManager.ts` | Единый менеджер viewport: safe-area, ориентация, keyboard | -- |
+| `useMobileGestures.ts` | Унифицированный gesture handler (объединяет swipe/tap/long-press) | rendition |
+| `OfflineStatusBanner.tsx` | UI-индикатор offline-режима + pending sync | useOnlineStatus, SW |
+| `InstallPrompt.tsx` | PWA install prompt (iOS инструкции + Android beforeinstallprompt) | iosSupport.ts |
+| `useServiceWorkerUpdate.ts` | Управление обновлением SW + prompt пользователю | VitePWA registerSW |
+
+### Модифицируемые компоненты
+
+| Компонент | Текущие строки | Изменения | Масштаб |
+|-----------|---------------|-----------|---------|
+| `useSwipeNavigation.ts` | 507 | **ПЕРЕПИСАТЬ** -- заменить binary swipe на follow-finger с CSS transform | Большой |
+| `SwipeOverlay.tsx` | 172 | **ПЕРЕПИСАТЬ** -- заменить на реальный page preview вместо gradient overlay | Большой |
+| `useEpubNavigation.ts` | 477 | **Модифицировать** -- добавить preload следующей/предыдущей страницы для instant turn | Средний |
+| `useEpubRendition.ts` | 262 | **Модифицировать** -- улучшить расчет viewport height, устранить height caching баги | Средний |
+| `IOSTapZones.tsx` | 439 | **Модифицировать** -- интегрировать с новым gesture handler, убрать дублирование свайп-логики | Средний |
+| `EpubReader.tsx` | 655 | **Модифицировать** -- подключить новые хуки, убрать дублирование навигации | Малый |
+| `ReaderOverlays.tsx` | 119 | **Модифицировать** -- подключить новый SwipePagePreview вместо SwipeOverlay | Малый |
+| `reader.ts` (store) | 404 | **Модифицировать** -- добавить gesture sensitivity settings | Малый |
+| `sw.ts` | 877 | **Модифицировать** -- добавить стратегию кэширования EPUB файлов через SW | Средний |
+| `manifest.json` | 95 | **Модифицировать** -- добавить иконки, screenshots, description на русском | Малый |
+| `iosSupport.ts` | 486 | **Модифицировать** -- добавить iOS version-specific feature detection | Малый |
+
+### Компоненты НЕ затрагиваемые
+
+| Компонент | Причина |
+|-----------|---------|
+| `useAnnotationRendering.ts` (460 строк) | DOM span wrapping не связан с навигацией |
+| `useDescriptionHighlighting.ts` | Подсветка описаний работает независимо |
+| `useEntityNameHighlighting.ts` | Entity highlighting не связан с жестами |
+| `useBookmarks.ts` / `useBookmarkActions` | CRUD заметок не зависит от навигации |
+| `useProgressSync.ts` | Синхронизация прогресса работает через debounced callback |
+| Backend (FastAPI, Celery) | Все изменения только на фронтенде |
+
+---
+
+## Архитектура follow-finger свайпа
+
+### Проблема
+
+Текущий `useSwipeNavigation` работает по принципу "detect swipe -> navigate":
+1. Слушает touchstart/touchmove/touchend внутри iframe
+2. Накапливает offset, показывает gradient overlay
+3. На touchend -- если distance >= 30px, вызывает `onNavigate('next'|'prev')`
+4. Навигация = мгновенный scrollTo на stage.container
+
+Пользователь НЕ видит следующую страницу во время свайпа. Overlay показывает только gradient и chevron-индикаторы. Это не "follow-finger" -- это "swipe and jump".
+
+### Решение: CSS Transform на контейнере + Page Preview
+
 ```
-Redis упал -> кэш недоступен И брокер Celery мёртв И pub/sub мёртв
-  -> rate limiter отключён, новые задачи не ставятся в очередь, обновления прогресса потеряны
-  -> но API по-прежнему обслуживает из PostgreSQL (грациозная деградация существует)
+┌─────────────────────────────────────────────────────────┐
+│  Слой 1: epub.js iframe (текущая страница)              │
+│  transform: translateX(offset) -- следует за пальцем     │
+├─────────────────────────────────────────────────────────┤
+│  Слой 2: Preview канвас (следующая/предыдущая страница) │
+│  position: absolute, рядом с текущей страницей          │
+│  Заполняется через offscreen rendering или screenshot    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Паттерны для применения
+### Паттерн реализации
 
-### Паттерн 1: Реальные health-проверки с проверкой зависимостей
+```typescript
+// useFollowFingerSwipe.ts -- Ключевая идея
 
-**Что:** Заменить фейковый health-эндпоинт с `"database": "checking..."` реальными асинхронными проверками PostgreSQL, Redis и Celery.
+interface FollowFingerState {
+  phase: 'idle' | 'tracking' | 'settling' | 'navigating';
+  offsetX: number;          // Текущее смещение (px) -- следует за пальцем
+  velocity: number;         // Скорость (px/ms) -- для инерции
+  direction: 'left' | 'right' | null;
+  previewReady: boolean;    // Готов ли preview следующей страницы
+}
 
-**Когда:** Немедленно -- это фундамент продакшен-мониторинга.
+// Критическая точка интеграции с epub.js:
+// epub.js rendition рендерит в iframe. Мы НЕ можем анимировать
+// содержимое iframe через CSS transform снаружи.
+//
+// Два подхода:
+//
+// Подход A (рекомендуемый): Transform на stage.container
+//   - epub.js manager.stage.container -- это div, содержащий iframe
+//   - Применяем translateX() к нему -- iframe двигается целиком
+//   - Preview: клонируем содержимое или используем второй rendition
+//   - PRO: Работает, контент двигается плавно
+//   - CON: Нужен preview рядом для "показать следующую страницу"
+//
+// Подход B (fallback): Overlay с screenshot
+//   - Делаем screenshot текущей страницы (html2canvas или Canvas API)
+//   - Показываем overlay с screenshot, двигаем его
+//   - На завершении -- убираем overlay, показываем реальную страницу
+//   - PRO: Не трогаем epub.js вообще
+//   - CON: Screenshot не в реальном времени, артефакты
+```
 
-**Уверенность:** ВЫСОКАЯ -- стандартный паттерн FastAPI, подтверждён в официальной документации и нескольких руководствах по продакшену.
+### Рекомендуемая архитектура (Подход A)
+
+```
+touchstart (iframe doc)
+    │
+    ├─ Фиксируем startX, startY, timestamp
+    │
+touchmove (iframe doc)
+    │
+    ├─ Вычисляем deltaX, проверяем вертикальный порог
+    ├─ Если горизонтальный свайп:
+    │   ├─ preventDefault() (блокируем scroll)
+    │   ├─ Устанавливаем stage.container.style.transform = translateX(deltaX)
+    │   ├─ Устанавливаем stage.container.style.transition = 'none'
+    │   └─ Если !previewReady: запускаем preparePreview()
+    │
+touchend (iframe doc)
+    │
+    ├─ Вычисляем velocity = deltaX / deltaTime
+    ├─ Решение о навигации:
+    │   ├─ |deltaX| > threshold (30% ширины) → navigate
+    │   ├─ |velocity| > quickThreshold (0.3 px/ms) → navigate
+    │   └─ Иначе → snap back
+    │
+    ├─ Если navigate:
+    │   ├─ Animate stage.container to -viewportWidth (или +viewportWidth)
+    │   ├─ transition: transform 250ms ease-out
+    │   ├─ По завершении анимации:
+    │   │   ├─ stage.container.style.transform = ''
+    │   │   ├─ directScroll(direction) -- фактическая навигация
+    │   │   └─ cleanup preview
+    │   │
+    ├─ Если snap back:
+    │   ├─ stage.container.style.transform = translateX(0)
+    │   ├─ transition: transform 200ms ease-out
+    │   └─ cleanup
+```
+
+### Preview следующей страницы
+
+Показ следующей страницы во время свайпа -- самая сложная часть. Варианты:
+
+**Вариант 1: Расширенный scrollWidth (рекомендуемый)**
+epub.js в paginated mode уже рендерит все колонки главы. `stage.container.scrollWidth` обычно > `clientWidth`. Если мы двигаем container через transform, а scroll остается на месте -- следующая колонка будет видна "за краем". Это работает ТОЛЬКО если epub.js пре-рендерит колонки (что он делает).
+
+```
+НЕ нужен отдельный preview! epub.js уже рендерит все страницы главы.
+stage.container = [col1][col2][col3][col4]...
+scrollLeft=0 показывает col1
+Если translateX(-100px), видна часть col2 справа.
+```
+
+**Вариант 2: Fallback для смены глав**
+На границе главы (scrollLeft = maxScroll) следующей колонки нет -- нужно загрузить новую главу. Здесь показываем placeholder или просто разрешаем rubber-band эффект с надписью "Следующая глава".
+
+### Критическая деталь: iframe и CSS transform
+
+epub.js `manager.stage.container` -- это обычный `<div>` с `overflow: hidden`. Внутри него iframe. Мы можем применить `transform: translateX()` к этому div и содержимое (включая iframe) будет двигаться.
+
+**Но:** На iOS Safari, `transform` на элементе с iframe может вызывать проблемы с hit-testing (события касания могут не работать правильно на трансформированном iframe). Решение: во время tracking-фазы свайпа устанавливать `pointer-events: none` на iframe, а сами touch events ловить на parent div.
+
+---
+
+## Архитектура Service Worker для offline книг
+
+### Текущее состояние
+
+Service Worker (`sw.ts`) уже зрелый:
+- Precaching статических ресурсов (Workbox injectManifest)
+- Runtime caching: API (StaleWhileRevalidate), изображения (CacheFirst/NetworkFirst), шрифты
+- Background Sync: reading progress, sessions, image generation
+- Push Notifications: полный flow (push, click, routing)
+- Navigation: NetworkFirst с Navigation Preload
+- Offline fallback: поиск /offline.html в кэшах
+
+**Чего НЕ хватает для offline-чтения:**
+1. EPUB файлы кэшируются в IndexedDB (epubCache.ts), но НЕ через Service Worker
+2. Нет caching-стратегии для `/api/v1/books/{id}/file` endpoint
+3. Нет проактивного кэширования книги при первом открытии
+4. Offline.html -- placeholder, нет полноценного offline UI
+
+### Рекомендуемые изменения
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                Service Worker (sw.ts)                         │
+│                                                               │
+│  СУЩЕСТВУЮЩЕЕ:                                                │
+│  ├─ Precache (статика)              ✓ работает                │
+│  ├─ API cache (StaleWhileRevalidate) ✓ работает              │
+│  ├─ Background Sync (progress)       ✓ работает              │
+│  ├─ Push Notifications               ✓ работает              │
+│  └─ Navigation Preload               ✓ работает              │
+│                                                               │
+│  ДОБАВИТЬ:                                                    │
+│  ├─ EPUB file caching:                                        │
+│  │   GET /api/v1/books/{id}/file → CacheFirst + IndexedDB    │
+│  │   (синхронизация с epubCache.ts)                           │
+│  ├─ Chapter data caching:                                     │
+│  │   GET /api/v1/books/{id}/chapters/{n}/descriptions         │
+│  │   → StaleWhileRevalidate (синхронизация с chapterCache.ts) │
+│  ├─ Entity network caching:                                   │
+│  │   GET /api/v1/books/{id}/entity-network                    │
+│  │   → StaleWhileRevalidate (для offline entity popup)        │
+│  └─ Offline UI:                                               │
+│      Navigation fallback → SPA index.html (уже кэширован)    │
+│      SPA сам показывает offline-режим если API недоступен     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Важное решение:** Не дублировать кэширование EPUB файлов. Книги УЖЕ хранятся в IndexedDB через `epubCache.ts`. Добавлять их в Cache API через Service Worker -- двойной расход хранилища. Вместо этого:
+
+1. Service Worker перехватывает `/api/v1/books/{id}/file` requests
+2. Проверяет наличие в epubCache (IndexedDB) через `postMessage` к клиенту
+3. Если есть -- пропускает (клиент сам загрузит из IndexedDB)
+4. Если нет -- делает network fetch, ответ кэшируется клиентом в IndexedDB
+
+### iOS-специфичные ограничения offline
+
+| Ограничение | Влияние | Workaround |
+|-------------|---------|------------|
+| Storage eviction через 7 дней неактивности | Книги могут удалиться | `navigator.storage.persist()` (уже есть в `setupIOSPersistence()`) |
+| ~50MB лимит Cache API | Недостаточно для книг | Используем IndexedDB (больший лимит) |
+| Нет Background Sync | Progress не синхронизируется offline | `setupIOSSync()` через visibilitychange (уже есть) |
+| Нет Periodic Sync | Нет фонового обновления кэша | Sync при открытии приложения |
+
+---
+
+## Архитектура iOS Safari PWA: viewport и safe areas
+
+### Текущее состояние
+
+`useEpubRendition.ts` уже обрабатывает safe areas:
+- `measureSafeAreaTop()`, `measureSafeAreaBottom()` -- измерение через temp div
+- `measureSvhHeight()` -- 100svh через temp div
+- `getUsableViewportHeight()` -- расчет с учетом standalone mode
+- Height caching в localStorage (30 минут TTL)
+
+`EpubReader.tsx` уже использует env(safe-area-inset-*) в стилях viewerRef.
+
+### Проблемы и улучшения
+
+**Проблема 1: Height cache stale при ротации**
+Height кэшируется с ориентацией, но ротация может произойти внутри TTL. Решение: сбрасывать кэш при `orientationchange` event.
+
+**Проблема 2: iOS standalone vs browser viewport отличаются**
+В standalone mode нет адресной строки, viewport выше. В browser mode -- адресная строка может анимироваться (grow/shrink). Текущий код учитывает это, но `svhHeight` может быть неточным.
+
+**Проблема 3: Keyboard appearance на iOS**
+При открытии клавиатуры (поиск, заметки) viewport уменьшается. Текущий код НЕ обрабатывает это. Нужен `visualViewport.resize` listener.
+
+### Рекомендуемый `useViewportManager`
+
+```typescript
+// useViewportManager.ts -- Единый менеджер viewport
+//
+// Объединяет логику из:
+// - useEpubRendition.ts (measureSafeAreaTop/Bottom, getUsableViewportHeight)
+// - useResizeHandler.ts (resize events)
+// - Новое: orientation change, keyboard, visual viewport
+//
+// Возвращает:
+interface ViewportState {
+  width: number;
+  height: number;           // Usable height (за вычетом header + safe areas)
+  safeAreaTop: number;
+  safeAreaBottom: number;
+  orientation: 'portrait' | 'landscape';
+  isKeyboardVisible: boolean;
+  isStandalone: boolean;
+}
+```
+
+---
+
+## Архитектура gesture handler: взаимодействие с epub.js iframe
+
+### Корневая проблема
+
+epub.js рендерит контент в `<iframe>`. Touch events внутри iframe НЕ поднимаются (bubble) к родительскому документу. Это фундаментальное ограничение Web API.
+
+### Текущие стратегии (3 параллельных)
+
+1. **`rendition.hooks.content.register()`** -- привязка listeners напрямую к `iframe.document`. Используется в `useSwipeNavigation` и `useTouchNavigation`. Работает надежно.
+
+2. **`rendition.on('touchstart'|'click')`** -- epub.js `passEvents()` forwarding. Работает на Android, ненадежно на iOS.
+
+3. **`IOSTapZones`** -- DOM-оверлеи поверх iframe. Перехватывают touch/click на уровне parent document. iOS-only workaround.
+
+### Проблема: три системы конфликтуют
+
+- На iOS: IOSTapZones + useSwipeNavigation оба слушают touch events
+- IOSTapZones имеет встроенный swipe detection (SWIPE_MIN_DISTANCE = 30px)
+- useSwipeNavigation привязывается к iframe doc, IOSTapZones -- к parent DOM
+- При fast-swipe оба могут сработать, вызывая double navigation
+
+### Рекомендуемая архитектура: Unified Gesture Handler
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              useMobileGestures (НОВЫЙ)                       │
+│                                                               │
+│  Единая точка входа для всех gesture events                   │
+│                                                               │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │  Gesture Recognizer                                    │   │
+│  │                                                         │   │
+│  │  Input: touch events (iframe ИЛИ parent DOM)           │   │
+│  │                                                         │   │
+│  │  Распознает:                                            │   │
+│  │  - TAP (single, double)                                 │   │
+│  │  - SWIPE (horizontal, с velocity)                       │   │
+│  │  - LONG_PRESS (для selection)                           │   │
+│  │  - PAN (follow-finger tracking)                         │   │
+│  │                                                         │   │
+│  │  Output:                                                │   │
+│  │  - onTap(zone: 'left'|'center'|'right', coords)        │   │
+│  │  - onSwipe(direction: 'next'|'prev', velocity)          │   │
+│  │  - onPan(offsetX, phase: 'start'|'move'|'end')          │   │
+│  │  - onLongPress(coords)                                  │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                               │
+│  Event source:                                                │
+│  ├─ iOS:  IOSTapZones (parent DOM) -- для taps              │
+│  │        hooks.content.register() -- для swipe/pan          │
+│  └─ Android/Desktop: hooks.content.register() -- для всего   │
+│                                                               │
+│  Навигация:                                                   │
+│  ├─ mode='swipe': pan events → useFollowFingerSwipe          │
+│  ├─ mode='tap': tap events → zone-based navigation            │
+│  └─ Both: long press → text selection                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Ключевое решение:** НЕ объединять iOS и Android event sources. На iOS всегда нужен parent-DOM overlay для надежного touch detection. На Android `hooks.content.register()` работает. Unified handler -- это абстракция поверх платформо-специфичных источников.
+
+---
+
+## Поток данных: навигация по свайпу
+
+### Текущий поток
+
+```
+User swipe → iframe touchstart/move/end
+    → useSwipeNavigation (state tracking)
+    → SwipeOverlay (gradient visual)
+    → touchend decision: navigate?
+        → YES: useEpubNavigation.nextPage()
+            → directScroll(direction, smooth=true)
+                → stage.scrollTo({ left: newScroll, behavior: 'smooth' })
+                → waitForScrollEnd()
+            → FALLBACK: rendition.next()
+        → NO: snap back (reset offset)
+    → useCFITracking (relocate event → new CFI)
+    → useProgressSync (debounced save)
+```
+
+### Новый поток (follow-finger)
+
+```
+User touch → iframe touchstart
+    → useMobileGestures → onPan('start')
+    → useFollowFingerSwipe: begin tracking
+
+User drag → iframe touchmove
+    → useMobileGestures → onPan('move', offsetX)
+    → useFollowFingerSwipe:
+        → stage.container.style.transform = translateX(offsetX)
+        → stage.container.style.transition = 'none'
+        → (следующая колонка уже видна через scrollWidth)
+
+User release → iframe touchend
+    → useMobileGestures → onPan('end', velocity)
+    → useFollowFingerSwipe: decision
+        → Navigate:
+            → stage.container.style.transition = 'transform 250ms ease-out'
+            → stage.container.style.transform = translateX(-viewportWidth)
+            → onTransitionEnd:
+                → stage.container.style.transform = ''
+                → stage.container.style.transition = ''
+                → directScroll(direction, smooth=false) // instant, контент уже виден
+        → Snap back:
+            → stage.container.style.transition = 'transform 200ms ease-out'
+            → stage.container.style.transform = 'translateX(0)'
+            → onTransitionEnd: cleanup
+
+    → useCFITracking (relocate → new CFI)
+    → useProgressSync (debounced save)
+```
+
+---
+
+## Структура хуков (после рефакторинга)
+
+### Текущая структура (hooks/epub/)
+
+```
+hooks/epub/
+├── useEpubLoader.ts           # Загрузка книги (остается)
+├── useEpubRendition.ts        # Создание rendition (модифицируется)
+├── useEpubNavigation.ts       # directScroll + fallback (модифицируется)
+├── useSwipeNavigation.ts      # Binary swipe (ПЕРЕПИСЫВАЕТСЯ)
+├── useTouchNavigation.ts      # Tap zones внутри iframe (остается)
+├── useEpubIOSFixes.ts         # iOS layout patches (остается)
+├── useCFITracking.ts          # CFI position tracking (остается)
+├── useProgressSync.ts         # Progress save debounce (остается)
+├── useChapterManagement.ts    # Chapter loading (остается)
+├── useAnnotationRendering.ts  # DOM span wrapping (остается)
+├── useDescriptionHighlighting.ts # (остается)
+├── useEntityNameHighlighting.ts  # (остается)
+├── useBookmarks.ts            # (остается)
+├── useResizeHandler.ts        # (модифицируется -- viewport manager)
+├── useEpubThemes.ts           # (остается)
+├── useContentHooks.ts         # (остается)
+├── useTextSelection.ts        # (остается)
+├── useToc.ts                  # (остается)
+└── index.ts                   # Re-exports
+```
+
+### Новая структура
+
+```
+hooks/epub/
+├── ... (все существующие хуки сохраняются)
+│
+├── useFollowFingerSwipe.ts    # НОВЫЙ: follow-finger с CSS transform
+├── useMobileGestures.ts       # НОВЫЙ: unified gesture recognition
+└── useViewportManager.ts      # НОВЫЙ: viewport state management
+
+hooks/pwa/                      # НОВАЯ директория
+├── useServiceWorkerUpdate.ts  # НОВЫЙ: SW update management
+├── useInstallPrompt.ts        # НОВЫЙ: PWA install prompt
+└── useOfflineStatus.ts        # НОВЫЙ: расширение useOnlineStatus
+```
+
+---
+
+## Паттерны реализации
+
+### Паттерн 1: CSS Transform на stage container
+
+**Что:** Применяем `transform: translateX()` к `manager.stage.container` для follow-finger эффекта.
+
+**Когда:** Во время горизонтального свайпа (tracking phase).
+
+**Компромиссы:**
+- PRO: Нативно плавно (GPU-ускорение transform), не требует re-render
+- PRO: epub.js уже пре-рендерит колонки -- следующая страница видна автоматически
+- CON: На границе главы нет следующей колонки -- нужен fallback (rubber band)
+- CON: iOS может иметь hit-testing проблемы на трансформированном iframe
 
 **Пример:**
-```python
-# backend/app/routers/health.py
-import asyncio
-from sqlalchemy import text
+```typescript
+// Во время touchmove:
+const stage = rendition.manager.stage.container;
+stage.style.transform = `translateX(${offsetX}px)`;
+stage.style.transition = 'none';
+stage.style.willChange = 'transform'; // GPU hint
 
-async def check_database(db: AsyncSession) -> dict:
-    try:
-        result = await asyncio.wait_for(
-            db.execute(text("SELECT 1")),
-            timeout=5.0
-        )
-        return {"status": "ok", "latency_ms": measured_latency}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
-
-async def check_redis() -> dict:
-    try:
-        start = time.monotonic()
-        await asyncio.wait_for(cache_manager._redis.ping(), timeout=5.0)
-        latency = (time.monotonic() - start) * 1000
-        return {"status": "ok", "latency_ms": round(latency, 2)}
-    except Exception:
-        return {"status": "error"}
-
-@router.get("/health")
-async def health(db: AsyncSession = Depends(get_database_session)):
-    db_check, redis_check = await asyncio.gather(
-        check_database(db),
-        check_redis(),
-        return_exceptions=True
-    )
-    overall = "healthy" if all checks pass else "degraded"
-    return {"status": overall, "checks": {"database": db_check, "redis": redis_check}}
+// На touchend (navigate):
+stage.style.transition = 'transform 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+stage.style.transform = `translateX(${-viewportWidth}px)`;
+// После transitionend:
+stage.style.transform = '';
+stage.style.transition = '';
+stage.style.willChange = '';
+stage.scrollLeft += scrollUnit; // Фактический переход
 ```
 
-**Источники:**
-- [Лучшие практики Health Check в FastAPI](https://www.index.dev/blog/how-to-implement-health-check-in-python) (СРЕДНЯЯ уверенность)
-- [Развёртывание FastAPI в продакшене](https://render.com/articles/fastapi-production-deployment-best-practices) (СРЕДНЯЯ уверенность)
+### Паттерн 2: Unified Event Source с платформенным разделением
+
+**Что:** Один gesture recognizer, разные источники событий для iOS и Android.
+
+**Когда:** Всегда -- заменяет текущую "3 системы одновременно" архитектуру.
+
+**Компромиссы:**
+- PRO: Устраняет double navigation и race conditions
+- PRO: Единый порог/настройки для всех платформ
+- CON: Больше абстракции, сложнее дебаг
+
+### Паттерн 3: Service Worker + IndexedDB координация
+
+**Что:** SW перехватывает book file requests, но кэшированием управляет клиент (IndexedDB через Dexie).
+
+**Когда:** Для offline чтения без дублирования данных.
+
+**Компромиссы:**
+- PRO: Одна копия книги (IndexedDB), нет дублирования в Cache API
+- PRO: epubCache.ts уже имеет LRU, TTL, size limits
+- CON: SW не может напрямую читать IndexedDB (только через postMessage)
+- CON: Если app не открыт, SW не может обслужить book request из IndexedDB
 
 ---
 
-### Паттерн 2: Инверсия дефолтов безопасности
+## Антипаттерны
 
-**Что:** Изменить `DEBUG: bool = True` на `DEBUG: bool = False`. Изменить дефолт `SECRET_KEY`, чтобы он вызывал ошибку при запуске, если не переопределён. Удалить мёртвые поля конфигурации NLP и их валидаторы.
+### Антипаттерн 1: Двойной rendition для preview
 
-**Когда:** До любого публичного развёртывания. Это единственный наиболее рискованный разрыв в продакшене.
+**Что делают:** Создают второй epub.js Rendition для рендеринга preview следующей страницы.
 
-**Уверенность:** ВЫСОКАЯ -- это сама кодовая база; дефолты видны в `config.py` строки 19-22.
+**Почему плохо:** epub.js Rendition тяжелый (создает iframe, парсит CSS, строит layout). Два rendition = двойной расход памяти (150-300MB для большой книги). На мобильных устройствах вызывает OOM.
 
-**Замечания по реализации:**
-- `SECRET_KEY` должен использовать `os.urandom(32).hex()` как фолбэк для dev, но явно падать в не-DEBUG режиме (существующий валидатор уже это делает -- просто измените дефолт)
-- Полностью удалите валидатор `validate_nlp_weights()` -- он проверяет веса для системы, которой больше не существует
-- Удалите все поля конфигурации NLP: `SPACY_MODEL`, `NLTK_DATA_PATH`, `MULTI_NLP_MODE`, `CONSENSUS_THRESHOLD`, `SPACY_WEIGHT`, `NATASHA_WEIGHT`, `STANZA_WEIGHT`
-- Добавьте `METRICS_PASSWORD` в валидацию продакшен-секретов
+**Вместо этого:** Использовать существующий scrollWidth. epub.js уже рендерит все колонки главы. Двигая container через transform, следующая колонка видна автоматически.
 
----
+### Антипаттерн 2: html2canvas для page screenshot
 
-### Паттерн 3: Дисциплина инвалидации кэша
+**Что делают:** Используют html2canvas для создания bitmap preview страницы перед свайпом.
 
-**Что:** Фронтенд уже имеет хорошо структурированный `queryKeys.ts` с пользовательскими ключами и `queryKeyUtils` для координированной инвалидации. Проблема в том, что Redis-кэш *бэкенда* использует ручные паттерны ключей без согласованной инвалидации при записи. Декоратор `cache_result` кэширует результаты функций, но декоратор `invalidate_cache` определён, но недостаточно используется.
+**Почему плохо:** html2canvas не работает с iframes (cross-origin restrictions), медленный (50-200ms), результат -- растровое изображение (размытое на retina). Также не работает на iOS Safari.
 
-**Когда:** На этапе укрепления слоя данных.
+**Вместо этого:** CSS transform подход -- двигаем реальный DOM, не bitmap.
 
-**Уверенность:** ВЫСОКАЯ -- проверено прямым чтением `cache.py` и `queryKeys.ts`.
+### Антипаттерн 3: Отключение overscroll-behavior для свайпов
 
-**Реальные проблемы:**
-1. Бэкенд кэширует данные сети сущностей, включая будущие спойлеры; фильтрация происходит при чтении. Если TTL кэша (3600 с) превышает продолжительность сессии чтения, где пользователь продвигается по главам, он получает устаревшие данные без спойлеров, которые *слишком ограничивающие* (не показывают сущности из только что прочитанных глав).
-2. `CACHE_TTL["book_list"]` составляет 10 секунд, что нормально, но `CACHE_TTL["book_descriptions"]` -- 3600 секунд. После переобработки (которая в настоящее время НЕ удаляет старые описания -- закомментированный код в `crud.py:741-743`), устаревшие описания сохраняются как в БД, так и в кэше до часа.
-3. Фронтенд `apiClient.get()` добавляет `Cache-Control: no-cache, no-store, must-revalidate` к *каждому* GET-запросу, полностью обходя HTTP-кэширование браузера. Это подстраховка для dev-режима, которая вредит продакшен-производительности.
+**Что делают:** Ставят `overscroll-behavior: none` на body чтобы предотвратить pull-to-refresh/back-navigation, но это ломает вертикальный scroll.
 
-**Подход к исправлению:**
-- Бэкенд: Инвалидировать Redis-кэш при записи сущностей/описаний, а не только при чтении. Использовать существующий декоратор `invalidate_cache` на путях мутации.
-- Бэкенд: Исправить эндпоинт переобработки, чтобы он действительно удалял старые описания перед повторным извлечением.
-- Фронтенд: Убрать тотальные no-cache заголовки из `apiClient.get()`. Позволить бэкенд-мидлвару `CacheControlMiddleware` и `staleTime` TanStack Query обрабатывать кэширование правильно.
-- Фронтенд: Установить подходящие значения `staleTime` для каждого типа запроса (главы: Infinity, так как контент неизменяемый; сущности: 30 с, так как они меняются по мере чтения; список книг: 5 с, так как загрузки/удаления редки).
+**Вместо этого:** Ставить `overscroll-behavior-x: none` (только горизонтальный), а вертикальный оставить. Или использовать `touch-action: pan-y` на swipe-зоне.
+
+### Антипаттерн 4: Полное кэширование книг в Cache API
+
+**Что делают:** Кэшируют EPUB файлы (5-50MB каждый) в Cache API через Service Worker.
+
+**Почему плохо:** Cache API на iOS имеет лимит ~50MB. Две книги -- и лимит исчерпан. Также дублирует данные из IndexedDB (epubCache.ts).
+
+**Вместо этого:** Держать книги только в IndexedDB. Cache API использовать для API responses и static assets.
 
 ---
 
-### Паттерн 4: Circuit Breaker для внешних API-вызовов
+## Предложенный порядок реализации
 
-**Что:** Обернуть вызовы Gemini и Imagen API (Phase 3: мигрируют на OpenRouter) в паттерн circuit breaker для предотвращения каскадных сбоев при деградации API. В настоящее время декораторы retry (`retry_llm_extraction`, `retry_image_generation`) будут повторять неудачные вызовы с backoff, но если API недоступен длительное время, каждое извлечение главы будет блокироваться до 30 секунд повторных попыток перед ошибкой -- умноженных на каждый чанк.
+### Фаза 1: Фиксы багов навигации (фундамент)
+**Зависимости:** Нет
+**Файлы:** `useSwipeNavigation.ts`, `useEpubNavigation.ts`, `IOSTapZones.tsx`
+**Цель:** Устранить блокировку навигации (после отмены генерации изображений), fix double navigation, fix быстрое пролистывание.
 
-**Когда:** На этапе укрепления устойчивости к внешним сервисам.
+**Обоснование:** Без работающей базовой навигации нельзя строить follow-finger поверх. Текущие баги (блокировка `isNavigatingRef`) должны быть исправлены первыми.
 
-**Уверенность:** СРЕДНЯЯ -- circuit breaker для async Python хорошо документирован, но конкретная интеграция с задачами Celery требует тестирования. Библиотека `aiobreaker` поддерживает async нативно.
+### Фаза 2: Follow-finger свайпы
+**Зависимости:** Фаза 1
+**Файлы:** `useFollowFingerSwipe.ts` (НОВЫЙ), `useSwipeNavigation.ts` (переписать), `SwipeOverlay.tsx` (переписать)
+**Цель:** Палец двигает страницу, видна следующая страница, плавная анимация завершения.
 
-**Пример:**
-```python
-from aiobreaker import CircuitBreaker
+**Обоснование:** Основная UX-фича milestone. Требует работающей навигации (Фаза 1). Не требует unified gestures -- можно реализовать поверх текущего `hooks.content.register()`.
 
-gemini_breaker = CircuitBreaker(
-    fail_max=5,          # Открыть после 5 сбоев
-    timeout_duration=60  # Оставаться открытым 60 секунд до half-open
-)
+### Фаза 3: Unified gesture handler
+**Зависимости:** Фаза 2
+**Файлы:** `useMobileGestures.ts` (НОВЫЙ), `IOSTapZones.tsx` (рефакторинг), `useTouchNavigation.ts` (рефакторинг)
+**Цель:** Единый gesture handler, устранение дублирования, корректная обработка swipe/tap/long-press.
 
-@gemini_breaker
-@retry_llm_extraction
-async def extract_with_gemini(self, chunk: str, config: GeminiConfig) -> dict:
-    # существующая логика извлечения
-    ...
-```
+**Обоснование:** После того как follow-finger работает, нужно интегрировать его с tap navigation и iOS overlays без конфликтов.
 
-**Источники:**
-- [Паттерн Circuit Breaker в FastAPI](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (СРЕДНЯЯ уверенность)
-- [aiobreaker PyPI](https://pypi.org/project/aiobreaker/) (ВЫСОКАЯ уверенность -- официальная документация пакета)
+### Фаза 4: Viewport и iOS PWA улучшения
+**Зависимости:** Фаза 2 (для корректного тестирования)
+**Файлы:** `useViewportManager.ts` (НОВЫЙ), `useEpubRendition.ts` (рефакторинг), `manifest.json`, `index.html`
+**Цель:** Корректный viewport на всех устройствах, ориентация, keyboard, safe areas.
 
----
+### Фаза 5: Offline и PWA polish
+**Зависимости:** Фазы 1-4 (все UI готово)
+**Файлы:** `sw.ts` (модификация), `OfflineStatusBanner.tsx` (НОВЫЙ), `InstallPrompt.tsx` (НОВЫЙ), `useServiceWorkerUpdate.ts` (НОВЫЙ)
+**Цель:** Полноценное offline-чтение, install prompt, update management.
 
-### Паттерн 5: Разрешение эндпоинтов-заглушек
+**Обоснование:** SW и offline -- это polish поверх работающего ридера. Не блокирует основные UX-фичи.
 
-**Что:** Заменить TODO-заглушки эндпоинтов либо реальными реализациями, либо явными ответами 501 Not Implemented с документацией. Текущие заглушки молча падают или возвращают вводящие в заблуждение данные.
+### Фаза 6: Описания и edge cases
+**Зависимости:** Фаза 2 (для CSS-контекста)
+**Файлы:** Описание-специфичные файлы (CFI->DOM mapping, sentence parsing)
+**Цель:** Fix обрезки описаний, умный парсинг начала предложений.
 
-**Когда:** На этапе очистки мёртвого кода, перед укреплением функций.
-
-**Уверенность:** ВЫСОКАЯ -- заглушки выявлены непосредственно при анализе кодовой базы.
-
-**Конкретные заглушки для разрешения:**
-| Эндпоинт | Текущее поведение | Решение |
-|----------|-------------------|---------|
-| `POST /sync/batch` (закладки, выделения) | Принимает запрос, возвращает ошибку для каждой операции | Удалить операции закладок/выделений; оставить синхронизацию сессий чтения, которая работает |
-| `GET /books/{id}/descriptions/batch` | Хук фронтенда постоянно отключён (`enabled: false`) | Либо реализовать, либо полностью удалить хук |
-| `GET /health` проверка БД | Возвращает строку `"checking..."` | Реализовать реальную проверку БД (Паттерн 1) |
-| WebSocket-сервис (фронтенд) | Все методы возвращают `Promise.resolve()` | Оставить как polling-first с WebSocket в качестве прогрессивного улучшения; задокументировать, что WS не функционален |
+**Обоснование:** Может идти параллельно с Фазами 3-5, так как затрагивает другие компоненты.
 
 ---
 
-### Паттерн 6: Идемпотентность задач Celery и безопасность блокировок
+## Ключевые точки интеграции (матрица)
 
-**Что:** Существующий паттерн распределённых блокировок в `book_tasks.py` хорош, но имеет пробел: если воркер падает между захватом блокировки и блоком `finally`, TTL блокировки (из Redis `SET NX EX`) -- единственная защита. Контекстный менеджер `DistributedLock` в `cache.py` имеет автопродление, но не используется в задачах обработки книг.
+| Новый компонент | Интегрируется с | Через | Риск конфликта |
+|-----------------|----------------|-------|----------------|
+| useFollowFingerSwipe | useEpubNavigation | `directScroll()` для фактической навигации | Низкий -- четкий API |
+| useFollowFingerSwipe | manager.stage.container | `style.transform`, `style.transition` | **ВЫСОКИЙ** -- epub.js может сбрасывать styles |
+| useFollowFingerSwipe | useEpubIOSFixes | Конфликт с `snap()` blocking, `scrollBy()` blocking | Средний -- нужна координация |
+| useMobileGestures | IOSTapZones | IOSTapZones дает events, gestures распознает | Низкий -- четкое разделение |
+| useMobileGestures | hooks.content.register | iframe events → gesture recognizer | Низкий -- уже работает |
+| useViewportManager | useEpubRendition | Заменяет `calculateMobileDimensions()` | Средний -- рефакторинг |
+| SW EPUB caching | epubCache.ts | postMessage координация | Средний -- async |
 
-**Когда:** На этапе укрепления надёжности задач.
-
-**Уверенность:** ВЫСОКАЯ -- проверено чтением `book_tasks.py` и `cache.py`.
-
-**Улучшения:**
-1. Использовать контекстный менеджер `DistributedLock` (который имеет автопродление) вместо прямых вызовов `acquire_lock`/`release_lock` в задачах обработки книг.
-2. Добавить конфигурацию Celery: `task_acks_late=True` + `task_reject_on_worker_lost=True` уже установлены -- хорошо. Проверить, что `worker_prefetch_multiplier=1` установлен в продакшен Docker Compose (он есть в `celery_app.py`, но переопределения Docker Compose могут отличаться).
-3. Обработка книги должна быть идемпотентной: при перезапуске она должна обнаруживать частично обработанное состояние и продолжать, а не дублировать. В настоящее время флаг `is_processing` на модели Book служит этой цели, но нет возобновления на уровне глав.
-
-**Источники:**
-- [Устойчивость задач Celery](https://blog.gitguardian.com/celery-tasks-retries-errors/) (СРЕДНЯЯ уверенность)
-- [Руководство по Celery Redis для продакшена](https://medium.com/@dewasheesh.rana/celery-redis-fastapi-the-ultimate-2025-production-guide-broker-vs-backend-explained-5b84ef508fa7) (НИЗКАЯ уверенность -- единственный источник)
-
-## Антипаттерны, которых следует избегать
-
-### Антипаттерн 1: Исчерпание пула потоков из-за Sync-in-Async
-
-**Что:** `gemini_extractor.py` и `imagen_generator.py` используют `asyncio.to_thread()` для вызова синхронных Google API клиентов из асинхронных задач Celery. Каждый слот пула потоков -- это блокирующий поток ОС. **Примечание Phase 3:** После миграции на OpenRouter оба сервиса будут использовать HTTP API напрямую (httpx async), что устранит sync-in-async паттерн.
-**Почему плохо:** При неограниченной параллельной обработке чанков через `asyncio.gather()` на 20+ чанках, пул потоков по умолчанию (max_workers = min(32, os.cpu_count() + 4) = ~8) может быть исчерпан. Дополнительные чанки блокируются в ожидании потоков, занимая время асинхронного event loop.
-**Вместо этого:** Либо (а) использовать асинхронный клиент Google GenAI, если доступен, либо (б) ограничить конкурентность с помощью `asyncio.Semaphore(4)`, явно применённого к вызову `asyncio.gather()`, либо (в) обрабатывать чанки последовательно в Celery (поскольку это уже фоновая задача, задержка допустима).
-**Уверенность:** ВЫСОКАЯ -- видно в `gemini_extractor.py` строки 633-637 и 747-753.
-
-### Антипаттерн 2: Тотальный запрет кэширования на всех GET-запросах API
-
-**Что:** `apiClient.get()` добавляет заголовки `Cache-Control: no-cache, no-store, must-revalidate` к каждому GET-запросу.
-**Почему плохо:** Полностью аннулирует HTTP-кэширование браузера, вынуждает бэкенд обслуживать каждый запрос с нуля и сводит на нет работу, выполненную в `CacheControlMiddleware`. Для неизменяемых данных, таких как содержимое глав, это означает ненужные сетевые обращения.
-**Вместо этого:** Убрать тотальные заголовки. Использовать `staleTime` и `gcTime` TanStack Query для клиентского кэширования. Позволить `CacheControlMiddleware` бэкенда устанавливать соответствующие заголовки `Cache-Control` для каждого типа ответа.
-**Уверенность:** ВЫСОКАЯ -- видно в `client.ts` строки 192-201.
-
-### Антипаттерн 3: Глобальный синглтон CacheManager без мониторинга состояния соединения
-
-**Что:** `cache_manager` -- глобальный синглтон, инициализируемый при запуске. Если Redis становится недоступным после запуска, `_is_available` остаётся `True` (установлен при инициализации) и каждая операция молча завершается ошибкой в блоках `except` с логированием предупреждения.
-**Почему плохо:** Нет механизма обнаружения восстановления Redis. Когда Redis падает и возвращается, приложение продолжает считать его доступным, но операции завершаются ошибкой, логируя предупреждения при каждой операции кэширования.
-**Вместо этого:** Добавить периодическую health-проверку (каждые 30 с), обновляющую `_is_available` на основе ответа `PING`. Или проверять при каждой ошибке операции и пытаться переподключиться.
-**Уверенность:** ВЫСОКАЯ -- проверено в `cache.py` строки 97-135 и 188-204.
-
-### Антипаттерн 4: Две конкурирующие конфигурации Celery
-
-**Что:** И `celery_app.py`, и `celery_config.py` определяют конфигурации Celery. `celery_app.py` -- тот, который реально используется (импортируется задачами). `celery_config.py` определяет класс `ResourceAwareCelery`, другие определения очередей и настройки эпохи NLP, которые нигде не импортируются.
-**Почему плохо:** Разработчики могут редактировать не тот файл конфигурации. Конфигурация NLP-кэша, лимиты ресурсов и фабрика `create_celery_app()` в `celery_config.py` -- полностью мёртвый код.
-**Вместо этого:** Полностью удалить `celery_config.py`. При необходимости перенести полезные паттерны (например, проверку ресурсов в `task_prerun`) в `celery_app.py`.
-**Уверенность:** ВЫСОКАЯ -- проверено grep, что ни один файл не импортирует из `celery_config.py`.
-
-## Соображения по масштабируемости
-
-| Проблема | Текущее состояние (продакшен: 8 ГБ/4 ЦПУ) | При 100 одновременных пользователях | При 1000 одновременных пользователей |
-|----------|---------------------------------------------|--------------------------------------|--------------------------------------|
-| **Время отклика API** | <50 мс с кэшем, ~200 мс без кэша | То же (пул PostgreSQL обрабатывает 60 соединений) | Нужен PgBouncer; рассмотреть read-реплики |
-| **Очередь обработки книг** | 1 параллельная задача, ~30 мин на книгу | Глубина очереди растёт; пользователи ждут часами | Несколько Celery-воркеров на отдельных машинах |
-| **Единственный экземпляр Redis** | 640 МБ максимум, обслуживает все назначения | Нормально -- 640 МБ достаточно для кэша + брокера | Разделить на 2 экземпляра: кэш vs брокер |
-| **Лимиты Gemini API** | Неограниченные параллельные вызовы для каждого чанка | Риск попадания в rate limit при пиковых нагрузках | Семафор + circuit breaker обязательны |
-| **Хранение изображений** | Локальная файловая система (`/app/storage`) | Работает с Docker volume | Нужен S3/объектное хранилище |
-| **WebSocket-соединения** | Не работает (фолбэк на polling) | Polling при 100 пользователях = 100 запросов/интервал | WebSocket становится необходимым для снижения нагрузки polling |
-
-## Порядок реализации для продакшен-укрепления
-
-На основе анализа зависимостей компонентов выше, рекомендуемый порядок реализации:
-
-### Фаза 1: Страховочная сетка (без изменений поведения, только защита)
-1. Исправить дефолт `DEBUG=False` и инверсию дефолтов безопасности
-2. Реализовать реальные health-проверки (проверки базы данных + Redis)
-3. Удалить мёртвый код: `celery_config.py`, поля конфигурации NLP, тестовые файлы NLP, секции NLP в settings manager
-- **Обоснование:** Эти изменения защищают продакшен без изменения поведения каких-либо функций. Health-проверки являются предпосылкой для мониторинга. Удаление мёртвого кода снижает когнитивную нагрузку для всей последующей работы.
-
-### Фаза 2: Целостность данных (исправление багов корректности)
-4. Исправить эндпоинт переобработки, чтобы удалять старые описания перед повторным извлечением
-5. Исправить инвалидацию кэша при записи сущностей/описаний
-6. Убрать тотальные cache-busting заголовки из API-клиента фронтенда
-7. Настроить значения `staleTime` TanStack Query по типам данных
-- **Обоснование:** Эти изменения исправляют проблемы корректности данных (устаревший кэш, осиротевшие описания), которые напрямую влияют на доверие пользователей. Зависит от Фазы 1, потому что мониторинг должен быть на месте перед изменением поведения кэширования.
-
-### Фаза 3: Устойчивость (предотвращение каскадных сбоев)
-8. Добавить circuit breaker для вызовов OpenRouter API (LLM + image generation, после миграции с Gemini/Imagen)
-9. Ограничить параллельную обработку чанков явным семафором
-10. Исправить мониторинг `_is_available` Redis для обнаружения восстановления соединения
-11. Разрешить эндпоинты-заглушки (удалить или реализовать)
-- **Обоснование:** Эти изменения предотвращают каскадное распространение операционных сбоев. Зависит от Фазы 2, потому что корректность кэша должна быть обеспечена перед добавлением паттернов устойчивости, которые могут обслуживать устаревшие данные во время состояния circuit-open.
-
-### Фаза 4: Структурная очистка (снижение бремени обслуживания)
-12. Разделить слишком большие файлы роутеров (`images.py`, `reading_sessions.py`)
-13. Мигрировать `python-jose` на `PyJWT`
-14. Использовать контекстный менеджер `DistributedLock` в задачах обработки книг
-- **Обоснование:** Это неотложные, но не срочные улучшения, снижающие будущие затраты на обслуживание. Размещены последними, потому что не влияют на стабильность продакшена напрямую и несут более высокий риск регрессий.
-
-**Цепочка зависимостей:**
-```
-Фаза 1 (Безопасность) -> Фаза 2 (Целостность данных) -> Фаза 3 (Устойчивость) -> Фаза 4 (Очистка)
-                                                                                          |
-Дефолты безопасности -- предпосылка для всего                                    Может быть
-Health-проверки обеспечивают мониторинг изменений в Фазе 2+                  распараллелена
-                                                                          с работой Фазы 3
-```
+---
 
 ## Источники
 
-- Анализ кодовой базы: `backend/app/main.py`, `core/config.py`, `core/cache.py`, `core/celery_app.py`, `core/celery_config.py`, `core/retry.py`, `core/exceptions.py`, `frontend/src/api/client.ts`, `frontend/src/hooks/api/queryKeys.ts`, `docker-compose.lite.prod.yml`
-- [Лучшие практики FastAPI для продакшена (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) (СРЕДНЯЯ уверенность)
-- [Лучшие практики FastAPI 2026 (FastLaunchAPI)](https://fastlaunchapi.dev/blog/fastapi-best-practices-production-2026) (СРЕДНЯЯ уверенность)
-- [zhanymkanov/fastapi-best-practices (GitHub)](https://github.com/zhanymkanov/fastapi-best-practices) (СРЕДНЯЯ уверенность)
-- [Инвалидация кэша TanStack Query (официальная документация)](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation) (ВЫСОКАЯ уверенность)
-- [Устойчивость задач Celery (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) (СРЕДНЯЯ уверенность)
-- [Circuit Breaker в FastAPI (Stackademic)](https://blog.stackademic.com/system-design-1-implementing-the-circuit-breaker-pattern-in-fastapi-e96e8864f342) (СРЕДНЯЯ уверенность)
-- [Реализация Health Check в FastAPI (Index.dev)](https://www.index.dev/blog/how-to-implement-health-check-in-python) (СРЕДНЯЯ уверенность)
-- [aiobreaker (PyPI)](https://pypi.org/project/aiobreaker/) (ВЫСОКАЯ уверенность)
-- `.planning/codebase/ARCHITECTURE.md` -- существующая карта архитектуры (ВЫСОКАЯ уверенность)
-- `.planning/codebase/CONCERNS.md` -- каталог известных проблем (ВЫСОКАЯ уверенность)
+- Прямой анализ кодовой базы: EpubReader.tsx, 25+ hooks, sw.ts, manifest.json, iosSupport.ts
+- [epub.js Wiki: Tips and Tricks](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3))
+- [epub.js Issue #510: Page flip animation](https://github.com/futurepress/epub.js/issues/510)
+- [epub.js Issue #1377: Paginated swipe animation](https://github.com/futurepress/epub.js/issues/1377)
+- [PWA iOS Limitations Guide](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide)
+- [PWAs on iOS 2025](https://brainhub.eu/library/pwa-on-ios)
+- [CSS safe-area-inset for PWA standalone](https://gist.github.com/cvan/6c022ff9b14cf8840e9d28730f75fc14)
+- [Understanding svh, lvh, dvh viewport units](https://medium.com/@tharunbalaji110/understanding-mobile-viewport-units-a-complete-guide-to-svh-lvh-and-dvh-0c905d96e21a)
+- [Vite PWA: injectManifest](https://vite-pwa-org.netlify.app/workbox/inject-manifest)
 
 ---
-
-*Исследование архитектуры: 2026-02-27*
+*Архитектурное исследование для: Mobile/PWA интеграция в ридер fancai*
+*Исследовано: 2026-03-09*
