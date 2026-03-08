@@ -128,7 +128,7 @@ export const useReaderStore = create<ReaderState>()(
       maxWidth: 800,
       margin: 40,
       navigationMode: 'swipe', // Default to swipe (modern UX)
-      nameHighlightingEnabled: false,
+      nameHighlightingEnabled: true,
       descriptionDensity: 'all' as DescriptionDensity,
 
       // Initial state
@@ -272,7 +272,7 @@ export const useReaderStore = create<ReaderState>()(
           maxWidth: 800,
           margin: 40,
           navigationMode: 'swipe',
-          nameHighlightingEnabled: false,
+          nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
         });
       },
@@ -291,7 +291,7 @@ export const useReaderStore = create<ReaderState>()(
           maxWidth: 800,
           margin: 40,
           navigationMode: 'swipe',
-          nameHighlightingEnabled: false,
+          nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
           // Clear all user data
           readingProgress: {},
@@ -314,7 +314,7 @@ export const useReaderStore = create<ReaderState>()(
     }),
     {
       name: 'fancai-reader',
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
@@ -392,6 +392,10 @@ export const useReaderStore = create<ReaderState>()(
 
           state.bookmarks = newBookmarks;
           delete state.highlights;
+        }
+        if (version < 3) {
+          // Enable entity name highlighting by default for existing users
+          state.nameHighlightingEnabled = true;
         }
         return state;
       },
