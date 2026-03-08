@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-06T09:17:10.892Z"
+status: complete
+last_updated: "2026-03-08T12:00:00.000Z"
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Состояние проекта
@@ -18,24 +18,24 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-02-27)
 
 **Ключевая ценность:** Стабильное AI-приложение для чтения книг со спойлер-защищенной Entity Wiki и AI-иллюстрациями — работает надежно, без сбоев и визуальных глюков
-**Текущий фокус:** Фаза 8 в процессе (2/3 плана выполнены). Поиск по книге и entity popup готовы.
+**Текущий фокус:** Milestone v1.0 завершён. Все 9 фаз и 23 плана выполнены.
 
 ## Текущая позиция
 
-Фаза: 8 из 8 (Reader Features) — В процессе
-План: 3 из 3 в фазе 8 (поиск по книге и entity-linking)
-Статус: План 08-03 выполнен. Готово к плану 08-02 (визуальный UI закладок/выделений).
-Последняя активность: 2026-03-06 — Выполнен план 08-03 (Поиск + Entity Popup). Полнотекстовый поиск через spine iteration, SearchPanel UI, EntityPopup при тапе на имя.
+Фаза: 8 из 8 (Reader Features) — Завершена
+План: 3 из 3 в фазе 8 — все выполнены
+Статус: Все планы фазы 8 выполнены. Milestone v1.0 готов к верификации.
+Последняя активность: 2026-03-07 — Выполнен план 08-02 (Visual UI заметок). Архитектурный рефакторинг: слияние highlights в bookmarks → единая модель Notes. DOM span wrapping вместо epub.js SVG annotations. 3 бага annotation rendering исправлены.
 
-Прогресс: [██████████] 96%
+Прогресс: [██████████] 100%
 
 ## Метрики производительности
 
 **Скорость:**
 
-- Всего планов выполнено: 22
-- Средняя продолжительность: ~15 мин
-- Общее время выполнения: ~5.5 часа
+- Всего планов выполнено: 23
+- Средняя продолжительность: ~20 мин
+- Общее время выполнения: ~7.5 часа
 
 **По фазам:**
 
@@ -49,9 +49,9 @@ progress:
 | 05-stabilization-ai-techdebt  | 2/2   | ~16 мин  | ~8 мин       |
 | 06-entity-wiki                | 2/2   | ~15 мин  | ~8 мин       |
 | 07-ux                         | 2/2   | ~11 мин  | ~6 мин       |
-| 08-reader-features            | 2/3   | ~22 мин  | ~11 мин      |
+| 08-reader-features            | 3/3   | ~142 мин | ~47 мин      |
 
-_Обновляется после завершения каждого плана_
+_Milestone v1.0 завершён_
 
 ## Накопленный контекст
 
@@ -89,10 +89,17 @@ _Обновляется после завершения каждого план�
 - [Фаза 8 Plan 03]: Batch search по 5 глав с setTimeout(0) между батчами для non-blocking UI
 - [Фаза 8 Plan 03]: Позиция EntityPopup через iframe.getBoundingClientRect() + target.getBoundingClientRect()
 - [Фаза 8 Plan 03]: onEntityClick расширен до (entity, position) -- обратная совместимость сохранена
+- [Фаза 8 Plan 02]: Слияние highlights в bookmarks — единая модель Notes вместо двух отдельных сущностей
+- [Фаза 8 Plan 02]: DOM span wrapping вместо epub.js rendition.annotations.highlight() — SVG overlay не поддерживает нужные стили
+- [Фаза 8 Plan 02]: text_color добавлен для поддержки цветного текста аннотаций
+- [Фаза 8 Plan 02]: TreeWalker root = parentNode (не commonAncestorContainer) для single-text-node ranges
+- [Фаза 8 Plan 02]: resolveRangeFallback() для CFI path mismatches от epub.js anonymous span wrapping
+- [Фаза 8 Plan 02]: compareBoundaryPoints: START_TO_END сравнивает this.END vs source.START (counterintuitive)
 
 ### Ожидающие задачи
 
-Пока нет.
+- Верификация фазы 8 (08-VERIFICATION.md)
+- Закрытие milestone v1.0
 
 ### Блокеры/Опасения
 
@@ -100,6 +107,6 @@ _Обновляется после завершения каждого план�
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-06
-Остановились на: Выполнен план 08-03-PLAN.md (Поиск по книге + Entity Popup). Готово к плану 08-02.
-Файл возобновления: .planning/phases/08-reader-features/08-02-PLAN.md
+Последняя сессия: 2026-03-08
+Остановились на: Все 3 плана фазы 8 выполнены. GSD-документация обновлена. Готово к верификации фазы 8 и закрытию milestone v1.0.
+Файл возобновления: .planning/phases/08-reader-features/08-02-SUMMARY.md
