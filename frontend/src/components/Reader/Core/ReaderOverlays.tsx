@@ -1,11 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SwipeOverlay } from '../SwipeOverlay';
 import { IOSTapZones } from '../IOSTapZones';
 import { isIOS } from '@/utils/iosSupport';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import type { ThemeName } from '@/hooks/epub/useEpubThemes';
-import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
 import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 
 interface ReaderOverlaysProps {
@@ -27,11 +25,6 @@ interface ReaderOverlaysProps {
   theme: ThemeName;
   backgroundColor: string;
   navigationMode: 'swipe' | 'tap';
-  swipe: {
-    state: SwipeState;
-    viewportWidth: number;
-    headerHeight: number;
-  };
   tapZones: {
     onPrevPage: () => void;
     onNextPage: () => void;
@@ -46,7 +39,6 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
   error,
   backgroundColor,
   navigationMode,
-  swipe,
   tapZones,
 }) => {
   const { t } = useTranslation();
@@ -58,7 +50,6 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
     isRenditionHealthy,
     renditionReady,
   } = loading;
-  const isMobileDevice = typeof window !== 'undefined' && window.innerWidth <= 768;
   const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
 
   if (error.message) {
@@ -75,13 +66,6 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
 
   return (
     <>
-      {effectiveNavigationMode === 'swipe' && isMobileDevice && (
-        <SwipeOverlay
-          swipeState={swipe.state}
-          viewportWidth={swipe.viewportWidth}
-          headerHeight={swipe.headerHeight}
-        />
-      )}
       {isIOS() && (
         <IOSTapZones
           onPrevPage={tapZones.onPrevPage}

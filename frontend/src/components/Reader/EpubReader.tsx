@@ -23,7 +23,7 @@ import {
   useToc,
   useTouchNavigation,
 } from '@/hooks/epub';
-import { useSwipeNavigation } from '@/hooks/epub/useSwipeNavigation';
+import { useFollowFingerSwipe } from '@/hooks/epub/useFollowFingerSwipe';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
 import { useBookmarkActions } from '@/hooks/epub/useBookmarks';
 import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
@@ -40,6 +40,7 @@ import { mapApiError } from '@/utils/errorMessages';
 import { ReaderModals } from './Core/ReaderModals';
 import { ReaderOverlays } from './Core/ReaderOverlays';
 import { ReaderUI } from './Core/ReaderUI';
+import { FollowFingerContainer } from './FollowFingerContainer';
 import { ExtractionIndicator } from './ExtractionIndicator';
 import { SearchPanel } from './SearchPanel';
 import { EntityPopup } from './EntityPopup';
@@ -219,13 +220,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (renditionReady && isRenditionHealthy && !isCheckingHealth) markHealthy();
   }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
 
-  const { swipeState, touchHandlers: swipeTouchHandlers } = useSwipeNavigation({
+  const followFinger = useFollowFingerSwipe({
     rendition,
     enabled: renditionReady && effectiveNavigationMode === 'swipe' && !isModalOpen,
     onNavigate: async (dir) => {
       if (dir === 'next') await nextPage();
       else await prevPage();
     },
+    onChapterChange: async (dir) => {
+      if (dir === 'next') await rendition?.next();
+      else await rendition?.prev();
+    },
+    navLock,
   });
 
   useKeyboardNavigation({
@@ -496,20 +502,27 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   return (
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
-      <div
-        ref={viewerRef}
-        id="epub-viewer"
-        tabIndex={-1}
-        className={`h-full w-full ${backgroundColor} outline-hidden`}
-        style={{
-          paddingTop: 'calc(70px + env(safe-area-inset-top))',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          touchAction: 'pan-x pan-y',
-        }}
-        {...(effectiveNavigationMode === 'swipe' ? swipeTouchHandlers : {})}
-      />
+      <FollowFingerContainer
+        translateX={followFinger.translateX}
+        phase={followFinger.phase}
+        isAtBoundary={followFinger.isAtBoundary}
+        showChapterHint={followFinger.showChapterHint}
+        chapterHintDirection={followFinger.chapterHintDirection}
+      >
+        <div
+          ref={viewerRef}
+          id="epub-viewer"
+          tabIndex={-1}
+          className={`h-full w-full ${backgroundColor} outline-hidden`}
+          style={{
+            paddingTop: 'calc(70px + env(safe-area-inset-top))',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            touchAction: 'pan-x pan-y',
+          }}
+        />
+      </FollowFingerContainer>
 
       <ReaderOverlays
         loading={{
@@ -530,7 +543,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         theme={theme}
         backgroundColor={backgroundColor}
         navigationMode={navigationMode}
-        swipe={{ state: swipeState, viewportWidth: window.innerWidth, headerHeight: 70 }}
         tapZones={{
           onPrevPage: prevPage,
           onNextPage: nextPage,
