@@ -30,6 +30,7 @@ import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
 import { useReaderStore } from '@/stores/reader';
 import { useAutoHideUI } from '@/hooks/reader/useAutoHideUI';
 import { useReaderPosition } from '@/hooks/reader/useReaderPosition';
+import { useVisualViewportHandler } from '@/hooks/shared/useVisualViewportHandler';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { notify } from '@/stores/ui';
@@ -80,6 +81,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     isActive: isWakeLockActive,
     isSupported: isWakeLockSupported,
   } = useWakeLock();
+  useVisualViewportHandler();
 
   const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   const userId = getCurrentUserId();
