@@ -23,7 +23,7 @@ import { MobilePanel } from '@/components/UI/MobilePanel';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
 import { cn } from '@/lib/utils';
 import type { ThemeName } from '@/hooks/epub/useEpubThemes';
-import type { NavigationMode, DescriptionDensity } from '@/stores/reader';
+import type { NavigationMode, DescriptionDensity, DescriptionHighlightMode } from '@/stores/reader';
 
 interface ReaderControlsProps {
   theme: ThemeName;
@@ -44,6 +44,8 @@ interface ReaderControlsProps {
   onNameHighlightingChange?: (e: boolean) => void;
   descriptionDensity?: DescriptionDensity;
   onDescriptionDensityChange?: (d: DescriptionDensity) => void;
+  highlightMode?: DescriptionHighlightMode;
+  onHighlightModeChange?: (mode: DescriptionHighlightMode) => void;
 }
 
 export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function ReaderControls({
@@ -65,6 +67,8 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
   onNameHighlightingChange,
   descriptionDensity,
   onDescriptionDensityChange,
+  highlightMode,
+  onHighlightModeChange,
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -208,6 +212,30 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
                 )}
               >
                 {t(`entities.density_${d}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Description highlight mode */}
+      {onHighlightModeChange && (
+        <div className="px-4 py-3 border-t">
+          <div className="flex items-center gap-2 mb-2">
+            <Eye className="h-4 w-4 opacity-50" />
+            <label className="text-xs opacity-70">{t('entities.highlight_mode')}</label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(['anchor', 'full'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => onHighlightModeChange(mode)}
+                className={cn(
+                  'px-2 py-1.5 min-h-[44px] rounded-sm text-sm',
+                  highlightMode === mode ? 'bg-primary text-primary-foreground' : 'bg-card border'
+                )}
+              >
+                {t(`entities.highlight_mode_${mode}`)}
               </button>
             ))}
           </div>

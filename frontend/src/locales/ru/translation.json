@@ -394,6 +394,9 @@
     "density_all": "Все",
     "density_key": "Ключевые",
     "density_off": "Выкл",
+    "highlight_mode": "Режим выделения",
+    "highlight_mode_anchor": "Компактное",
+    "highlight_mode_full": "Полное",
     "relation_count_one": "{{count}} связь",
     "relation_count_few": "{{count}} связи",
     "relation_count_many": "{{count}} связей"

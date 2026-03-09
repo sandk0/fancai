@@ -394,6 +394,9 @@
     "density_all": "All",
     "density_key": "Key",
     "density_off": "Off",
+    "highlight_mode": "Highlight mode",
+    "highlight_mode_anchor": "Compact",
+    "highlight_mode_full": "Full",
     "relation_count_one": "{{count}} relation",
     "relation_count_other": "{{count}} relations"
   },
