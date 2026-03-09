@@ -64,8 +64,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Хук useFollowFingerSwipe + компоненты FollowFingerContainer и ChapterHint
-- [ ] 10-02-PLAN.md — Интеграция в EpubReader + slide-in тап-анимация + удаление SwipeOverlay
+- [x] 10-01-PLAN.md — Хук useFollowFingerSwipe + компоненты FollowFingerContainer и ChapterHint
+- [x] 10-02-PLAN.md — Интеграция в EpubReader + slide-in тап-анимация + удаление SwipeOverlay
 
 ### Phase 11: Единый gesture handler и мобильный UI
 **Goal**: Все touch-взаимодействия управляются единой системой без конфликтов, а мобильный интерфейс адаптирован для комфортного чтения одной рукой
@@ -77,12 +77,12 @@ Plans:
   3. Header и footer автоматически скрываются при чтении и появляются по тапу в центральной зоне экрана
   4. Entity drawer, настройки и оглавление открываются/закрываются с плавной spring-анимацией и адаптированы для мобильных экранов (полная ширина, правильные отступы)
   5. Переход библиотека-ридер сопровождается плавной motion-анимацией
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
-- [ ] 11-03: TBD
+- [ ] 11-01-PLAN.md — Единый gesture controller + автоскрытие header с immersive mode
+- [ ] 11-02-PLAN.md — Миграция панелей на vaul bottom-sheet + touch targets + safe areas
+- [ ] 11-03-PLAN.md — Crossfade анимация перехода библиотека-ридер
 
 ### Phase 12: Viewport и iOS
 **Goal**: Ридер корректно отображается на всех мобильных устройствах с учетом safe areas, клавиатуры и особенностей PWA standalone mode
@@ -129,7 +129,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases 9-14 выполняются в порядке: 9 → 10 → 11 → 12 → 13 → 14
+Phases 9-14 выполняются в порядке: 9 -> 10 -> 11 -> 12 -> 13 -> 14
 Phase 12, 13, 14 могут частично параллелиться после завершения Phase 10 (12, 14) и Phase 9 (13).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -144,8 +144,8 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 7. Обработка ошибок и UX | v1.0 | 2/2 | Complete | 2026-03-05 |
 | 8. Функции ридера | v1.0 | 3/3 | Complete | 2026-03-07 |
 | 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
-| 10. Follow-finger свайпы | 2/2 | Complete   | 2026-03-09 | - |
-| 11. Единый gesture handler и мобильный UI | v1.1 | 0/? | Not started | - |
+| 10. Follow-finger свайпы | v1.1 | 2/2 | Complete | 2026-03-09 |
+| 11. Единый gesture handler и мобильный UI | v1.1 | 0/3 | Not started | - |
 | 12. Viewport и iOS | v1.1 | 0/? | Not started | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
 | 14. Фикс описаний | v1.1 | 0/? | Not started | - |
