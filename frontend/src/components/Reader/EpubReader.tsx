@@ -240,6 +240,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     nextPage,
     prevPage,
     enabled: renditionReady && !isModalOpen && effectiveNavigationMode === 'tap',
+    navLock,
   });
 
   const { theme, fontSize, setTheme, increaseFontSize, decreaseFontSize } =
