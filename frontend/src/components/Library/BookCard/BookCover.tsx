@@ -1,5 +1,5 @@
 import { m } from 'motion/react';
-import { Book, CheckCircle2, Loader2 } from 'lucide-react';
+import { Book, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
@@ -14,21 +14,20 @@ export function BookCover({
   isAvailableOffline,
   isDownloading,
   downloadProgress,
+  isOnline,
 }: BookCoverProps) {
   const { t } = useTranslation();
 
   return (
     <>
-      {!imageLoaded && coverUrl && (
-        <div className="absolute inset-0 bg-muted animate-pulse" />
-      )}
+      {!imageLoaded && coverUrl && <div className="absolute inset-0 bg-muted animate-pulse" />}
 
       <AuthenticatedImage
         src={coverUrl}
         alt={`${book.title} cover`}
         className={cn(
-          "w-full h-full object-cover transition-opacity duration-300",
-          imageLoaded ? "opacity-100" : "opacity-0"
+          'w-full h-full object-cover transition-opacity duration-300',
+          imageLoaded ? 'opacity-100' : 'opacity-0'
         )}
         onLoad={onImageLoad}
         loading="lazy"
@@ -70,6 +69,13 @@ export function BookCover({
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           ) : null}
+        </div>
+      )}
+
+      {/* Dim overlay for books without offline cache when offline */}
+      {!isOnline && !isAvailableOffline && (
+        <div className="absolute inset-0 bg-background/60 rounded-xl flex items-center justify-center">
+          <WifiOff className="w-6 h-6 text-muted-foreground/70" />
         </div>
       )}
     </>

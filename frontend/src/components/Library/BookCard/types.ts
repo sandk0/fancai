@@ -20,6 +20,7 @@ export interface BookCoverProps {
   isAvailableOffline: boolean;
   isDownloading: boolean;
   downloadProgress: number;
+  isOnline: boolean;
 }
 
 export interface ProcessingButtonsProps {
