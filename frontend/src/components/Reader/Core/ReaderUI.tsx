@@ -13,6 +13,8 @@ interface ReaderUIHeaderMetadata {
 
 interface ReaderUIProps {
   isVisible: boolean;
+  /** Whether header is visible (auto-hide control) */
+  isHeaderVisible: boolean;
   header: {
     metadata: ReaderUIHeaderMetadata;
     progress: number;
@@ -56,6 +58,7 @@ interface ReaderUIProps {
 
 export const ReaderUI: React.FC<ReaderUIProps> = ({
   isVisible,
+  isHeaderVisible,
   header,
   settings,
   imageStatus,
@@ -66,6 +69,7 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
   return (
     <>
       <ReaderHeader
+        isVisible={isHeaderVisible}
         title={header.metadata.title}
         author={header.metadata.author}
         progress={header.progress}

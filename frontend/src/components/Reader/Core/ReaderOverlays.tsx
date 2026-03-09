@@ -1,10 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IOSTapZones } from '../IOSTapZones';
-import { isIOS } from '@/utils/iosSupport';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import type { ThemeName } from '@/hooks/epub/useEpubThemes';
-import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 
 interface ReaderOverlaysProps {
   loading: {
@@ -22,25 +18,13 @@ interface ReaderOverlaysProps {
     onRetry: () => void;
     onHome: () => void;
   };
-  theme: ThemeName;
   backgroundColor: string;
-  navigationMode: 'swipe' | 'tap';
-  tapZones: {
-    onPrevPage: () => void;
-    onNextPage: () => void;
-    onDescriptionClick: (id: string) => void;
-    onCenterTap: (x: number, y: number) => void;
-    navLock: NavigationLock;
-    onTapNavigateAnimation?: (direction: 'next' | 'prev') => void;
-  };
 }
 
 export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
   loading,
   error,
   backgroundColor,
-  navigationMode,
-  tapZones,
 }) => {
   const { t } = useTranslation();
   const {
@@ -51,7 +35,6 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
     isRenditionHealthy,
     renditionReady,
   } = loading;
-  const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
 
   if (error.message) {
     return (
@@ -67,19 +50,6 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
 
   return (
     <>
-      {isIOS() && (
-        <IOSTapZones
-          onPrevPage={tapZones.onPrevPage}
-          onNextPage={tapZones.onNextPage}
-          onDescriptionClick={tapZones.onDescriptionClick}
-          onCenterTap={tapZones.onCenterTap}
-          enabled={!isLoading && !isGenerating && !error.message}
-          headerHeight={70}
-          navigationEnabled={effectiveNavigationMode === 'tap'}
-          navLock={tapZones.navLock}
-          onTapNavigateAnimation={tapZones.onTapNavigateAnimation}
-        />
-      )}
       {(isLoading ||
         isGenerating ||
         isRestoringPosition ||

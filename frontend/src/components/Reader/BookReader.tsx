@@ -315,6 +315,7 @@ export const BookReader: React.FC<BookReaderProps> = ({
       <div className="bg-background min-h-screen">
         {/* Header */}
         <ReaderHeader
+          isVisible={true}
           title={book.title}
           author={book.author}
           progress={book.reading_progress?.progress_percent || 0}

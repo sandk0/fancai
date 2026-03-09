@@ -220,7 +220,6 @@ vi.mock('@/hooks/epub', () => ({
     increaseFontSize: vi.fn(),
     decreaseFontSize: vi.fn(),
   })),
-  useTouchNavigation: vi.fn(),
   useContentHooks: vi.fn(),
   useDescriptionHighlighting: vi.fn(),
   useResizeHandler: vi.fn(),
@@ -243,6 +242,31 @@ vi.mock('@/hooks/epub', () => ({
     ],
     currentHref: 'chapter1.xhtml',
     setCurrentHref: vi.fn(),
+  })),
+}));
+
+// Mock gesture controller (replaces useFollowFingerSwipe + useTouchNavigation)
+const mockMotionValue = { get: () => 0, set: vi.fn(), on: vi.fn(), destroy: vi.fn() };
+vi.mock('@/hooks/epub/useGestureController', () => ({
+  useGestureController: vi.fn(() => ({
+    translateX: mockMotionValue,
+    phase: 'idle',
+    isAtBoundary: null,
+    showChapterHint: false,
+    chapterHintDirection: null,
+    triggerSlideAnimation: vi.fn(),
+  })),
+}));
+
+// Mock auto-hide UI
+vi.mock('@/hooks/reader/useAutoHideUI', () => ({
+  useAutoHideUI: vi.fn(() => ({
+    isHeaderVisible: false,
+    showUI: vi.fn(),
+    hideUI: vi.fn(),
+    toggleUI: vi.fn(),
+    onSwipeStart: vi.fn(),
+    onTapNavigate: vi.fn(),
   })),
 }));
 
