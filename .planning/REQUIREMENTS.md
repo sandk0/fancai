@@ -16,12 +16,12 @@
 
 ### Мобильный UI
 
-- [ ] **MUI-01**: Все интерактивные элементы имеют минимум 44px touch target
+- [x] **MUI-01**: Все интерактивные элементы имеют минимум 44px touch target
 - [x] **MUI-02**: Header/footer автоскрываются при чтении, появляются по тапу в центральной зоне
-- [ ] **MUI-03**: Панели (entity drawer, settings, оглавление) адаптированы для мобильных экранов
-- [ ] **MUI-04**: Spring-анимации для открытия/закрытия панелей и drawer
+- [x] **MUI-03**: Панели (entity drawer, settings, оглавление) адаптированы для мобильных экранов
+- [x] **MUI-04**: Spring-анимации для открытия/закрытия панелей и drawer
 - [x] **MUI-05**: Плавные motion transitions между экранами (библиотека → ридер)
-- [ ] **MUI-06**: Safe area insets корректно применяются на iOS (notch, home indicator)
+- [x] **MUI-06**: Safe area insets корректно применяются на iOS (notch, home indicator)
 
 ### PWA
 
@@ -72,12 +72,12 @@
 | NAV-04 | Phase 9 | Complete |
 | NAV-05 | Phase 11 | Complete |
 | NAV-06 | Phase 9 | Complete |
-| MUI-01 | Phase 11 | Pending |
+| MUI-01 | Phase 11 | Complete |
 | MUI-02 | Phase 11 | Complete |
-| MUI-03 | Phase 11 | Pending |
-| MUI-04 | Phase 11 | Pending |
+| MUI-03 | Phase 11 | Complete |
+| MUI-04 | Phase 11 | Complete |
 | MUI-05 | Phase 11 | Complete |
-| MUI-06 | Phase 11 | Pending |
+| MUI-06 | Phase 11 | Complete |
 | PWA-01 | Phase 13 | Pending |
 | PWA-02 | Phase 13 | Pending |
 | PWA-03 | Phase 13 | Pending |
