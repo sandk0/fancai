@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 11 завершена (3/3 планов). Готово к Phase 12.
-last_updated: "2026-03-09T07:47:32Z"
-last_activity: 2026-03-09 — Plan 02 выполнен (vaul bottom-sheet + touch targets + safe areas)
+status: Phase 12 в процессе (1/2 планов). Plan 01 завершен.
+last_updated: "2026-03-09T08:32:32Z"
+last_activity: 2026-03-09 — Plan 01 выполнен (useVisualViewportHandler + overlay fixes)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 9
+  completed_plans: 8
+  percent: 88
 ---
 
 # Состояние проекта
@@ -24,19 +24,19 @@ progress:
 
 ## Текущая позиция
 
-Phase: 11 of 14 (Gesture handler & Mobile UI) -- COMPLETE
-Plan: 3 of 3
-Status: Phase 11 завершена (3/3 планов). Готово к Phase 12.
-Last activity: 2026-03-09 — Plan 02 выполнен (vaul bottom-sheet + touch targets + safe areas)
+Phase: 12 of 14 (Viewport & iOS fixes)
+Plan: 1 of 2
+Status: Phase 12 в процессе (1/2 планов). Plan 01 завершен.
+Last activity: 2026-03-09 — Plan 01 выполнен (useVisualViewportHandler + overlay fixes)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 88%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 7 (milestone v1.1)
+- Выполнено планов: 8 (milestone v1.1)
 - Средняя длительность: 8 min
-- Общее время: 56 min
+- Общее время: 61 min
 
 **По фазам:**
 
@@ -45,6 +45,7 @@ Progress: [██████████] 100%
 | 9. Стабилизация навигации | 2/2 | 14 min | 7 min |
 | 10. Follow-finger свайпы | 2/2 | 15 min | 7 min |
 | 11. Gesture handler & Mobile UI | 3/3 | 27 min | 9 min |
+| 12. Viewport & iOS fixes | 1/2 | 5 min | 5 min |
 
 *Обновляется после завершения каждого плана*
 
@@ -76,10 +77,13 @@ Progress: [██████████] 100%
 - MobilePanel passthrough на desktop — компоненты сохраняют свой desktop UI
 - Shared content extraction — JSX извлечен в переменную для двух режимов рендера
 - useFocusTrap отключен на мобильных — vaul сам управляет фокусом
+- Порог 150px для VisualViewport API — отличает клавиатуру от адресной строки iOS
+- CSS-переменная --keyboard-height на documentElement — реактивное обновление из React хука
+- IOSTapZones не модифицирован — gesture controller полностью заменил его
 
 ### Ожидающие задачи
 
-(нет — Phase 11 завершена)
+(нет)
 
 ### Блокеры/Опасения
 
@@ -88,4 +92,4 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Completed 11-02-PLAN.md (vaul bottom-sheet + touch targets). Phase 11 завершена (3/3).
+Остановились на: Completed 12-01-PLAN.md (useVisualViewportHandler + overlay fixes). Phase 12 в процессе (1/2).
