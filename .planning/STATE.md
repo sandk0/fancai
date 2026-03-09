@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 10 Plan 01 завершен, следующий — Plan 02
-last_updated: "2026-03-09T01:32:31Z"
-last_activity: 2026-03-09 — Plan 01 выполнен (follow-finger хук + компоненты)
+status: Phase 10 завершена (2/2 планов). Следующая — Phase 11.
+last_updated: "2026-03-09T01:46:39Z"
+last_activity: 2026-03-09 — Plan 02 выполнен (интеграция follow-finger + slide-in + cleanup)
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 25
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 33
 ---
 
 # Состояние проекта
@@ -24,26 +24,26 @@ progress:
 
 ## Текущая позиция
 
-Phase: 10 of 14 (Follow-finger свайпы)
-Plan: 1 of 2 (Plan 01 завершен)
-Status: Phase 10 Plan 01 завершен, следующий — Plan 02
-Last activity: 2026-03-09 — Plan 01 выполнен (follow-finger хук + компоненты)
+Phase: 10 of 14 (Follow-finger свайпы) -- ЗАВЕРШЕНА
+Plan: 2 of 2 (Plan 02 завершен)
+Status: Phase 10 завершена (2/2 планов). Следующая — Phase 11.
+Last activity: 2026-03-09 — Plan 02 выполнен (интеграция follow-finger + slide-in + cleanup)
 
-Progress: [██▌░░░░░░░] 25%
+Progress: [███▌░░░░░░] 33%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 3 (milestone v1.1)
+- Выполнено планов: 4 (milestone v1.1)
 - Средняя длительность: 7 min
-- Общее время: 20 min
+- Общее время: 29 min
 
 **По фазам:**
 
 | Фаза | Планы | Общее время | Среднее/план |
 |------|-------|-------------|--------------|
 | 9. Стабилизация навигации | 2/2 | 14 min | 7 min |
-| 10. Follow-finger свайпы | 1/2 | 6 min | 6 min |
+| 10. Follow-finger свайпы | 2/2 | 15 min | 7 min |
 
 *Обновляется после завершения каждого плана*
 
@@ -64,10 +64,12 @@ Progress: [██▌░░░░░░░] 25%
 - Debounce guaranteed-last: pendingNavRef хранит последний тап при занятом lock
 - useMotionValueEvent для box-shadow — прямые DOM-мутации без ререндеров
 - Три spring-конфига (FAST/NORMAL/RUBBER) с critically damped параметрами
+- triggerSlideAnimation в useFollowFingerSwipe (Variant B) для тап-навигации slide-in
+- Slide-in анимация запускается параллельно с навигацией (non-blocking visual effect)
 
 ### Ожидающие задачи
 
-- Phase 10 Plan 02: интеграция follow-finger в EpubReader, удаление SwipeOverlay/SwipeIndicator
+- Phase 11: следующая фаза milestone v1.1
 
 ### Блокеры/Опасения
 
@@ -76,4 +78,4 @@ Progress: [██▌░░░░░░░] 25%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Completed 10-01-PLAN.md (follow-finger хук + компоненты). Следующий — 10-02-PLAN.md (интеграция в EpubReader).
+Остановились на: Completed 10-02-PLAN.md (интеграция follow-finger + slide-in + cleanup). Phase 10 завершена. Следующая — Phase 11.
