@@ -33,9 +33,9 @@
 
 ### Viewport и iOS
 
-- [x] **VPT-01**: Корректный viewport на iOS (100dvh, env(safe-area-inset-*))
+- [x] **VPT-01**: Корректный viewport на iOS (100dvh, env(safe-area-inset-\*))
 - [x] **VPT-02**: Клавиатура не сдвигает контент (VisualViewport API)
-- [ ] **VPT-03**: PWA standalone mode работает корректно (navigation, status bar)
+- [x] **VPT-03**: PWA standalone mode работает корректно (navigation, status bar)
 
 ### Описания AI
 
@@ -54,45 +54,47 @@
 
 ## Out of Scope
 
-| Feature | Reason |
-|---------|--------|
-| 3D curl-анимация | Несовместима с epub.js reflowable + iframe |
-| Pinch-to-zoom | epub.js не поддерживает, нативный zoom ОС достаточен |
-| Push notifications | Не релевантно для ридера книг |
-| Нативное мобильное приложение | Web-first подход, PWA покрывает потребности |
-| Платежная система | Монетизация отложена |
+| Feature                       | Reason                                               |
+| ----------------------------- | ---------------------------------------------------- |
+| 3D curl-анимация              | Несовместима с epub.js reflowable + iframe           |
+| Pinch-to-zoom                 | epub.js не поддерживает, нативный zoom ОС достаточен |
+| Push notifications            | Не релевантно для ридера книг                        |
+| Нативное мобильное приложение | Web-first подход, PWA покрывает потребности          |
+| Платежная система             | Монетизация отложена                                 |
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| NAV-01 | Phase 10 | Complete |
-| NAV-02 | Phase 10 | Complete |
-| NAV-03 | Phase 9 | Complete |
-| NAV-04 | Phase 9 | Complete |
-| NAV-05 | Phase 11 | Complete |
-| NAV-06 | Phase 9 | Complete |
-| MUI-01 | Phase 11 | Complete |
-| MUI-02 | Phase 11 | Complete |
-| MUI-03 | Phase 11 | Complete |
-| MUI-04 | Phase 11 | Complete |
-| MUI-05 | Phase 11 | Complete |
-| MUI-06 | Phase 11 | Complete |
-| PWA-01 | Phase 13 | Pending |
-| PWA-02 | Phase 13 | Pending |
-| PWA-03 | Phase 13 | Pending |
-| PWA-04 | Phase 13 | Pending |
-| PWA-05 | Phase 13 | Pending |
-| VPT-01 | Phase 12 | Complete |
-| VPT-02 | Phase 12 | Complete |
-| VPT-03 | Phase 12 | Pending |
-| DSC-01 | Phase 14 | Pending |
+| Requirement | Phase    | Status   |
+| ----------- | -------- | -------- |
+| NAV-01      | Phase 10 | Complete |
+| NAV-02      | Phase 10 | Complete |
+| NAV-03      | Phase 9  | Complete |
+| NAV-04      | Phase 9  | Complete |
+| NAV-05      | Phase 11 | Complete |
+| NAV-06      | Phase 9  | Complete |
+| MUI-01      | Phase 11 | Complete |
+| MUI-02      | Phase 11 | Complete |
+| MUI-03      | Phase 11 | Complete |
+| MUI-04      | Phase 11 | Complete |
+| MUI-05      | Phase 11 | Complete |
+| MUI-06      | Phase 11 | Complete |
+| PWA-01      | Phase 13 | Pending  |
+| PWA-02      | Phase 13 | Pending  |
+| PWA-03      | Phase 13 | Pending  |
+| PWA-04      | Phase 13 | Pending  |
+| PWA-05      | Phase 13 | Pending  |
+| VPT-01      | Phase 12 | Complete |
+| VPT-02      | Phase 12 | Complete |
+| VPT-03      | Phase 12 | Complete |
+| DSC-01      | Phase 14 | Pending  |
 
 **Coverage:**
+
 - v1.1 requirements: 21 total
 - Mapped to phases: 21
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after roadmap creation*
+
+_Requirements defined: 2026-03-09_
+_Last updated: 2026-03-09 after roadmap creation_

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 12 в процессе (1/2 планов). Plan 01 завершен.
-last_updated: "2026-03-09T08:32:32Z"
-last_activity: 2026-03-09 — Plan 01 выполнен (useVisualViewportHandler + overlay fixes)
+status: Phase 12 завершена (2/2 планов). Следующая — Phase 13.
+last_updated: "2026-03-09T09:15:30Z"
+last_activity: 2026-03-09 — Phase 12 завершена (viewport, iOS, PWA standalone)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
-  percent: 88
+  completed_plans: 9
+  percent: 100
 ---
 
 # Состояние проекта
@@ -25,29 +25,30 @@ progress:
 ## Текущая позиция
 
 Phase: 12 of 14 (Viewport & iOS fixes)
-Plan: 1 of 2
-Status: Phase 12 в процессе (1/2 планов). Plan 01 завершен.
-Last activity: 2026-03-09 — Plan 01 выполнен (useVisualViewportHandler + overlay fixes)
+Plan: 2 of 2
+Status: Phase 12 завершена (2/2 планов). Следующая — Phase 13.
+Last activity: 2026-03-09 — Phase 12 завершена (viewport, iOS, PWA standalone)
 
-Progress: [████████░░] 88%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 8 (milestone v1.1)
-- Средняя длительность: 8 min
-- Общее время: 61 min
+
+- Выполнено планов: 9 (milestone v1.1)
+- Средняя длительность: 7 min
+- Общее время: 64 min
 
 **По фазам:**
 
-| Фаза | Планы | Общее время | Среднее/план |
-|------|-------|-------------|--------------|
-| 9. Стабилизация навигации | 2/2 | 14 min | 7 min |
-| 10. Follow-finger свайпы | 2/2 | 15 min | 7 min |
-| 11. Gesture handler & Mobile UI | 3/3 | 27 min | 9 min |
-| 12. Viewport & iOS fixes | 1/2 | 5 min | 5 min |
+| Фаза                            | Планы | Общее время | Среднее/план |
+| ------------------------------- | ----- | ----------- | ------------ |
+| 9. Стабилизация навигации       | 2/2   | 14 min      | 7 min        |
+| 10. Follow-finger свайпы        | 2/2   | 15 min      | 7 min        |
+| 11. Gesture handler & Mobile UI | 3/3   | 27 min      | 9 min        |
+| 12. Viewport & iOS fixes        | 2/2   | 8 min       | 4 min        |
 
-*Обновляется после завершения каждого плана*
+_Обновляется после завершения каждого плана_
 
 ## Накопленный контекст
 
@@ -57,6 +58,7 @@ Progress: [████████░░] 88%
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
 
 Решения v1.1:
+
 - Никаких новых npm-зависимостей — motion 12.x, Workbox 7.4 покрывают все потребности
 - CSS transform на wrapper div (не stage.container) для follow-finger — безопасно для epub.js
 - DSC-v2-01 (NLP SBD) отложен в v2
@@ -80,6 +82,9 @@ Progress: [████████░░] 88%
 - Порог 150px для VisualViewport API — отличает клавиатуру от адресной строки iOS
 - CSS-переменная --keyboard-height на documentElement — реактивное обновление из React хука
 - IOSTapZones не модифицирован — gesture controller полностью заменил его
+- localStorage reader_standalone_hint_dismissed для one-time standalone подсказки
+- AnimatePresence fade-in 1.5с + auto-dismiss 4с для ненавязчивой подсказки
+- Подсказка строго ограничена isStandalone() — desktop и обычный браузер не затронуты
 
 ### Ожидающие задачи
 
@@ -92,4 +97,4 @@ Progress: [████████░░] 88%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Completed 12-01-PLAN.md (useVisualViewportHandler + overlay fixes). Phase 12 в процессе (1/2).
+Остановились на: Phase 12 завершена. 12-02-PLAN.md выполнен (standalone hint + iOS верификация approved). Следующая — Phase 13.
