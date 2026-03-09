@@ -12,7 +12,7 @@
 - [x] **NAV-03**: Быстрое пролистывание не смещает страницу (фикс race condition в directScroll)
 - [x] **NAV-04**: Навигация не блокируется после отмены генерации изображений и других действий
 - [ ] **NAV-05**: Единый gesture controller вместо 3 параллельных систем (useSwipeNavigation + useTouchNavigation + IOSTapZones)
-- [ ] **NAV-06**: Корректная навигация при быстрых тапах (tap debounce / queue)
+- [x] **NAV-06**: Корректная навигация при быстрых тапах (tap debounce / queue)
 
 ### Мобильный UI
 
@@ -71,7 +71,7 @@
 | NAV-03 | Phase 9 | Complete |
 | NAV-04 | Phase 9 | Complete |
 | NAV-05 | Phase 11 | Pending |
-| NAV-06 | Phase 9 | Pending |
+| NAV-06 | Phase 9 | Complete |
 | MUI-01 | Phase 11 | Pending |
 | MUI-02 | Phase 11 | Pending |
 | MUI-03 | Phase 11 | Pending |

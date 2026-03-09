@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
 status: executing
-last_updated: "2026-03-09T00:15:22Z"
+last_updated: "2026-03-09T00:30:51Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Состояние проекта
@@ -22,25 +22,25 @@ progress:
 
 ## Текущая позиция
 
-Phase: 9 of 14 (Стабилизация навигации) — выполняется
-Plan: 2 of 2
-Status: Plan 01 завершен, Plan 02 следующий
-Last activity: 2026-03-09 — Plan 01 выполнен (useNavigationLock + serialized directScroll)
+Phase: 9 of 14 (Стабилизация навигации) — завершена
+Plan: 2 of 2 (все завершены)
+Status: Phase 9 завершена, следующая — Phase 10
+Last activity: 2026-03-09 — Plan 02 выполнен (интеграция lock в gesture handlers)
 
-Progress: [█░░░░░░░░░] 8%
+Progress: [██░░░░░░░░] 17%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 1 (milestone v1.1)
-- Средняя длительность: 5 min
-- Общее время: 5 min
+- Выполнено планов: 2 (milestone v1.1)
+- Средняя длительность: 7 min
+- Общее время: 14 min
 
 **По фазам:**
 
 | Фаза | Планы | Общее время | Среднее/план |
 |------|-------|-------------|--------------|
-| 9. Стабилизация навигации | 1/2 | 5 min | 5 min |
+| 9. Стабилизация навигации | 2/2 | 14 min | 7 min |
 
 *Обновляется после завершения каждого плана*
 
@@ -57,10 +57,12 @@ Progress: [█░░░░░░░░░] 8%
 - DSC-v2-01 (NLP SBD) отложен в v2
 - Ref-based mutex (useRef) для навигационного lock -- избегаем ререндеров
 - Promise chain (scrollChainRef) для сериализации scroll вместо full queue
+- navLock передается через props (EpubReader -> ReaderOverlays -> IOSTapZones), единая точка создания
+- Debounce guaranteed-last: pendingNavRef хранит последний тап при занятом lock
 
 ### Ожидающие задачи
 
-- Выполнение Plan 02 Phase 9 (интеграция lock в gesture handlers)
+- Планирование и выполнение Phase 10 (follow-finger swipes)
 
 ### Блокеры/Опасения
 
@@ -69,4 +71,4 @@ Progress: [█░░░░░░░░░] 8%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Completed 09-01-PLAN.md (useNavigationLock + serialized directScroll). Следующий — 09-02-PLAN.md.
+Остановились на: Completed 09-02-PLAN.md (интеграция lock в gesture handlers). Phase 9 завершена. Следующая — Phase 10.
