@@ -33,7 +33,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 11: Единый gesture handler и мобильный UI** — Объединение 3 gesture-систем + адаптивный мобильный интерфейс (completed 2026-03-09)
 - [x] **Phase 12: Viewport и iOS** — Корректный viewport, safe areas, клавиатура, PWA standalone (completed 2026-03-09)
 - [x] **Phase 13: PWA и offline** — Install prompt, offline-чтение, Service Worker management (completed 2026-03-09)
-- [ ] **Phase 14: Фикс описаний** — Корректное соответствие CFI-позиции и выделения описаний
+- [x] **Phase 14: Фикс описаний** — Корректное соответствие CFI-позиции и выделения описаний (completed 2026-03-09)
 
 ## Phase Details
 
@@ -138,7 +138,7 @@ Plans:
 
 1. При тапе на выделенное описание текст в popup полностью совпадает с выделенным фрагментом в книге — нет обрезки начала или конца
 2. Описания, содержащие специальные символы (кавычки, тире, переносы строк), выделяются корректно без смещения
-   **Plans:** 1/2 plans executed
+   **Plans:** 2/2 plans complete
 
 Plans:
 
@@ -167,4 +167,4 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 11. Единый gesture handler и мобильный UI | v1.1      | 3/3            | Complete    | 2026-03-09 |
 | 12. Viewport и iOS                        | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 13. PWA и offline                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 14. Фикс описаний                         | 1/2 | In Progress|  | -          |
+| 14. Фикс описаний                         | 2/2 | Complete   | 2026-03-09 | -          |
