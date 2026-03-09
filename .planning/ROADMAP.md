@@ -61,7 +61,7 @@ Plans:
   2. При отпускании пальца страница плавно анимируется к финальной позиции с spring physics (не телепортируется)
   3. Скорость жеста влияет на результат: медленный свайп возвращает страницу назад, быстрый — перелистывает даже при малом смещении
   4. На границе главы (последняя/первая страница) отображается корректный rubber-band эффект вместо пустоты
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 10-01-PLAN.md — Хук useFollowFingerSwipe + компоненты FollowFingerContainer и ChapterHint
@@ -144,7 +144,7 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 7. Обработка ошибок и UX | v1.0 | 2/2 | Complete | 2026-03-05 |
 | 8. Функции ридера | v1.0 | 3/3 | Complete | 2026-03-07 |
 | 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
-| 10. Follow-finger свайпы | v1.1 | 0/2 | In progress | - |
+| 10. Follow-finger свайпы | 1/2 | In Progress|  | - |
 | 11. Единый gesture handler и мобильный UI | v1.1 | 0/? | Not started | - |
 | 12. Viewport и iOS | v1.1 | 0/? | Not started | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
