@@ -126,8 +126,8 @@ Plans:
 
 Plans:
 
-- [ ] 13-01-PLAN.md — Баннер установки PWA + graduated resume из фона + автокэширование EPUB
-- [ ] 13-02-PLAN.md — Offline degradation в библиотеке/ридере + верификация SW update safety
+- [x] 13-01-PLAN.md — Баннер установки PWA + graduated resume из фона + автокэширование EPUB
+- [x] 13-02-PLAN.md — Offline degradation в библиотеке/ридере + верификация SW update safety
 
 ### Phase 14: Фикс описаний
 
@@ -138,11 +138,12 @@ Plans:
 
 1. При тапе на выделенное описание текст в popup полностью совпадает с выделенным фрагментом в книге — нет обрезки начала или конца
 2. Описания, содержащие специальные символы (кавычки, тире, переносы строк), выделяются корректно без смещения
-   **Plans**: TBD
+   **Plans:** 2 plans
 
 Plans:
 
-- [ ] 14-01: TBD
+- [ ] 14-01-PLAN.md — Фикс нормализации/маппинга для спецсимволов + Zustand store migration + DescriptionDrawer + UI настроек
+- [ ] 14-02-PLAN.md — Full-mode highlighting (multi-node wrapping) + интеграция в EpubReader
 
 ## Progress
 
@@ -165,5 +166,5 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 10. Follow-finger свайпы                  | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 11. Единый gesture handler и мобильный UI | v1.1      | 3/3            | Complete    | 2026-03-09 |
 | 12. Viewport и iOS                        | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 13. PWA и offline                         | 2/2 | Complete   | 2026-03-09 | -          |
-| 14. Фикс описаний                         | v1.1      | 0/?            | Not started | -          |
+| 13. PWA и offline                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
+| 14. Фикс описаний                         | v1.1      | 0/2            | Not started | -          |
