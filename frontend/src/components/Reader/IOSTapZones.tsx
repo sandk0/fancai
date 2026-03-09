@@ -19,21 +19,18 @@
  * - WebKit Bug 128924: Shifted document touch handling in iframes on iOS
  */
 
-import { useCallback, useRef, memo, useState, useEffect } from 'react';
+import { useCallback, useRef, memo } from 'react';
 import { isIOS } from '@/utils/iosSupport';
 import { logger } from '@/lib/logger';
 import { TapZone } from './TapZone';
 import { TapFeedback } from './TapFeedback';
+import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 
 const TAP_MAX_DURATION = 350; // ms
 
 // Note: BroadcastChannel removed - it doesn't work with blob: URL iframes on iOS Safari
 // due to storage partitioning. Using callback approach instead.
 const TAP_MAX_MOVEMENT = 20; // px
-
-// Debounce time for navigation (increased for real iOS devices)
-// Real devices can generate both touch and click events from single tap
-const NAV_DEBOUNCE_MS = 500;
 
 // Navigation zone width - VERY narrow to maximize description clickability
 // 8% = roughly 30px on iPhone, enough for a finger tap on the edge
@@ -67,6 +64,8 @@ interface IOSTapZonesProps {
   headerHeight?: number;
   /** Whether navigation tap zones should be rendered (false = swipe mode, only center zone) */
   navigationEnabled?: boolean;
+  /** Shared navigation lock for coordinating gesture handlers */
+  navLock: NavigationLock;
 }
 
 /**
@@ -81,78 +80,28 @@ export const IOSTapZones = memo(function IOSTapZones({
   enabled = true,
   headerHeight = 70,
   navigationEnabled = true, // When false (swipe mode), only center zone is rendered
+  navLock,
 }: IOSTapZonesProps) {
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const lastNavTimeRef = useRef<number>(0);
   const lastDescClickTimeRef = useRef<number>(0);
-  const isNavigatingRef = useRef<boolean>(false);
-  const navCountRef = useRef<number>(0);
-  const [debugTapInfo, setDebugTapInfo] = useState<string | null>(null);
-  
+  const pendingNavRef = useRef<'next' | 'prev' | null>(null);
+
   const isIOSDevice = isIOS();
 
-  useEffect(() => {
-    if (!isIOSDevice) return;
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'IFRAME_DEBUG') {
-        setDebugTapInfo(`IF: ${event.data.message}`);
-        setTimeout(() => setDebugTapInfo(null), 3000);
+  /**
+   * Debounce with guaranteed-last pattern:
+   * - First tap executes immediately (acquires lock)
+   * - Subsequent taps while locked are stored in pendingNavRef (only last one kept)
+   * - After navigation completes and lock is released, pending tap executes
+   */
+  const handleNavigation = useCallback(
+    async (action: 'next' | 'prev') => {
+      if (!navLock.acquire()) {
+        // Lock is held -- remember last tap (guaranteed-last)
+        pendingNavRef.current = action;
+        return;
       }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isIOSDevice]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!enabled) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
-    };
-  }, [enabled]);
-
-  const handleTouchEnd = useCallback((
-    e: React.TouchEvent,
-    action: 'prev' | 'next'
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!enabled) return;
-    if (!touchStartRef.current) return;
-
-    const touch = e.changedTouches[0];
-    if (!touch) {
-      touchStartRef.current = null;
-      return;
-    }
-
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-    const duration = Date.now() - touchStartRef.current.time;
-    touchStartRef.current = null;
-
-    const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
-    if (!isTap) return;
-
-    if (isNavigatingRef.current) {
-      setDebugTapInfo(`LOCKED`);
-      setTimeout(() => setDebugTapInfo(null), 1000);
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) return;
-    lastNavTimeRef.current = now;
-
-    isNavigatingRef.current = true;
-    navCountRef.current += 1;
-    const navNum = navCountRef.current;
-    setDebugTapInfo(`NAV#${navNum}:${action}`);
-
-    const doNavigate = async () => {
       try {
         if (action === 'prev') {
           await onPrevPage();
@@ -160,192 +109,173 @@ export const IOSTapZones = memo(function IOSTapZones({
           await onNextPage();
         }
       } finally {
-        setTimeout(() => {
-          isNavigatingRef.current = false;
-          setDebugTapInfo(null);
-        }, 300);
-      }
-    };
-
-    requestAnimationFrame(() => {
-      doNavigate();
-    });
-  }, [enabled, onPrevPage, onNextPage]);
-
-  const handleClick = useCallback((
-    e: React.MouseEvent,
-    action: 'prev' | 'next'
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!enabled) return;
-
-    if (isNavigatingRef.current) return;
-
-    const now = Date.now();
-    if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) return;
-    lastNavTimeRef.current = now;
-
-    isNavigatingRef.current = true;
-    navCountRef.current += 1;
-    const navNum = navCountRef.current;
-    setDebugTapInfo(`CLK#${navNum}:${action}`);
-
-    const doNavigate = async () => {
-      try {
-        if (action === 'prev') {
-          await onPrevPage();
-        } else {
-          await onNextPage();
+        navLock.release();
+        // Execute pending tap if any
+        const pending = pendingNavRef.current;
+        pendingNavRef.current = null;
+        if (pending) {
+          // Recursive call -- will try to acquire again
+          handleNavigation(pending);
         }
-      } finally {
-        setTimeout(() => {
-          isNavigatingRef.current = false;
-          setDebugTapInfo(null);
-        }, 300);
       }
-    };
+    },
+    [navLock, onPrevPage, onNextPage]
+  );
 
-    requestAnimationFrame(() => {
-      doNavigate();
-    });
-  }, [enabled, onPrevPage, onNextPage]);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+      };
+    },
+    [enabled]
+  );
 
-  const handleCenterTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!enabled) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
-    };
-  }, [enabled]);
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent, action: 'prev' | 'next') => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!enabled) return;
+      if (!touchStartRef.current) return;
 
-  const handleCenterTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!enabled) return;
+      const touch = e.changedTouches[0];
+      if (!touch) {
+        touchStartRef.current = null;
+        return;
+      }
 
-    if (!touchStartRef.current) return;
-
-    const touch = e.changedTouches[0];
-    if (!touch) {
+      const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
+      const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+      const duration = Date.now() - touchStartRef.current.time;
       touchStartRef.current = null;
-      return;
-    }
 
-    const startX = touchStartRef.current.x;
-    const startY = touchStartRef.current.y;
-    const rawDeltaX = touch.clientX - startX; // Keep sign for direction
-    const deltaX = Math.abs(rawDeltaX);
-    const deltaY = Math.abs(touch.clientY - startY);
-    const duration = Date.now() - touchStartRef.current.time;
+      const isTap =
+        duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
+      if (!isTap) return;
 
-    touchStartRef.current = null;
+      handleNavigation(action);
+    },
+    [enabled, handleNavigation]
+  );
 
-    // SWIPE DETECTION (only in swipe mode - when navigationEnabled is false)
-    if (!navigationEnabled) {
-      const isVerticalScroll = deltaY > 10 && deltaY / deltaX > SWIPE_MAX_VERTICAL_RATIO;
-      const isSwipe = deltaX >= SWIPE_MIN_DISTANCE && !isVerticalScroll;
+  const handleClick = useCallback(
+    (e: React.MouseEvent, action: 'prev' | 'next') => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!enabled) return;
 
-      if (isSwipe) {
-        const swipeDirection = rawDeltaX > 0 ? 'prev' : 'next';
+      handleNavigation(action);
+    },
+    [enabled, handleNavigation]
+  );
 
-        if (import.meta.env.DEV) {
-          logger.debug('[IOSTapZones] Swipe detected!', { deltaX, direction: swipeDirection });
-        }
+  const handleCenterTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+      };
+    },
+    [enabled]
+  );
 
-        if (isNavigatingRef.current) {
-          setDebugTapInfo('SWIPE LOCKED');
-          setTimeout(() => setDebugTapInfo(null), 1000);
-          return;
-        }
+  const handleCenterTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled) return;
 
-        const now = Date.now();
-        if (now - lastNavTimeRef.current < NAV_DEBOUNCE_MS) {
-          return;
-        }
-        lastNavTimeRef.current = now;
+      if (!touchStartRef.current) return;
 
-        isNavigatingRef.current = true;
-        navCountRef.current += 1;
-        const navNum = navCountRef.current;
+      const touch = e.changedTouches[0];
+      if (!touch) {
+        touchStartRef.current = null;
+        return;
+      }
 
-        setDebugTapInfo(`SWIPE#${navNum}:${swipeDirection}`);
+      const startX = touchStartRef.current.x;
+      const startY = touchStartRef.current.y;
+      const rawDeltaX = touch.clientX - startX; // Keep sign for direction
+      const deltaX = Math.abs(rawDeltaX);
+      const deltaY = Math.abs(touch.clientY - startY);
+      const duration = Date.now() - touchStartRef.current.time;
 
-        const doNavigate = async () => {
-          try {
-            if (swipeDirection === 'prev') {
-              await onPrevPage();
-            } else {
-              await onNextPage();
-            }
-          } finally {
-            setTimeout(() => {
-              isNavigatingRef.current = false;
-              setDebugTapInfo(null);
-            }, 300);
+      touchStartRef.current = null;
+
+      // SWIPE DETECTION (only in swipe mode - when navigationEnabled is false)
+      if (!navigationEnabled) {
+        const isVerticalScroll = deltaY > 10 && deltaY / deltaX > SWIPE_MAX_VERTICAL_RATIO;
+        const isSwipe = deltaX >= SWIPE_MIN_DISTANCE && !isVerticalScroll;
+
+        if (isSwipe) {
+          const swipeDirection = rawDeltaX > 0 ? 'prev' : 'next';
+
+          if (import.meta.env.DEV) {
+            logger.debug('[IOSTapZones] Swipe detected!', { deltaX, direction: swipeDirection });
           }
-        };
 
-        requestAnimationFrame(() => {
-          doNavigate();
-        });
-
-        return; // Don't process as tap
+          handleNavigation(swipeDirection);
+          return; // Don't process as tap
+        }
       }
-    }
 
-    const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
+      const isTap =
+        duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
 
-    if (!isTap) {
-      if (import.meta.env.DEV) {
-        logger.debug('[IOSTapZones] Center: Not a tap - ignoring', { deltaX, deltaY, duration });
+      if (!isTap) {
+        if (import.meta.env.DEV) {
+          logger.debug('[IOSTapZones] Center: Not a tap - ignoring', { deltaX, deltaY, duration });
+        }
+        return;
       }
-      return;
-    }
 
-    const now = Date.now();
-    if (now - lastDescClickTimeRef.current < 300) {
-      if (import.meta.env.DEV) {
-        logger.debug('[IOSTapZones] Center: Debounced - ignoring');
+      const now = Date.now();
+      if (now - lastDescClickTimeRef.current < 300) {
+        if (import.meta.env.DEV) {
+          logger.debug('[IOSTapZones] Center: Debounced - ignoring');
+        }
+        return;
       }
-      return;
-    }
-    lastDescClickTimeRef.current = now;
+      lastDescClickTimeRef.current = now;
 
-    // Find the iframe for coordinate calculation
-    // CRITICAL FIX (January 2026): Use iframe rect, NOT viewer rect!
-    // After safe-area fix, iframe height is reduced (via renditionHeight),
-    // but viewer container may have different dimensions.
-    const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
+      // Find the iframe for coordinate calculation
+      // CRITICAL FIX (January 2026): Use iframe rect, NOT viewer rect!
+      // After safe-area fix, iframe height is reduced (via renditionHeight),
+      // but viewer container may have different dimensions.
+      const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
 
-    if (!iframe) {
-      setDebugTapInfo('ERROR: No iframe');
-      setTimeout(() => setDebugTapInfo(null), 2000);
-      return;
-    }
+      if (!iframe) {
+        if (import.meta.env.DEV) {
+          logger.debug('[IOSTapZones] Center: No iframe found');
+        }
+        return;
+      }
 
-    // Use iframe rect for coordinate calculation
-    // These are the exact coordinates needed for elementFromPoint inside iframe
-    const iframeRect = iframe.getBoundingClientRect();
+      // Use iframe rect for coordinate calculation
+      // These are the exact coordinates needed for elementFromPoint inside iframe
+      const iframeRect = iframe.getBoundingClientRect();
 
-    const viewportX = touch.clientX - iframeRect.left;
-    const viewportY = touch.clientY - iframeRect.top;
+      const viewportX = touch.clientX - iframeRect.left;
+      const viewportY = touch.clientY - iframeRect.top;
 
-    // NEW APPROACH (January 2026): Use callback instead of postMessage
-    // BroadcastChannel and postMessage do NOT work reliably with blob: URL iframes
-    // on iOS Safari due to storage partitioning and security restrictions.
-    // Instead, we pass coordinates to parent component which uses
-    // rendition.getContents()[0].document.elementFromPoint() - this works!
-    if (onCenterTap) {
-      setDebugTapInfo(`TAP:${Math.round(viewportX)},${Math.round(viewportY)}`);
-      onCenterTap(viewportX, viewportY);
-      setTimeout(() => setDebugTapInfo(null), 2000);
-    } else {
-      setDebugTapInfo('NO_HANDLER');
-      setTimeout(() => setDebugTapInfo(null), 2000);
-    }
-  }, [enabled, navigationEnabled, onPrevPage, onNextPage, onCenterTap]);
+      // NEW APPROACH (January 2026): Use callback instead of postMessage
+      // BroadcastChannel and postMessage do NOT work reliably with blob: URL iframes
+      // on iOS Safari due to storage partitioning and security restrictions.
+      // Instead, we pass coordinates to parent component which uses
+      // rendition.getContents()[0].document.elementFromPoint() - this works!
+      if (onCenterTap) {
+        onCenterTap(viewportX, viewportY);
+      }
+    },
+    [enabled, navigationEnabled, handleNavigation, onCenterTap]
+  );
 
   // Early return for non-iOS devices (after all hooks are called)
   if (!isIOSDevice) {
@@ -427,7 +357,6 @@ export const IOSTapZones = memo(function IOSTapZones({
       />
 
       <TapFeedback
-        debugTapInfo={debugTapInfo}
         navigationEnabled={navigationEnabled}
         zoneWidthPercent={ZONE_WIDTH_PERCENT}
         isStandalone={isStandalone()}
