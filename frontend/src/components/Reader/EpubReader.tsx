@@ -44,6 +44,7 @@ import { ExtractionIndicator } from './ExtractionIndicator';
 import { SearchPanel } from './SearchPanel';
 import { EntityPopup } from './EntityPopup';
 import { useEntityNameHighlighting } from '@/hooks/epub/useEntityNameHighlighting';
+import { useNavigationLock } from '@/hooks/shared/useNavigationLock';
 import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
@@ -187,6 +188,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   const { nextPage, prevPage } = useEpubNavigation(rendition);
+  const navLock = useNavigationLock({ maxLockDuration: 2000 });
   const {
     selectedImage,
     isOpen: isModalOpen,
@@ -533,6 +535,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onNextPage: nextPage,
           onDescriptionClick: handleDescriptionClick,
           onCenterTap: handleCenterTap,
+          navLock,
         }}
       />
 

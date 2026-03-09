@@ -6,6 +6,7 @@ import { isIOS } from '@/utils/iosSupport';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import type { ThemeName } from '@/hooks/epub/useEpubThemes';
 import type { SwipeState } from '@/hooks/epub/useSwipeNavigation';
+import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 
 interface ReaderOverlaysProps {
   loading: {
@@ -36,6 +37,7 @@ interface ReaderOverlaysProps {
     onNextPage: () => void;
     onDescriptionClick: (id: string) => void;
     onCenterTap: (x: number, y: number) => void;
+    navLock: NavigationLock;
   };
 }
 
@@ -89,6 +91,7 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
           enabled={!isLoading && !isGenerating && !error.message}
           headerHeight={70}
           navigationEnabled={effectiveNavigationMode === 'tap'}
+          navLock={tapZones.navLock}
         />
       )}
       {(isLoading ||
