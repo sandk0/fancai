@@ -620,6 +620,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         rendition={rendition}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
+        isHeaderVisible={autoHide.isHeaderVisible}
       />
 
       <ReaderModals
