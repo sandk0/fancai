@@ -66,6 +66,8 @@ interface IOSTapZonesProps {
   navigationEnabled?: boolean;
   /** Shared navigation lock for coordinating gesture handlers */
   navLock: NavigationLock;
+  /** Optional callback to trigger slide-in animation for tap navigation */
+  onTapNavigateAnimation?: (direction: 'next' | 'prev') => void;
 }
 
 /**
@@ -81,6 +83,7 @@ export const IOSTapZones = memo(function IOSTapZones({
   headerHeight = 70,
   navigationEnabled = true, // When false (swipe mode), only center zone is rendered
   navLock,
+  onTapNavigateAnimation,
 }: IOSTapZonesProps) {
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastDescClickTimeRef = useRef<number>(0);
@@ -102,6 +105,9 @@ export const IOSTapZones = memo(function IOSTapZones({
         return;
       }
 
+      // Trigger slide-in animation concurrently (non-blocking visual effect)
+      onTapNavigateAnimation?.(action);
+
       try {
         if (action === 'prev') {
           await onPrevPage();
@@ -119,7 +125,7 @@ export const IOSTapZones = memo(function IOSTapZones({
         }
       }
     },
-    [navLock, onPrevPage, onNextPage]
+    [navLock, onPrevPage, onNextPage, onTapNavigateAnimation]
   );
 
   const handleTouchStart = useCallback(
