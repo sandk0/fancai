@@ -127,7 +127,9 @@
     },
     "swipe": {
       "chapter_start": "Chapter start",
-      "chapter_end": "Chapter end"
+      "chapter_end": "Chapter end",
+      "next_chapter": "Next chapter \u2192",
+      "prev_chapter": "\u2190 Previous chapter"
     },
     "extraction": {
       "analyzing": "AI analyzing chapter...",
@@ -281,23 +283,23 @@
     "menu": {
       "aria_label": "Text selection menu",
       "copy": "Copy",
-      "note": "Note",
+      "note": "Bookmark",
       "bg_color": "Background",
       "text_color": "Text color",
-      "add_note": "Add note",
+      "add_note": "Add bookmark",
       "note_placeholder": "Write a note (optional)...",
       "save": "Save",
       "characters": "characters selected"
     },
     "sidebar": {
       "toc": "Contents",
-      "notes": "Notes"
+      "notes": "Bookmarks"
     },
     "bookmarks": {
-      "empty": "No notes",
-      "empty_hint": "Select text and tap \"Note\"",
+      "empty": "No bookmarks",
+      "empty_hint": "Select text and tap \"Bookmark\"",
       "chapter": "Chapter {{number}}",
-      "delete": "Delete note",
+      "delete": "Delete bookmark",
       "edit_note": "Edit note",
       "note_placeholder": "Add a note...",
       "save_note": "Save"
