@@ -549,6 +549,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onDescriptionClick: handleDescriptionClick,
           onCenterTap: handleCenterTap,
           navLock,
+          onTapNavigateAnimation: followFinger.triggerSlideAnimation,
         }}
       />
 

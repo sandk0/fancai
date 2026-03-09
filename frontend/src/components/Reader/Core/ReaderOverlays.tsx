@@ -31,6 +31,7 @@ interface ReaderOverlaysProps {
     onDescriptionClick: (id: string) => void;
     onCenterTap: (x: number, y: number) => void;
     navLock: NavigationLock;
+    onTapNavigateAnimation?: (direction: 'next' | 'prev') => void;
   };
 }
 
@@ -76,6 +77,7 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
           headerHeight={70}
           navigationEnabled={effectiveNavigationMode === 'tap'}
           navLock={tapZones.navLock}
+          onTapNavigateAnimation={tapZones.onTapNavigateAnimation}
         />
       )}
       {(isLoading ||

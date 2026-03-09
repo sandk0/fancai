@@ -184,6 +184,8 @@ export interface UseFollowFingerSwipeReturn {
   isAtBoundary: 'start' | 'end' | null;
   showChapterHint: boolean;
   chapterHintDirection: 'next' | 'prev' | null;
+  /** Trigger a quick slide-in animation for tap navigation (~150ms feel) */
+  triggerSlideAnimation: (direction: 'next' | 'prev') => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -559,12 +561,47 @@ export const useFollowFingerSwipe = (
     };
   }, [rendition, translateX, resetState]);
 
+  // ---------------------------------------------------------------------------
+  // Slide-in animation for tap navigation (IOSTapZones)
+  // Purely visual -- runs concurrently with actual navigation, ~150ms feel.
+  // Uses SPRING_FAST for quick, critically-damped slide.
+  // ---------------------------------------------------------------------------
+  const triggerSlideAnimation = useCallback(
+    (direction: 'next' | 'prev') => {
+      // Don't start slide if already tracking or animating
+      if (phase !== 'idle') return;
+
+      const info = getStageInfo(rendition);
+      const viewportWidth = info?.viewportWidth || window.innerWidth;
+      const target = direction === 'next' ? -viewportWidth : viewportWidth;
+
+      setPhase('animating');
+
+      // Stop any existing animation
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+
+      animationRef.current = animate(translateX, target, {
+        ...SPRING_FAST,
+        onComplete: () => {
+          animationRef.current = null;
+          translateX.set(0);
+          setPhase('idle');
+        },
+      });
+    },
+    [phase, rendition, translateX]
+  );
+
   return {
     translateX,
     phase,
     isAtBoundary,
     showChapterHint,
     chapterHintDirection,
+    triggerSlideAnimation,
   };
 };
 
