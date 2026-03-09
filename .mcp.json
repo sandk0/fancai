@@ -1,9 +1,5 @@
 {
   "mcpServers": {
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    },
     "postgres": {
       "command": "bash",
       "args": [".claude/scripts/pg-tunnel-mcp.sh"]

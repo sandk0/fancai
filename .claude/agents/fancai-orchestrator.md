@@ -16,12 +16,12 @@ Route tasks to specialized agents. **Never implement directly** — always deleg
 
 ## Delegation Matrix
 
-| Task Type                 | Delegate To               | Run Mode      |
-| ------------------------- | ------------------------- | ------------- |
-| EPUB/Reader/CFI           | epub-reader               | foreground    |
-| AI/Gemini/Imagen/Entities | gemini-imagen             | foreground    |
-| Frontend/Backend general  | general-purpose           | background OK |
-| Code review               | superpowers:code-reviewer | foreground    |
+| Task Type                     | Delegate To               | Run Mode      |
+| ----------------------------- | ------------------------- | ------------- |
+| EPUB/Reader/CFI               | epub-reader               | foreground    |
+| AI/OpenRouter/Images/Entities | ai-pipeline               | foreground    |
+| Frontend/Backend general      | (built-in subagent)       | background OK |
+| Code review                   | superpowers:code-reviewer | foreground    |
 
 ## Cross-Cutting Concerns
 

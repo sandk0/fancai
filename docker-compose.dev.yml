@@ -119,7 +119,7 @@ services:
         limits:
           memory: 1536M
     restart: unless-stopped
-    command: gunicorn app.main:app --config gunicorn.conf.py
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
 
   # Celery Worker
   celery-worker:
