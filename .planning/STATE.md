@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
 status: Phase 13 завершена (2/2 планов). Следующая — Phase 14.
-last_updated: "2026-03-09T14:38:18Z"
+last_updated: "2026-03-09T15:16:35.958Z"
 last_activity: 2026-03-09 — Phase 13 завершена (offline degradation, SW update safety)
 progress:
   total_phases: 6

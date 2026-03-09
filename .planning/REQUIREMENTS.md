@@ -25,11 +25,11 @@
 
 ### PWA
 
-- [ ] **PWA-01**: Install prompt UI с кастомным баннером
+- [x] **PWA-01**: Install prompt UI с кастомным баннером
 - [x] **PWA-02**: Graceful offline degradation (UI показывает доступные книги, AI-фичи скрыты)
 - [x] **PWA-03**: Service Worker update management с уведомлением пользователя
-- [ ] **PWA-04**: Градуированный reload при возврате из фона (не reload при MIN_BACKGROUND_TIME = 0)
-- [ ] **PWA-05**: Полное кэширование EPUB файлов для чтения без интернета
+- [x] **PWA-04**: Градуированный reload при возврате из фона (не reload при MIN_BACKGROUND_TIME = 0)
+- [x] **PWA-05**: Полное кэширование EPUB файлов для чтения без интернета
 
 ### Viewport и iOS
 
@@ -78,11 +78,11 @@
 | MUI-04      | Phase 11 | Complete |
 | MUI-05      | Phase 11 | Complete |
 | MUI-06      | Phase 11 | Complete |
-| PWA-01      | Phase 13 | Pending  |
+| PWA-01      | Phase 13 | Complete |
 | PWA-02      | Phase 13 | Complete |
 | PWA-03      | Phase 13 | Complete |
-| PWA-04      | Phase 13 | Pending  |
-| PWA-05      | Phase 13 | Pending  |
+| PWA-04      | Phase 13 | Complete |
+| PWA-05      | Phase 13 | Complete |
 | VPT-01      | Phase 12 | Complete |
 | VPT-02      | Phase 12 | Complete |
 | VPT-03      | Phase 12 | Complete |
