@@ -1,0 +1,775 @@
+# Instincts generated from https://github.com/sandk0/fancai
+# Generated: 2026-03-09T18:07:26.738Z
+# Version: 2.0
+
+---
+id: fancai-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: fix, docs, feat, chore, refactor
+
+## Evidence
+
+- 200 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix(frontend): increase book processing progress timeout from 90s to 180s, feat(security): add IP whitelist to fancai.ru
+
+---
+id: fancai-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Commit Length
+
+## Action
+
+Write moderate-length commit messages (~50 characters)
+
+## Evidence
+
+- Average commit message length: 72 chars
+- Based on 200 commits
+
+---
+id: fancai-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: fancai-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: fancai-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: fancai-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: 
+
+---
+id: fancai-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Test Framework
+
+## Action
+
+Use vitest as the test framework
+
+## Evidence
+
+- Test framework detected: vitest
+- File pattern: *.test.tsx
+
+---
+id: fancai-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.tsx
+
+## Evidence
+
+- File pattern: *.test.tsx
+- Consistent across test files
+
+---
+id: fancai-test-mocking
+trigger: "when mocking dependencies in tests"
+confidence: 0.75
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Test Mocking
+
+## Action
+
+Use vi.mock for mocking
+
+## Evidence
+
+- Mocking pattern detected: vi.mock
+- Consistent across test files
+
+---
+id: fancai-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Test Types
+
+## Action
+
+Write unit, integration tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration
+- Coverage config: yes
+
+---
+id: fancai-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~5x per month
+- Files: migrations/*
+
+---
+id: fancai-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~11x per month
+- Files: monitoring/grafana/data/plugins/grafana-exploretraces-app/components/states/emptystate/img/*, frontend/src/api/*, frontend/src/components/*
+
+---
+id: fancai-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~5x per month
+- Files: src/**/*
+
+---
+id: fancai-workflow-plan-completion-documentation
+trigger: "when doing plan completion documentation"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Plan Completion Documentation
+
+## Action
+
+Follow the plan-completion-documentation workflow:
+1. Create SUMMARY.md with execution results and verification
+2. Update STATE.md with position, metrics, decisions, and session info
+3. Update ROADMAP.md with plan completion checkboxes and progress
+4. Mark related requirements as complete in REQUIREMENTS.md
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~8x per month
+- Files: .planning/phases/*/SUMMARY.md, .planning/STATE.md, .planning/ROADMAP.md
+
+---
+id: fancai-workflow-service-migration-to-openrouter
+trigger: "when doing service migration to openrouter"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Service Migration To Openrouter
+
+## Action
+
+Follow the service-migration-to-openrouter workflow:
+1. Replace provider SDK imports with openrouter_client
+2. Update service calls to use generate_text/generate_structured/generate_image
+3. Remove old provider dependencies from requirements.txt
+4. Update tests to mock OpenRouter instead of old provider
+5. Verify structured response handling with Pydantic schemas
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: backend/app/services/*.py, backend/requirements.txt, backend/tests/services/test_*.py
+
+---
+id: fancai-workflow-docker-compose-environment-fixes
+trigger: "when doing docker compose environment fixes"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Docker Compose Environment Fixes
+
+## Action
+
+Follow the docker-compose-environment-fixes workflow:
+1. Identify missing environment variable from error logs
+2. Add environment variable to appropriate service in docker-compose.prod.yml
+3. Add to related services (backend, celery-worker, celery-beat) if needed
+4. Verify variable is available in production environment
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: docker-compose.prod.yml, docker-compose.dev.yml
+
+---
+id: fancai-workflow-database-migration-creation
+trigger: "when doing database migration creation"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Database Migration Creation
+
+## Action
+
+Follow the database-migration-creation workflow:
+1. Create new SQLAlchemy model in backend/app/models/
+2. Register model in backend/app/models/__init__.py
+3. Generate Alembic migration with descriptive filename
+4. Add indexes and constraints as needed in migration
+5. Update related services to use new model
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: backend/alembic/versions/*.py, backend/app/models/*.py, backend/app/models/__init__.py
+
+---
+id: fancai-workflow-security-configuration-hardening
+trigger: "when doing security configuration hardening"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Security Configuration Hardening
+
+## Action
+
+Follow the security-configuration-hardening workflow:
+1. Update Caddyfile with new security headers or auth rules
+2. Modify CSP policies to allow/block new domains
+3. Update Docker Compose with security-related environment variables
+4. Test configuration changes for functionality
+5. Document security decisions in commit message
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~5x per month
+- Files: Caddyfile, frontend/index.html, docker-compose.prod.yml
+
+---
+id: fancai-workflow-monitoring-stack-replacement
+trigger: "when doing monitoring stack replacement"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Monitoring Stack Replacement
+
+## Action
+
+Follow the monitoring-stack-replacement workflow:
+1. Create new docker-compose.monitoring.yml with replacement services
+2. Update Caddyfile with new monitoring endpoints and auth
+3. Remove old monitoring configurations and volumes
+4. Update documentation (README.md, QUICKSTART.md)
+5. Configure new monitoring tools with appropriate settings
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: docker-compose.monitoring.yml, Caddyfile, monitoring/*
+
+---
+id: fancai-workflow-dependency-updates-batch
+trigger: "when doing dependency updates batch"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/sandk0/fancai
+---
+
+# Fancai Workflow Dependency Updates Batch
+
+## Action
+
+Follow the dependency-updates-batch workflow:
+1. Update npm dependencies to latest minor versions in package.json
+2. Update pip dependencies in requirements.txt
+3. Pin Docker images to specific patch versions
+4. Run tests to verify compatibility
+5. Document major version changes and compatibility notes
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: frontend/package-lock.json, backend/requirements.txt, docker-compose.prod.yml
+
+---
+id: fancai-conventional-commits
+trigger: "When writing commit messages"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Conventional Commits
+
+## Action
+
+Use format: type(scope): description with prefixes fix|docs|feat|chore|refactor|test
+
+## Evidence
+
+- All 8 example commits follow conventional format
+- Consistent use of fix, feat, docs, chore, refactor prefixes
+
+---
+id: fancai-commit-length-limit
+trigger: "When writing commit descriptions"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Commit Length Limit
+
+## Action
+
+Keep commit message under 72 characters average
+
+## Evidence
+
+- Average commit length is 72 characters
+- All examples stay within reasonable length
+
+---
+id: fancai-vitest-testing
+trigger: "When creating test files"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Vitest Testing
+
+## Action
+
+Use *.test.tsx pattern with vitest framework and vi.mock for mocking
+
+## Evidence
+
+- Testing framework is vitest
+- File pattern *.test.tsx
+- Mocking style is vi.mock
+
+---
+id: fancai-error-boundaries
+trigger: "When handling React errors"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Error Boundaries
+
+## Action
+
+Use error boundaries for error handling instead of global handlers
+
+## Evidence
+
+- Error handling style is error-boundaries
+- errorBoundaries: true, globalHandler: false
+
+---
+id: fancai-camel-case-files
+trigger: "When naming files and functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Camel Case Files
+
+## Action
+
+Use camelCase for files and functions
+
+## Evidence
+
+- Naming conventions show camelCase for files and functions
+
+---
+id: fancai-pascal-case-classes
+trigger: "When naming classes"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Pascal Case Classes
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Naming conventions show PascalCase for classes
+
+---
+id: fancai-screaming-snake-constants
+trigger: "When defining constants"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Screaming Snake Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constants
+
+## Evidence
+
+- Naming conventions show SCREAMING_SNAKE_CASE for constants
+
+---
+id: fancai-plan-completion-docs
+trigger: "When finishing a development plan execution"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Plan Completion Docs
+
+## Action
+
+Create SUMMARY.md, update STATE.md, ROADMAP.md, and REQUIREMENTS.md
+
+## Evidence
+
+- plan-completion-documentation workflow occurs ~8x/month
+- Specific files pattern in .planning/ directory
+
+---
+id: fancai-openrouter-migration
+trigger: "When migrating AI service integrations"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Openrouter Migration
+
+## Action
+
+Replace provider SDK with openrouter_client and update to generate_text/generate_structured calls
+
+## Evidence
+
+- service-migration-to-openrouter workflow occurs ~4x/month
+- Pattern in backend/app/services/*.py files
+
+---
+id: fancai-docker-env-fixes
+trigger: "When deployment fails due to missing environment variables"
+confidence: 0.88
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Docker Env Fixes
+
+## Action
+
+Add missing env vars to docker-compose.prod.yml and related services
+
+## Evidence
+
+- docker-compose-environment-fixes workflow occurs ~6x/month
+- Pattern in docker-compose files
+
+---
+id: fancai-alembic-migrations
+trigger: "When adding new database tables or modifying schemas"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Alembic Migrations
+
+## Action
+
+Create SQLAlchemy model, register in __init__.py, generate Alembic migration
+
+## Evidence
+
+- database-migration-creation workflow occurs ~3x/month
+- Pattern in backend/alembic/versions/ and backend/app/models/
+
+---
+id: fancai-security-hardening
+trigger: "When hardening security policies or fixing CSP/auth issues"
+confidence: 0.82
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Security Hardening
+
+## Action
+
+Update Caddyfile, modify CSP policies, update Docker Compose security vars
+
+## Evidence
+
+- security-configuration-hardening workflow occurs ~5x/month
+- Pattern in Caddyfile and frontend/index.html
+
+---
+id: fancai-monitoring-replacement
+trigger: "When upgrading or replacing monitoring solutions"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Monitoring Replacement
+
+## Action
+
+Create new docker-compose.monitoring.yml, update Caddyfile endpoints, remove old configs
+
+## Evidence
+
+- monitoring-stack-replacement workflow occurs ~2x/month
+- Pattern in monitoring/* and docker-compose.monitoring.yml
+
+---
+id: fancai-batch-dependency-updates
+trigger: "When performing routine dependency maintenance"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Batch Dependency Updates
+
+## Action
+
+Update npm package.json, pip requirements.txt, pin Docker images, run tests
+
+## Evidence
+
+- dependency-updates-batch workflow occurs ~2x/month
+- Pattern across frontend/package.json and backend/requirements.txt
+
+---
+id: fancai-type-based-organization
+trigger: "When organizing code modules"
+confidence: 0.75
+domain: architecture
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Type Based Organization
+
+## Action
+
+Use type-based module organization structure
+
+## Evidence
+
+- Module organization is type-based
+- Common folders include frontend, backend, docs, .planning
+
+---
+id: fancai-frontend-backend-separation
+trigger: "When structuring project layout"
+confidence: 0.85
+domain: architecture
+source: repo-analysis
+source_repo: sandk0/fancai
+---
+
+# Fancai Frontend Backend Separation
+
+## Action
+
+Maintain clear frontend/ and backend/ directory separation
+
+## Evidence
+
+- Common folders show frontend and backend separation
+- Config files distributed across frontend/ and root
+
