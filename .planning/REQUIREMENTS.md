@@ -11,16 +11,16 @@
 - [x] **NAV-02**: Slide-анимация с spring physics при завершении свайпа
 - [x] **NAV-03**: Быстрое пролистывание не смещает страницу (фикс race condition в directScroll)
 - [x] **NAV-04**: Навигация не блокируется после отмены генерации изображений и других действий
-- [ ] **NAV-05**: Единый gesture controller вместо 3 параллельных систем (useSwipeNavigation + useTouchNavigation + IOSTapZones)
+- [x] **NAV-05**: Единый gesture controller вместо 3 параллельных систем (useSwipeNavigation + useTouchNavigation + IOSTapZones)
 - [x] **NAV-06**: Корректная навигация при быстрых тапах (tap debounce / queue)
 
 ### Мобильный UI
 
 - [ ] **MUI-01**: Все интерактивные элементы имеют минимум 44px touch target
-- [ ] **MUI-02**: Header/footer автоскрываются при чтении, появляются по тапу в центральной зоне
+- [x] **MUI-02**: Header/footer автоскрываются при чтении, появляются по тапу в центральной зоне
 - [ ] **MUI-03**: Панели (entity drawer, settings, оглавление) адаптированы для мобильных экранов
 - [ ] **MUI-04**: Spring-анимации для открытия/закрытия панелей и drawer
-- [ ] **MUI-05**: Плавные motion transitions между экранами (библиотека → ридер)
+- [x] **MUI-05**: Плавные motion transitions между экранами (библиотека → ридер)
 - [ ] **MUI-06**: Safe area insets корректно применяются на iOS (notch, home indicator)
 
 ### PWA
@@ -70,13 +70,13 @@
 | NAV-02 | Phase 10 | Complete |
 | NAV-03 | Phase 9 | Complete |
 | NAV-04 | Phase 9 | Complete |
-| NAV-05 | Phase 11 | Pending |
+| NAV-05 | Phase 11 | Complete |
 | NAV-06 | Phase 9 | Complete |
 | MUI-01 | Phase 11 | Pending |
-| MUI-02 | Phase 11 | Pending |
+| MUI-02 | Phase 11 | Complete |
 | MUI-03 | Phase 11 | Pending |
 | MUI-04 | Phase 11 | Pending |
-| MUI-05 | Phase 11 | Pending |
+| MUI-05 | Phase 11 | Complete |
 | MUI-06 | Phase 11 | Pending |
 | PWA-01 | Phase 13 | Pending |
 | PWA-02 | Phase 13 | Pending |

@@ -77,7 +77,7 @@ Plans:
   3. Header и footer автоматически скрываются при чтении и появляются по тапу в центральной зоне экрана
   4. Entity drawer, настройки и оглавление открываются/закрываются с плавной spring-анимацией и адаптированы для мобильных экранов (полная ширина, правильные отступы)
   5. Переход библиотека-ридер сопровождается плавной motion-анимацией
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 11-01-PLAN.md — Единый gesture controller + автоскрытие header с immersive mode
@@ -145,7 +145,7 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 8. Функции ридера | v1.0 | 3/3 | Complete | 2026-03-07 |
 | 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 10. Follow-finger свайпы | v1.1 | 2/2 | Complete | 2026-03-09 |
-| 11. Единый gesture handler и мобильный UI | v1.1 | 0/3 | Not started | - |
+| 11. Единый gesture handler и мобильный UI | 2/3 | In Progress|  | - |
 | 12. Viewport и iOS | v1.1 | 0/? | Not started | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
 | 14. Фикс описаний | v1.1 | 0/? | Not started | - |
