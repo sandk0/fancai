@@ -1,7 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { LazyMotion, domAnimation } from 'motion/react';
+import { LazyMotion, domAnimation, AnimatePresence, m } from 'motion/react';
 import { Toaster } from 'sonner';
 import { HelmetProvider } from 'react-helmet-async';
 
@@ -63,6 +63,83 @@ const PageLoadingFallback = () => (
   </div>
 );
 
+/**
+ * Animated routes wrapper — crossfade transition between library and reader.
+ * Uses AnimatePresence with key='reader'/'app' so animation only triggers
+ * on library<->reader transitions, not between app pages (library->profile etc).
+ * Must be inside Router to access useLocation.
+ */
+function AnimatedRoutes() {
+  const location = useLocation();
+  // Key: 'reader' for /book/:id/read, 'app' for everything else
+  // Animation only triggers when key changes (app<->reader), not within app routes
+  const isReaderRoute = location.pathname.includes('/read');
+  const animationKey = isReaderRoute ? 'reader' : 'app';
+
+  return (
+    <AnimatePresence mode="wait">
+      <m.div
+        key={animationKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="min-h-screen"
+      >
+        <Routes location={location}>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Fullscreen reader route (no layout) */}
+          <Route
+            path="/book/:bookId/read"
+            element={
+              <AuthGuard>
+                <ChunkLoadErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <BookReaderPage />
+                  </Suspense>
+                </ChunkLoadErrorBoundary>
+              </AuthGuard>
+            }
+          />
+
+          {/* Protected routes with layout */}
+          <Route
+            path="/*"
+            element={
+              <AuthGuard>
+                <Layout>
+                  <ChunkLoadErrorBoundary>
+                    <Suspense fallback={<PageLoadingFallback />}>
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/library" element={<LibraryPage />} />
+                        <Route path="/book/:bookId" element={<BookPage />} />
+                        <Route path="/book/:bookId/images" element={<BookImagesPage />} />
+                        <Route path="/book/:bookId/gallery" element={<BookGalleryPage />} />
+                        <Route path="/images" element={<ImagesGalleryPage />} />
+                        <Route path="/stats" element={<StatsPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/admin" element={<AdminDashboard />} />
+                        <Route path="*" element={<NotFoundPage />} />
+                      </Routes>
+                    </Suspense>
+                  </ChunkLoadErrorBoundary>
+                </Layout>
+              </AuthGuard>
+            }
+          />
+        </Routes>
+      </m.div>
+    </AnimatePresence>
+  );
+}
+
 function App() {
   useEffect(() => {
     logger.debug('[App] Starting, initializing stores...');
@@ -82,80 +159,32 @@ function App() {
 
   return (
     <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <LazyMotion features={domAnimation}>
-        <Router>
-          <ScrollToTop />
-          <div className="App min-h-screen transition-colors bg-background text-foreground">
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <QueryClientProvider client={queryClient}>
+        <LazyMotion features={domAnimation}>
+          <Router>
+            <ScrollToTop />
+            <div className="App min-h-screen transition-colors bg-background text-foreground">
+              <AnimatedRoutes />
 
-              {/* Fullscreen reader route (no layout) */}
-              <Route
-                path="/book/:bookId/read"
-                element={
-                  <AuthGuard>
-                    <ChunkLoadErrorBoundary>
-                      <Suspense fallback={<PageLoadingFallback />}>
-                        <BookReaderPage />
-                      </Suspense>
-                    </ChunkLoadErrorBoundary>
-                  </AuthGuard>
-                }
+              {/* Offline status banner */}
+              <OfflineBanner />
+
+              {/* PWA update prompt */}
+              <PWAUpdatePrompt />
+
+              {/* Global notifications */}
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                toastOptions={{
+                  className: 'font-sans',
+                }}
               />
-
-              {/* Protected routes with layout */}
-              <Route
-                path="/*"
-                element={
-                  <AuthGuard>
-                    <Layout>
-                      <ChunkLoadErrorBoundary>
-                        <Suspense fallback={<PageLoadingFallback />}>
-                          <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="/library" element={<LibraryPage />} />
-                            <Route path="/book/:bookId" element={<BookPage />} />
-                            <Route path="/book/:bookId/images" element={<BookImagesPage />} />
-                            <Route path="/book/:bookId/gallery" element={<BookGalleryPage />} />
-                            <Route path="/images" element={<ImagesGalleryPage />} />
-                            <Route path="/stats" element={<StatsPage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
-                            <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/admin" element={<AdminDashboard />} />
-                            <Route path="*" element={<NotFoundPage />} />
-                          </Routes>
-                        </Suspense>
-                      </ChunkLoadErrorBoundary>
-                    </Layout>
-                  </AuthGuard>
-                }
-              />
-            </Routes>
-
-            {/* Offline status banner */}
-            <OfflineBanner />
-
-            {/* PWA update prompt */}
-            <PWAUpdatePrompt />
-
-            {/* Global notifications */}
-            <Toaster
-              position="top-center"
-              richColors
-              closeButton
-              toastOptions={{
-                className: 'font-sans',
-              }}
-            />
-          </div>
-        </Router>
-      </LazyMotion>
-    </QueryClientProvider>
+            </div>
+          </Router>
+        </LazyMotion>
+      </QueryClientProvider>
     </HelmetProvider>
   );
 }
