@@ -10,6 +10,8 @@ interface SearchPanelProps {
   rendition: Rendition | null;
   isOpen: boolean;
   onClose: () => void;
+  /** Whether the reader header is currently visible (affects top positioning) */
+  isHeaderVisible?: boolean;
 }
 
 export const SearchPanel = memo(function SearchPanel({
@@ -17,6 +19,7 @@ export const SearchPanel = memo(function SearchPanel({
   rendition,
   isOpen,
   onClose,
+  isHeaderVisible = true,
 }: SearchPanelProps) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +125,11 @@ export const SearchPanel = memo(function SearchPanel({
           exit={{ y: -60, opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed left-0 right-0 z-20 bg-card/95 backdrop-blur-md shadow-md border-b border-border"
-          style={{ top: 'calc(70px + env(safe-area-inset-top, 0px))' }}
+          style={{
+            top: isHeaderVisible
+              ? 'calc(70px + env(safe-area-inset-top, 0px))'
+              : 'env(safe-area-inset-top, 0px)',
+          }}
         >
           <div className="flex items-center gap-2 px-3 py-2">
             <input
