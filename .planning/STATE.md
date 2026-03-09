@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 12 завершена (2/2 планов). Следующая — Phase 13.
-last_updated: "2026-03-09T11:22:04.025Z"
-last_activity: 2026-03-09 — Phase 12 завершена (viewport, iOS, PWA standalone)
+status: Phase 13 завершена (2/2 планов). Следующая — Phase 14.
+last_updated: "2026-03-09T14:38:18Z"
+last_activity: 2026-03-09 — Phase 13 завершена (offline degradation, SW update safety)
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -24,10 +24,10 @@ progress:
 
 ## Текущая позиция
 
-Phase: 12 of 14 (Viewport & iOS fixes)
+Phase: 13 of 14 (PWA & Offline)
 Plan: 2 of 2
-Status: Phase 12 завершена (2/2 планов). Следующая — Phase 13.
-Last activity: 2026-03-09 — Phase 12 завершена (viewport, iOS, PWA standalone)
+Status: Phase 13 завершена (2/2 планов). Следующая — Phase 14.
+Last activity: 2026-03-09 — Phase 13 завершена (offline degradation, SW update safety)
 
 Progress: [██████████] 100%
 
@@ -35,9 +35,9 @@ Progress: [██████████] 100%
 
 **Скорость:**
 
-- Выполнено планов: 9 (milestone v1.1)
+- Выполнено планов: 11 (milestone v1.1)
 - Средняя длительность: 7 min
-- Общее время: 64 min
+- Общее время: 72 min
 
 **По фазам:**
 
@@ -47,6 +47,7 @@ Progress: [██████████] 100%
 | 10. Follow-finger свайпы        | 2/2   | 15 min      | 7 min        |
 | 11. Gesture handler & Mobile UI | 3/3   | 27 min      | 9 min        |
 | 12. Viewport & iOS fixes        | 2/2   | 8 min       | 4 min        |
+| 13. PWA & Offline               | 2/2   | 15 min      | 8 min        |
 
 _Обновляется после завершения каждого плана_
 
@@ -85,6 +86,12 @@ _Обновляется после завершения каждого план�
 - localStorage reader_standalone_hint_dismissed для one-time standalone подсказки
 - AnimatePresence fade-in 1.5с + auto-dismiss 4с для ненавязчивой подсказки
 - Подсказка строго ограничена isStandalone() — desktop и обычный браузер не затронуты
+- localStorage dismiss с 7-дневным cooldown и лимитом 3 показа для PWA баннера
+- Graduated resume: <30с pass-through, 30с-5мин soft auth check, >5мин full reinit
+- Fire-and-forget auto-cache EPUB — не блокирует возврат данных
+- useOnlineStatus() в UI-компонентах для условного рендеринга офлайн (BookCard, ImageControls)
+- Entity drawer без изменений для offline — SW StaleWhileRevalidate автоматически отдаёт кэш
+- ImageModal доступен офлайн (кэш SW), только regenerate скрыт
 
 ### Ожидающие задачи
 
@@ -97,4 +104,4 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Phase 12 завершена. 12-02-PLAN.md выполнен (standalone hint + iOS верификация approved). Следующая — Phase 13.
+Остановились на: Phase 13 завершена. 13-02-PLAN.md выполнен (offline degradation + SW update safety). Следующая — Phase 14.

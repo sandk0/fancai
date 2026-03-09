@@ -32,7 +32,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 10: Follow-finger свайпы** — Палец двигает страницу с spring-анимацией завершения (completed 2026-03-09)
 - [x] **Phase 11: Единый gesture handler и мобильный UI** — Объединение 3 gesture-систем + адаптивный мобильный интерфейс (completed 2026-03-09)
 - [x] **Phase 12: Viewport и iOS** — Корректный viewport, safe areas, клавиатура, PWA standalone (completed 2026-03-09)
-- [ ] **Phase 13: PWA и offline** — Install prompt, offline-чтение, Service Worker management
+- [x] **Phase 13: PWA и offline** — Install prompt, offline-чтение, Service Worker management (completed 2026-03-09)
 - [ ] **Phase 14: Фикс описаний** — Корректное соответствие CFI-позиции и выделения описаний
 
 ## Phase Details
@@ -122,7 +122,7 @@ Plans:
 3. При выходе нового обновления Service Worker пользователь видит уведомление и может обновить приложение без потери позиции чтения
 4. При возврате из фона приложение не перезагружается без необходимости — градуированная стратегия (короткий фон: ничего, средний: проверка, долгий: reload)
 5. EPUB-файлы полностью кэшируются для чтения без интернета
-   **Plans:** 2 plans
+   **Plans:** 2/2 plans complete
 
 Plans:
 
@@ -165,5 +165,5 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 10. Follow-finger свайпы                  | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 11. Единый gesture handler и мобильный UI | v1.1      | 3/3            | Complete    | 2026-03-09 |
 | 12. Viewport и iOS                        | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 13. PWA и offline                         | v1.1      | 0/2            | Planning    | -          |
+| 13. PWA и offline                         | 2/2 | Complete   | 2026-03-09 | -          |
 | 14. Фикс описаний                         | v1.1      | 0/?            | Not started | -          |

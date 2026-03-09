@@ -26,8 +26,8 @@
 ### PWA
 
 - [ ] **PWA-01**: Install prompt UI с кастомным баннером
-- [ ] **PWA-02**: Graceful offline degradation (UI показывает доступные книги, AI-фичи скрыты)
-- [ ] **PWA-03**: Service Worker update management с уведомлением пользователя
+- [x] **PWA-02**: Graceful offline degradation (UI показывает доступные книги, AI-фичи скрыты)
+- [x] **PWA-03**: Service Worker update management с уведомлением пользователя
 - [ ] **PWA-04**: Градуированный reload при возврате из фона (не reload при MIN_BACKGROUND_TIME = 0)
 - [ ] **PWA-05**: Полное кэширование EPUB файлов для чтения без интернета
 
@@ -79,8 +79,8 @@
 | MUI-05      | Phase 11 | Complete |
 | MUI-06      | Phase 11 | Complete |
 | PWA-01      | Phase 13 | Pending  |
-| PWA-02      | Phase 13 | Pending  |
-| PWA-03      | Phase 13 | Pending  |
+| PWA-02      | Phase 13 | Complete |
+| PWA-03      | Phase 13 | Complete |
 | PWA-04      | Phase 13 | Pending  |
 | PWA-05      | Phase 13 | Pending  |
 | VPT-01      | Phase 12 | Complete |
