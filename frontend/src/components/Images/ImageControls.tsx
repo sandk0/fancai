@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Download, Share2, ZoomIn, ZoomOut, RefreshCw, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface ImageControlsProps {
   isZoomed: boolean;
@@ -34,6 +35,7 @@ export const ImageControls: React.FC<ImageControlsProps> = ({
   onRegenerateClose,
 }) => {
   const { t } = useTranslation();
+  const { isOnline } = useOnlineStatus();
 
   return (
     <>
@@ -50,7 +52,7 @@ export const ImageControls: React.FC<ImageControlsProps> = ({
           )}
         </button>
 
-        {imageId && (
+        {imageId && isOnline && (
           <button
             onClick={onRegenerateToggle}
             className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-white hover:bg-white/20 rounded-lg transition-colors"
@@ -94,7 +96,7 @@ export const ImageControls: React.FC<ImageControlsProps> = ({
         </button>
       </div>
 
-      {showRegenerateOptions && (
+      {showRegenerateOptions && isOnline && (
         <div className="absolute top-14 sm:top-16 left-2 right-2 sm:left-4 sm:right-4 z-20 bg-black/95 backdrop-blur-sm rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-semibold flex items-center space-x-2">
@@ -112,9 +114,7 @@ export const ImageControls: React.FC<ImageControlsProps> = ({
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm text-white/70 mb-1">
-                {t('images.customStyle')}
-              </label>
+              <label className="block text-sm text-white/70 mb-1">{t('images.customStyle')}</label>
               <input
                 type="text"
                 value={customPrompt}
