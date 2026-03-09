@@ -165,6 +165,7 @@
       "copied_desc": "Text copied to clipboard",
       "copy_error": "Could not copy text"
     },
+    "standalone_hint": "Tap center for menu",
     "readerSettings": {
       "title": "Reader Settings",
       "theme": "Theme",

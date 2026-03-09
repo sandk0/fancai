@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
+import { AnimatePresence, m } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { booksAPI } from '@/api/books';
@@ -266,6 +267,31 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Auto-hide UI: immersive mode (header hidden by default)
   const autoHide = useAutoHideUI({ initialVisible: false });
+
+  // Standalone hint: delayed show + auto-dismiss
+  const [hintVisible, setHintVisible] = useState(false);
+  useEffect(() => {
+    if (!autoHide.showStandaloneHint || !renditionReady || isRestoringPosition) {
+      setHintVisible(false);
+      return;
+    }
+    // Fade in after 1.5s
+    const showTimer = setTimeout(() => setHintVisible(true), 1500);
+    // Auto-dismiss after 4s (total 5.5s from renditionReady)
+    const hideTimer = setTimeout(() => {
+      autoHide.dismissStandaloneHint();
+      setHintVisible(false);
+    }, 5500);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [
+    autoHide.showStandaloneHint,
+    renditionReady,
+    isRestoringPosition,
+    autoHide.dismissStandaloneHint,
+  ]);
 
   // Compute isPanelOpen for gesture blocking
   const isPanelOpen =
@@ -622,6 +648,27 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         onClose={() => setIsSearchOpen(false)}
         isHeaderVisible={autoHide.isHeaderVisible}
       />
+
+      {/* Standalone mode: center-tap hint (shown once on first book open) */}
+      <AnimatePresence>
+        {hintVisible && (
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center"
+            onClick={() => {
+              autoHide.dismissStandaloneHint();
+              setHintVisible(false);
+            }}
+          >
+            <div className="rounded-xl bg-black/60 px-6 py-4 text-center text-white shadow-lg">
+              <p className="text-base font-medium">{t('reader.standalone_hint')}</p>
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
 
       <ReaderModals
         imageModal={{
