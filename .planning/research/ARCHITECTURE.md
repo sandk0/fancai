@@ -1,664 +1,650 @@
-# Архитектура интеграции Mobile/PWA в существующий ридер
+# Architecture Research: Gesture Handling и Анимация Ридера v1.2
 
-**Область:** Мобильный ридер EPUB с follow-finger свайпами, offline-чтением и iOS PWA
-**Исследовано:** 2026-03-09
-**Уверенность:** ВЫСОКАЯ -- на основе прямого анализа кодовой базы (~25 файлов) и исследования ограничений платформ
+**Domain:** Мобильный EPUB-ридер -- gesture handling, iframe-интеграция, Apple Books-like анимация
+**Researched:** 2026-03-10
+**Confidence:** HIGH (полный аудит кодовой базы: 15+ файлов, 5000+ строк gesture/navigation кода)
 
 ## Обзор текущей системы
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      EpubReader.tsx (655 строк)                     │
-│  Оркестрирует 25+ хуков, 5 дочерних компонентов                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌─────────────┐  ┌───────────────┐  ┌──────────────┐              │
-│  │ useSwipe    │  │ useTouchNav   │  │ IOSTapZones  │              │
-│  │ Navigation  │  │ (tap mode)    │  │ (iOS overlay)│              │
-│  │ (iframe     │  │ (iframe       │  │ (parent DOM) │              │
-│  │  events)    │  │  events)      │  │              │              │
-│  └──────┬──────┘  └──────┬────────┘  └──────┬───────┘              │
-│         │                │                  │                       │
-│  ┌──────┴────────────────┴──────────────────┴───────────────┐      │
-│  │              useEpubNavigation                            │      │
-│  │  directScroll() + getMeasuredScrollUnit() + epub.js API  │      │
-│  └──────────────────────┬───────────────────────────────────┘      │
-│                         │                                           │
-│  ┌──────────────────────┴───────────────────────────────────┐      │
-│  │              epub.js Rendition (iframe)                    │      │
-│  │  manager.stage.container → scrollLeft навигация            │      │
-│  │  hooks.content.register() → привязка событий               │      │
-│  └──────────────────────────────────────────────────────────┘      │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐     │
-│  │ SwipeOverlay │  │ useEpubIOSFi-│  │ useEpubRendition     │     │
-│  │ (visual      │  │ xes (layout  │  │ (safe-area, height   │     │
-│  │  feedback)   │  │  patches)    │  │  calculation)        │     │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘     │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│  Данные: Zustand (reader.ts) + IndexedDB (epubCache, chapterCache) │
-│  Сеть: TanStack Query + Service Worker (sw.ts, Workbox)            │
-└─────────────────────────────────────────────────────────────────────┘
+                              EpubReader.tsx (координатор, 750 строк)
+                                      |
+        ┌────────────────────────────┼─────────────────────────────┐
+        |                           |                              |
+  useGestureController     useTextSelection              useDescriptionHighlighting
+  (FSM: idle->pending->    (epub.js 'selected')          useEntityNameHighlighting
+   swiping|cancelled)                                    useAnnotationRendering
+   863 строки                                                      |
+        |                                                         |
+        |   ┌──────────────────────────┐                          |
+        |   | FollowFingerContainer    |    ┌──────────────────┐  |
+        |   | (m.div + translateX +    |    | iOS Overlay      |  |
+        |   |  box-shadow + hints)     |    | (center-tap DIV  |  |
+        |   |  117 строк               |    |  15%-85% ширины) |  |
+        |   └──────────────────────────┘    └──────────────────┘  |
+        |                                                         |
+        ├── useEpubNavigation (directScroll / rendition.next())   |
+        ├── useNavigationLock (ref-based mutex, 2s auto-recovery) |
+        └── useAutoHideUI (header show/hide, immersive mode)      |
+                                                                  |
+                          epub.js iframe                          |
+                    ┌────────────────────────┐                    |
+                    | rendition.hooks.content |  <── Touch events |
+                    | .register(contentHook)  |      привязаны    |
+                    | touchstart/move/end     |      через        |
+                    | click (desktop)         |      contentHook   |
+                    | DOM: description-highlight, entity-mention  |
+                    └────────────────────────┘
 ```
 
-### Ключевые характеристики текущей архитектуры
+### Ответственности компонентов (текущее состояние)
 
-1. **Навигация разделена на 3 параллельных механизма:**
-   - `useSwipeNavigation` -- свайп-жесты внутри iframe (через `rendition.hooks.content.register()`)
-   - `useTouchNavigation` -- тап-навигация внутри iframe (тот же механизм)
-   - `IOSTapZones` -- DOM-оверлеи поверх iframe (обход WebKit бага с событиями iframe)
+| Компонент | Ответственность | Строки | Состояние |
+|-----------|----------------|--------|-----------|
+| `useGestureController` | Единый FSM для touch/click в iframe + iOS overlay | 863 | Монолит, конфликтует |
+| `useFollowFingerSwipe` | Утилиты (spring configs, velocity, rubber-band) + неиспользуемый hook | 609 | Hook dead, утилиты live |
+| `FollowFingerContainer` | GPU-ускоренный CSS transform wrapper (m.div) | 117 | Работает |
+| `useEpubNavigation` | Навигация внутри главы: directScroll + epub.js fallback | 363 | Работает, но smooth scroll конфликтует |
+| `useNavigationLock` | Ref-based mutex с 2s auto-recovery | 114 | Работает |
+| `useTextSelection` | Обработка выделения текста (epub.js 'selected') | 148 | Работает, но блокируется gesture controller |
+| `useDescriptionHighlighting` | Подсветка описаний (8 стратегий поиска) | 496 | Работает, клики перехватываются |
+| `useEntityNameHighlighting` | Подсветка имен сущностей (первое вхождение) | 197 | Работает, клики перехватываются |
+| `useAnnotationRendering` | Рендер заметок/выделений (DOM span wrapping) | 460+ | Работает |
+| `useAutoHideUI` | Управление видимостью шапки (immersive mode) | 111 | Работает |
+| `useTouchNavigation` | Tap-навигация в iframe | 18KB | Dead code, не импортируется |
+| `IOSTapZones` | DOM overlay для iOS тапов | 12.5KB | Dead code, не импортируется |
 
-2. **epub.js навигация уже переписана:** `useEpubNavigation` использует `directScroll()` с прямым управлением `stage.scrollLeft` вместо нестабильных `rendition.next()/prev()`. Включает 5-уровневую цепочку fallback для измерения ширины колонки.
+## Диагностика проблем
 
-3. **iOS fix-слой объемный:** `useEpubIOSFixes` отключает `manager.snap()`, `manager.gestures`, блокирует `stage.scrollBy()`, фиксирует layout.divisor -- все из-за несовместимостей epub.js 0.3.93 с iOS Safari.
+### Проблема 1: Монолитный FSM перегружен
 
-4. **Service Worker полноценный:** 870+ строк, Workbox injectManifest, включает: precaching, runtime caching (API, изображения, шрифты), Background Sync (reading progress, sessions), Push Notifications, Navigation Preload, offline fallback.
+`useGestureController` имеет FSM с 4 состояниями (`idle`, `pending`, `swiping`, `cancelled`), но обрабатывает 5+ типов жестов:
 
-5. **Кэширование книг работает:** `epubCache.ts` (IndexedDB через Dexie) -- LRU, TTL 30 дней, лимит 200MB, user isolation. Книга загружается из кэша если доступна.
+| Жест | Нужная реакция | Текущая обработка | Конфликт |
+|------|---------------|-------------------|----------|
+| Swipe | Follow-finger + spring animation | `pending` -> `swiping` -> animate | OK |
+| Edge tap | Slide animation + navigate | `pending` -> touchend -> tap detection | OK |
+| Center tap | Toggle UI ИЛИ open description | `pending` -> touchend -> onCenterTap + onToggleUI | **КОНФЛИКТ**: оба вызываются |
+| Long press | Native text selection | `pending` -> touchend -> duration >= 350ms -> return | **КОНФЛИКТ**: gesture controller может заблокировать |
+| Description click | Open drawer | isInteractiveElement check в touchend | **КОНФЛИКТ**: не detectится через iOS overlay |
+| Entity click | Open popup | Отдельный click handler в useEntityNameHighlighting | **КОНФЛИКТ**: gesture controller touchend мешает |
 
----
+### Проблема 2: Двойная анимация при tap-навигации
 
-## Карта интеграции: Новое vs Модифицируемое
+При edge-tap происходит одновременно:
+1. **Spring animation** в FollowFingerContainer: `animate(translateX, -viewportWidth, SPRING_FAST)` -- 200-400ms
+2. **CSS smooth scroll** в useEpubNavigation: `stage.scrollTo({ behavior: 'smooth' })` -- 300-500ms
+
+Результат: пользователь видит "дёрганое" двойное движение. Контент двигается и через transform, и через scroll одновременно.
+
+### Проблема 3: iOS overlay блокирует interactive elements
+
+iOS overlay (прозрачный DIV, left: 15%, right: 15%) перехватывает все touch events в центральной зоне:
+- Клики на `.description-highlight` в центре экрана не работают
+- Entity-mention клики в центре не работают
+- Text selection (long press) невозможна в центральной зоне
+
+### Проблема 4: onCenterTap + onToggleUI вызываются одновременно
+
+Строки 468-476 в useGestureController:
+```typescript
+if (action === 'center') {
+  onCenterTapRef.current(viewportX, viewportY); // проверяет description
+  onToggleUIRef.current();                       // ВСЕГДА toggle-ит UI
+  return;
+}
+```
+
+Если тап попал на описание -- открывается drawer И шапка toggle-ится. Нужно: если description найдена -- НЕ toggle-ить шапку.
+
+### Проблема 5: Нет свайпа между главами
+
+Chapter change через rubber-band работает, но:
+- Rubber-band snap-back занимает 200-400ms (SPRING_RUBBER)
+- `onChapterChange` вызывается ПОСЛЕ завершения animation
+- `rendition.next()`/`rendition.prev()` загружает новую главу -- ещё 100-300ms
+- Суммарная задержка 300-700ms -- пользователь уже потерял терпение
+
+## Рекомендуемая архитектура
+
+### Решение: Layered Gesture Architecture с Gesture Arena
+
+Вместо одного FSM -- три слоя с чёткими приоритетами:
+
+```
+                    Touch Event (из iframe)
+                           |
+                    ┌──────┴──────┐
+                    | GestureArena |  <-- НОВЫЙ: арбитр жестов
+                    | (приоритеты) |
+                    └──────┬──────┘
+                           |
+            ┌──────────────┼──────────────┐
+            |              |              |
+      ┌─────┴─────┐ ┌─────┴─────┐ ┌─────┴─────┐
+      | Interactive|  | Swipe    |  | Tap       |
+      | Passthru  |  | Handler  |  | Handler   |
+      | (prio 0)  |  | (prio 2) |  | (prio 3)  |
+      └────────────┘  └──────────┘  └───────────┘
+            |              |              |
+      description     FollowFinger    Edge/Center
+      entity-mention  Container       tap zones
+      links/buttons   spring anim     UI toggle
+      text selection
+```
+
+**Правило приоритетов (Gesture Arena):**
+
+| Приоритет | Тип | Условие | Действие |
+|-----------|-----|---------|----------|
+| 0 | Interactive | target = `.description-highlight`, `.entity-mention`, `<a>`, `<button>` | Пропустить к нативной обработке |
+| 1 | Selection | long press (>350ms без движения) | Отпустить контроль для native selection |
+| 2 | Swipe | горизонтальное движение >10px | Claim arena, begin follow-finger tracking |
+| 3 | Tap | touchend без movement (<20px) и без long press | Edge/center tap обработка |
 
 ### Новые компоненты
 
-| Компонент | Назначение | Зависит от |
-|-----------|-----------|------------|
-| `useFollowFingerSwipe.ts` | Follow-finger свайп с трансформами на контейнере | rendition, useEpubNavigation |
-| `SwipePagePreview.tsx` | Рендеринг preview следующей/предыдущей страницы во время свайпа | rendition manager |
-| `useViewportManager.ts` | Единый менеджер viewport: safe-area, ориентация, keyboard | -- |
-| `useMobileGestures.ts` | Унифицированный gesture handler (объединяет swipe/tap/long-press) | rendition |
-| `OfflineStatusBanner.tsx` | UI-индикатор offline-режима + pending sync | useOnlineStatus, SW |
-| `InstallPrompt.tsx` | PWA install prompt (iOS инструкции + Android beforeinstallprompt) | iosSupport.ts |
-| `useServiceWorkerUpdate.ts` | Управление обновлением SW + prompt пользователю | VitePWA registerSW |
+| Компонент | Файл | ~Строки | Роль |
+|-----------|------|---------|------|
+| `useGestureArena` | `hooks/epub/useGestureArena.ts` | ~150 | Арбитр: маршрутизация touch events по приоритетам, WeakMap для cleanup |
+| `useSwipeGesture` | `hooks/epub/useSwipeGesture.ts` | ~300 | Follow-finger tracking, velocity, spring animation, rubber-band, chapter hint |
+| `useTapGesture` | `hooks/epub/useTapGesture.ts` | ~150 | Зонирование (edge/center), slide animation, center-tap description detection |
+| `useInteractivePassthrough` | `hooks/epub/useInteractivePassthrough.ts` | ~80 | Detection описаний/сущностей/ссылок/кнопок в target chain |
+| `gesture-utils.ts` | `hooks/epub/gesture-utils.ts` | ~170 | Утилиты из useFollowFingerSwipe (spring configs, velocity, rubber-band, getStageInfo) |
 
 ### Модифицируемые компоненты
 
-| Компонент | Текущие строки | Изменения | Масштаб |
-|-----------|---------------|-----------|---------|
-| `useSwipeNavigation.ts` | 507 | **ПЕРЕПИСАТЬ** -- заменить binary swipe на follow-finger с CSS transform | Большой |
-| `SwipeOverlay.tsx` | 172 | **ПЕРЕПИСАТЬ** -- заменить на реальный page preview вместо gradient overlay | Большой |
-| `useEpubNavigation.ts` | 477 | **Модифицировать** -- добавить preload следующей/предыдущей страницы для instant turn | Средний |
-| `useEpubRendition.ts` | 262 | **Модифицировать** -- улучшить расчет viewport height, устранить height caching баги | Средний |
-| `IOSTapZones.tsx` | 439 | **Модифицировать** -- интегрировать с новым gesture handler, убрать дублирование свайп-логики | Средний |
-| `EpubReader.tsx` | 655 | **Модифицировать** -- подключить новые хуки, убрать дублирование навигации | Малый |
-| `ReaderOverlays.tsx` | 119 | **Модифицировать** -- подключить новый SwipePagePreview вместо SwipeOverlay | Малый |
-| `reader.ts` (store) | 404 | **Модифицировать** -- добавить gesture sensitivity settings | Малый |
-| `sw.ts` | 877 | **Модифицировать** -- добавить стратегию кэширования EPUB файлов через SW | Средний |
-| `manifest.json` | 95 | **Модифицировать** -- добавить иконки, screenshots, description на русском | Малый |
-| `iosSupport.ts` | 486 | **Модифицировать** -- добавить iOS version-specific feature detection | Малый |
-
-### Компоненты НЕ затрагиваемые
-
-| Компонент | Причина |
-|-----------|---------|
-| `useAnnotationRendering.ts` (460 строк) | DOM span wrapping не связан с навигацией |
-| `useDescriptionHighlighting.ts` | Подсветка описаний работает независимо |
-| `useEntityNameHighlighting.ts` | Entity highlighting не связан с жестами |
-| `useBookmarks.ts` / `useBookmarkActions` | CRUD заметок не зависит от навигации |
-| `useProgressSync.ts` | Синхронизация прогресса работает через debounced callback |
-| Backend (FastAPI, Celery) | Все изменения только на фронтенде |
-
----
-
-## Архитектура follow-finger свайпа
-
-### Проблема
-
-Текущий `useSwipeNavigation` работает по принципу "detect swipe -> navigate":
-1. Слушает touchstart/touchmove/touchend внутри iframe
-2. Накапливает offset, показывает gradient overlay
-3. На touchend -- если distance >= 30px, вызывает `onNavigate('next'|'prev')`
-4. Навигация = мгновенный scrollTo на stage.container
-
-Пользователь НЕ видит следующую страницу во время свайпа. Overlay показывает только gradient и chevron-индикаторы. Это не "follow-finger" -- это "swipe and jump".
-
-### Решение: CSS Transform на контейнере + Page Preview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Слой 1: epub.js iframe (текущая страница)              │
-│  transform: translateX(offset) -- следует за пальцем     │
-├─────────────────────────────────────────────────────────┤
-│  Слой 2: Preview канвас (следующая/предыдущая страница) │
-│  position: absolute, рядом с текущей страницей          │
-│  Заполняется через offscreen rendering или screenshot    │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Паттерн реализации
-
-```typescript
-// useFollowFingerSwipe.ts -- Ключевая идея
-
-interface FollowFingerState {
-  phase: 'idle' | 'tracking' | 'settling' | 'navigating';
-  offsetX: number;          // Текущее смещение (px) -- следует за пальцем
-  velocity: number;         // Скорость (px/ms) -- для инерции
-  direction: 'left' | 'right' | null;
-  previewReady: boolean;    // Готов ли preview следующей страницы
-}
-
-// Критическая точка интеграции с epub.js:
-// epub.js rendition рендерит в iframe. Мы НЕ можем анимировать
-// содержимое iframe через CSS transform снаружи.
-//
-// Два подхода:
-//
-// Подход A (рекомендуемый): Transform на stage.container
-//   - epub.js manager.stage.container -- это div, содержащий iframe
-//   - Применяем translateX() к нему -- iframe двигается целиком
-//   - Preview: клонируем содержимое или используем второй rendition
-//   - PRO: Работает, контент двигается плавно
-//   - CON: Нужен preview рядом для "показать следующую страницу"
-//
-// Подход B (fallback): Overlay с screenshot
-//   - Делаем screenshot текущей страницы (html2canvas или Canvas API)
-//   - Показываем overlay с screenshot, двигаем его
-//   - На завершении -- убираем overlay, показываем реальную страницу
-//   - PRO: Не трогаем epub.js вообще
-//   - CON: Screenshot не в реальном времени, артефакты
-```
-
-### Рекомендуемая архитектура (Подход A)
-
-```
-touchstart (iframe doc)
-    │
-    ├─ Фиксируем startX, startY, timestamp
-    │
-touchmove (iframe doc)
-    │
-    ├─ Вычисляем deltaX, проверяем вертикальный порог
-    ├─ Если горизонтальный свайп:
-    │   ├─ preventDefault() (блокируем scroll)
-    │   ├─ Устанавливаем stage.container.style.transform = translateX(deltaX)
-    │   ├─ Устанавливаем stage.container.style.transition = 'none'
-    │   └─ Если !previewReady: запускаем preparePreview()
-    │
-touchend (iframe doc)
-    │
-    ├─ Вычисляем velocity = deltaX / deltaTime
-    ├─ Решение о навигации:
-    │   ├─ |deltaX| > threshold (30% ширины) → navigate
-    │   ├─ |velocity| > quickThreshold (0.3 px/ms) → navigate
-    │   └─ Иначе → snap back
-    │
-    ├─ Если navigate:
-    │   ├─ Animate stage.container to -viewportWidth (или +viewportWidth)
-    │   ├─ transition: transform 250ms ease-out
-    │   ├─ По завершении анимации:
-    │   │   ├─ stage.container.style.transform = ''
-    │   │   ├─ directScroll(direction) -- фактическая навигация
-    │   │   └─ cleanup preview
-    │   │
-    ├─ Если snap back:
-    │   ├─ stage.container.style.transform = translateX(0)
-    │   ├─ transition: transform 200ms ease-out
-    │   └─ cleanup
-```
-
-### Preview следующей страницы
-
-Показ следующей страницы во время свайпа -- самая сложная часть. Варианты:
-
-**Вариант 1: Расширенный scrollWidth (рекомендуемый)**
-epub.js в paginated mode уже рендерит все колонки главы. `stage.container.scrollWidth` обычно > `clientWidth`. Если мы двигаем container через transform, а scroll остается на месте -- следующая колонка будет видна "за краем". Это работает ТОЛЬКО если epub.js пре-рендерит колонки (что он делает).
-
-```
-НЕ нужен отдельный preview! epub.js уже рендерит все страницы главы.
-stage.container = [col1][col2][col3][col4]...
-scrollLeft=0 показывает col1
-Если translateX(-100px), видна часть col2 справа.
-```
-
-**Вариант 2: Fallback для смены глав**
-На границе главы (scrollLeft = maxScroll) следующей колонки нет -- нужно загрузить новую главу. Здесь показываем placeholder или просто разрешаем rubber-band эффект с надписью "Следующая глава".
-
-### Критическая деталь: iframe и CSS transform
-
-epub.js `manager.stage.container` -- это обычный `<div>` с `overflow: hidden`. Внутри него iframe. Мы можем применить `transform: translateX()` к этому div и содержимое (включая iframe) будет двигаться.
-
-**Но:** На iOS Safari, `transform` на элементе с iframe может вызывать проблемы с hit-testing (события касания могут не работать правильно на трансформированном iframe). Решение: во время tracking-фазы свайпа устанавливать `pointer-events: none` на iframe, а сами touch events ловить на parent div.
-
----
-
-## Архитектура Service Worker для offline книг
-
-### Текущее состояние
-
-Service Worker (`sw.ts`) уже зрелый:
-- Precaching статических ресурсов (Workbox injectManifest)
-- Runtime caching: API (StaleWhileRevalidate), изображения (CacheFirst/NetworkFirst), шрифты
-- Background Sync: reading progress, sessions, image generation
-- Push Notifications: полный flow (push, click, routing)
-- Navigation: NetworkFirst с Navigation Preload
-- Offline fallback: поиск /offline.html в кэшах
-
-**Чего НЕ хватает для offline-чтения:**
-1. EPUB файлы кэшируются в IndexedDB (epubCache.ts), но НЕ через Service Worker
-2. Нет caching-стратегии для `/api/v1/books/{id}/file` endpoint
-3. Нет проактивного кэширования книги при первом открытии
-4. Offline.html -- placeholder, нет полноценного offline UI
-
-### Рекомендуемые изменения
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                Service Worker (sw.ts)                         │
-│                                                               │
-│  СУЩЕСТВУЮЩЕЕ:                                                │
-│  ├─ Precache (статика)              ✓ работает                │
-│  ├─ API cache (StaleWhileRevalidate) ✓ работает              │
-│  ├─ Background Sync (progress)       ✓ работает              │
-│  ├─ Push Notifications               ✓ работает              │
-│  └─ Navigation Preload               ✓ работает              │
-│                                                               │
-│  ДОБАВИТЬ:                                                    │
-│  ├─ EPUB file caching:                                        │
-│  │   GET /api/v1/books/{id}/file → CacheFirst + IndexedDB    │
-│  │   (синхронизация с epubCache.ts)                           │
-│  ├─ Chapter data caching:                                     │
-│  │   GET /api/v1/books/{id}/chapters/{n}/descriptions         │
-│  │   → StaleWhileRevalidate (синхронизация с chapterCache.ts) │
-│  ├─ Entity network caching:                                   │
-│  │   GET /api/v1/books/{id}/entity-network                    │
-│  │   → StaleWhileRevalidate (для offline entity popup)        │
-│  └─ Offline UI:                                               │
-│      Navigation fallback → SPA index.html (уже кэширован)    │
-│      SPA сам показывает offline-режим если API недоступен     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Важное решение:** Не дублировать кэширование EPUB файлов. Книги УЖЕ хранятся в IndexedDB через `epubCache.ts`. Добавлять их в Cache API через Service Worker -- двойной расход хранилища. Вместо этого:
-
-1. Service Worker перехватывает `/api/v1/books/{id}/file` requests
-2. Проверяет наличие в epubCache (IndexedDB) через `postMessage` к клиенту
-3. Если есть -- пропускает (клиент сам загрузит из IndexedDB)
-4. Если нет -- делает network fetch, ответ кэшируется клиентом в IndexedDB
-
-### iOS-специфичные ограничения offline
-
-| Ограничение | Влияние | Workaround |
-|-------------|---------|------------|
-| Storage eviction через 7 дней неактивности | Книги могут удалиться | `navigator.storage.persist()` (уже есть в `setupIOSPersistence()`) |
-| ~50MB лимит Cache API | Недостаточно для книг | Используем IndexedDB (больший лимит) |
-| Нет Background Sync | Progress не синхронизируется offline | `setupIOSSync()` через visibilitychange (уже есть) |
-| Нет Periodic Sync | Нет фонового обновления кэша | Sync при открытии приложения |
-
----
-
-## Архитектура iOS Safari PWA: viewport и safe areas
-
-### Текущее состояние
-
-`useEpubRendition.ts` уже обрабатывает safe areas:
-- `measureSafeAreaTop()`, `measureSafeAreaBottom()` -- измерение через temp div
-- `measureSvhHeight()` -- 100svh через temp div
-- `getUsableViewportHeight()` -- расчет с учетом standalone mode
-- Height caching в localStorage (30 минут TTL)
-
-`EpubReader.tsx` уже использует env(safe-area-inset-*) в стилях viewerRef.
-
-### Проблемы и улучшения
-
-**Проблема 1: Height cache stale при ротации**
-Height кэшируется с ориентацией, но ротация может произойти внутри TTL. Решение: сбрасывать кэш при `orientationchange` event.
-
-**Проблема 2: iOS standalone vs browser viewport отличаются**
-В standalone mode нет адресной строки, viewport выше. В browser mode -- адресная строка может анимироваться (grow/shrink). Текущий код учитывает это, но `svhHeight` может быть неточным.
-
-**Проблема 3: Keyboard appearance на iOS**
-При открытии клавиатуры (поиск, заметки) viewport уменьшается. Текущий код НЕ обрабатывает это. Нужен `visualViewport.resize` listener.
-
-### Рекомендуемый `useViewportManager`
-
-```typescript
-// useViewportManager.ts -- Единый менеджер viewport
-//
-// Объединяет логику из:
-// - useEpubRendition.ts (measureSafeAreaTop/Bottom, getUsableViewportHeight)
-// - useResizeHandler.ts (resize events)
-// - Новое: orientation change, keyboard, visual viewport
-//
-// Возвращает:
-interface ViewportState {
-  width: number;
-  height: number;           // Usable height (за вычетом header + safe areas)
-  safeAreaTop: number;
-  safeAreaBottom: number;
-  orientation: 'portrait' | 'landscape';
-  isKeyboardVisible: boolean;
-  isStandalone: boolean;
-}
-```
-
----
-
-## Архитектура gesture handler: взаимодействие с epub.js iframe
-
-### Корневая проблема
-
-epub.js рендерит контент в `<iframe>`. Touch events внутри iframe НЕ поднимаются (bubble) к родительскому документу. Это фундаментальное ограничение Web API.
-
-### Текущие стратегии (3 параллельных)
-
-1. **`rendition.hooks.content.register()`** -- привязка listeners напрямую к `iframe.document`. Используется в `useSwipeNavigation` и `useTouchNavigation`. Работает надежно.
-
-2. **`rendition.on('touchstart'|'click')`** -- epub.js `passEvents()` forwarding. Работает на Android, ненадежно на iOS.
-
-3. **`IOSTapZones`** -- DOM-оверлеи поверх iframe. Перехватывают touch/click на уровне parent document. iOS-only workaround.
-
-### Проблема: три системы конфликтуют
-
-- На iOS: IOSTapZones + useSwipeNavigation оба слушают touch events
-- IOSTapZones имеет встроенный swipe detection (SWIPE_MIN_DISTANCE = 30px)
-- useSwipeNavigation привязывается к iframe doc, IOSTapZones -- к parent DOM
-- При fast-swipe оба могут сработать, вызывая double navigation
-
-### Рекомендуемая архитектура: Unified Gesture Handler
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              useMobileGestures (НОВЫЙ)                       │
-│                                                               │
-│  Единая точка входа для всех gesture events                   │
-│                                                               │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │  Gesture Recognizer                                    │   │
-│  │                                                         │   │
-│  │  Input: touch events (iframe ИЛИ parent DOM)           │   │
-│  │                                                         │   │
-│  │  Распознает:                                            │   │
-│  │  - TAP (single, double)                                 │   │
-│  │  - SWIPE (horizontal, с velocity)                       │   │
-│  │  - LONG_PRESS (для selection)                           │   │
-│  │  - PAN (follow-finger tracking)                         │   │
-│  │                                                         │   │
-│  │  Output:                                                │   │
-│  │  - onTap(zone: 'left'|'center'|'right', coords)        │   │
-│  │  - onSwipe(direction: 'next'|'prev', velocity)          │   │
-│  │  - onPan(offsetX, phase: 'start'|'move'|'end')          │   │
-│  │  - onLongPress(coords)                                  │   │
-│  └───────────────────────────────────────────────────────┘   │
-│                                                               │
-│  Event source:                                                │
-│  ├─ iOS:  IOSTapZones (parent DOM) -- для taps              │
-│  │        hooks.content.register() -- для swipe/pan          │
-│  └─ Android/Desktop: hooks.content.register() -- для всего   │
-│                                                               │
-│  Навигация:                                                   │
-│  ├─ mode='swipe': pan events → useFollowFingerSwipe          │
-│  ├─ mode='tap': tap events → zone-based navigation            │
-│  └─ Both: long press → text selection                         │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Ключевое решение:** НЕ объединять iOS и Android event sources. На iOS всегда нужен parent-DOM overlay для надежного touch detection. На Android `hooks.content.register()` работает. Unified handler -- это абстракция поверх платформо-специфичных источников.
-
----
-
-## Поток данных: навигация по свайпу
-
-### Текущий поток
-
-```
-User swipe → iframe touchstart/move/end
-    → useSwipeNavigation (state tracking)
-    → SwipeOverlay (gradient visual)
-    → touchend decision: navigate?
-        → YES: useEpubNavigation.nextPage()
-            → directScroll(direction, smooth=true)
-                → stage.scrollTo({ left: newScroll, behavior: 'smooth' })
-                → waitForScrollEnd()
-            → FALLBACK: rendition.next()
-        → NO: snap back (reset offset)
-    → useCFITracking (relocate event → new CFI)
-    → useProgressSync (debounced save)
-```
-
-### Новый поток (follow-finger)
-
-```
-User touch → iframe touchstart
-    → useMobileGestures → onPan('start')
-    → useFollowFingerSwipe: begin tracking
-
-User drag → iframe touchmove
-    → useMobileGestures → onPan('move', offsetX)
-    → useFollowFingerSwipe:
-        → stage.container.style.transform = translateX(offsetX)
-        → stage.container.style.transition = 'none'
-        → (следующая колонка уже видна через scrollWidth)
-
-User release → iframe touchend
-    → useMobileGestures → onPan('end', velocity)
-    → useFollowFingerSwipe: decision
-        → Navigate:
-            → stage.container.style.transition = 'transform 250ms ease-out'
-            → stage.container.style.transform = translateX(-viewportWidth)
-            → onTransitionEnd:
-                → stage.container.style.transform = ''
-                → stage.container.style.transition = ''
-                → directScroll(direction, smooth=false) // instant, контент уже виден
-        → Snap back:
-            → stage.container.style.transition = 'transform 200ms ease-out'
-            → stage.container.style.transform = 'translateX(0)'
-            → onTransitionEnd: cleanup
-
-    → useCFITracking (relocate → new CFI)
-    → useProgressSync (debounced save)
-```
-
----
-
-## Структура хуков (после рефакторинга)
-
-### Текущая структура (hooks/epub/)
-
-```
-hooks/epub/
-├── useEpubLoader.ts           # Загрузка книги (остается)
-├── useEpubRendition.ts        # Создание rendition (модифицируется)
-├── useEpubNavigation.ts       # directScroll + fallback (модифицируется)
-├── useSwipeNavigation.ts      # Binary swipe (ПЕРЕПИСЫВАЕТСЯ)
-├── useTouchNavigation.ts      # Tap zones внутри iframe (остается)
-├── useEpubIOSFixes.ts         # iOS layout patches (остается)
-├── useCFITracking.ts          # CFI position tracking (остается)
-├── useProgressSync.ts         # Progress save debounce (остается)
-├── useChapterManagement.ts    # Chapter loading (остается)
-├── useAnnotationRendering.ts  # DOM span wrapping (остается)
-├── useDescriptionHighlighting.ts # (остается)
-├── useEntityNameHighlighting.ts  # (остается)
-├── useBookmarks.ts            # (остается)
-├── useResizeHandler.ts        # (модифицируется -- viewport manager)
-├── useEpubThemes.ts           # (остается)
-├── useContentHooks.ts         # (остается)
-├── useTextSelection.ts        # (остается)
-├── useToc.ts                  # (остается)
-└── index.ts                   # Re-exports
-```
-
-### Новая структура
-
-```
-hooks/epub/
-├── ... (все существующие хуки сохраняются)
-│
-├── useFollowFingerSwipe.ts    # НОВЫЙ: follow-finger с CSS transform
-├── useMobileGestures.ts       # НОВЫЙ: unified gesture recognition
-└── useViewportManager.ts      # НОВЫЙ: viewport state management
-
-hooks/pwa/                      # НОВАЯ директория
-├── useServiceWorkerUpdate.ts  # НОВЫЙ: SW update management
-├── useInstallPrompt.ts        # НОВЫЙ: PWA install prompt
-└── useOfflineStatus.ts        # НОВЫЙ: расширение useOnlineStatus
-```
-
----
-
-## Паттерны реализации
-
-### Паттерн 1: CSS Transform на stage container
-
-**Что:** Применяем `transform: translateX()` к `manager.stage.container` для follow-finger эффекта.
-
-**Когда:** Во время горизонтального свайпа (tracking phase).
+| Компонент | Файл | Изменение | Масштаб |
+|-----------|------|-----------|---------|
+| `useGestureController` | `hooks/epub/useGestureController.ts` | ПЕРЕПИСАТЬ: тонкий координатор (~200 строк вместо 863), делегирует arena | Большой |
+| `useEpubNavigation` | `hooks/epub/useEpubNavigation.ts` | МОДИФИЦИРОВАТЬ: публичный параметр `smooth` для directScroll, по умолчанию `false` для tap | Средний |
+| `EpubReader.tsx` | `components/Reader/EpubReader.tsx` | МОДИФИЦИРОВАТЬ: onCenterTap возвращает boolean, условный toggleUI | Малый |
+| `FollowFingerContainer` | `components/Reader/FollowFingerContainer.tsx` | СОХРАНИТЬ как есть | Нет изменений |
+| `useAutoHideUI` | `hooks/reader/useAutoHideUI.ts` | СОХРАНИТЬ как есть | Нет изменений |
+| `useTextSelection` | `hooks/epub/useTextSelection.ts` | СОХРАНИТЬ (gesture arena решает конфликт через passthrough) | Нет изменений |
+| `useDescriptionHighlighting` | `hooks/epub/useDescriptionHighlighting.ts` | СОХРАНИТЬ (клики работают через arena passthrough) | Нет изменений |
+| `useEntityNameHighlighting` | `hooks/epub/useEntityNameHighlighting.ts` | СОХРАНИТЬ (клики работают через arena passthrough) | Нет изменений |
+
+### Удалённый мёртвый код
+
+| Файл | Строки | Статус | Действие |
+|------|--------|--------|----------|
+| `useFollowFingerSwipe.ts` | 609 | Hook не используется, утилиты экспортируются в useGestureController | ПЕРЕНЕСТИ утилиты в `gesture-utils.ts`, удалить hook |
+| `useTouchNavigation.ts` | 18KB | Dead code, не импортируется | УДАЛИТЬ |
+| `IOSTapZones.tsx` | 12.5KB | Dead code, экспортируется но не импортируется | УДАЛИТЬ |
+
+## Архитектурные паттерны
+
+### Паттерн 1: Gesture Arena (арбитр жестов)
+
+**Что:** Каждый gesture handler объявляет claim на touch event. Arena определяет победителя по приоритету + текущему состоянию. Вдохновлено Flutter Gesture Arena.
+
+**Когда использовать:** Когда несколько gesture recognizers конкурируют за одни touch events.
 
 **Компромиссы:**
-- PRO: Нативно плавно (GPU-ускорение transform), не требует re-render
-- PRO: epub.js уже пре-рендерит колонки -- следующая страница видна автоматически
-- CON: На границе главы нет следующей колонки -- нужен fallback (rubber band)
-- CON: iOS может иметь hit-testing проблемы на трансформированном iframe
+- PRO: Чёткое разделение ответственностей, каждый handler тестируется изолированно
+- PRO: Добавление нового жеста = новый handler + приоритет, без изменения существующих
+- CON: 4 файла вместо 1, но каждый радикально проще и тестируемее
+- CON: Дополнительный уровень абстракции
 
 **Пример:**
-```typescript
-// Во время touchmove:
-const stage = rendition.manager.stage.container;
-stage.style.transform = `translateX(${offsetX}px)`;
-stage.style.transition = 'none';
-stage.style.willChange = 'transform'; // GPU hint
 
-// На touchend (navigate):
-stage.style.transition = 'transform 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-stage.style.transform = `translateX(${-viewportWidth}px)`;
-// После transitionend:
-stage.style.transform = '';
-stage.style.transition = '';
-stage.style.willChange = '';
-stage.scrollLeft += scrollUnit; // Фактический переход
+```typescript
+// useGestureArena.ts
+type GestureWinner = 'interactive' | 'selection' | 'swipe' | 'tap' | null;
+
+interface ArenaState {
+  state: 'idle' | 'pending' | 'claimed';
+  winner: GestureWinner;
+  startX: number;
+  startY: number;
+  startTime: number;
+  target: HTMLElement | null;
+}
+
+// Cleanup через WeakMap вместо @ts-expect-error на doc
+const cleanupMap = new WeakMap<Document, () => void>();
+
+export const useGestureArena = (options: ArenaOptions) => {
+  const arenaRef = useRef<ArenaState>(INITIAL);
+
+  const contentHook = (contents: Contents) => {
+    const doc = contents.document;
+    if (!doc) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      arenaRef.current = {
+        state: 'pending',
+        winner: null,
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        startTime: Date.now(),
+        target: e.target as HTMLElement,
+      };
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const arena = arenaRef.current;
+      if (arena.state === 'idle') return;
+
+      const deltaX = Math.abs(e.touches[0].clientX - arena.startX);
+
+      // Swipe claims arena при горизонтальном движении >10px
+      if (arena.state === 'pending' && deltaX > SWIPE_THRESHOLD) {
+        // Priority 0: interactive element -- не claim
+        if (options.isInteractive(arena.target)) return;
+
+        arena.state = 'claimed';
+        arena.winner = 'swipe';
+        options.onSwipeStart(e);
+      }
+
+      if (arena.winner === 'swipe') {
+        options.onSwipeMove(e);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const arena = arenaRef.current;
+
+      if (arena.winner === 'swipe') {
+        options.onSwipeEnd(e);
+      } else if (arena.state === 'pending') {
+        const duration = Date.now() - arena.startTime;
+
+        // Priority 1: long press -> selection
+        if (duration >= LONG_PRESS_TIMEOUT) {
+          arenaRef.current = INITIAL;
+          return;
+        }
+
+        // Priority 0: interactive element -> passthrough
+        if (options.isInteractive(arena.target)) {
+          arenaRef.current = INITIAL;
+          return;
+        }
+
+        // Priority 3: tap
+        options.onTap(e);
+      }
+
+      arenaRef.current = INITIAL;
+    };
+
+    doc.addEventListener('touchstart', handleTouchStart, { passive: true });
+    doc.addEventListener('touchmove', handleTouchMove, { passive: false });
+    doc.addEventListener('touchend', handleTouchEnd, { passive: true });
+    doc.addEventListener('touchcancel', () => { arenaRef.current = INITIAL; }, { passive: true });
+
+    // WeakMap cleanup вместо @ts-expect-error
+    cleanupMap.set(doc, () => {
+      doc.removeEventListener('touchstart', handleTouchStart);
+      doc.removeEventListener('touchmove', handleTouchMove);
+      doc.removeEventListener('touchend', handleTouchEnd);
+    });
+  };
+};
 ```
 
-### Паттерн 2: Unified Event Source с платформенным разделением
+### Паттерн 2: Animate-Then-Navigate (раздельная анимация и навигация)
 
-**Что:** Один gesture recognizer, разные источники событий для iOS и Android.
+**Что:** Визуальная анимация запускается ДО фактической навигации. Анимация маскирует задержку epub.js.
 
-**Когда:** Всегда -- заменяет текущую "3 системы одновременно" архитектуру.
-
-**Компромиссы:**
-- PRO: Устраняет double navigation и race conditions
-- PRO: Единый порог/настройки для всех платформ
-- CON: Больше абстракции, сложнее дебаг
-
-### Паттерн 3: Service Worker + IndexedDB координация
-
-**Что:** SW перехватывает book file requests, но кэшированием управляет клиент (IndexedDB через Dexie).
-
-**Когда:** Для offline чтения без дублирования данных.
+**Когда использовать:** Для tap-навигации и завершения swipe.
 
 **Компромиссы:**
-- PRO: Одна копия книги (IndexedDB), нет дублирования в Cache API
-- PRO: epubCache.ts уже имеет LRU, TTL, size limits
-- CON: SW не может напрямую читать IndexedDB (только через postMessage)
-- CON: Если app не открыт, SW не может обслужить book request из IndexedDB
+- PRO: Мгновенный визуальный feedback, epub.js delay (50-200ms) незаметен
+- CON: Теоретический рассинхрон анимации и контента при медленном рендере
+- MITIGATION: translateX.set(0) после завершения И анимации, И навигации
 
----
+**Критическое исправление:** Для tap-навигации `directScroll` должен использовать `behavior: 'instant'`, а не `'smooth'`. Spring animation в FollowFingerContainer обеспечивает визуальный эффект. Две параллельные анимации -- root cause "дёрганого" пролистывания.
 
-## Антипаттерны
+```typescript
+// Tap-навигация: spring animation + instant scroll
+const handleEdgeTap = async (direction: 'next' | 'prev') => {
+  // 1. Запустить spring animation (визуальный feedback)
+  const target = direction === 'next' ? -viewportWidth : viewportWidth;
+  animate(translateX, target, {
+    ...SPRING_FAST,
+    onComplete: () => {
+      translateX.set(0);
+      setPhase('idle');
+    },
+  });
 
-### Антипаттерн 1: Двойной rendition для preview
+  // 2. Instant scroll (фактическая навигация, без CSS smooth)
+  await directScroll(direction, false); // false = instant
+};
 
-**Что делают:** Создают второй epub.js Rendition для рендеринга preview следующей страницы.
+// Swipe-завершение: spring animation -> onComplete -> instant scroll
+const handleSwipeEnd = (direction: 'next' | 'prev', velocity: number) => {
+  const target = direction === 'next' ? -viewportWidth : viewportWidth;
+  animate(translateX, target, {
+    ...getSpringConfig(velocity),
+    velocity: velocity * 1000,
+    onComplete: async () => {
+      translateX.set(0);
+      setPhase('idle');
+      await directScroll(direction, false); // instant
+    },
+  });
+};
+```
 
-**Почему плохо:** epub.js Rendition тяжелый (создает iframe, парсит CSS, строит layout). Два rendition = двойной расход памяти (150-300MB для большой книги). На мобильных устройствах вызывает OOM.
+### Паттерн 3: Conditional Center Tap (description-aware toggle)
 
-**Вместо этого:** Использовать существующий scrollWidth. epub.js уже рендерит все колонки главы. Двигая container через transform, следующая колонка видна автоматически.
+**Что:** `onCenterTap` возвращает boolean: true если description найдена, false если нет. UI toggle вызывается ТОЛЬКО если false.
 
-### Антипаттерн 2: html2canvas для page screenshot
+**Когда использовать:** Всегда -- заменяет текущий unconditional toggle.
 
-**Что делают:** Используют html2canvas для создания bitmap preview страницы перед свайпом.
+**Пример:**
 
-**Почему плохо:** html2canvas не работает с iframes (cross-origin restrictions), медленный (50-200ms), результат -- растровое изображение (размытое на retina). Также не работает на iOS Safari.
+```typescript
+// В EpubReader.tsx:
+const handleCenterTap = useCallback(
+  async (x: number, y: number): Promise<boolean> => {
+    if (!rendition) return false;
+    try {
+      const contents = rendition.getContents();
+      if (!contents?.length) return false;
+      const doc = contents[0].document;
+      let target = doc.elementFromPoint(x, y) as HTMLElement | null;
+      while (target && target !== doc.body) {
+        if (target.classList?.contains('description-highlight')) {
+          const id = target.getAttribute('data-description-id');
+          if (id) {
+            handleDescriptionClick(id);
+            return true; // description найдена, НЕ toggle UI
+          }
+        }
+        target = target.parentElement;
+      }
+    } catch (err) { logger.error(err); }
+    return false; // description не найдена, toggle UI
+  },
+  [rendition, handleDescriptionClick]
+);
 
-**Вместо этого:** CSS transform подход -- двигаем реальный DOM, не bitmap.
+// В useTapGesture:
+const handleCenterTap = async (x: number, y: number) => {
+  const descriptionFound = await onCenterTapRef.current(x, y);
+  if (!descriptionFound) {
+    onToggleUIRef.current();
+  }
+};
+```
 
-### Антипаттерн 3: Отключение overscroll-behavior для свайпов
+## Data Flow
 
-**Что делают:** Ставят `overscroll-behavior: none` на body чтобы предотвратить pull-to-refresh/back-navigation, но это ломает вертикальный scroll.
+### Текущий touch event flow (проблемный)
 
-**Вместо этого:** Ставить `overscroll-behavior-x: none` (только горизонтальный), а вертикальный оставить. Или использовать `touch-action: pan-y` на swipe-зоне.
+```
+iframe touchstart
+    ↓
+useGestureController.contentHook (монолитный FSM)
+    ↓
+pending ──────────────────────────────────────┐
+    ↓ (>10px horizontal)                     ↓ (touchend без движения)
+swiping                                   TAP DETECTION
+    ↓                                         ↓
+touchmove → translateX.set()             isInteractiveElement(target)?
+    ↓                                    YES → return
+touchend                                 NO → getTapAction(screenX)
+    ↓                                         ↓
+shouldNavigate?                          center → onCenterTap(x,y)
+YES → spring to edge                          + onToggleUI()    ← ПРОБЛЕМА: оба всегда
+    → onComplete: navigate               edge → spring animation
+NO → snap back                                + onEdgeTap()
+                                              + directScroll(smooth=true) ← ПРОБЛЕМА: двойная анимация
 
-### Антипаттерн 4: Полное кэширование книг в Cache API
+iOS overlay (center 15%-85%):
+    touchstart/touchend → onCenterTap(x,y)    ← ПРОБЛЕМА: блокирует description/entity clicks
+                       + onToggleUI()
+```
 
-**Что делают:** Кэшируют EPUB файлы (5-50MB каждый) в Cache API через Service Worker.
+### Рекомендуемый touch event flow
 
-**Почему плохо:** Cache API на iOS имеет лимит ~50MB. Две книги -- и лимит исчерпан. Также дублирует данные из IndexedDB (epubCache.ts).
+```
+iframe touchstart
+    ↓
+GestureArena.handleTouchStart
+    ↓ (сохранить start state, арбитр ещё ничего не решает)
+pending
+    ↓
+touchmove
+    ↓
+GestureArena.handleTouchMove
+    ↓
+    ├── isInteractive(target)? → skip, не claim (приоритет 0)
+    │
+    ├── deltaX > 10px? → claim 'swipe'
+    │       ↓
+    │   SwipeHandler.onStart → setPhase('tracking')
+    │       ↓
+    │   SwipeHandler.onMove → translateX.set(deltaX)
+    │       ↓ (rubber-band на boundary: clamp + resistance)
+    │   touchend → SwipeHandler.onEnd
+    │       ↓
+    │   shouldNavigate? → spring to edge → onComplete: instant directScroll
+    │   snap back?      → spring to 0
+    │   boundary+enough? → spring to 0 → onComplete: rendition.next()/prev()
+    │
+    └── deltaX <= 10px? → continue pending
+            ↓
+        touchend (никто не claim)
+            ↓
+        GestureArena.handleTouchEnd
+            ↓
+            ├── duration >= 350ms? → LONG PRESS → return (native selection)
+            │
+            ├── isInteractive(target)? → return (native click handler)
+            │
+            └── TAP → TapHandler.handle(screenX, screenY)
+                    ↓
+                    ├── center zone → onCenterTap(x,y): boolean
+                    │       ↓
+                    │   true (desc found) → drawer opens (NO toggle UI)
+                    │   false             → toggleUI()
+                    │
+                    └── edge zone → spring animation + instant directScroll
+```
 
-**Вместо этого:** Держать книги только в IndexedDB. Cache API использовать для API responses и static assets.
+### Ключевые изменения в data flow
 
----
+1. **onCenterTap возвращает boolean** -- если description найдена, НЕ toggle-ить UI
+2. **Tap-навигация: instant scroll** -- `directScroll(dir, false)`, spring animation обеспечивает визуал
+3. **GestureArena маршрутизирует** вместо монолитного FSM
+4. **iOS overlay удалён** -- все touch events через iframe contentHook
+5. **WeakMap для cleanup** вместо `@ts-expect-error doc.__gestureControllerCleanup`
 
-## Предложенный порядок реализации
+## Навигация между главами
 
-### Фаза 1: Фиксы багов навигации (фундамент)
-**Зависимости:** Нет
-**Файлы:** `useSwipeNavigation.ts`, `useEpubNavigation.ts`, `IOSTapZones.tsx`
-**Цель:** Устранить блокировку навигации (после отмены генерации изображений), fix double navigation, fix быстрое пролистывание.
+### Текущая реализация
 
-**Обоснование:** Без работающей базовой навигации нельзя строить follow-finger поверх. Текущие баги (блокировка `isNavigatingRef`) должны быть исправлены первыми.
+Rubber-band на boundary → spring snap-back → `onChapterChange` (в `onComplete`) → `rendition.next()` → новая глава загружается, iframe DOM полностью перезаписывается → `hooks.content.register` вызывает contentHook для нового Contents → touch events привязываются.
 
-### Фаза 2: Follow-finger свайпы
-**Зависимости:** Фаза 1
-**Файлы:** `useFollowFingerSwipe.ts` (НОВЫЙ), `useSwipeNavigation.ts` (переписать), `SwipeOverlay.tsx` (переписать)
-**Цель:** Палец двигает страницу, видна следующая страница, плавная анимация завершения.
+**Работает корректно**, но медленно (300-700ms от release до нового контента).
 
-**Обоснование:** Основная UX-фича milestone. Требует работающей навигации (Фаза 1). Не требует unified gestures -- можно реализовать поверх текущего `hooks.content.register()`.
+### Рекомендуемая оптимизация
 
-### Фаза 3: Unified gesture handler
-**Зависимости:** Фаза 2
-**Файлы:** `useMobileGestures.ts` (НОВЫЙ), `IOSTapZones.tsx` (рефакторинг), `useTouchNavigation.ts` (рефакторинг)
-**Цель:** Единый gesture handler, устранение дублирования, корректная обработка swipe/tap/long-press.
+1. **Уменьшить rubber-band spring** для быстрого snap-back: `SPRING_RUBBER` stiffness 200→300, damping 28→34
+2. **Chapter change без ожидания snap-back**: вызывать `rendition.next()` параллельно со spring animation, а не в `onComplete`
+3. **Preload hint**: при rubber-band >20px offset, начать prefetch следующей главы через `rendition.next()` в фоне (если epub.js поддерживает)
 
-**Обоснование:** После того как follow-finger работает, нужно интегрировать его с tap navigation и iOS overlays без конфликтов.
+**Confidence: MEDIUM** -- параллельный вызов `rendition.next()` во время animation может вызвать race condition с touch events. Требует тестирования.
 
-### Фаза 4: Viewport и iOS PWA улучшения
-**Зависимости:** Фаза 2 (для корректного тестирования)
-**Файлы:** `useViewportManager.ts` (НОВЫЙ), `useEpubRendition.ts` (рефакторинг), `manifest.json`, `index.html`
-**Цель:** Корректный viewport на всех устройствах, ориентация, keyboard, safe areas.
+## Интеграция с epub.js iframe
 
-### Фаза 5: Offline и PWA polish
-**Зависимости:** Фазы 1-4 (все UI готово)
-**Файлы:** `sw.ts` (модификация), `OfflineStatusBanner.tsx` (НОВЫЙ), `InstallPrompt.tsx` (НОВЫЙ), `useServiceWorkerUpdate.ts` (НОВЫЙ)
-**Цель:** Полноценное offline-чтение, install prompt, update management.
+### Ключевое ограничение
 
-**Обоснование:** SW и offline -- это polish поверх работающего ридера. Не блокирует основные UX-фичи.
+epub.js рендерит контент в sandboxed iframe. Touch events из iframe НЕ bubble в parent document. Единственный способ перехватить -- `rendition.hooks.content.register(contentHook)`. contentHook вызывается с объектом `Contents` (доступ к `document`, `window` iframe).
 
-### Фаза 6: Описания и edge cases
-**Зависимости:** Фаза 2 (для CSS-контекста)
-**Файлы:** Описание-специфичные файлы (CFI->DOM mapping, sentence parsing)
-**Цель:** Fix обрезки описаний, умный парсинг начала предложений.
+### Удаление iOS overlay
 
-**Обоснование:** Может идти параллельно с Фазами 3-5, так как затрагивает другие компоненты.
+**Текущее:** Прозрачный DIV (left: 15%, right: 15%) поверх iframe для center-tap на iOS. Создаётся в `useEffect` при `isIOS()`.
 
----
+**Проблема:** Блокирует все touch events к iframe в центральной зоне -- description clicks, entity clicks, text selection.
 
-## Ключевые точки интеграции (матрица)
+**Решение:** Удалить overlay. Причины:
+1. `body.style.cursor = 'pointer'` (строка 299) уже обеспечивает click delegation на iOS
+2. Touch events через contentHook уже работают на iOS (tap detection в touchend)
+3. Click events в iframe работают на iOS Safari с `cursor: pointer`
 
-| Новый компонент | Интегрируется с | Через | Риск конфликта |
-|-----------------|----------------|-------|----------------|
-| useFollowFingerSwipe | useEpubNavigation | `directScroll()` для фактической навигации | Низкий -- четкий API |
-| useFollowFingerSwipe | manager.stage.container | `style.transform`, `style.transition` | **ВЫСОКИЙ** -- epub.js может сбрасывать styles |
-| useFollowFingerSwipe | useEpubIOSFixes | Конфликт с `snap()` blocking, `scrollBy()` blocking | Средний -- нужна координация |
-| useMobileGestures | IOSTapZones | IOSTapZones дает events, gestures распознает | Низкий -- четкое разделение |
-| useMobileGestures | hooks.content.register | iframe events → gesture recognizer | Низкий -- уже работает |
-| useViewportManager | useEpubRendition | Заменяет `calculateMobileDimensions()` | Средний -- рефакторинг |
-| SW EPUB caching | epubCache.ts | postMessage координация | Средний -- async |
+**Fallback если center-tap не работает на iOS после удаления:**
+- Сделать overlay `pointer-events: none` (пропускает все events к iframe)
+- Обрабатывать center-tap исключительно через iframe contentHook
 
----
+**Confidence: MEDIUM** -- требует тестирования на реальном iOS устройстве.
+
+### Описания и сущности: click handlers
+
+Описания (`useDescriptionHighlighting`) и сущности (`useEntityNameHighlighting`) уже имеют собственные click handlers, привязанные через `rendition.on('click')`. Gesture arena не должна вмешиваться -- `isInteractiveElement` проверка на target обеспечивает passthrough.
+
+**Важно:** `isInteractiveElement` текущая реализация проверяет `description-highlight` и `<a>`, `<button>`. Нужно добавить `entity-mention`:
+
+```typescript
+const isInteractiveElement = (target: EventTarget | null): boolean => {
+  if (!target || !(target instanceof HTMLElement)) return false;
+  if (target.classList?.contains('description-highlight') ||
+      target.closest?.('.description-highlight')) return true;
+  if (target.classList?.contains('entity-mention') ||
+      target.closest?.('.entity-mention')) return true;  // ДОБАВИТЬ
+  if (target.tagName === 'A' || target.closest?.('a')) return true;
+  if (target.tagName === 'BUTTON' || target.closest?.('button')) return true;
+  return false;
+};
+```
+
+## Порядок сборки (Build Order)
+
+### Волна 1: Утилиты и очистка (нет зависимостей)
+
+| # | Задача | Файл(ы) | Зависимости |
+|---|--------|---------|-------------|
+| 1.1 | Извлечь утилиты из useFollowFingerSwipe в gesture-utils.ts | `gesture-utils.ts` (НОВЫЙ) | Нет |
+| 1.2 | Удалить dead code | `useTouchNavigation.ts` (удалить), `IOSTapZones.tsx` (удалить) | Нет |
+| 1.3 | Добавить `entity-mention` в isInteractiveElement | `useGestureController.ts` | Нет |
+| 1.4 | Модифицировать useEpubNavigation: публичный параметр smooth | `useEpubNavigation.ts` | Нет |
+
+### Волна 2: Gesture handlers (зависят от gesture-utils)
+
+| # | Задача | Файл(ы) | Зависимости |
+|---|--------|---------|-------------|
+| 2.1 | Создать useInteractivePassthrough | `useInteractivePassthrough.ts` (НОВЫЙ) | gesture-utils |
+| 2.2 | Создать useSwipeGesture | `useSwipeGesture.ts` (НОВЫЙ) | gesture-utils, motion/react |
+| 2.3 | Создать useTapGesture | `useTapGesture.ts` (НОВЫЙ) | gesture-utils |
+
+### Волна 3: Arena и координатор (зависят от handlers)
+
+| # | Задача | Файл(ы) | Зависимости |
+|---|--------|---------|-------------|
+| 3.1 | Создать useGestureArena | `useGestureArena.ts` (НОВЫЙ) | 2.1, 2.2, 2.3 |
+| 3.2 | Переписать useGestureController как координатор | `useGestureController.ts` | 3.1 |
+
+### Волна 4: Интеграция (зависят от координатора)
+
+| # | Задача | Файл(ы) | Зависимости |
+|---|--------|---------|-------------|
+| 4.1 | Обновить EpubReader.tsx: onCenterTap returns boolean | `EpubReader.tsx` | 3.2 |
+| 4.2 | Удалить iOS overlay из useGestureController | `useGestureController.ts` | 4.1, тестирование на iOS |
+| 4.3 | Tap-навигация: instant scroll вместо smooth | `useEpubNavigation.ts`, `useTapGesture.ts` | 3.2 |
+
+### Волна 5: Полировка (зависят от интеграции)
+
+| # | Задача | Файл(ы) | Зависимости |
+|---|--------|---------|-------------|
+| 5.1 | Ускорить rubber-band spring для chapter transition | `useSwipeGesture.ts` | 4.1 |
+| 5.2 | Удалить useFollowFingerSwipe hook (утилиты уже в gesture-utils) | `useFollowFingerSwipe.ts` | 1.1 |
+| 5.3 | Тестирование на iOS: center-tap без overlay | Ручное тестирование | 4.2 |
+
+## Анти-паттерны
+
+### Анти-паттерн 1: Монолитный FSM для разных типов жестов
+
+**Что делают:** Один state machine с 4 состояниями обрабатывает 5+ типов взаимодействий (текущий useGestureController).
+
+**Почему плохо:** Состояние `pending` перегружено -- одновременно ждёт tap, swipe, long press, interactive click. Добавление нового жеста требует модификации всей машины. Конфликты между gesture types проявляются как трудно-воспроизводимые баги (text selection работает на десктопе, ломается на iOS).
+
+**Вместо этого:** Gesture Arena -- каждый тип жеста в своём handler с чётким приоритетом. Arena маршрутизирует. Добавление нового жеста = новый handler + приоритет.
+
+### Анти-паттерн 2: Параллельные CSS smooth scroll и Spring animation
+
+**Что делают:** Tap запускает spring animation (translateX) И CSS smooth scroll (directScroll) одновременно.
+
+**Почему плохо:** Два визуальных эффекта дают "дёрганое" двойное пролистывание. На медленных устройствах CSS smooth scroll отстаёт от spring, создавая "прыжок".
+
+**Вместо этого:** Одна анимация. Spring/translateX -- визуал. directScroll -- `behavior: 'instant'`. Никогда не два параллельных motion.
+
+### Анти-паттерн 3: DOM overlay для gesture interception
+
+**Что делают:** Прозрачный DIV поверх iframe для перехвата тапов (iOS overlay в useGestureController).
+
+**Почему плохо:** Блокирует ВСЕ touch events к iframe в зоне overlay. Каждый новый тип интерактивного элемента требует проброса через overlay.
+
+**Вместо этого:** Все touch events через iframe contentHook. `body.style.cursor = 'pointer'` на iOS обеспечивает click delegation.
+
+### Анти-паттерн 4: @ts-expect-error для cleanup storage
+
+**Что делают:** `doc.__gestureControllerCleanup = () => { ... }` через @ts-expect-error.
+
+**Почему плохо:** TypeScript safety нарушена. При re-register listeners могут дублироваться (старый cleanup не вызван).
+
+**Вместо этого:** `WeakMap<Document, () => void>` для привязки cleanup к document. TypeScript-safe, garbage collected при удалении document.
+
+### Анти-паттерн 5: Unconditional UI toggle при center tap
+
+**Что делают:** `onCenterTap(x,y)` и `onToggleUI()` вызываются всегда, независимо от результата.
+
+**Почему плохо:** Если тап попал на описание -- drawer открывается И шапка toggle-ится.
+
+**Вместо этого:** `onCenterTap` возвращает boolean. Toggle UI только если false (description не найдена).
+
+## Точки интеграции
+
+### Внешние сервисы
+
+| Сервис | Паттерн интеграции | Примечания |
+|--------|---------------------|------------|
+| epub.js iframe | `rendition.hooks.content.register()` | Единственный способ привязать events; вызывается при каждой смене главы; contentHook получает Contents |
+| motion/react | `useMotionValue()`, `animate()` | GPU-ускоренный transform; MotionValue обновляется без React re-render; spring physics |
+| epub.js rendition | `.next()`, `.prev()`, `.display()` | Async навигация (50-200ms); вызывает 'rendered'+'relocated'; полная перезагрузка iframe DOM |
+| epub.js events | `rendition.on('selected'/'click'/'relocated')` | Click forwarding из iframe; 'selected' для text selection; 'relocated' для CFI tracking |
+
+### Внутренние границы
+
+| Граница | Коммуникация | Примечания |
+|---------|--------------|------------|
+| GestureArena <-> SwipeHandler | Callback refs (onSwipeStart/Move/End) | Ref-based для zero re-renders на touchmove |
+| GestureArena <-> TapHandler | Callback refs (onTap) | Синхронный, после touchend |
+| GestureArena <-> InteractivePassthrough | Pure function (isInteractive) | Проверка target chain без side effects |
+| SwipeHandler <-> FollowFingerContainer | MotionValue (translateX) | GPU-ускоренный, без re-render |
+| SwipeHandler <-> useEpubNavigation | `directScroll(dir, smooth=false)` | Serialized promise chain; instant для tap/swipe |
+| TapHandler <-> EpubReader | `onCenterTap(x,y): Promise<boolean>` | ИЗМЕНЕНИЕ: возвращает boolean |
+| TapHandler <-> useAutoHideUI | `toggleUI()`, `onTapNavigate()` | Conditional на результат onCenterTap |
+| Все handlers <-> useNavigationLock | `acquire()/release()` | Ref-based mutex; 2s auto-recovery |
+| useDescriptionHighlighting <-> iframe DOM | `rendition.on('click')` | Независимый click handler; не конфликтует с arena (passthrough) |
+| useEntityNameHighlighting <-> iframe DOM | `rendition.on('click')` | Независимый click handler; passthrough через isInteractive |
+
+## Масштабируемость архитектуры
+
+| Аспект | Текущее | С arena | Изменение |
+|--------|---------|---------|-----------|
+| Добавить новый жест | Модифицировать 863-строчный FSM | Новый handler ~100 строк + приоритет | Радикально проще |
+| Тестирование gesture | Тест всего FSM (complex setup) | Тест каждого handler изолированно | Unit tests возможны |
+| iOS-специфичные workarounds | Вшиты в FSM + отдельный overlay | Отдельный handler или fallback в arena | Изолированы |
+| Количество event listeners на iframe | 5 (touchstart/move/end/cancel, click) | 5 (те же) | Не растёт |
+| Re-render на touchmove | 0 (ref-based) | 0 (ref-based) | Сохраняется |
 
 ## Источники
 
-- Прямой анализ кодовой базы: EpubReader.tsx, 25+ hooks, sw.ts, manifest.json, iosSupport.ts
-- [epub.js Wiki: Tips and Tricks](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3))
-- [epub.js Issue #510: Page flip animation](https://github.com/futurepress/epub.js/issues/510)
-- [epub.js Issue #1377: Paginated swipe animation](https://github.com/futurepress/epub.js/issues/1377)
-- [PWA iOS Limitations Guide](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide)
-- [PWAs on iOS 2025](https://brainhub.eu/library/pwa-on-ios)
-- [CSS safe-area-inset for PWA standalone](https://gist.github.com/cvan/6c022ff9b14cf8840e9d28730f75fc14)
-- [Understanding svh, lvh, dvh viewport units](https://medium.com/@tharunbalaji110/understanding-mobile-viewport-units-a-complete-guide-to-svh-lvh-and-dvh-0c905d96e21a)
-- [Vite PWA: injectManifest](https://vite-pwa-org.netlify.app/workbox/inject-manifest)
+- Аудит кодовой базы: `useGestureController.ts` (863 строки), `useFollowFingerSwipe.ts` (609), `useEpubNavigation.ts` (363), `useTextSelection.ts` (148), `useDescriptionHighlighting.ts` (496), `useEntityNameHighlighting.ts` (197), `FollowFingerContainer.tsx` (117), `ReaderHeader.tsx` (145), `EpubReader.tsx` (750), `useAutoHideUI.ts` (111), `useNavigationLock.ts` (114), `reader.ts` store (442)
+- [epub.js #904: Mobile Safari text selection](https://github.com/futurepress/epub.js/issues/904) -- текст selection проблемы в iframe
+- [epub.js #905: preventDefault on touch event](https://github.com/futurepress/epub.js/issues/905) -- passive event listener warnings
+- [Flutter Gesture Arena](https://docs.flutter.dev/ui/interactivity/gestures) -- gesture disambiguation pattern reference
+- [Gestures - Material Design](https://m1.material.io/patterns/gestures.html) -- tap vs swipe vs long press disambiguation
+- [Motion for React](https://motion.dev/docs/react) -- spring animation API, useMotionValue
+- PROJECT.md constraints: epub.js 0.3.93, React 19, motion/react, TypeScript 5.7
 
 ---
-*Архитектурное исследование для: Mobile/PWA интеграция в ридер fancai*
-*Исследовано: 2026-03-09*
+*Architecture research for: Gesture Handling и Анимация Ридера v1.2*
+*Researched: 2026-03-10*

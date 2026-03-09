@@ -1,215 +1,186 @@
-# Pitfalls Research: Mobile/PWA для EPUB-ридера на epub.js
+# Pitfalls Research: Стабилизация мобильного ридера v1.2
 
-**Domain:** Mobile-first PWA EPUB ридер (добавление Mobile/PWA в существующий web-ридер)
-**Researched:** 2026-03-09
-**Confidence:** HIGH (основано на анализе текущего кода + известные баги + документация + community issues)
+**Domain:** Исправление регрессий gesture handling, анимации, text selection, popup-ов в iframe-based EPUB ридере
+**Researched:** 2026-03-10
+**Confidence:** HIGH (основано на анализе кодовой базы + epub.js issues + iOS/Android-специфичные баги + community patterns)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: epub.js rendition.display() race condition при быстром листании
+### Pitfall 1: Двойная навигация при конкуренции свайп-анимации и epub.js scroll
 
 **What goes wrong:**
-При быстром свайпе пользователь вызывает `rendition.next()` или `rendition.display()` несколько раз подряд, пока предыдущий вызов ещё не завершён. epub.js ставит вызовы в очередь (rendering queue), но при достаточной скорости:
-- Промежуточные страницы "пролистываются" без рендеринга
-- Накапливается сдвиг scrollLeft (известный баг: "быстрые свайпы смещают страницу вправо")
-- Аннотации/хайлайты рендерятся для неправильной страницы
-- `relocated` event срабатывает для промежуточной позиции, портя прогресс чтения
+Свайп-анимация через CSS transform (translateX на wrapper div) завершается, вызывает `onNavigate` -> `directScroll()`, но epub.js одновременно реагирует на собственный scroll event (relocated). Результат: страница перелистывается дважды, пользователь пропускает страницу.
 
 **Why it happens:**
-В текущем `useEpubNavigation.ts` на мобильных используется `directScroll()` с `stage.scrollTo({ behavior: 'smooth' })`. Когда новый свайп начинается до завершения `waitForScrollEnd()`, предыдущий smooth scroll ещё не закончился -- `scrollLeft` оказывается в промежуточном положении, и новый scroll рассчитывается от неверной базы. Кроме того, `isNavigatingRef` в `useSwipeNavigation.ts` блокирует только одновременные свайпы, но не предотвращает вызов `directScroll` из очередного touchend, если предыдущий scroll ещё анимируется.
+В текущей архитектуре анимация и навигация разделены: `animate(translateX, target, { onComplete: () => { translateX.set(0); onNavigate(dir); } })`. Между `translateX.set(0)` и завершением `directScroll()` проходит время, за которое epub.js может обработать собственный relocated event. Также `rendition.next()` / `rendition.prev()` (fallback для смены глав) запускают свою анимацию scroll, которая конфликтует с `directScroll()`.
 
 **How to avoid:**
-1. **Navigation mutex с instant cancel:** Перед новым scroll -- мгновенно завершить предыдущий через `stage.scrollTo({ left: targetPosition, behavior: 'instant' })`, затем начать новый
-2. **Абсолютные позиции вместо относительных:** Вычислять `newScroll = pageIndex * scrollUnit` вместо `currentScroll + scrollUnit` -- устраняет накопление ошибок
-3. **Debounce + queue:** Если больше N свайпов за 300ms -- пропустить промежуточные, перейти сразу к финальной позиции
-4. **Отделить visual feedback от navigation:** Свайп-анимация (follow-finger) через CSS transform на overlay, фактическая навигация -- только после touchend
+1. Гарантировать, что `navLock.acquire()` вызывается ДО начала анимации, а не в `onComplete`. Текущий код вызывает `navLock.acquire()` внутри `onComplete` -- к этому моменту параллельный tap мог уже пройти.
+2. Использовать `scrollBehavior: 'instant'` при свайп-навигации (анимация уже была визуально через transform), не дублировать `smooth` scroll.
+3. Подавлять epub.js `relocated` event во время активного свайпа через `skipNextRelocated`.
+4. Не вызывать `rendition.next()` для inter-chapter navigation во время активной анимации -- ждать завершения.
 
 **Warning signs:**
-- Страница смещается на дробное количество "страниц" при быстром листании
-- `scrollLeft` не кратен `scrollUnit` после навигации
-- Progress сохраняется с мерцающими значениями
+- Тесты показывают, что после свайпа `currentPage` перескакивает на +2 вместо +1.
+- В консоли два последовательных `[useEpubNavigation] directScroll` лога с одинаковым direction.
+- `scrollChainRef` содержит более одного pending Promise.
 
 **Phase to address:**
-Фаза 1 (Свайп-навигация) -- это самый первый pitfall, который нужно решить, т.к. влияет на базовый UX
+Фаза "Навигация и свайпы" -- первая, так как все остальные фичи (выделение, popup-ы) зависят от стабильной навигации.
 
 ---
 
-### Pitfall 2: epub.js iframe + touch events -- потеря событий и двойная навигация
+### Pitfall 2: Перехват touchstart gesture controller-ом блокирует нативное выделение текста
 
 **What goes wrong:**
-epub.js рендерит контент внутри iframe. Touch-события внутри iframe не всплывают к родительскому документу. Текущий код решает это через `rendition.hooks.content.register()` для привязки обработчиков напрямую к iframe document. Однако при добавлении follow-finger свайпа возникают конфликты:
-- `useSwipeNavigation` и `useTouchNavigation` оба привязывают обработчики к iframe doc
-- На iOS один хук обрабатывает событие, затем второй тоже получает его (двойная навигация)
-- `touchmove` с `{ passive: false }` для `preventDefault()` конфликтует с CSS `touch-action: manipulation`
-- При смене главы iframe пересоздаётся, но старые обработчики могут не очиститься (memory leak через `__swipeNavCleanup` и `__touchNavCleanup`)
+`useGestureController` регистрирует touchstart/touchmove/touchend на iframe document. Даже с проверкой `sel.toString().length > 0`, gesture controller перехватывает начало нового выделения, потому что в момент touchstart выделения ещё нет. Long press (350ms) корректно пропускается, но на iOS drag handles после выделения текста генерируют новый touchstart, который FSM воспринимает как начало свайпа.
 
 **Why it happens:**
-Архитектурно два хука (`useSwipeNavigation` для свайпов, `useTouchNavigation` для тапов) привязывают свои обработчики к одному iframe document через один и тот же механизм (`hooks.content.register`). При этом `useTouchNavigation` на iOS отключается (`isIOS()` check), но на Android оба хука активны одновременно если `navigationMode === 'swipe'`. Кроме того, fallback через `rendition.on('touchstart/touchend')` добавляет третий слой обработчиков.
+iOS Safari имеет задокументированный баг (epub.js issue #904): при попытке расширить выделение через drag handles, touch event перехватывается custom listeners, и выделение схлопывается до одного символа. Gesture controller сейчас использует `LONG_PRESS_TIMEOUT = 350ms` -- если пользователь держит палец дольше, touchend не обрабатывается. Но это не покрывает случай, когда пользователь уже выделил текст и пытается расширить выделение.
 
 **How to avoid:**
-1. **Единый gesture controller:** Один хук, который получает все touch events и решает, что это -- tap, swipe или long-press. Не два отдельных хука с перекрывающейся ответственностью
-2. **Gesture state machine:** idle -> touching -> swiping/tapping/selecting -- чёткие переходы
-3. **Убрать fallback rendition.on():** Он создаёт дублирующий слой. Если direct binding работает -- fallback не нужен
-4. **Event listeners cleanup:** Вместо `doc.__swipeNavCleanup` -- использовать AbortController для группового удаления
+1. В touchstart проверять не только `sel.toString().length > 0`, но и `document.getSelection().type === 'Range'` или наличие `::selection` pseudo-element.
+2. Добавить состояние `'selecting'` в FSM gesture controller. Переход: если touchstart произошёл вблизи существующего выделения (selection range boundary), то FSM переходит в 'selecting' -> все touch events пробрасываются нативно.
+3. На iframe document установить `user-select: auto` (не `none`). Проверить, что `touch-action` не блокирует выделение.
+4. Критично: НЕ вызывать `e.preventDefault()` на touchmove, пока FSM не определил, что это свайп (текущий код уже делает это правильно -- `passive: false` + conditional `preventDefault`).
 
 **Warning signs:**
-- Двойное перелистывание на один свайп
-- Тап в зоне навигации срабатывает дважды
-- После долгого чтения замедление UI (утечка обработчиков)
+- Пользователь не может расширить выделенный текст на iOS.
+- `useTextSelection` получает пустое `selection` после попытки выделения.
+- epub.js event `selected` не стреляет вообще.
 
 **Phase to address:**
-Фаза 1 (Свайп-навигация) -- рефакторинг gesture handling в единый контроллер
+Отдельная фаза "Выделение текста и заметки" -- после стабилизации навигации, так как выделение требует stable FSM.
 
 ---
 
-### Pitfall 3: iOS Safari PWA standalone -- потеря навигации и сессии
+### Pitfall 3: elementFromPoint возвращает неверный элемент при активном CSS transform
 
 **What goes wrong:**
-В standalone mode на iOS нет URL-бара, кнопки "назад" и функции "pull-to-refresh". Если пользователь:
-- Открывает книгу и нажимает системный жест swipe-from-left-edge -- iOS закрывает PWA вместо "назад"
-- Минимизирует приложение -- текущий `useRenditionHealthGuard` делает `window.location.reload()`, что теряет все UI состояния (открытый drawer, модал, поисковая панель)
-- Возвращается из другого приложения после >0ms (mobile threshold) -- каждый раз полная перезагрузка
+Во время свайп-анимации или при `translateX !== 0`, тап по описанию/сущности промахивается. `elementFromPoint(x, y)` на iframe document возвращает элемент по координатам относительно iframe viewport, но визуально iframe сдвинут на `translateX` пикселей. Результат: тап на описание не открывает DescriptionDrawer, тап на entity не открывает EntityPopup.
 
 **Why it happens:**
-1. **Нет кнопки "назад":** В standalone mode системной навигации нет. Текущая реализация полагается на `navigate('/')` в header, но нет edge-swipe back gesture
-2. **Агрессивный reload:** `MIN_BACKGROUND_TIME_FOR_RELOAD = 0` для mobile -- даже переключение на уведомление и обратно за 1 секунду вызывает перезагрузку. Это оправдано для epub.js heap corruption, но разрушает UX
-3. **bfcache break:** `event.persisted` -> reload уничтожает бесплатную мгновенную навигацию назад
+CSS transform на wrapper div (`FollowFingerContainer > m.div`) сдвигает визуальное положение iframe, но iframe document не знает об этом transform. `elementFromPoint()` работает в координатной системе iframe, которая не учитывает parent transform. Текущий код передаёт `touch.clientX` / `touch.clientY` напрямую в `onCenterTap`, но эти координаты валидны только при `translateX === 0`.
 
 **How to avoid:**
-1. **In-app back navigation:** Кастомный edge-swipe-from-left для `history.back()` или явная кнопка "Назад" во всех экранах
-2. **Градуированный reload:** Не reload при возврате < 5 секунд. Для 5-60 сек -- проверить здоровье rendition. Для >60 сек -- reload. Текущий подход "reload всегда" слишком агрессивен
-3. **Persist UI state:** Перед reload сохранять в sessionStorage: открытые модалы, drawer состояние, search query. После reload -- восстанавливать
-4. **Status bar meta:** `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` + `env(safe-area-inset-top)` padding -- уже частично реализовано
+1. Блокировать обработку тапов на описания/сущности, пока `phase !== 'idle'` (текущий `FollowFingerContainer` уже ставит `pointerEvents: 'none'` при `isActive`, но это не влияет на touch events, зарегистрированные напрямую на iframe document).
+2. В `handleCenterTap` компенсировать текущий `translateX.get()` при вычислении координат для `elementFromPoint`.
+3. Добавить guard: если `gestureController.phase !== 'idle'`, не вызывать `handleCenterTap`.
 
 **Warning signs:**
-- Пользователи жалуются на "долгую загрузку" при каждом возврате в приложение
-- Edge swipe закрывает PWA полностью вместо навигации назад
-- iOS status bar overlaps content в standalone mode
+- Тап по описанию (подсвеченный текст) не открывает drawer.
+- EntityPopup появляется со смещением от места тапа.
+- Проблема воспроизводится только при быстром тапе сразу после завершения свайп-анимации.
 
 **Phase to address:**
-Фаза 3 (PWA improvements) -- но грубый fix для reload агрессивности можно внести в Фазу 1
+Фаза "Описания и Entity Popup" -- после навигации, так как зависит от стабильного FSM и корректного translateX.
 
 ---
 
-### Pitfall 4: iOS Safari 100vh/dvh + виртуальная клавиатура + safe-area
+### Pitfall 4: Анимация дёрганая из-за смешивания CSS smooth scroll и spring physics
 
 **What goes wrong:**
-Комбинация нескольких iOS viewport проблем:
-- `100vh` включает скрытую часть Safari UI -> контент обрезается снизу (в standalone mode менее критично, но в browser mode -- проблема)
-- Виртуальная клавиатура (при поиске в книге, заметках) "поднимает" viewport, но `env(safe-area-inset-bottom)` не обновляется
-- `env(safe-area-inset-bottom)` = 34px в PWA standalone, 0px в Safari browser -> разный layout
-- Dynamic Island / notch: `env(safe-area-inset-top)` варьируется от 20px до 59px в зависимости от устройства
+Текущая архитектура использует ДВА механизма анимации одновременно:
+1. CSS transform (motion/react `animate()` со spring physics) для визуального follow-finger
+2. CSS `scrollBehavior: 'smooth'` для фактической навигации (`directScroll()`)
+
+При tap-навигации происходит: spring animation translateX -> reset to 0 -> smooth scroll внутри iframe. Результат: два последовательных визуальных движения с разной timing function (spring vs CSS smooth), что выглядит как "дёрганье".
 
 **Why it happens:**
-Текущий код использует `100dvh` (globals.css line 551-553), что правильно для основной проблемы. Но:
-- `paddingTop: 'calc(70px + env(safe-area-inset-top))'` (EpubReader.tsx line 502) жёстко привязан к высоте header
-- При открытии клавиатуры viewport уменьшается, epub.js рендерит контент для нового размера, triggering `resized` event -> position restoration -> потенциальная потеря места чтения
-- `env(safe-area-inset-*)` не обновляется при повороте экрана в реальном времени -- нужен resize observer
+`directScroll(direction, true)` использует `stage.scrollTo({ behavior: 'smooth' })` для плавного скролла. Но визуально пользователь уже видел spring-анимацию через translateX. Два движения накладываются: spring пролетает по экрану -> translateX сбрасывается -> smooth scroll плавно двигает контент. Пользователь видит "рывок назад" между этими двумя анимациями.
 
 **How to avoid:**
-1. **VisualViewport API:** `window.visualViewport` отслеживает реальный видимый viewport, включая клавиатуру. Использовать вместо `window.innerHeight`
-2. **Keyboard-aware layout:** При открытии клавиатуры -- не менять размер reader, а поднять search panel поверх
-3. **Freeze rendition resize при клавиатуре:** Заблокировать `useResizeHandler` пока клавиатура открыта, чтобы epub.js не перерисовывал страницу
-4. **Тестирование на реальных устройствах:** iPhone SE (без notch), iPhone 14 Pro (Dynamic Island), iPad -- три разных safe-area конфигурации
+1. При свайп-навигации использовать `directScroll(direction, false)` (instant), так как визуальная анимация уже была через transform.
+2. При tap-навигации: либо использовать ТОЛЬКО spring animation (без CSS smooth scroll), либо ТОЛЬКО CSS smooth scroll (без spring). Не смешивать.
+3. Рекомендация: для tap -- spring animation через translateX с `onComplete: directScroll(dir, instant=true)`. Для свайпа -- follow-finger transform с `onComplete: directScroll(dir, instant=true)`.
+4. Удалить `waitForScrollEnd` promise из critical path -- она добавляет 100-500ms задержки в RAf loop.
 
 **Warning signs:**
-- Reader header уходит за Dynamic Island
-- При открытии search -- содержимое "прыгает"
-- Нижняя панель навигации обрезается на устройствах с home indicator
+- Визуально страница "прыгает назад" на долю секунды после завершения анимации.
+- FPS падает ниже 30 на mid-range Android при быстром тапе по краям.
+- DevTools Performance trace показывает два overlapping animation frames.
 
 **Phase to address:**
-Фаза 2 (Layout/Viewport) -- требует системного подхода к viewport management
+Фаза "Навигация и свайпы" -- ключевая часть "Apple Books-like" анимации.
 
 ---
 
-### Pitfall 5: Service Worker обновления "застревают" -- пользователь видит старую версию
+### Pitfall 5: iOS overlay для center-tap блокирует touch events для описаний и сущностей
 
 **What goes wrong:**
-После деплоя новой версии:
-- Старый SW контролирует все вкладки до тех пор, пока ВСЕ вкладки не закроются
-- `skipWaiting()` активирует новый SW, но старые precached assets всё ещё в кеше
-- На iOS PWA standalone -- нет способа "обновить" кроме как закрыть-открыть приложение
-- Если новый SW ломает fetch для старого index.html -- белый экран
-- Workbox `StaleWhileRevalidate` для API-данных может показать stale entity data после обновления модели
+На iOS создаётся прозрачный overlay div (`gesture-controller-ios-overlay`) поверх центральной зоны экрана (left: 15%, right: 15%). Этот overlay перехватывает ВСЕ тапы в центре, включая тапы на description-highlight и entity-mention элементы. `handleOverlayTouchEnd` вызывает `onCenterTap` с координатами, конвертированными через `iframeRect`, но overlay лежит ПОВЕРХ iframe, поэтому он ловит тап первым.
 
 **Why it happens:**
-Текущая реализация (sw.ts) использует Workbox precache + разные стратегии. `SKIP_WAITING` message handler существует. `PWAUpdatePrompt.tsx` есть. Но:
-- iOS standalone mode не показывает "reload" prompt как в браузере
-- Если пользователь не закрывает PWA неделями -- он на старой версии неделями
-- `navigation-cache` с NetworkFirst может закешировать старый index.html при таймауте
-- Нет force-update механизма для критических обновлений
+Overlay имеет `z-index: 5` и расположен абсолютно поверх iframe. Тапы по описаниям должны проходить через iframe, но overlay перехватывает их. Текущий `handleOverlayTouchEnd` использует `elementFromPoint` через iframe, но тап уже "поглощён" overlay-ем -- touch event не дошёл до iframe document, где зарегистрированы click handlers для описаний.
 
 **How to avoid:**
-1. **Version check на старте:** При каждом app resume -- проверить `/api/v1/version` endpoint. Если version mismatch -- показать mandatory update prompt
-2. **Periodic SW update check:** `navigator.serviceWorker.getRegistration().then(r => r.update())` раз в час (уже может быть в VitePWA config, но нужно проверить)
-3. **Graceful cache migration:** При активации нового SW -- удалять все runtime кеши (`api-cache`, `generated-images-cache`), оставлять только precache
-4. **Никогда не кешировать index.html надолго:** Navigation cache с NetworkFirst 5s timeout опасен -- при медленном интернете пользователь получит старый HTML
+1. Использовать `pointer-events: none` на overlay и обрабатывать только через родительский listener (но тогда iOS Safari может не стрелять events).
+2. Альтернатива: удалить iOS overlay полностью и обрабатывать center-tap через iframe touch events (как уже делается для Android/desktop). iOS-специфичная проблема с center-tap может быть решена через `cursor: pointer` на body (что уже сделано).
+3. Если overlay необходим, после `elementFromPoint` проверять, является ли найденный элемент description-highlight или entity-mention, и вызывать соответствующий handler вместо `onToggleUI`.
+4. Пробросить touch event в iframe через `iframe.contentDocument.elementFromPoint()` + programmatic click dispatch.
 
 **Warning signs:**
-- Пользователи сообщают о баге, который уже исправлен
-- "Пустой белый экран" после деплоя
-- Console errors: "Failed to load module script" (хэш файла изменился)
+- На iOS описания кликабельны, но тап всегда открывает/закрывает header вместо drawer.
+- `handleDescriptionClick` никогда не вызывается на iOS.
+- В консоли виден `[GestureController] center-tap`, но не `[useDescriptionHighlighting] click`.
 
 **Phase to address:**
-Фаза 3 (PWA improvements) -- критически важно для итеративной разработки
+Фаза "Описания и Entity Popup" -- непосредственно связана с проблемой 9 (тапы на описания/сущности у краёв).
 
 ---
 
-### Pitfall 6: Блокировка навигации после операций (известный баг)
+### Pitfall 6: Шапка ридера переполняется на узких экранах из-за фиксированных min-width
 
 **What goes wrong:**
-После отмены генерации изображения навигация блокируется -- пользователь не может листать страницы. Это существующий баг, который усугубится при добавлении follow-finger свайпов.
+ReaderHeader содержит 7 интерактивных элементов в одной строке: [Back] [TOC] [Info] ... [progress+page] [Entities] [Search] [Settings]. На экранах шириной < 375px (iPhone SE, Android compact) элементы вылезают за экран. Крестик поиска (`SearchPanel`) оказывается за пределами viewport при visible header, так как SearchPanel позиционируется с `top: calc(70px + env(safe-area-inset-top))`.
 
 **Why it happens:**
-Цепочка зависимостей:
-1. `cancelGeneration()` в `useImageModal` обновляет state
-2. State-change вызывает re-render
-3. `useSwipeNavigation` зависит от `!isModalOpen` -- при race condition между закрытием модала и обновлением enabled-флага, `isNavigatingRef.current` может остаться `true`
-4. Все последующие свайпы блокируются условием `if (isNavigatingRef.current) return` (useSwipeNavigation.ts line 230)
+Каждая кнопка имеет `w-11 h-11` (44px) -- minimum touch target. 7 кнопок + прогресс-бар (`min-w-[100px]`) = 7*44 + 100 = 408px. iPhone SE viewport = 320px. Даже iPhone 14 (390px) будет тесно с gap.
 
 **How to avoid:**
-1. **Timeout safety для isNavigatingRef:** Автоматический сброс через 3 секунды -- если навигация не завершилась, что-то пошло не так
-2. **Cleanup в useEffect return:** При unmount/re-mount хука -- принудительно `isNavigatingRef.current = false`
-3. **Отвязать isModalOpen от navigation enabled:** Модал может быть открыт поверх reader без блокировки свайпов
-4. **Navigation state в Zustand:** Вместо ref использовать observable state для лучшей отладки
+1. Разделить шапку на два ряда: навигация (Back, TOC) сверху, действия (Search, Entities, Settings) снизу.
+2. Альтернатива: использовать overflow menu (... кнопка) для редко используемых действий (Info, Search).
+3. Прогресс-бар вынести в отдельную строку или в footer.
+4. Для SearchPanel: вместо позиционирования под header, встраивать поиск В header (заменяя кнопки на input).
+5. Убрать `min-w-[100px]` у прогресса -- использовать `flex-shrink` для адаптивности.
 
 **Warning signs:**
-- Свайпы/тапы перестают работать после закрытия модала
-- `isNavigatingRef.current === true` в console логах
-- Только page reload "чинит" навигацию
+- Horizontal scroll на шапке.
+- Кнопки наезжают друг на друга.
+- Прогресс-бар обрезается.
+- Close-кнопка SearchPanel за правым краем экрана.
 
 **Phase to address:**
-Фаза 1 (Свайп-навигация) -- исправить в рамках рефакторинга gesture controller
+Фаза "Шапка и панели" -- может делаться параллельно с навигацией, так как не затрагивает gesture controller.
 
 ---
 
-### Pitfall 7: CFI-DOM рассинхронизация при DOM-манипуляциях
+### Pitfall 7: Vaul drawer max-height ограничивает контент, клавиатура сдвигает drawer
 
 **What goes wrong:**
-CFI (Content Fragment Identifier) -- путь к позиции в EPUB. Текущие хуки `useDescriptionHighlighting`, `useAnnotationRendering`, `useEntityNameHighlighting` все манипулируют DOM внутри iframe (оборачивают текст в span). Это:
-- Сдвигает CFI-пути для текстовых нод, расположенных ПОСЛЕ обёрнутого текста
-- `rendition.getRange(cfi)` возвращает null для CFI, вычисленных ДО DOM-модификации
-- При навигации к закладке -- позиция "уезжает" на несколько строк
-- Множественные хуки вызываются в неопределённом порядке -- порядок DOM-модификаций не гарантирован
+DescriptionDrawer использует `max-h-[60vh]`, что на мобильных с экраном 667px = 400px. За вычетом handle bar (12px + margin) и padding (24px) остаётся ~360px для контента. Длинные описания обрезаются. При открытии TOC drawer с полем ввода заметки (bookmark note), iOS клавиатура (~260px) сдвигает весь viewport вверх, drawer "уезжает" за верхний край.
 
 **Why it happens:**
-epub.js CFI привязан к позиции в XHTML-дереве (element index + text offset). Когда `useAnnotationRendering.wrapRangeWithSpan()` разбивает текстовый узел на три (before + span + after), позиции всех последующих текстовых узлов смещаются. Уже есть `resolveRangeFallback()` (useAnnotationRendering.ts line 81), но это хрупкий workaround.
+1. `max-h-[60vh]` -- статическое ограничение, не учитывает реальное содержимое.
+2. Vaul использует Visual Viewport API для обработки клавиатуры, но при `max-h-[60vh]` + клавиатура viewport уменьшается, 60vh тоже уменьшается, и drawer "сжимается".
+3. Автоматическое фокусирование input полей (search, bookmark notes) при открытии drawer вызывает клавиатуру до завершения анимации открытия drawer.
 
 **How to avoid:**
-1. **Фиксированный порядок рендеринга:** descriptions -> annotations -> entities. Каждый следующий хук учитывает обёртки предыдущего
-2. **Debounce все DOM-модификации:** Текущие 200ms debounce в `useAnnotationRendering` -- правильно, но `useDescriptionHighlighting` может быть без debounce
-3. **CFI resolution ПОСЛЕ всех DOM-модификаций:** Не сохранять CFI и не навигировать в момент DOM-манипуляций
-4. **Snapshot-restore:** Перед навигацией к закладке -- очистить все DOM-обёртки, навигировать, затем заново наложить
+1. Использовать `max-h-[85vh]` или `max-h-[85dvh]` (dynamic viewport height) для полной высоты.
+2. Для drawers с input: задерживать focus на 300ms после анимации открытия.
+3. Для TOC/Notes drawer: использовать snap points Vaul (e.g., `snapPoints={[0.5, 0.95]}`), чтобы пользователь мог раскрыть на полный экран.
+4. Использовать `dvh` единицы вместо `vh` для правильного расчёта с учётом мобильных браузерных панелей.
+5. НЕ использовать `autoFocus` на input-ах внутри drawer -- вызывать focus программно после анимации.
 
 **Warning signs:**
-- Закладки "прыгают" при навигации к ним
-- Описания выделяются со сдвигом на несколько слов
-- `resolveRangeFallback()` вызывается для >50% закладок (метрика)
+- Длинные описания обрезаны без scroll indicator.
+- При фокусе на input drawer "прыгает" или уменьшается.
+- Контент за drawer не виден из-за overlay, но drawer не достаточно высок для полного просмотра.
 
 **Phase to address:**
-Фаза 4 (Описания/CFI) -- существующий баг "обрезка выделений", корневая причина
+Фаза "Шапка и панели".
 
 ---
 
@@ -217,137 +188,97 @@ epub.js CFI привязан к позиции в XHTML-дереве (element in
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| `window.location.reload()` для PWA resume | Надёжное восстановление epub.js state | UX деградация: потеря UI state, медленный resume | Только как fallback для >60 сек background |
-| `doc.__swipeNavCleanup` custom property | Быстрый cleanup без рефакторинга | Memory leak при частой смене глав, нестандартный паттерн | Никогда -- заменить на AbortController |
-| Два отдельных хука для touch (swipe + tap) | Разделение ответственности | Дублирование обработчиков, конфликты событий, сложная отладка | Никогда при переходе на follow-finger |
-| `isIOS()` проверки разбросаны по 10+ файлам | Быстрые iOS-специфичные фиксы | Хрупкая условная логика, трудно тестировать, забытые code paths | MVP, затем рефакторить в platform adapter |
-| `directScroll()` с smooth animation | Плавная прокрутка | Race condition при быстром свайпе, нестабильный scrollLeft | Только с navigation mutex |
-| 6 fallback-методов в `getMeasuredScrollUnit` | Работает на всех устройствах | Трудно отладить, когда метод выбирается неправильно | OK -- но нужен logging какой метод сработал (уже есть) |
+| `@ts-expect-error` на iframe custom properties (`__gestureControllerCleanup`) | Быстрый cleanup через custom property на document | Нет type safety, легко забыть cleanup при рефакторе | На текущем этапе -- OK. Заменить на WeakMap при рефакторе gesture controller |
+| `eslint-disable @typescript-eslint/no-explicit-any` на `rendition.manager` | Доступ к внутренним API epub.js без типов | Ломается при обновлении epub.js. Нет compile-time проверок | Приемлемо -- epub.js не экспортирует типы для manager. Создать local type declaration |
+| `setTimeout(50)` в `useTextSelection` для click dedup | Работает для текущих timing | Race condition на медленных устройствах, ненадёжная деdup | Заменить на proper event ordering (mouseup before click sequence) |
+| Два параллельных hook-а: `useFollowFingerSwipe` (dead code) + `useGestureController` | Исторический рефактор -- оба экспортируют утилиты | Путаница, какой hook используется. useFollowFingerSwipe = 609 LOC dead code | Удалить useFollowFingerSwipe, перенести экспортируемые утилиты в отдельный модуль |
+| `LONG_PRESS_TIMEOUT = 350ms` как константа | Простота | Не учитывает accessibility settings пользователя (iOS может менять длительность long press) | Временно OK, но в будущем читать из системных настроек если возможно |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| epub.js iframe + touch events | Привязать обработчики к parent div | Привязать напрямую к iframe document через `rendition.hooks.content.register()` |
-| epub.js + CSS transform animation | Анимировать iframe container напрямую | Использовать CSS transform на overlay div поверх iframe, не трогая сам iframe |
-| epub.js + Service Worker | SW не контролирует blob: URLs в iframe | epub.js iframe не имеет src атрибута -- SW не перехватывает запросы внутри iframe (issue #962) |
-| Workbox precache + Vite hashed assets | Кешировать index.html с длинным TTL | NetworkFirst для index.html, CacheFirst только для hashed assets |
-| iOS Safari + passive event listeners | Забыть `{ passive: false }` для touchmove | Явно указать `{ passive: false }` чтобы `preventDefault()` работал для горизонтального свайпа |
-| IndexedDB + PWA background/foreground | Писать в IndexedDB при background transition | Проверять `document.visibilityState === 'visible'` перед записью (уже реализовано в chapterCache.ts) |
-| epub.js + VisualViewport API | Использовать `window.innerHeight` для layout | `window.visualViewport.height` учитывает виртуальную клавиатуру |
-| iOS standalone + swipe-from-edge | Полагаться на browser back button | Реализовать in-app back navigation, iOS swipe-from-edge может закрыть PWA |
+| epub.js `hooks.content.register()` | Регистрация hook без проверки уже существующих contents. При hot reload hook регистрируется дважды, events стреляют дважды | Всегда вызывать `deregister` перед `register`. Проверять `existingContents` и очищать предыдущие listeners. Текущий код делает это, но cleanup через custom property ненадёжен |
+| epub.js `rendition.on('relocated')` | Слушать relocated для обновления UI без debounce -- relocated стреляет при КАЖДОМ scroll, включая directScroll. Результат: каскад re-renders во время свайпа | Использовать debounce (300ms) или `skipNextRelocated` flag при программной навигации. Текущий `useCFITracking` должен это учитывать |
+| epub.js `rendition.getRange(cfiRange)` | Предполагать, что getRange всегда возвращает валидный Range. На практике epub.js anonymous span wrapping сдвигает CFI paths, и getRange возвращает null | Использовать `resolveRangeFallback()` (уже реализован в `useAnnotationRendering`). Всегда проверять результат getRange и иметь fallback через getElementById |
+| Vaul Drawer + epub.js iframe | Vaul overlay (`bg-black/40`) ловит все touch events, но click на overlay закрывает drawer. Если пользователь свайпает overlay вниз -- Vaul закрывает drawer. Но свайп также может trigger gesture controller если drawer закрылся mid-gesture | Устанавливать `isPanelOpen = true` пока Vaul анимация закрытия не завершена (использовать `onOpenChange` с debounce) |
+| motion/react `animate()` + DOM scroll | `animate()` возвращает AnimationPlaybackControls, `.stop()` останавливает анимацию, но не сбрасывает MotionValue. Если забыть `translateX.set(0)` после stop, следующий свайп начнётся со смещённой позиции | Всегда вызывать `translateX.set(0)` в cleanup и после `stop()`. Текущий код делает это, но в touchcancel handler не проверяет состояние анимации |
+| iOS Safari `cursor: pointer` на iframe body | Без `cursor: pointer` iOS Safari не стреляет click events на non-interactive элементах внутри iframe. Текущий код устанавливает это | Не убирать `body.style.cursor = 'pointer'` при рефакторе gesture controller. Это не стилистическое решение, а функциональное для iOS |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| DOM manipulation в каждом рендер-цикле iframe | Мерцание хайлайтов, медленная навигация | Кешировать DOM-обёртки, применять diff вместо full cleanup+rebuild | > 20 аннотаций на страницу |
-| IndexedDB хранение целых книг (EPUB файлов) | iOS Safari 500MB лимит, WAL file growth bug | Хранить только descriptions + metadata, книги загружать с сервера | > 5 книг по 10MB+ |
-| Smooth scroll animation для каждой страницы | Dropped frames при быстром листании | `behavior: 'instant'` для быстрых свайпов, smooth только для одиночных | Серия свайпов > 2 за секунду |
-| TreeWalker на всём document body | Задержка > 100ms на длинных главах | TreeWalker только по range.commonAncestorContainer | Главы > 10000 слов |
-| `rendition.getContents()` в каждом обработчике | GC pressure, аллокации на каждый touch event | Закешировать contents ref, обновлять только при 'rendered' event | > 30 touch events/sec |
-| `env(safe-area-inset-*)` в CSS calc | Forced style recalculation при resize | Предвычислить значения через CSS custom properties | Частые resize (rotation, keyboard) |
-| Multiple content.register() hooks per chapter | O(N) обработчиков на N переходов без cleanup | Cleanup в return function каждого useEffect, verify через doc cleanup markers | > 20 глав за сессию |
-
-## Security Mistakes
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Кеширование auth endpoints в SW | Утечка токенов в Cache Storage | Уже исключены (`!url.pathname.startsWith('/api/v1/auth/')`) -- поддерживать |
-| Кеширование прогресса чтения в API cache | Утечка истории чтения другим пользователям на shared устройстве | Уже исключены (`!url.pathname.includes('/progress')`) -- но проверить LOGOUT cache clear |
-| SW cache не очищается при logout | Следующий пользователь видит книги предыдущего | `LOGOUT` message handler в sw.ts очищает `api-cache` и `generated-images-cache` -- но не `book-covers` |
-| Push subscription не отвязывается при logout | Push уведомления идут старому пользователю | При logout: `subscription.unsubscribe()` + удалить на сервере |
-| IndexedDB данные доступны после logout | Кеш глав с описаниями остаётся | При logout вызывать `chapterCache.clearAll(userId)` |
+| setState в touchmove handler | Каждый touchmove вызывает React re-render. При 60 touch events/sec = 60 re-renders/sec. Jank на mid-range Android | Использовать ТОЛЬКО refs и MotionValue в touchmove. setState допустим только для `phase` и `boundary` (текущий код нарушает: `setShowChapterHint`, `setChapterHintDirection`, `setIsAtBoundary` в touchmove) | На устройствах с < 4GB RAM, сложных компонентах |
+| `waitForScrollEnd` с RAF polling | RAF polling каждый frame для проверки scroll position. 500ms timeout, 3-frame stable check. Блокирует следующую навигацию в `scrollChainRef` | Для instant scroll не нужен waitForScrollEnd. Для smooth scroll -- слушать `scrollend` event (поддерживается в Chrome 114+, Safari 17.4+) | При быстром тапе: пользователь ждёт 500ms перед следующим page turn |
+| `rendition.getContents()` на каждый тап | `getContents()` может возвращать массив Contents объектов. Итерирование по ним для поиска document стоит N * iframe access | Кэшировать в ref при `hooks.content.register()`, обновлять при смене chapter | При книгах с embedded iframes внутри EPUB |
+| CSS box-shadow анимация в FollowFingerContainer | `useMotionValueEvent` обновляет box-shadow на каждый frame через style.boxShadow. box-shadow триггерит paint, не compositing | Заменить box-shadow на pseudo-element с gradient + opacity (GPU-composited). Или использовать `filter: drop-shadow()` | На всех устройствах с GPU compositing -- box-shadow = paint, не composite |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Reload при каждом resume из background | 2-5 сек загрузки каждый раз при возврате в приложение | Градуированная стратегия: < 5 сек -- ничего, 5-60 сек -- health check, > 60 сек -- reload |
-| Отсутствие visual feedback при свайпе | Пользователь не уверен, сработал ли свайп | Follow-finger с пиком следующей/предыдущей страницы |
-| Нет кнопки "назад" в standalone mode | На iOS нет способа вернуться, edge swipe может закрыть PWA | Явная кнопка "назад" в reader header (уже есть) + back gesture handler |
-| Клавиатура сдвигает reader content | Потеря позиции чтения при открытии search | Freeze epub.js resize при активной клавиатуре, показать search поверх |
-| Медленная initial загрузка PWA offline | Пустой белый экран на slow 3G | Skeleton loader из precache + NetworkFirst для data |
-| Install prompt недоступен на iOS | iOS не поддерживает `beforeinstallprompt` | Кастомный баннер с инструкцией "Share -> Add to Home Screen" (уже в iosSupport.ts) |
-| Notifications на русском, fallback на английском | Push notification text не локализован | Локализовать push payload на серверной стороне перед отправкой |
+| Tap на край экрана перехватывается навигацией, хотя пользователь целился в описание/сущность у края | Пользователь не может кликнуть на подсвеченное слово, если оно находится в крайних 25% (Android) или 15% (iOS) экрана | Приоритизировать interactive elements: если `elementFromPoint` находит description-highlight или entity-mention, обработать как клик по элементу, а не как навигационный тап. Уменьшить edge zone до 15% на всех платформах |
+| DescriptionDrawer не показывает кнопку генерации изображения для описаний без image | Пользователь не знает, что можно сгенерировать иллюстрацию. Сейчас кнопка показывается только если `image.status === 'completed'` | Показывать кнопку "Generate image" для всех описаний. Если image ещё нет -- кнопка запускает генерацию. Если image pending -- показать прогресс |
+| SearchPanel input focus вызывает клавиатуру, которая перекрывает результаты поиска | На iOS клавиатура занимает ~40% экрана. SearchPanel позиционирован вверху. Результаты поиска могут быть под клавиатурой | Перенести SearchPanel вниз экрана (как в Safari) или использовать Visual Viewport API для корректного позиционирования. Альтернатива: после первого search результата скрыть клавиатуру |
+| Center-tap toggles header И проверяет описания одновременно | Если пользователь хочет показать header, но тап попал на описание -- открывается и drawer и header. Двойное действие confusing | Разделить: если найдено описание -- открыть только drawer, НЕ toggle header. Если описания нет -- toggle header |
+| Rubber-band свайп при переходе между главами не даёт visual feedback о загрузке | Пользователь свайпает за boundary, видит hint "Следующая глава", отпускает -- ничего не происходит визуально пока глава загружается | Показать loading spinner или skeleton при chapter transition. Добавить haptic feedback (если NAV-v2-02 включён) |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Follow-finger свайп:** Часто забывают rubber-band эффект на границах глав (начало/конец книги) -- проверить edge cases
-- [ ] **Safe area:** Тестировали на iPhone с notch, но забыли iPhone SE (без notch) и iPad (landscape) -- проверить все 3 конфигурации
-- [ ] **Offline mode:** Страницы библиотеки кешируются, но upload книги offline не обработан -- проверить graceful degradation
-- [ ] **SW update:** Работает в Chrome DevTools, но не тестировали в iOS standalone -- проверить real PWA update flow
-- [ ] **Touch-action:** Установлен на контейнере, но iframe body тоже нуждается в `touch-action` -- проверить что CSS injection в `useContentHooks.ts` покрывает все случаи
-- [ ] **Orientation change:** Работает в portrait, но при повороте в landscape и обратно -- позиция и layout сбиваются -- проверить `useResizeHandler`
-- [ ] **Background sync:** Работает на Android Chrome, но iOS не поддерживает Background Sync API -- проверить `setupIOSSync()` fallback
-- [ ] **Long-press vs selection:** Follow-finger свайп может конфликтовать с text selection -- проверить что long-press всё ещё открывает selection
-- [ ] **Быстрый двойной тап:** Не должен вызывать zoom (touch-action: manipulation) И не должен перелистывать дважды -- проверить debounce
-- [ ] **Memory при чтении длинных книг:** 50+ глав -> проверить что обработчики событий cleanup при каждой смене главы, нет ли leak
+- [ ] **Свайп-навигация:** Работает внутри главы, но НЕ проверено: переход между главами через свайп (rubber-band -> chapter change). Убедиться, что `onChapterChange` корректно вызывает `rendition.next()`/`rendition.prev()` и ждёт завершения.
+- [ ] **Text selection:** Работает при первом выделении, но НЕ проверено: расширение выделения через drag handles на iOS. Проверить, что drag handles не перехватываются gesture controller.
+- [ ] **Анимация:** Визуально smooth на одном устройстве, но НЕ проверено: performance на mid-range Android (Samsung A-серия, Xiaomi Redmi). Проверить FPS в Chrome DevTools Performance tab.
+- [ ] **EntityPopup позиционирование:** Работает в центре экрана, но НЕ проверено: popup для entity у верхнего/нижнего края viewport. Проверить clamping (`Math.max(VIEWPORT_PADDING, top)`).
+- [ ] **Шапка на маленьких экранах:** Все кнопки видны на iPhone 14, но НЕ проверено: iPhone SE (320px), Android devices с навигационной панелью (занимает ~48px снизу).
+- [ ] **Vaul drawers:** Открываются и закрываются, но НЕ проверено: scroll внутри drawer на длинном контенте + одновременное scroll iframe за drawer (должен быть заблокирован overlay).
+- [ ] **Поиск крестик:** Виден при скрытом header, но НЕ проверено: виден ли при показанном header (`top: calc(70px + env(safe-area-inset-top))`). На iPhone с notch safe-area-inset-top = 47px, итого top = 117px.
+- [ ] **Dark/Night theme:** Gesture controller и overlays работают в light theme, но НЕ проверено: box-shadow цвет, chapter hint текст, loading spinner видимость в dark/night themes.
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Race condition при быстром листании | MEDIUM | Рефакторинг `directScroll` на mutex-based подход, ~2-3 дня работы |
-| Двойная навигация от двух хуков | LOW | Объединить в один gesture controller, ~1-2 дня |
-| Потеря навигации в standalone | LOW | Добавить back gesture + fix reload strategy, ~1 день |
-| 100vh/keyboard viewport issues | MEDIUM | Интеграция VisualViewport API + freeze resize, ~2 дня |
-| SW update застревает | LOW | Version check endpoint + periodic update + force reload, ~1 день |
-| Блокировка навигации после отмены | LOW | Timeout safety + cleanup ref, ~0.5 дня |
-| CFI-DOM рассинхронизация | HIGH | Архитектурное изменение порядка DOM-манипуляций, ~3-5 дней |
+| Двойная навигация | LOW | Добавить navLock.acquire() перед анимацией, использовать instant scroll. Изменения только в useGestureController + useEpubNavigation |
+| Text selection blocked | MEDIUM | Добавить 'selecting' state в FSM, проверка Selection.type. Изменения в useGestureController, тестирование на iOS |
+| elementFromPoint offset | LOW | Добавить guard `phase !== 'idle'` в handleCenterTap. Одна строка в EpubReader |
+| Дёрганая анимация | MEDIUM | Убрать smooth scroll при свайпе, унифицировать pipeline. Изменения в useEpubNavigation + useGestureController |
+| iOS overlay blocking | MEDIUM | Приоритизировать interactive elements в overlay handler ИЛИ удалить overlay. Изменения в useGestureController |
+| Шапка переполнена | HIGH | Редизайн header layout. Может затронуть SearchPanel позиционирование. UI/UX решение |
+| Vaul max-height + keyboard | LOW | Заменить max-h-[60vh] на max-h-[85dvh], отложить focus. Изменения в DescriptionDrawer + TOC |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Race condition при быстром листании | Phase 1: Свайп-навигация | Тест: 10 быстрых свайпов подряд, scrollLeft кратен scrollUnit |
-| Touch event конфликты | Phase 1: Свайп-навигация | Тест: одновременно свайп и тап не вызывают двойную навигацию |
-| iOS standalone навигация | Phase 3: PWA improvements | Тест: в iOS PWA standalone можно вернуться из reader в library без reload |
-| Viewport/keyboard/safe-area | Phase 2: Layout fixes | Тест: открытие search не сдвигает reader content; safe-area корректна на 3 типах устройств |
-| SW update flow | Phase 3: PWA improvements | Тест: деплой новой версии -> PWA обновляется в течение 1 часа или при следующем открытии |
-| Блокировка навигации | Phase 1: Свайп-навигация | Тест: отмена генерации изображения -> свайпы продолжают работать |
-| CFI-DOM рассинхронизация | Phase 4: Описания/CFI | Тест: навигация к закладке приводит к correct visible position; описания совпадают с текстом |
-| IndexedDB memory/quota | Phase 3: PWA improvements | Тест: 10 книг по 50 глав -> хранилище < 200MB, нет "QuotaExceededError" |
-
-## Специфичные для fancai интеграционные pitfalls
-
-### epub.js + AI-генерация изображений + свайп
-Генерация изображений -- асинхронная операция (Celery backend). При follow-finger свайпе пользователь может быстро пролистать несколько страниц. Если описание с генерируемым изображением оказывается на промежуточной странице:
-- `useChapterManagement` обновляет `currentChapter`
-- `useDescriptionHighlighting` пытается отрендерить описания для новой страницы
-- Но страница ещё "пролетает" мимо
-- **Решение:** Не применять DOM-манипуляции пока swipe animation не завершена
-
-### Entity highlighting + touch events
-`useEntityNameHighlighting` добавляет click handlers на имена сущностей внутри iframe. Follow-finger свайп начинается с touchstart на entity span -> конфликт:
-- Тап по entity должен открыть popup
-- Свайп от entity должен навигировать
-- **Решение:** В gesture controller: если движение > 10px -> это свайп, не показывать popup
-
-### useRenditionHealthGuard + follow-finger animation
-При быстром resume из background текущий guard вызывает `window.location.reload()`. Если в этот момент идёт follow-finger animation (палец на экране) -> crash или потеря touch tracking.
-- **Решение:** Не вызывать reload если `swipeState.phase !== 'idle'`
+| Двойная навигация | Phase 1: Навигация и свайпы | Быстрое тапание по краям 20 раз подряд -- currentPage увеличивается строго на +1 каждый раз |
+| Дёрганая анимация | Phase 1: Навигация и свайпы | Slow-motion запись на iPhone -- нет визуальных "рывков" между transform и scroll анимациями |
+| Свайп между главами | Phase 1: Навигация и свайпы | Rubber-band свайп на последней странице главы -> следующая глава загружается корректно |
+| Шапка переполнена | Phase 2: Шапка и панели | Скриншот на iPhone SE (320px viewport) -- все кнопки видны и кликабельны |
+| Поиск крестик | Phase 2: Шапка и панели | Открыть поиск при видимом header -- крестик внутри viewport на всех размерах экрана |
+| Vaul max-height | Phase 2: Шапка и панели | Длинное описание в DescriptionDrawer скроллится, весь текст доступен |
+| Клавиатура + drawer | Phase 2: Шапка и панели | Фокус на input в TOC drawer -- drawer не уезжает за viewport, input виден над клавиатурой |
+| Text selection blocked | Phase 3: Выделение текста и заметки | Long press на слове -> выделение -> drag handle -> расширение на iOS Safari |
+| elementFromPoint offset | Phase 4: Описания и Entity Popup | Тап на description-highlight при idle FSM -> DescriptionDrawer открывается |
+| iOS overlay blocking | Phase 4: Описания и Entity Popup | На iOS тап по описанию в центральной зоне -> открывает drawer, НЕ toggle header |
+| Edge tap vs description | Phase 4: Описания и Entity Popup | Описание в крайних 25% экрана кликабельно, открывает drawer |
+| Center-tap двойное действие | Phase 4: Описания и Entity Popup | Тап по описанию в центре -> только drawer, без toggle header |
 
 ## Sources
 
-- [epub.js Wiki: Tips and Tricks](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3))
-- [epub.js Issue #962: SW + iframe](https://github.com/futurepress/epub.js/issues/962)
-- [epub.js Issue #904: Mobile Safari text selection](https://github.com/futurepress/epub.js/issues/904)
-- [epubjs-tips by johnfactotum](https://github.com/johnfactotum/epubjs-tips)
-- [Workbox: Handling SW updates](https://developer.chrome.com/docs/workbox/handling-service-worker-updates)
-- [VitePWA: Auto update guide](https://vite-pwa-org.netlify.app/guide/auto-update.html)
-- [PWA iOS Limitations Guide](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide)
-- [PWA on iOS 2025: Capabilities vs Limitations](https://brainhub.eu/library/pwa-on-ios)
-- [iOS PWA Compatibility (firt.dev)](https://firt.dev/notes/pwa-ios/)
-- [PWA-POLICE: PWA bugs and workarounds](https://github.com/PWA-POLICE/pwa-bugs)
-- [MDN: CSS and JavaScript animation performance](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/CSS_JavaScript_animation_performance)
-- [WebKit: Updates to Storage Policy](https://webkit.org/blog/14403/updates-to-storage-policy/)
-- [WebKit Bug: IndexedDB massive storage usage iOS](https://bugs.webkit.org/show_bug.cgi?id=178204)
-- [100vh in Safari on iOS](https://www.bram.us/2020/05/06/100vh-in-safari-on-ios/)
-- [Rich Harris: Service Workers things I wish I'd known](https://gist.github.com/Rich-Harris/fd6c3c73e6e707e312d7c5d7d0f3b2f9)
-- [RxDB: IndexedDB Max Storage Limit](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
-- Анализ текущего кода fancai (HIGH confidence -- прямой доступ к исходникам)
+- [epub.js Issue #904: Mobile Safari text selection broken](https://github.com/futurepress/epub.js/issues/904) -- drag handle selection bug на iOS
+- [epub.js Issue #905: preventDefault on rendition touch event](https://github.com/futurepress/epub.js/issues/905) -- passive listener warning
+- [epub.js Issue #910: unhook eventlistener from rendition](https://github.com/futurepress/epub.js/issues/910) -- cleanup hooks
+- [epub.js Issue #1067: iFrame moving with page turn](https://github.com/futurepress/epub.js/issues/1067) -- iframe shift при page turn
+- [epub.js Tips and Tricks (v0.3)](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3)) -- debounce, gesture handling
+- [Apple Developer: Safari Touch Events](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/HandlingEvents/HandlingEvents.html) -- iOS touch model
+- [Stop touch events from bubbling in iOS Safari](https://gist.github.com/terrymun/967157a6a328ff17e873b425103dd733) -- iOS event bubbling
+- [Vaul: Building a drawer component](https://emilkowal.ski/ui/building-a-drawer-component) -- Visual Viewport API handling
+- [MDN: elementFromPoint()](https://developer.mozilla.org/en-US/docs/Web/API/Document/elementFromPoint) -- coordinate system docs
+- [Motion docs: React animation](https://motion.dev/docs/react-animation) -- spring physics, useMotionValue
+- [Framer Motion vs Motion One: Mobile Performance](https://reactlibraries.com/blog/framer-motion-vs-motion-one-mobile-animation-performance-in-2025) -- GPU acceleration, jank prevention
+- Анализ кодовой базы: `useGestureController.ts`, `useFollowFingerSwipe.ts`, `useEpubNavigation.ts`, `useTextSelection.ts`, `EpubReader.tsx`, `FollowFingerContainer.tsx`, `DescriptionDrawer.tsx`, `EntityPopup.tsx`, `ReaderHeader.tsx`, `SearchPanel.tsx`
 
 ---
-*Pitfalls research for: Mobile/PWA EPUB ридер на epub.js (fancai v1.1)*
-*Researched: 2026-03-09*
+*Pitfalls research for: Стабилизация мобильного ридера fancai v1.2*
+*Researched: 2026-03-10*
