@@ -1,13 +1,22 @@
 /**
- * usePWAResumeGuard - Handle PWA resume from background state (January 2026)
+ * usePWAResumeGuard - Handle PWA resume from background state
  *
- * This hook addresses a race condition that occurs when PWA resumes from background:
- * - Zustand rehydration has ~100ms delay (configured in auth store)
+ * Graduated resume strategy with 3 levels:
+ *
+ * Level 1 (Short, <30s): Pass-through. User returned quickly, no action needed.
+ *   Fires before shouldEnableGuard() check — works on all devices.
+ *
+ * Level 2 (Medium, 30s-5min): Soft check. Verify auth state and call
+ *   loadUserFromStorage() if needed. Does NOT block focusManager or set isResuming.
+ *   TanStack Query handles refetches via its own focusManager event.
+ *
+ * Level 3 (Long, >5min): Full reinitialization. Temporarily disables focusManager,
+ *   waits for grace period, reloads user from storage, then re-enables focusManager.
+ *
+ * This prevents race conditions when PWA resumes from background:
+ * - Zustand rehydration has ~100ms delay
  * - TanStack Query refetches immediately on visibility change
- * - This can cause crashes when queries fire before auth state is ready
- *
- * Solution: Use TanStack Query's focusManager to temporarily disable focus events
- * during the grace period, preventing premature refetches.
+ * - Without guard, queries fire before auth state is ready
  *
  * @module hooks/pwa/usePWAResumeGuard
  */
@@ -34,15 +43,13 @@ export interface PWAResumeGuardReturn {
 const RESUME_GRACE_PERIOD = 300;
 
 /**
- * Minimum idle time (ms) that triggers resume guard behavior.
- *
- * IMPORTANT: This was reduced from 5000ms to 1500ms to fix the PWA resume crash.
- * The issue occurred when users opened a book and quickly minimized (< 5s),
- * causing the guard to be skipped during the critical initialization phase.
- *
- * With 1500ms, even brief suspends during book opening are now protected.
+ * Graduated resume thresholds:
+ * - Short (<30s): pass-through, no action needed
+ * - Medium (30s-5min): soft auth check without blocking
+ * - Long (>5min): full reinitialization with focusManager blocking
  */
-const MIN_IDLE_TIME_FOR_GUARD = 1500;
+const THRESHOLD_SHORT = 30_000; // 30 seconds
+const THRESHOLD_LONG = 300_000; // 5 minutes
 
 /**
  * Detect device type based on user agent.
@@ -67,13 +74,14 @@ function detectDeviceType(): 'mobile' | 'tablet' | 'desktop' {
  */
 function shouldEnableGuard(): boolean {
   // Check standalone PWA mode (most reliable indicator)
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches
-    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  
+  const isPWA =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
   // Check mobile/tablet using same function as useRenditionHealthGuard
   const deviceType = detectDeviceType();
   const isMobileOrTablet = deviceType === 'mobile' || deviceType === 'tablet';
-  
+
   // Guard активен если PWA ИЛИ мобильное устройство
   return isPWA || isMobileOrTablet;
 }
@@ -81,11 +89,13 @@ function shouldEnableGuard(): boolean {
 /**
  * Hook to guard against race conditions during PWA resume from background.
  *
- * When the app becomes visible after being in background:
- * 1. Temporarily disables TanStack Query focusManager to prevent premature refetches
- * 2. Waits for RESUME_GRACE_PERIOD (200ms) to allow Zustand to rehydrate
- * 3. Ensures user is available in auth store (calls loadUserFromStorage if needed)
- * 4. Re-enables focusManager and sets isResuming to false
+ * Graduated resume strategy with 3 levels:
+ * 1. Short (<30s): pass-through, no action — user quickly returned
+ * 2. Medium (30s-5min): soft auth check (loadUserFromStorage if needed), no blocking
+ * 3. Long (>5min): full reinitialization — disable focusManager, grace period, reload auth
+ *
+ * Level 1 fires BEFORE shouldEnableGuard() to work on all devices.
+ * Levels 2 and 3 are gated behind shouldEnableGuard() (mobile/tablet/PWA only).
  *
  * @returns {PWAResumeGuardReturn} Object containing isResuming, isReady, and timeSinceResume
  *
@@ -94,10 +104,6 @@ function shouldEnableGuard(): boolean {
  * const { isResuming, isReady } = usePWAResumeGuard();
  *
  * if (isResuming) {
- *   return <LoadingSpinner />;
- * }
- *
- * if (!isReady) {
  *   return <LoadingSpinner />;
  * }
  *
@@ -131,10 +137,14 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
   }, []);
 
   /**
-   * Handle application resuming from background
+   * Handle application resuming from background.
+   *
+   * Graduated strategy:
+   * - Level 1 (<30s): pass-through, no action (fires before shouldEnableGuard)
+   * - Level 2 (30s-5min): soft auth check without blocking focusManager
+   * - Level 3 (>5min): full reinitialization with focusManager blocking
    */
   const handleVisible = useCallback(async () => {
-    // Document became visible
     const now = Date.now();
     const idleTime = now - lastHiddenTimeRef.current;
 
@@ -142,10 +152,11 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
       logger.debug('[PWAResumeGuard] App resumed after', idleTime, 'ms idle');
     }
 
-    // Only trigger guard if app was idle for significant time
-    if (idleTime < MIN_IDLE_TIME_FOR_GUARD) {
+    // --- Level 1: Short resume (<30s) — pass-through ---
+    // Fires BEFORE shouldEnableGuard() — works on all devices
+    if (idleTime < THRESHOLD_SHORT) {
       if (import.meta.env.DEV) {
-        logger.debug('[PWAResumeGuard] Short idle time, skipping guard');
+        logger.debug('[PWAResumeGuard] Level 1 (short): pass-through');
       }
       return;
     }
@@ -158,6 +169,35 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
       return;
     }
 
+    // --- Level 2: Medium resume (30s-5min) — soft auth check ---
+    if (idleTime < THRESHOLD_LONG) {
+      if (import.meta.env.DEV) {
+        logger.debug('[PWAResumeGuard] Level 2 (medium): soft auth check');
+      }
+
+      // Check auth state without blocking focusManager or setting isResuming
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser) {
+        try {
+          await loadUserFromStorage();
+          if (import.meta.env.DEV) {
+            logger.debug('[PWAResumeGuard] Level 2: reloaded user from storage');
+          }
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            logger.error('[PWAResumeGuard] Level 2: failed to load user:', error);
+          }
+        }
+      }
+      // TanStack Query will handle refetches via its own focusManager event
+      return;
+    }
+
+    // --- Level 3: Long resume (>5min) — full reinitialization ---
+    if (import.meta.env.DEV) {
+      logger.debug('[PWAResumeGuard] Level 3 (long): full reinitialization');
+    }
+
     // Start resume process
     setIsResuming(true);
     resumeTimestampRef.current = now;
@@ -167,7 +207,7 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
     focusManager.setFocused(false);
 
     if (import.meta.env.DEV) {
-      logger.debug('[PWAResumeGuard] Starting resume guard, disabled focusManager, waiting', RESUME_GRACE_PERIOD, 'ms');
+      logger.debug('[PWAResumeGuard] Disabled focusManager, waiting', RESUME_GRACE_PERIOD, 'ms');
     }
 
     // Clear any existing timeout
@@ -190,7 +230,6 @@ export function usePWAResumeGuard(): PWAResumeGuardReturn {
           logger.debug('[PWAResumeGuard] No user found, triggering loadUserFromStorage');
         }
 
-        // Attempt to reload user from storage
         try {
           await loadUserFromStorage();
         } catch (error) {
