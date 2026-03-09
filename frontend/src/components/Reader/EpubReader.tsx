@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { booksAPI } from '@/api/books';
 import { STORAGE_KEYS } from '@/types/state';
-import type { BookDetail } from '@/types/api';
+import type { BookDetail, Description, GeneratedImage } from '@/types/api';
 import {
   useEpubLoader,
   useLocationGeneration,
@@ -45,6 +45,7 @@ import { FollowFingerContainer } from './FollowFingerContainer';
 import { ExtractionIndicator } from './ExtractionIndicator';
 import { SearchPanel } from './SearchPanel';
 import { EntityPopup } from './EntityPopup';
+import { DescriptionDrawer } from './DescriptionDrawer';
 import { useEntityNameHighlighting } from '@/hooks/epub/useEntityNameHighlighting';
 import { useNavigationLock } from '@/hooks/shared/useNavigationLock';
 import { logger } from '@/lib/logger';
@@ -71,7 +72,15 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`, String(isTocOpen));
   }, [isTocOpen]);
-  const { navigationMode, updateNavigationMode } = useReaderStore();
+  const [drawerDescription, setDrawerDescription] = useState<Description | null>(null);
+  const [drawerImage, setDrawerImage] = useState<GeneratedImage | undefined>(undefined);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const {
+    navigationMode,
+    updateNavigationMode,
+    descriptionHighlightMode,
+    updateDescriptionHighlightMode,
+  } = useReaderStore();
   const [wakeLockEnabled, setWakeLockEnabled] = useState(
     () => localStorage.getItem(WAKE_LOCK_STORAGE_KEY) !== 'false'
   );
@@ -232,15 +241,15 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Description click and center-tap handlers (needed before gesture controller)
   const handleDescriptionClick = useCallback(
-    async (id: string) => {
+    (id: string) => {
       const d = descriptions.find((x) => x.id === id);
-      if (d)
-        await openModal(
-          d,
-          images.find((x) => x.description_id === id)
-        );
+      if (d) {
+        setDrawerDescription(d);
+        setDrawerImage(images.find((x) => x.description_id === id));
+        setIsDrawerOpen(true);
+      }
     },
-    [descriptions, images, openModal]
+    [descriptions, images]
   );
 
   const handleCenterTap = useCallback(
@@ -340,8 +349,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     rendition,
     descriptions,
     images,
-    onDescriptionClick: async (d, i) => await openModal(d, i),
+    onDescriptionClick: (d, i) => {
+      setDrawerDescription(d);
+      setDrawerImage(i);
+      setIsDrawerOpen(true);
+    },
     enabled: renditionReady,
+    highlightMode: descriptionHighlightMode,
   });
 
   useResizeHandler({ rendition, enabled: renditionReady, onResized: () => {} });
@@ -626,6 +640,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onNavigationModeChange: updateNavigationMode,
           nameHighlightingEnabled,
           onNameHighlightingChange: updateNameHighlighting,
+          descriptionHighlightMode,
+          onDescriptionHighlightModeChange: updateDescriptionHighlightMode,
         }}
         imageStatus={{
           status: generationStatus,
@@ -671,6 +687,17 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           </m.div>
         )}
       </AnimatePresence>
+
+      <DescriptionDrawer
+        description={drawerDescription}
+        image={drawerImage}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onOpenImage={(d, i) => {
+          setIsDrawerOpen(false);
+          openModal(d, i);
+        }}
+      />
 
       <ReaderModals
         imageModal={{
