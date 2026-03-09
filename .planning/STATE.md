@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 11 в процессе (2/3 планов). Plans 01 и 03 завершены.
-last_updated: "2026-03-09T07:35:00Z"
-last_activity: 2026-03-09 — Plan 01 выполнен (unified gesture controller + auto-hide header)
+status: Phase 11 завершена (3/3 планов). Готово к Phase 12.
+last_updated: "2026-03-09T07:47:32Z"
+last_activity: 2026-03-09 — Plan 02 выполнен (vaul bottom-sheet + touch targets + safe areas)
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Состояние проекта
@@ -24,19 +24,19 @@ progress:
 
 ## Текущая позиция
 
-Phase: 11 of 14 (Gesture handler & Mobile UI)
-Plan: 2 of 3 (Plans 01 и 03 завершены, Plan 02 ожидает)
-Status: Phase 11 в процессе (2/3 планов). Plans 01 и 03 завершены.
-Last activity: 2026-03-09 — Plan 01 выполнен (unified gesture controller + auto-hide header)
+Phase: 11 of 14 (Gesture handler & Mobile UI) -- COMPLETE
+Plan: 3 of 3
+Status: Phase 11 завершена (3/3 планов). Готово к Phase 12.
+Last activity: 2026-03-09 — Plan 02 выполнен (vaul bottom-sheet + touch targets + safe areas)
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 6 (milestone v1.1)
+- Выполнено планов: 7 (milestone v1.1)
 - Средняя длительность: 8 min
-- Общее время: 51 min
+- Общее время: 56 min
 
 **По фазам:**
 
@@ -44,7 +44,7 @@ Progress: [█████████░] 86%
 |------|-------|-------------|--------------|
 | 9. Стабилизация навигации | 2/2 | 14 min | 7 min |
 | 10. Follow-finger свайпы | 2/2 | 15 min | 7 min |
-| 11. Gesture handler & Mobile UI | 2/3 | 22 min | 11 min |
+| 11. Gesture handler & Mobile UI | 3/3 | 27 min | 9 min |
 
 *Обновляется после завершения каждого плана*
 
@@ -73,10 +73,13 @@ Progress: [█████████░] 86%
 - iOS center-tap через DOM overlay, все остальное через iframe hooks.content.register()
 - Header скрыт по умолчанию (immersive mode) — максимум текста на мобильных
 - useIsMobile через matchMedia — реактивное определение мобильного устройства
+- MobilePanel passthrough на desktop — компоненты сохраняют свой desktop UI
+- Shared content extraction — JSX извлечен в переменную для двух режимов рендера
+- useFocusTrap отключен на мобильных — vaul сам управляет фокусом
 
 ### Ожидающие задачи
 
-- Phase 11: Plan 02 ожидает выполнения (vaul bottom sheet + mobile settings)
+(нет — Phase 11 завершена)
 
 ### Блокеры/Опасения
 
@@ -85,4 +88,4 @@ Progress: [█████████░] 86%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Completed 11-01-PLAN.md (unified gesture controller + auto-hide header). Phase 11 в процессе (2/3).
+Остановились на: Completed 11-02-PLAN.md (vaul bottom-sheet + touch targets). Phase 11 завершена (3/3).
