@@ -7,8 +7,8 @@
 
 ### Навигация
 
-- [ ] **NAV-01**: Свайпы плавно следуют за пальцем в реальном времени (follow-finger)
-- [ ] **NAV-02**: Slide-анимация с spring physics при завершении свайпа
+- [x] **NAV-01**: Свайпы плавно следуют за пальцем в реальном времени (follow-finger)
+- [x] **NAV-02**: Slide-анимация с spring physics при завершении свайпа
 - [x] **NAV-03**: Быстрое пролистывание не смещает страницу (фикс race condition в directScroll)
 - [x] **NAV-04**: Навигация не блокируется после отмены генерации изображений и других действий
 - [ ] **NAV-05**: Единый gesture controller вместо 3 параллельных систем (useSwipeNavigation + useTouchNavigation + IOSTapZones)
@@ -66,8 +66,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NAV-01 | Phase 10 | Pending |
-| NAV-02 | Phase 10 | Pending |
+| NAV-01 | Phase 10 | Complete |
+| NAV-02 | Phase 10 | Complete |
 | NAV-03 | Phase 9 | Complete |
 | NAV-04 | Phase 9 | Complete |
 | NAV-05 | Phase 11 | Pending |
