@@ -164,6 +164,6 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 9. Стабилизация навигации                 | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 10. Follow-finger свайпы                  | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 11. Единый gesture handler и мобильный UI | v1.1      | 3/3            | Complete    | 2026-03-09 |
-| 12. Viewport и iOS                        | v1.1      | 2/2            | Complete    | 2026-03-09 |
+| 12. Viewport и iOS                        | v1.1      | Complete    | 2026-03-09 | 2026-03-09 |
 | 13. PWA и offline                         | v1.1      | 0/?            | Not started | -          |
 | 14. Фикс описаний                         | v1.1      | 0/?            | Not started | -          |
