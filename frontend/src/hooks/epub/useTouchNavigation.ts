@@ -26,6 +26,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
+import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 import { logger } from '@/lib/logger';
 
 const TAP_MAX_DURATION = 350; // ms - max duration to be considered a tap
@@ -60,6 +61,7 @@ interface UseTouchNavigationOptions {
   nextPage: () => void;
   prevPage: () => void;
   enabled?: boolean;
+  navLock: NavigationLock;
 }
 
 export const useTouchNavigation = ({
@@ -68,11 +70,13 @@ export const useTouchNavigation = ({
   nextPage,
   prevPage,
   enabled = true,
+  navLock,
 }: UseTouchNavigationOptions): void => {
   // Store navigation functions in refs to avoid closure issues
   const nextPageRef = useRef(nextPage);
   const prevPageRef = useRef(prevPage);
   const enabledRef = useRef(enabled);
+  const navLockRef = useRef(navLock);
 
   // Track touch start for tap detection
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -85,7 +89,8 @@ export const useTouchNavigation = ({
     nextPageRef.current = nextPage;
     prevPageRef.current = prevPage;
     enabledRef.current = enabled;
-  }, [nextPage, prevPage, enabled]);
+    navLockRef.current = navLock;
+  }, [nextPage, prevPage, enabled, navLock]);
 
   /**
    * Get iframe position to convert iframe-relative coords to screen coords
@@ -125,8 +130,10 @@ export const useTouchNavigation = ({
     if (!target || !(target instanceof HTMLElement)) return false;
 
     // Description highlights
-    if (target.classList?.contains('description-highlight') ||
-        target.closest?.('.description-highlight')) {
+    if (
+      target.classList?.contains('description-highlight') ||
+      target.closest?.('.description-highlight')
+    ) {
       return true;
     }
 
@@ -162,6 +169,30 @@ export const useTouchNavigation = ({
     }
 
     log('Setting up touch navigation (non-iOS)');
+
+    /**
+     * Navigate with lock coordination.
+     * Acquires the shared navigation lock before navigating and releases after.
+     * Also updates lastTouchNavTimeRef for touch-click dedup.
+     */
+    const navigateWithLock = async (action: 'prev' | 'next') => {
+      if (!navLockRef.current.acquire()) {
+        log(`Navigation locked - ignoring ${action}`);
+        return;
+      }
+      try {
+        lastTouchNavTimeRef.current = Date.now();
+        if (action === 'prev') {
+          log(`LEFT ZONE - calling prevPage()`);
+          await prevPageRef.current();
+        } else {
+          log(`RIGHT ZONE - calling nextPage()`);
+          await nextPageRef.current();
+        }
+      } finally {
+        navLockRef.current.release();
+      }
+    };
 
     /**
      * Content hook - called when each page is rendered
@@ -249,7 +280,8 @@ export const useTouchNavigation = ({
         const deltaY = Math.abs(endY - startY);
         const duration = endTime - startTime;
 
-        const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
+        const isTap =
+          duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
 
         log('TouchEnd (direct):', { startX, endScreenX, deltaX, deltaY, duration, isTap });
 
@@ -268,14 +300,8 @@ export const useTouchNavigation = ({
         const action = getNavigationAction(startX);
         log('Touch navigation action (direct):', action);
 
-        if (action === 'prev') {
-          log('LEFT ZONE TAP - calling prevPage()');
-          lastTouchNavTimeRef.current = Date.now();
-          prevPageRef.current();
-        } else if (action === 'next') {
-          log('RIGHT ZONE TAP - calling nextPage()');
-          lastTouchNavTimeRef.current = Date.now();
-          nextPageRef.current();
+        if (action === 'prev' || action === 'next') {
+          navigateWithLock(action);
         } else {
           log('CENTER ZONE TAP - no navigation');
         }
@@ -298,7 +324,12 @@ export const useTouchNavigation = ({
         // Convert iframe coords to screen coords - compute offset fresh
         const iframeOffset = getCurrentIframeOffset();
         const screenX = e.clientX + iframeOffset;
-        log('Click (direct):', { clientX: e.clientX, iframeOffset, screenX, target: (e.target as HTMLElement)?.tagName });
+        log('Click (direct):', {
+          clientX: e.clientX,
+          iframeOffset,
+          screenX,
+          target: (e.target as HTMLElement)?.tagName,
+        });
 
         // Check if click is on interactive element - allow through
         if (isInteractiveElement(e.target)) {
@@ -310,12 +341,8 @@ export const useTouchNavigation = ({
         const action = getNavigationAction(screenX);
         log('Click action (direct):', action);
 
-        if (action === 'prev') {
-          log('LEFT ZONE CLICK - calling prevPage()');
-          prevPageRef.current();
-        } else if (action === 'next') {
-          log('RIGHT ZONE CLICK - calling nextPage()');
-          nextPageRef.current();
+        if (action === 'prev' || action === 'next') {
+          navigateWithLock(action);
         } else {
           log('CENTER ZONE CLICK - no navigation');
         }
@@ -432,7 +459,8 @@ export const useTouchNavigation = ({
       const deltaY = Math.abs(touch.clientY - startY);
       const duration = endTime - startTime;
 
-      const isTap = duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
+      const isTap =
+        duration < TAP_MAX_DURATION && deltaX < TAP_MAX_MOVEMENT && deltaY < TAP_MAX_MOVEMENT;
 
       log('TouchEnd (fallback):', { startX, endScreenX, deltaX, deltaY, duration, isTap });
 
@@ -446,14 +474,8 @@ export const useTouchNavigation = ({
       const action = getNavigationAction(startX);
       log('Touch navigation action (fallback):', action);
 
-      if (action === 'prev') {
-        log('LEFT ZONE TAP (fallback) - calling prevPage()');
-        lastTouchNavTimeRef.current = Date.now();
-        prevPageRef.current();
-      } else if (action === 'next') {
-        log('RIGHT ZONE TAP (fallback) - calling nextPage()');
-        lastTouchNavTimeRef.current = Date.now();
-        nextPageRef.current();
+      if (action === 'prev' || action === 'next') {
+        navigateWithLock(action);
       }
     };
 
@@ -480,12 +502,8 @@ export const useTouchNavigation = ({
       const action = getNavigationAction(screenX);
       log('Click action (fallback):', action);
 
-      if (action === 'prev') {
-        log('LEFT ZONE CLICK (fallback) - calling prevPage()');
-        prevPageRef.current();
-      } else if (action === 'next') {
-        log('RIGHT ZONE CLICK (fallback) - calling nextPage()');
-        nextPageRef.current();
+      if (action === 'prev' || action === 'next') {
+        navigateWithLock(action);
       }
     };
 
@@ -508,8 +526,14 @@ export const useTouchNavigation = ({
 
       // Cleanup fallback handlers
       try {
-        rendition.off('touchstart', handleTouchStartFallback as unknown as (...args: unknown[]) => void);
-        rendition.off('touchend', handleTouchEndFallback as unknown as (...args: unknown[]) => void);
+        rendition.off(
+          'touchstart',
+          handleTouchStartFallback as unknown as (...args: unknown[]) => void
+        );
+        rendition.off(
+          'touchend',
+          handleTouchEndFallback as unknown as (...args: unknown[]) => void
+        );
         rendition.off('click', handleClickFallback as unknown as (...args: unknown[]) => void);
       } catch (e) {
         log('Error removing fallback handlers:', e);
