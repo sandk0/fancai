@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: Phase 13 завершена (2/2 планов). Следующая — Phase 14.
-last_updated: "2026-03-09T15:16:35.958Z"
-last_activity: 2026-03-09 — Phase 13 завершена (offline degradation, SW update safety)
+status: 14-01-PLAN.md выполнен (нормализация, store v4, DescriptionDrawer). Следующий — 14-02.
+last_updated: "2026-03-09T18:46:43.440Z"
+last_activity: 2026-03-09 — Plan 14-01 завершён (нормализация спецсимволов, highlight mode, drawer)
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 13
+  completed_plans: 12
   percent: 100
 ---
 
@@ -24,10 +24,10 @@ progress:
 
 ## Текущая позиция
 
-Phase: 13 of 14 (PWA & Offline)
-Plan: 2 of 2
-Status: Phase 13 завершена (2/2 планов). Следующая — Phase 14.
-Last activity: 2026-03-09 — Phase 13 завершена (offline degradation, SW update safety)
+Phase: 14 of 14 (Description Fix)
+Plan: 1 of 2
+Status: 14-01-PLAN.md выполнен (нормализация, store v4, DescriptionDrawer). Следующий — 14-02.
+Last activity: 2026-03-09 — Plan 14-01 завершён (нормализация спецсимволов, highlight mode, drawer)
 
 Progress: [██████████] 100%
 
@@ -35,9 +35,9 @@ Progress: [██████████] 100%
 
 **Скорость:**
 
-- Выполнено планов: 11 (milestone v1.1)
+- Выполнено планов: 12 (milestone v1.1)
 - Средняя длительность: 7 min
-- Общее время: 72 min
+- Общее время: 84 min
 
 **По фазам:**
 
@@ -48,6 +48,7 @@ Progress: [██████████] 100%
 | 11. Gesture handler & Mobile UI | 3/3   | 27 min      | 9 min        |
 | 12. Viewport & iOS fixes        | 2/2   | 8 min       | 4 min        |
 | 13. PWA & Offline               | 2/2   | 15 min      | 8 min        |
+| 14. Description Fix             | 1/2   | 12 min      | 12 min       |
 
 _Обновляется после завершения каждого плана_
 
@@ -92,6 +93,8 @@ _Обновляется после завершения каждого план�
 - useOnlineStatus() в UI-компонентах для условного рендеринга офлайн (BookCard, ImageControls)
 - Entity drawer без изменений для offline — SW StaleWhileRevalidate автоматически отдаёт кэш
 - ImageModal доступен офлайн (кэш SW), только regenerate скрыт
+- buildIndexMap переписан с REMOVED_CHARS/EXPANDED_CHARS для расширяемой нормализации
+- DescriptionDrawer использует vaul Drawer напрямую (без MobilePanel) для контроля над содержимым
 
 ### Ожидающие задачи
 
@@ -104,4 +107,4 @@ _Обновляется после завершения каждого план�
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Phase 13 завершена. 13-02-PLAN.md выполнен (offline degradation + SW update safety). Следующая — Phase 14.
+Остановились на: 14-01-PLAN.md выполнен (нормализация спецсимволов, store v4, DescriptionDrawer). Следующий — 14-02.

@@ -39,7 +39,7 @@
 
 ### Описания AI
 
-- [ ] **DSC-01**: Выделенные описания полностью соответствуют CFI позиции из backend (фикс обрезки)
+- [x] **DSC-01**: Выделенные описания полностью соответствуют CFI позиции из backend (фикс обрезки)
 
 ## v2 Requirements
 
@@ -86,7 +86,7 @@
 | VPT-01      | Phase 12 | Complete |
 | VPT-02      | Phase 12 | Complete |
 | VPT-03      | Phase 12 | Complete |
-| DSC-01      | Phase 14 | Pending  |
+| DSC-01      | Phase 14 | Complete |
 
 **Coverage:**
 
