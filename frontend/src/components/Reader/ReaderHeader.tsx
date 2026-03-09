@@ -57,7 +57,7 @@ export const ReaderHeader = memo(function ReaderHeader({
             <div className="flex items-center gap-2">
               <button
                 onClick={onBack}
-                className="min-h-[44px] min-w-[44px] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="min-h-[44px] min-w-[44px] touch-target flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.back')}
                 aria-label={t('reader.header.back')}
               >
@@ -66,7 +66,7 @@ export const ReaderHeader = memo(function ReaderHeader({
               </button>
               <button
                 onClick={onTocToggle}
-                className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.toc')}
                 aria-label={t('reader.header.toc')}
               >
@@ -74,7 +74,7 @@ export const ReaderHeader = memo(function ReaderHeader({
               </button>
               <button
                 onClick={onInfoOpen}
-                className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.info')}
                 aria-label={t('reader.header.info')}
               >
@@ -113,7 +113,7 @@ export const ReaderHeader = memo(function ReaderHeader({
               </div>
               <button
                 onClick={onEntitiesOpen}
-                className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.entities')}
                 aria-label={t('reader.header.entities')}
               >
@@ -121,7 +121,7 @@ export const ReaderHeader = memo(function ReaderHeader({
               </button>
               <button
                 onClick={onSearchToggle}
-                className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.search')}
                 aria-label={t('reader.header.search')}
               >
@@ -129,7 +129,7 @@ export const ReaderHeader = memo(function ReaderHeader({
               </button>
               <button
                 onClick={onSettingsOpen}
-                className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.settings')}
                 aria-label={t('reader.header.settings')}
               >
