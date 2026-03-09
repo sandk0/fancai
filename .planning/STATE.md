@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reader Mobile / PWA
-status: roadmap_created
-last_updated: "2026-03-09T14:00:00.000Z"
+status: executing
+last_updated: "2026-03-09T00:15:22Z"
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Состояние проекта
@@ -22,25 +22,25 @@ progress:
 
 ## Текущая позиция
 
-Phase: 9 of 14 (Стабилизация навигации) — готова к планированию
-Plan: —
-Status: Дорожная карта создана, готов к планированию Phase 9
-Last activity: 2026-03-09 — Roadmap v1.1 создан (6 фаз, 21 требование)
+Phase: 9 of 14 (Стабилизация навигации) — выполняется
+Plan: 2 of 2
+Status: Plan 01 завершен, Plan 02 следующий
+Last activity: 2026-03-09 — Plan 01 выполнен (useNavigationLock + serialized directScroll)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 8%
 
 ## Метрики производительности
 
 **Скорость:**
-- Выполнено планов: 0 (milestone v1.1)
-- Средняя длительность: —
-- Общее время: —
+- Выполнено планов: 1 (milestone v1.1)
+- Средняя длительность: 5 min
+- Общее время: 5 min
 
 **По фазам:**
 
 | Фаза | Планы | Общее время | Среднее/план |
 |------|-------|-------------|--------------|
-| — | — | — | — |
+| 9. Стабилизация навигации | 1/2 | 5 min | 5 min |
 
 *Обновляется после завершения каждого плана*
 
@@ -55,10 +55,12 @@ Progress: [░░░░░░░░░░] 0%
 - Никаких новых npm-зависимостей — motion 12.x, Workbox 7.4 покрывают все потребности
 - CSS transform на epub.js stage.container для follow-finger (epub.js пре-рендерит колонки)
 - DSC-v2-01 (NLP SBD) отложен в v2
+- Ref-based mutex (useRef) для навигационного lock -- избегаем ререндеров
+- Promise chain (scrollChainRef) для сериализации scroll вместо full queue
 
 ### Ожидающие задачи
 
-- Планирование Phase 9 (стабилизация навигации)
+- Выполнение Plan 02 Phase 9 (интеграция lock в gesture handlers)
 
 ### Блокеры/Опасения
 
@@ -67,4 +69,4 @@ Progress: [░░░░░░░░░░] 0%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-09
-Остановились на: Дорожная карта v1.1 создана. Следующий шаг — планирование Phase 9.
+Остановились на: Completed 09-01-PLAN.md (useNavigationLock + serialized directScroll). Следующий — 09-02-PLAN.md.
