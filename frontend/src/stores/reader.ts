@@ -33,6 +33,9 @@ export type NavigationMode = 'swipe' | 'tap';
 // Description density
 export type DescriptionDensity = 'all' | 'key' | 'off';
 
+// Description highlight mode
+export type DescriptionHighlightMode = 'anchor' | 'full';
+
 // Bookmark style type
 export type BookmarkStyle = 'none' | 'highlight' | 'underline' | 'bold' | 'italic';
 
@@ -60,6 +63,7 @@ interface ReaderState {
   navigationMode: NavigationMode; // 'swipe' or 'tap' - iOS always uses 'swipe'
   nameHighlightingEnabled: boolean;
   descriptionDensity: DescriptionDensity;
+  descriptionHighlightMode: DescriptionHighlightMode;
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
@@ -75,6 +79,7 @@ interface ReaderState {
   updateNavigationMode: (mode: NavigationMode) => void;
   updateNameHighlighting: (enabled: boolean) => void;
   updateDescriptionDensity: (density: DescriptionDensity) => void;
+  updateDescriptionHighlightMode: (mode: DescriptionHighlightMode) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
   addBookmark: (
     bookId: string,
@@ -130,6 +135,7 @@ export const useReaderStore = create<ReaderState>()(
       navigationMode: 'swipe', // Default to swipe (modern UX)
       nameHighlightingEnabled: true,
       descriptionDensity: 'all' as DescriptionDensity,
+      descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
 
       // Initial state
       readingProgress: {},
@@ -175,6 +181,10 @@ export const useReaderStore = create<ReaderState>()(
 
       updateDescriptionDensity: (density: DescriptionDensity) => {
         set({ descriptionDensity: density });
+      },
+
+      updateDescriptionHighlightMode: (mode: DescriptionHighlightMode) => {
+        set({ descriptionHighlightMode: mode });
       },
 
       // Reading progress actions (optimistic update + background sync)
@@ -274,6 +284,7 @@ export const useReaderStore = create<ReaderState>()(
           navigationMode: 'swipe',
           nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
+          descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
         });
       },
 
@@ -293,6 +304,7 @@ export const useReaderStore = create<ReaderState>()(
           navigationMode: 'swipe',
           nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
+          descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
           // Clear all user data
           readingProgress: {},
           bookmarks: {},
@@ -314,7 +326,7 @@ export const useReaderStore = create<ReaderState>()(
     }),
     {
       name: 'fancai-reader',
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
@@ -327,6 +339,7 @@ export const useReaderStore = create<ReaderState>()(
         navigationMode: state.navigationMode,
         nameHighlightingEnabled: state.nameHighlightingEnabled,
         descriptionDensity: state.descriptionDensity,
+        descriptionHighlightMode: state.descriptionHighlightMode,
         readingProgress: state.readingProgress,
         bookmarks: state.bookmarks,
       }),
@@ -396,6 +409,10 @@ export const useReaderStore = create<ReaderState>()(
         if (version < 3) {
           // Enable entity name highlighting by default for existing users
           state.nameHighlightingEnabled = true;
+        }
+        if (version < 4) {
+          // Add description highlight mode (anchor = compact, default)
+          state.descriptionHighlightMode = 'anchor';
         }
         return state;
       },

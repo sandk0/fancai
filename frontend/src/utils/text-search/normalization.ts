@@ -1,13 +1,18 @@
 /**
  * Advanced text normalization for better matching
- * Handles: whitespace, non-breaking spaces, chapter headers, punctuation
+ * Handles: whitespace, non-breaking spaces, chapter headers, punctuation,
+ * soft hyphens, zero-width spaces, non-breaking hyphens, ellipsis
  */
 export const normalizeText = (text: string): string => {
   return text
+    .replace(/\u00AD/g, '') // Remove soft hyphens
+    .replace(/\u200B/g, '') // Remove zero-width spaces
     .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
     .replace(/\s+/g, ' ') // Normalize all whitespace to single space
-    .replace(/[«»""]/g, '"') // Normalize quotes
-    .replace(/\u2013|\u2014/g, '-') // Normalize dashes
+    .replace(/[«»\u201C\u201D]/g, '"') // Normalize quotes
+    .replace(/\u2013|\u2014/g, '-') // Normalize dashes (en/em dash)
+    .replace(/\u2011/g, '-') // Non-breaking hyphen → regular hyphen
+    .replace(/\u2026/g, '...') // Ellipsis → three dots
     .trim();
 };
 
@@ -60,12 +65,32 @@ export const getFirstWords = (text: string, count: number): string => {
 };
 
 /**
+ * Characters removed by normalizeText (N:0 mapping — produce no output)
+ */
+const REMOVED_CHARS = new Set(['\u00AD', '\u200B']);
+
+/**
+ * Characters expanded by normalizeText (1:N mapping — one input produces multiple output chars)
+ * Maps original char → replacement string
+ */
+const EXPANDED_CHARS: Record<string, string> = {
+  '\u2026': '...', // ellipsis → 3 dots
+};
+
+/**
+ * Check if a character is whitespace (including NBSP which normalizeText converts to space)
+ */
+const isWhitespaceChar = (ch: string): boolean => /\s/.test(ch) || ch === '\u00A0';
+
+/**
  * Build a mapping from normalized text indices to original text indices.
- * Accounts for trim() offset and whitespace collapse (\s+ → ' ').
- *
- * WARNING: Only handles whitespace transformations (NBSP→space, collapse, trim).
- * Quote/dash replacements (« → ", — → -) are 1:1 and don't shift indices.
- * If normalizeText() gains N:M replacements, this MUST be updated.
+ * Mirrors ALL transformations done by normalizeText():
+ * - Removed chars: \u00AD (soft hyphen), \u200B (zero-width space) → skipped
+ * - NBSP \u00A0 → space (treated as whitespace for collapse)
+ * - Whitespace collapse: \s+ → single space
+ * - 1:1 replacements: quotes, dashes, non-breaking hyphen → same index
+ * - 1:N expansions: \u2026 (ellipsis) → '...' (3 entries pointing to same original index)
+ * - Trim: leading/trailing whitespace removed
  *
  * @returns Array where map[normalizedIdx] = originalIdx
  */
@@ -73,29 +98,64 @@ export const buildIndexMap = (original: string): number[] => {
   const map: number[] = [];
 
   let oi = 0;
-  while (oi < original.length && /\s/.test(original[oi])) {
-    oi++;
+
+  // Skip leading whitespace (trim)
+  while (oi < original.length) {
+    const ch = original[oi];
+    if (REMOVED_CHARS.has(ch)) {
+      // Skip removed chars in leading area
+      oi++;
+    } else if (isWhitespaceChar(ch)) {
+      oi++;
+    } else {
+      break;
+    }
   }
 
   let inWhitespace = false;
   while (oi < original.length) {
     const ch = original[oi];
-    if (/\s/.test(ch)) {
+
+    // Removed chars: skip entirely (no entry in map)
+    if (REMOVED_CHARS.has(ch)) {
+      oi++;
+      continue;
+    }
+
+    // Expanded chars: one original char produces multiple normalized chars
+    if (ch in EXPANDED_CHARS) {
+      if (inWhitespace) {
+        inWhitespace = false;
+      }
+      const expansion = EXPANDED_CHARS[ch];
+      for (let j = 0; j < expansion.length; j++) {
+        map.push(oi);
+      }
+      oi++;
+      continue;
+    }
+
+    // Whitespace (including NBSP): collapse runs to single space
+    if (isWhitespaceChar(ch)) {
       if (!inWhitespace) {
         map.push(oi);
         inWhitespace = true;
       }
       oi++;
-    } else {
-      inWhitespace = false;
-      map.push(oi);
-      oi++;
+      continue;
     }
+
+    // Regular char or 1:1 replacement (quotes, dashes, non-breaking hyphen)
+    inWhitespace = false;
+    map.push(oi);
+    oi++;
   }
+
   // Trim trailing whitespace entry to match normalizeText()'s trim()
   if (inWhitespace && map.length > 0) {
     map.pop();
   }
+
   return map;
 };
 
@@ -107,11 +167,10 @@ export const mapNormalizedRange = (
   indexMap: number[],
   original: string,
   normalizedStartIdx: number,
-  normalizedEndIdx: number,
+  normalizedEndIdx: number
 ): { startIdx: number; endIdx: number } => {
-  const startIdx = normalizedStartIdx < indexMap.length
-    ? indexMap[normalizedStartIdx]
-    : original.length;
+  const startIdx =
+    normalizedStartIdx < indexMap.length ? indexMap[normalizedStartIdx] : original.length;
 
   const lastNormIdx = normalizedEndIdx - 1;
   let endIdx: number;
