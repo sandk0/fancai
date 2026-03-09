@@ -917,6 +917,13 @@
       "dismiss": "Later",
       "close_aria": "Close notification"
     },
+    "pwaInstall": {
+      "title": "Install App",
+      "description": "Read books offline with quick access from your home screen",
+      "install": "Install",
+      "dismiss": "Not now",
+      "ios_guide": "How to install"
+    },
     "iosPush": {
       "push_notifications": "Push notifications",
       "push_desc": "Get notified about book readiness and new images",
