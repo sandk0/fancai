@@ -25,6 +25,13 @@
       "Glob",
       "Grep"
     ],
+    "ask": [
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(wget * | sh)",
+      "Bash(rm -rf /*)"
+    ],
     "deny": [
       "Bash(rm -rf /)",
       "Bash(rm -rf ~)",
@@ -67,6 +74,14 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/migration-safety.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docker-safety.sh"
           }
         ]
       }
@@ -80,6 +95,14 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format/format_hook.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-context-monitor.js"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -89,6 +112,14 @@
           {
             "type": "command",
             "command": "echo '## Post-Compact Reminder\n- Project: fancai (React 19 + FastAPI + Gemini AI)\n- Entity glossary = main selling feature\n- cd frontend && npm run dev | cd backend && pytest -v\n- Commits: <type>(<scope>): <subject>\n- Always run tests before completing'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
       }
@@ -110,10 +141,24 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Review the conversation. If source code files (.py, .ts, .tsx, .js, .jsx) were modified but no tests were run (pytest, npm test, vitest), respond with {\"ok\": false, \"reason\": \"Code was modified but tests were not run. Please run the relevant test suite.\"}. If only config/docs/reports were changed, or if tests were already run, or if this is a research/analysis task, respond with {\"ok\": true}."
+            "prompt": "RESPOND WITH ONLY RAW JSON, NO MARKDOWN, NO CODE BLOCKS, NO EXPLANATION. Check: were source code files (.py, .ts, .tsx, .js, .jsx) modified via Edit/Write tools AND no test commands (pytest, npm test, vitest) were run? If code was modified without tests: {\"ok\":false,\"reason\":\"Code was modified but tests were not run. Please run the relevant test suite.\"} Otherwise (only config/docs changed, or tests were run, or research/analysis task): {\"ok\":true}"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"CRITICAL RULES for fancai: 1) epub.js uses CFI not page numbers 2) Entity system is spoiler-free (show info only up to current chapter) 3) All AI through OpenRouter (OPENROUTER_API_KEY, not GOOGLE_API_KEY) 4) Use docker compose (no hyphen) 5) Commits: <type>(<scope>): <subject> 6) Redis: DB 0=cache, DB 1=Celery broker (NEVER flush), DB 2=Celery results\"}}'"
           }
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node .claude/hooks/gsd-statusline.js"
   }
 }

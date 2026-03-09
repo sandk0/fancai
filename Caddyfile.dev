@@ -1,5 +1,6 @@
 {
     # Dev mode — localhost with Caddy's internal CA (auto-HTTPS)
+    # Run `docker compose -f docker-compose.dev.yml exec caddy caddy trust` to install CA into system trust store
 }
 
 localhost {
@@ -7,12 +8,24 @@ localhost {
 
     # API бэкенда
     handle /api/* {
-        reverse_proxy backend:8000
+        reverse_proxy backend:8000 {
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 120s
+                read_timeout 130s
+            }
+        }
     }
 
-    # WebSocket
+    # WebSocket — flush -1 disables response buffering for real-time streaming
     handle /ws/* {
-        reverse_proxy backend:8000
+        reverse_proxy backend:8000 {
+            flush_interval -1
+            transport http {
+                dial_timeout 5s
+                read_timeout 0
+            }
+        }
     }
 
     # Storage (изображения)

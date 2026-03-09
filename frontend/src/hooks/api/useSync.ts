@@ -98,6 +98,24 @@ export function useCreateBookmark(bookId: string) {
         data.note
       );
 
+      // Optimistic update in TanStack Query cache for instant annotation rendering
+      const optimisticBookmark: BookmarkResponse = {
+        id: `optimistic-${Date.now()}`,
+        cfi_range: data.cfi_range,
+        chapter_number: data.chapter_number,
+        text: data.text,
+        color: data.color ?? null,
+        text_color: data.text_color ?? null,
+        style: data.style || 'none',
+        note: data.note ?? null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<BookmarkResponse[]>(syncKeys.bookmarks(userId, bookId), (old) => [
+        ...(old || []),
+        optimisticBookmark,
+      ]);
+
       return { previousBookmarks, previousStoreBookmarks };
     },
 

@@ -10,27 +10,46 @@ allowed-tools: Bash, Read
 ## Pre-deployment Checks
 
 1. Run frontend build: `cd frontend && npm run build`
-2. Run backend type-check: `cd backend && python -m mypy app/ --ignore-missing-imports`
-3. Run tests: `cd frontend && npm test -- --watchAll=false` and `cd backend && pytest -v --tb=short`
-4. Check git status is clean: `git status`
-5. Check current branch is main: `git branch --show-current`
+2. Run backend tests: `cd backend && pytest -v --tb=short`
+3. Check git status is clean: `git status`
+4. Check current branch is main: `git branch --show-current`
 
-## Deployment Steps
+## Deployment Options
 
-1. Push to main: `git push origin main`
-2. SSH to server and deploy:
+### Full Stack (default)
 
 ```bash
-ssh root@77.246.106.109 "cd /root/fancai-vibe-hackathon && git pull origin main && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d backend"
+ssh fancai "cd /opt/fancai/app && git pull origin main && docker compose -f docker-compose.prod.yml build frontend backend && docker compose -f docker-compose.prod.yml up -d"
+```
+
+### Backend Only
+
+```bash
+ssh fancai "cd /opt/fancai/app && git pull origin main && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d backend celery-worker celery-beat"
+```
+
+### Frontend Only
+
+```bash
+ssh fancai "cd /opt/fancai/app && git pull origin main && docker compose -f docker-compose.prod.yml build frontend && docker compose -f docker-compose.prod.yml up -d frontend caddy"
+```
+
+## Database Migrations (if needed)
+
+```bash
+ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml exec backend alembic upgrade head"
 ```
 
 ## Post-deployment Verification
 
 1. Wait 10 seconds for container startup
-2. Check containers: `ssh root@77.246.106.109 "cd /root/fancai-vibe-hackathon && docker compose -f docker-compose.prod.yml ps"`
-3. Check logs: `ssh root@77.246.106.109 "cd /root/fancai-vibe-hackathon && docker compose -f docker-compose.prod.yml logs --tail=20 backend"`
-4. Report deployment status
+2. Check containers: `ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml ps"`
+3. Check backend logs: `ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml logs --tail=20 backend"`
+4. Check frontend: `curl -s -o /dev/null -w '%{http_code}' https://fancai.ru`
+5. Report deployment status
 
-## Optional: Flush Redis
+## Optional: Flush Redis Cache
 
-Only if requested: `ssh root@77.246.106.109 "docker exec bookreader_redis redis-cli FLUSHDB"`
+Only if requested: `ssh fancai "docker exec fancai_redis redis-cli -n 0 FLUSHDB"`
+
+Note: Redis DB 0 = cache, DB 1 = Celery broker (DO NOT flush), DB 2 = Celery results

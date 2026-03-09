@@ -1,6 +1,5 @@
 {
   "mode": "interactive",
-  "depth": "standard",
   "model_profile": "quality",
   "commit_docs": false,
   "search_gitignored": false,
@@ -12,8 +11,13 @@
     "plan_check": true,
     "verifier": true,
     "auto_advance": false,
-    "nyquist_validation": true
+    "nyquist_validation": true,
+    "_auto_chain_active": false
   },
-  "parallelization": { "enabled": true, "max_concurrent_agents": 2 },
-  "brave_search": false
+  "parallelization": {
+    "enabled": true,
+    "max_concurrent_agents": 2
+  },
+  "brave_search": false,
+  "granularity": "standard"
 }
