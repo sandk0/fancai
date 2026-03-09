@@ -959,7 +959,8 @@
       "saved_locally": "Changes will be saved locally",
       "syncing": "Syncing...",
       "sync_complete": "Sync complete",
-      "all_saved": "All changes saved"
+      "all_saved": "All changes saved",
+      "book_unavailable": "Book unavailable offline"
     },
     "lazyImage": {
       "loadError": "Failed to load image",

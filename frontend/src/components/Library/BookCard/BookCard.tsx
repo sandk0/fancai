@@ -5,6 +5,7 @@ import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ParsingOverlay } from '@/components/UI/ParsingOverlay';
 import { useEpubOffline } from '@/hooks/useEpubOffline';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useBookProcessing } from '@/hooks/useBookProcessing';
 import type { BookCardProps } from './types';
@@ -27,21 +28,13 @@ export const BookCard = memo(function BookCard({
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const haptics = useHaptics();
+  const { isOnline } = useOnlineStatus();
 
-  const {
-    processingState,
-    startProcessing,
-    cancelProcessing,
-    isStarting,
-  } = useBookProcessing(book);
+  const { processingState, startProcessing, cancelProcessing, isStarting } =
+    useBookProcessing(book);
 
-  const {
-    isAvailableOffline,
-    isDownloading,
-    downloadProgress,
-    downloadEpub,
-    removeEpub,
-  } = useEpubOffline(book.id);
+  const { isAvailableOffline, isDownloading, downloadProgress, downloadEpub, removeEpub } =
+    useEpubOffline(book.id);
 
   const coverUrl = useMemo(() => {
     return book.has_cover
@@ -55,7 +48,7 @@ export const BookCard = memo(function BookCard({
     setImageLoaded(false);
   }
 
-  const isClickable = book.is_parsed && !book.is_processing;
+  const isClickable = book.is_parsed && !book.is_processing && (isOnline || isAvailableOffline);
   const progressPercent = book.reading_progress_percent ?? 0;
 
   const handleClick = useCallback(() => {
@@ -97,11 +90,14 @@ export const BookCard = memo(function BookCard({
     [isAvailableOffline, isDownloading, downloadEpub, removeEpub]
   );
 
-  const handleMobileMenuToggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    haptics.select();
-    setShowMobileMenu((prev) => !prev);
-  }, [haptics]);
+  const handleMobileMenuToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      haptics.select();
+      setShowMobileMenu((prev) => !prev);
+    },
+    [haptics]
+  );
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
@@ -157,6 +153,7 @@ export const BookCard = memo(function BookCard({
             isAvailableOffline={isAvailableOffline}
             isDownloading={isDownloading}
             downloadProgress={downloadProgress}
+            isOnline={isOnline}
           />
 
           <ProcessingButtons
