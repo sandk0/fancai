@@ -1,297 +1,382 @@
-# Исследование стека: Mobile/PWA Reader
+# Stack Research: v1.2 Reader Stability & Polish
 
-**Область:** Плавные свайпы follow-finger, качественное PWA, мобильные анимации для EPUB-ридера
-**Исследовано:** 2026-03-09
-**Уверенность:** ВЫСОКАЯ
+**Область:** Стабилизация мобильного EPUB-ридера (анимации, жесты, панели)
+**Исследовано:** 2026-03-10
+**Уверенность:** ВЫСОКАЯ (основан на анализе 863 строк useGestureController.ts, 608 строк useFollowFingerSwipe.ts, vaul docs, motion docs, epub.js wiki)
 
-## Контекст: Что уже есть
+## Ключевой вывод
 
-Прежде чем рекомендовать дополнения -- критически важно понимать текущее состояние:
-
-| Категория | Уже на месте | Статус |
-|-----------|-------------|--------|
-| Анимации | `motion` 12.31.0 (40 файлов импортируют) | Глубоко интегрирован, spring-анимации используются повсюду |
-| Touch-навигация | `useSwipeNavigation.ts` + `useTouchNavigation.ts` | Кастомная реализация на raw touch events, привязка через `rendition.hooks.content.register()` к iframe document |
-| iOS tap zones | `IOSTapZones.tsx` + `TapZone.tsx` + `TapFeedback.tsx` | Отдельная система для iOS -- overlay поверх iframe |
-| iOS fixes | `useEpubIOSFixes.ts` | Блокировка epub.js snap/gestures, fix layout divisor |
-| PWA Service Worker | `sw.ts` (878 строк) + Workbox 7.4 | Полноценный: precaching, runtime caching, background sync, push notifications, navigation preload |
-| PWA Plugin | `vite-plugin-pwa` 1.2.0 (injectManifest) | Настроен, dev mode включен |
-| Manifest | `manifest.json` | Полный: shortcuts, file_handlers, share_target, launch_handler |
-| iOS Support | `iosSupport.ts` (486 строк) | Platform detection, persistence, install prompt, background sync fallback |
-| Swipe overlay | `SwipeOverlay.tsx` + `SwipeIndicator.tsx` | motion/react для spring-анимаций индикаторов |
-
-**Ключевой вывод:** PWA-инфраструктура уже зрелая. Service worker, манифест, Workbox -- всё настроено и работает. Основной пробел -- качество свайпов: текущая реализация на raw `touchstart/touchmove/touchend` не дает настоящего "follow-finger" UX, анимация перехода страницы идет ПОСЛЕ завершения жеста (через `setTimeout` 200-300ms), а не ВО ВРЕМЯ движения пальца.
+**Новые библиотеки НЕ нужны.** Все проблемы решаемы текущим стеком: `motion` v12 для анимаций, `vaul` v1.1.2 для панелей, нативные touch events для жестов. Проблемы вызваны не ограничениями библиотек, а архитектурными багами в коде навигации и конфликтами touch event handlers.
 
 ---
 
-## Рекомендуемые дополнения стека
+## Текущий стек (без изменений)
 
-### 1. НЕ добавлять @use-gesture/react
+### Анимация
 
-| Решение | Обоснование | Уверенность |
-|---------|-------------|-------------|
-| **Отклонено** | Не решает ключевую проблему (iframe) и дублирует motion | ВЫСОКАЯ |
+| Технология | Версия | Назначение | Статус |
+|------------|--------|------------|--------|
+| `motion` (ex Framer Motion) | 12.31.0 | Spring-анимации, useMotionValue, GPU-ускорение | Оставить. Последняя стабильная 12.35.0, обновление опционально |
 
-**Почему не нужен:**
+**Почему motion достаточен:**
+- `useMotionValue` + `animate()` уже используются для follow-finger и работают на GPU через CSS transforms
+- Spring physics с critically-damped конфигами (`SPRING_FAST`, `SPRING_NORMAL`, `SPRING_RUBBER`) уже реализованы в `useFollowFingerSwipe.ts`
+- Проблема не в библиотеке, а в логике: дублирование анимации при tap-навигации, отсутствие двухфазной анимации (slide-out -> navigate -> reset), race conditions между tap и swipe
 
-1. **Проблема iframe:** epub.js рендерит контент в `<iframe>` с blob: URL. Touch events не всплывают из iframe в parent document. `@use-gesture/react` привязывает хендлеры к React-элементам в parent -- он физически не получит events из iframe. Проект уже решает это через `rendition.hooks.content.register()` для прямой привязки к iframe document. @use-gesture не имеет API для привязки к произвольному document/element внутри iframe.
+### Панели
 
-2. **motion уже делает то же:** `motion` v12 (уже установлен) имеет `onPan`, `onPanStart`, `onPanEnd`, `drag` gesture support, spring physics. Добавлять @use-gesture = дублирование.
+| Технология | Версия | Назначение | Статус |
+|------------|--------|------------|--------|
+| `vaul` | 1.1.2 | Bottom sheet панели (TOC, настройки, заметки) | Оставить. Последняя версия стабильна |
 
-3. **Устаревший:** Последний релиз v10.3.1 -- 2+ года назад. Не обновлялся для React 19.
+**Почему vaul достаточен:**
+- Snap points `[0.5, 0.9]` уже используются в MobilePanel.tsx, но `max-h-[90vh]` на Drawer.Content и `max-h-[60vh]` на DescriptionDrawer ограничивают высоту
+- Решается через `snapPoints: [0.6, 1]` (полная высота) + убрать `max-h` constraints
+- Известный баг vaul (#579): при snap points высота может рассчитываться некорректно. Workaround: установить высоту Drawer.Content в `h-full` для корректной работы snap point `1`
 
-4. **@use-gesture/vanilla** (10.3.1) теоретически позволяет привязку к DOM-элементу, но: (a) не протестирован с iframe document, (b) не поддерживается активно, (c) проект и без того справляется с raw events.
+### Touch Events
 
-**Вместо этого:** Улучшить существующую реализацию в `useSwipeNavigation.ts` -- она уже корректно привязана к iframe document через content hooks.
+| Технология | Версия | Назначение | Статус |
+|------------|--------|------------|--------|
+| Нативные TouchEvent API | - | Gesture detection в iframe epub.js | Оставить. Нет причин добавлять абстракции |
 
-### 2. Нет новых npm-зависимостей для жестов и анимаций
-
-| Технология | Версия | Назначение | Почему хватает текущего стека | Уверенность |
-|------------|--------|------------|-------------------------------|-------------|
-| motion | 12.31.0 (уже есть) | Spring-анимации, page transitions | 40 файлов уже используют. `useSpring`, `useMotionValue`, `AnimatePresence` -- все инструменты для follow-finger. Обновить до ~12.35.x для последних bugfixes. | ВЫСОКАЯ |
-
-**Действие:** Обновить motion до последней 12.x:
-
-```bash
-cd frontend && npm install motion@^12.35.0
-```
-
-**Что дает обновление до 12.35.x:**
-- 12.34.0: `useScroll` с hardware accelerated animations
-- 12.34.3: fix velocity transfer для spring анимаций (критично для follow-finger)
-- 12.33.2: улучшенная детекция detached elements
-
-**Источник:** [Motion Changelog](https://motion.dev/changelog), [npm motion](https://www.npmjs.com/package/motion) -- 12.35.1 подтверждена
+**Почему НЕ нужна @use-gesture или другая gesture-библиотека:**
+- Жесты привязываются к iframe document через `rendition.hooks.content.register()` -- это нестандартный контекст, абстракции не помогут
+- `useGestureController.ts` (863 строки) -- зрелая FSM-реализация с 4 состояниями (idle/pending/swiping/cancelled), проблемы не в распознавании жестов, а в конфликтах между обработчиками
+- Добавление gesture-библиотеки усложнит отладку iframe-специфичных edge cases без реальной пользы
 
 ---
 
-## Архитектура follow-finger свайпов (без новых зависимостей)
+## Рекомендуемый стек (БЕЗ новых зависимостей)
 
-Ключевое изменение -- НЕ в библиотеках, а в архитектуре анимации:
+### Core Technologies
 
-### Текущая архитектура (проблемная):
+| Технология | Версия | Назначение | Почему рекомендуется |
+|------------|--------|------------|---------------------|
+| `motion` | 12.31.0+ | Анимация свайпов, spring physics | Уже используется. GPU-ускоренные transforms через useMotionValue. Все нужные API (animate, useMotionValue, useMotionValueEvent) уже в проекте |
+| `vaul` | 1.1.2 | Адаптивные bottom sheet панели | Уже используется. Snap points покрывают все сценарии |
+| Touch Events API (native) | - | FSM gesture controller в iframe | Единственный способ работать с epub.js iframe. rendition.hooks.content.register() для привязки к iframe document |
+| CSS `touch-action` | - | Управление нативными жестами браузера | Уже применяется (`pan-x pan-y`), нужна точная настройка по зонам |
+| CSS `user-select` | - | Контроль выделения текста | Ключ к разрешению конфликта свайп vs выделение |
 
-```
-iframe touchstart → записать startX
-iframe touchmove  → обновить offset в React state (setState)
-iframe touchend   → навигация через rendition.next()/prev()
-                    → setTimeout(300ms) → сбросить overlay
-```
+### Supporting Libraries (уже в проекте)
 
-**Проблема:** `setState` на каждый touchmove -- React re-render каждые ~16ms. Overlay двигается, но СТРАНИЦА не двигается -- она переключается мгновенно в конце.
+| Библиотека | Версия | Назначение | Когда используется |
+|------------|--------|------------|-------------------|
+| `motion/react` (m, AnimatePresence) | 12.31.0 | UI-анимации (header slide, popup scale) | Для header show/hide, entity popup, модалов |
+| `@tanstack/react-virtual` | 3.13.18 | Виртуализация длинных списков | Для TOC > 20 глав в TocSidebar |
+| `lucide-react` | 0.563.0 | Иконки UI | Для всех кнопок header и панелей |
 
-### Целевая архитектура (follow-finger):
+---
 
-```
-iframe touchstart → создать MotionValue(0)
-iframe touchmove  → motionValue.set(deltaX) -- БЕЗ setState
-                    → CSS transform на container/overlay
-iframe touchend   → velocity > threshold?
-                    ДА: spring анимация до +-width → onComplete → rendition.next()/prev()
-                    НЕТ: spring анимация до 0 (snap back)
-```
+## Архитектурные решения по каждой проблеме
 
-**Ключевые технологии из motion (уже есть):**
+### Проблема 1: Свайпы дёрганые, дублирование анимации
 
-| API | Назначение | Как использовать |
-|-----|-----------|------------------|
-| `useMotionValue(0)` | Отслеживание offset БЕЗ re-render | Обновлять из touchmove handler |
-| `useTransform(x, [input], [output])` | Производные значения (opacity, scale) | Fade previous page по мере свайпа |
-| `animate(motionValue, target, { type: 'spring' })` | Императивная spring-анимация | Завершение свайпа с физикой |
-| `useMotionValueEvent(x, 'change', cb)` | Подписка на изменения | Отладка, boundary detection |
+**Диагноз:** В `useGestureController.ts` строки 488-511 -- при tap на край экрана анимация slide-in (animate() к +-viewportWidth) запускается ПАРАЛЛЕЛЬНО с навигацией epub.js (`onEdgeTapRef.current(action)`). Когда epub.js обновляет DOM iframe (новая страница), CSS transform анимация конфликтует с layout recalculation, вызывая визуальный "дёрг".
 
-**Паттерн интеграции с iframe:**
+**Решение (motion API, без новых библиотек):**
+
+Двухфазная анимация: slide-out текущей страницы -> навигация при скрытом контенте -> мгновенный reset.
 
 ```typescript
-// В useSwipeNavigation.ts -- заменить setState на MotionValue
-const offsetX = useMotionValue(0);
+// БЫЛО (строки 488-511 useGestureController.ts):
+// Анимация и навигация параллельно = race condition
+animationRef.current = animate(translateX, slideTarget, {
+  ...SPRING_FAST,
+  onComplete: () => {
+    translateX.set(0);
+    setPhase('idle');
+  },
+});
+onEdgeTapRef.current(action);  // <-- параллельно!
 
-// touchmove handler (привязан к iframe document):
+// РЕКОМЕНДАЦИЯ: последовательная двухфазная
+animationRef.current = animate(translateX, slideTarget, {
+  ...SPRING_PAGE_TURN,
+  onComplete: async () => {
+    // Навигация происходит когда страница "за экраном"
+    await onNavigateRef.current(direction);
+    // Мгновенный reset после навигации
+    translateX.set(0);
+    setPhase('idle');
+  },
+});
+```
+
+**То же для swipe completion (строки 566-584):** анимация spring к краю -> onComplete -> навигация -> reset. Текущий код уже делает это правильно для свайпов, но для tap-навигации -- нет.
+
+### Проблема 2: Анимация не как в Apple Books
+
+**Диагноз:** Apple Books (режим Slide) использует ~250ms ease-out переход с микро-bounce в конце. Текущий `SPRING_FAST` (stiffness: 400, damping: 40) -- critically damped, ~150ms, без bounce. Слишком резкий.
+
+**Решение -- новая spring конфигурация:**
+
+```typescript
+// Apple Books-like: ~250ms, микро-bounce, быстрый старт
+export const SPRING_PAGE_TURN = {
+  type: 'spring' as const,
+  stiffness: 300,     // Мягче SPRING_FAST для плавности
+  damping: 28,        // Чуть ниже critical (2*sqrt(300*0.8)=30.98) для микро-bounce
+  mass: 0.8,          // Легче для быстрого отклика на жест
+};
+
+// Для flick (быстрый свайп) -- сохранить быстрый
+export const SPRING_FLICK = {
+  type: 'spring' as const,
+  stiffness: 500,
+  damping: 42,        // Slightly underdamped для energy feel
+  mass: 1,
+};
+
+// Для rubber-band (граница главы) -- оставить текущий
+export const SPRING_RUBBER = {
+  type: 'spring' as const,
+  stiffness: 200,
+  damping: 28,
+  mass: 1,
+};
+```
+
+**Почему эти параметры:** iOS UIView spring с damping ratio ~0.9 (чуть ниже 1.0 = critically damped) дает характерный Apple "feel" -- быстрый приход к target с едва заметным overshoot. В motion это достигается damping чуть ниже `2*sqrt(stiffness*mass)`.
+
+**Источник:** [Apple interpolatingSpring docs](https://developer.apple.com/documentation/swiftui/animation/interpolatingspring), анализ `SPRING_FAST` в useFollowFingerSwipe.ts.
+
+### Проблема 3: Переход между главами не работает
+
+**Диагноз:** В useGestureController.ts строки 533-557 -- при rubber-band на границе главы, chapter change вызывается в onComplete spring-анимации возврата к 0. Но `onChapterChangeRef.current(dir)` вызывает `rendition.next()/prev()`, которые меняют iframe. Если navLock не acquired или promise rejected -- глава не меняется, но визуально rubber-band уже отработал.
+
+**Решение:**
+
+```typescript
+// Проблема: shouldTransition проверяется по визуальному offset rubber-band,
+// но rubber-band ограничен maxRubberBand (80px),
+// а chapterTransitionThreshold = 0.35 * viewportWidth (~131px на 375px экране)
+// 80px < 131px --> НИКОГДА не сработает!
+
+// ИСПРАВЛЕНИЕ: снизить chapterTransitionThreshold для rubber-band
+export const FOLLOW_FINGER_CONFIG = {
+  // ...
+  chapterTransitionThreshold: 0.15,  // Было 0.35, при maxRubberBand=80px и 375px viewport:
+                                      // 0.15 * 375 = 56px < 80px -- достижимо
+  maxRubberBand: 80,                  // Оставить
+};
+```
+
+### Проблема 4: Выделение текста перехватывается gesture handler
+
+**Диагноз:** `handleTouchStart` в useGestureController.ts (строка 303-341) устанавливает state в `pending` на КАЖДЫЙ touchstart. Затем `handleTouchMove` (строки 344-421) при deltaX > 10px переходит в `swiping` и вызывает `e.preventDefault()`, блокируя нативное выделение текста.
+
+Long-press (350ms) для text selection учтен в handleTouchEnd (строка 448: `if (duration >= LONG_PRESS_TIMEOUT) return`), но проблема в touchmove -- если пользователь чуть двинул палец при long-press (что нормально), gesture controller переходит в swiping и блокирует selection.
+
+**Решение:**
+
+```typescript
 const handleTouchMove = (e: TouchEvent) => {
-  const deltaX = e.touches[0].clientX - startX;
-  offsetX.set(deltaX); // Нет setState, нет re-render
-};
+  const t = touchRef.current;
+  if (t.state !== 'pending' && t.state !== 'swiping') return;
 
-// touchend handler:
-const handleTouchEnd = async (e: TouchEvent) => {
-  const velocity = calculateVelocity();
-  if (Math.abs(velocity) > VELOCITY_THRESHOLD || Math.abs(offsetX.get()) > WIDTH * 0.3) {
-    // Свайп принят: spring к следующей странице
-    const target = offsetX.get() > 0 ? viewportWidth : -viewportWidth;
-    await animate(offsetX, target, {
-      type: 'spring',
-      stiffness: 300,
-      damping: 30,
-      velocity: velocity * 1000, // передаем скорость жеста
-    });
-    await onNavigate(target > 0 ? 'prev' : 'next');
-    offsetX.set(0); // мгновенный сброс после навигации
-  } else {
-    // Свайп отменен: spring назад
-    animate(offsetX, 0, {
-      type: 'spring',
-      stiffness: 400,
-      damping: 35,
-    });
+  const touch = e.touches[0];
+  if (!touch) return;
+
+  // НОВОЕ: если прошло больше LONG_PRESS_TIMEOUT с touchstart и
+  // мы ещё не в swiping -- это text selection, отменить gesture
+  const elapsed = Date.now() - t.startTime;
+  if (elapsed > LONG_PRESS_TIMEOUT && t.state === 'pending') {
+    touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+    return;  // Дать браузеру обработать как text selection
   }
+
+  // Также: проверить, есть ли уже активное выделение
+  const sel = doc.defaultView?.getSelection?.();
+  if (sel && !sel.isCollapsed) {
+    touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+    return;  // Пользователь выделяет текст
+  }
+
+  // ... остальная логика свайпа
 };
 ```
 
----
+**CSS дополнение для iframe body:**
 
-## PWA: Что доработать (без новых зависимостей)
+```css
+/* Разрешить нативное выделение текста в iframe */
+body {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;  /* Разрешить callout для long-press */
+}
+```
 
-PWA-стек уже полноценный. Доработки -- конфигурация и настройка, не новые библиотеки.
+**Источник:** [MDN Touch Events](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events), [epub.js issue #904](https://github.com/futurepress/epub.js/issues/904).
 
-### 2.1 Manifest: улучшения для мобильной читалки
+### Проблема 5: Тапы на описания/сущности у краёв экрана перехватываются навигацией
 
-| Что изменить | Текущее | Рекомендуемое | Зачем |
-|-------------|---------|---------------|-------|
-| `display` | `standalone` | `standalone` (оставить) | Правильно для ридера. `fullscreen` убирает статус-бар -- плохо для iOS. |
-| `orientation` | `portrait-primary` | Убрать или `any` | Многие читают landscape на планшетах. Не ограничивать. |
-| `theme_color` | `#FFFFFF` | Динамический через meta tag | Должен меняться с темой (light/dark/sepia). Manifest фиксирован, но meta tag можно менять. |
-| `icons` | 192px + 512px | Добавить 72px, 128px, 384px | iOS и Android запрашивают разные размеры для splash screen и home screen. |
-| `screenshots` | Нет | Добавить 2-3 скриншота | Chrome показывает "richer install UI" со скриншотами (Chromium 118+). |
+**Диагноз:** В useGestureController.ts строки 456-511 -- handleTouchEnd определяет tap zone через `getTapAction(screenX, false)`. Если entity или description highlight находится в крайних 25% экрана (`EDGE_ZONE_IFRAME = 0.25`), то tap интерпретируется как навигация prev/next. Проверка `isInteractiveElement(e.target)` (строка 458) выполняется ДО зонирования, но `isInteractiveElement` проверяет только `.description-highlight`, `<a>`, `<button>` -- НЕ проверяет `.entity-name-highlight` и `[data-entity-id]`.
 
-### 2.2 Service Worker: уже настроен правильно
-
-Текущая конфигурация Workbox в `sw.ts` покрывает:
-- Precaching static assets
-- Runtime caching с правильными стратегиями (CacheFirst для шрифтов, StaleWhileRevalidate для API)
-- Background sync для reading progress + image generation
-- Navigation preload
-- Push notifications с типизированными payload-ами
-- Offline fallback
-- iOS visibility/online fallback (через `iosSupport.ts`)
-
-**Единственная доработка:** добавить кэширование EPUB-файлов для полного offline-чтения:
+**Решение:**
 
 ```typescript
-// В sw.ts -- добавить route для скачанных книг
-registerRoute(
-  ({ url }) => url.pathname.match(/\/api\/v1\/books\/[^/]+\/download/) !== null,
-  new CacheFirst({
-    cacheName: 'epub-files-cache',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [200] }),
-      new ExpirationPlugin({
-        maxEntries: 20, // Макс 20 книг offline
-        maxAgeSeconds: 60 * 60 * 24 * 90, // 90 дней
-      }),
-    ],
-  })
-);
+// Расширить isInteractiveElement:
+const isInteractiveElement = useCallback((target: EventTarget | null): boolean => {
+  if (!target || !(target instanceof HTMLElement)) return false;
+  // Описания
+  if (target.classList?.contains('description-highlight') ||
+      target.closest?.('.description-highlight')) return true;
+  // Сущности (entity name highlighting)
+  if (target.classList?.contains('entity-name-highlight') ||
+      target.closest?.('.entity-name-highlight') ||
+      target.hasAttribute?.('data-entity-id') ||
+      target.closest?.('[data-entity-id]')) return true;
+  // Стандартные interactive
+  if (target.tagName === 'A' || target.closest?.('a')) return true;
+  if (target.tagName === 'BUTTON' || target.closest?.('button')) return true;
+  return false;
+}, []);
 ```
 
-### 2.3 iOS-специфичные доработки
+**Уверенность:** ВЫСОКАЯ -- прямой анализ кода, строки 272-283 useGestureController.ts.
 
-| Область | Текущее состояние | Что доработать |
-|---------|-------------------|----------------|
-| Safe area | `env(safe-area-inset-*)` используется в IOSTapZones | Проверить на всех страницах (library, settings) |
-| Status bar | Нет `apple-mobile-web-app-status-bar-style` meta | Добавить `black-translucent` для edge-to-edge |
-| Splash screens | Нет `apple-touch-startup-image` | Добавить для мгновенного запуска (без белого экрана) |
-| Overscroll | `overscroll-behavior: none` в CSS | Убедиться что работает в standalone mode |
-| 300ms delay | Не адресовано | `touch-action: manipulation` на интерактивных элементах |
+### Проблема 6: Панели ограничены по высоте
+
+**Диагноз:** `MobilePanel.tsx` (строка 48): `max-h-[90vh]` на Drawer.Content. `DescriptionDrawer.tsx` (строка 38): `max-h-[60vh]`. При snap point `0.9` и max-h `90vh` -- корректно, но snap point `1` (fullscreen) невозможен из-за max-h ограничения.
+
+**Решение:**
+
+```typescript
+// MobilePanel.tsx: адаптивные snap points + убрать max-h
+<Drawer.Content className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50">
+  {/* Убрать max-h-[90vh], высоту контролируют snap points */}
+
+// Адаптивные snap points по типу контента:
+interface MobilePanelProps {
+  snapPoints?: (number | string)[];
+  // ...
+}
+
+// В TocSidebar: snapPoints={[0.6, 1]} -- 60% и fullscreen
+// В ReaderControls: snapPoints={[0.5, 0.85]} -- настройки компактнее
+// В DescriptionDrawer: snapPoints={[0.4, 0.75]} -- вместо max-h-[60vh]
+```
+
+**Для scrollable content внутри drawer (известный баг vaul #575):**
+
+```typescript
+// Drawer.Content нужен overflow-hidden на wrapper, overflow-y-auto на content
+<Drawer.Content className="...">
+  <div className="flex flex-col h-full">
+    <div className="flex-shrink-0">{/* handle bar + header */}</div>
+    <div className="flex-1 overflow-y-auto pb-safe">{children}</div>
+  </div>
+</Drawer.Content>
+```
+
+**Источник:** [Vaul GitHub #575](https://github.com/emilkowalski/vaul/issues/575), [Vaul GitHub #579](https://github.com/emilkowalski/vaul/issues/579), [Vaul docs](https://vaul.emilkowal.ski/getting-started).
+
+### Проблема 7: Шапка ридера не помещается на мобильных
+
+**Диагноз:** `ReaderHeader.tsx` содержит 7 кнопок в одной строке (Back, TOC, Info + progress bar + Entities, Search, Settings). На экранах < 360px (iPhone SE, Galaxy A Series) элементы не помещаются, прогресс-бар сжимается до нечитаемости.
+
+**Решение (CSS/React, без библиотек):**
+
+Стратегия: вынести Secondary actions в overflow menu.
+
+```
+Primary (всегда видны): Back, Progress, Menu (overflow)
+Secondary (в overflow menu): TOC, Search, Info, Entities, Settings
+```
+
+Overflow menu реализуется через `@radix-ui/react-dropdown-menu` (уже в проекте) или `@radix-ui/react-popover` (уже в проекте).
+
+На breakpoint `sm:` (640px) -- показывать все кнопки напрямую (текущий вид).
+
+**Уверенность:** ВЫСОКАЯ -- это UI-дизайн решение, не зависит от библиотек.
 
 ---
 
-## Существующий стек: обновления
+## Обновление зависимостей (опционально)
 
-| Технология | Текущая | Целевая | Зачем обновлять | Уверенность |
-|------------|---------|---------|-----------------|-------------|
-| motion | 12.31.0 | ~12.35.x | Bugfix velocity в spring анимациях (критично для follow-finger), hardware-accelerated scroll | ВЫСОКАЯ |
-| vite-plugin-pwa | 1.2.0 | Оставить | Работает стабильно с injectManifest, нет breaking changes | ВЫСОКАЯ |
-| workbox-* | 7.4.0 | Оставить | Последняя стабильная 7.x серия, активно поддерживается | ВЫСОКАЯ |
+| Пакет | Текущая | Последняя | Нужно ли? | Обоснование |
+|-------|---------|-----------|-----------|-------------|
+| `motion` | 12.31.0 | 12.35.0 | Опционально | Фиксы velocity transfer в spring (12.34.3), hardware-accelerated scroll (12.34.0). Полезно но не блокер |
+| `vaul` | 1.1.2 | 1.1.2 | Нет | Последняя версия уже установлена |
+| `epubjs` | 0.3.93 | 0.3.93 | Нет | Последняя версия, не обновляется |
 
 ---
 
-## Что НЕ добавлять
+## Alternatives Considered
+
+| Рекомендация | Альтернатива | Почему НЕ альтернатива |
+|-------------|-------------|----------------------|
+| Нативные Touch Events | `@use-gesture/react` | Работа через iframe hooks -- абстракция добавит сложности без выгоды. @use-gesture не привязывается к iframe document. Последний релиз 2+ года назад, не протестирован с React 19 |
+| `motion` spring | `react-spring` | Уже используется motion в 40+ файлах, нет причин менять. Два animation runtime = больше bundle, больше когнитивной нагрузки |
+| `vaul` | `@radix-ui/react-dialog` | vaul создан для mobile bottom sheets с snap points. Radix dialog -- модальное окно, не drawer |
+| CSS `touch-action` | Pointer Events API | touch-action декларативен и работает в iframe. Pointer Events не пробрасываются из epub.js iframe на iOS |
+| Двухфазная анимация | Single-pass animation | Двухфазная (slide-out -> navigate -> reset) решает дёргание при DOM update от epub.js |
+| Overflow menu в header | Второй ряд кнопок | Overflow menu -- стандартный паттерн мобильных приложений, второй ряд увеличивает высоту header |
+
+## What NOT to Use
 
 | Избегать | Почему | Использовать вместо |
 |----------|--------|---------------------|
-| `@use-gesture/react` | Не работает с iframe epub.js; дублирует motion; заброшен (2+ года без релиза) | Существующие raw touch events + motion MotionValue |
-| `@use-gesture/vanilla` | Теоретически привязывается к DOM, но не тестирован с iframe, заброшен | Raw touch events через `rendition.hooks.content.register()` |
-| `react-spring` | Дублирует motion (уже 40 файлов). Два animation runtime = больше bundle, больше когнитивной нагрузки | motion (уже интегрирован) |
-| `hammer.js` | Заброшен с 2016 года, не поддерживает Pointer Events, не работает с iframe | Raw touch events |
-| `swipeable-react` / `react-swipeable` | Работает только с React elements, не с iframe content | Raw touch events в iframe |
-| `workbox-window` для update prompt | Уже есть `PWAUpdatePrompt.tsx` с кастомной логикой | Текущая реализация |
-| Нативный `Pointer Events` вместо `Touch Events` | epub.js iframe на iOS не forwarding pointer events. Touch events работают через content hook. Переход на Pointer Events = регрессия на iOS. | Touch Events (текущий подход) |
+| `@use-gesture/react` | +15KB, не работает с iframe epub.js, заброшен 2+ года | Нативные TouchEvent + текущий FSM controller |
+| `react-spring` | +30KB, дублирование motion, разные API spring physics | `motion` animate() + useMotionValue |
+| `hammer.js` | Устаревшая (не обновляется с 2016). Не поддерживает iframe events | Нативные TouchEvent |
+| `swiper` | Для карусолей/слайдеров, не для book readers. Конфликтует с epub.js layout | CSS transform через motion |
+| `StPageFlip` (3D curl) | Несовместимо с epub.js reflowable + iframe. Из PROJECT.md: "3D curl -- out of scope" | Slide animation (SPRING_PAGE_TURN) |
+| `react-spring-bottom-sheet` | Deprecated, последний релиз 3+ года назад. vaul -- его духовный наследник | `vaul` |
+| `@xelene/vaul-with-scroll-fix` | Fork vaul с фиксами скролла. Нестабильный, может отстать от upstream | Стандартный vaul + workaround (overflow-y-auto на inner div) |
 
 ---
 
-## Паттерны по сценариям
+## Совместимость с epub.js iframe (критически важно)
 
-**Для follow-finger свайпов:**
-- Использовать `useMotionValue` + `useTransform` из motion (не setState)
-- Touch events привязывать через `rendition.hooks.content.register()` к iframe document
-- Spring анимация через `animate()` из motion
-- Velocity передавать из жеста в spring для естественного ощущения
+### Архитектурные ограничения:
 
-**Для page transition анимации:**
-- Двухслойная архитектура: текущая страница (iframe) + overlay/next page preview
-- CSS `will-change: transform` на анимируемых контейнерах
-- `transform: translateX()` для GPU-ускорения (не `left`/`right`)
+1. **epub.js рендерит контент в iframe** -- touch events НЕ всплывают из iframe в parent document
+2. **Привязка через `rendition.hooks.content.register()`** -- единственный способ получить touch events из iframe
+3. **CSS transforms применяются к WRAPPER div** (FollowFingerContainer), НЕ к iframe -- это безопасно для epub.js
+4. **Coordinate conversion нужна** -- touch.clientX в iframe !== screen coordinates. Используется `getIframeOffset()` (строка 240 useGestureController.ts)
+5. **При смене главы epub.js пересоздаёт iframe** -- все event listeners теряются, hooks.content.register() автоматически вызовется для нового iframe
+6. **iOS: тапы из iframe overlay** -- на iOS center-tap через iframe может не работать, поэтому есть iOS overlay (строки 727-810 useGestureController.ts)
 
-**Для iOS PWA:**
-- IOSTapZones overlay остается (iframe touch events не работают на iOS в standalone)
-- Свайпы на iOS -- через центральную зону IOSTapZones (уже реализовано)
-- `touch-action: pan-x pan-y` (не `manipulation` -- он включает pinch-zoom)
+### Что это означает для стека:
 
-**Для offline чтения:**
-- EPUB файлы кэшировать через CacheFirst + ExpirationPlugin
-- IndexedDB (Dexie) для глав и метаданных -- уже реализовано
-- Background sync для прогресса -- уже реализовано
+- Любая gesture library (use-gesture, hammer.js) НЕ может быть просто подключена -- iframe контекст требует специфичной интеграции
+- motion MotionValue и animate() работают на parent document уровне, не зависят от iframe -- безопасно для анимации wrapper div
+- vaul drawers работают в parent document -- не конфликтуют с iframe
 
 ---
 
-## Матрица совместимости версий
-
-| Пакет | Совместим с | Примечания |
-|-------|-------------|------------|
-| motion 12.35.x | React 19, TypeScript 5.7, Vite 7 | Полная совместимость, tree-shakeable |
-| vite-plugin-pwa 1.2.0 | Vite 7.x, Workbox 7.x | Стабилен, injectManifest mode |
-| workbox 7.4.0 | Chrome 80+, Safari 15.4+, Firefox 85+ | Background Sync только Chrome; iOS fallback через visibility events |
-| epub.js 0.3.93 | Все браузеры, но iOS requires spread('none') fix | Наш useEpubIOSFixes.ts решает известные проблемы |
-
----
-
-## Сводка по установке
-
-### Единственная npm-команда:
+## Установка
 
 ```bash
-cd frontend && npm install motion@^12.35.0
+# Новые пакеты НЕ нужны. Всё уже установлено.
+# Опционально: обновить motion до последней минорной версии
+cd frontend && npm update motion
 ```
 
-**Это все.** Никаких новых зависимостей. Вся работа -- рефакторинг существующего кода:
-
-1. `useSwipeNavigation.ts` -- переписать на MotionValue вместо useState
-2. `SwipeOverlay.tsx` -- привязать transform к MotionValue
-3. `IOSTapZones.tsx` -- добавить swipe velocity tracking
-4. `manifest.json` -- orientation, screenshots, дополнительные иконки
-5. `sw.ts` -- добавить route для EPUB files cache
-6. HTML meta tags -- apple-mobile-web-app-status-bar-style, splash screens
-
 ---
 
-## Источники
+## Sources
 
-- [Motion Changelog](https://motion.dev/changelog) -- версии 12.33-12.35, bugfixes для spring velocity (ВЫСОКАЯ уверенность)
-- [Motion React Gestures](https://motion.dev/docs/react-gestures) -- pan, drag, gesture API (ВЫСОКАЯ уверенность)
-- [Motion React Drag](https://motion.dev/docs/react-drag) -- drag animation guide (ВЫСОКАЯ уверенность)
-- [npm motion 12.35.1](https://www.npmjs.com/package/motion) -- версия подтверждена (ВЫСОКАЯ уверенность)
-- [npm @use-gesture/react 10.3.1](https://www.npmjs.com/package/@use-gesture/react) -- последний релиз 2+ года назад (ВЫСОКАЯ уверенность)
-- [GitHub pmndrs/use-gesture](https://github.com/pmndrs/use-gesture) -- документация по vanilla variant (СРЕДНЯЯ уверенность)
-- [epub.js Tips and Tricks v0.3](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3)) -- swipe implementation patterns (ВЫСОКАЯ уверенность)
-- [epub.js Issue #34 -- Page transition animation](https://github.com/futurepress/epub.js/issues/34) -- community approach (СРЕДНЯЯ уверенность)
-- [Vite PWA injectManifest Guide](https://vite-pwa-org.netlify.app/guide/inject-manifest) -- конфигурация (ВЫСОКАЯ уверенность)
-- [Workbox Background Sync Issue #2516](https://github.com/GoogleChrome/workbox/issues/2516) -- iOS fallback (ВЫСОКАЯ уверенность)
-- [PWA iOS Limitations](https://brainhub.eu/library/pwa-on-ios) -- обзор ограничений iOS 2025 (СРЕДНЯЯ уверенность)
-- [PWA iOS Complete Guide](https://www.mobiloud.com/blog/progressive-web-apps-ios) -- 2026 обзор (СРЕДНЯЯ уверенность)
-- [Apple Safe Area CSS](https://gist.github.com/cvan/6c022ff9b14cf8840e9d28730f75fc14) -- env(safe-area-inset) patterns (ВЫСОКАЯ уверенность)
-- [CSS-Tricks Simple Swipe](https://css-tricks.com/simple-swipe-with-vanilla-javascript/) -- vanilla swipe pattern (СРЕДНЯЯ уверенность)
-- [Motion useSpring](https://www.framer.com/motion/use-spring/) -- spring physics API (ВЫСОКАЯ уверенность)
+- [Motion docs: React Transitions](https://motion.dev/docs/react-transitions) -- spring конфигурация, анимации (ВЫСОКАЯ уверенность)
+- [Motion docs: Motion Values](https://motion.dev/docs/react-motion-value) -- useMotionValue для GPU-ускорения (ВЫСОКАЯ уверенность)
+- [Motion changelog](https://motion.dev/changelog) -- v12.31.0 -> 12.35.0 изменения (ВЫСОКАЯ уверенность)
+- [Vaul GitHub issues #575](https://github.com/emilkowalski/vaul/issues/575) -- scrollable content в drawer (ВЫСОКАЯ уверенность)
+- [Vaul GitHub issues #579](https://github.com/emilkowalski/vaul/issues/579) -- snap points height bug (ВЫСОКАЯ уверенность)
+- [Vaul docs: Getting Started](https://vaul.emilkowal.ski/getting-started) -- snap points API (ВЫСОКАЯ уверенность)
+- [MDN: touch-action](https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action) -- CSS touch-action reference (ВЫСОКАЯ уверенность)
+- [MDN: Touch Events](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events) -- нативный Touch API (ВЫСОКАЯ уверенность)
+- [epub.js Tips and Tricks](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks) -- iframe event handling (ВЫСОКАЯ уверенность)
+- [epub.js swipe example](https://github.com/futurepress/epub.js/blob/master/examples/swipe.html) -- official swipe implementation (ВЫСОКАЯ уверенность)
+- [epub.js issue #904](https://github.com/futurepress/epub.js/issues/904) -- text selection broken on iOS (ВЫСОКАЯ уверенность)
+- [Apple: interpolatingSpring](https://developer.apple.com/documentation/swiftui/animation/interpolatingspring(mass:stiffness:damping:initialvelocity:)) -- iOS spring параметры (ВЫСОКАЯ уверенность)
+- [Apple Books re-enable curl animation](https://www.macrumors.com/how-to/re-enable-page-turning-animation-apple-books/) -- Apple Books animation modes: Slide/Curl/None (СРЕДНЯЯ уверенность)
+- [We Are Mobile First: Apple Books UI Animations](https://www.wearemobilefirst.com/blog/apple-books-ui-animations-2) -- reverse engineering Apple Books UI (СРЕДНЯЯ уверенность)
+- Анализ кодовой базы fancai: `useGestureController.ts` (863 строки), `useFollowFingerSwipe.ts` (608 строк), `FollowFingerContainer.tsx` (117 строк), `MobilePanel.tsx` (70 строк), `ReaderHeader.tsx` (145 строк), `TocSidebar.tsx` (348 строк), `ReaderControls.tsx` (283 строки), `DescriptionDrawer.tsx` (71 строка), `EntityPopup.tsx` (163 строки), `EpubReader.tsx` (750 строк)
 
 ---
-*Исследование стека для: Mobile/PWA Reader v1.1*
-*Исследовано: 2026-03-09*
+*Stack research для: v1.2 Reader Stability & Polish*
+*Исследовано: 2026-03-10*

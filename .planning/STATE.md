@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: "Milestone v1.1 shipped. Планирование следующего milestone."
-last_updated: "2026-03-09T22:30:00Z"
-last_activity: "2026-03-09 — Milestone v1.1 Reader Mobile / PWA archived"
+milestone: "v1.2"
+milestone_name: "Reader Stability & Polish"
+status: "Defining requirements"
+last_updated: "2026-03-10T00:00:00Z"
+last_activity: "2026-03-10 — Milestone v1.2 started"
 progress:
   total_phases: 0
   completed_phases: 0
@@ -17,17 +17,17 @@ progress:
 
 ## Ссылка на проект
 
-См.: .planning/PROJECT.md (обновлен 2026-03-09)
+См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki — загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Планирование следующего milestone
+**Текущий фокус:** v1.2 Reader Stability & Polish — исправление регрессий v1.1
 
 ## Текущая позиция
 
-Status: Между milestone-ами. v1.0 и v1.1 shipped.
-Last activity: 2026-03-09 — Milestone v1.1 archived
-
-Progress: Нет активного milestone
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-10 — Milestone v1.2 started
 
 ## Метрики производительности
 
@@ -52,9 +52,10 @@ Progress: Нет активного milestone
 
 ### Блокеры/Опасения
 
-(нет активных блокеров)
+- Множественные регрессии после v1.1: свайпы, анимации, выделение текста, шапка, панели
+- Тестирование проводилось на Pixel 9 (Android PWA / Web Mobile), iOS не проверено
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-09
-Остановились на: Milestone v1.1 shipped и архивирован. Следующий шаг — /gsd:new-milestone.
+Последняя сессия: 2026-03-10
+Остановились на: Начало milestone v1.2. Определение требований.
