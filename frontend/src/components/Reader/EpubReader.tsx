@@ -21,14 +21,13 @@ import {
   useBookMetadata,
   useTextSelection,
   useToc,
-  useTouchNavigation,
 } from '@/hooks/epub';
-import { useFollowFingerSwipe } from '@/hooks/epub/useFollowFingerSwipe';
+import { useGestureController } from '@/hooks/epub/useGestureController';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
 import { useBookmarkActions } from '@/hooks/epub/useBookmarks';
 import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
-import { isIOS } from '@/utils/iosSupport';
 import { useReaderStore } from '@/stores/reader';
+import { useAutoHideUI } from '@/hooks/reader/useAutoHideUI';
 import { useReaderPosition } from '@/hooks/reader/useReaderPosition';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useReadingSession } from '@/hooks/useReadingSession';
@@ -61,8 +60,16 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const navigate = useNavigate();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
+  const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
+  const [isTocOpen, setIsTocOpen] = useState(
+    () => localStorage.getItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`) === 'true'
+  );
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`, String(isTocOpen));
+  }, [isTocOpen]);
   const { navigationMode, updateNavigationMode } = useReaderStore();
-  const effectiveNavigationMode = isIOS() ? 'swipe' : navigationMode;
   const [wakeLockEnabled, setWakeLockEnabled] = useState(
     () => localStorage.getItem(WAKE_LOCK_STORAGE_KEY) !== 'false'
   );
@@ -220,9 +227,54 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (renditionReady && isRenditionHealthy && !isCheckingHealth) markHealthy();
   }, [renditionReady, isRenditionHealthy, isCheckingHealth, markHealthy]);
 
-  const followFinger = useFollowFingerSwipe({
+  // Description click and center-tap handlers (needed before gesture controller)
+  const handleDescriptionClick = useCallback(
+    async (id: string) => {
+      const d = descriptions.find((x) => x.id === id);
+      if (d)
+        await openModal(
+          d,
+          images.find((x) => x.description_id === id)
+        );
+    },
+    [descriptions, images, openModal]
+  );
+
+  const handleCenterTap = useCallback(
+    async (x: number, y: number) => {
+      if (!rendition) return;
+      try {
+        const contents = rendition.getContents();
+        if (!contents?.length) return;
+        const doc = contents[0].document;
+        if (!doc) return;
+        let target = doc.elementFromPoint(x, y) as HTMLElement | null;
+        while (target && target !== doc.body) {
+          if (target.classList?.contains('description-highlight')) {
+            const id = target.getAttribute('data-description-id');
+            if (id) handleDescriptionClick(id);
+            break;
+          }
+          target = target.parentElement;
+        }
+      } catch (err) {
+        logger.error(err);
+      }
+    },
+    [rendition, handleDescriptionClick]
+  );
+
+  // Auto-hide UI: immersive mode (header hidden by default)
+  const autoHide = useAutoHideUI({ initialVisible: false });
+
+  // Compute isPanelOpen for gesture blocking
+  const isPanelOpen =
+    isTocOpen || isSettingsOpen || isEntityDrawerOpen || isSearchOpen || isBookInfoOpen;
+
+  // Unified gesture controller replaces useFollowFingerSwipe + useTouchNavigation + IOSTapZones
+  const gestureController = useGestureController({
     rendition,
-    enabled: renditionReady && effectiveNavigationMode === 'swipe' && !isModalOpen,
+    enabled: renditionReady && !isModalOpen,
     onNavigate: async (dir) => {
       if (dir === 'next') await nextPage();
       else await prevPage();
@@ -231,7 +283,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       if (dir === 'next') await rendition?.next();
       else await rendition?.prev();
     },
+    onEdgeTap: (dir) => {
+      // Edge tap: navigate with navLock (slide animation handled by controller)
+      if (navLock.acquire()) {
+        (dir === 'next' ? nextPage() : prevPage()).finally(() => navLock.release());
+      }
+    },
+    onCenterTap: handleCenterTap,
+    onToggleUI: autoHide.toggleUI,
+    onSwipeStart: autoHide.onSwipeStart,
+    onTapNavigate: autoHide.onTapNavigate,
     navLock,
+    isPanelOpen,
   });
 
   useKeyboardNavigation({
@@ -239,14 +302,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     onPrev: prevPage,
     enabled: renditionReady && !isModalOpen,
     rendition,
-  });
-  useTouchNavigation({
-    rendition,
-    viewerRef,
-    nextPage,
-    prevPage,
-    enabled: renditionReady && !isModalOpen && effectiveNavigationMode === 'tap',
-    navLock,
   });
 
   const { theme, fontSize, setTheme, increaseFontSize, decreaseFontSize } =
@@ -340,13 +395,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     [updateBookmark]
   );
 
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
     null
   );
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
   const [drawerInitialEntityId, setDrawerInitialEntityId] = useState<string | null>(null);
-  const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
   const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
     book.id,
     maxChapterReached
@@ -396,13 +449,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setDrawerInitialEntityId(null);
     setIsEntityDrawerOpen(true);
   }, []);
-  const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
-  const [isTocOpen, setIsTocOpen] = useState(
-    () => localStorage.getItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`) === 'true'
-  );
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`, String(isTocOpen));
-  }, [isTocOpen]);
 
   useEffect(() => {
     if (!isWakeLockSupported) return;
@@ -457,42 +503,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const handleUseServerPosition = useCallback(() => resolveConflict('server'), [resolveConflict]);
   const handleUseLocalPosition = useCallback(() => resolveConflict('local'), [resolveConflict]);
 
-  const handleDescriptionClick = useCallback(
-    async (id: string) => {
-      const d = descriptions.find((x) => x.id === id);
-      if (d)
-        await openModal(
-          d,
-          images.find((x) => x.description_id === id)
-        );
-    },
-    [descriptions, images, openModal]
-  );
-
-  const handleCenterTap = useCallback(
-    async (x: number, y: number) => {
-      if (!rendition) return;
-      try {
-        const contents = rendition.getContents();
-        if (!contents?.length) return;
-        const doc = contents[0].document;
-        if (!doc) return;
-        let target = doc.elementFromPoint(x, y) as HTMLElement | null;
-        while (target && target !== doc.body) {
-          if (target.classList?.contains('description-highlight')) {
-            const id = target.getAttribute('data-description-id');
-            if (id) handleDescriptionClick(id);
-            break;
-          }
-          target = target.parentElement;
-        }
-      } catch (err) {
-        logger.error(err);
-      }
-    },
-    [rendition, handleDescriptionClick]
-  );
-
   const backgroundColor = useMemo(() => {
     if (theme === 'sepia') return 'bg-[#FBF0D9]';
     if (theme === 'dark') return 'bg-[#121212]';
@@ -503,11 +513,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   return (
     <div className={`relative h-full w-full transition-colors ${backgroundColor}`}>
       <FollowFingerContainer
-        translateX={followFinger.translateX}
-        phase={followFinger.phase}
-        isAtBoundary={followFinger.isAtBoundary}
-        showChapterHint={followFinger.showChapterHint}
-        chapterHintDirection={followFinger.chapterHintDirection}
+        translateX={gestureController.translateX}
+        phase={gestureController.phase}
+        isAtBoundary={gestureController.isAtBoundary}
+        showChapterHint={gestureController.showChapterHint}
+        chapterHintDirection={gestureController.chapterHintDirection}
       >
         <div
           ref={viewerRef}
@@ -515,7 +525,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           tabIndex={-1}
           className={`h-full w-full ${backgroundColor} outline-hidden`}
           style={{
-            paddingTop: 'calc(70px + env(safe-area-inset-top))',
+            paddingTop: 'env(safe-area-inset-top)',
             paddingLeft: 'env(safe-area-inset-left)',
             paddingRight: 'env(safe-area-inset-right)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -540,17 +550,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onRetry: reload,
           onHome: () => navigate('/library'),
         }}
-        theme={theme}
         backgroundColor={backgroundColor}
-        navigationMode={navigationMode}
-        tapZones={{
-          onPrevPage: prevPage,
-          onNextPage: nextPage,
-          onDescriptionClick: handleDescriptionClick,
-          onCenterTap: handleCenterTap,
-          navLock,
-          onTapNavigateAnimation: followFinger.triggerSlideAnimation,
-        }}
       />
 
       <ExtractionIndicator
@@ -569,6 +569,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         isVisible={
           renditionReady && !isLoading && !isGenerating && !isRestoringPosition && !!bookMetadata
         }
+        isHeaderVisible={autoHide.isHeaderVisible}
         header={{
           metadata: { title: bookMetadata?.title ?? '', author: bookMetadata?.creator ?? '' },
           progress,

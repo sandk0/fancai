@@ -484,6 +484,28 @@ export const useGestureController = (
 
           // Notify auto-hide: tap navigate
           onTapNavigateRef.current();
+
+          // Trigger slide-in animation (non-blocking visual effect)
+          {
+            const stageInfo = getStageInfo(rendition);
+            const vw = stageInfo?.viewportWidth || window.innerWidth;
+            const slideTarget = action === 'next' ? -vw : vw;
+            setPhase('animating');
+            if (animationRef.current) {
+              animationRef.current.stop();
+              animationRef.current = null;
+            }
+            animationRef.current = animate(translateX, slideTarget, {
+              ...SPRING_FAST,
+              onComplete: () => {
+                animationRef.current = null;
+                translateX.set(0);
+                setPhase('idle');
+              },
+            });
+          }
+
+          // Fire navigation callback
           onEdgeTapRef.current(action);
 
           return;
@@ -606,6 +628,27 @@ export const useGestureController = (
         if (isPanelOpenRef.current) return;
 
         onTapNavigateRef.current();
+
+        // Trigger slide-in animation for click-based edge tap
+        {
+          const stageInfo = getStageInfo(rendition);
+          const vw = stageInfo?.viewportWidth || window.innerWidth;
+          const slideTarget = action === 'next' ? -vw : vw;
+          setPhase('animating');
+          if (animationRef.current) {
+            animationRef.current.stop();
+            animationRef.current = null;
+          }
+          animationRef.current = animate(translateX, slideTarget, {
+            ...SPRING_FAST,
+            onComplete: () => {
+              animationRef.current = null;
+              translateX.set(0);
+              setPhase('idle');
+            },
+          });
+        }
+
         onEdgeTapRef.current(action);
       };
 
