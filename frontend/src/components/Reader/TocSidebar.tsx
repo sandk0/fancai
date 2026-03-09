@@ -5,6 +5,8 @@ import { X, ChevronRight, Search } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Z_INDEX } from '@/lib/zIndex';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useIsMobile } from '@/hooks/shared/useIsMobile';
+import { MobilePanel } from '@/components/UI/MobilePanel';
 import { BookmarksList } from './BookmarksList';
 import type { BookmarkResponse } from '@/hooks/api/useSync';
 import type { NavItem } from 'epubjs';
@@ -108,13 +110,14 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
   onUpdateBookmarkNote,
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<SidebarTab>('toc');
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  useFocusTrap(isOpen, sidebarRef);
+  useFocusTrap(isOpen && !isMobile, sidebarRef);
 
   useEffect(() => {
     if (isOpen && activeTab === 'toc') {
@@ -179,6 +182,127 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
     },
   ];
 
+  // Shared inner content: tabs, search, chapter list, bookmarks
+  const sidebarContent = (
+    <>
+      {/* Tabs */}
+      <div className="flex border-b">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 px-3 py-2.5 min-h-[44px] text-sm font-medium transition-colors relative ${
+              activeTab === tab.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="ml-1 text-xs opacity-60">({tab.count})</span>
+            )}
+            {activeTab === tab.key && (
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Search (only for TOC tab) */}
+      {activeTab === 'toc' && (
+        <div className="p-4 border-b">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={t('reader.toc.search_placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 min-h-[44px] bg-muted rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2">
+        {activeTab === 'toc' && (
+          <>
+            {filtered.length === 0 ? (
+              <p className="text-center py-10 opacity-50">{t('reader.toc.no_results')}</p>
+            ) : useVirtual ? (
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+                  <div
+                    key={virtualItem.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <ChapterItem
+                      item={filtered[virtualItem.index]}
+                      currentHref={currentHref}
+                      onChapterClick={handleChapterClick}
+                      level={0}
+                      index={virtualItem.index}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filtered.map((item, i) => (
+                  <ChapterItem
+                    key={i}
+                    item={item}
+                    currentHref={currentHref}
+                    onChapterClick={handleChapterClick}
+                    level={0}
+                    index={i}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'notes' && (
+          <BookmarksList
+            bookmarks={bookmarks}
+            onNavigate={handleNavigateToCfi}
+            onDelete={onDeleteBookmark || (() => {})}
+            onUpdateNote={onUpdateBookmarkNote || (() => {})}
+          />
+        )}
+      </div>
+    </>
+  );
+
+  // Mobile: vaul bottom-sheet via MobilePanel
+  if (isMobile) {
+    return (
+      <MobilePanel
+        isOpen={isOpen}
+        onClose={onClose}
+        title={tabs.find((t) => t.key === activeTab)?.label || t('reader.sidebar.toc', 'Contents')}
+        snapPoints={[0.5, 0.9]}
+      >
+        {sidebarContent}
+      </MobilePanel>
+    );
+  }
+
+  // Desktop: slide-in side panel (original behavior)
   return (
     <AnimatePresence>
       {isOpen && (
@@ -199,7 +323,7 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            className="fixed top-0 right-0 h-full w-full md:w-96 bg-background shadow-xl flex flex-col pt-safe pb-safe"
+            className="fixed top-0 right-0 h-full w-96 bg-background shadow-xl flex flex-col pt-safe pb-safe"
             style={{ zIndex: Z_INDEX.modal }}
           >
             {/* Header */}
@@ -214,108 +338,7 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 px-3 py-2.5 min-h-[44px] text-sm font-medium transition-colors relative ${
-                    activeTab === tab.key
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="ml-1 text-xs opacity-60">({tab.count})</span>
-                  )}
-                  {activeTab === tab.key && (
-                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Search (only for TOC tab) */}
-            {activeTab === 'toc' && (
-              <div className="p-4 border-b">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50" />
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    placeholder={t('reader.toc.search_placeholder')}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 min-h-[44px] bg-muted rounded-lg"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Content */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-2">
-              {activeTab === 'toc' && (
-                <>
-                  {filtered.length === 0 ? (
-                    <p className="text-center py-10 opacity-50">{t('reader.toc.no_results')}</p>
-                  ) : useVirtual ? (
-                    <div
-                      style={{
-                        height: `${rowVirtualizer.getTotalSize()}px`,
-                        width: '100%',
-                        position: 'relative',
-                      }}
-                    >
-                      {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-                        <div
-                          key={virtualItem.key}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            transform: `translateY(${virtualItem.start}px)`,
-                          }}
-                        >
-                          <ChapterItem
-                            item={filtered[virtualItem.index]}
-                            currentHref={currentHref}
-                            onChapterClick={handleChapterClick}
-                            level={0}
-                            index={virtualItem.index}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {filtered.map((item, i) => (
-                        <ChapterItem
-                          key={i}
-                          item={item}
-                          currentHref={currentHref}
-                          onChapterClick={handleChapterClick}
-                          level={0}
-                          index={i}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {activeTab === 'notes' && (
-                <BookmarksList
-                  bookmarks={bookmarks}
-                  onNavigate={handleNavigateToCfi}
-                  onDelete={onDeleteBookmark || (() => {})}
-                  onUpdateNote={onUpdateBookmarkNote || (() => {})}
-                />
-              )}
-            </div>
+            {sidebarContent}
           </m.div>
         </>
       )}
