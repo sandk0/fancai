@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ReaderTheme } from '@/stores/reader';
+import type { ReaderTheme, DescriptionHighlightMode } from '@/stores/reader';
 import type { GenerationStatus } from '@/hooks/epub/useImageModal';
 import { ReaderHeader } from '../ReaderHeader';
 import { ReaderControls } from '../ReaderControls';
@@ -43,6 +43,8 @@ interface ReaderUIProps {
     onNavigationModeChange: (mode: 'swipe' | 'tap') => void;
     nameHighlightingEnabled: boolean;
     onNameHighlightingChange: (enabled: boolean) => void;
+    descriptionHighlightMode: DescriptionHighlightMode;
+    onDescriptionHighlightModeChange: (mode: DescriptionHighlightMode) => void;
   };
   imageStatus: {
     status: GenerationStatus;
@@ -100,6 +102,8 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
           onNavigationModeChange={settings.onNavigationModeChange}
           nameHighlightingEnabled={settings.nameHighlightingEnabled}
           onNameHighlightingChange={settings.onNameHighlightingChange}
+          highlightMode={settings.descriptionHighlightMode}
+          onHighlightModeChange={settings.onDescriptionHighlightModeChange}
         />
       </div>
 
