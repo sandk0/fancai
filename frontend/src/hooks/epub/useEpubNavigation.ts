@@ -9,6 +9,10 @@
  * - Fixes "1 page = 2 screens" bug on mobile where epub.js miscalculates column width
  * - Uses multi-method measurement with fallback chain for reliability
  *
+ * Serialized scroll (March 2026):
+ * - directScroll() calls are serialized via Promise chain (scrollChainRef)
+ * - Prevents race conditions when rapid gestures fire multiple navigations
+ *
  * @param rendition - epub.js Rendition instance
  * @returns Navigation functions
  *
@@ -16,7 +20,7 @@
  * const { nextPage, prevPage, canGoNext, canGoPrev } = useEpubNavigation(rendition);
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Rendition } from '@/types/epub';
 import { isIOS, isAndroid } from '@/utils/iosSupport';
 import { logger } from '@/lib/logger';
@@ -132,19 +136,14 @@ const getMeasuredScrollUnit = (
       if (cssColumnWidth > 0 && !isNaN(cssColumnWidth) && cssColumnWidth < viewportWidth) {
         // CSS column-width is set and valid
         const unit = cssColumnWidth + cssColumnGap;
-        if (isIOS()) {
-          logger.debug('[getMeasuredScrollUnit] Method 1 SUCCESS: CSS column-width', {
-            cssColumnWidth,
-            cssColumnGap,
-            unit,
-          });
-        }
         return { unit, source: 'css-column-width', debug };
       }
 
       // Method 2: Measure first block element width
       // Works when CSS columns render elements at specific widths
-      const firstBlock = body.querySelector('p, div, section, article, h1, h2, h3') as HTMLElement | null;
+      const firstBlock = body.querySelector(
+        'p, div, section, article, h1, h2, h3'
+      ) as HTMLElement | null;
       if (firstBlock) {
         const blockRect = firstBlock.getBoundingClientRect();
         const blockWidth = blockRect.width;
@@ -155,21 +154,12 @@ const getMeasuredScrollUnit = (
           // Add gap estimate (typically 20-40px)
           const estimatedGap = cssColumnGap || 20;
           const unit = blockWidth + estimatedGap;
-          if (isIOS()) {
-            logger.debug('[getMeasuredScrollUnit] Method 2 SUCCESS: First block width', {
-              blockWidth,
-              estimatedGap,
-              unit,
-            });
-          }
           return { unit, source: 'first-block-width', debug };
         }
       }
     }
   } catch (err) {
-    if (isIOS()) {
-      logger.warn('[getMeasuredScrollUnit] DOM measurement error:', err);
-    }
+    logger.warn('[getMeasuredScrollUnit] DOM measurement error:', err);
   }
 
   // Method 3: scrollWidth / estimated pages
@@ -183,15 +173,6 @@ const getMeasuredScrollUnit = (
     if (estimatedPages > 1) {
       // Calculate single page width
       const unit = Math.floor(scrollWidth / estimatedPages);
-      if (isIOS()) {
-        logger.debug('[getMeasuredScrollUnit] Method 3 SUCCESS: scrollWidth/pages', {
-          scrollWidth,
-          viewportWidth,
-          ratio,
-          estimatedPages,
-          unit,
-        });
-      }
       return { unit, source: 'scroll-ratio', debug };
     }
   }
@@ -199,36 +180,21 @@ const getMeasuredScrollUnit = (
   // Method 4: epub.js layout.delta (if reasonable)
   // Only use if delta is less than or equal to viewport width
   if (layout?.delta && layout.delta > 0 && layout.delta <= viewportWidth) {
-    if (isIOS()) {
-      logger.debug('[getMeasuredScrollUnit] Method 4 FALLBACK: layout.delta', {
-        layoutDelta: layout.delta,
-        viewportWidth,
-      });
-    }
     return { unit: layout.delta, source: 'layout-delta', debug };
   }
 
   // Method 5: epub.js layout.columnWidth + gap
   if (layout?.columnWidth && layout.columnWidth > 0 && layout.columnWidth <= viewportWidth) {
     const unit = layout.columnWidth + (layout.gap || 0);
-    if (isIOS()) {
-      logger.debug('[getMeasuredScrollUnit] Method 5 FALLBACK: layout.columnWidth', {
-        columnWidth: layout.columnWidth,
-        gap: layout.gap,
-        unit,
-      });
-    }
     return { unit, source: 'layout-column-width', debug };
   }
 
   // Final fallback: viewport width
-  if (isIOS()) {
-    logger.warn('[getMeasuredScrollUnit] Method 6 FINAL FALLBACK: viewportWidth', {
-      viewportWidth,
-      layoutDelta: layout?.delta,
-      layoutColumnWidth: layout?.columnWidth,
-    });
-  }
+  logger.warn('[getMeasuredScrollUnit] FINAL FALLBACK: viewportWidth', {
+    viewportWidth,
+    layoutDelta: layout?.delta,
+    layoutColumnWidth: layout?.columnWidth,
+  });
   return { unit: viewportWidth, source: 'viewport-fallback', debug };
 };
 
@@ -240,13 +206,14 @@ interface UseEpubNavigationReturn {
   debugInfo: string | null;
 }
 
-export const useEpubNavigation = (
-  rendition: Rendition | null
-): UseEpubNavigationReturn => {
+export const useEpubNavigation = (rendition: Rendition | null): UseEpubNavigationReturn => {
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
+  // Promise chain for serializing directScroll calls
+  const scrollChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+
   /**
-   * iOS/Mobile FIX: Direct scroll navigation bypassing epub.js
+   * Mobile FIX: Direct scroll navigation bypassing epub.js
    * epub.js navigation is broken on iOS PWA - scrolls multiple pages
    * We directly manipulate the scroll position instead
    *
@@ -254,181 +221,109 @@ export const useEpubNavigation = (
    * - Measures ACTUAL CSS column width from DOM instead of relying on epub.js layout.delta
    * - Fixes "1 page = 2 screens" bug where epub.js miscalculates column width on mobile
    * - Uses multi-method measurement with fallback chain for reliability
-   * - Priority: CSS column-width → first block width → scrollWidth/pages → layout.delta → viewport
+   * - Priority: CSS column-width -> first block width -> scrollWidth/pages -> layout.delta -> viewport
    *
-   * Now with smooth scrolling for better UX
+   * Serialized (March 2026):
+   * - Each call chains onto scrollChainRef, ensuring previous scroll completes before next starts
    */
-  const directScroll = useCallback(async (
-    direction: 'next' | 'prev',
-    smooth = true
-  ): Promise<boolean> => {
-    if (!rendition) return false;
+  const directScroll = useCallback(
+    (direction: 'next' | 'prev', smooth = true): Promise<boolean> => {
+      const task = scrollChainRef.current.then(async () => {
+        if (!rendition) return false;
 
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const manager = (rendition as any).manager;
-      if (!manager) return false;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const manager = (rendition as any).manager;
+          if (!manager) return false;
 
-      // Get the stage/container element that scrolls
-      const stage = manager.stage?.container || manager.container;
-      if (!stage) return false;
+          // Get the stage/container element that scrolls
+          const stage = manager.stage?.container || manager.container;
+          if (!stage) return false;
 
-      const layout = manager.layout as EpubLayout | null;
-      const viewportWidth = stage.clientWidth;
-      const scrollWidthTotal = stage.scrollWidth;
+          const layout = manager.layout as EpubLayout | null;
+          const viewportWidth = stage.clientWidth;
+          const scrollWidthTotal = stage.scrollWidth;
 
-      // CRITICAL FIX (January 2026):
-      // Use measured CSS column width from DOM instead of epub.js layout.delta
-      // This fixes the "1 page = 2 screens" bug on mobile devices
-      const measured = getMeasuredScrollUnit(rendition, viewportWidth, scrollWidthTotal, layout);
-      const scrollUnit = measured.unit;
-
-      // iOS DEBUG: Log all measurement data to screen overlay
-      if (isIOS()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const debugFn = (window as any).__iosDebug;
-        if (debugFn) {
-          debugFn({
-            event: `directScroll:${direction}`,
-            layoutDelta: layout?.delta,
-            layoutDivisor: layout?.divisor,
+          // CRITICAL FIX (January 2026):
+          // Use measured CSS column width from DOM instead of epub.js layout.delta
+          // This fixes the "1 page = 2 screens" bug on mobile devices
+          const measured = getMeasuredScrollUnit(
+            rendition,
             viewportWidth,
-            scrollWidth: scrollWidthTotal,
-            scrollUnit,
-            measureSource: measured.source,
-          });
+            scrollWidthTotal,
+            layout
+          );
+          const scrollUnit = measured.unit;
+
+          const currentScroll = stage.scrollLeft;
+          const maxScroll = scrollWidthTotal - viewportWidth;
+
+          let newScroll: number;
+          if (direction === 'next') {
+            newScroll = Math.min(currentScroll + scrollUnit, maxScroll);
+          } else {
+            newScroll = Math.max(currentScroll - scrollUnit, 0);
+          }
+
+          // Check if we can scroll (not at boundary)
+          if (direction === 'next' && currentScroll >= maxScroll - 1) {
+            // At end - let epub.js handle chapter change
+            setDebugInfo(`END S:${Math.round(currentScroll)}`);
+            return false;
+          }
+          if (direction === 'prev' && currentScroll <= 0) {
+            // At start - let epub.js handle chapter change
+            setDebugInfo(`START S:${Math.round(currentScroll)}`);
+            return false;
+          }
+
+          // Perform scroll (smooth or instant)
+          if (smooth) {
+            // Use CSS smooth scroll
+            stage.scrollTo({
+              left: newScroll,
+              behavior: 'smooth',
+            });
+            // Wait for scroll to complete
+            await waitForScrollEnd(stage, newScroll);
+          } else {
+            // Instant scroll
+            stage.scrollTo({ left: newScroll, behavior: 'instant' });
+          }
+
+          // Include measurement source in debug info for verification
+          setDebugInfo(
+            `S:${Math.round(currentScroll)}->${Math.round(newScroll)} U:${scrollUnit} [${measured.source}]${smooth ? ' smooth' : ''}`
+          );
+
+          return true;
+        } catch (err) {
+          logger.warn('[useEpubNavigation] Direct scroll error:', err);
+          return false;
         }
-        logger.debug('[useEpubNavigation] iOS directScroll START:', {
-          direction,
-          viewportWidth,
-          scrollWidth: scrollWidthTotal,
-          currentScrollLeft: stage.scrollLeft,
-          scrollUnit,
-          measureSource: measured.source,
-          measureDebug: measured.debug,
-          layoutDelta: layout?.delta,
-          layoutColumnWidth: layout?.columnWidth,
-          layoutDivisor: layout?.divisor,
-        });
-      }
+      });
 
-      const currentScroll = stage.scrollLeft;
-      const maxScroll = scrollWidthTotal - viewportWidth;
-
-      // iOS DEBUG: Log scroll calculation to overlay
-      if (isIOS()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const debugFn = (window as any).__iosDebug;
-        if (debugFn) {
-          debugFn({
-            event: 'scrollCalc',
-            scrollUnit,
-            scrollBefore: currentScroll,
-            scrollWidth: scrollWidthTotal,
-            measureSource: measured.source,
-          });
-        }
-        logger.debug('[useEpubNavigation] iOS scroll calculation:', {
-          scrollUnit,
-          measureSource: measured.source,
-          currentScroll,
-          maxScroll,
-          pagesInContent: Math.ceil(scrollWidthTotal / scrollUnit),
-          currentPage: Math.floor(currentScroll / scrollUnit),
-        });
-      }
-
-      let newScroll: number;
-      if (direction === 'next') {
-        newScroll = Math.min(currentScroll + scrollUnit, maxScroll);
-      } else {
-        newScroll = Math.max(currentScroll - scrollUnit, 0);
-      }
-
-      // Check if we can scroll (not at boundary)
-      if (direction === 'next' && currentScroll >= maxScroll - 1) {
-        // At end - let epub.js handle chapter change
-        setDebugInfo(`END S:${Math.round(currentScroll)}`);
-        return false;
-      }
-      if (direction === 'prev' && currentScroll <= 0) {
-        // At start - let epub.js handle chapter change
-        setDebugInfo(`START S:${Math.round(currentScroll)}`);
-        return false;
-      }
-
-      // Perform scroll (smooth or instant)
-      if (smooth) {
-        // Use CSS smooth scroll
-        stage.scrollTo({
-          left: newScroll,
-          behavior: 'smooth',
-        });
-        // Wait for scroll to complete
-        await waitForScrollEnd(stage, newScroll);
-      } else {
-        // Instant scroll — use scrollTo to avoid compiler immutability warning on DOM element
-        stage.scrollTo({ left: newScroll, behavior: 'instant' });
-      }
-
-      // iOS DEBUG: Log result to overlay
-      if (isIOS()) {
-        const finalScroll = stage.scrollLeft;
-        const pagesScrolled = Math.round((finalScroll - currentScroll) / scrollUnit);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const debugFn = (window as any).__iosDebug;
-        if (debugFn) {
-          debugFn({
-            event: 'scrollResult',
-            scrollBefore: currentScroll,
-            scrollAfter: finalScroll,
-            scrollUnit,
-            pagesScrolled,
-            measureSource: measured.source,
-          });
-        }
-        logger.debug('[useEpubNavigation] iOS directScroll COMPLETE:', {
-          expected: newScroll,
-          actual: finalScroll,
-          delta: finalScroll - currentScroll,
-          pagesScrolled,
-          measureSource: measured.source,
-          success: Math.abs(finalScroll - newScroll) < 5,
-        });
-      }
-
-      // Include measurement source in debug info for verification
-      setDebugInfo(`S:${Math.round(currentScroll)}→${Math.round(newScroll)} U:${scrollUnit} [${measured.source}]${smooth ? ' smooth' : ''}`);
-
-      return true;
-    } catch (err) {
-      logger.warn('[useEpubNavigation] Direct scroll error:', err);
-      return false;
-    }
-  }, [rendition]);
+      // Chain: don't break the chain on error
+      scrollChainRef.current = task.catch(() => false);
+      return task;
+    },
+    [rendition]
+  );
 
   const nextPage = useCallback(async () => {
     if (!rendition) return;
-
-    // iOS DEBUG
-    if (isIOS()) {
-      logger.debug('[useEpubNavigation] nextPage() called at', new Date().toISOString());
-    }
 
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('next', true);
       if (scrolled) {
-        if (isIOS()) logger.debug('[useEpubNavigation] iOS: directScroll handled navigation');
         return; // Direct scroll worked
       }
       // Fall through to epub.js for chapter changes
-      if (isIOS()) logger.debug('[useEpubNavigation] iOS: Falling through to epub.js next()');
     }
 
     try {
       await rendition.next();
-      if (isIOS()) logger.debug('[useEpubNavigation] iOS: epub.js next() completed');
     } catch (err) {
       logger.warn('[useEpubNavigation] Could not go to next page:', err);
     }
@@ -437,25 +332,17 @@ export const useEpubNavigation = (
   const prevPage = useCallback(async () => {
     if (!rendition) return;
 
-    // iOS DEBUG
-    if (isIOS()) {
-      logger.debug('[useEpubNavigation] prevPage() called at', new Date().toISOString());
-    }
-
     // On mobile (iOS/Android), try direct scroll with smooth animation first
     if (isIOS() || isAndroid()) {
       const scrolled = await directScroll('prev', true);
       if (scrolled) {
-        if (isIOS()) logger.debug('[useEpubNavigation] iOS: directScroll handled navigation');
         return; // Direct scroll worked
       }
       // Fall through to epub.js for chapter changes
-      if (isIOS()) logger.debug('[useEpubNavigation] iOS: Falling through to epub.js prev()');
     }
 
     try {
       await rendition.prev();
-      if (isIOS()) logger.debug('[useEpubNavigation] iOS: epub.js prev() completed');
     } catch (err) {
       logger.warn('[useEpubNavigation] Could not go to prev page:', err);
     }
@@ -474,5 +361,3 @@ export const useEpubNavigation = (
     debugInfo,
   };
 };
-
-
