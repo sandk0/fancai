@@ -80,9 +80,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 11-01-PLAN.md — Единый gesture controller + автоскрытие header с immersive mode
-- [ ] 11-02-PLAN.md — Миграция панелей на vaul bottom-sheet + touch targets + safe areas
-- [ ] 11-03-PLAN.md — Crossfade анимация перехода библиотека-ридер
+- [x] 11-01-PLAN.md — Единый gesture controller + автоскрытие header с immersive mode
+- [x] 11-02-PLAN.md — Миграция панелей на vaul bottom-sheet + touch targets + safe areas
+- [x] 11-03-PLAN.md — Crossfade анимация перехода библиотека-ридер
 
 ### Phase 12: Viewport и iOS
 **Goal**: Ридер корректно отображается на всех мобильных устройствах с учетом safe areas, клавиатуры и особенностей PWA standalone mode
@@ -92,11 +92,11 @@ Plans:
   1. На iPhone с Dynamic Island/notch контент ридера не перекрывается системными элементами — safe area insets корректно применяются к header, footer и контенту
   2. При открытии клавиатуры (поиск, заметки) контент не прыгает и не сдвигается — клавиатура корректно обрабатывается через VisualViewport API
   3. В PWA standalone mode (добавление на домашний экран) навигация, статус-бар и все функции ридера работают корректно
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 12-01-PLAN.md — useVisualViewportHandler хук + safe area аудит и исправления overlay-компонентов
+- [ ] 12-02-PLAN.md — PWA standalone navigation + onboarding подсказка + iOS-верификация
 
 ### Phase 13: PWA и offline
 **Goal**: Пользователь может установить приложение на домашний экран и читать книги без интернета с корректным управлением обновлениями
@@ -145,7 +145,7 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 8. Функции ридера | v1.0 | 3/3 | Complete | 2026-03-07 |
 | 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 10. Follow-finger свайпы | v1.1 | 2/2 | Complete | 2026-03-09 |
-| 11. Единый gesture handler и мобильный UI | 3/3 | Complete   | 2026-03-09 | - |
-| 12. Viewport и iOS | v1.1 | 0/? | Not started | - |
+| 11. Единый gesture handler и мобильный UI | v1.1 | 3/3 | Complete | 2026-03-09 |
+| 12. Viewport и iOS | v1.1 | 0/2 | In progress | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
 | 14. Фикс описаний | v1.1 | 0/? | Not started | - |
