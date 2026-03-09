@@ -50,7 +50,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 Plans:
 - [x] 09-01-PLAN.md — Единый навигационный lock + serialized directScroll + тесты
-- [ ] 09-02-PLAN.md — Интеграция lock в gesture handlers + удаление debug overlay
+- [x] 09-02-PLAN.md — Интеграция lock в gesture handlers + удаление debug overlay
 
 ### Phase 10: Follow-finger свайпы
 **Goal**: Палец пользователя физически двигает страницу в реальном времени, как в Apple Books / Google Play Books, с плавной spring-анимацией завершения
@@ -61,11 +61,11 @@ Plans:
   2. При отпускании пальца страница плавно анимируется к финальной позиции с spring physics (не телепортируется)
   3. Скорость жеста влияет на результат: медленный свайп возвращает страницу назад, быстрый — перелистывает даже при малом смещении
   4. На границе главы (последняя/первая страница) отображается корректный rubber-band эффект вместо пустоты
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md — Хук useFollowFingerSwipe + компоненты FollowFingerContainer и ChapterHint
+- [ ] 10-02-PLAN.md — Интеграция в EpubReader + slide-in тап-анимация + удаление SwipeOverlay
 
 ### Phase 11: Единый gesture handler и мобильный UI
 **Goal**: Все touch-взаимодействия управляются единой системой без конфликтов, а мобильный интерфейс адаптирован для комфортного чтения одной рукой
@@ -143,8 +143,8 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 6. Качество Entity Wiki | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 7. Обработка ошибок и UX | v1.0 | 2/2 | Complete | 2026-03-05 |
 | 8. Функции ридера | v1.0 | 3/3 | Complete | 2026-03-07 |
-| 9. Стабилизация навигации | 2/2 | Complete   | 2026-03-09 | - |
-| 10. Follow-finger свайпы | v1.1 | 0/? | Not started | - |
+| 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
+| 10. Follow-finger свайпы | v1.1 | 0/2 | In progress | - |
 | 11. Единый gesture handler и мобильный UI | v1.1 | 0/? | Not started | - |
 | 12. Viewport и iOS | v1.1 | 0/? | Not started | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
