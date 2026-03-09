@@ -92,7 +92,7 @@ Plans:
   1. На iPhone с Dynamic Island/notch контент ридера не перекрывается системными элементами — safe area insets корректно применяются к header, footer и контенту
   2. При открытии клавиатуры (поиск, заметки) контент не прыгает и не сдвигается — клавиатура корректно обрабатывается через VisualViewport API
   3. В PWA standalone mode (добавление на домашний экран) навигация, статус-бар и все функции ридера работают корректно
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — useVisualViewportHandler хук + safe area аудит и исправления overlay-компонентов
@@ -146,6 +146,6 @@ Phase 12, 13, 14 могут частично параллелиться посл
 | 9. Стабилизация навигации | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 10. Follow-finger свайпы | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 11. Единый gesture handler и мобильный UI | v1.1 | 3/3 | Complete | 2026-03-09 |
-| 12. Viewport и iOS | v1.1 | 0/2 | In progress | - |
+| 12. Viewport и iOS | 1/2 | In Progress|  | - |
 | 13. PWA и offline | v1.1 | 0/? | Not started | - |
 | 14. Фикс описаний | v1.1 | 0/? | Not started | - |

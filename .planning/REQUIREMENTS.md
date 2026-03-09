@@ -33,8 +33,8 @@
 
 ### Viewport и iOS
 
-- [ ] **VPT-01**: Корректный viewport на iOS (100dvh, env(safe-area-inset-*))
-- [ ] **VPT-02**: Клавиатура не сдвигает контент (VisualViewport API)
+- [x] **VPT-01**: Корректный viewport на iOS (100dvh, env(safe-area-inset-*))
+- [x] **VPT-02**: Клавиатура не сдвигает контент (VisualViewport API)
 - [ ] **VPT-03**: PWA standalone mode работает корректно (navigation, status bar)
 
 ### Описания AI
@@ -83,8 +83,8 @@
 | PWA-03 | Phase 13 | Pending |
 | PWA-04 | Phase 13 | Pending |
 | PWA-05 | Phase 13 | Pending |
-| VPT-01 | Phase 12 | Pending |
-| VPT-02 | Phase 12 | Pending |
+| VPT-01 | Phase 12 | Complete |
+| VPT-02 | Phase 12 | Complete |
 | VPT-03 | Phase 12 | Pending |
 | DSC-01 | Phase 14 | Pending |
 
