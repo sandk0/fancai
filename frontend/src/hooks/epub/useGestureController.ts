@@ -27,6 +27,8 @@ import {
   FOLLOW_FINGER_CONFIG,
   SPRING_FAST,
   SPRING_RUBBER,
+  SPRING_SWIPE,
+  SPRING_TAP,
   getStageInfo,
   shouldNavigate,
   calculateVelocity,
@@ -149,6 +151,11 @@ export const useGestureController = (
   const [showChapterHint, setShowChapterHint] = useState(false);
   const [chapterHintDirection, setChapterHintDirection] = useState<'next' | 'prev' | null>(null);
 
+  // Refs for hint state to minimize setState calls in touchmove (performance)
+  const showChapterHintRef = useRef(false);
+  const chapterHintDirectionRef = useRef<'next' | 'prev' | null>(null);
+  const isAtBoundaryRef = useRef<'start' | 'end' | null>(null);
+
   // Refs for touch state and callbacks
   const touchRef = useRef<TouchState>({ ...INITIAL_TOUCH });
   const animationRef = useRef<ReturnType<typeof animate> | null>(null);
@@ -205,6 +212,9 @@ export const useGestureController = (
     setIsAtBoundary(null);
     setShowChapterHint(false);
     setChapterHintDirection(null);
+    showChapterHintRef.current = false;
+    chapterHintDirectionRef.current = null;
+    isAtBoundaryRef.current = null;
   }, []);
 
   // -------------------------------------------------------------------------
@@ -405,14 +415,36 @@ export const useGestureController = (
 
           const absRubber = Math.abs(rubberOffset);
           const showHint = absRubber > 15;
-          setShowChapterHint(showHint);
-          setChapterHintDirection(deltaX > 0 ? 'prev' : 'next');
-          setIsAtBoundary(boundary);
+          const hintDir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
+
+          // Only setState when value actually changes (minimize re-renders in touchmove)
+          if (showHint !== showChapterHintRef.current) {
+            showChapterHintRef.current = showHint;
+            setShowChapterHint(showHint);
+          }
+          if (hintDir !== chapterHintDirectionRef.current) {
+            chapterHintDirectionRef.current = hintDir;
+            setChapterHintDirection(hintDir);
+          }
+          if (boundary !== isAtBoundaryRef.current) {
+            isAtBoundaryRef.current = boundary;
+            setIsAtBoundary(boundary);
+          }
         } else {
           translateX.set(deltaX);
-          setShowChapterHint(false);
-          setChapterHintDirection(null);
-          setIsAtBoundary(null);
+          // Only setState when value actually changes
+          if (showChapterHintRef.current !== false) {
+            showChapterHintRef.current = false;
+            setShowChapterHint(false);
+          }
+          if (chapterHintDirectionRef.current !== null) {
+            chapterHintDirectionRef.current = null;
+            setChapterHintDirection(null);
+          }
+          if (isAtBoundaryRef.current !== null) {
+            isAtBoundaryRef.current = null;
+            setIsAtBoundary(null);
+          }
         }
 
         // Update last touch for velocity
@@ -485,28 +517,38 @@ export const useGestureController = (
           // Notify auto-hide: tap navigate
           onTapNavigateRef.current();
 
-          // Trigger slide-in animation (non-blocking visual effect)
-          {
+          // Two-phase tap navigation:
+          // 1. Instant navigate FIRST (no visual scroll -- visual handled by spring)
+          // 2. Spring slide-in: new page "arrives" from edge
+          void (async () => {
             const stageInfo = getStageInfo(rendition);
             const vw = stageInfo?.viewportWidth || window.innerWidth;
-            const slideTarget = action === 'next' ? -vw : vw;
+
+            // Phase 1: instant navigation
+            if (navLockRef.current.acquire()) {
+              try {
+                await onNavigateRef.current(action);
+              } finally {
+                navLockRef.current.release();
+              }
+            }
+
+            // Phase 2: visual spring slide-in (page arrives from edge)
+            const slideFrom = action === 'next' ? vw : -vw;
+            translateX.set(slideFrom);
             setPhase('animating');
             if (animationRef.current) {
               animationRef.current.stop();
               animationRef.current = null;
             }
-            animationRef.current = animate(translateX, slideTarget, {
-              ...SPRING_FAST,
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_TAP, // Fast spring ~100-150ms
               onComplete: () => {
                 animationRef.current = null;
-                translateX.set(0);
-                setPhase('idle');
+                resetState();
               },
             });
-          }
-
-          // Fire navigation callback
-          onEdgeTapRef.current(action);
+          })();
 
           return;
         }
@@ -537,23 +579,40 @@ export const useGestureController = (
 
           setPhase('animating');
 
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_RUBBER,
-            velocity: velocity * 1000,
-            onComplete: () => {
-              animationRef.current = null;
-              resetState();
+          if (shouldTransition && onChapterChangeRef.current) {
+            // Slide-out to viewport edge (visual feedback of chapter transition)
+            const dir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
+            const slideTarget = dir === 'next' ? -viewportWidth : viewportWidth;
 
-              if (shouldTransition && onChapterChangeRef.current) {
-                const dir = deltaX > 0 ? 'prev' : 'next';
+            animationRef.current = animate(translateX, slideTarget, {
+              ...SPRING_SWIPE,
+              velocity: velocity * 1000,
+              onComplete: async () => {
+                animationRef.current = null;
+                // Execute chapter change
                 if (navLockRef.current.acquire()) {
-                  onChapterChangeRef.current(dir).finally(() => {
+                  try {
+                    await onChapterChangeRef.current!(dir);
+                  } finally {
                     navLockRef.current.release();
-                  });
+                  }
                 }
-              }
-            },
-          });
+                // Reset visual state
+                translateX.set(0);
+                resetState();
+              },
+            });
+          } else {
+            // Snap-back (insufficient offset for chapter transition)
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_RUBBER,
+              velocity: velocity * 1000,
+              onComplete: () => {
+                animationRef.current = null;
+                resetState();
+              },
+            });
+          }
           return;
         }
 
@@ -567,19 +626,23 @@ export const useGestureController = (
           const target = direction === 'next' ? -viewportWidth : viewportWidth;
           const spring = getSpringConfig(velocity);
 
+          // Two-phase swipe: animate transform -> instant scroll -> reset
           animationRef.current = animate(translateX, target, {
             ...spring,
             velocity: velocity * 1000,
-            onComplete: () => {
+            onComplete: async () => {
               animationRef.current = null;
+              // Phase 2: instant scroll (visual already handled by spring transform)
+              if (navLockRef.current.acquire()) {
+                try {
+                  await onNavigateRef.current(direction);
+                } finally {
+                  navLockRef.current.release();
+                }
+              }
+              // Phase 3: reset visual state
               translateX.set(0);
               resetState();
-
-              if (navLockRef.current.acquire()) {
-                onNavigateRef.current(direction).finally(() => {
-                  navLockRef.current.release();
-                });
-              }
             },
           });
         } else {
@@ -629,27 +692,38 @@ export const useGestureController = (
 
         onTapNavigateRef.current();
 
-        // Trigger slide-in animation for click-based edge tap
-        {
+        // Two-phase click navigation (same pattern as touch tap):
+        // 1. Instant navigate FIRST
+        // 2. Spring slide-in from edge
+        void (async () => {
           const stageInfo = getStageInfo(rendition);
           const vw = stageInfo?.viewportWidth || window.innerWidth;
-          const slideTarget = action === 'next' ? -vw : vw;
+
+          // Phase 1: instant navigation
+          if (navLockRef.current.acquire()) {
+            try {
+              await onNavigateRef.current(action);
+            } finally {
+              navLockRef.current.release();
+            }
+          }
+
+          // Phase 2: visual spring slide-in
+          const slideFrom = action === 'next' ? vw : -vw;
+          translateX.set(slideFrom);
           setPhase('animating');
           if (animationRef.current) {
             animationRef.current.stop();
             animationRef.current = null;
           }
-          animationRef.current = animate(translateX, slideTarget, {
-            ...SPRING_FAST,
+          animationRef.current = animate(translateX, 0, {
+            ...SPRING_TAP,
             onComplete: () => {
               animationRef.current = null;
-              translateX.set(0);
-              setPhase('idle');
+              resetState();
             },
           });
-        }
-
-        onEdgeTapRef.current(action);
+        })();
       };
 
       // Wrap touchstart to track timing for click dedup
