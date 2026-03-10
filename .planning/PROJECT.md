@@ -100,6 +100,8 @@ Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 тре�
 | Graduated resume (3 уровня) | <30с pass-through, 30с-5мин soft check, >5мин full reinit | ✓ Good |
 | REMOVED_CHARS/EXPANDED_CHARS | Расширяемая нормализация для спецсимволов (soft hyphen, ellipsis) | ✓ Good |
 | Immersive mode по умолчанию | Header скрыт — максимум текста на мобильных | ✓ Good |
+| Spring stiffness ×2 для быстрого отклика | Пользователь ожидает мгновенный отклик на свайп/тап | ✓ Good |
+| Animation toggle в настройках | Возможность отключить анимации для слабых устройств | ✓ Good |
 
 ## Constraints
 
@@ -110,4 +112,4 @@ Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 тре�
 - **Язык контента**: приоритет — русские книги
 
 ---
-*Last updated: 2026-03-10 after v1.2 milestone start*
+*Last updated: 2026-03-10 after Phase 16 verification iteration*
