@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, ChevronUp, ChevronDown } from 'lucide-react';
 import { AnimatePresence, m } from 'motion/react';
 import { useBookSearch } from '@/hooks/epub/useBookSearch';
+import { useIsMobile } from '@/hooks/shared/useIsMobile';
 import type { Book, Rendition } from '@/types/epub';
 
 interface SearchPanelProps {
@@ -22,6 +23,7 @@ export const SearchPanel = memo(function SearchPanel({
   isHeaderVisible = true,
 }: SearchPanelProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,14 +40,14 @@ export const SearchPanel = memo(function SearchPanel({
     setQuery,
   } = useBookSearch({ book, rendition });
 
-  // Focus input when panel opens
+  // Focus input when panel opens (desktop only to avoid mobile keyboard popup)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isMobile) {
       // Small delay so the animation can start before focus
       const id = setTimeout(() => inputRef.current?.focus(), 100);
       return () => clearTimeout(id);
     }
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   // Clear search when panel closes
   useEffect(() => {
@@ -131,7 +133,7 @@ export const SearchPanel = memo(function SearchPanel({
               : 'env(safe-area-inset-top, 0px)',
           }}
         >
-          <div className="flex items-center gap-2 px-3 py-2">
+          <div className="flex items-center gap-1.5 xs:gap-2 px-2 xs:px-3 py-2">
             <input
               ref={inputRef}
               type="text"
@@ -146,7 +148,7 @@ export const SearchPanel = memo(function SearchPanel({
             />
 
             {statusText && (
-              <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[80px] text-center">
+              <span className="hidden xs:inline text-xs text-muted-foreground whitespace-nowrap min-w-[80px] text-center">
                 {statusText}
               </span>
             )}
