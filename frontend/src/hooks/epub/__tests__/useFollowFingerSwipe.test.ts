@@ -154,21 +154,21 @@ describe('useFollowFingerSwipe', () => {
   });
 
   describe('spring animation config', () => {
-    it('SPRING_FAST has stiffness 400 and damping 40', () => {
-      expect(SPRING_FAST.stiffness).toBe(400);
-      expect(SPRING_FAST.damping).toBe(40);
+    it('SPRING_FAST has stiffness 800 and damping 57', () => {
+      expect(SPRING_FAST.stiffness).toBe(800);
+      expect(SPRING_FAST.damping).toBe(57);
       expect(SPRING_FAST.mass).toBe(1);
     });
 
-    it('SPRING_NORMAL has stiffness 300 and damping 35', () => {
-      expect(SPRING_NORMAL.stiffness).toBe(300);
-      expect(SPRING_NORMAL.damping).toBe(35);
+    it('SPRING_NORMAL has stiffness 600 and damping 49', () => {
+      expect(SPRING_NORMAL.stiffness).toBe(600);
+      expect(SPRING_NORMAL.damping).toBe(49);
       expect(SPRING_NORMAL.mass).toBe(1);
     });
 
-    it('SPRING_RUBBER has stiffness 200 and damping 28', () => {
-      expect(SPRING_RUBBER.stiffness).toBe(200);
-      expect(SPRING_RUBBER.damping).toBe(28);
+    it('SPRING_RUBBER has stiffness 400 and damping 40', () => {
+      expect(SPRING_RUBBER.stiffness).toBe(400);
+      expect(SPRING_RUBBER.damping).toBe(40);
       expect(SPRING_RUBBER.mass).toBe(1);
     });
 
@@ -189,9 +189,9 @@ describe('useFollowFingerSwipe', () => {
       expect(SPRING_SWIPE.damping).toBeLessThan(criticalDamping);
     });
 
-    it('SPRING_TAP has stiffness 500 and damping 45', () => {
-      expect(SPRING_TAP.stiffness).toBe(500);
-      expect(SPRING_TAP.damping).toBe(45);
+    it('SPRING_TAP has stiffness 1000 and damping 57', () => {
+      expect(SPRING_TAP.stiffness).toBe(1000);
+      expect(SPRING_TAP.damping).toBe(57);
       expect(SPRING_TAP.mass).toBe(0.8);
     });
   });
