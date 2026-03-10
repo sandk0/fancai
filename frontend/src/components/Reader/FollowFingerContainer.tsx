@@ -4,15 +4,15 @@
  * Wraps the epub-viewer with a GPU-accelerated transform layer that
  * follows the user's finger during swipe gestures. Provides:
  * - m.div with translateX motion value for smooth transform
- * - Box-shadow between pages during swipe
+ * - Gradient edge shadows via useTransform (zero JS DOM mutations per frame)
  * - pointer-events: none during tracking to prevent broken hit testing
  * - ChapterHint overlay for boundary swipes
  *
  * @module components/Reader/FollowFingerContainer
  */
 
-import { useRef, type ReactNode } from 'react';
-import { m, useMotionValueEvent } from 'motion/react';
+import type { ReactNode } from 'react';
+import { m, useTransform } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import { ChapterHint } from './ChapterHint';
 import type { FollowFingerPhase } from '@/hooks/epub/useFollowFingerSwipe';
@@ -33,39 +33,11 @@ export const FollowFingerContainer = ({
   chapterHintDirection,
   children,
 }: FollowFingerContainerProps) => {
-  const shadowRef = useRef<HTMLDivElement>(null);
-
-  // Reactively update box-shadow based on translateX changes.
-  // Uses useMotionValueEvent to avoid re-renders -- directly mutates DOM.
-  useMotionValueEvent(translateX, 'change', (v) => {
-    const shadow = shadowRef.current;
-    if (!shadow) return;
-
-    if (v === 0) {
-      shadow.style.opacity = '0';
-      return;
-    }
-
-    // Calculate shadow intensity based on progress
-    // Full intensity at 25% of a typical mobile viewport (~375px * 0.25 = ~94px)
-    const progress = Math.min(1, Math.abs(v) / 94);
-    const opacity = progress * 0.15;
-    const blur = progress * 20;
-
-    shadow.style.opacity = '1';
-
-    if (v < 0) {
-      // Swiping left (next page) -- shadow on right edge
-      shadow.style.left = 'auto';
-      shadow.style.right = '0px';
-      shadow.style.boxShadow = `-${blur}px 0 ${blur}px -${blur / 2}px rgba(0,0,0,${opacity})`;
-    } else {
-      // Swiping right (prev page) -- shadow on left edge
-      shadow.style.right = 'auto';
-      shadow.style.left = '0px';
-      shadow.style.boxShadow = `${blur}px 0 ${blur}px -${blur / 2}px rgba(0,0,0,${opacity})`;
-    }
-  });
+  // Derive shadow opacity from translateX — pure GPU, no JS DOM mutations per frame.
+  // Swiping right (prev): translateX goes 0→94, left shadow fades in 0→1
+  // Swiping left (next): translateX goes -94→0, right shadow fades in 1→0
+  const leftShadowOpacity = useTransform(translateX, [0, 94], [0, 1]);
+  const rightShadowOpacity = useTransform(translateX, [-94, 0], [1, 0]);
 
   const isActive = phase !== 'idle';
 
@@ -92,18 +64,35 @@ export const FollowFingerContainer = ({
         {children}
       </m.div>
 
-      {/* Shadow divider between pages */}
-      <div
-        ref={shadowRef}
+      {/* Left edge gradient shadow (visible when swiping right / prev page) */}
+      <m.div
         style={{
           position: 'absolute',
           top: 0,
-          width: '1px',
+          left: 0,
+          width: 20,
           height: '100%',
-          opacity: 0,
+          background: 'linear-gradient(to right, rgba(0,0,0,0.12), transparent)',
+          opacity: leftShadowOpacity,
           pointerEvents: 'none',
+          willChange: 'opacity',
           zIndex: 10,
-          transition: 'opacity 0.1s ease-out',
+        }}
+      />
+
+      {/* Right edge gradient shadow (visible when swiping left / next page) */}
+      <m.div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: 20,
+          height: '100%',
+          background: 'linear-gradient(to left, rgba(0,0,0,0.12), transparent)',
+          opacity: rightShadowOpacity,
+          pointerEvents: 'none',
+          willChange: 'opacity',
+          zIndex: 10,
         }}
       />
 

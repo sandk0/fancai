@@ -61,9 +61,9 @@ describe('useFollowFingerSwipe', () => {
       expect(FOLLOW_FINGER_CONFIG.navigateThreshold).toBe(0.25);
       expect(FOLLOW_FINGER_CONFIG.quickSwipeVelocity).toBe(0.3);
       expect(FOLLOW_FINGER_CONFIG.quickSwipeMinDistance).toBe(10);
-      expect(FOLLOW_FINGER_CONFIG.maxVerticalRatio).toBe(2.0);
+      expect(FOLLOW_FINGER_CONFIG.maxVerticalRatio).toBe(1.5);
       expect(FOLLOW_FINGER_CONFIG.rubberBandResistance).toBe(0.4);
-      expect(FOLLOW_FINGER_CONFIG.maxRubberBand).toBe(80);
+      expect(FOLLOW_FINGER_CONFIG.maxRubberBand).toBe(100);
     });
   });
 
@@ -249,15 +249,15 @@ describe('useFollowFingerSwipe', () => {
       expect(result).toBe(40);
     });
 
-    it('clamps to maxRubberBand (80px)', () => {
-      // deltaX = 300, resistance = 0.4 -> raw = 120, clamped to 80
+    it('clamps to maxRubberBand (100px)', () => {
+      // deltaX = 300, resistance = 0.4 -> raw = 120, clamped to 100
       const result = getRubberBandOffset(300);
-      expect(result).toBe(80);
+      expect(result).toBe(100);
     });
 
     it('negative deltaX clamps to -maxRubberBand', () => {
       const result = getRubberBandOffset(-300);
-      expect(result).toBe(-80);
+      expect(result).toBe(-100);
     });
 
     it('small deltaX is not clamped', () => {
@@ -289,9 +289,8 @@ describe('useFollowFingerSwipe', () => {
   describe('chapter transition threshold reachability', () => {
     it('chapterTransitionThreshold is reachable within maxRubberBand', () => {
       // For any viewport width, maxRubberBand must be >= viewportWidth * chapterTransitionThreshold
-      // Since rubber-band offset can reach maxRubberBand (80px), and threshold is 0.15,
-      // the minimum viewport where threshold is reachable: 80 / 0.15 ≈ 533px
-      // For mobile (375px): 375 * 0.15 = 56.25 < 80 ✓
+      // Since rubber-band offset can reach maxRubberBand (100px), and threshold is 0.08,
+      // For mobile (375px): 375 * 0.08 = 30 < 100 ✓
       const mobileViewport = 375;
       const thresholdOffset = mobileViewport * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold;
       expect(thresholdOffset).toBeLessThan(FOLLOW_FINGER_CONFIG.maxRubberBand);
@@ -301,7 +300,7 @@ describe('useFollowFingerSwipe', () => {
   describe('vertical scroll cancellation', () => {
     it('maxVerticalRatio is 2.0 in config', () => {
       // This verifies the config value; the actual cancellation is in the hook
-      expect(FOLLOW_FINGER_CONFIG.maxVerticalRatio).toBe(2.0);
+      expect(FOLLOW_FINGER_CONFIG.maxVerticalRatio).toBe(1.5);
     });
   });
 });
