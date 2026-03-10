@@ -63,7 +63,7 @@ cd frontend && npm test         # Tests
 cd frontend && npm run build    # Build
 
 # Backend
-cd backend && pytest -v         # Tests
+cd backend && uv run python -m pytest -v         # Tests
 cd backend && alembic upgrade head  # Migrations
 docker compose up -d            # Start all services (NOT docker-compose)
 ```

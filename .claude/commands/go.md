@@ -12,6 +12,6 @@ allowed-tools: Read, Glob, Grep, Bash, Skill
 ## Quick Reference
 - Frontend: `cd frontend && npm run dev`
 - Backend: `cd backend && uvicorn app.main:app --reload`
-- Tests: `npm test` / `pytest -v`
+- Tests: `npm test` / `uv run python -m pytest -v`
 
 What would you like to work on?

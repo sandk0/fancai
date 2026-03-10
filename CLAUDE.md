@@ -15,7 +15,7 @@ Production: https://fancai.ru | Deploy: `/deploy` skill
 cd frontend && npm run dev          # Frontend dev server
 cd frontend && npm test             # Jest tests (prefer single files)
 cd frontend && npm run build        # Production build
-cd backend && pytest -v             # Backend tests
+cd backend && uv run python -m pytest -v  # Backend tests
 cd backend && alembic upgrade head  # Run migrations
 docker compose up -d                # Start all services (NOT docker-compose)
 ```

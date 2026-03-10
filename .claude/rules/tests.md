@@ -16,7 +16,7 @@ paths:
 
 ### Backend (pytest)
 
-- `cd backend && pytest -v --tb=short`
+- `cd backend && uv run python -m pytest -v --tb=short`
 - Mock OpenRouter API calls — NEVER make real API calls in tests
 - Use pytest fixtures for DB session, client, auth
 - Mock Celery tasks with `celery.contrib.pytest`
