@@ -16,8 +16,8 @@
 
 ### Шапка и Layout
 
-- [ ] **HDR-01**: Шапка ридера помещается на экран от 320px (iPhone SE) -- overflow menu для второстепенных кнопок
-- [ ] **HDR-02**: Поле поиска и кнопка закрытия полностью видны на любом экране, крестик не обрезается
+- [x] **HDR-01**: Шапка ридера помещается на экран от 320px (iPhone SE) -- overflow menu для второстепенных кнопок
+- [x] **HDR-02**: Поле поиска и кнопка закрытия полностью видны на любом экране, крестик не обрезается
 
 ### Панели
 
@@ -70,8 +70,8 @@
 | NAV-02 | Phase 16 | Complete |
 | NAV-03 | Phase 16 | Complete |
 | NAV-04 | Phase 16 | Complete |
-| HDR-01 | Phase 17 | Pending |
-| HDR-02 | Phase 17 | Pending |
+| HDR-01 | Phase 17 | Complete |
+| HDR-02 | Phase 17 | Complete |
 | PNL-01 | Phase 17 | Pending |
 | PNL-02 | Phase 17 | Pending |
 | SEL-01 | Phase 18 | Pending |

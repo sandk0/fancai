@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: "v1.2"
 milestone_name: "Reader Stability & Polish"
 status: "Executing"
-last_updated: "2026-03-10T01:38:00Z"
-last_activity: "2026-03-10 — 16-02 Task 1 committed, checkpoint: human-verify navigation"
+last_updated: "2026-03-11"
+last_activity: "2026-03-11 — Phase 17 Plan 01 complete (адаптивная шапка + Info в TocSidebar)"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 10
-  completed_plans: 1
-  percent: 10
+  completed_plans: 3
+  percent: 30
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 16 -- Навигация и свайпы (фундамент v1.2)
+**Текущий фокус:** Phase 17 -- Шапка и панели
 
 ## Текущая позиция
 
-Phase: 16 of 20 (Навигация и свайпы)
-Plan: 2 of 2 in current phase (checkpoint: human-verify)
-Status: Awaiting human verification
-Last activity: 2026-03-10 -- 16-02 Task 1 committed (f74b7b1), awaiting device verification
+Phase: 17 of 20 (Шапка и панели)
+Plan: 1 of 2 complete
+Status: Executing Phase 17
+Last activity: 2026-03-11 — Plan 17-01 complete (адаптивная шапка + Info в TocSidebar)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [███░░░░░░░] 30%
 
 ## Метрики производительности
 
@@ -45,10 +45,18 @@ Progress: [█░░░░░░░░░] 10%
 
 ### Решения
 
-- [16-01] SPRING_SWIPE: damping=24, stiffness=300 (under-damped, ~10-15% overshoot micro-bounce)
-- [16-01] chapterTransitionThreshold: 0.15 (было 0.35, математически недостижимо)
+- [16-01] chapterTransitionThreshold: 0.08 (было 0.35→0.15→0.08, теперь ~30px на 375px viewport)
 - [16-01] Тап-навигация: instant scroll ПЕРЕД spring slide-in (двухфазный паттерн)
 - [16-01] onEdgeTap стал no-op -- навигация внутри gesture controller
+- [16-02] Spring-конфиги ×2 ускорены: SPRING_FAST 800/57, SPRING_SWIPE 600/34, SPRING_TAP 1000/57 (d859d16)
+- [16-02] Тень при свайпе: переведена на inline boxShadow (вместо Tailwind drop-shadow), shadow усиливается по мере движения
+- [16-02] Edge zone расширена до 15% viewport (было ~12%) для entity clicks
+- [16-02] Анимация toggle: настройка в reader store (animationsEnabled), по умолчанию включена
+- [16-02] maxRubberBand увеличен до 100px (было 80px), rubber-band resistance 0.4
+- [17-01] Breakpoints шапки: <375px 3 элемента, xs TOC, sm Entities/Search, md все кнопки
+- [17-01] Overflow menu: Radix DropdownMenu с обратными CSS classes (xs:hidden, sm:hidden)
+- [17-01] BookInfo перенесён в таб Info в TocSidebar (controlled activeTab/onTabChange)
+- [17-01] Autofocus поиска TocSidebar только на десктопе (isMobile check)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -60,12 +68,15 @@ Progress: [█░░░░░░░░░] 10%
 
 ### Блокеры/Опасения
 
-- Множественные регрессии после v1.1: свайпы, анимации, выделение текста, шапка, панели
+- Плавность анимаций: приемлема, но есть потенциал для дальнейшей полировки (отложено)
 - iOS overlay удаление: confidence MEDIUM, требует ручного тестирования на iOS Safari
 - iOS drag handles при text selection плохо документированы (epub.js issue #904)
 - Тестирование проводилось на Pixel 9 (Android PWA / Web Mobile), iOS не проверено
+- Оставшиеся регрессии v1.1: выделение текста, шапка, панели (Phases 17-19)
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-10
-Остановились на: 16-02-PLAN.md Task 2 checkpoint (human-verify navigation on device). Task 1 committed: f74b7b1.
+Последняя сессия: 2026-03-11
+Plan 17-01 завершён: адаптивная шапка с overflow menu, Info перенесён в TocSidebar.
+Коммиты Plan 17-01: 5eeb410, f8d5c2e.
+Следующий шаг: выполнить план 17-02 (snap points панелей, автофокус, SearchPanel).
