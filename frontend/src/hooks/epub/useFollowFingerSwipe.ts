@@ -53,38 +53,38 @@ export const FOLLOW_FINGER_CONFIG = {
 
 export const SPRING_FAST = {
   type: 'spring' as const,
-  stiffness: 400,
-  damping: 40, // 2*sqrt(400*1) = 40 -- exact critical damping
+  stiffness: 800,
+  damping: 57, // 2*sqrt(800*1) ≈ 56.6 -- critical damping
   mass: 1,
 };
 
 export const SPRING_NORMAL = {
   type: 'spring' as const,
-  stiffness: 300,
-  damping: 35, // 2*sqrt(300*1) ~= 34.6, rounded up
+  stiffness: 600,
+  damping: 49, // 2*sqrt(600*1) ≈ 49
   mass: 1,
 };
 
 export const SPRING_RUBBER = {
   type: 'spring' as const,
-  stiffness: 200,
-  damping: 28, // 2*sqrt(200*1) ~= 28.3
+  stiffness: 400,
+  damping: 40, // 2*sqrt(400*1) = 40
   mass: 1,
 };
 
 /** Under-damped spring for swipe completion with micro-bounce (Apple Books feel) */
 export const SPRING_SWIPE = {
   type: 'spring' as const,
-  stiffness: 300,
-  damping: 24, // < 2*sqrt(300) ≈ 34.6 → ~10-15% overshoot (micro-bounce)
+  stiffness: 600,
+  damping: 34, // < 2*sqrt(600) ≈ 49 → keeps ~10-15% overshoot
   mass: 1,
 };
 
-/** Fast spring for tap navigation (~100-150ms, critically damped) */
+/** Fast spring for tap navigation (~50-75ms, critically damped) */
 export const SPRING_TAP = {
   type: 'spring' as const,
-  stiffness: 500,
-  damping: 45, // critically damped, fast
+  stiffness: 1000,
+  damping: 57, // 2*sqrt(1000*0.8) ≈ 56.6
   mass: 0.8,
 };
 
