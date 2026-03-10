@@ -22,7 +22,6 @@ interface ReaderUIProps {
     totalPages?: number;
     onBack: () => void;
     onTocToggle: () => void;
-    onInfoOpen: () => void;
     onSettingsOpen: () => void;
     onEntitiesOpen: () => void;
     onSearchToggle: () => void;
@@ -81,7 +80,6 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
         totalPages={header.totalPages}
         onBack={header.onBack}
         onTocToggle={header.onTocToggle}
-        onInfoOpen={header.onInfoOpen}
         onSettingsOpen={header.onSettingsOpen}
         onEntitiesOpen={header.onEntitiesOpen}
         onSearchToggle={header.onSearchToggle}
