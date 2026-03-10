@@ -25,7 +25,7 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
   onClose,
   title,
   children,
-  snapPoints = [0.5, 0.9],
+  snapPoints = [0.5, 0.95],
   defaultSnap,
 }) => {
   const isMobile = useIsMobile();
@@ -45,7 +45,7 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Drawer.Content className="bg-background flex flex-col rounded-t-2xl max-h-[90vh] fixed bottom-0 left-0 right-0 z-50 outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+        <Drawer.Content className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
           {/* Handle bar */}
           <div className="mx-auto w-10 h-1 rounded-full bg-muted-foreground/30 my-3 flex-shrink-0" />
 
