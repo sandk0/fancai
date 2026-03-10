@@ -18,7 +18,7 @@ allowed-tools: Read, Edit, Write, Bash, Grep, Glob
    - No data loss in downgrade
    - Proper index creation
 6. **Test Migration**: `cd backend && alembic upgrade head`
-7. **Verify**: Run backend tests `cd backend && pytest -v --tb=short`
+7. **Verify**: Run backend tests `cd backend && uv run python -m pytest -v --tb=short`
 
 ## Conventions
 - Migration message format: descriptive snake_case

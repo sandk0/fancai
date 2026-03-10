@@ -19,7 +19,7 @@ cd frontend && npm test -- --watchAll=false
 
 ### Backend (pytest)
 ```bash
-cd backend && pytest -v --tb=short
+cd backend && uv run python -m pytest -v --tb=short
 ```
 
 ## Report
