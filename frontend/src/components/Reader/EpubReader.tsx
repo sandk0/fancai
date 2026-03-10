@@ -65,7 +65,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isEntityDrawerOpen, setIsEntityDrawerOpen] = useState(false);
-  const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
+  const [tocTab, setTocTab] = useState<'toc' | 'notes' | 'info'>('toc');
   const [isTocOpen, setIsTocOpen] = useState(
     () => localStorage.getItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`) === 'true'
   );
@@ -307,8 +307,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   ]);
 
   // Compute isPanelOpen for gesture blocking
-  const isPanelOpen =
-    isTocOpen || isSettingsOpen || isEntityDrawerOpen || isSearchOpen || isBookInfoOpen;
+  const isPanelOpen = isTocOpen || isSettingsOpen || isEntityDrawerOpen || isSearchOpen;
 
   // Unified gesture controller replaces useFollowFingerSwipe + useTouchNavigation + IOSTapZones
   const gestureController = useGestureController({
@@ -708,11 +707,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onClose: closeModal,
           onImageRegenerated: handleImageRegenerated,
         }}
-        bookInfo={{
-          isOpen: isBookInfoOpen,
-          onClose: () => setIsBookInfoOpen(false),
-          metadata: book,
-        }}
         entityDrawer={{
           isOpen: isEntityDrawerOpen,
           onClose: () => setIsEntityDrawerOpen(false),
@@ -740,6 +734,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onNavigateToCfi: handleNavigateToCfi,
           onDeleteBookmark: deleteBookmark,
           onUpdateBookmarkNote: handleUpdateBookmarkNote,
+          metadata: book,
+          activeTab: tocTab,
+          onTabChange: setTocTab,
         }}
         positionConflict={{
           data: positionConflict,

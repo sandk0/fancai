@@ -3,8 +3,8 @@ import type { BookDetail, GeneratedImage } from '@/types/api';
 import type { EntityNetworkResponse } from '@/types/entity';
 import type { Selection } from '@/hooks/epub/useTextSelection';
 import type { NavItem } from '@/types/epub';
+import type { SidebarTab } from '../TocSidebar';
 import { ImageModal } from '@/components/Images/ImageModal';
-import { BookInfo } from '../BookInfo';
 import { EntityDrawer } from '@/components/Entities/EntityDrawer';
 import { SelectionMenu } from '../SelectionMenu';
 import { TocSidebar } from '../TocSidebar';
@@ -28,11 +28,6 @@ interface ReaderModalsProps {
     selectedImage: GeneratedImage | null;
     onClose: () => void;
     onImageRegenerated: (url: string) => void;
-  };
-  bookInfo: {
-    isOpen: boolean;
-    onClose: () => void;
-    metadata: BookDetail | null;
   };
   entityDrawer: {
     isOpen: boolean;
@@ -66,6 +61,9 @@ interface ReaderModalsProps {
     onNavigateToCfi?: (cfi: string, bookmarkId?: string) => void;
     onDeleteBookmark?: (bookmarkId: string, cfiRange: string) => void;
     onUpdateBookmarkNote?: (bookmarkId: string, note: string) => void;
+    metadata?: BookDetail;
+    activeTab?: SidebarTab;
+    onTabChange?: (tab: SidebarTab) => void;
   };
   positionConflict: {
     data: {
@@ -79,7 +77,6 @@ interface ReaderModalsProps {
 
 export const ReaderModals: React.FC<ReaderModalsProps> = ({
   imageModal,
-  bookInfo,
   entityDrawer,
   selection,
   toc,
@@ -125,14 +122,6 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         />
       )}
 
-      {bookInfo.isOpen && bookInfo.metadata && (
-        <BookInfo
-          metadata={bookInfo.metadata}
-          isOpen={bookInfo.isOpen}
-          onClose={bookInfo.onClose}
-        />
-      )}
-
       <EntityDrawer
         isOpen={entityDrawer.isOpen}
         onClose={entityDrawer.onClose}
@@ -163,6 +152,9 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         onNavigateToCfi={toc.onNavigateToCfi}
         onDeleteBookmark={toc.onDeleteBookmark}
         onUpdateBookmarkNote={toc.onUpdateBookmarkNote}
+        metadata={toc.metadata}
+        activeTab={toc.activeTab}
+        onTabChange={toc.onTabChange}
       />
     </>
   );
