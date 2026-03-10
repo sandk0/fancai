@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: "v1.2"
 milestone_name: "Reader Stability & Polish"
-status: "Defining requirements"
-last_updated: "2026-03-10T00:00:00Z"
-last_activity: "2026-03-10 — Milestone v1.2 started"
+status: "Executing"
+last_updated: "2026-03-10T01:31:17Z"
+last_activity: "2026-03-10 — Completed 16-01-PLAN.md (gesture pipeline fix)"
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 10
+  completed_plans: 1
+  percent: 10
 ---
 
 # Состояние проекта
@@ -19,15 +19,17 @@ progress:
 
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
-**Ключевая ценность:** AI-ридер с интерактивной Entity Wiki — загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** v1.2 Reader Stability & Polish — исправление регрессий v1.1
+**Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
+**Текущий фокус:** Phase 16 -- Навигация и свайпы (фундамент v1.2)
 
 ## Текущая позиция
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-10 — Milestone v1.2 started
+Phase: 16 of 20 (Навигация и свайпы)
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-03-10 -- Completed 16-01-PLAN.md (gesture pipeline fix, 11 min)
+
+Progress: [█░░░░░░░░░] 10%
 
 ## Метрики производительности
 
@@ -35,12 +37,18 @@ Last activity: 2026-03-10 — Milestone v1.2 started
 
 | Milestone | Фазы | Планы | Время  | Среднее/план |
 | --------- | ---- | ----- | ------ | ------------ |
-| v1.0      | 9    | 23    | 9 дней | —            |
+| v1.0      | 9    | 23    | 9 дней | --           |
 | v1.1      | 6    | 13    | 92 min | 7 min        |
+| v1.2      | 5    | 10    | --     | --           |
 
 ## Накопленный контекст
 
 ### Решения
+
+- [16-01] SPRING_SWIPE: damping=24, stiffness=300 (under-damped, ~10-15% overshoot micro-bounce)
+- [16-01] chapterTransitionThreshold: 0.15 (было 0.35, математически недостижимо)
+- [16-01] Тап-навигация: instant scroll ПЕРЕД spring slide-in (двухфазный паттерн)
+- [16-01] onEdgeTap стал no-op -- навигация внутри gesture controller
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -53,9 +61,11 @@ Last activity: 2026-03-10 — Milestone v1.2 started
 ### Блокеры/Опасения
 
 - Множественные регрессии после v1.1: свайпы, анимации, выделение текста, шапка, панели
+- iOS overlay удаление: confidence MEDIUM, требует ручного тестирования на iOS Safari
+- iOS drag handles при text selection плохо документированы (epub.js issue #904)
 - Тестирование проводилось на Pixel 9 (Android PWA / Web Mobile), iOS не проверено
 
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-10
-Остановились на: Начало milestone v1.2. Определение требований.
+Остановились на: Completed 16-01-PLAN.md. Готов к 16-02-PLAN.md.

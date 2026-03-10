@@ -60,7 +60,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
   2. Тап по правому/левому краю перелистывает страницу мгновенно (instant scroll) без видимой задержки или дёрганой анимации
   3. Свайп на последней/первой странице главы переходит к следующей/предыдущей главе с визуальной обратной связью
   4. Анимация свайпа выглядит как Apple Books slide -- 60fps, follow-finger tracking, spring с микро-bounce на завершении
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 16-01-PLAN.md -- Исправление pipeline: двухфазная навигация, spring configs, instant scroll
@@ -144,7 +144,7 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 12. Viewport и iOS | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 13. PWA и offline | v1.1 | 2/2 | Complete | 2026-03-09 |
 | 14. Фикс описаний | v1.1 | 2/2 | Complete | 2026-03-09 |
-| 16. Навигация и свайпы | v1.2 | 0/2 | Not started | - |
+| 16. Навигация и свайпы | 1/2 | In Progress|  | - |
 | 17. Шапка и панели | v1.2 | 0/2 | Not started | - |
 | 18. Выделение текста и заметки | v1.2 | 0/2 | Not started | - |
 | 19. Описания и Entity Popup | v1.2 | 0/2 | Not started | - |
