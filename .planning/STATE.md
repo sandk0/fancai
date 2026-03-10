@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: "v1.2"
-milestone_name: "Reader Stability & Polish"
-status: "Executing"
-last_updated: "2026-03-11"
-last_activity: "2026-03-11 — Phase 17 Plan 01 complete (адаптивная шапка + Info в TocSidebar)"
+milestone: v1.2
+milestone_name: Reader Stability & Polish
+status: executing
+last_updated: "2026-03-10T22:58:07.656Z"
+last_activity: 2026-03-11 — Phase 17 complete (шапка + панели + SearchPanel)
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 10
-  completed_plans: 3
-  percent: 30
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 40
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 17 -- Шапка и панели
+**Текущий фокус:** Phase 18 -- Выделение текста и заметки
 
 ## Текущая позиция
 
-Phase: 17 of 20 (Шапка и панели)
-Plan: 1 of 2 complete
-Status: Executing Phase 17
-Last activity: 2026-03-11 — Plan 17-01 complete (адаптивная шапка + Info в TocSidebar)
+Phase: 18 of 20 (Выделение текста и заметки)
+Plan: 0 of 2 complete
+Status: Phase 17 complete, ready for Phase 18
+Last activity: 2026-03-11 — Phase 17 complete (шапка + панели + SearchPanel)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Метрики производительности
 
@@ -57,6 +57,10 @@ Progress: [███░░░░░░░] 30%
 - [17-01] Overflow menu: Radix DropdownMenu с обратными CSS classes (xs:hidden, sm:hidden)
 - [17-01] BookInfo перенесён в таб Info в TocSidebar (controlled activeTab/onTabChange)
 - [17-01] Autofocus поиска TocSidebar только на десктопе (isMobile check)
+- [17-02] Snap points [0.5, 0.95] вместо [0.5, 0.9] -- max-h-[90vh] удален
+- [17-02] defaultSnap 0.95 для TocSidebar -- оглавление на полную высоту
+- [17-02] Autofocus SearchPanel отключен на мобильных (isMobile guard)
+- [17-02] SearchPanel 320px: statusText скрыт ниже 375px (hidden xs:inline)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -72,11 +76,11 @@ Progress: [███░░░░░░░] 30%
 - iOS overlay удаление: confidence MEDIUM, требует ручного тестирования на iOS Safari
 - iOS drag handles при text selection плохо документированы (epub.js issue #904)
 - Тестирование проводилось на Pixel 9 (Android PWA / Web Mobile), iOS не проверено
-- Оставшиеся регрессии v1.1: выделение текста, шапка, панели (Phases 17-19)
+- Оставшиеся регрессии v1.1: выделение текста, описания (Phases 18-19)
 
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Plan 17-01 завершён: адаптивная шапка с overflow menu, Info перенесён в TocSidebar.
-Коммиты Plan 17-01: 5eeb410, f8d5c2e.
-Следующий шаг: выполнить план 17-02 (snap points панелей, автофокус, SearchPanel).
+Phase 17 завершена: адаптивная шапка с overflow menu, snap points [0.5, 0.95], autofocus fix, SearchPanel 320px.
+Коммиты Plan 17-01: 5eeb410, f8d5c2e. Коммиты Plan 17-02: 129075b, ff7ca73.
+Следующий шаг: планирование Phase 18 (выделение текста и заметки).

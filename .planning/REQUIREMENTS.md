@@ -21,8 +21,8 @@
 
 ### Панели
 
-- [ ] **PNL-01**: Панели настроек, оглавления и заметок отображают всё содержимое (Vaul snap points, полная высота)
-- [ ] **PNL-02**: Клавиатура не открывается автоматически при открытии оглавления
+- [x] **PNL-01**: Панели настроек, оглавления и заметок отображают всё содержимое (Vaul snap points, полная высота)
+- [x] **PNL-02**: Клавиатура не открывается автоматически при открытии оглавления
 
 ### Выделение и заметки
 
@@ -72,8 +72,8 @@
 | NAV-04 | Phase 16 | Complete |
 | HDR-01 | Phase 17 | Complete |
 | HDR-02 | Phase 17 | Complete |
-| PNL-01 | Phase 17 | Pending |
-| PNL-02 | Phase 17 | Pending |
+| PNL-01 | Phase 17 | Complete |
+| PNL-02 | Phase 17 | Complete |
 | SEL-01 | Phase 18 | Pending |
 | SEL-02 | Phase 18 | Pending |
 | ENT-01 | Phase 19 | Pending |
