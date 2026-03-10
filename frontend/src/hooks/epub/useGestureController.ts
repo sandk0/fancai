@@ -52,7 +52,7 @@ const TAP_MAX_MOVEMENT = 20; // px
 const LONG_PRESS_TIMEOUT = 350; // ms -- after this, release without action = long-press
 
 // Tap zone boundaries (fraction of viewport width)
-const EDGE_ZONE_IFRAME = 0.25; // 25% edges for iframe-based taps (Android/desktop)
+const EDGE_ZONE_IFRAME = 0.15; // 15% edges for iframe-based taps (matches iOS zone)
 const EDGE_ZONE_IOS = 0.15; // 15% edges for iOS overlay
 
 // ---------------------------------------------------------------------------
@@ -287,6 +287,10 @@ export const useGestureController = (
       target.closest?.('.description-highlight')
     )
       return true;
+    if (target.classList?.contains('entity-mention') || target.closest?.('.entity-mention'))
+      return true;
+    if (target.classList?.contains('user-annotation') || target.closest?.('.user-annotation'))
+      return true;
     if (target.tagName === 'A' || target.closest?.('a')) return true;
     if (target.tagName === 'BUTTON' || target.closest?.('button')) return true;
     return false;
@@ -365,14 +369,20 @@ export const useGestureController = (
         const absDeltaX = Math.abs(deltaX);
         const absDeltaY = Math.abs(deltaY);
 
-        // Vertical scroll detection -- cancel
+        // Vertical scroll detection -- cancel with animated snap-back
         if (
           absDeltaY > FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold &&
           absDeltaY / Math.max(absDeltaX, 1) > FOLLOW_FINGER_CONFIG.maxVerticalRatio
         ) {
           if (t.state === 'swiping') {
-            translateX.set(0);
-            resetState();
+            setPhase('animating');
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_RUBBER,
+              onComplete: () => {
+                animationRef.current = null;
+                resetState();
+              },
+            });
           }
           touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
           return;
@@ -574,8 +584,10 @@ export const useGestureController = (
 
         if (isRubberBand) {
           const rubberOffset = Math.abs(getRubberBandOffset(deltaX));
+          const absVelocity = Math.abs(velocity);
           const shouldTransition =
-            rubberOffset >= viewportWidth * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold;
+            rubberOffset >= viewportWidth * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold ||
+            (absVelocity > FOLLOW_FINGER_CONFIG.quickSwipeVelocity && rubberOffset > 10);
 
           setPhase('animating');
 
@@ -661,7 +673,16 @@ export const useGestureController = (
       // ----- touchcancel -----
       const handleTouchCancel = () => {
         if (touchRef.current.state === 'swiping') {
-          translateX.set(0);
+          setPhase('animating');
+          animationRef.current = animate(translateX, 0, {
+            ...SPRING_RUBBER,
+            onComplete: () => {
+              animationRef.current = null;
+              resetState();
+            },
+          });
+          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+          return;
         }
         touchRef.current = { ...INITIAL_TOUCH };
         resetState();

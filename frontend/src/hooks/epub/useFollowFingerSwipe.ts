@@ -38,13 +38,13 @@ export const FOLLOW_FINGER_CONFIG = {
   /** px - minimum distance for a velocity-based flick */
   quickSwipeMinDistance: 10,
   /** if deltaY/deltaX > this, treat as vertical scroll and cancel swipe */
-  maxVerticalRatio: 2.0,
+  maxVerticalRatio: 1.5,
   /** resistance factor for rubber-band at chapter boundary */
   rubberBandResistance: 0.4,
   /** fraction of viewport - rubber-band offset above this triggers chapter change */
-  chapterTransitionThreshold: 0.15, // 0.15 * 375 = 56px — reachable within maxRubberBand (80px)
+  chapterTransitionThreshold: 0.08, // 0.08 * 375 = 30px — reachable within maxRubberBand (100px)
   /** px - maximum visual offset during rubber-band */
-  maxRubberBand: 80,
+  maxRubberBand: 100,
 } as const;
 
 // ---------------------------------------------------------------------------
