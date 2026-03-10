@@ -248,6 +248,25 @@ describe('useEpubNavigation', () => {
       expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
     });
 
+    it('instantPrevPage uses instant scroll in middle of chapter', async () => {
+      const { rendition, stage } = createMockRendition({
+        scrollLeft: 400, // middle of 3-page chapter
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      await act(async () => {
+        await result.current.instantPrevPage();
+      });
+
+      // Should have called scrollTo with behavior: 'instant'
+      expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+      // Should have scrolled back by one page
+      expect(stage.scrollLeft).toBe(0);
+    });
+
     it('instantPrevPage falls through to epub.js at boundary', async () => {
       const { rendition } = createMockRendition({
         scrollLeft: 0,
@@ -263,6 +282,91 @@ describe('useEpubNavigation', () => {
 
       // At start boundary, should fall through to epub.js prev()
       expect((rendition as unknown as { prev: ReturnType<typeof vi.fn> }).prev).toHaveBeenCalled();
+    });
+  });
+
+  describe('directScroll behavior parameter', () => {
+    it('directScroll(next, false) uses behavior: instant', async () => {
+      const { rendition, stage } = createMockRendition({
+        scrollLeft: 0,
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      let scrolled: boolean | undefined;
+      await act(async () => {
+        scrolled = await result.current.directScroll('next', false);
+      });
+
+      expect(scrolled).toBe(true);
+      expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+    });
+
+    it('directScroll(next, true) uses behavior: smooth', async () => {
+      const { rendition, stage } = createMockRendition({
+        scrollLeft: 0,
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      let scrolled: boolean | undefined;
+      await act(async () => {
+        scrolled = await result.current.directScroll('next', true);
+      });
+
+      expect(scrolled).toBe(true);
+      expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+    });
+
+    it('directScroll(prev, false) uses behavior: instant', async () => {
+      const { rendition, stage } = createMockRendition({
+        scrollLeft: 400,
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      let scrolled: boolean | undefined;
+      await act(async () => {
+        scrolled = await result.current.directScroll('prev', false);
+      });
+
+      expect(scrolled).toBe(true);
+      expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+      expect(stage.scrollLeft).toBe(0);
+    });
+
+    it('directScroll returns false at boundary', async () => {
+      const { rendition } = createMockRendition({
+        scrollLeft: 800, // maxScroll = 1200 - 400 = 800
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      let scrolled: boolean | undefined;
+      await act(async () => {
+        scrolled = await result.current.directScroll('next', false);
+      });
+
+      expect(scrolled).toBe(false);
+    });
+
+    it('directScroll returns false for null rendition', async () => {
+      const { result } = renderHook(() => useEpubNavigation(null));
+
+      let scrolled: boolean | undefined;
+      await act(async () => {
+        scrolled = await result.current.directScroll('next', false);
+      });
+
+      expect(scrolled).toBe(false);
     });
   });
 });
