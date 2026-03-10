@@ -195,6 +195,8 @@
       "minimal": "Min.",
       "standard": "Std.",
       "spacious": "Max.",
+      "pageAnimation": "Page animation",
+      "pageAnimationDesc": "Slide animation when turning pages",
       "navigationModeSwipe": "Swipe",
       "navigationModeSwipeDesc": "Swipe to navigate",
       "navigationModeTap": "Tap",

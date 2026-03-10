@@ -80,6 +80,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     updateNavigationMode,
     descriptionHighlightMode,
     updateDescriptionHighlightMode,
+    pageAnimationEnabled,
+    updatePageAnimation,
   } = useReaderStore();
   const [wakeLockEnabled, setWakeLockEnabled] = useState(
     () => localStorage.getItem(WAKE_LOCK_STORAGE_KEY) !== 'false'
@@ -330,6 +332,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     onTapNavigate: autoHide.onTapNavigate,
     navLock,
     isPanelOpen,
+    pageAnimationEnabled,
   });
 
   useKeyboardNavigation({
@@ -640,6 +643,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onNameHighlightingChange: updateNameHighlighting,
           descriptionHighlightMode,
           onDescriptionHighlightModeChange: updateDescriptionHighlightMode,
+          pageAnimationEnabled,
+          onPageAnimationChange: updatePageAnimation,
         }}
         imageStatus={{
           status: generationStatus,

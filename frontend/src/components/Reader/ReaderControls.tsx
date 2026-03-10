@@ -46,6 +46,8 @@ interface ReaderControlsProps {
   onDescriptionDensityChange?: (d: DescriptionDensity) => void;
   highlightMode?: DescriptionHighlightMode;
   onHighlightModeChange?: (mode: DescriptionHighlightMode) => void;
+  pageAnimationEnabled?: boolean;
+  onPageAnimationChange?: (enabled: boolean) => void;
 }
 
 export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function ReaderControls({
@@ -69,6 +71,8 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
   onDescriptionDensityChange,
   highlightMode,
   onHighlightModeChange,
+  pageAnimationEnabled,
+  onPageAnimationChange,
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -180,6 +184,17 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
               <span>{t('reader.settings.nav_tap')}</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Page animation */}
+      {onPageAnimationChange && (
+        <div className="px-4 py-3 border-t flex items-center justify-between min-h-[44px]">
+          <div>
+            <div className="text-sm font-medium">{t('reader.readerSettings.pageAnimation')}</div>
+            <div className="text-xs opacity-60">{t('reader.readerSettings.pageAnimationDesc')}</div>
+          </div>
+          <Switch checked={pageAnimationEnabled} onChange={onPageAnimationChange} />
         </div>
       )}
 
