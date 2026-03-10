@@ -201,6 +201,9 @@ const getMeasuredScrollUnit = (
 interface UseEpubNavigationReturn {
   nextPage: () => Promise<void>;
   prevPage: () => Promise<void>;
+  instantNextPage: () => Promise<void>;
+  instantPrevPage: () => Promise<void>;
+  directScroll: (direction: 'next' | 'prev', smooth?: boolean) => Promise<boolean>;
   canGoNext: boolean;
   canGoPrev: boolean;
   debugInfo: string | null;
@@ -348,6 +351,34 @@ export const useEpubNavigation = (rendition: Rendition | null): UseEpubNavigatio
     }
   }, [rendition, directScroll]);
 
+  /** Instant next page for gesture controller (no smooth scroll, visual handled by spring transform) */
+  const instantNextPage = useCallback(async () => {
+    if (!rendition) return;
+    if (isIOS() || isAndroid()) {
+      const scrolled = await directScroll('next', false); // instant
+      if (scrolled) return;
+    }
+    try {
+      await rendition.next();
+    } catch (err) {
+      logger.warn('[useEpubNavigation] instant next error:', err);
+    }
+  }, [rendition, directScroll]);
+
+  /** Instant prev page for gesture controller (no smooth scroll, visual handled by spring transform) */
+  const instantPrevPage = useCallback(async () => {
+    if (!rendition) return;
+    if (isIOS() || isAndroid()) {
+      const scrolled = await directScroll('prev', false); // instant
+      if (scrolled) return;
+    }
+    try {
+      await rendition.prev();
+    } catch (err) {
+      logger.warn('[useEpubNavigation] instant prev error:', err);
+    }
+  }, [rendition, directScroll]);
+
   // Note: epub.js doesn't provide easy way to check if we can go next/prev
   // We return true for now, and let epub.js handle boundaries
   const canGoNext = !!rendition;
@@ -356,6 +387,9 @@ export const useEpubNavigation = (rendition: Rendition | null): UseEpubNavigatio
   return {
     nextPage,
     prevPage,
+    instantNextPage,
+    instantPrevPage,
+    directScroll,
     canGoNext,
     canGoPrev,
     debugInfo,

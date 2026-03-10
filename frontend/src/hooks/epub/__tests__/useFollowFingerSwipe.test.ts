@@ -10,6 +10,8 @@ import {
   SPRING_FAST,
   SPRING_NORMAL,
   SPRING_RUBBER,
+  SPRING_SWIPE,
+  SPRING_TAP,
 } from '../useFollowFingerSwipe';
 
 /**
@@ -58,7 +60,7 @@ describe('useFollowFingerSwipe', () => {
       expect(FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold).toBe(10);
       expect(FOLLOW_FINGER_CONFIG.navigateThreshold).toBe(0.25);
       expect(FOLLOW_FINGER_CONFIG.quickSwipeVelocity).toBe(0.3);
-      expect(FOLLOW_FINGER_CONFIG.quickSwipeMinDistance).toBe(15);
+      expect(FOLLOW_FINGER_CONFIG.quickSwipeMinDistance).toBe(10);
       expect(FOLLOW_FINGER_CONFIG.maxVerticalRatio).toBe(2.0);
       expect(FOLLOW_FINGER_CONFIG.rubberBandResistance).toBe(0.4);
       expect(FOLLOW_FINGER_CONFIG.maxRubberBand).toBe(80);
@@ -133,9 +135,9 @@ describe('useFollowFingerSwipe', () => {
       expect(result).toBe(true);
     });
 
-    it('velocity > 0.3px/ms but offset < 15px does not trigger', () => {
-      // velocity = 0.5 px/ms, offset = 10px (below quickSwipeMinDistance)
-      const result = shouldNavigate(10, 0.5, 375);
+    it('velocity > 0.3px/ms but offset < 10px does not trigger', () => {
+      // velocity = 0.5 px/ms, offset = 8px (below quickSwipeMinDistance of 10)
+      const result = shouldNavigate(8, 0.5, 375);
       expect(result).toBe(false);
     });
 
@@ -175,14 +177,22 @@ describe('useFollowFingerSwipe', () => {
       expect(getSpringConfig(-0.6)).toBe(SPRING_FAST);
     });
 
-    it('getSpringConfig returns NORMAL for velocity 0.1-0.5', () => {
-      expect(getSpringConfig(0.3)).toBe(SPRING_NORMAL);
-      expect(getSpringConfig(-0.2)).toBe(SPRING_NORMAL);
+    it('getSpringConfig returns SWIPE (under-damped) for velocity <= 0.5', () => {
+      expect(getSpringConfig(0.3)).toBe(SPRING_SWIPE);
+      expect(getSpringConfig(-0.2)).toBe(SPRING_SWIPE);
+      expect(getSpringConfig(0.05)).toBe(SPRING_SWIPE);
+      expect(getSpringConfig(0)).toBe(SPRING_SWIPE);
     });
 
-    it('getSpringConfig returns RUBBER for velocity < 0.1', () => {
-      expect(getSpringConfig(0.05)).toBe(SPRING_RUBBER);
-      expect(getSpringConfig(0)).toBe(SPRING_RUBBER);
+    it('SPRING_SWIPE is under-damped (damping < 2*sqrt(stiffness*mass))', () => {
+      const criticalDamping = 2 * Math.sqrt(SPRING_SWIPE.stiffness * SPRING_SWIPE.mass);
+      expect(SPRING_SWIPE.damping).toBeLessThan(criticalDamping);
+    });
+
+    it('SPRING_TAP has stiffness 500 and damping 45', () => {
+      expect(SPRING_TAP.stiffness).toBe(500);
+      expect(SPRING_TAP.damping).toBe(45);
+      expect(SPRING_TAP.mass).toBe(0.8);
     });
   });
 
@@ -273,6 +283,18 @@ describe('useFollowFingerSwipe', () => {
       // moved -100px in 200ms -> -0.5 px/ms
       const v = calculateVelocity(100, 500, 200, 300);
       expect(v).toBe(-0.5);
+    });
+  });
+
+  describe('chapter transition threshold reachability', () => {
+    it('chapterTransitionThreshold is reachable within maxRubberBand', () => {
+      // For any viewport width, maxRubberBand must be >= viewportWidth * chapterTransitionThreshold
+      // Since rubber-band offset can reach maxRubberBand (80px), and threshold is 0.15,
+      // the minimum viewport where threshold is reachable: 80 / 0.15 ≈ 533px
+      // For mobile (375px): 375 * 0.15 = 56.25 < 80 ✓
+      const mobileViewport = 375;
+      const thresholdOffset = mobileViewport * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold;
+      expect(thresholdOffset).toBeLessThan(FOLLOW_FINGER_CONFIG.maxRubberBand);
     });
   });
 

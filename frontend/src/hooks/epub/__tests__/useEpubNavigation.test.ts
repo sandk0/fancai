@@ -200,18 +200,24 @@ describe('useEpubNavigation', () => {
   });
 
   describe('interface compatibility', () => {
-    it('returns the same UseEpubNavigationReturn interface', () => {
+    it('returns the full UseEpubNavigationReturn interface', () => {
       const { rendition } = createMockRendition();
       const { result } = renderHook(() => useEpubNavigation(rendition));
 
       expect(result.current).toHaveProperty('nextPage');
       expect(result.current).toHaveProperty('prevPage');
+      expect(result.current).toHaveProperty('instantNextPage');
+      expect(result.current).toHaveProperty('instantPrevPage');
+      expect(result.current).toHaveProperty('directScroll');
       expect(result.current).toHaveProperty('canGoNext');
       expect(result.current).toHaveProperty('canGoPrev');
       expect(result.current).toHaveProperty('debugInfo');
 
       expect(typeof result.current.nextPage).toBe('function');
       expect(typeof result.current.prevPage).toBe('function');
+      expect(typeof result.current.instantNextPage).toBe('function');
+      expect(typeof result.current.instantPrevPage).toBe('function');
+      expect(typeof result.current.directScroll).toBe('function');
       expect(typeof result.current.canGoNext).toBe('boolean');
       expect(typeof result.current.canGoPrev).toBe('boolean');
     });
@@ -221,6 +227,42 @@ describe('useEpubNavigation', () => {
 
       expect(result.current.canGoNext).toBe(false);
       expect(result.current.canGoPrev).toBe(false);
+    });
+  });
+
+  describe('instant scroll mode', () => {
+    it('instantNextPage uses instant scroll (behavior: instant)', async () => {
+      const { rendition, stage } = createMockRendition({
+        scrollLeft: 0,
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      await act(async () => {
+        await result.current.instantNextPage();
+      });
+
+      // Should have called scrollTo with behavior: 'instant'
+      expect(stage.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+    });
+
+    it('instantPrevPage falls through to epub.js at boundary', async () => {
+      const { rendition } = createMockRendition({
+        scrollLeft: 0,
+        clientWidth: 400,
+        scrollWidth: 1200,
+      });
+
+      const { result } = renderHook(() => useEpubNavigation(rendition));
+
+      await act(async () => {
+        await result.current.instantPrevPage();
+      });
+
+      // At start boundary, should fall through to epub.js prev()
+      expect((rendition as unknown as { prev: ReturnType<typeof vi.fn> }).prev).toHaveBeenCalled();
     });
   });
 });
