@@ -207,7 +207,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     isRestoringPosition, // Prevent save during restoration
   });
 
-  const { nextPage, prevPage } = useEpubNavigation(rendition);
+  const { nextPage, prevPage, instantNextPage, instantPrevPage } = useEpubNavigation(rendition);
   const navLock = useNavigationLock({ maxLockDuration: 2000 });
   const {
     selectedImage,
@@ -312,20 +312,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const gestureController = useGestureController({
     rendition,
     enabled: renditionReady && !isModalOpen,
+    // onNavigate is called from onComplete of spring animation.
+    // Must use INSTANT scroll (visual already handled by spring transform).
     onNavigate: async (dir) => {
-      if (dir === 'next') await nextPage();
-      else await prevPage();
+      if (dir === 'next') await instantNextPage();
+      else await instantPrevPage();
     },
     onChapterChange: async (dir) => {
       if (dir === 'next') await rendition?.next();
       else await rendition?.prev();
     },
-    onEdgeTap: (dir) => {
-      // Edge tap: navigate with navLock (slide animation handled by controller)
-      if (navLock.acquire()) {
-        (dir === 'next' ? nextPage() : prevPage()).finally(() => navLock.release());
-      }
-    },
+    // onEdgeTap: navigation now handled inside controller (two-phase pattern)
+    onEdgeTap: () => {},
     onCenterTap: handleCenterTap,
     onToggleUI: autoHide.toggleUI,
     onSwipeStart: autoHide.onSwipeStart,
