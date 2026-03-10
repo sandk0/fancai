@@ -27,13 +27,11 @@ import {
   FOLLOW_FINGER_CONFIG,
   SPRING_FAST,
   SPRING_RUBBER,
-  SPRING_SWIPE,
   SPRING_TAP,
   getStageInfo,
   shouldNavigate,
   calculateVelocity,
   getRubberBandOffset,
-  getSpringConfig,
 } from './useFollowFingerSwipe';
 import type { FollowFingerPhase } from './useFollowFingerSwipe';
 
@@ -42,6 +40,8 @@ import type { FollowFingerPhase } from './useFollowFingerSwipe';
 // ---------------------------------------------------------------------------
 
 type GestureState = 'idle' | 'pending' | 'swiping' | 'cancelled';
+
+type InteractiveType = 'description' | 'entity' | 'annotation' | 'link' | null;
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -80,6 +80,8 @@ export interface GestureControllerOptions {
   navLock: NavigationLock;
   /** Whether any panel (drawer, settings, TOC) is open */
   isPanelOpen: boolean;
+  /** Whether page turn animations are enabled */
+  pageAnimationEnabled?: boolean;
 }
 
 export interface GestureControllerReturn {
@@ -140,6 +142,7 @@ export const useGestureController = (
     onTapNavigate,
     navLock,
     isPanelOpen,
+    pageAnimationEnabled = true,
   } = options;
 
   // Motion value for GPU-accelerated transform
@@ -169,6 +172,7 @@ export const useGestureController = (
   const onSwipeStartRef = useRef(onSwipeStart);
   const onTapNavigateRef = useRef(onTapNavigate);
   const navLockRef = useRef(navLock);
+  const pageAnimationEnabledRef = useRef(pageAnimationEnabled);
 
   // Pending nav ref for guaranteed-last pattern
   const pendingNavRef = useRef<'next' | 'prev' | null>(null);
@@ -204,6 +208,9 @@ export const useGestureController = (
   useEffect(() => {
     navLockRef.current = navLock;
   }, [navLock]);
+  useEffect(() => {
+    pageAnimationEnabledRef.current = pageAnimationEnabled;
+  }, [pageAnimationEnabled]);
 
   // Stable reset
   const resetState = useCallback(() => {
@@ -278,22 +285,22 @@ export const useGestureController = (
   );
 
   // -------------------------------------------------------------------------
-  // Check if target is interactive (description highlight, link, button)
+  // Check if target is interactive and return its type
   // -------------------------------------------------------------------------
-  const isInteractiveElement = useCallback((target: EventTarget | null): boolean => {
-    if (!target || !(target instanceof HTMLElement)) return false;
+  const getInteractiveType = useCallback((target: EventTarget | null): InteractiveType => {
+    if (!target || !(target instanceof HTMLElement)) return null;
     if (
       target.classList?.contains('description-highlight') ||
       target.closest?.('.description-highlight')
     )
-      return true;
+      return 'description';
     if (target.classList?.contains('entity-mention') || target.closest?.('.entity-mention'))
-      return true;
+      return 'entity';
     if (target.classList?.contains('user-annotation') || target.closest?.('.user-annotation'))
-      return true;
-    if (target.tagName === 'A' || target.closest?.('a')) return true;
-    if (target.tagName === 'BUTTON' || target.closest?.('button')) return true;
-    return false;
+      return 'annotation';
+    if (target.tagName === 'A' || target.closest?.('a')) return 'link';
+    if (target.tagName === 'BUTTON' || target.closest?.('button')) return 'link';
+    return null;
   }, []);
 
   // -------------------------------------------------------------------------
@@ -497,7 +504,11 @@ export const useGestureController = (
           }
 
           // Check for interactive elements
-          if (isInteractiveElement(e.target)) {
+          const interactiveType = getInteractiveType(e.target);
+          if (interactiveType) {
+            if (interactiveType === 'description') {
+              onCenterTapRef.current(touch.clientX, touch.clientY);
+            }
             return;
           }
 
@@ -544,20 +555,25 @@ export const useGestureController = (
             }
 
             // Phase 2: visual spring slide-in (page arrives from edge)
-            const slideFrom = action === 'next' ? vw : -vw;
-            translateX.set(slideFrom);
-            setPhase('animating');
-            if (animationRef.current) {
-              animationRef.current.stop();
-              animationRef.current = null;
-            }
-            animationRef.current = animate(translateX, 0, {
-              ...SPRING_TAP, // Fast spring ~100-150ms
-              onComplete: () => {
+            if (pageAnimationEnabledRef.current) {
+              const slideFrom = action === 'next' ? vw : -vw;
+              translateX.set(slideFrom);
+              setPhase('animating');
+              if (animationRef.current) {
+                animationRef.current.stop();
                 animationRef.current = null;
-                resetState();
-              },
-            });
+              }
+              animationRef.current = animate(translateX, 0, {
+                ...SPRING_TAP,
+                onComplete: () => {
+                  animationRef.current = null;
+                  resetState();
+                },
+              });
+            } else {
+              translateX.set(0);
+              resetState();
+            }
           })();
 
           return;
@@ -592,28 +608,32 @@ export const useGestureController = (
           setPhase('animating');
 
           if (shouldTransition && onChapterChangeRef.current) {
-            // Slide-out to viewport edge (visual feedback of chapter transition)
+            // Two-phase chapter transition: navigate FIRST, then slide-in
             const dir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-            const slideTarget = dir === 'next' ? -viewportWidth : viewportWidth;
 
-            animationRef.current = animate(translateX, slideTarget, {
-              ...SPRING_SWIPE,
-              velocity: velocity * 1000,
-              onComplete: async () => {
-                animationRef.current = null;
-                // Execute chapter change
-                if (navLockRef.current.acquire()) {
-                  try {
-                    await onChapterChangeRef.current!(dir);
-                  } finally {
-                    navLockRef.current.release();
-                  }
+            void (async () => {
+              if (navLockRef.current.acquire()) {
+                try {
+                  await onChapterChangeRef.current!(dir);
+                } finally {
+                  navLockRef.current.release();
                 }
-                // Reset visual state
+              }
+              if (pageAnimationEnabledRef.current) {
+                const slideFrom = dir === 'next' ? viewportWidth : -viewportWidth;
+                translateX.set(slideFrom);
+                animationRef.current = animate(translateX, 0, {
+                  ...SPRING_TAP,
+                  onComplete: () => {
+                    animationRef.current = null;
+                    resetState();
+                  },
+                });
+              } else {
                 translateX.set(0);
                 resetState();
-              },
-            });
+              }
+            })();
           } else {
             // Snap-back (insufficient offset for chapter transition)
             animationRef.current = animate(translateX, 0, {
@@ -635,28 +655,30 @@ export const useGestureController = (
         setPhase('animating');
 
         if (navigate) {
-          const target = direction === 'next' ? -viewportWidth : viewportWidth;
-          const spring = getSpringConfig(velocity);
-
-          // Two-phase swipe: animate transform -> instant scroll -> reset
-          animationRef.current = animate(translateX, target, {
-            ...spring,
-            velocity: velocity * 1000,
-            onComplete: async () => {
-              animationRef.current = null;
-              // Phase 2: instant scroll (visual already handled by spring transform)
-              if (navLockRef.current.acquire()) {
-                try {
-                  await onNavigateRef.current(direction);
-                } finally {
-                  navLockRef.current.release();
-                }
+          // Two-phase swipe: navigate FIRST, then slide-in from edge
+          void (async () => {
+            if (navLockRef.current.acquire()) {
+              try {
+                await onNavigateRef.current(direction);
+              } finally {
+                navLockRef.current.release();
               }
-              // Phase 3: reset visual state
+            }
+            if (pageAnimationEnabledRef.current) {
+              const slideFrom = direction === 'next' ? viewportWidth : -viewportWidth;
+              translateX.set(slideFrom);
+              animationRef.current = animate(translateX, 0, {
+                ...SPRING_TAP,
+                onComplete: () => {
+                  animationRef.current = null;
+                  resetState();
+                },
+              });
+            } else {
               translateX.set(0);
               resetState();
-            },
-          });
+            }
+          })();
         } else {
           // Snap back
           animationRef.current = animate(translateX, 0, {
@@ -697,7 +719,13 @@ export const useGestureController = (
         // Ignore click shortly after touch (prevents double navigation on mobile)
         if (Date.now() - lastTouchTimeRef.value < 500) return;
 
-        if (isInteractiveElement(e.target)) return;
+        const interactiveType = getInteractiveType(e.target);
+        if (interactiveType) {
+          if (interactiveType === 'description') {
+            onCenterTapRef.current(e.clientX, e.clientY);
+          }
+          return;
+        }
 
         const iframeOffset = getIframeOffset(contents);
         const screenX = e.clientX + iframeOffset;
@@ -730,20 +758,25 @@ export const useGestureController = (
           }
 
           // Phase 2: visual spring slide-in
-          const slideFrom = action === 'next' ? vw : -vw;
-          translateX.set(slideFrom);
-          setPhase('animating');
-          if (animationRef.current) {
-            animationRef.current.stop();
-            animationRef.current = null;
-          }
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_TAP,
-            onComplete: () => {
+          if (pageAnimationEnabledRef.current) {
+            const slideFrom = action === 'next' ? vw : -vw;
+            translateX.set(slideFrom);
+            setPhase('animating');
+            if (animationRef.current) {
+              animationRef.current.stop();
               animationRef.current = null;
-              resetState();
-            },
-          });
+            }
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_TAP,
+              onComplete: () => {
+                animationRef.current = null;
+                resetState();
+              },
+            });
+          } else {
+            translateX.set(0);
+            resetState();
+          }
         })();
       };
 
@@ -812,7 +845,7 @@ export const useGestureController = (
         // Ignore
       }
     };
-  }, [rendition, translateX, resetState, getIframeOffset, getTapAction, isInteractiveElement]);
+  }, [rendition, translateX, resetState, getIframeOffset, getTapAction, getInteractiveType]);
 
   // -------------------------------------------------------------------------
   // iOS center-tap overlay
@@ -910,6 +943,7 @@ export const useGestureController = (
   const triggerSlideAnimation = useCallback(
     (direction: 'next' | 'prev') => {
       if (phase !== 'idle') return;
+      if (!pageAnimationEnabledRef.current) return;
 
       const info = getStageInfo(rendition);
       const viewportWidth = info?.viewportWidth || window.innerWidth;

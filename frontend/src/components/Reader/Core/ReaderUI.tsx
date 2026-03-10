@@ -45,6 +45,8 @@ interface ReaderUIProps {
     onNameHighlightingChange: (enabled: boolean) => void;
     descriptionHighlightMode: DescriptionHighlightMode;
     onDescriptionHighlightModeChange: (mode: DescriptionHighlightMode) => void;
+    pageAnimationEnabled: boolean;
+    onPageAnimationChange: (enabled: boolean) => void;
   };
   imageStatus: {
     status: GenerationStatus;
@@ -104,6 +106,8 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
           onNameHighlightingChange={settings.onNameHighlightingChange}
           highlightMode={settings.descriptionHighlightMode}
           onHighlightModeChange={settings.onDescriptionHighlightModeChange}
+          pageAnimationEnabled={settings.pageAnimationEnabled}
+          onPageAnimationChange={settings.onPageAnimationChange}
         />
       </div>
 

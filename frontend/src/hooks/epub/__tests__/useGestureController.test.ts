@@ -44,6 +44,7 @@ describe('useGestureController', () => {
         onTapNavigate: () => {},
         navLock: { acquire: () => true, release: () => {}, isLocked: false },
         isPanelOpen: false,
+        pageAnimationEnabled: true,
       };
 
       expect(mockOptions.rendition).toBeNull();

@@ -64,6 +64,7 @@ interface ReaderState {
   nameHighlightingEnabled: boolean;
   descriptionDensity: DescriptionDensity;
   descriptionHighlightMode: DescriptionHighlightMode;
+  pageAnimationEnabled: boolean;
 
   // Reading state
   readingProgress: Record<string, ReadingProgress>;
@@ -80,6 +81,7 @@ interface ReaderState {
   updateNameHighlighting: (enabled: boolean) => void;
   updateDescriptionDensity: (density: DescriptionDensity) => void;
   updateDescriptionHighlightMode: (mode: DescriptionHighlightMode) => void;
+  updatePageAnimation: (enabled: boolean) => void;
   updateReadingProgress: (bookId: string, chapter: number, progress: number, page?: number) => void;
   addBookmark: (
     bookId: string,
@@ -136,6 +138,7 @@ export const useReaderStore = create<ReaderState>()(
       nameHighlightingEnabled: true,
       descriptionDensity: 'all' as DescriptionDensity,
       descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
+      pageAnimationEnabled: true,
 
       // Initial state
       readingProgress: {},
@@ -185,6 +188,10 @@ export const useReaderStore = create<ReaderState>()(
 
       updateDescriptionHighlightMode: (mode: DescriptionHighlightMode) => {
         set({ descriptionHighlightMode: mode });
+      },
+
+      updatePageAnimation: (enabled: boolean) => {
+        set({ pageAnimationEnabled: enabled });
       },
 
       // Reading progress actions (optimistic update + background sync)
@@ -285,6 +292,7 @@ export const useReaderStore = create<ReaderState>()(
           nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
           descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
+          pageAnimationEnabled: true,
         });
       },
 
@@ -305,6 +313,7 @@ export const useReaderStore = create<ReaderState>()(
           nameHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
           descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
+          pageAnimationEnabled: true,
           // Clear all user data
           readingProgress: {},
           bookmarks: {},
@@ -326,7 +335,7 @@ export const useReaderStore = create<ReaderState>()(
     }),
     {
       name: 'fancai-reader',
-      version: 4,
+      version: 5,
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
@@ -340,6 +349,7 @@ export const useReaderStore = create<ReaderState>()(
         nameHighlightingEnabled: state.nameHighlightingEnabled,
         descriptionDensity: state.descriptionDensity,
         descriptionHighlightMode: state.descriptionHighlightMode,
+        pageAnimationEnabled: state.pageAnimationEnabled,
         readingProgress: state.readingProgress,
         bookmarks: state.bookmarks,
       }),
@@ -413,6 +423,9 @@ export const useReaderStore = create<ReaderState>()(
         if (version < 4) {
           // Add description highlight mode (anchor = compact, default)
           state.descriptionHighlightMode = 'anchor';
+        }
+        if (version < 5) {
+          state.pageAnimationEnabled = true;
         }
         return state;
       },
