@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: "v1.2"
 milestone_name: "Reader Stability & Polish"
 status: "Executing"
-last_updated: "2026-03-10T01:31:17Z"
-last_activity: "2026-03-10 — Completed 16-01-PLAN.md (gesture pipeline fix)"
+last_updated: "2026-03-10T01:38:00Z"
+last_activity: "2026-03-10 — 16-02 Task 1 committed, checkpoint: human-verify navigation"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -25,9 +25,9 @@ progress:
 ## Текущая позиция
 
 Phase: 16 of 20 (Навигация и свайпы)
-Plan: 1 of 2 in current phase
-Status: Executing
-Last activity: 2026-03-10 -- Completed 16-01-PLAN.md (gesture pipeline fix, 11 min)
+Plan: 2 of 2 in current phase (checkpoint: human-verify)
+Status: Awaiting human verification
+Last activity: 2026-03-10 -- 16-02 Task 1 committed (f74b7b1), awaiting device verification
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -68,4 +68,4 @@ Progress: [█░░░░░░░░░] 10%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-10
-Остановились на: Completed 16-01-PLAN.md. Готов к 16-02-PLAN.md.
+Остановились на: 16-02-PLAN.md Task 2 checkpoint (human-verify navigation on device). Task 1 committed: f74b7b1.
