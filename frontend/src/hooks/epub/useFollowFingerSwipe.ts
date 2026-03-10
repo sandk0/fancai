@@ -36,13 +36,13 @@ export const FOLLOW_FINGER_CONFIG = {
   /** px/ms - velocity above this triggers flick navigation */
   quickSwipeVelocity: 0.3,
   /** px - minimum distance for a velocity-based flick */
-  quickSwipeMinDistance: 15,
+  quickSwipeMinDistance: 10,
   /** if deltaY/deltaX > this, treat as vertical scroll and cancel swipe */
   maxVerticalRatio: 2.0,
   /** resistance factor for rubber-band at chapter boundary */
   rubberBandResistance: 0.4,
   /** fraction of viewport - rubber-band offset above this triggers chapter change */
-  chapterTransitionThreshold: 0.35,
+  chapterTransitionThreshold: 0.15, // 0.15 * 375 = 56px — reachable within maxRubberBand (80px)
   /** px - maximum visual offset during rubber-band */
   maxRubberBand: 80,
 } as const;
@@ -72,12 +72,27 @@ export const SPRING_RUBBER = {
   mass: 1,
 };
 
+/** Under-damped spring for swipe completion with micro-bounce (Apple Books feel) */
+export const SPRING_SWIPE = {
+  type: 'spring' as const,
+  stiffness: 300,
+  damping: 24, // < 2*sqrt(300) ≈ 34.6 → ~10-15% overshoot (micro-bounce)
+  mass: 1,
+};
+
+/** Fast spring for tap navigation (~100-150ms, critically damped) */
+export const SPRING_TAP = {
+  type: 'spring' as const,
+  stiffness: 500,
+  damping: 45, // critically damped, fast
+  mass: 0.8,
+};
+
 /** Select spring config based on velocity (px/ms) */
 export const getSpringConfig = (velocity: number) => {
   const absV = Math.abs(velocity);
   if (absV > 0.5) return SPRING_FAST;
-  if (absV > 0.1) return SPRING_NORMAL;
-  return SPRING_RUBBER;
+  return SPRING_SWIPE; // Under-damped with micro-bounce for normal swipes
 };
 
 // ---------------------------------------------------------------------------
