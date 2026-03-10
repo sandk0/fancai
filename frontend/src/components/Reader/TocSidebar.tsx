@@ -430,7 +430,8 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
         isOpen={isOpen}
         onClose={onClose}
         title={tabs.find((t) => t.key === currentTab)?.label || t('reader.sidebar.toc', 'Contents')}
-        snapPoints={[0.5, 0.9]}
+        snapPoints={[0.5, 0.95]}
+        defaultSnap={0.95}
       >
         {sidebarContent}
       </MobilePanel>
