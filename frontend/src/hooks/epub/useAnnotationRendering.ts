@@ -287,6 +287,12 @@ export function useAnnotationRendering({
   const applyingRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Ref for bookmarks — avoids stale closure in debounced applyAnnotations (BUG-4 fix)
+  const bookmarksRef = useRef<BookmarkResponse[]>(bookmarks);
+  useEffect(() => {
+    bookmarksRef.current = bookmarks;
+  }, [bookmarks]);
+
   const closePopup = useCallback(() => {
     setHighlightPopup(null);
   }, []);
@@ -334,7 +340,7 @@ export function useAnnotationRendering({
       const bookmarkId = target.getAttribute('data-bookmark-id');
       if (!bookmarkId) return;
 
-      const bookmark = bookmarks.find((b) => b.id === bookmarkId);
+      const bookmark = bookmarksRef.current.find((b) => b.id === bookmarkId);
       if (!bookmark) return;
 
       event.preventDefault();
@@ -386,16 +392,17 @@ export function useAnnotationRendering({
         // Content may already be destroyed
       }
     };
-  }, [rendition, enabled, bookmarks]);
+  }, [rendition, enabled]); // bookmarks removed — click handler reads from bookmarksRef
 
-  // Apply annotations function
+  // Apply annotations function — reads bookmarks from ref to avoid stale closure (BUG-4 fix)
   const applyAnnotations = useCallback(() => {
     if (!rendition || !enabled || applyingRef.current) return;
 
     const doc = getContentDocument(rendition);
     if (!doc?.body) return;
 
-    const chapterBookmarks = bookmarks.filter(
+    const currentBookmarks = bookmarksRef.current; // always up-to-date via ref
+    const chapterBookmarks = currentBookmarks.filter(
       (b) => b.chapter_number === currentChapter && (b.style !== 'none' || b.color || b.text_color)
     );
 
@@ -423,26 +430,31 @@ export function useAnnotationRendering({
     } finally {
       applyingRef.current = false;
     }
-  }, [rendition, enabled, bookmarks, currentChapter]);
+  }, [rendition, enabled, currentChapter]); // bookmarks removed — read from bookmarksRef
 
-  // Debounced apply — waits for description/entity hooks to finish first
-  const debouncedApply = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(applyAnnotations, 200);
-  }, [applyAnnotations]);
+  // Debounced apply with configurable delay:
+  // - 50ms for bookmark changes (fast feedback after optimistic update)
+  // - 200ms for rendered event (wait for description/entity hooks)
+  const debouncedApply = useCallback(
+    (delay: number = 200) => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      debounceRef.current = setTimeout(applyAnnotations, delay);
+    },
+    [applyAnnotations]
+  );
 
   // Restore annotations when chapter renders or bookmarks change
   useEffect(() => {
     if (!rendition || !enabled) return;
 
-    // Apply on initial render
-    debouncedApply();
+    // Fast re-render for bookmark changes (50ms) — data already in cache from optimistic update
+    debouncedApply(50);
 
-    // Re-apply on rendered event (chapter navigation)
+    // Full debounce for rendered event (200ms) — wait for description/entity hooks
     const handleRendered = () => {
-      debouncedApply();
+      debouncedApply(200);
     };
 
     rendition.on('rendered', handleRendered as (...args: unknown[]) => void);

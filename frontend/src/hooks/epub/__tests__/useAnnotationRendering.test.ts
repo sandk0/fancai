@@ -248,7 +248,7 @@ describe('useAnnotationRendering', () => {
     const bookmarkA = makeBookmark('bookmark-A', 1, 'epubcfi(/6/2!/4[para1]/1:0,/1:5)');
     const bookmarkB = makeBookmark('bookmark-B', 1, 'epubcfi(/6/2!/4[para1]/1:6,/1:11)');
 
-    const { mockRendition, getRenderedBookmarkIds } = createMockRenditionWithDoc();
+    const { mockRendition } = createMockRenditionWithDoc();
 
     // Start with bookmark A only
     mockBookmarksData.current = [bookmarkA];
@@ -266,19 +266,28 @@ describe('useAnnotationRendering', () => {
       { wrapper: createWrapper() }
     );
 
+    // Flush initial debounce so first render completes
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Clear getRange call history — we only want to track calls AFTER bookmark change
+    mockRendition.getRange.mockClear();
+
     // Simulate optimistic update: add bookmark B (mimics TanStack Query setQueryData)
     mockBookmarksData.current = [bookmarkA, bookmarkB];
     rerender();
 
-    // Advance past all debounce timers (200ms is the max)
+    // Advance past debounce timer
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(100);
     });
 
-    // CRITICAL: Both bookmarks must be rendered — not just A (stale closure would show only A)
-    const renderedIds = getRenderedBookmarkIds();
-    expect(renderedIds).toContain('bookmark-A');
-    expect(renderedIds).toContain('bookmark-B');
+    // CRITICAL: getRange must be called with BOTH bookmark CFIs
+    // Stale closure would only call with bookmark-A's CFI (or neither, if stale bookmarks was [])
+    const calledCfis = mockRendition.getRange.mock.calls.map((c: string[]) => c[0]);
+    expect(calledCfis).toContain(bookmarkA.cfi_range);
+    expect(calledCfis).toContain(bookmarkB.cfi_range);
 
     vi.useRealTimers();
   });
