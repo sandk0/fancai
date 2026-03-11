@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: executing
-last_updated: "2026-03-11T16:50:10.363Z"
-last_activity: 2026-03-11 — Phase 18 complete (HighlightTooltip, edit mode in SelectionMenu)
+status: in_progress
+last_updated: "2026-03-11T18:28:30Z"
+last_activity: 2026-03-11 — Plan 19-01 complete (DescriptionDrawer + EntityBottomSheet)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_plans: 11
+  completed_plans: 10
+  percent: 91
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 18 -- Выделение текста и заметки
+**Текущий фокус:** Phase 19 -- Описания и Entity Popup
 
 ## Текущая позиция
 
-Phase: 18 of 20 (Выделение текста и заметки) -- COMPLETE
-Plan: 2 of 2 complete
-Status: Phase 18 complete, all plans done
-Last activity: 2026-03-11 — Plan 18-02 complete (HighlightTooltip, edit mode in SelectionMenu)
+Phase: 19 of 20 (Описания и Entity Popup)
+Plan: 1 of 2 complete
+Status: Plan 19-01 complete, next: 19-02
+Last activity: 2026-03-11 — Plan 19-01 complete (DescriptionDrawer + EntityBottomSheet)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 91%
 
 ## Метрики производительности
 
@@ -77,6 +77,10 @@ Progress: [██████████] 100%
 - [18-01] -webkit-touch-callout: none НЕ применяется глобально (ломает long-press выделение на iOS)
 - [18-02] Edit mode в SelectionMenu через editMode prop с pre-populated полями (не отдельный компонент)
 - [18-02] HighlightTooltip позиционирование: выше/ниже точки тапа на основе 50% viewport
+- [19-01] DescriptionDrawer: snap points [0.4, 0.8], h-[95dvh], useGenerateImage мутация внутри компонента
+- [19-01] EntityBottomSheet: snap points [0.3, 0.6], entities.type_${type} i18n паттерн
+- [19-01] isPanelOpen расширен: isDrawerOpen + !!popupEntity (закрытие при навигации)
+- [19-01] popupPosition state удалён -- bottom sheet не нуждается в позиционировании
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -97,6 +101,6 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Phase 18 complete: HighlightTooltip компонент и edit mode в SelectionMenu.
-Коммиты: 5a9c2ce (test), 44ec77c (feat), e007090 (feat).
-Phase 18 полностью завершена (2/2 plans). Следующий: Phase 19 (описания).
+Plan 19-01 complete: DescriptionDrawer + EntityBottomSheet + EpubReader wiring.
+Коммиты: b0014f9 (test), 6ca176b (feat), c99aef2 (feat).
+Следующий: Plan 19-02 (ENT-02 fix, CSS dimming, toggle).
