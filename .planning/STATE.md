@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: executing
-last_updated: "2026-03-11T01:54:13.679Z"
-last_activity: 2026-03-11 — Plan 17-04 complete (iOS overlay fix + header button reorganization)
+last_updated: "2026-03-11T16:31:06Z"
+last_activity: 2026-03-11 — Plan 18-01 complete (CSS selection unblock, gesture passthrough)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 7
   completed_plans: 7
-  percent: 80
+  percent: 40
 ---
 
 # Состояние проекта
@@ -25,11 +25,11 @@ progress:
 ## Текущая позиция
 
 Phase: 18 of 20 (Выделение текста и заметки)
-Plan: 0 of 2 complete
-Status: Phase 17 gap closure complete, ready for Phase 18
-Last activity: 2026-03-11 — Plan 17-04 complete (iOS overlay fix + header button reorganization)
+Plan: 1 of 2 complete
+Status: Plan 18-01 complete, executing Phase 18
+Last activity: 2026-03-11 — Plan 18-01 complete (CSS selection unblock, gesture passthrough)
 
-Progress: [████████░░] 80%
+Progress: [████░░░░░░] 40%
 
 ## Метрики производительности
 
@@ -70,6 +70,11 @@ Progress: [████████░░] 80%
 - [17-04] clientY < 80px guard в handleOverlayTouchEnd как fallback-защита
 - [17-04] Entity Wiki и Settings: всегда видны (flex без hidden), Search от xs (375px)
 - [17-04] Overflow menu: только TOC + Search (xs:hidden), trigger xs:hidden
+- [hotfix] epub.js 0.3.93 queue.dequeue() не имеет try-catch — если task бросает исключение, очередь блокируется навсегда. Monkey-patch в patchRenditionQueue (useBookSearch.ts). Коммит 4c97bde.
+- [hotfix] rangeToPointCfi УДАЛЁН — конвертация range→point CFI ломала кросс-секционную навигацию. Range CFI работает с patched queue.
+- [18-01] CSS class toggle (body.selection-blocked) вместо JS guard для блокировки выделения при анимации
+- [18-01] contextmenu suppression через maxTouchPoints/ontouchstart (не глобально)
+- [18-01] -webkit-touch-callout: none НЕ применяется глобально (ломает long-press выделение на iOS)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -90,5 +95,7 @@ Progress: [████████░░] 80%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-UAT Round 2 багфиксы: MobilePanel h-[95dvh] (TOC + Info), SearchPanel z-[110] (кнопки навигации).
-Phase 17 gap closure — ожидает UAT Round 2 подтверждения.
+Plan 18-01 complete: разблокировка мобильного выделения текста.
+Убран CSS user-select:none для мобильных, добавлен selection-blocked class, contextmenu suppression, selection passthrough в gesture controller.
+Коммиты: c11f583 (test), 5a6126d (feat), c4213e6 (feat).
+Следующий: Plan 18-02 (HighlightTooltip).
