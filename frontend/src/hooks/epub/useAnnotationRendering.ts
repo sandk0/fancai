@@ -26,7 +26,7 @@ interface UseAnnotationRenderingOptions {
   enabled?: boolean;
 }
 
-interface HighlightPopup {
+export interface HighlightPopup {
   bookmarkId: string;
   cfiRange: string;
   note: string | null;
