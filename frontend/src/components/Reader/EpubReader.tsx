@@ -119,6 +119,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     scrollOffsetPercent,
     currentPage,
     totalPages,
+    chapterPage,
+    chapterTotalPages,
     goToCFI,
     skipNextRelocated,
     setInitialProgress,
@@ -623,14 +625,18 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         isHeaderVisible={autoHide.isHeaderVisible}
         header={{
           metadata: { title: bookMetadata?.title ?? '', author: bookMetadata?.creator ?? '' },
-          progress,
-          currentPage: currentPage ?? undefined,
-          totalPages: totalPages ?? undefined,
           onBack: () => navigate('/'),
           onTocToggle: () => setIsTocOpen(!isTocOpen),
           onSettingsOpen: () => setIsSettingsOpen(!isSettingsOpen),
           onEntitiesOpen: handleEntitiesOpen,
           onSearchToggle: () => setIsSearchOpen((prev) => !prev),
+        }}
+        footer={{
+          progress,
+          currentPage: currentPage ?? undefined,
+          totalPages: totalPages ?? undefined,
+          chapterPage: chapterPage ?? undefined,
+          chapterTotalPages: chapterTotalPages ?? undefined,
         }}
         settings={{
           isOpen: isSettingsOpen,
