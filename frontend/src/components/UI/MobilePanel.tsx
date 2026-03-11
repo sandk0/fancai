@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
@@ -30,18 +30,33 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
 }) => {
   const isMobile = useIsMobile();
 
+  const [activeSnap, setActiveSnap] = useState<number | string | null>(
+    defaultSnap ?? snapPoints[snapPoints.length - 1]
+  );
+
+  // Sync activeSnap when opening or when defaultSnap/snapPoints change
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSnap(defaultSnap ?? snapPoints[snapPoints.length - 1]);
+    }
+  }, [isOpen, defaultSnap, snapPoints]);
+
   if (!isMobile) {
     return <>{children}</>;
   }
 
-  const activeSnap = defaultSnap ?? snapPoints[snapPoints.length - 1];
-
   return (
     <Drawer.Root
       open={isOpen}
-      onOpenChange={(open) => !open && onClose()}
+      onOpenChange={(open) => {
+        if (!open) {
+          setActiveSnap(null);
+          onClose();
+        }
+      }}
       snapPoints={snapPoints}
       activeSnapPoint={activeSnap}
+      setActiveSnapPoint={setActiveSnap}
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
