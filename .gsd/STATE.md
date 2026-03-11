@@ -7,7 +7,7 @@
 
 ## Milestone Registry
 - ✅ **M001:** Готовность к продакшену (completed 2026-03-09)
-- ✅ **M002:** Reader Mobile / PWA (completed 2026-03-09)
+- ✅ **M002:** Reader Mobile / PWA (completed 2026-03-09, summary written)
 - 🔄 **M003:** Reader Stability & Polish (S01-S04 done, S05 in progress, S06 pending)
 
 ## Current Bugs (S05 UAT failures)
