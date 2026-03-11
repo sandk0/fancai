@@ -75,8 +75,8 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
             </button>
           </div>
 
-          {/* Scrollable content with safe area padding */}
-          <div className="overflow-y-auto flex-1 pb-safe">{children}</div>
+          {/* Content container — flex column so children's flex-1 works */}
+          <div className="flex-1 flex flex-col min-h-0 pb-safe">{children}</div>
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>
