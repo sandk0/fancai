@@ -42,7 +42,12 @@ describe('useGestureController', () => {
         onToggleUI: () => {},
         onSwipeStart: () => {},
         onTapNavigate: () => {},
-        navLock: { acquire: () => true, release: () => {}, isLocked: false },
+        navLock: {
+          acquire: () => true,
+          release: () => {},
+          forceRelease: () => {},
+          isLocked: () => false,
+        },
         isPanelOpen: false,
         pageAnimationEnabled: true,
       };

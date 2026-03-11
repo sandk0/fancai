@@ -7,7 +7,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import React from 'react';
 import { HighlightTooltip } from '../HighlightTooltip';
 
 // Mock react-i18next
