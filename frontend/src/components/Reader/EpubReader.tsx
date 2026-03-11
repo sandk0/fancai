@@ -44,7 +44,7 @@ import { ReaderUI } from './Core/ReaderUI';
 import { FollowFingerContainer } from './FollowFingerContainer';
 import { ExtractionIndicator } from './ExtractionIndicator';
 import { SearchPanel } from './SearchPanel';
-import { EntityPopup } from './EntityPopup';
+import { EntityBottomSheet } from './EntityBottomSheet';
 import { DescriptionDrawer } from './DescriptionDrawer';
 import { useEntityNameHighlighting } from '@/hooks/epub/useEntityNameHighlighting';
 import { useNavigationLock } from '@/hooks/shared/useNavigationLock';
@@ -75,6 +75,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const [drawerDescription, setDrawerDescription] = useState<Description | null>(null);
   const [drawerImage, setDrawerImage] = useState<GeneratedImage | undefined>(undefined);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
+    null
+  );
   const {
     navigationMode,
     updateNavigationMode,
@@ -309,7 +312,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   ]);
 
   // Compute isPanelOpen for gesture blocking
-  const isPanelOpen = isTocOpen || isSettingsOpen || isEntityDrawerOpen || isSearchOpen;
+  const isPanelOpen =
+    isTocOpen ||
+    isSettingsOpen ||
+    isEntityDrawerOpen ||
+    isSearchOpen ||
+    isDrawerOpen ||
+    !!popupEntity;
 
   // Dismiss all panels when user taps inside epub iframe
   const handlePanelDismiss = useCallback(() => {
@@ -317,6 +326,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setIsSettingsOpen(false);
     setIsEntityDrawerOpen(false);
     setIsSearchOpen(false);
+    setIsDrawerOpen(false);
+    setPopupEntity(null);
   }, []);
 
   // Unified gesture controller replaces useFollowFingerSwipe + useTouchNavigation + IOSTapZones
@@ -502,10 +513,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setEditingBookmark(null);
   }, []);
 
-  const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
-    null
-  );
-  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
   const [drawerInitialEntityId, setDrawerInitialEntityId] = useState<string | null>(null);
   const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
     book.id,
@@ -518,13 +525,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
 
-  const handleEntityClick = useCallback(
-    (entity: import('@/types/entity').EntityDetail, position: { x: number; y: number }) => {
-      setPopupEntity(entity);
-      setPopupPosition(position);
-    },
-    []
-  );
+  const handleEntityClick = useCallback((entity: import('@/types/entity').EntityDetail) => {
+    setPopupEntity(entity);
+  }, []);
 
   const entityList = useMemo(() => {
     if (!entityNetwork?.entities) return [];
@@ -537,19 +540,17 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     currentChapter,
     currentCFI,
     enabled: renditionReady && nameHighlightingEnabled,
-    onEntityClick: handleEntityClick,
+    onEntityClick: (entity, _position) => handleEntityClick(entity),
   });
 
   const handleEntityPopupOpenDrawer = useCallback((entityId: string) => {
     setDrawerInitialEntityId(entityId);
     setIsEntityDrawerOpen(true);
     setPopupEntity(null);
-    setPopupPosition(null);
   }, []);
 
   const handleEntityPopupClose = useCallback(() => {
     setPopupEntity(null);
-    setPopupPosition(null);
   }, []);
 
   const handleEntitiesOpen = useCallback(() => {
@@ -723,9 +724,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         saveStatus={{ lastSaved: lastSaved ? new Date(lastSaved) : null, isSaving }}
       />
 
-      <EntityPopup
+      <EntityBottomSheet
         entity={popupEntity}
-        position={popupPosition}
+        isOpen={!!popupEntity}
         onClose={handleEntityPopupClose}
         onOpenDrawer={handleEntityPopupOpenDrawer}
       />
@@ -768,6 +769,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           setIsDrawerOpen(false);
           openModal(d, i);
         }}
+        bookId={book.id}
       />
 
       <ReaderModals
