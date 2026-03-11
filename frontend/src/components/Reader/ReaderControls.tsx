@@ -11,6 +11,7 @@ import {
   Settings,
   Type,
   Eye,
+  Highlighter,
 } from 'lucide-react';
 import { isAndroid } from '@/utils/iosSupport';
 import {
@@ -42,6 +43,8 @@ interface ReaderControlsProps {
   onNavigationModeChange?: (m: NavigationMode) => void;
   nameHighlightingEnabled?: boolean;
   onNameHighlightingChange?: (e: boolean) => void;
+  descriptionHighlightingEnabled?: boolean;
+  onDescriptionHighlightingChange?: (e: boolean) => void;
   descriptionDensity?: DescriptionDensity;
   onDescriptionDensityChange?: (d: DescriptionDensity) => void;
   highlightMode?: DescriptionHighlightMode;
@@ -67,6 +70,8 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
   onNavigationModeChange,
   nameHighlightingEnabled,
   onNameHighlightingChange,
+  descriptionHighlightingEnabled,
+  onDescriptionHighlightingChange,
   descriptionDensity,
   onDescriptionDensityChange,
   highlightMode,
@@ -206,6 +211,20 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
             <span className="text-sm font-medium">{t('entities.name_highlighting')}</span>
           </div>
           <Switch checked={nameHighlightingEnabled} onChange={onNameHighlightingChange} />
+        </div>
+      )}
+
+      {/* Description highlighting toggle */}
+      {onDescriptionHighlightingChange && (
+        <div className="px-4 py-3 border-t flex items-center justify-between min-h-[44px]">
+          <div className="flex items-center gap-2">
+            <Highlighter className="h-4 w-4 opacity-50" />
+            <span className="text-sm font-medium">{t('entities.description_highlighting')}</span>
+          </div>
+          <Switch
+            checked={descriptionHighlightingEnabled}
+            onChange={onDescriptionHighlightingChange}
+          />
         </div>
       )}
 

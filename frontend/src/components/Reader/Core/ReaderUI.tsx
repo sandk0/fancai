@@ -47,6 +47,8 @@ interface ReaderUIProps {
     onNavigationModeChange: (mode: 'swipe' | 'tap') => void;
     nameHighlightingEnabled: boolean;
     onNameHighlightingChange: (enabled: boolean) => void;
+    descriptionHighlightingEnabled: boolean;
+    onDescriptionHighlightingChange: (enabled: boolean) => void;
     descriptionHighlightMode: DescriptionHighlightMode;
     onDescriptionHighlightModeChange: (mode: DescriptionHighlightMode) => void;
     pageAnimationEnabled: boolean;
@@ -114,6 +116,8 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
           onNavigationModeChange={settings.onNavigationModeChange}
           nameHighlightingEnabled={settings.nameHighlightingEnabled}
           onNameHighlightingChange={settings.onNameHighlightingChange}
+          descriptionHighlightingEnabled={settings.descriptionHighlightingEnabled}
+          onDescriptionHighlightingChange={settings.onDescriptionHighlightingChange}
           highlightMode={settings.descriptionHighlightMode}
           onHighlightModeChange={settings.onDescriptionHighlightModeChange}
           pageAnimationEnabled={settings.pageAnimationEnabled}
