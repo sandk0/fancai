@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: in_progress
-last_updated: "2026-03-11T21:41:04Z"
-last_activity: 2026-03-12 — Plan 19.1-01 complete (inline styles removed, opaque drawers, edge taps fix)
+status: completed
+last_updated: "2026-03-11T21:46:09.000Z"
+last_activity: 2026-03-12 — Plan 19.1-02 complete (BUG-4 annotation stale closure fix, bookmarksRef pattern)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 6
   total_plans: 13
-  completed_plans: 12
-  percent: 92
+  completed_plans: 13
+  percent: 100
 ---
 
 # Состояние проекта
@@ -25,11 +25,11 @@ progress:
 ## Текущая позиция
 
 Phase: 19.1 (UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок)
-Plan: 2 of 2
-Status: In Progress
-Last activity: 2026-03-12 — Plan 19.1-01 complete (inline styles removed, opaque drawers, edge taps fix)
+Plan: 2 of 2 (complete)
+Status: Phase Complete
+Last activity: 2026-03-12 — Plan 19.1-02 complete (BUG-4 annotation stale closure fix, bookmarksRef pattern)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -89,6 +89,9 @@ Progress: [█████████░] 92%
 - [19.1-01] bg-[var(--color-bg-base)] для standalone drawer-ов (solid, theme-adaptive)
 - [19.1-01] elementFromPoint вместо e.target для определения интерактивных элементов в edge zones
 - [19.1-01] Click handler обновлён аналогично touch handler: entity + description обработка
+- [19.1-02] bookmarksRef.current вместо closure в applyAnnotations -- всегда актуальные данные при debounced вызове
+- [19.1-02] Дифференцированный debounce: 50ms для bookmark changes, 200ms для rendered event
+- [19.1-02] Click handler переведён на bookmarksRef -- убрана зависимость bookmarks из useEffect deps
 
 ### Roadmap Evolution
 
@@ -113,6 +116,6 @@ Progress: [█████████░] 92%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-12
-Plan 19.1-01 complete: BUG-1 inline styles removed, BUG-2/3 opaque drawers, BUG-5 elementFromPoint edge taps.
-Коммиты: 2de7397 (fix), 8ce1cac (fix).
-Следующий: 19.1-02 (BUG-4 annotation race condition).
+Phase 19.1 complete: Plan 19.1-02 -- BUG-4 annotation stale closure fix (bookmarksRef pattern, 50ms debounce).
+Коммиты: 3a2de79 (test RED), 8860255 (fix GREEN).
+Milestone v1.2 complete -- все 13 планов выполнены, включая 19.1 UAT-фиксы.
