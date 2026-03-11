@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: executing
-last_updated: "2026-03-11T01:47:12.387Z"
-last_activity: 2026-03-11 — Plan 17-03 complete (ReaderFooter с прогресс-линией)
+last_updated: "2026-03-11T01:54:13.679Z"
+last_activity: 2026-03-11 — Plan 17-04 complete (iOS overlay fix + header button reorganization)
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 71
+  completed_plans: 7
+  percent: 80
 ---
 
 # Состояние проекта
@@ -26,10 +26,10 @@ progress:
 
 Phase: 18 of 20 (Выделение текста и заметки)
 Plan: 0 of 2 complete
-Status: Phase 17 gap closure in progress
-Last activity: 2026-03-11 — Plan 17-03 complete (ReaderFooter с прогресс-линией)
+Status: Phase 17 gap closure complete, ready for Phase 18
+Last activity: 2026-03-11 — Plan 17-04 complete (iOS overlay fix + header button reorganization)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 80%
 
 ## Метрики производительности
 
@@ -66,6 +66,10 @@ Progress: [███████░░░] 71%
 - [17-05] MobilePanel activeSnapPoint через useState + setActiveSnapPoint (Vaul dismiss работает)
 - [17-03] Footer показывается/скрывается синхронно с шапкой (isHeaderVisible)
 - [17-03] chapterPage/chapterTotalPages из useCFITracking (displayed.page/displayed.total)
+- [17-04] iOS overlay top: calc(env(safe-area-inset-top) + 64px) -- исключает header area
+- [17-04] clientY < 80px guard в handleOverlayTouchEnd как fallback-защита
+- [17-04] Entity Wiki и Settings: всегда видны (flex без hidden), Search от xs (375px)
+- [17-04] Overflow menu: только TOC + Search (xs:hidden), trigger xs:hidden
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -86,6 +90,6 @@ Progress: [███████░░░] 71%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Plan 17-03: ReaderFooter с прогресс-линией, процентом, счётчиком страниц. Прогресс удалён из шапки.
-Коммиты Plan 17-03: c865083, 98b5fb6.
-Следующий шаг: выполнение оставшихся gap closure планов Phase 17 (17-04) или Phase 18.
+Plan 17-04: iOS overlay fix (top offset + clientY guard), Entity Wiki и Settings вынесены из overflow в шапку.
+Коммиты Plan 17-04: e67ee14, d2a72c0.
+Phase 17 gap closure полностью завершена (все 5 планов). Следующий шаг: Phase 18.
