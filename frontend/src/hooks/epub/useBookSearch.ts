@@ -179,7 +179,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
           // Navigate to first result using CFI for precise positioning
           if (allResults.length > 0 && rendition) {
             suppressEpubDisplayError(() => {
-              rendition.display(allResults[0].cfi);
+              rendition.display(allResults[0].cfi).catch(() => {});
             });
             currentIndexRef.current = 0;
             setCurrentIndex(0);
@@ -205,7 +205,9 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       setCurrentIndex(safeIndex);
 
       const result = results[safeIndex];
-      rendition.display(result.cfi);
+      suppressEpubDisplayError(() => {
+        rendition.display(result.cfi).catch(() => {});
+      });
       applyHighlight(result.cfi);
     },
     [rendition, results, applyHighlight]
