@@ -874,9 +874,10 @@ export const useGestureController = (
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
+    // FIX: overlay не должен покрывать область шапки (см. debug/header-click-hides-immediately.md)
     overlay.style.cssText = `
       position: absolute;
-      top: env(safe-area-inset-top);
+      top: calc(env(safe-area-inset-top) + 64px);
       bottom: env(safe-area-inset-bottom);
       left: 15%;
       right: 15%;
@@ -917,6 +918,12 @@ export const useGestureController = (
         deltaX >= TAP_MAX_MOVEMENT ||
         deltaY >= TAP_MAX_MOVEMENT
       ) {
+        return;
+      }
+
+      // FIX: не вызывать toggleUI если тап в области header (fallback-защита)
+      const headerThreshold = 80; // safe-area + header height
+      if (touch.clientY < headerThreshold) {
         return;
       }
 
