@@ -77,7 +77,7 @@ Progress: [████████░░] 80%
 
 ### Ожидающие задачи
 
-(нет)
+- UAT Round 2 на Pixel 9: проверить фиксы #1 (TOC), #3 (Info), #5 (SearchPanel кнопки)
 
 ### Блокеры/Опасения
 
@@ -90,6 +90,5 @@ Progress: [████████░░] 80%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Plan 17-04: iOS overlay fix (top offset + clientY guard), Entity Wiki и Settings вынесены из overflow в шапку.
-Коммиты Plan 17-04: e67ee14, d2a72c0.
-Phase 17 gap closure полностью завершена (все 5 планов). Следующий шаг: Phase 18.
+UAT Round 2 багфиксы: MobilePanel h-[95dvh] (TOC + Info), SearchPanel z-[110] (кнопки навигации).
+Phase 17 gap closure — ожидает UAT Round 2 подтверждения.

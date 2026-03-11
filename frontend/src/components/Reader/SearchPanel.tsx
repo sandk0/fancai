@@ -128,7 +128,7 @@ export const SearchPanel = memo(function SearchPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[19]"
+            className="fixed inset-0 z-[109]"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -138,7 +138,7 @@ export const SearchPanel = memo(function SearchPanel({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -60, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="fixed left-0 right-0 z-20 bg-card/95 backdrop-blur-md shadow-md border-b border-border"
+            className="fixed left-0 right-0 z-[110] bg-card/95 backdrop-blur-md shadow-md border-b border-border"
             style={{
               top: isHeaderVisible
                 ? 'calc(70px + env(safe-area-inset-top, 0px))'
