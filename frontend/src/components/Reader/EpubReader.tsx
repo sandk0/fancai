@@ -261,28 +261,57 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     [descriptions, images]
   );
 
+  // Entity click handler and entity list (needed before handleCenterTap)
+  const [drawerInitialEntityId, setDrawerInitialEntityId] = useState<string | null>(null);
+  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
+    book.id,
+    maxChapterReached
+  );
+  const prefetchEntityNetwork = usePrefetchEntityNetwork();
+  useEffect(() => {
+    if (book.id) prefetchEntityNetwork(book.id);
+  }, [book.id, prefetchEntityNetwork]);
+
+  const handleEntityClick = useCallback((entity: import('@/types/entity').EntityDetail) => {
+    setPopupEntity(entity);
+  }, []);
+
+  const entityList = useMemo(() => {
+    if (!entityNetwork?.entities) return [];
+    return Object.values(entityNetwork.entities);
+  }, [entityNetwork?.entities]);
+
   const handleCenterTap = useCallback(
-    async (x: number, y: number) => {
-      if (!rendition) return;
+    async (x: number, y: number): Promise<boolean> => {
+      if (!rendition) return false;
       try {
         const contents = rendition.getContents();
-        if (!contents?.length) return;
+        if (!contents?.length) return false;
         const doc = contents[0].document;
-        if (!doc) return;
+        if (!doc) return false;
         let target = doc.elementFromPoint(x, y) as HTMLElement | null;
         while (target && target !== doc.body) {
           if (target.classList?.contains('description-highlight')) {
             const id = target.getAttribute('data-description-id');
             if (id) handleDescriptionClick(id);
-            break;
+            return true;
+          }
+          if (target.classList?.contains('entity-mention')) {
+            const entityId = target.getAttribute('data-entity-id');
+            if (entityId) {
+              const entity = entityList.find((e) => e.id === entityId);
+              if (entity) handleEntityClick(entity);
+            }
+            return true;
           }
           target = target.parentElement;
         }
       } catch (err) {
         logger.error(err);
       }
+      return false;
     },
-    [rendition, handleDescriptionClick]
+    [rendition, handleDescriptionClick, entityList, handleEntityClick]
   );
 
   // Auto-hide UI: immersive mode (header hidden by default)
@@ -515,26 +544,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setEditingBookmark(null);
   }, []);
 
-  const [drawerInitialEntityId, setDrawerInitialEntityId] = useState<string | null>(null);
-  const { data: entityNetwork, isLoading: isEntityNetworkLoading } = useEntityNetwork(
-    book.id,
-    maxChapterReached
-  );
-  const prefetchEntityNetwork = usePrefetchEntityNetwork();
-  useEffect(() => {
-    if (book.id) prefetchEntityNetwork(book.id);
-  }, [book.id, prefetchEntityNetwork]);
-
   const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
-
-  const handleEntityClick = useCallback((entity: import('@/types/entity').EntityDetail) => {
-    setPopupEntity(entity);
-  }, []);
-
-  const entityList = useMemo(() => {
-    if (!entityNetwork?.entities) return [];
-    return Object.values(entityNetwork.entities);
-  }, [entityNetwork?.entities]);
 
   useEntityNameHighlighting({
     rendition,
