@@ -243,7 +243,12 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
 
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // Callback ref + state pattern: when Vaul portal mounts the scroll div,
+  // setting state triggers re-render so useVirtualizer picks up the element
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    setScrollElement(node);
+  }, []);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   useFocusTrap(isOpen && !isMobile, sidebarRef);
@@ -265,7 +270,7 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
 
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => ESTIMATED_TOC_ITEM_HEIGHT,
     overscan: 5,
     enabled: useVirtual,
