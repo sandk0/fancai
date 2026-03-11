@@ -86,39 +86,39 @@ export const ReaderHeader = memo(function ReaderHeader({
 
             {/* Right: action buttons + overflow */}
             <div className="flex items-center gap-1 xs:gap-2 shrink-0">
-              {/* Entities -- visible from sm (640px) */}
+              {/* Entities -- ALWAYS visible (AI core feature, priority) */}
               <button
                 onClick={onEntitiesOpen}
-                className="hidden sm:flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.entities')}
                 aria-label={t('reader.header.entities')}
               >
                 <Library className="w-5 h-5" aria-hidden="true" />
               </button>
-              {/* Search -- visible from sm (640px) */}
+              {/* Search -- visible from xs (375px) */}
               <button
                 onClick={onSearchToggle}
-                className="hidden sm:flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="hidden xs:flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.search')}
                 aria-label={t('reader.header.search')}
               >
                 <Search className="w-5 h-5" aria-hidden="true" />
               </button>
-              {/* Settings -- visible from md (768px) */}
+              {/* Settings -- ALWAYS visible */}
               <button
                 onClick={onSettingsOpen}
-                className="hidden md:flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.settings')}
                 aria-label={t('reader.header.settings')}
               >
                 <Settings className="w-5 h-5" aria-hidden="true" />
               </button>
 
-              {/* Overflow menu -- hidden from md (768px) */}
+              {/* Overflow menu -- hidden from xs (375px), contains TOC + Search for < 375px */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="md:hidden flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
+                    className="xs:hidden flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                     title={t('reader.header.more')}
                     aria-label={t('reader.header.more')}
                   >
@@ -131,20 +131,10 @@ export const ReaderHeader = memo(function ReaderHeader({
                     <List className="w-5 h-5" aria-hidden="true" />
                     <span>{t('reader.header.toc')}</span>
                   </DropdownMenuItem>
-                  {/* Entities -- show in overflow below sm (640px) */}
-                  <DropdownMenuItem onClick={onEntitiesOpen} className="sm:hidden">
-                    <Library className="w-5 h-5" aria-hidden="true" />
-                    <span>{t('reader.header.entities')}</span>
-                  </DropdownMenuItem>
-                  {/* Search -- show in overflow below sm (640px) */}
-                  <DropdownMenuItem onClick={onSearchToggle} className="sm:hidden">
+                  {/* Search -- show in overflow only below xs (375px) */}
+                  <DropdownMenuItem onClick={onSearchToggle} className="xs:hidden">
                     <Search className="w-5 h-5" aria-hidden="true" />
                     <span>{t('reader.header.search')}</span>
-                  </DropdownMenuItem>
-                  {/* Settings -- show in overflow below md (768px) */}
-                  <DropdownMenuItem onClick={onSettingsOpen} className="md:hidden">
-                    <Settings className="w-5 h-5" aria-hidden="true" />
-                    <span>{t('reader.header.settings')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
