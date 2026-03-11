@@ -90,9 +90,9 @@ Plans:
 
 - [x] 17-01-PLAN.md -- Адаптивная шапка с overflow menu + перенос Инфо в TocSidebar (7 min)
 - [x] 17-02-PLAN.md -- Snap points панелей + autofocus fix + SearchPanel на 320px (5 min)
-- [ ] 17-03-PLAN.md -- ReaderFooter с прогресс-линией, удаление прогресса из шапки
-- [ ] 17-04-PLAN.md -- Фикс iOS overlay + вынос Entity Wiki и Settings из overflow
-- [ ] 17-05-PLAN.md -- Закрытие панелей по клику вне них (iframe bridge, MobilePanel fix, SearchPanel backdrop)
+- [x] 17-03-PLAN.md -- ReaderFooter с прогресс-линией, удаление прогресса из шапки
+- [x] 17-04-PLAN.md -- Фикс iOS overlay + вынос Entity Wiki и Settings из overflow
+- [x] 17-05-PLAN.md -- Закрытие панелей по клику вне них (iframe bridge, MobilePanel fix, SearchPanel backdrop)
 
 ### Phase 18: Выделение текста и заметки
 
@@ -104,12 +104,12 @@ Plans:
 1. Пользователь выделяет текст long-press + drag -- gesture controller не перехватывает drag handles и не начинает свайп
 2. После выделения текста появляется SelectionMenu, через который можно создать заметку или цветное выделение
 3. Созданные заметки/выделения сохраняются и отображаются при повторном открытии книги
-   **Plans**: TBD
+   **Plans:** 2 plans
 
 Plans:
 
-- [ ] 18-01: TBD
-- [ ] 18-02: TBD
+- [ ] 18-01-PLAN.md -- Разблокировка мобильного выделения: CSS user-select, contextmenu, gesture passthrough
+- [ ] 18-02-PLAN.md -- HighlightTooltip компонент и wiring в EpubReader/ReaderModals
 
 ### Phase 19: Описания и Entity Popup
 
@@ -167,7 +167,7 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 13. PWA и offline                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 14. Фикс описаний                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 17. Шапка и панели                        | 5/5 | Complete   | 2026-03-11 | -          |
+| 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 0/2            | Not started | -          |
 | 19. Описания и Entity Popup               | v1.2      | 0/2            | Not started | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
