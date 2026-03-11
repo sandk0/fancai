@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: in_progress
-last_updated: "2026-03-11T18:28:30Z"
-last_activity: 2026-03-11 — Plan 19-01 complete (DescriptionDrawer + EntityBottomSheet)
+last_updated: "2026-03-11T18:52:40Z"
+last_activity: 2026-03-11 — Phase 19 complete (CSS dimming, active states, ENT-02 fix)
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 10
-  percent: 91
+  completed_plans: 11
+  percent: 100
 ---
 
 # Состояние проекта
@@ -25,11 +25,11 @@ progress:
 ## Текущая позиция
 
 Phase: 19 of 20 (Описания и Entity Popup)
-Plan: 1 of 2 complete
-Status: Plan 19-01 complete, next: 19-02
-Last activity: 2026-03-11 — Plan 19-01 complete (DescriptionDrawer + EntityBottomSheet)
+Plan: 2 of 2 complete
+Status: Phase 19 complete
+Last activity: 2026-03-11 — Plan 19-02 complete (CSS dimming, active states, ENT-02 fix)
 
-Progress: [█████████░] 91%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -81,6 +81,10 @@ Progress: [█████████░] 91%
 - [19-01] EntityBottomSheet: snap points [0.3, 0.6], entities.type_${type} i18n паттерн
 - [19-01] isPanelOpen расширен: isDrawerOpen + !!popupEntity (закрытие при навигации)
 - [19-01] popupPosition state удалён -- bottom sheet не нуждается в позиционировании
+- [19-02] TYPE_COLORS bg opacity 0.2 -> 0.06, active 0.4 -> 0.15 (приглушённые описания)
+- [19-02] onCenterTap returns boolean -- UI toggle только если interactive element не найден
+- [19-02] handleCenterTap проверяет и .description-highlight и .entity-mention (ENT-02 fix)
+- [19-02] descriptionHighlightingEnabled: boolean в store (version 6), toggle в настройках
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -101,6 +105,6 @@ Progress: [█████████░] 91%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Plan 19-01 complete: DescriptionDrawer + EntityBottomSheet + EpubReader wiring.
-Коммиты: b0014f9 (test), 6ca176b (feat), c99aef2 (feat).
-Следующий: Plan 19-02 (ENT-02 fix, CSS dimming, toggle).
+Phase 19 complete: Plan 19-02 -- CSS dimming (0.06 opacity), active states, ENT-02 fix, description toggle.
+Коммиты: ea512f4 (feat), 583c5f4 (fix).
+Milestone v1.2 complete -- все 11 планов выполнены.
