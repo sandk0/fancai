@@ -82,6 +82,8 @@ interface UseCFITrackingReturn {
   scrollOffsetPercent: number;
   currentPage: number | null;
   totalPages: number | null;
+  chapterPage: number | null;
+  chapterTotalPages: number | null;
   goToCFI: (cfi: string, scrollOffset?: number) => Promise<void>;
   skipNextRelocated: () => void;
   setInitialProgress: (cfi: string, progressPercent: number) => void;
@@ -96,6 +98,8 @@ export const useCFITracking = ({
   const [currentCFI, setCurrentCFI] = useState<string>('');
   const [progress, setProgress] = useState<number>(0);
   const [scrollOffsetPercent, setScrollOffsetPercent] = useState<number>(0);
+  const [chapterPage, setChapterPage] = useState<number | null>(null);
+  const [chapterTotalPages, setChapterTotalPages] = useState<number | null>(null);
 
   const restoredCfiRef = useRef<string | null>(null);
 
@@ -123,63 +127,65 @@ export const useCFITracking = ({
    * Navigate to a specific CFI with optional scroll offset
    * Validates CFI format before navigation and throws error if invalid
    */
-  const goToCFI = useCallback(async (cfi: string, scrollOffset?: number) => {
-    if (!rendition || !cfi) return;
+  const goToCFI = useCallback(
+    async (cfi: string, scrollOffset?: number) => {
+      if (!rendition || !cfi) return;
 
-    // Validate CFI format before attempting navigation
-    if (!isValidCFI(cfi)) {
-      throw new Error(`Invalid CFI format: ${cfi.substring(0, 50)}...`);
-    }
+      // Validate CFI format before attempting navigation
+      if (!isValidCFI(cfi)) {
+        throw new Error(`Invalid CFI format: ${cfi.substring(0, 50)}...`);
+      }
 
-    try {
-      devLog('Navigation: Navigating to CFI:', cfi.substring(0, 80) + '...');
+      try {
+        devLog('Navigation: Navigating to CFI:', cfi.substring(0, 80) + '...');
 
-      // Mark this CFI as restored to skip auto-save
-      restoredCfiRef.current = cfi;
+        // Mark this CFI as restored to skip auto-save
+        restoredCfiRef.current = cfi;
 
-      // Display the CFI
-      await rendition.display(cfi);
+        // Display the CFI
+        await rendition.display(cfi);
 
-      // Wait for rendering to complete
-      await new Promise(resolve => setTimeout(resolve, 300));
+        // Wait for rendering to complete
+        await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Apply scroll offset if provided (hybrid approach)
-      if (scrollOffset !== undefined && scrollOffset > 0) {
-        devLog('Scroll offset: Applying scroll offset:', scrollOffset.toFixed(2) + '%');
+        // Apply scroll offset if provided (hybrid approach)
+        if (scrollOffset !== undefined && scrollOffset > 0) {
+          devLog('Scroll offset: Applying scroll offset:', scrollOffset.toFixed(2) + '%');
 
-        await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 200));
 
-        const contents = rendition.getContents();
-        if (contents && contents.length > 0) {
-          const iframe = contents[0];
-          const doc = iframe.document;
+          const contents = rendition.getContents();
+          if (contents && contents.length > 0) {
+            const iframe = contents[0];
+            const doc = iframe.document;
 
-          if (doc && doc.documentElement) {
-            const scrollHeight = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
-            const clientHeight = doc.documentElement.clientHeight || doc.body?.clientHeight || 0;
-            const maxScroll = scrollHeight - clientHeight;
+            if (doc && doc.documentElement) {
+              const scrollHeight = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
+              const clientHeight = doc.documentElement.clientHeight || doc.body?.clientHeight || 0;
+              const maxScroll = scrollHeight - clientHeight;
 
-            if (maxScroll > 0) {
-              const targetScrollTop = (scrollOffset / 100) * maxScroll;
-              doc.documentElement.scrollTop = targetScrollTop;
-              if (doc.body) {
-                doc.body.scrollTop = targetScrollTop;
+              if (maxScroll > 0) {
+                const targetScrollTop = (scrollOffset / 100) * maxScroll;
+                doc.documentElement.scrollTop = targetScrollTop;
+                if (doc.body) {
+                  doc.body.scrollTop = targetScrollTop;
+                }
+
+                devLog('Success: Scroll offset applied:', {
+                  targetScrollTop,
+                  maxScroll,
+                  requestedOffset: scrollOffset.toFixed(2) + '%',
+                });
               }
-
-              devLog('Success: Scroll offset applied:', {
-                targetScrollTop,
-                maxScroll,
-                requestedOffset: scrollOffset.toFixed(2) + '%'
-              });
             }
           }
         }
+      } catch (err) {
+        logger.error('[useCFITracking] Error navigating to CFI:', err);
       }
-
-    } catch (err) {
-      logger.error('[useCFITracking] Error navigating to CFI:', err);
-    }
-  }, [rendition]);
+    },
+    [rendition]
+  );
 
   /**
    * Calculate scroll offset percentage within current page
@@ -269,6 +275,8 @@ export const useCFITracking = ({
       const spineIndex = location.start.index;
       const displayedPage = location.start.displayed?.page || 1;
       const displayedTotal = location.start.displayed?.total || 1;
+      setChapterPage(displayedPage);
+      setChapterTotalPages(displayedTotal);
       const totalSpineItems = book?.spine?.items?.length || book?.spine?.length || 0;
       let spineBasedProgress: number | null = null;
 
@@ -298,7 +306,11 @@ export const useCFITracking = ({
             // On mobile, percentageFromCfi() often returns 0 incorrectly
             // If locations says 0% but spine says we're NOT at start (>3%), trust spine
             if (locationsProgress === 0 && spineBasedProgress !== null && spineBasedProgress > 3) {
-              devLog('⚠️ Cross-validation: locations=0% but spine=' + spineBasedProgress + '%, using spine');
+              devLog(
+                '⚠️ Cross-validation: locations=0% but spine=' +
+                  spineBasedProgress +
+                  '%, using spine'
+              );
               progressPercent = spineBasedProgress;
             } else {
               progressPercent = locationsProgress;
@@ -325,7 +337,9 @@ export const useCFITracking = ({
 
           // CROSS-VALIDATION: Same check for built-in percentage
           if (builtInProgress === 0 && spineBasedProgress !== null && spineBasedProgress > 3) {
-            devLog('⚠️ Cross-validation: built-in=0% but spine=' + spineBasedProgress + '%, using spine');
+            devLog(
+              '⚠️ Cross-validation: built-in=0% but spine=' + spineBasedProgress + '%, using spine'
+            );
             progressPercent = spineBasedProgress;
           } else {
             progressPercent = builtInProgress;
@@ -444,6 +458,8 @@ export const useCFITracking = ({
     scrollOffsetPercent,
     currentPage,
     totalPages,
+    chapterPage,
+    chapterTotalPages,
     goToCFI,
     skipNextRelocated,
     setInitialProgress,

@@ -247,6 +247,12 @@
       "entities": "Энциклопедия",
       "settings": "Настройки",
       "search": "Поиск",
+      "progress_label": "Прогресс чтения: {{percent}}%",
+      "more": "Ещё"
+    },
+    "footer": {
+      "page_of": "{{current}} из {{total}}",
+      "pages_left": "{{count}} стр. до конца главы",
       "progress_label": "Прогресс чтения: {{percent}}%"
     },
     "search": {
