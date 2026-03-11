@@ -68,8 +68,46 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const abortRef = useRef<AbortController | null>(null);
   const highlightedCfiRef = useRef<string | null>(null);
 
-  // === DEBUG: Monitor ALL rendition.display() calls ===
+  // === DEBUG: On-screen log overlay for PWA ===
   const patchedRef = useRef(false);
+  const debugLogRef = useRef<string[]>([]);
+  const debugElRef = useRef<HTMLDivElement | null>(null);
+
+  const dlog = useCallback((msg: string) => {
+    const ts = new Date().toLocaleTimeString('ru', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const line = `${ts} ${msg}`;
+    debugLogRef.current = [...debugLogRef.current.slice(-30), line];
+    if (!debugElRef.current) {
+      const el = document.createElement('div');
+      el.id = 'search-debug-overlay';
+      Object.assign(el.style, {
+        position: 'fixed',
+        bottom: '0',
+        left: '0',
+        right: '0',
+        maxHeight: '40vh',
+        overflowY: 'auto',
+        zIndex: '9999',
+        background: 'rgba(0,0,0,0.85)',
+        color: '#0f0',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        padding: '4px 8px',
+        pointerEvents: 'auto',
+        whiteSpace: 'pre-wrap',
+        lineHeight: '1.4',
+      });
+      document.body.appendChild(el);
+      debugElRef.current = el;
+    }
+    debugElRef.current.textContent = debugLogRef.current.join('\n');
+    debugElRef.current.scrollTop = debugElRef.current.scrollHeight;
+  }, []);
+
   useEffect(() => {
     if (!rendition || patchedRef.current) return;
     patchedRef.current = true;
@@ -77,35 +115,27 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = rendition as any;
     r.display = function (target: unknown) {
-      const stack = new Error().stack
-        ?.split('\n')
-        .slice(1, 5)
-        .map((s: string) => s.trim())
-        .join(' → ');
-      console.log('%c[DISPLAY]', 'background:#ff0;color:#000;font-weight:bold', {
-        target: typeof target === 'string' ? target.substring(0, 80) : target,
-        queueLen: (r.q?._q?.length as number) ?? '?',
-        queueRunning: !!r.q?.running,
-        displaying: !!r.displaying,
-        stack,
-      });
+      const t = typeof target === 'string' ? target.substring(0, 60) : String(target);
+      const qLen = r.q?._q?.length ?? '?';
+      const qRun = !!r.q?.running;
+      const disp = !!r.displaying;
+      dlog(`[DISPLAY] cfi=${t} q=${qLen} run=${qRun} disp=${disp}`);
       const promise = orig(target as string);
       promise.then(
-        () =>
-          console.log(
-            '%c[DISPLAY OK]',
-            'background:#0f0;color:#000',
-            typeof target === 'string' ? target.substring(0, 60) : target
-          ),
-        (err: unknown) => console.log('%c[DISPLAY FAIL]', 'background:#f00;color:#fff', err)
+        () => dlog(`[DISPLAY OK] ${t}`),
+        (err: unknown) => dlog(`[DISPLAY FAIL] ${String(err)}`)
       );
       return promise;
     };
     return () => {
       r.display = orig;
       patchedRef.current = false;
+      if (debugElRef.current) {
+        debugElRef.current.remove();
+        debugElRef.current = null;
+      }
     };
-  }, [rendition]);
+  }, [rendition, dlog]);
   // === END DEBUG ===
 
   const removeHighlight = useCallback(() => {
@@ -246,34 +276,29 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
 
       const result = results[safeIndex];
       const prevResult = safeIndex > 0 ? results[safeIndex - 1] : null;
-      console.log('%c[SEARCH NAV]', 'background:#00f;color:#fff;font-weight:bold', {
-        index,
-        safeIndex,
-        cfi: result.cfi.substring(0, 80),
-        sectionIndex: result.sectionIndex,
-        prevSectionIndex: prevResult?.sectionIndex,
-        sameSectionAsPrev: prevResult?.sectionIndex === result.sectionIndex,
-        resultsLen: results.length,
-      });
+      const sameSec = prevResult?.sectionIndex === result.sectionIndex;
+      dlog(
+        `[NAV] i=${safeIndex}/${results.length} sec=${result.sectionIndex} same=${sameSec} cfi=${result.cfi.substring(0, 60)}`
+      );
       suppressEpubDisplayError(() => {
         rendition.display(result.cfi).catch(() => {});
       });
       applyHighlight(result.cfi);
     },
-    [rendition, results, applyHighlight]
+    [rendition, results, applyHighlight, dlog]
   );
 
   const nextResult = useCallback(() => {
     if (results.length === 0) return;
-    console.log('[SEARCH NAV] nextResult, refIndex:', currentIndexRef.current);
+    dlog(`[NEXT] ref=${currentIndexRef.current}`);
     navigateToResult(currentIndexRef.current + 1);
-  }, [results.length, navigateToResult]);
+  }, [results.length, navigateToResult, dlog]);
 
   const previousResult = useCallback(() => {
     if (results.length === 0) return;
-    console.log('[SEARCH NAV] previousResult, refIndex:', currentIndexRef.current);
+    dlog(`[PREV] ref=${currentIndexRef.current}`);
     navigateToResult(currentIndexRef.current - 1);
-  }, [results.length, navigateToResult]);
+  }, [results.length, navigateToResult, dlog]);
 
   const clearSearch = useCallback(() => {
     if (abortRef.current) {
