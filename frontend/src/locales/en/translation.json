@@ -247,6 +247,12 @@
       "entities": "Encyclopedia",
       "settings": "Settings",
       "search": "Search",
+      "progress_label": "Reading progress: {{percent}}%",
+      "more": "More"
+    },
+    "footer": {
+      "page_of": "{{current}} of {{total}}",
+      "pages_left": "{{count}} pages left in chapter",
       "progress_label": "Reading progress: {{percent}}%"
     },
     "search": {
