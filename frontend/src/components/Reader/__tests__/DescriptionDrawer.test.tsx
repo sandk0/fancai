@@ -59,11 +59,13 @@ vi.mock('@/hooks/api/useImages/useImageMutations', () => ({
   useGenerateImage: () => mockMutationState,
 }));
 
-const mockDescription: Description = {
+const mockDescription = {
   id: 'desc-1',
   content: 'A grand hall with marble columns and golden chandeliers.',
   type: 'location',
   chapter_number: 3,
+  confidence_score: 0.9,
+  priority_score: 0.8,
 } as Description;
 
 const mockCompletedImage: GeneratedImage = {
@@ -168,7 +170,7 @@ describe('DescriptionDrawer', () => {
   });
 
   it('does not render when description is null', () => {
-    const { container } = render(<DescriptionDrawer {...defaultProps} description={null} />);
+    render(<DescriptionDrawer {...defaultProps} description={null} />);
 
     expect(screen.queryByTestId('drawer-root')).not.toBeInTheDocument();
   });
