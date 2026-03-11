@@ -229,3 +229,20 @@ backend/.hypothesis/
 # Audit reports
 docs/reports/2026-03-04-askuserquestion-bug-analysis.md
 docs/reports/2026-03-04-claude-code-workflow-audit.md
+
+# ── GSD baseline (auto-generated) ──
+.gsd/activity/
+.gsd/runtime/
+.gsd/worktrees/
+.gsd/auto.lock
+.gsd/metrics.json
+.gsd/STATE.md
+*.code-workspace
+.env.*
+!.env.example
+*.pyc
+.venv/
+target/
+vendor/
+coverage/
+.bg-shell/
