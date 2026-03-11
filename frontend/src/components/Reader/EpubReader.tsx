@@ -394,7 +394,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     currentChapter,
   });
 
-  const { flashAnnotation } = useAnnotationRendering({
+  const { highlightPopup, closePopup, flashAnnotation } = useAnnotationRendering({
     rendition,
     bookId: book.id,
     currentChapter,
@@ -448,6 +448,59 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     },
     [updateBookmark]
   );
+
+  // Highlight tooltip: edit mode state and handlers
+  const [editingBookmark, setEditingBookmark] = useState<{
+    bookmarkId: string;
+    note: string | null;
+    color: string | null;
+    text_color: string | null;
+    style: string;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const handleHighlightEdit = useCallback(
+    (bookmarkId: string) => {
+      closePopup();
+      const bookmark = bookmarks.find((b) => b.id === bookmarkId);
+      if (!bookmark) return;
+      setEditingBookmark({
+        bookmarkId,
+        note: bookmark.note ?? null,
+        color: bookmark.color ?? null,
+        text_color: bookmark.text_color ?? null,
+        style: bookmark.style ?? 'none',
+        position: highlightPopup?.position ?? {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+        },
+      });
+    },
+    [closePopup, bookmarks, highlightPopup]
+  );
+
+  const handleEditSave = useCallback(
+    (
+      bookmarkId: string,
+      opts: { color?: string | null; style?: string; note?: string; text_color?: string | null }
+    ) => {
+      updateBookmark(bookmarkId, opts);
+      setEditingBookmark(null);
+    },
+    [updateBookmark]
+  );
+
+  const handleHighlightDelete = useCallback(
+    (bookmarkId: string) => {
+      deleteBookmark(bookmarkId);
+      closePopup();
+    },
+    [deleteBookmark, closePopup]
+  );
+
+  const handleCloseEditMode = useCallback(() => {
+    setEditingBookmark(null);
+  }, []);
 
   const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
     null
@@ -740,6 +793,21 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onBookmark: handleBookmark,
           onClose: clearSelection,
         }}
+        highlight={{
+          popup: highlightPopup,
+          onEdit: handleHighlightEdit,
+          onDelete: handleHighlightDelete,
+          onClose: closePopup,
+        }}
+        selectionEditMode={
+          editingBookmark
+            ? {
+                ...editingBookmark,
+                onSave: handleEditSave,
+              }
+            : undefined
+        }
+        onCloseEditMode={handleCloseEditMode}
         toc={{
           isOpen: isTocOpen,
           onClose: () => setIsTocOpen(false),

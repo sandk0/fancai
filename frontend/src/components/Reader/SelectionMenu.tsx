@@ -29,6 +29,19 @@ const STYLE_OPTIONS: { key: BookmarkStyle; label: string }[] = [
   { key: 'italic', label: 'Italic' },
 ];
 
+export interface EditModeData {
+  bookmarkId: string;
+  note: string | null;
+  color: string | null;
+  text_color: string | null;
+  style: string;
+  position: { x: number; y: number };
+  onSave: (
+    bookmarkId: string,
+    opts: { color?: string | null; style?: string; note?: string; text_color?: string | null }
+  ) => void;
+}
+
 interface SelectionMenuProps {
   selection: Selection | null;
   onCopy: () => void;
@@ -39,6 +52,7 @@ interface SelectionMenuProps {
     text_color?: string | null;
   }) => void;
   onClose: () => void;
+  editMode?: EditModeData;
 }
 
 /**
@@ -49,6 +63,7 @@ export const SelectionMenu = memo(function SelectionMenu({
   onCopy,
   onBookmark,
   onClose,
+  editMode,
 }: SelectionMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -59,14 +74,23 @@ export const SelectionMenu = memo(function SelectionMenu({
   const [selectedStyle, setSelectedStyle] = useState<BookmarkStyle>('none');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset submenu state when selection changes
+  // Reset submenu state when selection changes or edit mode activates
   useEffect(() => {
-    setSubmenu('main');
-    setNoteText('');
-    setSelectedColor(BOOKMARK_COLORS[0].value);
-    setSelectedTextColor(null);
-    setSelectedStyle('none');
-  }, [selection?.cfiRange]);
+    if (editMode) {
+      // Edit mode: pre-populate from existing bookmark
+      setSubmenu('note');
+      setNoteText(editMode.note ?? '');
+      setSelectedColor(editMode.color ?? BOOKMARK_COLORS[0].value);
+      setSelectedTextColor(editMode.text_color ?? null);
+      setSelectedStyle((editMode.style as BookmarkStyle) ?? 'none');
+    } else {
+      setSubmenu('main');
+      setNoteText('');
+      setSelectedColor(BOOKMARK_COLORS[0].value);
+      setSelectedTextColor(null);
+      setSelectedStyle('none');
+    }
+  }, [selection?.cfiRange, editMode?.bookmarkId]);
 
   // Focus textarea when note submenu opens
   useEffect(() => {
@@ -77,7 +101,7 @@ export const SelectionMenu = memo(function SelectionMenu({
 
   // Handle click outside to close menu
   useEffect(() => {
-    if (!selection) return;
+    if (!selection && !editMode) return;
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -95,15 +119,18 @@ export const SelectionMenu = memo(function SelectionMenu({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [selection, onClose]);
+  }, [selection, editMode, onClose]);
 
   // Handle Escape key to close menu or go back to main
   useEffect(() => {
-    if (!selection) return;
+    if (!selection && !editMode) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (submenu !== 'main') {
+        if (editMode) {
+          // In edit mode, Escape always closes
+          onClose();
+        } else if (submenu !== 'main') {
           setSubmenu('main');
         } else {
           onClose();
@@ -113,29 +140,25 @@ export const SelectionMenu = memo(function SelectionMenu({
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [selection, onClose, submenu]);
+  }, [selection, editMode, onClose, submenu]);
 
   // Calculate menu position (above or below selection)
   const getMenuStyle = useCallback((): React.CSSProperties => {
-    if (!selection) return { display: 'none' };
+    const pos = editMode?.position ?? selection?.position;
+    if (!pos) return { display: 'none' };
 
     const menuHeight = submenu === 'note' ? 320 : 60;
     const menuWidth = submenu === 'main' ? 160 : 260;
     const offset = 10;
 
-    const spaceAbove = selection.position.y;
-    const spaceBelow = window.innerHeight - selection.position.y;
+    const spaceAbove = pos.y;
+    const spaceBelow = window.innerHeight - pos.y;
 
     const positionAbove = spaceBelow < menuHeight + offset && spaceAbove > menuHeight + offset;
 
-    const left = Math.max(
-      10,
-      Math.min(selection.position.x - menuWidth / 2, window.innerWidth - menuWidth - 10)
-    );
+    const left = Math.max(10, Math.min(pos.x - menuWidth / 2, window.innerWidth - menuWidth - 10));
 
-    const top = positionAbove
-      ? selection.position.y - menuHeight - offset
-      : selection.position.y + offset;
+    const top = positionAbove ? pos.y - menuHeight - offset : pos.y + offset;
 
     return {
       position: 'fixed',
@@ -143,7 +166,7 @@ export const SelectionMenu = memo(function SelectionMenu({
       top: `${top}px`,
       zIndex: 600,
     };
-  }, [selection, submenu]);
+  }, [selection, editMode, submenu]);
 
   const handleCopy = useCallback(() => {
     onCopy();
@@ -152,6 +175,19 @@ export const SelectionMenu = memo(function SelectionMenu({
 
   // Save note — allow saving without text if there's a style/color/text_color
   const handleSaveNote = useCallback(() => {
+    const opts = {
+      color: selectedColor,
+      style: selectedStyle,
+      note: noteText.trim() || undefined,
+      text_color: selectedTextColor,
+    };
+
+    if (editMode) {
+      editMode.onSave(editMode.bookmarkId, opts);
+      onClose();
+      return;
+    }
+
     if (!onBookmark) return;
 
     const hasVisualStyle = selectedStyle !== 'none' || selectedColor || selectedTextColor;
@@ -159,16 +195,11 @@ export const SelectionMenu = memo(function SelectionMenu({
 
     if (!hasVisualStyle && !hasNote) return;
 
-    onBookmark({
-      color: selectedColor,
-      style: selectedStyle,
-      note: hasNote ? noteText.trim() : undefined,
-      text_color: selectedTextColor,
-    });
+    onBookmark(opts);
     onClose();
-  }, [onBookmark, selectedColor, selectedTextColor, selectedStyle, noteText, onClose]);
+  }, [editMode, onBookmark, selectedColor, selectedTextColor, selectedStyle, noteText, onClose]);
 
-  if (!selection) return null;
+  if (!selection && !editMode) return null;
 
   const hasVisualStyle = selectedStyle !== 'none' || selectedColor || selectedTextColor;
   const canSave = hasVisualStyle || noteText.trim();
@@ -181,7 +212,7 @@ export const SelectionMenu = memo(function SelectionMenu({
       role="menu"
       aria-label={t('reader.menu.aria_label', 'Text selection menu')}
     >
-      {submenu === 'main' && (
+      {submenu === 'main' && !editMode && (
         <div className="flex items-stretch divide-x divide-border">
           {/* Copy */}
           <button
@@ -211,12 +242,14 @@ export const SelectionMenu = memo(function SelectionMenu({
         <div className="p-3 w-[260px]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-muted-foreground">
-              {t('reader.menu.add_note', 'Add note')}
+              {editMode
+                ? t('reader.menu.edit_note', 'Edit note')
+                : t('reader.menu.add_note', 'Add note')}
             </span>
             <button
-              onClick={() => setSubmenu('main')}
+              onClick={() => (editMode ? onClose() : setSubmenu('main'))}
               className="p-1 hover:bg-muted rounded min-w-[28px] min-h-[28px] flex items-center justify-center"
-              aria-label={t('common.back', 'Back')}
+              aria-label={editMode ? t('common.close', 'Close') : t('common.back', 'Back')}
             >
               <X className="w-3 h-3" aria-hidden="true" />
             </button>
@@ -339,7 +372,7 @@ export const SelectionMenu = memo(function SelectionMenu({
       )}
 
       {/* Character count for long selections (main menu only) */}
-      {submenu === 'main' && selection.text.length > 100 && (
+      {submenu === 'main' && !editMode && selection && selection.text.length > 100 && (
         <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-opacity-50">
           {selection.text.length} {t('reader.menu.characters', 'characters selected')}
         </div>
