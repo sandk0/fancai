@@ -1,7 +1,7 @@
 # GSD State
 
 **Active Milestone:** M003 — Reader Stability & Polish
-**Active Slice:** S05 — Uat Edge Taps
+**Active Slice:** S06 — Очистка dead code
 **Phase:** summarizing
 **Requirements Status:** 1 active · 12 validated · 0 deferred · 0 out of scope
 
@@ -17,4 +17,4 @@
 - None
 
 ## Next Action
-All tasks done in S05. Write slice summary and complete slice.
+All tasks done in S06. Write slice summary and complete slice.
