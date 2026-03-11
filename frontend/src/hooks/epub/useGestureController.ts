@@ -375,6 +375,14 @@ export const useGestureController = (
         const t = touchRef.current;
         if (t.state !== 'pending' && t.state !== 'swiping') return;
 
+        // Selection passthrough: if user is dragging a selection (expanding highlight),
+        // cancel gesture to avoid intercepting native drag handles
+        const sel = doc.defaultView?.getSelection?.();
+        if (sel && sel.toString().length > 0) {
+          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+          return;
+        }
+
         const touch = e.touches[0];
         if (!touch) return;
 
@@ -1001,6 +1009,28 @@ export const useGestureController = (
       });
     }
   }, [rendition, enabled]);
+
+  // -------------------------------------------------------------------------
+  // Toggle selection-blocked class based on animation phase
+  // Prevents text selection during spring animations (DOM is moving)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!rendition) return;
+    try {
+      const contents = rendition.getContents();
+      contents.forEach((c: unknown) => {
+        const doc = (c as { document: Document }).document;
+        if (!doc?.body) return;
+        if (phase !== 'idle') {
+          doc.body.classList.add('selection-blocked');
+        } else {
+          doc.body.classList.remove('selection-blocked');
+        }
+      });
+    } catch {
+      // Ignore errors when contents not available
+    }
+  }, [rendition, phase]);
 
   return {
     translateX,
