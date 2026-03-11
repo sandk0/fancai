@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: completed
-last_updated: "2026-03-11T19:02:53.531Z"
-last_activity: 2026-03-11 — Plan 19-02 complete (CSS dimming, active states, ENT-02 fix)
+status: in_progress
+last_updated: "2026-03-11T21:41:04Z"
+last_activity: 2026-03-12 — Plan 19.1-01 complete (inline styles removed, opaque drawers, edge taps fix)
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_plans: 13
+  completed_plans: 12
+  percent: 92
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 19 -- Описания и Entity Popup
+**Текущий фокус:** Phase 19.1 -- UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок
 
 ## Текущая позиция
 
-Phase: 19 of 20 (Описания и Entity Popup)
-Plan: 2 of 2 complete
-Status: Phase 19 complete
-Last activity: 2026-03-11 — Plan 19-02 complete (CSS dimming, active states, ENT-02 fix)
+Phase: 19.1 (UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок)
+Plan: 2 of 2
+Status: In Progress
+Last activity: 2026-03-12 — Plan 19.1-01 complete (inline styles removed, opaque drawers, edge taps fix)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 92%
 
 ## Метрики производительности
 
@@ -85,6 +85,14 @@ Progress: [██████████] 100%
 - [19-02] onCenterTap returns boolean -- UI toggle только если interactive element не найден
 - [19-02] handleCenterTap проверяет и .description-highlight и .entity-mention (ENT-02 fix)
 - [19-02] descriptionHighlightingEnabled: boolean в store (version 6), toggle в настройках
+- [19.1-01] Inline touchAction/userSelect/webkitUserSelect убраны из useEpubRendition, CSS из useContentHooks -- единственный источник
+- [19.1-01] bg-[var(--color-bg-base)] для standalone drawer-ов (solid, theme-adaptive)
+- [19.1-01] elementFromPoint вместо e.target для определения интерактивных элементов в edge zones
+- [19.1-01] Click handler обновлён аналогично touch handler: entity + description обработка
+
+### Roadmap Evolution
+
+- Phase 19.1 inserted after Phase 19: UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок (URGENT)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -104,7 +112,7 @@ Progress: [██████████] 100%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-11
-Phase 19 complete: Plan 19-02 -- CSS dimming (0.06 opacity), active states, ENT-02 fix, description toggle.
-Коммиты: ea512f4 (feat), 583c5f4 (fix).
-Milestone v1.2 complete -- все 11 планов выполнены.
+Последняя сессия: 2026-03-12
+Plan 19.1-01 complete: BUG-1 inline styles removed, BUG-2/3 opaque drawers, BUG-5 elementFromPoint edge taps.
+Коммиты: 2de7397 (fix), 8ce1cac (fix).
+Следующий: 19.1-02 (BUG-4 annotation race condition).

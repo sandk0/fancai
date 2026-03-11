@@ -47,6 +47,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 17: Шапка и панели** - Адаптивная шапка (320px+) и панели с полной высотой без авто-клавиатуры (gap closure) (completed 2026-03-11)
 - [x] **Phase 18: Выделение текста и заметки** - Работающее выделение текста и создание заметок без перехвата жестами (completed 2026-03-11)
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
+- [ ] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -128,6 +129,23 @@ Plans:
 - [ ] 19-01-PLAN.md -- DescriptionDrawer с генерацией + EntityBottomSheet + panel dismiss wiring
 - [ ] 19-02-PLAN.md -- CSS opacity приглушение + active states + settings toggle + ENT-02 fix
 
+### Phase 19.1: UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок (INSERTED)
+
+**Goal:** Исправление 5 UAT-багов мобильного ридера: ложное выделение при тапе, прозрачные фоны drawer-ов, edge taps на интерактивных элементах, задержка отображения заметок
+**Depends on:** Phase 19
+**Requirements**: BUG-1, BUG-2, BUG-3, BUG-4, BUG-5
+**Success Criteria** (what must be TRUE):
+
+1. Простой тап по тексту НЕ вызывает выделение/каретку -- только long-press (~500ms)
+2. EntityBottomSheet и DescriptionDrawer отображают контент на полностью непрозрачном фоне
+3. Тап на description-highlight или entity-mention у края экрана открывает popup, а не перелистывает
+4. Созданная заметка сразу отображается визуально, без необходимости создавать вторую
+   **Plans:** 1/2 plans executed
+
+Plans:
+- [ ] 19.1-01-PLAN.md -- Inline styles fix, непрозрачные drawer-ы, elementFromPoint для edge zones
+- [ ] 19.1-02-PLAN.md -- Race condition в annotation rendering: bookmarksRef + дифференцированный debounce
+
 ### Phase 20: Очистка dead code
 
 **Goal**: Удаление устаревшего кода навигации, который заменён новой gesture pipeline
@@ -146,7 +164,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
+Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 20
 (Phase 17 может начаться параллельно с Phase 16)
 
 | Phase                                     | Milestone | Plans Complete | Status      | Completed  |
@@ -169,5 +187,6 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19. Описания и Entity Popup               | 2/2 | Complete    | 2026-03-11 | -          |
+| 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
+| 19.1. UAT-фиксы                          | 1/2 | In Progress|  | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
