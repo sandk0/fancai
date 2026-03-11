@@ -318,9 +318,6 @@ export const BookReader: React.FC<BookReaderProps> = ({
           isVisible={true}
           title={book.title}
           author={book.author}
-          progress={book.reading_progress?.progress_percent || 0}
-          currentPage={currentPage}
-          totalPages={pages.length}
           onBack={() => window.history.back()}
           onTocToggle={() => {}}
           onSettingsOpen={() => setShowSettings(!showSettings)}

@@ -21,9 +21,6 @@ interface ReaderHeaderProps {
   isVisible: boolean;
   title: string;
   author: string;
-  progress: number;
-  currentPage?: number;
-  totalPages?: number;
   onBack: () => void;
   onTocToggle: () => void;
   onSettingsOpen: () => void;
@@ -35,9 +32,6 @@ export const ReaderHeader = memo(function ReaderHeader({
   isVisible,
   title,
   author,
-  progress,
-  currentPage,
-  totalPages,
   onBack,
   onTocToggle,
   onSettingsOpen,
@@ -45,9 +39,6 @@ export const ReaderHeader = memo(function ReaderHeader({
   onSearchToggle,
 }: ReaderHeaderProps) {
   const { t } = useTranslation();
-
-  const clampedProgress = Math.min(100, Math.max(0, progress));
-  const progressText = progress < 10 ? progress.toFixed(1) : String(Math.round(progress));
 
   return (
     <AnimatePresence>
@@ -83,43 +74,14 @@ export const ReaderHeader = memo(function ReaderHeader({
               </button>
             </div>
 
-            {/* Center: Progress (adaptive) + Title on md */}
-            <div className="flex-1 flex flex-col items-center min-w-0 gap-0.5">
-              {/* Book title + author -- only md+ */}
+            {/* Center: Title + Author (md+ only), flex-1 spacer */}
+            <div className="flex-1 flex flex-col items-center min-w-0">
               <h1 className="hidden md:block text-sm font-semibold truncate max-w-[240px] text-foreground">
                 {title}
               </h1>
               <p className="hidden md:block text-xs truncate max-w-[200px] text-muted-foreground">
                 {author}
               </p>
-
-              {/* Progress row */}
-              <div className="flex items-center gap-1.5">
-                {/* Page/total -- only sm+ */}
-                {currentPage !== undefined && totalPages !== undefined && (
-                  <span className="hidden sm:inline font-medium text-xs text-muted-foreground">
-                    {currentPage}/{totalPages}
-                  </span>
-                )}
-                <span className="font-bold text-sm tabular-nums text-foreground">
-                  {progressText}%
-                </span>
-              </div>
-
-              {/* Progress bar -- only xs+ (375px) */}
-              <div
-                role="progressbar"
-                aria-valuenow={clampedProgress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={t('reader.header.progress_label', { percent: Math.round(progress) })}
-                className="hidden xs:block w-full max-w-[200px] h-1.5 rounded-full overflow-hidden bg-muted"
-              >
-                <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-150 ease-out"
-                  style={{ width: `${clampedProgress}%` }}
-                />
-              </div>
             </div>
 
             {/* Right: action buttons + overflow */}

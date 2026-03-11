@@ -2,6 +2,7 @@ import React from 'react';
 import type { ReaderTheme, DescriptionHighlightMode } from '@/stores/reader';
 import type { GenerationStatus } from '@/hooks/epub/useImageModal';
 import { ReaderHeader } from '../ReaderHeader';
+import { ReaderFooter } from '../ReaderFooter';
 import { ReaderControls } from '../ReaderControls';
 import { ImageGenerationStatus } from '../ImageGenerationStatus';
 import { ProgressSaveIndicator } from '../ProgressSaveIndicator';
@@ -17,14 +18,18 @@ interface ReaderUIProps {
   isHeaderVisible: boolean;
   header: {
     metadata: ReaderUIHeaderMetadata;
-    progress: number;
-    currentPage?: number;
-    totalPages?: number;
     onBack: () => void;
     onTocToggle: () => void;
     onSettingsOpen: () => void;
     onEntitiesOpen: () => void;
     onSearchToggle: () => void;
+  };
+  footer: {
+    progress: number;
+    currentPage?: number;
+    totalPages?: number;
+    chapterPage?: number;
+    chapterTotalPages?: number;
   };
   settings: {
     isOpen: boolean;
@@ -63,6 +68,7 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
   isVisible,
   isHeaderVisible,
   header,
+  footer,
   settings,
   imageStatus,
   saveStatus,
@@ -75,14 +81,20 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
         isVisible={isHeaderVisible}
         title={header.metadata.title}
         author={header.metadata.author}
-        progress={header.progress}
-        currentPage={header.currentPage}
-        totalPages={header.totalPages}
         onBack={header.onBack}
         onTocToggle={header.onTocToggle}
         onSettingsOpen={header.onSettingsOpen}
         onEntitiesOpen={header.onEntitiesOpen}
         onSearchToggle={header.onSearchToggle}
+      />
+
+      <ReaderFooter
+        isVisible={isHeaderVisible}
+        progress={footer.progress}
+        currentPage={footer.currentPage}
+        totalPages={footer.totalPages}
+        chapterPage={footer.chapterPage}
+        chapterTotalPages={footer.chapterTotalPages}
       />
 
       <div className="fixed top-16 right-4 z-[100]">
