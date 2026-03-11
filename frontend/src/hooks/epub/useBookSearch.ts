@@ -193,17 +193,33 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
     [book, rendition, applyHighlight]
   );
 
+  const isNavigatingRef = useRef(false);
+
   const navigateToResult = useCallback(
-    (index: number) => {
+    async (index: number) => {
       if (!rendition || results.length === 0) return;
+      // Prevent concurrent rendition.display() calls — epub.js drops subsequent calls
+      // before the first resolves, causing "first click works, then nothing" behavior
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+
       const safeIndex = ((index % results.length) + results.length) % results.length;
       const result = results[safeIndex];
       setCurrentIndex(safeIndex);
-      // Use CFI for precise positioning; suppress epub.js IndexSizeError (thrown in rAF, uncatchable)
-      suppressEpubDisplayError(() => {
-        rendition.display(result.cfi);
-      });
-      applyHighlight(result.cfi);
+
+      try {
+        // Await display so epub.js finishes loading the section before we highlight
+        const cleanup = suppressEpubDisplayError(() => {
+          // noop — we call display below with await
+        });
+        cleanup();
+        await rendition.display(result.cfi);
+        applyHighlight(result.cfi);
+      } catch {
+        // Ignore navigation errors (IndexSizeError etc.)
+      } finally {
+        isNavigatingRef.current = false;
+      }
     },
     [rendition, results, applyHighlight]
   );

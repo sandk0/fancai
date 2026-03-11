@@ -42,7 +42,7 @@ describe('useBookSearch', () => {
   });
 
   const createMockRendition = () => ({
-    display: vi.fn(),
+    display: vi.fn().mockResolvedValue(undefined),
     annotations: {
       highlight: vi.fn(),
       remove: vi.fn(),
@@ -145,19 +145,19 @@ describe('useBookSearch', () => {
     expect(result.current.currentIndex).toBe(0);
 
     // Navigate forward
-    act(() => {
+    await act(async () => {
       result.current.nextResult();
     });
     expect(result.current.currentIndex).toBe(1);
 
     // Navigate forward again (should wrap to 0)
-    act(() => {
+    await act(async () => {
       result.current.nextResult();
     });
     expect(result.current.currentIndex).toBe(0);
 
     // Navigate backward (should wrap to 1)
-    act(() => {
+    await act(async () => {
       result.current.previousResult();
     });
     expect(result.current.currentIndex).toBe(1);
