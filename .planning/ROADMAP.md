@@ -121,12 +121,12 @@ Plans:
 1. Тап на выделенное описание открывает DescriptionDrawer с полным содержимым и кнопкой генерации изображения
 2. Тап на выделенную сущность открывает Entity popup с информацией о персонаже/локации/объекте
 3. Описания и сущности у левого/правого края экрана кликабельны -- навигация не перехватывает тап
-   **Plans**: TBD
+   **Plans:** 2 plans
 
 Plans:
 
-- [ ] 19-01: TBD
-- [ ] 19-02: TBD
+- [ ] 19-01-PLAN.md -- DescriptionDrawer с генерацией + EntityBottomSheet + panel dismiss wiring
+- [ ] 19-02-PLAN.md -- CSS opacity приглушение + active states + settings toggle + ENT-02 fix
 
 ### Phase 20: Очистка dead code
 
@@ -168,6 +168,6 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 14. Фикс описаний                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
-| 18. Выделение текста и заметки            | 2/2 | Complete   | 2026-03-11 | -          |
+| 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup               | v1.2      | 0/2            | Not started | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
