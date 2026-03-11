@@ -84,7 +84,7 @@ Plans:
 6. Entity Wiki имеет отдельную видимую кнопку в шапке
 7. Панели закрываются по клику вне них (включая тап внутри epub iframe)
 8. Прогресс-линия отображается внизу читалки, не в шапке
-   **Plans:** 5 plans (2 complete + 3 gap closure)
+   **Plans:** 4/5 plans executed
 
 Plans:
 
@@ -167,7 +167,7 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 13. PWA и offline                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 14. Фикс описаний                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 17. Шапка и панели                        | v1.2      | 2/5            | Gap closure | -          |
+| 17. Шапка и панели                        | 4/5 | In Progress|  | -          |
 | 18. Выделение текста и заметки            | v1.2      | 0/2            | Not started | -          |
 | 19. Описания и Entity Popup               | v1.2      | 0/2            | Not started | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |

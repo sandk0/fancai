@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: completed
-last_updated: "2026-03-10T23:15:48.973Z"
-last_activity: 2026-03-11 — Phase 17 complete (шапка + панели + SearchPanel)
+status: executing
+last_updated: "2026-03-11T01:47:12.387Z"
+last_activity: 2026-03-11 — Plan 17-03 complete (ReaderFooter с прогресс-линией)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 40
+  completed_phases: 1
+  total_plans: 7
+  completed_plans: 6
+  percent: 71
 ---
 
 # Состояние проекта
@@ -26,10 +26,10 @@ progress:
 
 Phase: 18 of 20 (Выделение текста и заметки)
 Plan: 0 of 2 complete
-Status: Phase 17 complete, ready for Phase 18
-Last activity: 2026-03-11 — Phase 17 complete (шапка + панели + SearchPanel)
+Status: Phase 17 gap closure in progress
+Last activity: 2026-03-11 — Plan 17-03 complete (ReaderFooter с прогресс-линией)
 
-Progress: [████░░░░░░] 40%
+Progress: [███████░░░] 71%
 
 ## Метрики производительности
 
@@ -61,6 +61,11 @@ Progress: [████░░░░░░] 40%
 - [17-02] defaultSnap 0.95 для TocSidebar -- оглавление на полную высоту
 - [17-02] Autofocus SearchPanel отключен на мобильных (isMobile guard)
 - [17-02] SearchPanel 320px: statusText скрыт ниже 375px (hidden xs:inline)
+- [17-05] Panel dismiss при ЛЮБОМ тапе в iframe (unified early return до zone detection)
+- [17-05] Backdrop SearchPanel прозрачный z-[19] -- ловит клики без затемнения
+- [17-05] MobilePanel activeSnapPoint через useState + setActiveSnapPoint (Vaul dismiss работает)
+- [17-03] Footer показывается/скрывается синхронно с шапкой (isHeaderVisible)
+- [17-03] chapterPage/chapterTotalPages из useCFITracking (displayed.page/displayed.total)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -81,6 +86,6 @@ Progress: [████░░░░░░] 40%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Phase 17 завершена: адаптивная шапка с overflow menu, snap points [0.5, 0.95], autofocus fix, SearchPanel 320px.
-Коммиты Plan 17-01: 5eeb410, f8d5c2e. Коммиты Plan 17-02: 129075b, ff7ca73.
-Следующий шаг: планирование Phase 18 (выделение текста и заметки).
+Plan 17-03: ReaderFooter с прогресс-линией, процентом, счётчиком страниц. Прогресс удалён из шапки.
+Коммиты Plan 17-03: c865083, 98b5fb6.
+Следующий шаг: выполнение оставшихся gap closure планов Phase 17 (17-04) или Phase 18.
