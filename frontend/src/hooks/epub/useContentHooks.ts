@@ -17,10 +17,7 @@ import { useEffect } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
 import type { ThemeName } from './useEpubThemes';
 
-export const useContentHooks = (
-  rendition: Rendition | null,
-  theme: ThemeName
-): void => {
+export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): void => {
   useEffect(() => {
     if (!rendition) return;
 
@@ -151,16 +148,10 @@ export const useContentHooks = (
           }
         }
 
-        /* Disable text selection on touch devices (mobile) */
-        /* Prevents accidental text selection when tapping to navigate */
-        @media (pointer: coarse), (hover: none) {
-          body, p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, blockquote {
-            -webkit-user-select: none !important;
-            -moz-user-select: none !important;
-            -ms-user-select: none !important;
-            user-select: none !important;
-            -webkit-touch-callout: none !important;
-          }
+        /* Selection blocked during animation (toggled via JS from gesture controller) */
+        body.selection-blocked * {
+          -webkit-user-select: none !important;
+          user-select: none !important;
         }
 
         /* Smooth scrolling and mobile tap highlight removal */
@@ -185,6 +176,15 @@ export const useContentHooks = (
       `;
 
       doc.head.appendChild(style);
+
+      // Suppress native context menu on mobile (show only SelectionMenu)
+      // On desktop, keep both menus (native right-click + SelectionMenu)
+      const handleContextMenu = (e: Event) => {
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+          e.preventDefault();
+        }
+      };
+      doc.addEventListener('contextmenu', handleContextMenu);
 
       // Fix broken images (optional)
       const images = doc.querySelectorAll('img');
