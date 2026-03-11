@@ -199,14 +199,11 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const navigateToResult = useCallback(
     (index: number) => {
       if (!rendition || results.length === 0) return;
-
       const safeIndex = ((index % results.length) + results.length) % results.length;
-      currentIndexRef.current = safeIndex;
-      setCurrentIndex(safeIndex);
-
       const result = results[safeIndex];
+      setCurrentIndex(safeIndex);
       suppressEpubDisplayError(() => {
-        rendition.display(result.cfi).catch(() => {});
+        rendition.display(result.cfi);
       });
       applyHighlight(result.cfi);
     },
@@ -215,13 +212,13 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
 
   const nextResult = useCallback(() => {
     if (results.length === 0) return;
-    navigateToResult(currentIndexRef.current + 1);
-  }, [results.length, navigateToResult]);
+    navigateToResult(currentIndex + 1);
+  }, [currentIndex, results.length, navigateToResult]);
 
   const previousResult = useCallback(() => {
     if (results.length === 0) return;
-    navigateToResult(currentIndexRef.current - 1);
-  }, [results.length, navigateToResult]);
+    navigateToResult(currentIndex - 1);
+  }, [currentIndex, results.length, navigateToResult]);
 
   const clearSearch = useCallback(() => {
     if (abortRef.current) {
