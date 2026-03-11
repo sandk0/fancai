@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Book, Rendition } from '@/types/epub';
 
 export interface SearchResult {
@@ -40,44 +40,33 @@ interface UseBookSearchReturn {
 const BATCH_SIZE = 5;
 
 /**
- * Suppress epub.js IndexSizeError thrown inside requestAnimationFrame.
- * These are uncatchable via try/catch because they escape the Promise chain.
+ * Monkey-patch epub.js Queue.dequeue() to add try-catch protection.
+ *
+ * epub.js 0.3.93 queue.js has a critical bug: dequeue() calls task.apply()
+ * without try-catch. If the task throws synchronously (e.g. locationOf()
+ * throws IndexSizeError on range CFIs during same-section navigation),
+ * run() never calls itself again → queue is permanently stuck.
+ *
+ * This patch wraps dequeue() so any synchronous exception is caught,
+ * the failed task's deferred is rejected, and the queue continues.
  */
-const suppressEpubDisplayError = (handler: () => void): (() => void) => {
-  const onError = (e: ErrorEvent) => {
-    if (e.message?.includes('IndexSizeError') || e.message?.includes('setStart')) {
-      e.preventDefault(); // Suppress console error
+const patchRenditionQueue = (rendition: Rendition): void => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = (rendition as any).q;
+  if (!q || q.__patched) return;
+
+  const origDequeue = q.dequeue.bind(q);
+  q.dequeue = function () {
+    try {
+      return origDequeue();
+    } catch (e) {
+      // Unblock the queue — reset running so run() can be called again
+      this.running = undefined;
+      // Resolve with empty promise so .then(run) chain continues
+      return Promise.resolve();
     }
   };
-  window.addEventListener('error', onError);
-  handler();
-  // Remove after a tick — errors fire in next rAF
-  const cleanup = () => window.removeEventListener('error', onError);
-  setTimeout(cleanup, 500);
-  return cleanup;
-};
-
-/**
- * Convert range CFI to point CFI for rendition.display().
- *
- * epub.js section.find() returns range CFIs: epubcfi(BASE,START,END)
- * e.g. epubcfi(/6/10!/4/2[id3]/16,/1:453,/1:460)
- *
- * epub.js manager.display() fast path (same-section navigation) calls
- * view.locationOf(target) which throws on range CFIs, permanently blocking
- * the internal queue. Converting to a point CFI avoids this.
- *
- * Point CFI: epubcfi(BASE + START) → epubcfi(/6/10!/4/2[id3]/16/1:453)
- */
-const rangeToPointCfi = (cfi: string): string => {
-  const inner = cfi.slice(8, -1); // Strip "epubcfi(" and ")"
-  const firstComma = inner.indexOf(',');
-  if (firstComma === -1) return cfi; // Already a point CFI
-  const base = inner.slice(0, firstComma);
-  const rest = inner.slice(firstComma + 1);
-  const secondComma = rest.indexOf(',');
-  const startOffset = secondComma === -1 ? rest : rest.slice(0, secondComma);
-  return `epubcfi(${base}${startOffset})`;
+  q.__patched = true;
 };
 
 export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBookSearchReturn => {
@@ -90,6 +79,11 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const currentIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const highlightedCfiRef = useRef<string | null>(null);
+
+  // Patch epub.js queue to prevent permanent blocking on same-section navigation
+  useEffect(() => {
+    if (rendition) patchRenditionQueue(rendition);
+  }, [rendition]);
 
   const removeHighlight = useCallback(() => {
     if (highlightedCfiRef.current && rendition) {
@@ -199,12 +193,9 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
           setIsSearching(false);
           setProgress(null);
 
-          // Navigate to first result — use point CFI to avoid queue blocking
+          // Navigate to first result
           if (allResults.length > 0 && rendition) {
-            const displayCfi = rangeToPointCfi(allResults[0].cfi);
-            suppressEpubDisplayError(() => {
-              rendition.display(displayCfi).catch(() => {});
-            });
+            rendition.display(allResults[0].cfi).catch(() => {});
             currentIndexRef.current = 0;
             setCurrentIndex(0);
             applyHighlight(allResults[0].cfi);
@@ -229,12 +220,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       setCurrentIndex(safeIndex);
 
       const result = results[safeIndex];
-      // Use point CFI for display — range CFIs block epub.js queue on same-section nav
-      const displayCfi = rangeToPointCfi(result.cfi);
-      suppressEpubDisplayError(() => {
-        rendition.display(displayCfi).catch(() => {});
-      });
-      // Keep range CFI for highlight (annotations need the range)
+      rendition.display(result.cfi).catch(() => {});
       applyHighlight(result.cfi);
     },
     [rendition, results, applyHighlight]
