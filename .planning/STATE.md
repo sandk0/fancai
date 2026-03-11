@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: executing
-last_updated: "2026-03-10T22:58:07.656Z"
+status: completed
+last_updated: "2026-03-10T23:15:48.973Z"
 last_activity: 2026-03-11 — Phase 17 complete (шапка + панели + SearchPanel)
 progress:
   total_phases: 5
