@@ -26,39 +26,39 @@ interface UseDescriptionHighlightingOptions {
 
 const TYPE_COLORS: Record<string, { bg: string; border: string; active: string }> = {
   location: {
-    bg: 'rgba(96,165,250,0.2)',
+    bg: 'rgba(96,165,250,0.06)',
     border: 'rgba(96,165,250,0.6)',
-    active: 'rgba(96,165,250,0.4)',
+    active: 'rgba(96,165,250,0.15)',
   },
   character: {
-    bg: 'rgba(167,139,250,0.2)',
+    bg: 'rgba(167,139,250,0.06)',
     border: 'rgba(167,139,250,0.6)',
-    active: 'rgba(167,139,250,0.4)',
+    active: 'rgba(167,139,250,0.15)',
   },
   atmosphere: {
-    bg: 'rgba(251,191,36,0.15)',
+    bg: 'rgba(251,191,36,0.06)',
     border: 'rgba(251,191,36,0.5)',
-    active: 'rgba(251,191,36,0.35)',
+    active: 'rgba(251,191,36,0.15)',
   },
   object: {
-    bg: 'rgba(74,222,128,0.15)',
+    bg: 'rgba(74,222,128,0.06)',
     border: 'rgba(74,222,128,0.5)',
-    active: 'rgba(74,222,128,0.35)',
+    active: 'rgba(74,222,128,0.15)',
   },
   action: {
-    bg: 'rgba(96,165,250,0.2)',
+    bg: 'rgba(96,165,250,0.06)',
     border: 'rgba(96,165,250,0.6)',
-    active: 'rgba(96,165,250,0.4)',
+    active: 'rgba(96,165,250,0.15)',
   },
 };
 
 /** Full-mode colors: lighter semi-transparent background, no border */
 const TYPE_FULL_COLORS: Record<string, { bg: string; hover: string }> = {
-  location: { bg: 'rgba(96,165,250,0.08)', hover: 'rgba(96,165,250,0.15)' },
-  character: { bg: 'rgba(167,139,250,0.08)', hover: 'rgba(167,139,250,0.15)' },
-  atmosphere: { bg: 'rgba(251,191,36,0.08)', hover: 'rgba(251,191,36,0.15)' },
-  object: { bg: 'rgba(74,222,128,0.08)', hover: 'rgba(74,222,128,0.15)' },
-  action: { bg: 'rgba(96,165,250,0.08)', hover: 'rgba(96,165,250,0.15)' },
+  location: { bg: 'rgba(96,165,250,0.06)', hover: 'rgba(96,165,250,0.12)' },
+  character: { bg: 'rgba(167,139,250,0.06)', hover: 'rgba(167,139,250,0.12)' },
+  atmosphere: { bg: 'rgba(251,191,36,0.06)', hover: 'rgba(251,191,36,0.12)' },
+  object: { bg: 'rgba(74,222,128,0.06)', hover: 'rgba(74,222,128,0.12)' },
+  action: { bg: 'rgba(96,165,250,0.06)', hover: 'rgba(96,165,250,0.12)' },
 };
 
 const getTypeClass = (type: string): string => {
@@ -318,6 +318,7 @@ export const useDescriptionHighlighting = ({
             ([type, c]) =>
               `.desc-${type} { background: ${c.bg}; border-bottom: 2px solid ${c.border}; cursor: pointer; transition: background 0.2s; }
          .desc-${type}:hover { background: ${c.active}; }
+         .desc-${type}:active { background: ${c.active} !important; transition: none; }
          .desc-${type}.has-image { border-bottom-style: solid; }
          .desc-${type}.no-image { border-bottom-style: dashed; }`
           )
@@ -327,10 +328,11 @@ export const useDescriptionHighlighting = ({
           .map(
             ([type, c]) =>
               `.desc-full-${type} { background: ${c.bg}; cursor: pointer; transition: background 0.2s; }
-         .desc-full-${type}:hover { background: ${c.hover}; }`
+         .desc-full-${type}:hover { background: ${c.hover}; }
+         .desc-full-${type}:active { background: ${c.hover} !important; transition: none; }`
           )
           .join('\n');
-        s.textContent = `.description-highlight { cursor: pointer; transition: background 0.2s; }\n${anchorRules}\n${fullRules}`;
+        s.textContent = `.description-highlight { cursor: pointer; transition: background 0.2s; }\n.description-highlight:active { transition: none; }\n${anchorRules}\n${fullRules}`;
         doc.head.appendChild(s);
 
         const processed = safeDescriptions.map((d) => ({

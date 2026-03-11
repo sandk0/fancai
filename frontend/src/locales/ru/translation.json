@@ -410,6 +410,7 @@
     "aliases_section": "Псевдонимы",
     "recap_title": "Ранее в книге",
     "name_highlighting": "Подсветка имён",
+    "description_highlighting": "Подсветка описаний",
     "description_density": "Плотность описаний",
     "density_all": "Все",
     "density_key": "Ключевые",

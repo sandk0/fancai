@@ -410,6 +410,7 @@
     "aliases_section": "Aliases",
     "recap_title": "Previously in the book",
     "name_highlighting": "Name highlighting",
+    "description_highlighting": "Description highlighting",
     "description_density": "Description density",
     "density_all": "All",
     "density_key": "Key",

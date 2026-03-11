@@ -62,6 +62,7 @@ interface ReaderState {
   margin: number;
   navigationMode: NavigationMode; // 'swipe' or 'tap' - iOS always uses 'swipe'
   nameHighlightingEnabled: boolean;
+  descriptionHighlightingEnabled: boolean;
   descriptionDensity: DescriptionDensity;
   descriptionHighlightMode: DescriptionHighlightMode;
   pageAnimationEnabled: boolean;
@@ -79,6 +80,7 @@ interface ReaderState {
   updateMargin: (margin: number) => void;
   updateNavigationMode: (mode: NavigationMode) => void;
   updateNameHighlighting: (enabled: boolean) => void;
+  updateDescriptionHighlighting: (enabled: boolean) => void;
   updateDescriptionDensity: (density: DescriptionDensity) => void;
   updateDescriptionHighlightMode: (mode: DescriptionHighlightMode) => void;
   updatePageAnimation: (enabled: boolean) => void;
@@ -136,6 +138,7 @@ export const useReaderStore = create<ReaderState>()(
       margin: 40,
       navigationMode: 'swipe', // Default to swipe (modern UX)
       nameHighlightingEnabled: true,
+      descriptionHighlightingEnabled: true,
       descriptionDensity: 'all' as DescriptionDensity,
       descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
       pageAnimationEnabled: true,
@@ -180,6 +183,10 @@ export const useReaderStore = create<ReaderState>()(
 
       updateNameHighlighting: (enabled: boolean) => {
         set({ nameHighlightingEnabled: enabled });
+      },
+
+      updateDescriptionHighlighting: (enabled: boolean) => {
+        set({ descriptionHighlightingEnabled: enabled });
       },
 
       updateDescriptionDensity: (density: DescriptionDensity) => {
@@ -290,6 +297,7 @@ export const useReaderStore = create<ReaderState>()(
           margin: 40,
           navigationMode: 'swipe',
           nameHighlightingEnabled: true,
+          descriptionHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
           descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
           pageAnimationEnabled: true,
@@ -311,6 +319,7 @@ export const useReaderStore = create<ReaderState>()(
           margin: 40,
           navigationMode: 'swipe',
           nameHighlightingEnabled: true,
+          descriptionHighlightingEnabled: true,
           descriptionDensity: 'all' as DescriptionDensity,
           descriptionHighlightMode: 'anchor' as DescriptionHighlightMode,
           pageAnimationEnabled: true,
@@ -335,7 +344,7 @@ export const useReaderStore = create<ReaderState>()(
     }),
     {
       name: 'fancai-reader',
-      version: 5,
+      version: 6,
       partialize: (state) => ({
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
@@ -347,6 +356,7 @@ export const useReaderStore = create<ReaderState>()(
         margin: state.margin,
         navigationMode: state.navigationMode,
         nameHighlightingEnabled: state.nameHighlightingEnabled,
+        descriptionHighlightingEnabled: state.descriptionHighlightingEnabled,
         descriptionDensity: state.descriptionDensity,
         descriptionHighlightMode: state.descriptionHighlightMode,
         pageAnimationEnabled: state.pageAnimationEnabled,
@@ -426,6 +436,9 @@ export const useReaderStore = create<ReaderState>()(
         }
         if (version < 5) {
           state.pageAnimationEnabled = true;
+        }
+        if (version < 6) {
+          state.descriptionHighlightingEnabled = true;
         }
         return state;
       },

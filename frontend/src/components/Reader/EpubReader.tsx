@@ -81,6 +81,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const {
     navigationMode,
     updateNavigationMode,
+    descriptionHighlightingEnabled,
+    updateDescriptionHighlighting,
     descriptionHighlightMode,
     updateDescriptionHighlightMode,
     pageAnimationEnabled,
@@ -376,7 +378,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       setDrawerImage(i);
       setIsDrawerOpen(true);
     },
-    enabled: renditionReady,
+    enabled: renditionReady && descriptionHighlightingEnabled,
     highlightMode: descriptionHighlightMode,
   });
 
@@ -710,6 +712,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           onNavigationModeChange: updateNavigationMode,
           nameHighlightingEnabled,
           onNameHighlightingChange: updateNameHighlighting,
+          descriptionHighlightingEnabled,
+          onDescriptionHighlightingChange: updateDescriptionHighlighting,
           descriptionHighlightMode,
           onDescriptionHighlightModeChange: updateDescriptionHighlightMode,
           pageAnimationEnabled,

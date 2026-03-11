@@ -82,7 +82,7 @@ export const useEntityNameHighlighting = ({
       if (!doc.getElementById(styleId)) {
         const s = doc.createElement('style');
         s.id = styleId;
-        s.textContent = `.entity-mention { border-bottom: 1px dotted rgba(167,139,250,0.6); cursor: pointer; transition: background 0.2s; } .entity-mention:hover { background: rgba(167,139,250,0.15); }`;
+        s.textContent = `.entity-mention { border-bottom: 1px dotted rgba(167,139,250,0.6); cursor: pointer; transition: background 0.2s; } .entity-mention:hover { background: rgba(167,139,250,0.15); } .entity-mention:active { background: rgba(167,139,250,0.15) !important; transition: none; }`;
         doc.head.appendChild(s);
       }
 
