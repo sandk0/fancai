@@ -27,7 +27,7 @@
 ### Выделение и заметки
 
 - [x] **SEL-01**: Пользователь может выделить текст long-press и drag без перехвата gesture controller
-- [ ] **SEL-02**: Пользователь может создать заметку/выделение из выделенного текста
+- [x] **SEL-02**: Пользователь может создать заметку/выделение из выделенного текста
 
 ### Описания и сущности
 
@@ -75,7 +75,7 @@
 | PNL-01 | Phase 17 | Complete |
 | PNL-02 | Phase 17 | Complete |
 | SEL-01 | Phase 18 | Complete |
-| SEL-02 | Phase 18 | Pending |
+| SEL-02 | Phase 18 | Complete |
 | ENT-01 | Phase 19 | Pending |
 | ENT-02 | Phase 19 | Pending |
 | CLN-01 | Phase 20 | Pending |
