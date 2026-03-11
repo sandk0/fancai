@@ -310,14 +310,14 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
       label: t('reader.sidebar.notes', 'Notes'),
       count: bookmarks.length,
     },
-    { key: 'info', label: t('reader.sidebar.info', 'Info') },
+    { key: 'info', label: t('reader.sidebar.info', 'Информация') },
   ];
 
   // Shared inner content: tabs, search, chapter list, bookmarks, info
   const sidebarContent = (
     <>
       {/* Tabs */}
-      <div className="flex border-b">
+      <div className="flex border-b flex-shrink-0">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -342,7 +342,7 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
 
       {/* Search (only for TOC tab) */}
       {currentTab === 'toc' && (
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50" />
             <input
