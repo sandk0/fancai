@@ -525,12 +525,15 @@ export const useGestureController = (
             return;
           }
 
-          // Check for interactive elements
-          const interactiveType = getInteractiveType(e.target);
+          // Check for interactive elements via elementFromPoint (not e.target -- touch target may differ)
+          const tapDoc = contents?.document;
+          const el = tapDoc?.elementFromPoint(touch.clientX, touch.clientY);
+          const interactiveType = getInteractiveType(el ?? e.target);
+          if (interactiveType === 'description' || interactiveType === 'entity') {
+            onCenterTapRef.current(touch.clientX, touch.clientY);
+            return;
+          }
           if (interactiveType) {
-            if (interactiveType === 'description') {
-              onCenterTapRef.current(touch.clientX, touch.clientY);
-            }
             return;
           }
 
@@ -741,11 +744,15 @@ export const useGestureController = (
           return;
         }
 
-        const interactiveType = getInteractiveType(e.target);
+        // Check for interactive elements via elementFromPoint (consistent with touch handler)
+        const clickDoc = contents?.document;
+        const clickEl = clickDoc?.elementFromPoint(e.clientX, e.clientY);
+        const interactiveType = getInteractiveType(clickEl ?? e.target);
+        if (interactiveType === 'description' || interactiveType === 'entity') {
+          onCenterTapRef.current(e.clientX, e.clientY);
+          return;
+        }
         if (interactiveType) {
-          if (interactiveType === 'description') {
-            onCenterTapRef.current(e.clientX, e.clientY);
-          }
           return;
         }
 
