@@ -1,17 +1,20 @@
 # GSD State
 
-<!-- Auto-generated. Updated by deriveState(). -->
+**Active Milestone:** M002 — Reader Mobile / PWA
+**Active Slice:** None
+**Phase:** completing-milestone
+**Requirements Status:** 1 active · 12 validated · 0 deferred · 0 out of scope
 
-## M001: Готовность к продакшену ✅
+## Milestone Registry
+- ✅ **M001:** Готовность к продакшену
+- 🔄 **M002:** Reader Mobile / PWA
+- ⬜ **M003:** Reader Stability & Polish
 
-- Slices: 9/9
-- Status: completed (2026-03-09)
-- Summary: `.gsd/milestones/M001/M001-SUMMARY.md`
+## Recent Decisions
+- None recorded
 
-## M002: Reader Mobile / PWA
+## Blockers
+- None
 
-- Slices: 6/6
-
-## M003: Reader Stability & Polish
-
-- Slices: 5/6
+## Next Action
+All slices complete in M002. Write milestone summary.
