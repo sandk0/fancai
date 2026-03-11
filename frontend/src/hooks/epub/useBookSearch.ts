@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Book, Rendition } from '@/types/epub';
 
 export interface SearchResult {
@@ -57,6 +57,29 @@ const suppressEpubDisplayError = (handler: () => void): (() => void) => {
   return cleanup;
 };
 
+/**
+ * Convert range CFI to point CFI for rendition.display().
+ *
+ * epub.js section.find() returns range CFIs: epubcfi(BASE,START,END)
+ * e.g. epubcfi(/6/10!/4/2[id3]/16,/1:453,/1:460)
+ *
+ * epub.js manager.display() fast path (same-section navigation) calls
+ * view.locationOf(target) which throws on range CFIs, permanently blocking
+ * the internal queue. Converting to a point CFI avoids this.
+ *
+ * Point CFI: epubcfi(BASE + START) → epubcfi(/6/10!/4/2[id3]/16/1:453)
+ */
+const rangeToPointCfi = (cfi: string): string => {
+  const inner = cfi.slice(8, -1); // Strip "epubcfi(" and ")"
+  const firstComma = inner.indexOf(',');
+  if (firstComma === -1) return cfi; // Already a point CFI
+  const base = inner.slice(0, firstComma);
+  const rest = inner.slice(firstComma + 1);
+  const secondComma = rest.indexOf(',');
+  const startOffset = secondComma === -1 ? rest : rest.slice(0, secondComma);
+  return `epubcfi(${base}${startOffset})`;
+};
+
 export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBookSearchReturn => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -67,76 +90,6 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const currentIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const highlightedCfiRef = useRef<string | null>(null);
-
-  // === DEBUG: On-screen log overlay for PWA ===
-  const patchedRef = useRef(false);
-  const debugLogRef = useRef<string[]>([]);
-  const debugElRef = useRef<HTMLDivElement | null>(null);
-
-  const dlog = useCallback((msg: string) => {
-    const ts = new Date().toLocaleTimeString('ru', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-    const line = `${ts} ${msg}`;
-    debugLogRef.current = [...debugLogRef.current.slice(-30), line];
-    if (!debugElRef.current) {
-      const el = document.createElement('div');
-      el.id = 'search-debug-overlay';
-      Object.assign(el.style, {
-        position: 'fixed',
-        bottom: '0',
-        left: '0',
-        right: '0',
-        maxHeight: '40vh',
-        overflowY: 'auto',
-        zIndex: '9999',
-        background: 'rgba(0,0,0,0.85)',
-        color: '#0f0',
-        fontSize: '11px',
-        fontFamily: 'monospace',
-        padding: '4px 8px',
-        pointerEvents: 'auto',
-        whiteSpace: 'pre-wrap',
-        lineHeight: '1.4',
-      });
-      document.body.appendChild(el);
-      debugElRef.current = el;
-    }
-    debugElRef.current.textContent = debugLogRef.current.join('\n');
-    debugElRef.current.scrollTop = debugElRef.current.scrollHeight;
-  }, []);
-
-  useEffect(() => {
-    if (!rendition || patchedRef.current) return;
-    patchedRef.current = true;
-    const orig = rendition.display.bind(rendition);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = rendition as any;
-    r.display = function (target: unknown) {
-      const t = typeof target === 'string' ? target.substring(0, 60) : String(target);
-      const qLen = r.q?._q?.length ?? '?';
-      const qRun = !!r.q?.running;
-      const disp = !!r.displaying;
-      dlog(`[DISPLAY] cfi=${t} q=${qLen} run=${qRun} disp=${disp}`);
-      const promise = orig(target as string);
-      promise.then(
-        () => dlog(`[DISPLAY OK] ${t}`),
-        (err: unknown) => dlog(`[DISPLAY FAIL] ${String(err)}`)
-      );
-      return promise;
-    };
-    return () => {
-      r.display = orig;
-      patchedRef.current = false;
-      if (debugElRef.current) {
-        debugElRef.current.remove();
-        debugElRef.current = null;
-      }
-    };
-  }, [rendition, dlog]);
-  // === END DEBUG ===
 
   const removeHighlight = useCallback(() => {
     if (highlightedCfiRef.current && rendition) {
@@ -246,10 +199,11 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
           setIsSearching(false);
           setProgress(null);
 
-          // Navigate to first result using CFI for precise positioning
+          // Navigate to first result — use point CFI to avoid queue blocking
           if (allResults.length > 0 && rendition) {
+            const displayCfi = rangeToPointCfi(allResults[0].cfi);
             suppressEpubDisplayError(() => {
-              rendition.display(allResults[0].cfi).catch(() => {});
+              rendition.display(displayCfi).catch(() => {});
             });
             currentIndexRef.current = 0;
             setCurrentIndex(0);
@@ -275,30 +229,26 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       setCurrentIndex(safeIndex);
 
       const result = results[safeIndex];
-      const prevResult = safeIndex > 0 ? results[safeIndex - 1] : null;
-      const sameSec = prevResult?.sectionIndex === result.sectionIndex;
-      dlog(
-        `[NAV] i=${safeIndex}/${results.length} sec=${result.sectionIndex} same=${sameSec} cfi=${result.cfi.substring(0, 60)}`
-      );
+      // Use point CFI for display — range CFIs block epub.js queue on same-section nav
+      const displayCfi = rangeToPointCfi(result.cfi);
       suppressEpubDisplayError(() => {
-        rendition.display(result.cfi).catch(() => {});
+        rendition.display(displayCfi).catch(() => {});
       });
+      // Keep range CFI for highlight (annotations need the range)
       applyHighlight(result.cfi);
     },
-    [rendition, results, applyHighlight, dlog]
+    [rendition, results, applyHighlight]
   );
 
   const nextResult = useCallback(() => {
     if (results.length === 0) return;
-    dlog(`[NEXT] ref=${currentIndexRef.current}`);
     navigateToResult(currentIndexRef.current + 1);
-  }, [results.length, navigateToResult, dlog]);
+  }, [results.length, navigateToResult]);
 
   const previousResult = useCallback(() => {
     if (results.length === 0) return;
-    dlog(`[PREV] ref=${currentIndexRef.current}`);
     navigateToResult(currentIndexRef.current - 1);
-  }, [results.length, navigateToResult, dlog]);
+  }, [results.length, navigateToResult]);
 
   const clearSearch = useCallback(() => {
     if (abortRef.current) {
