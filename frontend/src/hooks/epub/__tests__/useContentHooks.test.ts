@@ -127,6 +127,22 @@ describe('useContentHooks', () => {
       });
     });
 
+    it('injects touch-action: pan-x pan-y on body (sole authority after inline style removal)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderHook(() => useContentHooks(mockRendition as any, 'light'));
+
+      const doc = document.implementation.createHTMLDocument('test');
+      mockRendition._triggerContent(doc);
+
+      const styles = Array.from(doc.querySelectorAll('style'));
+      const allCSS = styles.map((s) => s.textContent || '').join('\n');
+
+      // useContentHooks CSS MUST set touch-action (no longer overridden by inline styles)
+      expect(allCSS).toContain('touch-action: pan-x pan-y');
+      // MUST NOT contain touch-action: manipulation (was removed from useEpubRendition)
+      expect(allCSS).not.toContain('touch-action: manipulation');
+    });
+
     it('does not suppress contextmenu on desktop', () => {
       // Mock desktop device
       const originalMaxTouchPoints = navigator.maxTouchPoints;
