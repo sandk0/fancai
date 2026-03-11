@@ -309,6 +309,14 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // Compute isPanelOpen for gesture blocking
   const isPanelOpen = isTocOpen || isSettingsOpen || isEntityDrawerOpen || isSearchOpen;
 
+  // Dismiss all panels when user taps inside epub iframe
+  const handlePanelDismiss = useCallback(() => {
+    setIsTocOpen(false);
+    setIsSettingsOpen(false);
+    setIsEntityDrawerOpen(false);
+    setIsSearchOpen(false);
+  }, []);
+
   // Unified gesture controller replaces useFollowFingerSwipe + useTouchNavigation + IOSTapZones
   const gestureController = useGestureController({
     rendition,
@@ -332,6 +340,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     navLock,
     isPanelOpen,
     pageAnimationEnabled,
+    onPanelDismiss: handlePanelDismiss,
   });
 
   useKeyboardNavigation({

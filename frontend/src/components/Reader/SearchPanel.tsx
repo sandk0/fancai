@@ -121,66 +121,79 @@ export const SearchPanel = memo(function SearchPanel({
   return (
     <AnimatePresence>
       {isOpen && (
-        <m.div
-          initial={{ y: -60, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -60, opacity: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed left-0 right-0 z-20 bg-card/95 backdrop-blur-md shadow-md border-b border-border"
-          style={{
-            top: isHeaderVisible
-              ? 'calc(70px + env(safe-area-inset-top, 0px))'
-              : 'env(safe-area-inset-top, 0px)',
-          }}
-        >
-          <div className="flex items-center gap-1.5 xs:gap-2 px-2 xs:px-3 py-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={t('reader.search.placeholder')}
-              className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/50"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
+        <>
+          {/* Transparent backdrop for outside-click dismiss */}
+          <m.div
+            key="search-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[19]"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <m.div
+            key="search-panel"
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed left-0 right-0 z-20 bg-card/95 backdrop-blur-md shadow-md border-b border-border"
+            style={{
+              top: isHeaderVisible
+                ? 'calc(70px + env(safe-area-inset-top, 0px))'
+                : 'env(safe-area-inset-top, 0px)',
+            }}
+          >
+            <div className="flex items-center gap-1.5 xs:gap-2 px-2 xs:px-3 py-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={t('reader.search.placeholder')}
+                className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
 
-            {statusText && (
-              <span className="hidden xs:inline text-xs text-muted-foreground whitespace-nowrap min-w-[80px] text-center">
-                {statusText}
-              </span>
-            )}
+              {statusText && (
+                <span className="hidden xs:inline text-xs text-muted-foreground whitespace-nowrap min-w-[80px] text-center">
+                  {statusText}
+                </span>
+              )}
 
-            <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={previousResult}
+                  disabled={results.length === 0}
+                  className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+                  aria-label={t('reader.search.previous')}
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={nextResult}
+                  disabled={results.length === 0}
+                  className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+                  aria-label={t('reader.search.next')}
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+
               <button
-                onClick={previousResult}
-                disabled={results.length === 0}
-                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
-                aria-label={t('reader.search.previous')}
+                onClick={onClose}
+                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted"
+                aria-label={t('reader.search.close')}
               >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-              <button
-                onClick={nextResult}
-                disabled={results.length === 0}
-                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
-                aria-label={t('reader.search.next')}
-              >
-                <ChevronDown className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-foreground hover:bg-muted"
-              aria-label={t('reader.search.close')}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </m.div>
+          </m.div>
+        </>
       )}
     </AnimatePresence>
   );
