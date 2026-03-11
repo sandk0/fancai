@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: executing
-last_updated: "2026-03-11T16:31:06Z"
-last_activity: 2026-03-11 — Plan 18-01 complete (CSS selection unblock, gesture passthrough)
+last_updated: "2026-03-11T16:50:10.363Z"
+last_activity: 2026-03-11 — Phase 18 complete (HighlightTooltip, edit mode in SelectionMenu)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 40
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Состояние проекта
@@ -24,12 +24,12 @@ progress:
 
 ## Текущая позиция
 
-Phase: 18 of 20 (Выделение текста и заметки)
-Plan: 1 of 2 complete
-Status: Plan 18-01 complete, executing Phase 18
-Last activity: 2026-03-11 — Plan 18-01 complete (CSS selection unblock, gesture passthrough)
+Phase: 18 of 20 (Выделение текста и заметки) -- COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 18 complete, all plans done
+Last activity: 2026-03-11 — Plan 18-02 complete (HighlightTooltip, edit mode in SelectionMenu)
 
-Progress: [████░░░░░░] 40%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -75,6 +75,8 @@ Progress: [████░░░░░░] 40%
 - [18-01] CSS class toggle (body.selection-blocked) вместо JS guard для блокировки выделения при анимации
 - [18-01] contextmenu suppression через maxTouchPoints/ontouchstart (не глобально)
 - [18-01] -webkit-touch-callout: none НЕ применяется глобально (ломает long-press выделение на iOS)
+- [18-02] Edit mode в SelectionMenu через editMode prop с pre-populated полями (не отдельный компонент)
+- [18-02] HighlightTooltip позиционирование: выше/ниже точки тапа на основе 50% viewport
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -95,7 +97,6 @@ Progress: [████░░░░░░] 40%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-11
-Plan 18-01 complete: разблокировка мобильного выделения текста.
-Убран CSS user-select:none для мобильных, добавлен selection-blocked class, contextmenu suppression, selection passthrough в gesture controller.
-Коммиты: c11f583 (test), 5a6126d (feat), c4213e6 (feat).
-Следующий: Plan 18-02 (HighlightTooltip).
+Phase 18 complete: HighlightTooltip компонент и edit mode в SelectionMenu.
+Коммиты: 5a9c2ce (test), 44ec77c (feat), e007090 (feat).
+Phase 18 полностью завершена (2/2 plans). Следующий: Phase 19 (описания).
