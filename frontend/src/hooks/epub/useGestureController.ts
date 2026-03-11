@@ -82,6 +82,8 @@ export interface GestureControllerOptions {
   isPanelOpen: boolean;
   /** Whether page turn animations are enabled */
   pageAnimationEnabled?: boolean;
+  /** Called when user taps inside iframe while a panel is open — dismisses all panels */
+  onPanelDismiss?: () => void;
 }
 
 export interface GestureControllerReturn {
@@ -143,6 +145,7 @@ export const useGestureController = (
     navLock,
     isPanelOpen,
     pageAnimationEnabled = true,
+    onPanelDismiss,
   } = options;
 
   // Motion value for GPU-accelerated transform
@@ -171,6 +174,7 @@ export const useGestureController = (
   const onToggleUIRef = useRef(onToggleUI);
   const onSwipeStartRef = useRef(onSwipeStart);
   const onTapNavigateRef = useRef(onTapNavigate);
+  const onPanelDismissRef = useRef(onPanelDismiss);
   const navLockRef = useRef(navLock);
   const pageAnimationEnabledRef = useRef(pageAnimationEnabled);
 
@@ -205,6 +209,9 @@ export const useGestureController = (
   useEffect(() => {
     onTapNavigateRef.current = onTapNavigate;
   }, [onTapNavigate]);
+  useEffect(() => {
+    onPanelDismissRef.current = onPanelDismiss;
+  }, [onPanelDismiss]);
   useEffect(() => {
     navLockRef.current = navLock;
   }, [navLock]);
@@ -503,6 +510,12 @@ export const useGestureController = (
             return;
           }
 
+          // Bridge: tap in iframe while panel open → dismiss all panels
+          if (isPanelOpenRef.current) {
+            onPanelDismissRef.current?.();
+            return;
+          }
+
           // Check for interactive elements
           const interactiveType = getInteractiveType(e.target);
           if (interactiveType) {
@@ -526,12 +539,6 @@ export const useGestureController = (
             // Also toggle UI (onCenterTap handles description detection,
             // if no description found, EpubReader should toggle UI)
             onToggleUIRef.current();
-            return;
-          }
-
-          // Edge tap navigation
-          if (isPanelOpenRef.current) {
-            // Block edge-tap navigation when panels are open
             return;
           }
 
@@ -719,6 +726,12 @@ export const useGestureController = (
         // Ignore click shortly after touch (prevents double navigation on mobile)
         if (Date.now() - lastTouchTimeRef.value < 500) return;
 
+        // Bridge: click in iframe while panel open → dismiss all panels
+        if (isPanelOpenRef.current) {
+          onPanelDismissRef.current?.();
+          return;
+        }
+
         const interactiveType = getInteractiveType(e.target);
         if (interactiveType) {
           if (interactiveType === 'description') {
@@ -736,8 +749,6 @@ export const useGestureController = (
           onToggleUIRef.current();
           return;
         }
-
-        if (isPanelOpenRef.current) return;
 
         onTapNavigateRef.current();
 
@@ -906,6 +917,12 @@ export const useGestureController = (
         deltaX >= TAP_MAX_MOVEMENT ||
         deltaY >= TAP_MAX_MOVEMENT
       ) {
+        return;
+      }
+
+      // Bridge: iOS overlay tap while panel open → dismiss all panels
+      if (isPanelOpenRef.current) {
+        onPanelDismissRef.current?.();
         return;
       }
 
