@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Book, Rendition } from '@/types/epub';
 
 export interface SearchResult {
@@ -67,6 +67,46 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const currentIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const highlightedCfiRef = useRef<string | null>(null);
+
+  // === DEBUG: Monitor ALL rendition.display() calls ===
+  const patchedRef = useRef(false);
+  useEffect(() => {
+    if (!rendition || patchedRef.current) return;
+    patchedRef.current = true;
+    const orig = rendition.display.bind(rendition);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = rendition as any;
+    r.display = function (target: unknown) {
+      const stack = new Error().stack
+        ?.split('\n')
+        .slice(1, 5)
+        .map((s: string) => s.trim())
+        .join(' → ');
+      console.log('%c[DISPLAY]', 'background:#ff0;color:#000;font-weight:bold', {
+        target: typeof target === 'string' ? target.substring(0, 80) : target,
+        queueLen: (r.q?._q?.length as number) ?? '?',
+        queueRunning: !!r.q?.running,
+        displaying: !!r.displaying,
+        stack,
+      });
+      const promise = orig(target as string);
+      promise.then(
+        () =>
+          console.log(
+            '%c[DISPLAY OK]',
+            'background:#0f0;color:#000',
+            typeof target === 'string' ? target.substring(0, 60) : target
+          ),
+        (err: unknown) => console.log('%c[DISPLAY FAIL]', 'background:#f00;color:#fff', err)
+      );
+      return promise;
+    };
+    return () => {
+      r.display = orig;
+      patchedRef.current = false;
+    };
+  }, [rendition]);
+  // === END DEBUG ===
 
   const removeHighlight = useCallback(() => {
     if (highlightedCfiRef.current && rendition) {
@@ -205,6 +245,16 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       setCurrentIndex(safeIndex);
 
       const result = results[safeIndex];
+      const prevResult = safeIndex > 0 ? results[safeIndex - 1] : null;
+      console.log('%c[SEARCH NAV]', 'background:#00f;color:#fff;font-weight:bold', {
+        index,
+        safeIndex,
+        cfi: result.cfi.substring(0, 80),
+        sectionIndex: result.sectionIndex,
+        prevSectionIndex: prevResult?.sectionIndex,
+        sameSectionAsPrev: prevResult?.sectionIndex === result.sectionIndex,
+        resultsLen: results.length,
+      });
       suppressEpubDisplayError(() => {
         rendition.display(result.cfi).catch(() => {});
       });
@@ -215,11 +265,13 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
 
   const nextResult = useCallback(() => {
     if (results.length === 0) return;
+    console.log('[SEARCH NAV] nextResult, refIndex:', currentIndexRef.current);
     navigateToResult(currentIndexRef.current + 1);
   }, [results.length, navigateToResult]);
 
   const previousResult = useCallback(() => {
     if (results.length === 0) return;
+    console.log('[SEARCH NAV] previousResult, refIndex:', currentIndexRef.current);
     navigateToResult(currentIndexRef.current - 1);
   }, [results.length, navigateToResult]);
 
