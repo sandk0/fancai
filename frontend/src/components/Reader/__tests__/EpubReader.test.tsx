@@ -182,6 +182,8 @@ vi.mock('@/hooks/epub', () => ({
     scrollOffsetPercent: 0,
     currentPage: 1,
     totalPages: 100,
+    chapterPage: 1,
+    chapterTotalPages: 10,
     goToCFI: vi.fn(() => Promise.resolve()),
     skipNextRelocated: vi.fn(),
     setInitialProgress: vi.fn(),
@@ -246,7 +248,7 @@ vi.mock('@/hooks/epub', () => ({
 }));
 
 // Mock gesture controller (replaces useFollowFingerSwipe + useTouchNavigation)
-const mockMotionValue = { get: () => 0, set: vi.fn(), on: vi.fn(), destroy: vi.fn() };
+const mockMotionValue = { get: () => 0, set: vi.fn(), on: vi.fn(() => vi.fn()), destroy: vi.fn() };
 vi.mock('@/hooks/epub/useGestureController', () => ({
   useGestureController: vi.fn(() => ({
     translateX: mockMotionValue,
@@ -278,6 +280,10 @@ vi.mock('../ReaderHeader', () => ({
       <span data-testid="book-author">{author}</span>
     </div>
   ),
+}));
+
+vi.mock('../ReaderFooter', () => ({
+  ReaderFooter: () => <div data-testid="reader-footer">Footer</div>,
 }));
 
 vi.mock('../ReaderControls', () => ({
