@@ -68,8 +68,9 @@ export interface GestureControllerOptions {
   onChapterChange?: (dir: 'next' | 'prev') => Promise<void>;
   /** Edge tap navigation callback */
   onEdgeTap: (dir: 'next' | 'prev') => void;
-  /** Center tap callback (coordinates relative to iframe for description detection) */
-  onCenterTap: (x: number, y: number) => void;
+  /** Center tap callback (coordinates relative to iframe for description/entity detection).
+   *  Returns true if an interactive element was found and handled. */
+  onCenterTap: (x: number, y: number) => boolean | Promise<boolean>;
   /** Toggle UI visibility (header show/hide) */
   onToggleUI: () => void;
   /** Called when swipe starts (>10px) for auto-hide */
@@ -540,13 +541,13 @@ export const useGestureController = (
           const action = getTapAction(screenX, false);
 
           if (action === 'center') {
-            // Center tap: check for description via elementFromPoint, else toggle UI
+            // Center tap: check for description/entity via elementFromPoint, else toggle UI
             const viewportX = touch.clientX;
             const viewportY = touch.clientY;
-            onCenterTapRef.current(viewportX, viewportY);
-            // Also toggle UI (onCenterTap handles description detection,
-            // if no description found, EpubReader should toggle UI)
-            onToggleUIRef.current();
+            void (async () => {
+              const handled = await onCenterTapRef.current(viewportX, viewportY);
+              if (!handled) onToggleUIRef.current();
+            })();
             return;
           }
 
@@ -753,8 +754,10 @@ export const useGestureController = (
         const action = getTapAction(screenX, false);
 
         if (action === 'center') {
-          onCenterTapRef.current(e.clientX, e.clientY);
-          onToggleUIRef.current();
+          void (async () => {
+            const handled = await onCenterTapRef.current(e.clientX, e.clientY);
+            if (!handled) onToggleUIRef.current();
+          })();
           return;
         }
 
@@ -941,16 +944,19 @@ export const useGestureController = (
         return;
       }
 
-      // Center tap on iOS -- find description via iframe elementFromPoint
+      // Center tap on iOS -- find description/entity via iframe elementFromPoint
       const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
       if (iframe) {
         const iframeRect = iframe.getBoundingClientRect();
         const viewportX = touch.clientX - iframeRect.left;
         const viewportY = touch.clientY - iframeRect.top;
-        onCenterTapRef.current(viewportX, viewportY);
+        void (async () => {
+          const handled = await onCenterTapRef.current(viewportX, viewportY);
+          if (!handled) onToggleUIRef.current();
+        })();
+      } else {
+        onToggleUIRef.current();
       }
-
-      onToggleUIRef.current();
     };
 
     overlay.addEventListener('touchstart', handleOverlayTouchStart, { passive: true });
