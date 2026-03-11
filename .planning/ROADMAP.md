@@ -169,5 +169,5 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 20
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19. Описания и Entity Popup               | 2/2 | Complete   | 2026-03-11 | -          |
+| 19. Описания и Entity Popup               | 2/2 | Complete    | 2026-03-11 | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
