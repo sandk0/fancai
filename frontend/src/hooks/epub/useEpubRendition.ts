@@ -63,7 +63,8 @@ const measureSafeAreaBottom = (): number => {
   if (typeof window === 'undefined') return 0;
   try {
     const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;';
+    div.style.cssText =
+      'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;';
     document.body.appendChild(div);
     const computed = window.getComputedStyle(div);
     const value = parseFloat(computed.paddingBottom) || 0;
@@ -77,7 +78,8 @@ const measureSafeAreaBottom = (): number => {
 const measureSafeAreaTop = (): number => {
   try {
     const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;top:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none;';
+    div.style.cssText =
+      'position:fixed;top:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none;';
     document.body.appendChild(div);
     const computed = window.getComputedStyle(div);
     const value = parseFloat(computed.paddingTop) || 0;
@@ -152,12 +154,12 @@ interface MobileDimensions {
 }
 
 async function calculateMobileDimensions(
-  viewerRef: React.RefObject<HTMLDivElement | null>,
+  viewerRef: React.RefObject<HTMLDivElement | null>
 ): Promise<MobileDimensions | null> {
   if (!isMobile() || !viewerRef.current) return null;
 
   // Wait for browser layout to stabilize (iOS Safari address bar animations)
-  await new Promise(resolve => setTimeout(resolve, 50));
+  await new Promise((resolve) => setTimeout(resolve, 50));
 
   const containerRect = viewerRef.current.getBoundingClientRect();
   let width = Math.floor(containerRect.width);
@@ -195,7 +197,7 @@ export interface CreateRenditionResult {
 
 export async function createRendition(
   epubBook: Book,
-  viewerRef: React.RefObject<HTMLDivElement | null>,
+  viewerRef: React.RefObject<HTMLDivElement | null>
 ): Promise<CreateRenditionResult> {
   if (!viewerRef.current) {
     throw new Error('Viewer container not found');
@@ -222,7 +224,11 @@ export async function createRendition(
   const themeStyles = INITIAL_THEMES[savedTheme] || INITIAL_THEMES.dark;
   newRendition.themes.default(themeStyles);
 
-  const spreadFixCleanup = applyIOSSpreadFix({ rendition: newRendition, viewerRef, renditionWidth });
+  const spreadFixCleanup = applyIOSSpreadFix({
+    rendition: newRendition,
+    viewerRef,
+    renditionWidth,
+  });
   logger.debug('[useEpubRendition] Rendition created:', {
     isIOS: isIOS(),
     spread: newRendition.settings?.spread,
@@ -233,15 +239,19 @@ export async function createRendition(
   newRendition.on('rendered', () => {
     const iframe = viewerRef.current?.querySelector('iframe');
     if (iframe?.contentDocument?.body) {
-      iframe.contentDocument.body.style.touchAction = 'manipulation';
+      // touch-action and user-select are managed by CSS from useContentHooks
+      // (touch-action: pan-x pan-y without pinch-zoom, user-select: browser default)
       iframe.contentDocument.body.style.overscrollBehaviorX = 'none';
-      iframe.contentDocument.body.style.userSelect = 'text';
-      iframe.contentDocument.body.style.webkitUserSelect = 'text';
     }
 
     // Clean up previous rendered fixes before applying new ones
     renderedFixesCleanup?.();
-    renderedFixesCleanup = applyIOSRenderedFixes(newRendition, viewerRef, renditionWidth, iframe ?? null);
+    renderedFixesCleanup = applyIOSRenderedFixes(
+      newRendition,
+      viewerRef,
+      renditionWidth,
+      iframe ?? null
+    );
     if (newRendition.manager?.layout) {
       logger.debug('[useEpubRendition] Layout after render:', {
         divisor: newRendition.manager.layout.divisor,

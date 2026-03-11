@@ -73,7 +73,7 @@ export const EntityBottomSheet: React.FC<EntityBottomSheetProps> = ({
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-elevated)] rounded-t-xl z-50 h-[95dvh] outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-base)] rounded-t-xl z-50 h-[95dvh] outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
           {/* Handle bar */}
           <div className="mx-auto w-10 h-1 rounded-full bg-muted-foreground/30 my-3 flex-shrink-0" />
 
