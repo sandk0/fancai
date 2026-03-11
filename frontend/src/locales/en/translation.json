@@ -267,6 +267,18 @@
     "entity_popup": {
       "details": "Details"
     },
+    "description_drawer": {
+      "generate": "Generate",
+      "generating": "Generating...",
+      "view_image": "View image",
+      "type": {
+        "location": "Location",
+        "character": "Character",
+        "atmosphere": "Atmosphere",
+        "object": "Object",
+        "action": "Action"
+      }
+    },
     "info": {
       "title": "About book",
       "close": "Close",

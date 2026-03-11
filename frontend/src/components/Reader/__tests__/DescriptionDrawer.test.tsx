@@ -94,7 +94,12 @@ describe('DescriptionDrawer', () => {
   it('renders type badge via i18n', () => {
     render(<DescriptionDrawer {...defaultProps} />);
 
-    expect(screen.getByText('Location')).toBeInTheDocument();
+    // Two "Location" elements: sr-only title + visible badge
+    const elements = screen.getAllByText('Location');
+    expect(elements.length).toBeGreaterThanOrEqual(1);
+    // The visible badge should be a span
+    const badge = elements.find((el) => el.tagName === 'SPAN');
+    expect(badge).toBeInTheDocument();
   });
 
   it('renders full description text', () => {

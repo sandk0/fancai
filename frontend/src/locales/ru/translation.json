@@ -267,6 +267,18 @@
     "entity_popup": {
       "details": "Подробнее"
     },
+    "description_drawer": {
+      "generate": "Сгенерировать",
+      "generating": "Генерация...",
+      "view_image": "Посмотреть",
+      "type": {
+        "location": "Локация",
+        "character": "Персонаж",
+        "atmosphere": "Атмосфера",
+        "object": "Объект",
+        "action": "Действие"
+      }
+    },
     "info": {
       "title": "О книге",
       "close": "Закрыть",

@@ -89,7 +89,9 @@ describe('EntityBottomSheet', () => {
   it('renders entity name', () => {
     render(<EntityBottomSheet {...defaultProps} />);
 
-    expect(screen.getByText('Harry Potter')).toBeInTheDocument();
+    // Name appears in both sr-only title and visible div
+    const elements = screen.getAllByText('Harry Potter');
+    expect(elements.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders entity type via i18n', () => {
