@@ -2,11 +2,14 @@ import React from 'react';
 import type { BookDetail, GeneratedImage } from '@/types/api';
 import type { EntityNetworkResponse } from '@/types/entity';
 import type { Selection } from '@/hooks/epub/useTextSelection';
+import type { HighlightPopup } from '@/hooks/epub/useAnnotationRendering';
+import type { EditModeData } from '../SelectionMenu';
 import type { NavItem } from '@/types/epub';
 import type { SidebarTab } from '../TocSidebar';
 import { ImageModal } from '@/components/Images/ImageModal';
 import { EntityDrawer } from '@/components/Entities/EntityDrawer';
 import { SelectionMenu } from '../SelectionMenu';
+import { HighlightTooltip } from '../HighlightTooltip';
 import { TocSidebar } from '../TocSidebar';
 import { PositionConflictDialog } from '../PositionConflictDialog';
 
@@ -65,6 +68,14 @@ interface ReaderModalsProps {
     activeTab?: SidebarTab;
     onTabChange?: (tab: SidebarTab) => void;
   };
+  highlight?: {
+    popup: HighlightPopup | null;
+    onEdit: (bookmarkId: string) => void;
+    onDelete: (bookmarkId: string) => void;
+    onClose: () => void;
+  };
+  selectionEditMode?: EditModeData;
+  onCloseEditMode?: () => void;
   positionConflict: {
     data: {
       serverPosition: PositionData;
@@ -79,6 +90,9 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
   imageModal,
   entityDrawer,
   selection,
+  highlight,
+  selectionEditMode,
+  onCloseEditMode,
   toc,
   positionConflict,
 }) => {
@@ -138,8 +152,18 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
         selection={selection.data}
         onCopy={selection.onCopy}
         onBookmark={selection.onBookmark}
-        onClose={selection.onClose}
+        onClose={selectionEditMode ? onCloseEditMode! : selection.onClose}
+        editMode={selectionEditMode}
       />
+
+      {highlight && (
+        <HighlightTooltip
+          popup={highlight.popup}
+          onEdit={highlight.onEdit}
+          onDelete={highlight.onDelete}
+          onClose={highlight.onClose}
+        />
+      )}
 
       <TocSidebar
         toc={toc.items}
