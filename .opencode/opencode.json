@@ -97,13 +97,6 @@
       }
     }
   },
-  "tui": {
-    "scroll_speed": 1,
-    "scroll_acceleration": {
-      "enabled": true
-    },
-    "diff_style": "auto"
-  },
   "mcp": {
     "playwright": {
       "type": "local",
