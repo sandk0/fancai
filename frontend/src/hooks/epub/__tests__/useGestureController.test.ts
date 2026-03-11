@@ -38,7 +38,7 @@ describe('useGestureController', () => {
         enabled: true,
         onNavigate: async () => {},
         onEdgeTap: () => {},
-        onCenterTap: () => {},
+        onCenterTap: () => false,
         onToggleUI: () => {},
         onSwipeStart: () => {},
         onTapNavigate: () => {},
