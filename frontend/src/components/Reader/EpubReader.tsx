@@ -425,6 +425,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const handleNavigateToCfi = useCallback(
     async (cfi: string, bookmarkId?: string) => {
       if (!rendition) return;
+      autoHide.hideUI();
       try {
         await rendition.display(cfi);
         if (bookmarkId) {
@@ -531,6 +532,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const handleTocChapterClick = useCallback(
     async (href: string) => {
       if (!rendition) return;
+      autoHide.hideUI();
       try {
         await rendition.display(href);
         setCurrentHref(href);

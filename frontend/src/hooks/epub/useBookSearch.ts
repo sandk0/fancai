@@ -64,6 +64,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState<SearchProgress | null>(null);
 
+  const currentIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const highlightedCfiRef = useRef<string | null>(null);
 
@@ -112,6 +113,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
       abortRef.current = controller;
 
       setIsSearching(true);
+      currentIndexRef.current = 0;
       setCurrentIndex(0);
       setResults([]);
 
@@ -179,6 +181,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
             suppressEpubDisplayError(() => {
               rendition.display(allResults[0].cfi);
             });
+            currentIndexRef.current = 0;
             setCurrentIndex(0);
             applyHighlight(allResults[0].cfi);
           }
@@ -193,46 +196,30 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
     [book, rendition, applyHighlight]
   );
 
-  const isNavigatingRef = useRef(false);
-
   const navigateToResult = useCallback(
-    async (index: number) => {
+    (index: number) => {
       if (!rendition || results.length === 0) return;
-      // Prevent concurrent rendition.display() calls — epub.js drops subsequent calls
-      // before the first resolves, causing "first click works, then nothing" behavior
-      if (isNavigatingRef.current) return;
-      isNavigatingRef.current = true;
 
       const safeIndex = ((index % results.length) + results.length) % results.length;
-      const result = results[safeIndex];
+      currentIndexRef.current = safeIndex;
       setCurrentIndex(safeIndex);
 
-      try {
-        // Await display so epub.js finishes loading the section before we highlight
-        const cleanup = suppressEpubDisplayError(() => {
-          // noop — we call display below with await
-        });
-        cleanup();
-        await rendition.display(result.cfi);
-        applyHighlight(result.cfi);
-      } catch {
-        // Ignore navigation errors (IndexSizeError etc.)
-      } finally {
-        isNavigatingRef.current = false;
-      }
+      const result = results[safeIndex];
+      rendition.display(result.cfi);
+      applyHighlight(result.cfi);
     },
     [rendition, results, applyHighlight]
   );
 
   const nextResult = useCallback(() => {
     if (results.length === 0) return;
-    navigateToResult(currentIndex + 1);
-  }, [currentIndex, results.length, navigateToResult]);
+    navigateToResult(currentIndexRef.current + 1);
+  }, [results.length, navigateToResult]);
 
   const previousResult = useCallback(() => {
     if (results.length === 0) return;
-    navigateToResult(currentIndex - 1);
-  }, [currentIndex, results.length, navigateToResult]);
+    navigateToResult(currentIndexRef.current - 1);
+  }, [results.length, navigateToResult]);
 
   const clearSearch = useCallback(() => {
     if (abortRef.current) {
@@ -243,6 +230,7 @@ export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBoo
     setQuery('');
     setResults([]);
     setIsSearching(false);
+    currentIndexRef.current = 0;
     setCurrentIndex(0);
     setProgress(null);
   }, [removeHighlight]);
