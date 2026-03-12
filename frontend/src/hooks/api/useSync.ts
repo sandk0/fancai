@@ -119,6 +119,18 @@ export function useCreateBookmark(bookId: string) {
       return { previousBookmarks, previousStoreBookmarks };
     },
 
+    onSuccess: (newBookmark) => {
+      // Replace optimistic entry with real server response immediately.
+      // This prevents the stale refetch race: onSettled's invalidateQueries
+      // can return data without the new bookmark if the server hasn't propagated yet.
+      queryClient.setQueryData<BookmarkResponse[]>(syncKeys.bookmarks(userId, bookId), (old) => {
+        if (!old) return [newBookmark];
+        const withoutOptimistic = old.filter((b) => !b.id.startsWith('optimistic-'));
+        // Deduplicate in case refetch already included it
+        return [...withoutOptimistic.filter((b) => b.id !== newBookmark.id), newBookmark];
+      });
+    },
+
     onError: (_error, _data, context) => {
       if (context?.previousStoreBookmarks) {
         useReaderStore.setState((state) => ({
@@ -134,10 +146,16 @@ export function useCreateBookmark(bookId: string) {
       logger.error('[useCreateBookmark] Failed:', _error);
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: syncKeys.bookmarks(userId, bookId),
-      });
+    onSettled: (_data, error) => {
+      // Only refetch on error to confirm rollback state.
+      // On success, onSuccess already put the real bookmark in cache.
+      // Immediate refetch can return stale server data (without the new bookmark),
+      // wiping the optimistic/real entry — the root cause of BUG-4.
+      if (error) {
+        queryClient.invalidateQueries({
+          queryKey: syncKeys.bookmarks(userId, bookId),
+        });
+      }
     },
   });
 }
@@ -212,10 +230,14 @@ export function useDeleteBookmark(bookId: string) {
       logger.error('[useDeleteBookmark] Failed:', _error);
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: syncKeys.bookmarks(userId, bookId),
-      });
+    onSettled: (_data, error) => {
+      // Only refetch on error — optimistic remove is already correct on success.
+      // Immediate refetch can return stale data with the deleted bookmark still present.
+      if (error) {
+        queryClient.invalidateQueries({
+          queryKey: syncKeys.bookmarks(userId, bookId),
+        });
+      }
     },
   });
 }
