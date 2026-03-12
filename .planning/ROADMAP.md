@@ -47,7 +47,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 17: Шапка и панели** - Адаптивная шапка (320px+) и панели с полной высотой без авто-клавиатуры (gap closure) (completed 2026-03-11)
 - [x] **Phase 18: Выделение текста и заметки** - Работающее выделение текста и создание заметок без перехвата жестами (completed 2026-03-11)
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
-- [ ] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gaps found — 3/4 fixes failed human UAT)
+- [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -140,11 +140,12 @@ Plans:
 2. EntityBottomSheet и DescriptionDrawer отображают контент на полностью непрозрачном фоне
 3. Тап на description-highlight или entity-mention у края экрана открывает popup, а не перелистывает
 4. Созданная заметка сразу отображается визуально, без необходимости создавать вторую
-   **Plans:** 2/2 plans complete
+   **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 19.1-01-PLAN.md -- Inline styles fix, непрозрачные drawer-ы, elementFromPoint для edge zones
-- [ ] 19.1-02-PLAN.md -- Race condition в annotation rendering: bookmarksRef + дифференцированный debounce
+- [x] 19.1-01-PLAN.md -- Inline styles fix, непрозрачные drawer-ы, elementFromPoint для edge zones
+- [x] 19.1-02-PLAN.md -- Race condition в annotation rendering: bookmarksRef + дифференцированный debounce
+- [ ] 19.1-03-PLAN.md -- Gap closure: CSS override fix, iframe coordinate conversion, раздельные debounce-таймеры
 
 ### Phase 20: Очистка dead code
 
@@ -188,5 +189,5 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 20
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19.1. UAT-фиксы                          | 2/2 | Gaps found  | -          | -          |
+| 19.1. UAT-фиксы                          | 3/3 | Complete   | 2026-03-12 | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
