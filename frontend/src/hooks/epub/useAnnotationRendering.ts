@@ -286,7 +286,6 @@ export function useAnnotationRendering({
   const [highlightPopup, setHighlightPopup] = useState<HighlightPopup | null>(null);
   const applyingRef = useRef(false);
   const bookmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const renderedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ref for bookmarks — avoids stale closure in debounced applyAnnotations (BUG-4 fix)
   const bookmarksRef = useRef<BookmarkResponse[]>(bookmarks);
@@ -433,35 +432,80 @@ export function useAnnotationRendering({
     }
   }, [rendition, enabled, currentChapter]); // bookmarks removed — read from bookmarksRef
 
-  // Restore annotations when chapter renders or bookmarks change
-  // Two INDEPENDENT debounce timers: rendered event does NOT cancel bookmark timer
+  // Apply annotations via hooks.content — runs during epub.js content loading
+  // Lifecycle: hooks.render -> hooks.content -> emit('rendered')
+  // This ensures annotations are visible BEFORE the page is rendered
   useEffect(() => {
     if (!rendition || !enabled) return;
 
-    // Fast re-render for bookmark changes (50ms) — own timer, not overwritten by rendered event
+    const annotationHook = (contents: unknown) => {
+      const c = contents as { document: Document };
+      const doc = c.document;
+      if (!doc?.body) return;
+
+      // Read bookmarks from ref — always up-to-date
+      const currentBookmarks = bookmarksRef.current;
+      const chapterBookmarks = currentBookmarks.filter(
+        (b) =>
+          b.chapter_number === currentChapter && (b.style !== 'none' || b.color || b.text_color)
+      );
+
+      // Reuse applyingRef guard to prevent concurrent application
+      if (applyingRef.current) return;
+      applyingRef.current = true;
+
+      try {
+        cleanupAnnotations(doc);
+        if (!chapterBookmarks.length) return;
+
+        for (const bookmark of chapterBookmarks) {
+          try {
+            let range = rendition.getRange(bookmark.cfi_range);
+            if (!range) {
+              range = resolveRangeFallback(doc, bookmark.cfi_range);
+            }
+            if (!range) continue;
+            wrapRangeWithSpan(doc, range, bookmark);
+          } catch (err) {
+            logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
+          }
+        }
+      } finally {
+        applyingRef.current = false;
+      }
+    };
+
+    rendition.hooks.content.register(annotationHook);
+
+    // Also apply to already-rendered content immediately
+    try {
+      const contents = rendition.getContents();
+      if (contents?.length) {
+        contents.forEach(annotationHook);
+      }
+    } catch {
+      // Content may not be available yet
+    }
+
+    return () => {
+      rendition.hooks.content.deregister(annotationHook);
+    };
+  }, [rendition, enabled, currentChapter]);
+
+  // Re-apply annotations when bookmarks change (user creates/edits a note)
+  // Short debounce (50ms) for near-instant visual feedback
+  useEffect(() => {
+    if (!rendition || !enabled) return;
+
     if (bookmarkDebounceRef.current) {
       clearTimeout(bookmarkDebounceRef.current);
     }
     bookmarkDebounceRef.current = setTimeout(applyAnnotations, 50);
 
-    // Rendered event uses SEPARATE timer (200ms) — waits for description/entity hooks
-    const handleRendered = () => {
-      if (renderedDebounceRef.current) {
-        clearTimeout(renderedDebounceRef.current);
-      }
-      renderedDebounceRef.current = setTimeout(applyAnnotations, 200);
-    };
-
-    rendition.on('rendered', handleRendered as (...args: unknown[]) => void);
-
     return () => {
       if (bookmarkDebounceRef.current) {
         clearTimeout(bookmarkDebounceRef.current);
       }
-      if (renderedDebounceRef.current) {
-        clearTimeout(renderedDebounceRef.current);
-      }
-      rendition.off('rendered', handleRendered as (...args: unknown[]) => void);
     };
   }, [rendition, enabled, bookmarks, currentChapter, applyAnnotations]);
 
