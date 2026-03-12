@@ -44,14 +44,22 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Dismiss editing when clicking/tapping outside the editor
+  // Use mousedown + touchstart (not pointerdown) for vaul Drawer compatibility
   useEffect(() => {
     if (!editingId) return;
-    const handler = (e: PointerEvent) => {
+    const handler = (e: MouseEvent | TouchEvent) => {
       if (editorRef.current?.contains(e.target as Node)) return;
       setEditingId(null);
     };
-    document.addEventListener('pointerdown', handler);
-    return () => document.removeEventListener('pointerdown', handler);
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handler);
+      document.addEventListener('touchstart', handler);
+    }, 100);
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
   }, [editingId]);
 
   const handleNavigate = useCallback(
@@ -197,7 +205,6 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
                       onChange={(e) => setEditNoteText(e.target.value)}
                       placeholder={t('reader.bookmarks.note_placeholder', 'Add a note...')}
                       className="flex-1 h-16 px-2 py-1.5 text-sm bg-muted rounded border border-border resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                      autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                           onUpdateNote(bookmark.id, editNoteText);

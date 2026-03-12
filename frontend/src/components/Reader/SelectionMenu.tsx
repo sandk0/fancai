@@ -92,12 +92,8 @@ export const SelectionMenu = memo(function SelectionMenu({
     }
   }, [selection?.cfiRange, editMode?.bookmarkId]);
 
-  // Focus textarea when note submenu opens
-  useEffect(() => {
-    if (submenu === 'note') {
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    }
-  }, [submenu]);
+  // Note: no auto-focus on textarea — on mobile it forces the keyboard open,
+  // which is disruptive when the user just wants to pick a color/style without typing
 
   // Handle click outside to close menu
   useEffect(() => {
