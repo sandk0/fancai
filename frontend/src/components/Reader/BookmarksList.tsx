@@ -42,6 +42,14 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
 
+  const handleNavigate = useCallback(
+    (cfiRange: string, bookmarkId?: string) => {
+      setEditingId(null);
+      onNavigate(cfiRange, bookmarkId);
+    },
+    [onNavigate]
+  );
+
   const grouped = useMemo(() => {
     const groups: Record<number, BookmarkResponse[]> = {};
     for (const b of bookmarks) {
@@ -99,7 +107,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onClick={() => setEditingId(null)}>
       {grouped.map(({ chapter, items }) => (
         <div key={chapter}>
           <div className="px-4 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -110,7 +118,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
               <div key={bookmark.id}>
                 <button
                   type="button"
-                  onClick={() => onNavigate(bookmark.cfi_range, bookmark.id)}
+                  onClick={() => handleNavigate(bookmark.cfi_range, bookmark.id)}
                   className="flex items-start gap-3 w-full px-4 py-3 min-h-[44px] text-left hover:bg-muted active:bg-muted/80 rounded-lg transition-colors group"
                 >
                   {/* Color indicator or bookmark icon */}
@@ -148,7 +156,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
                     <button
                       type="button"
                       onClick={(e) => handleStartEdit(e, bookmark)}
-                      className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted rounded transition-all"
+                      className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center opacity-60 md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto hover:bg-muted rounded transition-all"
                       aria-label={t('reader.bookmarks.edit_note', 'Edit note')}
                     >
                       <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
@@ -157,7 +165,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
                     <button
                       type="button"
                       onClick={(e) => handleDelete(e, bookmark.id, bookmark.cfi_range)}
-                      className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-destructive/10 rounded transition-all"
+                      className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center opacity-60 md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto hover:bg-destructive/10 rounded transition-all"
                       aria-label={t('reader.bookmarks.delete', 'Delete bookmark')}
                     >
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />

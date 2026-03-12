@@ -286,9 +286,9 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
           isOpen={isOpen}
           onClose={() => onOpenChange(false)}
           title={t('reader.settings.title')}
-          snapPoints={[0.5, 0.9]}
+          snapPoints={[0.6, 0.95]}
         >
-          {settingsContent}
+          <div className="flex-1 overflow-y-auto overscroll-contain">{settingsContent}</div>
         </MobilePanel>
       </div>
     );

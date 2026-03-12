@@ -161,7 +161,7 @@ export function useCreateBookmark(bookId: string) {
 }
 
 /**
- * Update a bookmark (color/style/note)
+ * Update a bookmark (color/style/note) with optimistic update
  */
 export function useUpdateBookmark(bookId: string) {
   const queryClient = useQueryClient();
@@ -171,10 +171,75 @@ export function useUpdateBookmark(bookId: string) {
     mutationFn: ({ bookmarkId, data }: { bookmarkId: string; data: BookmarkUpdatePayload }) =>
       apiClient.put<BookmarkResponse>(`/sync/books/${bookId}/bookmarks/${bookmarkId}`, data),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onMutate: async ({ bookmarkId, data }) => {
+      await queryClient.cancelQueries({
         queryKey: syncKeys.bookmarks(userId, bookId),
       });
+
+      const previousBookmarks = queryClient.getQueryData<BookmarkResponse[]>(
+        syncKeys.bookmarks(userId, bookId)
+      );
+      const previousStoreBookmarks = useReaderStore.getState().bookmarks[bookId] || [];
+
+      // Optimistic update in TanStack Query cache
+      if (previousBookmarks) {
+        queryClient.setQueryData<BookmarkResponse[]>(
+          syncKeys.bookmarks(userId, bookId),
+          previousBookmarks.map((b) =>
+            b.id === bookmarkId ? { ...b, ...data, updated_at: new Date().toISOString() } : b
+          )
+        );
+      }
+
+      // Optimistic update in Zustand store (map only compatible fields)
+      useReaderStore.setState((state) => ({
+        bookmarks: {
+          ...state.bookmarks,
+          [bookId]: (state.bookmarks[bookId] || []).map((b) => {
+            if (b.id !== bookmarkId) return b;
+            const updated = { ...b };
+            if (data.color !== undefined) updated.color = data.color;
+            if (data.style !== undefined) updated.style = data.style as typeof b.style;
+            if (data.note !== undefined) updated.note = data.note;
+            return updated;
+          }),
+        },
+      }));
+
+      return { previousBookmarks, previousStoreBookmarks };
+    },
+
+    onSuccess: (updatedBookmark, { bookmarkId }) => {
+      // Replace optimistic entry with real server response
+      queryClient.setQueryData<BookmarkResponse[]>(syncKeys.bookmarks(userId, bookId), (old) => {
+        if (!old) return [updatedBookmark];
+        return old.map((b) => (b.id === bookmarkId ? updatedBookmark : b));
+      });
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previousStoreBookmarks) {
+        useReaderStore.setState((state) => ({
+          bookmarks: {
+            ...state.bookmarks,
+            [bookId]: context.previousStoreBookmarks,
+          },
+        }));
+      }
+      if (context?.previousBookmarks) {
+        queryClient.setQueryData(syncKeys.bookmarks(userId, bookId), context.previousBookmarks);
+      }
+      logger.error('[useUpdateBookmark] Failed:', _error);
+    },
+
+    onSettled: (_data, error) => {
+      // Only refetch on error to confirm rollback state.
+      // On success, onSuccess already put the real bookmark in cache.
+      if (error) {
+        queryClient.invalidateQueries({
+          queryKey: syncKeys.bookmarks(userId, bookId),
+        });
+      }
     },
   });
 }

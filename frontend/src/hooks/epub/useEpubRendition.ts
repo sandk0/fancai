@@ -1,6 +1,7 @@
 import type { Book, Rendition } from '@/types/epub';
 import { isIOS, isMobile } from '@/utils/iosSupport';
 import { applyIOSSpreadFix, applyIOSRenderedFixes } from './useEpubIOSFixes';
+import { patchRenditionQueue } from '@/utils/epubPatches';
 import { logger } from '@/lib/logger';
 
 const HEIGHT_CACHE_KEY = 'epub-rendition-height-cache';
@@ -219,6 +220,10 @@ export async function createRendition(
     minSpreadWidth: 99999,
     flow: 'paginated',
   });
+
+  // Globally patch epub.js queue to prevent permanent blocking
+  // when tasks throw (e.g. locationOf() on range CFIs)
+  patchRenditionQueue(newRendition);
 
   const savedTheme = localStorage.getItem('app-theme') || 'dark';
   const themeStyles = INITIAL_THEMES[savedTheme] || INITIAL_THEMES.dark;
