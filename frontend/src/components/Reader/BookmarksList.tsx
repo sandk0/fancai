@@ -14,7 +14,7 @@
  * @component
  */
 
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StickyNote, Trash2, Pencil, Check } from 'lucide-react';
 import type { BookmarkResponse } from '@/hooks/api/useSync';
@@ -41,6 +41,18 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss editing when clicking/tapping outside the editor
+  useEffect(() => {
+    if (!editingId) return;
+    const handler = (e: PointerEvent) => {
+      if (editorRef.current?.contains(e.target as Node)) return;
+      setEditingId(null);
+    };
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
+  }, [editingId]);
 
   const handleNavigate = useCallback(
     (cfiRange: string, bookmarkId?: string) => {
@@ -107,7 +119,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   }
 
   return (
-    <div className="space-y-4" onClick={() => setEditingId(null)}>
+    <div className="space-y-4">
       {grouped.map(({ chapter, items }) => (
         <div key={chapter}>
           <div className="px-4 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -175,7 +187,11 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
 
                 {/* Inline note editor */}
                 {editingId === bookmark.id && (
-                  <div className="px-4 pb-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    ref={editorRef}
+                    className="px-4 pb-2 flex gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <textarea
                       value={editNoteText}
                       onChange={(e) => setEditNoteText(e.target.value)}

@@ -151,6 +151,30 @@ export const useEntityNameHighlighting = ({
     }
   }, [rendition, enabled, searchTerms, currentChapter]);
 
+  // Clean up entity highlights from DOM when disabled
+  useEffect(() => {
+    if (enabled || !rendition) return;
+    try {
+      const contents = rendition.getContents();
+      if (!contents?.length) return;
+      for (const content of contents) {
+        const doc = (content as { document?: Document }).document;
+        if (!doc?.body) continue;
+        const spans = doc.querySelectorAll('.entity-mention');
+        spans.forEach((el) => {
+          const parent = el.parentNode;
+          if (parent) {
+            parent.replaceChild(doc.createTextNode(el.textContent || ''), el);
+            parent.normalize();
+          }
+        });
+      }
+      lastProcessedKey.current = '';
+    } catch {
+      // Rendition may be destroyed
+    }
+  }, [enabled, rendition]);
+
   useEffect(() => {
     if (!rendition || !enabled) return;
 

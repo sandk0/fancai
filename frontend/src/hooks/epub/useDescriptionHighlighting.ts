@@ -450,6 +450,32 @@ export const useDescriptionHighlighting = ({
     [rendition, safeDescriptions, enabled, findHighlightMatch, imagesByDescId, highlightMode]
   );
 
+  // Clean up description highlights from DOM when disabled
+  useEffect(() => {
+    if (enabled || !rendition) return;
+    try {
+      disconnectResizeObserver(rendition);
+      const contents = rendition.getContents();
+      if (!contents?.length) return;
+      for (const content of contents) {
+        const doc = (content as { document?: Document }).document;
+        if (!doc?.body) continue;
+        const highlights = doc.querySelectorAll('.description-highlight');
+        highlights.forEach((el) => {
+          const parent = el.parentNode;
+          if (parent) {
+            parent.replaceChild(doc.createTextNode(el.textContent || ''), el);
+            parent.normalize();
+          }
+        });
+      }
+      lastProcessedIds.current = '';
+      reconnectResizeObserver(rendition);
+    } catch {
+      // Rendition may be destroyed
+    }
+  }, [enabled, rendition]);
+
   useEffect(() => {
     if (!rendition || !enabled) return;
 
