@@ -86,7 +86,23 @@ export const useTextSelection = (
         // Reject selection that extends beyond current page (paginated mode).
         // In CSS-column layout, content on adjacent pages has rects outside [0, pageWidth].
         const pageWidth = contents.document.documentElement.clientWidth;
-        if (pageWidth > 0 && (rect.left < -5 || rect.right > pageWidth + 5)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mgr = (rendition as any).manager;
+        const crossesPage = rect.left < -5 || rect.right > pageWidth + 5;
+        logger.debug('[useTextSelection] Selection rect analysis', {
+          rectLeft: Math.round(rect.left),
+          rectRight: Math.round(rect.right),
+          rectWidth: Math.round(rect.width),
+          pageWidth,
+          docClientWidth: contents.document.documentElement.clientWidth,
+          bodyClientWidth: contents.document.body.clientWidth,
+          bodyScrollWidth: contents.document.body.scrollWidth,
+          layoutPageWidth: mgr?.layout?.pageWidth,
+          layoutColumnWidth: mgr?.layout?.columnWidth,
+          crossesPage,
+          selectedText: selectedText.slice(0, 50),
+        });
+        if (pageWidth > 0 && crossesPage) {
           logger.debug('[useTextSelection] Selection crosses page boundary, clearing');
           windowSelection?.removeAllRanges();
           setSelection(null);
@@ -144,11 +160,35 @@ export const useTextSelection = (
     rendition.on('markClicked', handleMarkClicked);
     rendition.on('click', handleClick);
 
+    // Debug: realtime selectionchange listener inside iframe to detect cross-page selection as it happens
+    const selectionChangeHandler = () => {
+      const contentsList = rendition.getContents();
+      if (!contentsList?.length) return;
+      const c = contentsList[0] as Contents;
+      const sel = c.window?.getSelection();
+      if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      const pw = c.document.documentElement.clientWidth;
+      if (r.right > pw + 5 || r.left < -5) {
+        logger.debug('[useTextSelection] REALTIME cross-page detected', {
+          left: Math.round(r.left),
+          right: Math.round(r.right),
+          pageWidth: pw,
+        });
+      }
+    };
+
+    // Attach selectionchange to current iframe document
+    const currentContents = rendition.getContents();
+    const iframeDoc = currentContents?.[0] ? (currentContents[0] as Contents).document : null;
+    iframeDoc?.addEventListener('selectionchange', selectionChangeHandler);
+
     return () => {
       // Cleanup event listeners
       rendition.off('selected', handleSelected as (...args: unknown[]) => void);
       rendition.off('markClicked', handleMarkClicked);
       rendition.off('click', handleClick);
+      iframeDoc?.removeEventListener('selectionchange', selectionChangeHandler);
     };
   }, [rendition, enabled]);
 
