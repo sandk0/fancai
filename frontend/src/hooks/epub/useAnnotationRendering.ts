@@ -285,7 +285,8 @@ export function useAnnotationRendering({
   const { data: bookmarks = [] } = useBookmarks(bookId);
   const [highlightPopup, setHighlightPopup] = useState<HighlightPopup | null>(null);
   const applyingRef = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const renderedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ref for bookmarks — avoids stale closure in debounced applyAnnotations (BUG-4 fix)
   const bookmarksRef = useRef<BookmarkResponse[]>(bookmarks);
@@ -432,40 +433,37 @@ export function useAnnotationRendering({
     }
   }, [rendition, enabled, currentChapter]); // bookmarks removed — read from bookmarksRef
 
-  // Debounced apply with configurable delay:
-  // - 50ms for bookmark changes (fast feedback after optimistic update)
-  // - 200ms for rendered event (wait for description/entity hooks)
-  const debouncedApply = useCallback(
-    (delay: number = 200) => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-      debounceRef.current = setTimeout(applyAnnotations, delay);
-    },
-    [applyAnnotations]
-  );
-
   // Restore annotations when chapter renders or bookmarks change
+  // Two INDEPENDENT debounce timers: rendered event does NOT cancel bookmark timer
   useEffect(() => {
     if (!rendition || !enabled) return;
 
-    // Fast re-render for bookmark changes (50ms) — data already in cache from optimistic update
-    debouncedApply(50);
+    // Fast re-render for bookmark changes (50ms) — own timer, not overwritten by rendered event
+    if (bookmarkDebounceRef.current) {
+      clearTimeout(bookmarkDebounceRef.current);
+    }
+    bookmarkDebounceRef.current = setTimeout(applyAnnotations, 50);
 
-    // Full debounce for rendered event (200ms) — wait for description/entity hooks
+    // Rendered event uses SEPARATE timer (200ms) — waits for description/entity hooks
     const handleRendered = () => {
-      debouncedApply(200);
+      if (renderedDebounceRef.current) {
+        clearTimeout(renderedDebounceRef.current);
+      }
+      renderedDebounceRef.current = setTimeout(applyAnnotations, 200);
     };
 
     rendition.on('rendered', handleRendered as (...args: unknown[]) => void);
 
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
+      if (bookmarkDebounceRef.current) {
+        clearTimeout(bookmarkDebounceRef.current);
+      }
+      if (renderedDebounceRef.current) {
+        clearTimeout(renderedDebounceRef.current);
       }
       rendition.off('rendered', handleRendered as (...args: unknown[]) => void);
     };
-  }, [rendition, enabled, bookmarks, currentChapter, debouncedApply]);
+  }, [rendition, enabled, bookmarks, currentChapter, applyAnnotations]);
 
   // Flash animation for navigate-to-note
   const flashAnnotation = useCallback(
