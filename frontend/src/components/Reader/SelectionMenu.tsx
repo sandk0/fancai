@@ -203,178 +203,197 @@ export const SelectionMenu = memo(function SelectionMenu({
   const canSave = hasVisualStyle || noteText.trim();
 
   return (
-    <div
-      ref={menuRef}
-      style={getMenuStyle()}
-      className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg backdrop-blur-sm overflow-hidden"
-      role="menu"
-      aria-label={t('reader.menu.aria_label', 'Text selection menu')}
-    >
-      {submenu === 'main' && !editMode && (
-        <div className="flex items-stretch divide-x divide-border">
-          {/* Copy */}
-          <button
-            onClick={handleCopy}
-            className="flex flex-col items-center justify-center gap-1 px-4 py-2 min-h-[44px] min-w-[60px] hover:bg-muted active:bg-muted/80 transition-colors"
-            aria-label={t('reader.menu.copy', 'Copy')}
-          >
-            <Copy className="w-4 h-4" aria-hidden="true" />
-            <span className="text-xs">{t('reader.menu.copy', 'Copy')}</span>
-          </button>
-
-          {/* Note - opens style/color picker + textarea */}
-          {onBookmark && (
+    <>
+      {/* Transparent backdrop to catch taps outside the menu.
+          document-level touchstart/mousedown listeners don't catch taps inside the
+          epub.js iframe (cross-frame boundary), so on mobile the menu was not dismissible.
+          This overlay sits in the parent DOM and reliably intercepts all taps. */}
+      <div
+        className="fixed inset-0"
+        style={{ zIndex: 599 }}
+        onClick={onClose}
+        onTouchStart={onClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={menuRef}
+        style={getMenuStyle()}
+        className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg backdrop-blur-sm overflow-hidden"
+        role="menu"
+        aria-label={t('reader.menu.aria_label', 'Text selection menu')}
+      >
+        {submenu === 'main' && !editMode && (
+          <div className="flex items-stretch divide-x divide-border">
+            {/* Copy */}
             <button
-              onClick={() => setSubmenu('note')}
+              onClick={handleCopy}
               className="flex flex-col items-center justify-center gap-1 px-4 py-2 min-h-[44px] min-w-[60px] hover:bg-muted active:bg-muted/80 transition-colors"
-              aria-label={t('reader.menu.note', 'Note')}
+              aria-label={t('reader.menu.copy', 'Copy')}
             >
-              <StickyNote className="w-4 h-4" aria-hidden="true" />
-              <span className="text-xs">{t('reader.menu.note', 'Note')}</span>
+              <Copy className="w-4 h-4" aria-hidden="true" />
+              <span className="text-xs">{t('reader.menu.copy', 'Copy')}</span>
             </button>
-          )}
-        </div>
-      )}
 
-      {submenu === 'note' && (
-        <div className="p-3 w-[260px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {editMode
-                ? t('reader.menu.edit_note', 'Edit note')
-                : t('reader.menu.add_note', 'Add note')}
-            </span>
-            <button
-              onClick={() => (editMode ? onClose() : setSubmenu('main'))}
-              className="p-1 hover:bg-muted rounded min-w-[28px] min-h-[28px] flex items-center justify-center"
-              aria-label={editMode ? t('common.close', 'Close') : t('common.back', 'Back')}
-            >
-              <X className="w-3 h-3" aria-hidden="true" />
-            </button>
-          </div>
-
-          {/* Style row */}
-          <div className="flex items-center gap-1 mb-2 flex-wrap">
-            {STYLE_OPTIONS.map((s) => (
+            {/* Note - opens style/color picker + textarea */}
+            {onBookmark && (
               <button
-                key={s.key}
-                onClick={() => setSelectedStyle(s.key)}
-                className={`px-2 py-1 text-xs rounded-md border transition-all min-h-[28px] ${
-                  selectedStyle === s.key
-                    ? 'border-primary bg-primary/10 text-primary font-medium'
-                    : 'border-border hover:border-foreground/30 text-muted-foreground'
-                }`}
+                onClick={() => setSubmenu('note')}
+                className="flex flex-col items-center justify-center gap-1 px-4 py-2 min-h-[44px] min-w-[60px] hover:bg-muted active:bg-muted/80 transition-colors"
+                aria-label={t('reader.menu.note', 'Note')}
               >
-                {s.label}
+                <StickyNote className="w-4 h-4" aria-hidden="true" />
+                <span className="text-xs">{t('reader.menu.note', 'Note')}</span>
               </button>
-            ))}
+            )}
           </div>
+        )}
 
-          {/* Background color row */}
-          <div className="mb-1">
-            <span className="text-[10px] text-muted-foreground">
-              {t('reader.menu.bg_color', 'Background')}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setSelectedColor(null)}
-              className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
-                selectedColor === null
-                  ? 'border-foreground scale-110'
-                  : 'border-border hover:border-foreground/30'
-              }`}
-              aria-label="No background color"
-            >
-              <span className="w-5 h-5 rounded-full block bg-muted relative overflow-hidden">
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
-                  /
-                </span>
+        {submenu === 'note' && (
+          <div className="p-3 w-[260px]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {editMode
+                  ? t('reader.menu.edit_note', 'Edit note')
+                  : t('reader.menu.add_note', 'Add note')}
               </span>
-            </button>
-            {BOOKMARK_COLORS.map((c) => (
               <button
-                key={c.name}
-                onClick={() => setSelectedColor(c.value)}
-                className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
-                  selectedColor === c.value
-                    ? 'border-foreground scale-110'
-                    : 'border-transparent hover:border-foreground/30'
-                }`}
-                aria-label={c.name}
+                onClick={() => (editMode ? onClose() : setSubmenu('main'))}
+                className="p-1 hover:bg-muted rounded min-w-[28px] min-h-[28px] flex items-center justify-center"
+                aria-label={editMode ? t('common.close', 'Close') : t('common.back', 'Back')}
               >
-                <span className="w-5 h-5 rounded-full block" style={{ backgroundColor: c.value }} />
+                <X className="w-3 h-3" aria-hidden="true" />
               </button>
-            ))}
-          </div>
+            </div>
 
-          {/* Text color row */}
-          <div className="mb-1">
-            <span className="text-[10px] text-muted-foreground">
-              {t('reader.menu.text_color', 'Text color')}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setSelectedTextColor(null)}
-              className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
-                selectedTextColor === null
-                  ? 'border-foreground scale-110'
-                  : 'border-border hover:border-foreground/30'
-              }`}
-              aria-label="No text color"
-            >
-              <span className="w-5 h-5 rounded-full block bg-muted relative overflow-hidden">
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
-                  /
-                </span>
+            {/* Style row */}
+            <div className="flex items-center gap-1 mb-2 flex-wrap">
+              {STYLE_OPTIONS.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => setSelectedStyle(s.key)}
+                  className={`px-2 py-1 text-xs rounded-md border transition-all min-h-[28px] ${
+                    selectedStyle === s.key
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border hover:border-foreground/30 text-muted-foreground'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Background color row */}
+            <div className="mb-1">
+              <span className="text-[10px] text-muted-foreground">
+                {t('reader.menu.bg_color', 'Background')}
               </span>
-            </button>
-            {BOOKMARK_COLORS.map((c) => (
+            </div>
+            <div className="flex items-center gap-2 mb-2">
               <button
-                key={c.name}
-                onClick={() => setSelectedTextColor(c.value)}
+                onClick={() => setSelectedColor(null)}
                 className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
-                  selectedTextColor === c.value
+                  selectedColor === null
                     ? 'border-foreground scale-110'
-                    : 'border-transparent hover:border-foreground/30'
+                    : 'border-border hover:border-foreground/30'
                 }`}
-                aria-label={`${c.name} text`}
+                aria-label="No background color"
               >
-                <span className="w-5 h-5 rounded-full block" style={{ backgroundColor: c.value }} />
+                <span className="w-5 h-5 rounded-full block bg-muted relative overflow-hidden">
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+                    /
+                  </span>
+                </span>
               </button>
-            ))}
+              {BOOKMARK_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => setSelectedColor(c.value)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
+                    selectedColor === c.value
+                      ? 'border-foreground scale-110'
+                      : 'border-transparent hover:border-foreground/30'
+                  }`}
+                  aria-label={c.name}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full block"
+                    style={{ backgroundColor: c.value }}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Text color row */}
+            <div className="mb-1">
+              <span className="text-[10px] text-muted-foreground">
+                {t('reader.menu.text_color', 'Text color')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <button
+                onClick={() => setSelectedTextColor(null)}
+                className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
+                  selectedTextColor === null
+                    ? 'border-foreground scale-110'
+                    : 'border-border hover:border-foreground/30'
+                }`}
+                aria-label="No text color"
+              >
+                <span className="w-5 h-5 rounded-full block bg-muted relative overflow-hidden">
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+                    /
+                  </span>
+                </span>
+              </button>
+              {BOOKMARK_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => setSelectedTextColor(c.value)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all min-w-[32px] min-h-[32px] flex items-center justify-center ${
+                    selectedTextColor === c.value
+                      ? 'border-foreground scale-110'
+                      : 'border-transparent hover:border-foreground/30'
+                  }`}
+                  aria-label={`${c.name} text`}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full block"
+                    style={{ backgroundColor: c.value }}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder={t('reader.menu.note_placeholder', 'Write a note (optional)...')}
+              className="w-full h-16 px-2 py-1.5 text-sm bg-muted rounded border border-border resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  handleSaveNote();
+                }
+              }}
+            />
+            <button
+              onClick={handleSaveNote}
+              disabled={!canSave}
+              className="mt-2 w-full py-1.5 min-h-[36px] text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {t('reader.menu.save', 'Save')}
+            </button>
           </div>
+        )}
 
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder={t('reader.menu.note_placeholder', 'Write a note (optional)...')}
-            className="w-full h-16 px-2 py-1.5 text-sm bg-muted rounded border border-border resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                handleSaveNote();
-              }
-            }}
-          />
-          <button
-            onClick={handleSaveNote}
-            disabled={!canSave}
-            className="mt-2 w-full py-1.5 min-h-[36px] text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {t('reader.menu.save', 'Save')}
-          </button>
-        </div>
-      )}
-
-      {/* Character count for long selections (main menu only) */}
-      {submenu === 'main' && !editMode && selection && selection.text.length > 100 && (
-        <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-opacity-50">
-          {selection.text.length} {t('reader.menu.characters', 'characters selected')}
-        </div>
-      )}
-    </div>
+        {/* Character count for long selections (main menu only) */}
+        {submenu === 'main' && !editMode && selection && selection.text.length > 100 && (
+          <div className="px-3 py-1 text-xs text-muted-foreground border-t border-border bg-opacity-50">
+            {selection.text.length} {t('reader.menu.characters', 'characters selected')}
+          </div>
+        )}
+      </div>
+    </>
   );
 });
