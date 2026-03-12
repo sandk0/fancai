@@ -143,52 +143,37 @@ describe('useContentHooks', () => {
       expect(allCSS).not.toContain('touch-action: manipulation');
     });
 
-    it('registers selectstart listener that prevents selection on short tap (<300ms)', () => {
+    it('adds selection-blocked class on touchstart (blocks Touch to Search via CSS)', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderHook(() => useContentHooks(mockRendition as any, 'light'));
 
       const doc = document.implementation.createHTMLDocument('test');
       mockRendition._triggerContent(doc);
 
-      // Simulate touchstart to set the timing baseline
+      // Simulate touchstart — should add selection-blocked
       const touchStartEvent = new Event('touchstart', { bubbles: true });
       doc.dispatchEvent(touchStartEvent);
 
-      // Simulate selectstart shortly after (<300ms) — should be prevented
-      const selectStartEvent = new Event('selectstart', { cancelable: true });
-      const preventDefaultSpy = vi.spyOn(selectStartEvent, 'preventDefault');
-
-      // Fire selectstart immediately (elapsed ~0ms < 300ms threshold)
-      doc.dispatchEvent(selectStartEvent);
-
-      expect(preventDefaultSpy).toHaveBeenCalled();
+      expect(doc.body.classList.contains('selection-blocked')).toBe(true);
     });
 
-    it('allows selection on long-press (>=300ms)', () => {
+    it('removes selection-blocked after 300ms for long-press selection', () => {
+      vi.useFakeTimers();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderHook(() => useContentHooks(mockRendition as any, 'light'));
 
       const doc = document.implementation.createHTMLDocument('test');
       mockRendition._triggerContent(doc);
 
-      // Mock Date.now to simulate long-press timing
-      const baseTime = 1000000;
-      const dateNowSpy = vi.spyOn(Date, 'now');
-
-      // touchstart sets baseline
-      dateNowSpy.mockReturnValue(baseTime);
       const touchStartEvent = new Event('touchstart', { bubbles: true });
       doc.dispatchEvent(touchStartEvent);
+      expect(doc.body.classList.contains('selection-blocked')).toBe(true);
 
-      // selectstart fires 300ms later (>= threshold, should be allowed)
-      dateNowSpy.mockReturnValue(baseTime + 300);
-      const selectStartEvent = new Event('selectstart', { cancelable: true });
-      const preventDefaultSpy = vi.spyOn(selectStartEvent, 'preventDefault');
-      doc.dispatchEvent(selectStartEvent);
+      // After 300ms, class should be removed (long-press allows selection)
+      vi.advanceTimersByTime(300);
+      expect(doc.body.classList.contains('selection-blocked')).toBe(false);
 
-      expect(preventDefaultSpy).not.toHaveBeenCalled();
-
-      dateNowSpy.mockRestore();
+      vi.useRealTimers();
     });
 
     it('registers touchstart listener as passive', () => {
