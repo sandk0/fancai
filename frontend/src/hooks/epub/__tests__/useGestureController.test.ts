@@ -86,6 +86,74 @@ describe('useGestureController', () => {
     });
   });
 
+  describe('coordinate handling in source code', () => {
+    // These tests verify the source code patterns to ensure correctness.
+    // Since we can't run the actual hook in JSDOM (it requires a real epub.js rendition),
+    // we inspect the source code to verify the coordinate handling patterns.
+
+    it('handleTouchEnd uses clientX/clientY directly for elementFromPoint (no iframeRect subtraction)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sourcePath = path.resolve(__dirname, '../useGestureController.ts');
+      const source = fs.readFileSync(sourcePath, 'utf-8');
+
+      // Extract the handleTouchEnd TAP DETECTION section
+      // The correct pattern: doc.elementFromPoint(touch.clientX, touch.clientY)
+      // The WRONG pattern: elementFromPoint(touch.clientX - iframeRect.left, ...)
+      expect(source).toContain('doc.elementFromPoint(touch.clientX, touch.clientY)');
+      // Should NOT subtract iframeRect for iframe-sourced events in handleTouchEnd
+      expect(source).not.toMatch(/tapDoc\?\.elementFromPoint\(\s*iframeX\s*,\s*iframeY\s*\)/);
+    });
+
+    it('handleClick uses clientX/clientY directly for elementFromPoint (no iframeRect subtraction)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sourcePath = path.resolve(__dirname, '../useGestureController.ts');
+      const source = fs.readFileSync(sourcePath, 'utf-8');
+
+      // The correct pattern for click handler
+      expect(source).toContain('clickDoc?.elementFromPoint(e.clientX, e.clientY)');
+      // Should NOT use clickIframeX/clickIframeY for elementFromPoint
+      expect(source).not.toMatch(
+        /clickDoc\?\.elementFromPoint\(\s*clickIframeX\s*,\s*clickIframeY\s*\)/
+      );
+    });
+
+    it('onCenterTap receives clientX/clientY directly for iframe events', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sourcePath = path.resolve(__dirname, '../useGestureController.ts');
+      const source = fs.readFileSync(sourcePath, 'utf-8');
+
+      // In handleTouchEnd center-tap section: onCenterTapRef.current(touch.clientX, touch.clientY)
+      expect(source).toContain('onCenterTapRef.current(touch.clientX, touch.clientY)');
+      // In handleClick center-tap section: onCenterTapRef.current(e.clientX, e.clientY)
+      expect(source).toContain('onCenterTapRef.current(e.clientX, e.clientY)');
+    });
+
+    it('zone detection uses clientX + iframeOffset for screen coords', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sourcePath = path.resolve(__dirname, '../useGestureController.ts');
+      const source = fs.readFileSync(sourcePath, 'utf-8');
+
+      // Zone detection should ADD iframeOffset to get screen coords
+      expect(source).toContain('touch.clientX + iframeOffset');
+      expect(source).toContain('e.clientX + iframeOffset');
+    });
+
+    it('iOS overlay still converts screen->iframe via iframeRect subtraction (correct for parent events)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sourcePath = path.resolve(__dirname, '../useGestureController.ts');
+      const source = fs.readFileSync(sourcePath, 'utf-8');
+
+      // iOS overlay events come from parent document, so they need conversion
+      expect(source).toContain('touch.clientX - iframeRect.left');
+      expect(source).toContain('touch.clientY - iframeRect.top');
+    });
+  });
+
   describe('reused utilities from useFollowFingerSwipe', () => {
     it('gesture controller imports all required utilities', async () => {
       // Verify the module imports compile and the utilities are accessible

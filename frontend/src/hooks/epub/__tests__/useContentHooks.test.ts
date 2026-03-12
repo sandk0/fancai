@@ -143,6 +143,71 @@ describe('useContentHooks', () => {
       expect(allCSS).not.toContain('touch-action: manipulation');
     });
 
+    it('registers selectstart listener that prevents selection on short tap (<300ms)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderHook(() => useContentHooks(mockRendition as any, 'light'));
+
+      const doc = document.implementation.createHTMLDocument('test');
+      mockRendition._triggerContent(doc);
+
+      // Simulate touchstart to set the timing baseline
+      const touchStartEvent = new Event('touchstart', { bubbles: true });
+      doc.dispatchEvent(touchStartEvent);
+
+      // Simulate selectstart shortly after (<300ms) — should be prevented
+      const selectStartEvent = new Event('selectstart', { cancelable: true });
+      const preventDefaultSpy = vi.spyOn(selectStartEvent, 'preventDefault');
+
+      // Fire selectstart immediately (elapsed ~0ms < 300ms threshold)
+      doc.dispatchEvent(selectStartEvent);
+
+      expect(preventDefaultSpy).toHaveBeenCalled();
+    });
+
+    it('allows selection on long-press (>=300ms)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderHook(() => useContentHooks(mockRendition as any, 'light'));
+
+      const doc = document.implementation.createHTMLDocument('test');
+      mockRendition._triggerContent(doc);
+
+      // Simulate touchstart, then wait 300ms before selectstart
+      const now = Date.now();
+      vi.spyOn(Date, 'now')
+        .mockReturnValueOnce(now) // touchstart
+        .mockReturnValueOnce(now + 300); // selectstart (exactly 300ms = allowed)
+
+      const touchStartEvent = new Event('touchstart', { bubbles: true });
+      doc.dispatchEvent(touchStartEvent);
+
+      const selectStartEvent = new Event('selectstart', { cancelable: true });
+      const preventDefaultSpy = vi.spyOn(selectStartEvent, 'preventDefault');
+      doc.dispatchEvent(selectStartEvent);
+
+      expect(preventDefaultSpy).not.toHaveBeenCalled();
+
+      vi.restoreAllMocks();
+    });
+
+    it('registers touchstart listener as passive', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderHook(() => useContentHooks(mockRendition as any, 'light'));
+
+      const doc = document.implementation.createHTMLDocument('test');
+      const addEventListenerSpy = vi.spyOn(doc, 'addEventListener');
+
+      mockRendition._triggerContent(doc);
+
+      // Find the touchstart registration call
+      const touchStartCall = addEventListenerSpy.mock.calls.find(
+        (call) => call[0] === 'touchstart'
+      );
+
+      expect(touchStartCall).toBeDefined();
+      // Third argument should include passive: true
+      expect(touchStartCall![2]).toEqual(expect.objectContaining({ passive: true }));
+    });
+
     it('does not suppress contextmenu on desktop', () => {
       // Mock desktop device
       const originalMaxTouchPoints = navigator.maxTouchPoints;
