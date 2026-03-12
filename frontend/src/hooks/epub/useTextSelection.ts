@@ -24,7 +24,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
+import { isAndroid } from '@/utils/iosSupport';
 import { logger } from '@/lib/logger';
+
+// Android selection handles (carets) extend below the selection rect by ~24px
+const ANDROID_CARET_OFFSET = 24;
 
 export interface Selection {
   text: string;
@@ -80,10 +84,11 @@ export const useTextSelection = (
         }
         const iframeRect = iframe.getBoundingClientRect();
 
+        const caretOffset = isAndroid() ? ANDROID_CARET_OFFSET : 0;
         const absolutePosition = {
           x: iframeRect.left + rect.left + rect.width / 2,
           y: iframeRect.top + rect.top,
-          bottom: iframeRect.top + rect.bottom,
+          bottom: iframeRect.top + rect.bottom + caretOffset,
         };
 
         setSelection({
