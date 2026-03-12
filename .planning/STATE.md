@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: in-progress
-last_updated: "2026-03-12T12:34:16Z"
-last_activity: "2026-03-12 — Plan 19.2-02 complete: annotation timing migrated to hooks.content"
+status: completed
+last_updated: "2026-03-12T12:37:00Z"
+last_activity: "2026-03-12 — Plan 19.2-01 complete: selectstart suppression + iframe coordinate fix"
 progress:
-  total_phases: 6
-  completed_phases: 5
+  total_phases: 7
+  completed_phases: 7
   total_plans: 16
-  completed_plans: 15
-  percent: 94
+  completed_plans: 16
+  percent: 100
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 19.2 -- Мобильные баги ридера: touch selection, iframe координаты, annotation timing
+**Текущий фокус:** Phase 19.2 complete -- Мобильные баги ридера: touch selection, iframe координаты, annotation timing
 
 ## Текущая позиция
 
 Phase: 19.2 (Мобильные баги ридера: touch selection, iframe координаты, annotation timing)
-Plan: 2 of 2 (plan 02 complete, plan 01 pending)
-Status: In Progress — plan 01 (touch selection + iframe coords) pending
-Last activity: 2026-03-12 — Plan 19.2-02 complete: annotation timing migrated to hooks.content
+Plan: 2 of 2 (all plans complete)
+Status: Phase Complete — awaiting Human UAT Round 2
+Last activity: 2026-03-12 — Plan 19.2-01 complete: selectstart suppression + iframe coordinate fix
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -97,6 +97,10 @@ Progress: [█████████░] 94%
 - [19.1-03] bookmarkDebounceRef (50ms) + renderedDebounceRef (200ms) — два независимых таймера вместо единого debouncedApply
 - [19.2-02] hooks.content.register для аннотаций вместо rendered event — гарантирует применение ДО рендеринга страницы (epub.js lifecycle: hooks.content -> rendered)
 - [19.2-02] renderedDebounceRef удалён — единственный debounce bookmarkDebounceRef (50ms) для bookmark changes
+- [19.2-01] selectstart listener вместо CSS/meta-tag для подавления Chrome Touch to Search — единственный способ, работающий на уровне Touch to Search
+- [19.2-01] Порог 300ms для разделения short tap и long-press — согласован с gesture controller LONG_PRESS_TIMEOUT (350ms)
+- [19.2-01] getIframeRect helper удалён — iframe events уже в iframe-viewport coords, конвертация не нужна
+- [19.2-01] globals.css: iframe body правила удалены — useContentHooks.ts единственный источник стилей для iframe body
 
 ### Roadmap Evolution
 
@@ -122,8 +126,9 @@ Progress: [█████████░] 94%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-12
-Phase 19.2 plan 02 complete:
-- BUG-4 (annotation timing): FIXED — hooks.content.register вместо rendered event
-- renderedDebounceRef удален, bookmarkDebounceRef (50ms) сохранен
-- 3 новых теста подтверждают hooks.content registration
-Следующий шаг: Plan 19.2-01 (BUG-1 touch selection + BUG-5 iframe coords)
+Phase 19.2 COMPLETE (both plans):
+- Plan 02 — BUG-4 (annotation timing): FIXED — hooks.content.register вместо rendered event
+- Plan 01 — BUG-1 (touch selection): FIXED — selectstart listener с timing-based подавлением (300ms порог)
+- Plan 01 — BUG-5 (iframe coords): FIXED — убрано двойное вычитание iframeRect, elementFromPoint использует clientX напрямую
+- getIframeRect helper удален, globals.css очищен от дублирующих правил
+Milestone v1.2 complete. Следующий шаг: Human UAT Round 2 на Pixel 9, затем Phase 18 (текстовые заметки).
