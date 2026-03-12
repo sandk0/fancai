@@ -84,10 +84,12 @@ export const useTextSelection = (
         }
 
         // Reject selection that extends beyond current page (paginated mode).
-        // In CSS-column layout, content on adjacent pages has rects outside [0, pageWidth].
-        const pageWidth = contents.document.documentElement.clientWidth;
+        // In CSS-column layout, documentElement.clientWidth returns total width of ALL columns
+        // (e.g. 8610px for 21 pages), not one page. Use epub.js layout.columnWidth instead.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mgr = (rendition as any).manager;
+        const columnWidth = mgr?.layout?.columnWidth as number | undefined;
+        const pageWidth = columnWidth || contents.document.body.clientWidth;
         const crossesPage = rect.left < -5 || rect.right > pageWidth + 5;
         logger.debug('[useTextSelection] Selection rect analysis', {
           rectLeft: Math.round(rect.left),
@@ -96,9 +98,7 @@ export const useTextSelection = (
           pageWidth,
           docClientWidth: contents.document.documentElement.clientWidth,
           bodyClientWidth: contents.document.body.clientWidth,
-          bodyScrollWidth: contents.document.body.scrollWidth,
-          layoutPageWidth: mgr?.layout?.pageWidth,
-          layoutColumnWidth: mgr?.layout?.columnWidth,
+          layoutColumnWidth: columnWidth,
           crossesPage,
           selectedText: selectedText.slice(0, 50),
         });
@@ -160,7 +160,9 @@ export const useTextSelection = (
     rendition.on('markClicked', handleMarkClicked);
     rendition.on('click', handleClick);
 
-    // Debug: realtime selectionchange listener inside iframe to detect cross-page selection as it happens
+    // Realtime selectionchange listener: clamp selection to current page boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mgrRef = (rendition as any).manager;
     const selectionChangeHandler = () => {
       const contentsList = rendition.getContents();
       if (!contentsList?.length) return;
@@ -168,13 +170,14 @@ export const useTextSelection = (
       const sel = c.window?.getSelection();
       if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
       const r = sel.getRangeAt(0).getBoundingClientRect();
-      const pw = c.document.documentElement.clientWidth;
-      if (r.right > pw + 5 || r.left < -5) {
-        logger.debug('[useTextSelection] REALTIME cross-page detected', {
+      const colW = (mgrRef?.layout?.columnWidth as number) || c.document.body.clientWidth;
+      if (r.right > colW + 5 || r.left < -5) {
+        logger.debug('[useTextSelection] REALTIME cross-page detected, clearing', {
           left: Math.round(r.left),
           right: Math.round(r.right),
-          pageWidth: pw,
+          pageWidth: colW,
         });
+        sel.removeAllRanges();
       }
     };
 
