@@ -231,6 +231,16 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             clearTimeout(longPressTimer);
             longPressTimer = null;
           }
+
+          // Short tap: explicitly clear any existing selection to prevent
+          // Chrome from restoring it when selection-blocked class is removed.
+          // Without this, the Selection object persists (only hidden by CSS),
+          // and reappears when user-select:none is removed — causing flickering.
+          if (elapsed < LONG_PRESS_THRESHOLD) {
+            doc.getSelection()?.removeAllRanges();
+            logger.debug('[useContentHooks] Short tap -- cleared selection');
+          }
+
           // Defer removal to ensure Touch to Search is blocked for the current tap
           cleanupTimer = setTimeout(() => {
             doc.body.classList.remove('selection-blocked');

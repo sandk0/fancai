@@ -397,14 +397,33 @@ export function useAnnotationRendering({
 
   // Apply annotations function — reads bookmarks from ref to avoid stale closure (BUG-4 fix)
   const applyAnnotations = useCallback(() => {
-    if (!rendition || !enabled || applyingRef.current) return;
+    if (!rendition || !enabled) return;
+
+    if (applyingRef.current) {
+      logger.debug('[useAnnotationRendering] SKIPPED — applyingRef is true (concurrent call)');
+      return;
+    }
 
     const doc = getContentDocument(rendition);
-    if (!doc?.body) return;
+    if (!doc?.body) {
+      logger.debug('[useAnnotationRendering] SKIPPED — no document body');
+      return;
+    }
 
     const currentBookmarks = bookmarksRef.current; // always up-to-date via ref
     const chapterBookmarks = currentBookmarks.filter(
       (b) => b.chapter_number === currentChapter && (b.style !== 'none' || b.color || b.text_color)
+    );
+
+    logger.debug(
+      '[useAnnotationRendering] applyAnnotations called — ref count:',
+      currentBookmarks.length,
+      'chapter bookmarks:',
+      chapterBookmarks.length,
+      'chapter:',
+      currentChapter,
+      'IDs:',
+      chapterBookmarks.map((b) => b.id.slice(0, 8)).join(',')
     );
 
     applyingRef.current = true;
@@ -413,32 +432,48 @@ export function useAnnotationRendering({
       withResizeSuppression(rendition, () => {
         cleanupAnnotations(doc);
 
-        logger.debug(
-          '[useAnnotationRendering] Applying',
-          chapterBookmarks.length,
-          'annotations for chapter',
-          currentChapter
-        );
-
         if (!chapterBookmarks.length) return;
 
+        let resolved = 0;
+        let failed = 0;
         for (const bookmark of chapterBookmarks) {
           try {
             // Try native getRange first, fallback for CFI path mismatches
             let range = rendition.getRange(bookmark.cfi_range);
             if (!range) {
               range = resolveRangeFallback(doc, bookmark.cfi_range);
+              if (range) {
+                logger.debug('[useAnnotationRendering] Used fallback for', bookmark.id.slice(0, 8));
+              }
             }
-            if (!range) continue;
+            if (!range) {
+              failed++;
+              logger.debug(
+                '[useAnnotationRendering] No range for',
+                bookmark.id.slice(0, 8),
+                'CFI:',
+                bookmark.cfi_range.slice(0, 50)
+              );
+              continue;
+            }
 
             wrapRangeWithSpan(doc, range, bookmark);
+            resolved++;
           } catch (err) {
+            failed++;
             logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
           }
         }
 
         const applied = doc.querySelectorAll('.user-annotation').length;
-        logger.debug('[useAnnotationRendering] Applied', applied, 'annotation spans');
+        logger.debug(
+          '[useAnnotationRendering] Done — resolved:',
+          resolved,
+          'failed:',
+          failed,
+          'DOM spans:',
+          applied
+        );
       });
     } finally {
       applyingRef.current = false;

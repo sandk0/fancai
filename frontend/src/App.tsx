@@ -16,6 +16,7 @@ import Layout from '@/components/Layout/Layout';
 import AuthGuard from '@/components/Auth/AuthGuard';
 import { OfflineBanner } from '@/components/UI/OfflineBanner';
 import { PWAUpdatePrompt } from '@/components/UI/PWAUpdatePrompt';
+import { DebugPanel } from '@/components/UI/DebugPanel';
 import { ChunkLoadErrorBoundary } from '@/components/ErrorBoundary/ChunkLoadErrorBoundary';
 import { ScrollToTop } from '@/components/ScrollToTop';
 
@@ -171,6 +172,9 @@ function App() {
 
               {/* PWA update prompt */}
               <PWAUpdatePrompt />
+
+              {/* Debug overlay (visible only with ?debug=1 URL param) */}
+              <DebugPanel />
 
               {/* Global notifications */}
               <Toaster
