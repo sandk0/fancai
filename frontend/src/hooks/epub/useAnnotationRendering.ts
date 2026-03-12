@@ -502,18 +502,45 @@ export function useAnnotationRendering({
   }, [rendition, enabled, currentChapter]);
 
   // Re-apply annotations when bookmarks change (user creates/edits a note)
-  // Short debounce (50ms) for near-instant visual feedback
+  // Immediate apply + delayed retry to survive ResizeObserver cascade
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!rendition || !enabled) return;
 
     if (bookmarkDebounceRef.current) {
       clearTimeout(bookmarkDebounceRef.current);
     }
-    bookmarkDebounceRef.current = setTimeout(applyAnnotations, 50);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+    }
+
+    // Apply immediately (next microtask)
+    bookmarkDebounceRef.current = setTimeout(applyAnnotations, 0);
+
+    // Retry after 300ms — catches cases where ResizeObserver cascade
+    // destroys spans after the initial apply completes
+    retryTimerRef.current = setTimeout(() => {
+      const doc = rendition
+        ? (() => {
+            try {
+              const c = rendition.getContents();
+              return c?.[0] ? (c[0] as { document?: Document }).document : null;
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+      if (doc && !doc.querySelector('.user-annotation')) {
+        applyAnnotations();
+      }
+    }, 300);
 
     return () => {
       if (bookmarkDebounceRef.current) {
         clearTimeout(bookmarkDebounceRef.current);
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
       }
     };
   }, [rendition, enabled, bookmarks, currentChapter, applyAnnotations]);

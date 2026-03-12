@@ -514,6 +514,28 @@ export const useGestureController = (
             return;
           }
 
+          // Check interactive elements FIRST — before movement check
+          // At screen edges, finger jitter can exceed TAP_MAX_MOVEMENT (20px),
+          // but user is clearly tapping on a highlight, not swiping.
+          // Use relaxed movement threshold (40px) for interactive targets.
+          const tapDoc = contents?.document;
+          const el = tapDoc?.elementFromPoint(touch.clientX, touch.clientY);
+          const interactiveType = getInteractiveType(el ?? e.target);
+          const INTERACTIVE_MAX_MOVEMENT = 40; // px — relaxed for edge highlights
+
+          if (
+            interactiveType &&
+            deltaX < INTERACTIVE_MAX_MOVEMENT &&
+            deltaY < INTERACTIVE_MAX_MOVEMENT
+          ) {
+            if (interactiveType === 'description' || interactiveType === 'entity') {
+              onCenterTapRef.current(touch.clientX, touch.clientY);
+              return;
+            }
+            // Other interactive (links, annotations) — let native handler process
+            return;
+          }
+
           // Too much movement -- not a tap
           if (deltaX >= TAP_MAX_MOVEMENT || deltaY >= TAP_MAX_MOVEMENT) {
             return;
@@ -522,20 +544,6 @@ export const useGestureController = (
           // Bridge: tap in iframe while panel open → dismiss all panels
           if (isPanelOpenRef.current) {
             onPanelDismissRef.current?.();
-            return;
-          }
-
-          // Check for interactive elements via elementFromPoint
-          // BUG-5 fix: events from hooks.content.register() have clientX/clientY
-          // already in iframe-viewport coords — no subtraction needed
-          const tapDoc = contents?.document;
-          const el = tapDoc?.elementFromPoint(touch.clientX, touch.clientY);
-          const interactiveType = getInteractiveType(el ?? e.target);
-          if (interactiveType === 'description' || interactiveType === 'entity') {
-            onCenterTapRef.current(touch.clientX, touch.clientY);
-            return;
-          }
-          if (interactiveType) {
             return;
           }
 

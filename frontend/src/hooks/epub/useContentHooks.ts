@@ -186,15 +186,26 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       doc.addEventListener('contextmenu', handleContextMenu);
 
       // BUG-1 fix: Suppress Chrome Touch to Search on short taps
-      // selectstart prevention is the correct approach — blocks selection for quick taps
-      // but allows long-press (>=300ms) for note creation
-      let touchStartTime = 0;
+      // Two-layer approach:
+      // 1. CSS user-select:none via selection-blocked class (blocks Touch to Search reliably)
+      // 2. After 300ms, remove the class to allow long-press text selection for notes
+      // selectstart alone doesn't work — Chrome fires it after touchend when touchStartTime is stale
+      let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+      let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       const LONG_PRESS_THRESHOLD = 300; // ms
 
       doc.addEventListener(
         'touchstart',
         () => {
-          touchStartTime = Date.now();
+          if (cleanupTimer) {
+            clearTimeout(cleanupTimer);
+            cleanupTimer = null;
+          }
+          doc.body.classList.add('selection-blocked');
+          longPressTimer = setTimeout(() => {
+            doc.body.classList.remove('selection-blocked');
+            longPressTimer = null;
+          }, LONG_PRESS_THRESHOLD);
         },
         { passive: true }
       );
@@ -202,17 +213,18 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       doc.addEventListener(
         'touchend',
         () => {
-          touchStartTime = 0;
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          // Defer removal to ensure Touch to Search is blocked for the current tap
+          cleanupTimer = setTimeout(() => {
+            doc.body.classList.remove('selection-blocked');
+            cleanupTimer = null;
+          }, 500);
         },
         { passive: true }
       );
-
-      doc.addEventListener('selectstart', (e: Event) => {
-        const elapsed = Date.now() - touchStartTime;
-        if (touchStartTime > 0 && elapsed < LONG_PRESS_THRESHOLD) {
-          e.preventDefault();
-        }
-      });
 
       // Fix broken images (optional)
       const images = doc.querySelectorAll('img');
