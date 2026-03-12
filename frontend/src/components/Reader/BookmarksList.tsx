@@ -18,6 +18,7 @@ import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StickyNote, Trash2, Pencil, Check } from 'lucide-react';
 import type { BookmarkResponse } from '@/hooks/api/useSync';
+import { logger } from '@/lib/logger';
 
 interface BookmarksListProps {
   bookmarks: BookmarkResponse[];
@@ -43,25 +44,61 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const [editNoteText, setEditNoteText] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
 
+  // Debug helper: log event details for mobile dismiss investigation
+  const logEvent = useCallback(
+    (eventType: string, e: React.UIEvent) => {
+      const target = e.target as HTMLElement;
+      logger.debug('[BookmarksList] ' + eventType, {
+        target: target.tagName + '.' + (target.className || '').toString().slice(0, 30),
+        currentTarget: (e.currentTarget as HTMLElement).tagName,
+        editingId,
+        editorContains: editorRef.current?.contains(target) ?? null,
+      });
+    },
+    [editingId]
+  );
+
   // Dismiss editing when clicking/tapping outside the editor.
   // Uses React synthetic onClick (not native document listeners) because vaul Drawer
   // calls setPointerCapture() which intercepts all native events before they reach document.
   // The editor div has onClick={e.stopPropagation()}, so clicks inside it won't trigger this.
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
+      logEvent('onClick', e);
       if (editingId && editorRef.current && !editorRef.current.contains(e.target as Node)) {
+        logger.debug('[BookmarksList] Editor dismissed', { source: 'containerClick' });
         setEditingId(null);
       }
     },
-    [editingId]
+    [editingId, logEvent]
+  );
+
+  const handleContainerPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      logEvent('onPointerDown', e);
+    },
+    [logEvent]
+  );
+  const handleContainerTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      logEvent('onTouchStart', e);
+    },
+    [logEvent]
+  );
+  const handleContainerTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      logEvent('onTouchEnd', e);
+    },
+    [logEvent]
   );
 
   const handleNavigate = useCallback(
     (cfiRange: string, bookmarkId?: string) => {
+      if (editingId) logger.debug('[BookmarksList] Editor dismissed', { source: 'navigate' });
       setEditingId(null);
       onNavigate(cfiRange, bookmarkId);
     },
-    [onNavigate]
+    [onNavigate, editingId]
   );
 
   const grouped = useMemo(() => {
@@ -92,6 +129,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
 
   const handleStartEdit = useCallback((e: React.MouseEvent, bookmark: BookmarkResponse) => {
     e.stopPropagation();
+    logger.debug('[BookmarksList] Editor opened', { bookmarkId: bookmark.id });
     setEditingId(bookmark.id);
     setEditNoteText(bookmark.note || '');
   }, []);
@@ -99,6 +137,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const handleSaveNote = useCallback(
     (e: React.MouseEvent, bookmarkId: string) => {
       e.stopPropagation();
+      logger.debug('[BookmarksList] Editor dismissed', { source: 'save' });
       onUpdateNote(bookmarkId, editNoteText);
       setEditingId(null);
       setEditNoteText('');
@@ -121,7 +160,13 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   }
 
   return (
-    <div className="space-y-4 min-h-full" onClick={handleContainerClick}>
+    <div
+      className="space-y-4 min-h-full"
+      onClick={handleContainerClick}
+      onPointerDown={handleContainerPointerDown}
+      onTouchStart={handleContainerTouchStart}
+      onTouchEnd={handleContainerTouchEnd}
+    >
       {grouped.map(({ chapter, items }) => (
         <div key={chapter}>
           <div className="px-4 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -201,10 +246,12 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
                       className="flex-1 h-16 px-2 py-1.5 text-sm bg-muted rounded border border-border resize-none focus:outline-none focus:ring-1 focus:ring-primary"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          logger.debug('[BookmarksList] Editor dismissed', { source: 'enter' });
                           onUpdateNote(bookmark.id, editNoteText);
                           setEditingId(null);
                         }
                         if (e.key === 'Escape') {
+                          logger.debug('[BookmarksList] Editor dismissed', { source: 'escape' });
                           setEditingId(null);
                         }
                       }}

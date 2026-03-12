@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
+import { logger } from '@/lib/logger';
 
 interface MobilePanelProps {
   isOpen: boolean;
@@ -59,7 +60,24 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Drawer.Content className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 h-dvh outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+        <Drawer.Content
+          className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 h-dvh outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          onPointerDown={(e) =>
+            logger.debug('[MobilePanel] Drawer.Content pointerdown', {
+              target: (e.target as HTMLElement).tagName,
+            })
+          }
+          onTouchStart={(e) =>
+            logger.debug('[MobilePanel] Drawer.Content touchstart', {
+              target: (e.target as HTMLElement).tagName,
+            })
+          }
+          onClick={(e) =>
+            logger.debug('[MobilePanel] Drawer.Content click', {
+              target: (e.target as HTMLElement).tagName,
+            })
+          }
+        >
           {/* Handle bar */}
           <div className="mx-auto w-10 h-1 rounded-full bg-muted-foreground/30 my-3 flex-shrink-0" />
 
