@@ -413,6 +413,13 @@ export function useAnnotationRendering({
       withResizeSuppression(rendition, () => {
         cleanupAnnotations(doc);
 
+        logger.debug(
+          '[useAnnotationRendering] Applying',
+          chapterBookmarks.length,
+          'annotations for chapter',
+          currentChapter
+        );
+
         if (!chapterBookmarks.length) return;
 
         for (const bookmark of chapterBookmarks) {
@@ -429,6 +436,9 @@ export function useAnnotationRendering({
             logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
           }
         }
+
+        const applied = doc.querySelectorAll('.user-annotation').length;
+        logger.debug('[useAnnotationRendering] Applied', applied, 'annotation spans');
       });
     } finally {
       applyingRef.current = false;
@@ -507,6 +517,15 @@ export function useAnnotationRendering({
   useEffect(() => {
     if (!rendition || !enabled) return;
 
+    logger.debug(
+      '[useAnnotationRendering] Bookmarks changed, count:',
+      bookmarks.length,
+      'chapter:',
+      currentChapter,
+      'ref current:',
+      bookmarksRef.current.length
+    );
+
     if (bookmarkDebounceRef.current) {
       clearTimeout(bookmarkDebounceRef.current);
     }
@@ -530,7 +549,18 @@ export function useAnnotationRendering({
             }
           })()
         : null;
-      if (doc && !doc.querySelector('.user-annotation')) {
+      if (!doc) return;
+
+      // Check that ALL current bookmarks are rendered (not just any .user-annotation)
+      const currentBookmarks = bookmarksRef.current.filter(
+        (b) =>
+          b.chapter_number === currentChapter && (b.style !== 'none' || b.color || b.text_color)
+      );
+      const missingAnnotation = currentBookmarks.some(
+        (b) => !doc.querySelector(`.user-annotation[data-bookmark-id="${b.id}"]`)
+      );
+      if (missingAnnotation) {
+        logger.debug('[useAnnotationRendering] Retry: missing annotations detected, re-applying');
         applyAnnotations();
       }
     }, 300);

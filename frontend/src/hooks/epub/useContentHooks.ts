@@ -16,6 +16,7 @@
 import { useEffect } from 'react';
 import type { Rendition, Contents } from '@/types/epub';
 import type { ThemeName } from './useEpubThemes';
+import { logger } from '@/lib/logger';
 
 export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): void => {
   useEffect(() => {
@@ -192,6 +193,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       // selectstart alone doesn't work — Chrome fires it after touchend when touchStartTime is stale
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+      let touchStartTime = 0;
       const LONG_PRESS_THRESHOLD = 300; // ms
 
       doc.addEventListener(
@@ -201,8 +203,13 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             clearTimeout(cleanupTimer);
             cleanupTimer = null;
           }
+          touchStartTime = Date.now();
+          logger.debug('[useContentHooks] touchstart -- adding selection-blocked');
           doc.body.classList.add('selection-blocked');
           longPressTimer = setTimeout(() => {
+            logger.debug(
+              '[useContentHooks] Long press threshold reached -- removing selection-blocked'
+            );
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
           }, LONG_PRESS_THRESHOLD);
@@ -213,6 +220,13 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       doc.addEventListener(
         'touchend',
         () => {
+          const elapsed = Date.now() - touchStartTime;
+          logger.debug(
+            '[useContentHooks] touchend -- elapsed:',
+            elapsed,
+            'ms, longPressTimer active:',
+            !!longPressTimer
+          );
           if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
