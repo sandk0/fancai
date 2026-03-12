@@ -48,7 +48,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 18: Выделение текста и заметки** - Работающее выделение текста и создание заметок без перехвата жестами (completed 2026-03-11)
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
 - [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
-- [ ] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED)
+- [x] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED) (completed 2026-03-12)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -159,7 +159,7 @@ Plans:
 2. Long-press (>300ms) по тексту корректно запускает выделение для создания заметки
 3. elementFromPoint использует clientX/clientY напрямую для iframe events (без двойного вычитания)
 4. Аннотации появляются сразу при загрузке страницы через hooks.content (без задержки rendered event)
-   **Plans:** 1/2 plans executed
+   **Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 19.2-01-PLAN.md — BUG-1 selectstart listener + BUG-5 координатная система iframe events
@@ -208,5 +208,5 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 20
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 19.2. Мобильные баги ридера              | 1/2 | In Progress|  | -          |
+| 19.2. Мобильные баги ридера              | 2/2 | Complete   | 2026-03-12 | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
