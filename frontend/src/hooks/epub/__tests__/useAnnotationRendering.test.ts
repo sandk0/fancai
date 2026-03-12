@@ -4,8 +4,8 @@
  * Verifies READ-02: hook lifecycle (renders without crashing, cleanup on unmount).
  * DOM manipulation is tested at integration level; here we verify the hook API contract.
  *
- * BUG-4 tests: verify applyAnnotations reads current bookmarks via ref (not stale closure),
- * and bookmark-change debounce is fast (<=50ms).
+ * BUG-4 tests: verify annotation rendering via hooks.content.register (NOT rendered event),
+ * bookmark-change debounce is fast (<=50ms), and bookmarksRef.current is used for fresh data.
  *
  * Note: This hook uses DOM span wrapping, NOT epub.js annotations API.
  */
@@ -129,7 +129,7 @@ describe('useAnnotationRendering', () => {
     expect(() => unmount()).not.toThrow();
   });
 
-  it('should register hooks on a mock rendition', () => {
+  it('should register annotation hook via hooks.content.register (not rendered event)', () => {
     const mockRendition = {
       getContents: vi.fn(() => []),
       getRange: vi.fn(() => null),
@@ -156,16 +156,96 @@ describe('useAnnotationRendering', () => {
       { wrapper: createWrapper() }
     );
 
-    // Should register content hooks for CSS injection and click handling
-    expect(mockRendition.hooks.content.register).toHaveBeenCalled();
-    // Should listen for 'rendered' event
-    expect(mockRendition.on).toHaveBeenCalledWith('rendered', expect.any(Function));
+    // Should register content hooks for: CSS injection, click handling, AND annotation rendering
+    // 3 hooks.content.register calls: injectStyles + registerClick + annotationHook
+    expect(mockRendition.hooks.content.register).toHaveBeenCalledTimes(3);
+
+    // Should NOT subscribe to rendered event for annotations
+    expect(mockRendition.on).not.toHaveBeenCalledWith('rendered', expect.any(Function));
 
     unmount();
 
-    // Should clean up event listeners
-    expect(mockRendition.off).toHaveBeenCalledWith('rendered', expect.any(Function));
-    expect(mockRendition.hooks.content.deregister).toHaveBeenCalled();
+    // Should deregister all 3 hooks.content callbacks
+    expect(mockRendition.hooks.content.deregister).toHaveBeenCalledTimes(3);
+    // Should NOT unsubscribe from rendered event (never subscribed)
+    expect(mockRendition.off).not.toHaveBeenCalledWith('rendered', expect.any(Function));
+  });
+
+  it('should deregister annotation hook on cleanup', () => {
+    const mockRendition = {
+      getContents: vi.fn(() => []),
+      getRange: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      hooks: {
+        content: {
+          register: vi.fn(),
+          deregister: vi.fn(),
+        },
+      },
+    };
+
+    const { unmount } = renderHook(
+      () =>
+        useAnnotationRendering({
+          rendition: mockRendition as unknown as Parameters<
+            typeof useAnnotationRendering
+          >[0]['rendition'],
+          bookId: 'book-1',
+          currentChapter: 1,
+          enabled: true,
+        }),
+      { wrapper: createWrapper() }
+    );
+
+    // Get all registered callbacks
+    const registeredCallbacks = mockRendition.hooks.content.register.mock.calls.map(
+      (c: [(...args: unknown[]) => void]) => c[0]
+    );
+
+    unmount();
+
+    // All registered callbacks should be deregistered
+    const deregisteredCallbacks = mockRendition.hooks.content.deregister.mock.calls.map(
+      (c: [(...args: unknown[]) => void]) => c[0]
+    );
+
+    for (const cb of registeredCallbacks) {
+      expect(deregisteredCallbacks).toContain(cb);
+    }
+  });
+
+  it('does NOT subscribe to rendered event', () => {
+    const mockRendition = {
+      getContents: vi.fn(() => []),
+      getRange: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      hooks: {
+        content: {
+          register: vi.fn(),
+          deregister: vi.fn(),
+        },
+      },
+    };
+
+    renderHook(
+      () =>
+        useAnnotationRendering({
+          rendition: mockRendition as unknown as Parameters<
+            typeof useAnnotationRendering
+          >[0]['rendition'],
+          bookId: 'book-1',
+          currentChapter: 1,
+          enabled: true,
+        }),
+      { wrapper: createWrapper() }
+    );
+
+    // Verify NO rendered event subscription at all
+    const onCalls = mockRendition.on.mock.calls;
+    const renderedCalls = onCalls.filter((c: [string, ...unknown[]]) => c[0] === 'rendered');
+    expect(renderedCalls).toHaveLength(0);
   });
 
   // ============================================================================
