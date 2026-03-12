@@ -11,6 +11,7 @@ import {
 } from '@/utils/text-search/normalization';
 import { strategies, type StrategyResult } from '@/utils/text-search/strategies';
 import { addToCache, getFromCache, type SearchPatterns } from '@/utils/text-search/cache';
+import { disconnectResizeObserver, reconnectResizeObserver } from './resizeSuppression';
 
 export type DescriptionDensity = 'all' | 'key' | 'off';
 
@@ -297,13 +298,16 @@ export const useDescriptionHighlighting = ({
         processingRef.current = true;
         lastProcessedIds.current = currentIds;
 
+        // Disconnect ResizeObserver before DOM mutations to prevent cascade
+        disconnectResizeObserver(rendition);
+
         // CLEANUP existing highlights (both anchor and full) to avoid duplicates
         const existing = doc.querySelectorAll('.description-highlight');
         existing.forEach((el) => {
           const p = el.parentNode;
           if (p) {
             p.replaceChild(doc.createTextNode(el.textContent || ''), el);
-            p.normalize();
+            // NO normalize() — preserves spans of other highlighting systems
           }
         });
 
@@ -340,10 +344,18 @@ export const useDescriptionHighlighting = ({
           patterns: preprocessDescription(d),
         }));
         const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
-          acceptNode: (n) =>
-            n.parentElement?.classList.contains('description-highlight')
-              ? NodeFilter.FILTER_REJECT
-              : NodeFilter.FILTER_ACCEPT,
+          acceptNode: (n) => {
+            const parent = n.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (
+              parent.classList.contains('description-highlight') ||
+              parent.classList.contains('entity-mention') ||
+              parent.classList.contains('user-annotation')
+            ) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          },
         });
 
         const nodes: Text[] = [];
@@ -430,6 +442,8 @@ export const useDescriptionHighlighting = ({
           });
         }
       } finally {
+        // Reconnect ResizeObserver after all DOM mutations complete
+        if (rendition) reconnectResizeObserver(rendition);
         processingRef.current = false;
       }
     },

@@ -115,14 +115,13 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
           opacity: 0.3 !important;
         }
 
-        /* Minimal padding on body for compact layout */
         /* Mobile touch optimizations */
         /* iOS Safari fix: cursor:pointer enables click event delegation */
         /* https://www.quirksmode.org/blog/archives/2010/09/click_event_del.html */
         /* NOTE: Safe-area is handled by reducing rendition height in useEpubLoader.ts */
+        /* NOTE: padding is managed by epub.js layout.format() -> columns() — no override here */
         body {
           margin: 0 !important;
-          padding: 0.75em !important;
           -webkit-overflow-scrolling: touch;
           /* pan-x pan-y: allows JS scrolling, explicitly EXCLUDES pinch-zoom */
           /* Note: manipulation = pan-x pan-y pinch-zoom, which ALLOWS zoom! */
@@ -188,6 +187,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
 
       // BUG-1 fix: Suppress Chrome Touch to Search on short taps
       // Touch to Search ignores CSS touch-action; selectstart prevention is the correct approach
+      // Additional layer: selection-blocked CSS class adds -webkit-user-select: none on body
       // See: https://developer.chrome.com/blog/tap-to-search
       let touchStartTime = 0;
       const LONG_PRESS_THRESHOLD = 300; // ms
@@ -196,6 +196,19 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
         'touchstart',
         () => {
           touchStartTime = Date.now();
+          // Add selection-blocked immediately on touch — prevents Touch to Search
+          doc.body.classList.add('selection-blocked');
+        },
+        { passive: true }
+      );
+
+      doc.addEventListener(
+        'touchend',
+        () => {
+          // Always remove selection-blocked on touchend
+          // For long-press, the selection already started before touchend
+          doc.body.classList.remove('selection-blocked');
+          touchStartTime = 0;
         },
         { passive: true }
       );
