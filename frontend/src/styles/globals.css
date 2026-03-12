@@ -1066,15 +1066,7 @@ a,
    vertical/horizontal pan. JS handles horizontal swipe for page navigation.
    ======================================== */
 .epub-container iframe,
-.epub-container iframe body {
-  /* pan-x pan-y: allows scroll/pan, disables pinch-zoom & double-tap-zoom; JS handles swipes */
-  touch-action: pan-x pan-y !important;
-  /* contain prevents rubber-band scrolling on both axes */
-  overscroll-behavior: contain !important;
-}
-
-#viewer iframe,
-#viewer iframe body {
+#viewer iframe {
   /* pan-x pan-y: allows scroll/pan, disables pinch-zoom & double-tap-zoom; JS handles swipes */
   touch-action: pan-x pan-y !important;
   /* contain prevents rubber-band scrolling on both axes */

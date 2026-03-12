@@ -186,6 +186,28 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       };
       doc.addEventListener('contextmenu', handleContextMenu);
 
+      // BUG-1 fix: Suppress Chrome Touch to Search on short taps
+      // Touch to Search ignores CSS touch-action; selectstart prevention is the correct approach
+      // See: https://developer.chrome.com/blog/tap-to-search
+      let touchStartTime = 0;
+      const LONG_PRESS_THRESHOLD = 300; // ms
+
+      doc.addEventListener(
+        'touchstart',
+        () => {
+          touchStartTime = Date.now();
+        },
+        { passive: true }
+      );
+
+      doc.addEventListener('selectstart', (e: Event) => {
+        const elapsed = Date.now() - touchStartTime;
+        if (touchStartTime > 0 && elapsed < LONG_PRESS_THRESHOLD) {
+          e.preventDefault();
+        }
+        // long-press (>=300ms) — selection allowed for note creation
+      });
+
       // Fix broken images (optional)
       const images = doc.querySelectorAll('img');
       images.forEach((img: HTMLImageElement) => {

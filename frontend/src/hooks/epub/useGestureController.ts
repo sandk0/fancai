@@ -276,21 +276,6 @@ export const useGestureController = (
   }, []);
 
   // -------------------------------------------------------------------------
-  // Get full iframe DOMRect for screen→iframe-viewport coordinate conversion
-  // -------------------------------------------------------------------------
-  const getIframeRect = useCallback((contents: Contents): DOMRect | null => {
-    try {
-      const iframeWindow = contents.window;
-      if (iframeWindow?.frameElement) {
-        return (iframeWindow.frameElement as HTMLElement).getBoundingClientRect();
-      }
-    } catch {
-      // Ignore
-    }
-    return null;
-  }, []);
-
-  // -------------------------------------------------------------------------
   // Determine tap zone from screen X position
   // -------------------------------------------------------------------------
   const getTapAction = useCallback(
@@ -540,33 +525,30 @@ export const useGestureController = (
             return;
           }
 
-          // Check for interactive elements via elementFromPoint (screen→iframe-viewport coords)
+          // Check for interactive elements via elementFromPoint
+          // BUG-5 fix: events from hooks.content.register() have clientX/clientY
+          // already in iframe-viewport coords — no subtraction needed
           const tapDoc = contents?.document;
-          const iframeRect = getIframeRect(contents);
-          const iframeX = iframeRect ? touch.clientX - iframeRect.left : touch.clientX;
-          const iframeY = iframeRect ? touch.clientY - iframeRect.top : touch.clientY;
-          const el = tapDoc?.elementFromPoint(iframeX, iframeY);
+          const el = tapDoc?.elementFromPoint(touch.clientX, touch.clientY);
           const interactiveType = getInteractiveType(el ?? e.target);
           if (interactiveType === 'description' || interactiveType === 'entity') {
-            onCenterTapRef.current(iframeX, iframeY);
+            onCenterTapRef.current(touch.clientX, touch.clientY);
             return;
           }
           if (interactiveType) {
             return;
           }
 
-          // Convert to screen coords for zone detection
+          // Convert to screen coords for zone detection (ADD offset, not subtract)
           const iframeOffset = getIframeOffset(contents);
           const screenX = touch.clientX + iframeOffset;
 
           const action = getTapAction(screenX, false);
 
           if (action === 'center') {
-            // Center tap: pass iframe-viewport coords for description/entity detection
-            const viewportX = iframeRect ? touch.clientX - iframeRect.left : touch.clientX;
-            const viewportY = iframeRect ? touch.clientY - iframeRect.top : touch.clientY;
+            // Center tap: clientX/clientY are already iframe-viewport coords
             void (async () => {
-              const handled = await onCenterTapRef.current(viewportX, viewportY);
+              const handled = await onCenterTapRef.current(touch.clientX, touch.clientY);
               if (!handled) onToggleUIRef.current();
             })();
             return;
@@ -762,15 +744,13 @@ export const useGestureController = (
           return;
         }
 
-        // Check for interactive elements via elementFromPoint (screen→iframe-viewport coords)
+        // Check for interactive elements via elementFromPoint
+        // BUG-5 fix: click events in iframe doc have clientX/clientY in iframe-viewport coords
         const clickDoc = contents?.document;
-        const clickIframeRect = getIframeRect(contents);
-        const clickIframeX = clickIframeRect ? e.clientX - clickIframeRect.left : e.clientX;
-        const clickIframeY = clickIframeRect ? e.clientY - clickIframeRect.top : e.clientY;
-        const clickEl = clickDoc?.elementFromPoint(clickIframeX, clickIframeY);
+        const clickEl = clickDoc?.elementFromPoint(e.clientX, e.clientY);
         const interactiveType = getInteractiveType(clickEl ?? e.target);
         if (interactiveType === 'description' || interactiveType === 'entity') {
-          onCenterTapRef.current(clickIframeX, clickIframeY);
+          onCenterTapRef.current(e.clientX, e.clientY);
           return;
         }
         if (interactiveType) {
@@ -783,7 +763,7 @@ export const useGestureController = (
 
         if (action === 'center') {
           void (async () => {
-            const handled = await onCenterTapRef.current(clickIframeX, clickIframeY);
+            const handled = await onCenterTapRef.current(e.clientX, e.clientY);
             if (!handled) onToggleUIRef.current();
           })();
           return;
@@ -895,15 +875,7 @@ export const useGestureController = (
         // Ignore
       }
     };
-  }, [
-    rendition,
-    translateX,
-    resetState,
-    getIframeOffset,
-    getIframeRect,
-    getTapAction,
-    getInteractiveType,
-  ]);
+  }, [rendition, translateX, resetState, getIframeOffset, getTapAction, getInteractiveType]);
 
   // -------------------------------------------------------------------------
   // iOS center-tap overlay

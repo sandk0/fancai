@@ -98,9 +98,9 @@ describe('useGestureController', () => {
       const source = fs.readFileSync(sourcePath, 'utf-8');
 
       // Extract the handleTouchEnd TAP DETECTION section
-      // The correct pattern: doc.elementFromPoint(touch.clientX, touch.clientY)
-      // The WRONG pattern: elementFromPoint(touch.clientX - iframeRect.left, ...)
-      expect(source).toContain('doc.elementFromPoint(touch.clientX, touch.clientY)');
+      // The correct pattern: tapDoc?.elementFromPoint(touch.clientX, touch.clientY)
+      // The WRONG pattern: elementFromPoint(iframeX, iframeY) with subtraction
+      expect(source).toContain('tapDoc?.elementFromPoint(touch.clientX, touch.clientY)');
       // Should NOT subtract iframeRect for iframe-sourced events in handleTouchEnd
       expect(source).not.toMatch(/tapDoc\?\.elementFromPoint\(\s*iframeX\s*,\s*iframeY\s*\)/);
     });

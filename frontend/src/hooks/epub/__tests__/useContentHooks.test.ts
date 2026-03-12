@@ -171,22 +171,24 @@ describe('useContentHooks', () => {
       const doc = document.implementation.createHTMLDocument('test');
       mockRendition._triggerContent(doc);
 
-      // Simulate touchstart, then wait 300ms before selectstart
-      const now = Date.now();
-      vi.spyOn(Date, 'now')
-        .mockReturnValueOnce(now) // touchstart
-        .mockReturnValueOnce(now + 300); // selectstart (exactly 300ms = allowed)
+      // Mock Date.now to simulate long-press timing
+      const baseTime = 1000000;
+      const dateNowSpy = vi.spyOn(Date, 'now');
 
+      // touchstart sets baseline
+      dateNowSpy.mockReturnValue(baseTime);
       const touchStartEvent = new Event('touchstart', { bubbles: true });
       doc.dispatchEvent(touchStartEvent);
 
+      // selectstart fires 300ms later (>= threshold, should be allowed)
+      dateNowSpy.mockReturnValue(baseTime + 300);
       const selectStartEvent = new Event('selectstart', { cancelable: true });
       const preventDefaultSpy = vi.spyOn(selectStartEvent, 'preventDefault');
       doc.dispatchEvent(selectStartEvent);
 
       expect(preventDefaultSpy).not.toHaveBeenCalled();
 
-      vi.restoreAllMocks();
+      dateNowSpy.mockRestore();
     });
 
     it('registers touchstart listener as passive', () => {
