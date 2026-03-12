@@ -48,6 +48,7 @@ import { EntityBottomSheet } from './EntityBottomSheet';
 import { DescriptionDrawer } from './DescriptionDrawer';
 import { useEntityNameHighlighting } from '@/hooks/epub/useEntityNameHighlighting';
 import { useNavigationLock } from '@/hooks/shared/useNavigationLock';
+import { rangeCfiToPoint } from '@/utils/epubPatches';
 import { logger } from '@/lib/logger';
 
 const WAKE_LOCK_STORAGE_KEY = `${STORAGE_KEYS.READER_SETTINGS}_wake_lock`;
@@ -469,7 +470,10 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       if (!rendition) return;
       autoHide.hideUI();
       try {
-        await rendition.display(cfi);
+        // Convert range CFI to point CFI to avoid epub.js IndexSizeError
+        // on same-section navigation (locationOf() throws on range CFIs)
+        const displayCfi = rangeCfiToPoint(cfi);
+        await rendition.display(displayCfi);
         if (bookmarkId) {
           const onRendered = () => {
             setTimeout(() => flashAnnotation(bookmarkId), 350);

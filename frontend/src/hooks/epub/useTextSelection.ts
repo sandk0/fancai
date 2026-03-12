@@ -29,7 +29,7 @@ import { logger } from '@/lib/logger';
 export interface Selection {
   text: string;
   cfiRange: string;
-  position: { x: number; y: number };
+  position: { x: number; y: number; bottom: number };
 }
 
 interface UseTextSelectionReturn {
@@ -81,8 +81,9 @@ export const useTextSelection = (
         const iframeRect = iframe.getBoundingClientRect();
 
         const absolutePosition = {
-          x: iframeRect.left + rect.left,
+          x: iframeRect.left + rect.left + rect.width / 2,
           y: iframeRect.top + rect.top,
+          bottom: iframeRect.top + rect.bottom,
         };
 
         setSelection({

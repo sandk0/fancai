@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Book, Rendition } from '@/types/epub';
+import { patchRenditionQueue } from '@/utils/epubPatches';
 
 export interface SearchResult {
   cfi: string;
@@ -38,36 +39,6 @@ interface UseBookSearchReturn {
  * After each batch we yield to the event loop so the UI stays responsive.
  */
 const BATCH_SIZE = 5;
-
-/**
- * Monkey-patch epub.js Queue.dequeue() to add try-catch protection.
- *
- * epub.js 0.3.93 queue.js has a critical bug: dequeue() calls task.apply()
- * without try-catch. If the task throws synchronously (e.g. locationOf()
- * throws IndexSizeError on range CFIs during same-section navigation),
- * run() never calls itself again → queue is permanently stuck.
- *
- * This patch wraps dequeue() so any synchronous exception is caught,
- * the failed task's deferred is rejected, and the queue continues.
- */
-const patchRenditionQueue = (rendition: Rendition): void => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const q = (rendition as any).q;
-  if (!q || q.__patched) return;
-
-  const origDequeue = q.dequeue.bind(q);
-  q.dequeue = function () {
-    try {
-      return origDequeue();
-    } catch (e) {
-      // Unblock the queue — reset running so run() can be called again
-      this.running = undefined;
-      // Resolve with empty promise so .then(run) chain continues
-      return Promise.resolve();
-    }
-  };
-  q.__patched = true;
-};
 
 export const useBookSearch = ({ book, rendition }: UseBookSearchOptions): UseBookSearchReturn => {
   const [query, setQuery] = useState('');

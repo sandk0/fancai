@@ -194,7 +194,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
-      const LONG_PRESS_THRESHOLD = 300; // ms
+      const LONG_PRESS_THRESHOLD = 200; // ms
 
       doc.addEventListener(
         'touchstart',

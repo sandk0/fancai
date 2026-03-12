@@ -151,14 +151,16 @@ export const SelectionMenu = memo(function SelectionMenu({
     const menuWidth = submenu === 'main' ? 160 : 260;
     const offset = 10;
 
+    // Use bottom of selection for below-placement, fallback for editMode
+    const posBottom = ('bottom' in pos ? (pos as { bottom: number }).bottom : null) ?? pos.y + 20;
     const spaceAbove = pos.y;
-    const spaceBelow = window.innerHeight - pos.y;
+    const spaceBelow = window.innerHeight - posBottom;
 
     const positionAbove = spaceBelow < menuHeight + offset && spaceAbove > menuHeight + offset;
 
     const left = Math.max(10, Math.min(pos.x - menuWidth / 2, window.innerWidth - menuWidth - 10));
 
-    const top = positionAbove ? pos.y - menuHeight - offset : pos.y + offset;
+    const top = positionAbove ? pos.y - menuHeight - offset : posBottom + offset;
 
     return {
       position: 'fixed',
