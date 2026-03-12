@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: completed
-last_updated: "2026-03-12T12:37:00Z"
-last_activity: "2026-03-12 — Plan 19.2-01 complete: selectstart suppression + iframe coordinate fix"
+status: in_progress
+last_updated: "2026-03-12T17:12:09Z"
+last_activity: "2026-03-12 — Plan 19.3-01 complete: ResizeObserver cascade fix + highlighting coordination"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 17
+  completed_plans: 17
   percent: 100
 ---
 
@@ -20,14 +20,14 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 19.2 complete -- Мобильные баги ридера: touch selection, iframe координаты, annotation timing
+**Текущий фокус:** Phase 19.3 complete -- ResizeObserver cascade fix + highlighting coordination
 
 ## Текущая позиция
 
-Phase: 19.2 (Мобильные баги ридера: touch selection, iframe координаты, annotation timing)
-Plan: 2 of 2 (all plans complete)
-Status: Phase Complete — awaiting Human UAT Round 2
-Last activity: 2026-03-12 — Plan 19.2-01 complete: selectstart suppression + iframe coordinate fix
+Phase: 19.3 (ResizeObserver cascade fix + highlighting coordination)
+Plan: 1 of 1 (all plans complete)
+Status: Phase Complete — awaiting Human UAT Round 3 на Pixel 9
+Last activity: 2026-03-12 — Plan 19.3-01 complete: ResizeObserver cascade fix + highlighting coordination
 
 Progress: [██████████] 100%
 
@@ -39,7 +39,7 @@ Progress: [██████████] 100%
 | --------- | ---- | ----- | ------ | ------------ |
 | v1.0      | 9    | 23    | 9 дней | --           |
 | v1.1      | 6    | 13    | 92 min | 7 min        |
-| v1.2      | 5    | 10    | --     | --           |
+| v1.2      | 6    | 11    | --     | --           |
 
 ## Накопленный контекст
 
@@ -101,11 +101,18 @@ Progress: [██████████] 100%
 - [19.2-01] Порог 300ms для разделения short tap и long-press — согласован с gesture controller LONG_PRESS_TIMEOUT (350ms)
 - [19.2-01] getIframeRect helper удалён — iframe events уже в iframe-viewport coords, конвертация не нужна
 - [19.2-01] globals.css: iframe body правила удалены — useContentHooks.ts единственный источник стилей для iframe body
+- [19.3-01] disconnect/reconnect ResizeObserver при DOM span wrapping (не _size freeze) — observer callback не запускается
+- [19.3-01] Async disconnect/reconnect для useDescriptionHighlighting (requestIdleCallback chunks)
+- [19.3-01] CSS padding: 0.75em !important удалён из useContentHooks — epub.js layout.format() единственный источник padding
+- [19.3-01] selection-blocked class на touchstart/touchend для двухуровневой Touch to Search suppression
+- [19.3-01] normalize() удалён из всех 3 highlighting cleanup — сохраняет spans других систем
+- [19.3-01] TreeWalker skip-фильтры: каждая система пропускает все 3 класса (.description-highlight, .entity-mention, .user-annotation)
 
 ### Roadmap Evolution
 
 - Phase 19.1 inserted after Phase 19: UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок (URGENT)
 - Phase 19.2 inserted after Phase 19.1: Мобильные баги ридера: touch selection, iframe координаты, annotation timing (URGENT — исследование показало фундаментально неверный подход в 19.1)
+- Phase 19.3 inserted after Phase 19.2: ResizeObserver cascade fix + highlighting coordination (URGENT — 19.2 фиксы не работают на реальном устройстве, найдена корневая причина: resize cascade + highlighting conflict)
 
 Полная таблица решений: .planning/PROJECT.md
 Архив решений v1.0: .planning/milestones/v1.0-ROADMAP.md
@@ -113,7 +120,7 @@ Progress: [██████████] 100%
 
 ### Ожидающие задачи
 
-- UAT Round 2 на Pixel 9: проверить фиксы #1 (TOC), #3 (Info), #5 (SearchPanel кнопки)
+- UAT Round 3 на Pixel 9: проверить фиксы ResizeObserver cascade, highlighting coordination, Touch to Search, CSS padding
 
 ### Блокеры/Опасения
 
@@ -126,9 +133,9 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-12
-Phase 19.2 COMPLETE (both plans):
-- Plan 02 — BUG-4 (annotation timing): FIXED — hooks.content.register вместо rendered event
-- Plan 01 — BUG-1 (touch selection): FIXED — selectstart listener с timing-based подавлением (300ms порог)
-- Plan 01 — BUG-5 (iframe coords): FIXED — убрано двойное вычитание iframeRect, elementFromPoint использует clientX напрямую
-- getIframeRect helper удален, globals.css очищен от дублирующих правил
-Milestone v1.2 complete. Следующий шаг: Human UAT Round 2 на Pixel 9, затем Phase 18 (текстовые заметки).
+Phase 19.3 COMPLETE (1 plan):
+- Plan 01 — ResizeObserver cascade fix: withResizeSuppression утилита, disconnect/reconnect pattern
+- Plan 01 — Highlighting coordination: полные skip-фильтры, удалён normalize() из всех cleanup
+- Plan 01 — CSS padding fix: убран padding: 0.75em !important, epub.js layout управляет padding
+- Plan 01 — Touch to Search: selection-blocked class на touchstart/touchend
+Следующий шаг: Human UAT Round 3 на Pixel 9, затем Phase 18 (текстовые заметки).
