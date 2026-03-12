@@ -1062,21 +1062,21 @@ a,
 
 /* ========================================
    EPUB Reader - Touch gesture handling
-   manipulation allows tap, pan, pinch-zoom but disables double-tap-to-zoom
-   This allows our JS to handle horizontal swipe gestures for page navigation
+   pan-x pan-y disables pinch-zoom and double-tap-zoom while allowing
+   vertical/horizontal pan. JS handles horizontal swipe for page navigation.
    ======================================== */
 .epub-container iframe,
 .epub-container iframe body {
-  /* manipulation allows horizontal swipes to be handled by JavaScript instead of being blocked by browser */
-  touch-action: manipulation !important;
+  /* pan-x pan-y: allows scroll/pan, disables pinch-zoom & double-tap-zoom; JS handles swipes */
+  touch-action: pan-x pan-y !important;
   /* contain prevents rubber-band scrolling on both axes */
   overscroll-behavior: contain !important;
 }
 
 #viewer iframe,
 #viewer iframe body {
-  /* manipulation allows horizontal swipes to be handled by JavaScript instead of being blocked by browser */
-  touch-action: manipulation !important;
+  /* pan-x pan-y: allows scroll/pan, disables pinch-zoom & double-tap-zoom; JS handles swipes */
+  touch-action: pan-x pan-y !important;
   /* contain prevents rubber-band scrolling on both axes */
   overscroll-behavior: contain !important;
 }
