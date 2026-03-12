@@ -49,7 +49,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
 - [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
 - [x] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED) (completed 2026-03-12)
-- [x] **Phase 19.3: ResizeObserver cascade fix + highlighting coordination** - Устранение корневой причины: resize cascade при span wrapping, координация highlighting-систем, CSS padding fix (INSERTED) (completed 2026-03-12)
+- [ ] **Phase 19.3: ResizeObserver cascade fix + highlighting coordination** - Устранение корневой причины: resize cascade при span wrapping, координация highlighting-систем, CSS padding fix, диагностика и фикс 3 мобильных багов (INSERTED) (in progress)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -133,13 +133,15 @@ Plans:
 
 ### Phase 19.3: ResizeObserver cascade fix + highlighting coordination (INSERTED)
 
-**Goal:** Устранение корневой причины: ResizeObserver cascade при DOM span wrapping, конфликт highlighting-систем (description/entity/annotation), Chrome Touch to Search. Исследование: .planning/phases/19.2-touch-selection-iframe-annotation-timing/RESEARCH-post-uat.md
+**Goal:** Устранение корневой причины: ResizeObserver cascade при DOM span wrapping, конфликт highlighting-систем (description/entity/annotation), Chrome Touch to Search, edge taps, annotation off-by-one. Исследование: .planning/phases/19.2-touch-selection-iframe-annotation-timing/RESEARCH-post-uat.md
 **Requirements**: BUG-1, BUG-4, BUG-5
 **Depends on:** Phase 19.2
-**Plans:** 1/1 plans complete
+**Plans:** 3 plans (1 complete, 2 in progress)
 
 Plans:
 - [x] 19.3-01-PLAN.md — ResizeObserver suppression утилита + координация highlighting-систем + CSS padding fix + Touch to Search усиление (17 min)
+- [ ] 19.3-02-PLAN.md — Annotation off-by-one фикс + диагностическая инструментация для 3 багов + Pixel 9 UAT
+- [ ] 19.3-03-PLAN.md — Целевые фиксы Touch to Search и edge taps на основе диагностики + финальная верификация
 
 ### Phase 19.1: UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок (INSERTED)
 
@@ -220,5 +222,5 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 ->
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 19.2. Мобильные баги ридера              | v1.2      | 2/2            | Complete    | 2026-03-12 |
-| 19.3. ResizeObserver cascade fix          | v1.2      | 1/1            | Complete    | 2026-03-12 |
+| 19.3. ResizeObserver cascade fix          | v1.2      | 1/3            | In progress | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |

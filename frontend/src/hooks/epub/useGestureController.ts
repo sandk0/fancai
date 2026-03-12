@@ -523,6 +523,22 @@ export const useGestureController = (
           const interactiveType = getInteractiveType(el ?? e.target);
           const INTERACTIVE_MAX_MOVEMENT = 40; // px — relaxed for edge highlights
 
+          logger.debug(
+            '[gesture] TAP detection -- clientX:',
+            touch.clientX,
+            'clientY:',
+            touch.clientY,
+            'elementFromPoint:',
+            el?.tagName,
+            el?.className,
+            'interactiveType:',
+            interactiveType,
+            'deltaX:',
+            deltaX,
+            'deltaY:',
+            deltaY
+          );
+
           if (
             interactiveType &&
             deltaX < INTERACTIVE_MAX_MOVEMENT &&
@@ -552,6 +568,17 @@ export const useGestureController = (
           const screenX = touch.clientX + iframeOffset;
 
           const action = getTapAction(screenX, false);
+
+          logger.debug(
+            '[gesture] Zone detection -- screenX:',
+            screenX,
+            'iframeOffset:',
+            iframeOffset,
+            'action:',
+            action,
+            'screenWidth:',
+            window.innerWidth
+          );
 
           if (action === 'center') {
             // Center tap: clientX/clientY are already iframe-viewport coords
