@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Rendition } from '@/types/epub';
 import type { EntityDetail } from '@/types/entity';
 import { isEntityMetCFI } from '@/utils/entityUtils';
+import { withResizeSuppression } from './resizeSuppression';
 
 interface UseEntityNameHighlightingOptions {
   rendition: Rendition | null;
@@ -67,81 +68,84 @@ export const useEntityNameHighlighting = ({
       processingRef.current = true;
       lastProcessedKey.current = key;
 
-      // Cleanup existing entity-mention spans
-      const existing = doc.querySelectorAll('.entity-mention');
-      existing.forEach((el) => {
-        const p = el.parentNode;
-        if (p) {
-          p.replaceChild(doc.createTextNode(el.textContent || ''), el);
-          p.normalize();
-        }
-      });
-
-      // Inject styles
-      const styleId = 'entity-mention-styles';
-      if (!doc.getElementById(styleId)) {
-        const s = doc.createElement('style');
-        s.id = styleId;
-        s.textContent = `.entity-mention { border-bottom: 1px dotted rgba(167,139,250,0.6); cursor: pointer; transition: background 0.2s; } .entity-mention:hover { background: rgba(167,139,250,0.15); } .entity-mention:active { background: rgba(167,139,250,0.15) !important; transition: none; }`;
-        doc.head.appendChild(s);
-      }
-
-      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) => {
-          const parent = n.parentElement;
-          if (!parent) return NodeFilter.FILTER_REJECT;
-          if (
-            parent.classList.contains('entity-mention') ||
-            parent.classList.contains('description-highlight')
-          ) {
-            return NodeFilter.FILTER_REJECT;
+      withResizeSuppression(rendition, () => {
+        // Cleanup existing entity-mention spans
+        const existing = doc.querySelectorAll('.entity-mention');
+        existing.forEach((el) => {
+          const p = el.parentNode;
+          if (p) {
+            p.replaceChild(doc.createTextNode(el.textContent || ''), el);
+            // NO normalize() — preserves spans of other highlighting systems
           }
-          return NodeFilter.FILTER_ACCEPT;
-        },
-      });
+        });
 
-      const nodes: Text[] = [];
-      let n;
-      while ((n = walker.nextNode())) {
-        if (n.textContent && n.textContent.trim().length >= 2) nodes.push(n as Text);
-      }
-
-      // Track matched entity IDs to only highlight first occurrence per entity
-      const matchedEntities = new Set<string>();
-
-      for (const node of nodes) {
-        const text = node.textContent;
-        if (!text) continue;
-
-        for (const term of searchTerms) {
-          if (matchedEntities.has(term.entityId)) continue;
-
-          // Case-insensitive search — important for Russian text where case varies
-          // (e.g. "ГАРРИ" / "гарри" should highlight entity "Гарри Поттер").
-          // We search on lowercased copies but preserve the original casing in the span.
-          const idx = text.toLowerCase().indexOf(term.text.toLowerCase());
-          if (idx < 0) continue;
-
-          matchedEntities.add(term.entityId);
-
-          const before = text.substring(0, idx);
-          const match = text.substring(idx, idx + term.text.length); // original casing preserved
-          const after = text.substring(idx + term.text.length);
-
-          const frag = doc.createDocumentFragment();
-          if (before) frag.appendChild(doc.createTextNode(before));
-
-          const span = doc.createElement('span');
-          span.className = 'entity-mention';
-          span.setAttribute('data-entity-id', term.entityId);
-          span.textContent = match;
-          frag.appendChild(span);
-
-          if (after) frag.appendChild(doc.createTextNode(after));
-          node.parentNode?.replaceChild(frag, node);
-          break;
+        // Inject styles
+        const styleId = 'entity-mention-styles';
+        if (!doc.getElementById(styleId)) {
+          const s = doc.createElement('style');
+          s.id = styleId;
+          s.textContent = `.entity-mention { border-bottom: 1px dotted rgba(167,139,250,0.6); cursor: pointer; transition: background 0.2s; } .entity-mention:hover { background: rgba(167,139,250,0.15); } .entity-mention:active { background: rgba(167,139,250,0.15) !important; transition: none; }`;
+          doc.head.appendChild(s);
         }
-      }
+
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+          acceptNode: (n) => {
+            const parent = n.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (
+              parent.classList.contains('entity-mention') ||
+              parent.classList.contains('description-highlight') ||
+              parent.classList.contains('user-annotation')
+            ) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        });
+
+        const nodes: Text[] = [];
+        let n;
+        while ((n = walker.nextNode())) {
+          if (n.textContent && n.textContent.trim().length >= 2) nodes.push(n as Text);
+        }
+
+        // Track matched entity IDs to only highlight first occurrence per entity
+        const matchedEntities = new Set<string>();
+
+        for (const node of nodes) {
+          const text = node.textContent;
+          if (!text) continue;
+
+          for (const term of searchTerms) {
+            if (matchedEntities.has(term.entityId)) continue;
+
+            // Case-insensitive search — important for Russian text where case varies
+            // (e.g. "ГАРРИ" / "гарри" should highlight entity "Гарри Поттер").
+            // We search on lowercased copies but preserve the original casing in the span.
+            const idx = text.toLowerCase().indexOf(term.text.toLowerCase());
+            if (idx < 0) continue;
+
+            matchedEntities.add(term.entityId);
+
+            const before = text.substring(0, idx);
+            const match = text.substring(idx, idx + term.text.length); // original casing preserved
+            const after = text.substring(idx + term.text.length);
+
+            const frag = doc.createDocumentFragment();
+            if (before) frag.appendChild(doc.createTextNode(before));
+
+            const span = doc.createElement('span');
+            span.className = 'entity-mention';
+            span.setAttribute('data-entity-id', term.entityId);
+            span.textContent = match;
+            frag.appendChild(span);
+
+            if (after) frag.appendChild(doc.createTextNode(after));
+            node.parentNode?.replaceChild(frag, node);
+            break;
+          }
+        }
+      });
     } finally {
       processingRef.current = false;
     }

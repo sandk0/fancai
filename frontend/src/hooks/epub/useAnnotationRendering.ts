@@ -18,6 +18,7 @@ import { useBookmarks } from '@/hooks/api/useSync';
 import type { BookmarkResponse } from '@/hooks/api/useSync';
 import type { Rendition } from '@/types/epub';
 import { logger } from '@/lib/logger';
+import { withResizeSuppression } from './resizeSuppression';
 
 interface UseAnnotationRenderingOptions {
   rendition: Rendition | null;
@@ -139,7 +140,7 @@ function cleanupAnnotations(doc: Document): void {
     const parent = el.parentNode;
     if (parent) {
       parent.replaceChild(doc.createTextNode(el.textContent || ''), el);
-      parent.normalize();
+      // NO normalize() — preserves spans of other highlighting systems
     }
   });
 }
@@ -409,24 +410,26 @@ export function useAnnotationRendering({
     applyingRef.current = true;
 
     try {
-      cleanupAnnotations(doc);
+      withResizeSuppression(rendition, () => {
+        cleanupAnnotations(doc);
 
-      if (!chapterBookmarks.length) return;
+        if (!chapterBookmarks.length) return;
 
-      for (const bookmark of chapterBookmarks) {
-        try {
-          // Try native getRange first, fallback for CFI path mismatches
-          let range = rendition.getRange(bookmark.cfi_range);
-          if (!range) {
-            range = resolveRangeFallback(doc, bookmark.cfi_range);
+        for (const bookmark of chapterBookmarks) {
+          try {
+            // Try native getRange first, fallback for CFI path mismatches
+            let range = rendition.getRange(bookmark.cfi_range);
+            if (!range) {
+              range = resolveRangeFallback(doc, bookmark.cfi_range);
+            }
+            if (!range) continue;
+
+            wrapRangeWithSpan(doc, range, bookmark);
+          } catch (err) {
+            logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
           }
-          if (!range) continue;
-
-          wrapRangeWithSpan(doc, range, bookmark);
-        } catch (err) {
-          logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
         }
-      }
+      });
     } finally {
       applyingRef.current = false;
     }
@@ -455,21 +458,27 @@ export function useAnnotationRendering({
       applyingRef.current = true;
 
       try {
-        cleanupAnnotations(doc);
-        if (!chapterBookmarks.length) return;
+        withResizeSuppression(rendition, () => {
+          cleanupAnnotations(doc);
+          if (!chapterBookmarks.length) return;
 
-        for (const bookmark of chapterBookmarks) {
-          try {
-            let range = rendition.getRange(bookmark.cfi_range);
-            if (!range) {
-              range = resolveRangeFallback(doc, bookmark.cfi_range);
+          for (const bookmark of chapterBookmarks) {
+            try {
+              let range = rendition.getRange(bookmark.cfi_range);
+              if (!range) {
+                range = resolveRangeFallback(doc, bookmark.cfi_range);
+              }
+              if (!range) continue;
+              wrapRangeWithSpan(doc, range, bookmark);
+            } catch (err) {
+              logger.error(
+                '[useAnnotationRendering] Failed to apply annotation:',
+                bookmark.id,
+                err
+              );
             }
-            if (!range) continue;
-            wrapRangeWithSpan(doc, range, bookmark);
-          } catch (err) {
-            logger.error('[useAnnotationRendering] Failed to apply annotation:', bookmark.id, err);
           }
-        }
+        });
       } finally {
         applyingRef.current = false;
       }
