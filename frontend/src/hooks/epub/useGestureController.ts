@@ -296,18 +296,19 @@ export const useGestureController = (
   // Check if target is interactive and return its type
   // -------------------------------------------------------------------------
   const getInteractiveType = useCallback((target: EventTarget | null): InteractiveType => {
-    if (!target || !(target instanceof HTMLElement)) return null;
-    if (
-      target.classList?.contains('description-highlight') ||
-      target.closest?.('.description-highlight')
-    )
+    // Duck-type check instead of `instanceof HTMLElement` — iframe elements
+    // have a different HTMLElement constructor than the parent window,
+    // so cross-frame instanceof always returns false.
+    if (!target || !('classList' in target)) return null;
+    const el = target as HTMLElement;
+    if (el.classList?.contains('description-highlight') || el.closest?.('.description-highlight'))
       return 'description';
-    if (target.classList?.contains('entity-mention') || target.closest?.('.entity-mention'))
+    if (el.classList?.contains('entity-mention') || el.closest?.('.entity-mention'))
       return 'entity';
-    if (target.classList?.contains('user-annotation') || target.closest?.('.user-annotation'))
+    if (el.classList?.contains('user-annotation') || el.closest?.('.user-annotation'))
       return 'annotation';
-    if (target.tagName === 'A' || target.closest?.('a')) return 'link';
-    if (target.tagName === 'BUTTON' || target.closest?.('button')) return 'link';
+    if (el.tagName === 'A' || el.closest?.('a')) return 'link';
+    if (el.tagName === 'BUTTON' || el.closest?.('button')) return 'link';
     return null;
   }, []);
 
