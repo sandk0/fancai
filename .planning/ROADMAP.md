@@ -48,6 +48,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 18: Выделение текста и заметки** - Работающее выделение текста и создание заметок без перехвата жестами (completed 2026-03-11)
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
 - [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
+- [ ] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -145,7 +146,24 @@ Plans:
 Plans:
 - [x] 19.1-01-PLAN.md -- Inline styles fix, непрозрачные drawer-ы, elementFromPoint для edge zones
 - [x] 19.1-02-PLAN.md -- Race condition в annotation rendering: bookmarksRef + дифференцированный debounce
-- [ ] 19.1-03-PLAN.md -- Gap closure: CSS override fix, iframe coordinate conversion, раздельные debounce-таймеры
+- [x] 19.1-03-PLAN.md -- Gap closure: CSS override fix, iframe coordinate conversion, раздельные debounce-таймеры
+
+### Phase 19.2: Мобильные баги ридера: touch selection, iframe координаты, annotation timing (INSERTED)
+
+**Goal:** Исправление 3 UAT-багов на основе глубокого исследования: (1) BUG-1 — подавление Chrome Touch to Search + selectstart в iframe; (2) BUG-5 — убрать двойное вычитание iframe offset для координат; (3) BUG-4 — hooks.content вместо rendered event + debounce для аннотаций
+**Depends on:** Phase 19.1
+**Requirements**: BUG-1, BUG-4, BUG-5
+**Success Criteria** (what must be TRUE):
+
+1. Короткий тап (<300ms) по тексту НЕ вызывает выделение и Chrome Touch to Search
+2. Long-press (>300ms) по тексту корректно запускает выделение для создания заметки
+3. elementFromPoint использует clientX/clientY напрямую для iframe events (без двойного вычитания)
+4. Аннотации появляются сразу при загрузке страницы через hooks.content (без задержки rendered event)
+   **Plans:** 2 plans
+
+Plans:
+- [ ] 19.2-01-PLAN.md — BUG-1 selectstart listener + BUG-5 координатная система iframe events
+- [ ] 19.2-02-PLAN.md — BUG-4 hooks.content registration для annotation rendering
 
 ### Phase 20: Очистка dead code
 
@@ -165,7 +183,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 20
+Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 20
 (Phase 17 может начаться параллельно с Phase 16)
 
 | Phase                                     | Milestone | Plans Complete | Status      | Completed  |
@@ -189,5 +207,6 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 20
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19.1. UAT-фиксы                          | 3/3 | Complete   | 2026-03-12 | -          |
+| 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
+| 19.2. Мобильные баги ридера              | v1.2      | 0/2            | Planning    | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
