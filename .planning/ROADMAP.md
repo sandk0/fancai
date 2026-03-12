@@ -49,6 +49,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 19: Описания и Entity Popup** - Кликабельные описания и сущности в любой зоне экрана (completed 2026-03-11)
 - [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
 - [x] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED) (completed 2026-03-12)
+- [ ] **Phase 19.3: ResizeObserver cascade fix + highlighting coordination** - Устранение корневой причины: resize cascade при span wrapping, координация highlighting-систем, CSS padding fix (INSERTED)
 - [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
 
 ## Phase Details
@@ -130,6 +131,16 @@ Plans:
 - [ ] 19-01-PLAN.md -- DescriptionDrawer с генерацией + EntityBottomSheet + panel dismiss wiring
 - [ ] 19-02-PLAN.md -- CSS opacity приглушение + active states + settings toggle + ENT-02 fix
 
+### Phase 19.3: ResizeObserver cascade fix + highlighting coordination (INSERTED)
+
+**Goal:** Устранение корневой причины: ResizeObserver cascade при DOM span wrapping, конфликт highlighting-систем (description/entity/annotation), Chrome Touch to Search. Исследование: .planning/phases/19.2-touch-selection-iframe-annotation-timing/RESEARCH-post-uat.md
+**Requirements**: BUG-1, BUG-4, BUG-5
+**Depends on:** Phase 19.2
+**Plans:** 1 plans
+
+Plans:
+- [ ] 19.3-01-PLAN.md — ResizeObserver suppression утилита + координация highlighting-систем + CSS padding fix + Touch to Search усиление
+
 ### Phase 19.1: UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок (INSERTED)
 
 **Goal:** Исправление 5 UAT-багов мобильного ридера: ложное выделение при тапе, прозрачные фоны drawer-ов, edge taps на интерактивных элементах, задержка отображения заметок
@@ -183,7 +194,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 20
+Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 -> 20
 (Phase 17 может начаться параллельно с Phase 16)
 
 | Phase                                     | Milestone | Plans Complete | Status      | Completed  |
@@ -208,5 +219,6 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 20
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 19.2. Мобильные баги ридера              | 2/2 | Complete   | 2026-03-12 | -          |
+| 19.2. Мобильные баги ридера              | v1.2      | 2/2            | Complete    | 2026-03-12 |
+| 19.3. ResizeObserver cascade fix          | v1.2      | 0/1            | Not started | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
