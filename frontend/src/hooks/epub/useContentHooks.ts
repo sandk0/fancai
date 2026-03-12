@@ -186,9 +186,8 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       doc.addEventListener('contextmenu', handleContextMenu);
 
       // BUG-1 fix: Suppress Chrome Touch to Search on short taps
-      // Touch to Search ignores CSS touch-action; selectstart prevention is the correct approach
-      // Additional layer: selection-blocked CSS class adds -webkit-user-select: none on body
-      // See: https://developer.chrome.com/blog/tap-to-search
+      // selectstart prevention is the correct approach — blocks selection for quick taps
+      // but allows long-press (>=300ms) for note creation
       let touchStartTime = 0;
       const LONG_PRESS_THRESHOLD = 300; // ms
 
@@ -196,8 +195,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
         'touchstart',
         () => {
           touchStartTime = Date.now();
-          // Add selection-blocked immediately on touch — prevents Touch to Search
-          doc.body.classList.add('selection-blocked');
         },
         { passive: true }
       );
@@ -205,9 +202,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       doc.addEventListener(
         'touchend',
         () => {
-          // Always remove selection-blocked on touchend
-          // For long-press, the selection already started before touchend
-          doc.body.classList.remove('selection-blocked');
           touchStartTime = 0;
         },
         { passive: true }
@@ -218,7 +212,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
         if (touchStartTime > 0 && elapsed < LONG_PRESS_THRESHOLD) {
           e.preventDefault();
         }
-        // long-press (>=300ms) — selection allowed for note creation
       });
 
       // Fix broken images (optional)
