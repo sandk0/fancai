@@ -82,6 +82,17 @@ export const useTextSelection = (
           setSelection(null);
           return;
         }
+
+        // Reject selection that extends beyond current page (paginated mode).
+        // In CSS-column layout, content on adjacent pages has rects outside [0, pageWidth].
+        const pageWidth = contents.document.documentElement.clientWidth;
+        if (pageWidth > 0 && (rect.left < -5 || rect.right > pageWidth + 5)) {
+          logger.debug('[useTextSelection] Selection crosses page boundary, clearing');
+          windowSelection?.removeAllRanges();
+          setSelection(null);
+          return;
+        }
+
         const iframeRect = iframe.getBoundingClientRect();
 
         const caretOffset = isAndroid() ? ANDROID_CARET_OFFSET : 0;

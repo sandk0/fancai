@@ -14,7 +14,7 @@
  * @component
  */
 
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StickyNote, Trash2, Pencil, Check } from 'lucide-react';
 import type { BookmarkResponse } from '@/hooks/api/useSync';
@@ -43,24 +43,18 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   const [editNoteText, setEditNoteText] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Dismiss editing when clicking/tapping outside the editor
-  // Use mousedown + touchstart (not pointerdown) for vaul Drawer compatibility
-  useEffect(() => {
-    if (!editingId) return;
-    const handler = (e: MouseEvent | TouchEvent) => {
-      if (editorRef.current?.contains(e.target as Node)) return;
-      setEditingId(null);
-    };
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handler);
-      document.addEventListener('touchstart', handler);
-    }, 100);
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler);
-    };
-  }, [editingId]);
+  // Dismiss editing when clicking/tapping outside the editor.
+  // Uses React synthetic onClick (not native document listeners) because vaul Drawer
+  // calls setPointerCapture() which intercepts all native events before they reach document.
+  // The editor div has onClick={e.stopPropagation()}, so clicks inside it won't trigger this.
+  const handleContainerClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (editingId && editorRef.current && !editorRef.current.contains(e.target as Node)) {
+        setEditingId(null);
+      }
+    },
+    [editingId]
+  );
 
   const handleNavigate = useCallback(
     (cfiRange: string, bookmarkId?: string) => {
@@ -127,7 +121,7 @@ export const BookmarksList: React.FC<BookmarksListProps> = React.memo(function B
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-h-full" onClick={handleContainerClick}>
       {grouped.map(({ chapter, items }) => (
         <div key={chapter}>
           <div className="px-4 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
