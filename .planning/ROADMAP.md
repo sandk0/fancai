@@ -159,7 +159,7 @@ Plans:
 2. Long-press (>300ms) по тексту корректно запускает выделение для создания заметки
 3. elementFromPoint использует clientX/clientY напрямую для iframe events (без двойного вычитания)
 4. Аннотации появляются сразу при загрузке страницы через hooks.content (без задержки rendered event)
-   **Plans:** 2 plans
+   **Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 19.2-01-PLAN.md — BUG-1 selectstart listener + BUG-5 координатная система iframe events
@@ -208,5 +208,5 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 20
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 19.2. Мобильные баги ридера              | v1.2      | 0/2            | Planning    | -          |
+| 19.2. Мобильные баги ридера              | 1/2 | In Progress|  | -          |
 | 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
