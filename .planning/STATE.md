@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
-status: in_progress
-last_updated: "2026-03-12T22:10:00.000Z"
-last_activity: 2026-03-12 — Phase 19.1 human UAT failed (3/4 gaps), gap closure needed
+status: completed
+last_updated: "2026-03-12T09:53:45.827Z"
+last_activity: "2026-03-12 — Gap closure plan 03 executed: CSS override, iframe coords, debounce separation."
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_phases: 5
+  total_plans: 14
+  completed_plans: 14
+  percent: 92
 ---
 
 # Состояние проекта
@@ -25,11 +25,11 @@ progress:
 ## Текущая позиция
 
 Phase: 19.1 (UAT-фиксы: выделение, прозрачность, edge taps, задержка заметок)
-Plan: 2 of 2 (executed, but 3 gaps found on human UAT)
-Status: Gaps Found — requires gap closure
-Last activity: 2026-03-12 — Human UAT failed 3/4 truths (BUG-1, BUG-4, BUG-5). Root causes identified.
+Plan: 3 of 3 (gap closure complete)
+Status: Phase Complete — awaiting Human UAT Round 2
+Last activity: 2026-03-12 — Gap closure plan 03 executed: CSS override, iframe coords, debounce separation.
 
-Progress: [████████░░] 85%
+Progress: [█████████░] 92%
 
 ## Метрики производительности
 
@@ -92,6 +92,9 @@ Progress: [████████░░] 85%
 - [19.1-02] bookmarksRef.current вместо closure в applyAnnotations -- всегда актуальные данные при debounced вызове
 - [19.1-02] Дифференцированный debounce: 50ms для bookmark changes, 200ms для rendered event
 - [19.1-02] Click handler переведён на bookmarksRef -- убрана зависимость bookmarks из useEffect deps
+- [19.1-03] globals.css: touch-action: pan-x pan-y !important вместо manipulation !important (не перезаписывает useContentHooks CSS)
+- [19.1-03] getIframeRect helper для screen→iframe-viewport конвертации в gesture controller (elementFromPoint + onCenterTap)
+- [19.1-03] bookmarkDebounceRef (50ms) + renderedDebounceRef (200ms) — два независимых таймера вместо единого debouncedApply
 
 ### Roadmap Evolution
 
@@ -116,9 +119,8 @@ Progress: [████████░░] 85%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-12
-Phase 19.1 plans executed, but human UAT failed 3/4 fixes:
-- GAP-1 (BUG-1): globals.css `touch-action: manipulation !important` перезаписывает CSS из useContentHooks
-- GAP-2 (BUG-5): elementFromPoint вызывается с screen coords, а не iframe-viewport coords
-- GAP-3 (BUG-4): rendered event 200ms debounce перезаписывает 50ms bookmark debounce
-Единственный подтверждённый фикс: BUG-2/BUG-3 (непрозрачные фоны drawer-ов).
-Следующий шаг: `/gsd:plan-phase 19.1 --gaps`
+Phase 19.1 gap closure plan 03 complete:
+- GAP-1 (BUG-1): FIXED — globals.css touch-action: pan-x pan-y !important
+- GAP-2 (BUG-5): FIXED — getIframeRect + screen→iframe-viewport coords в gesture controller
+- GAP-3 (BUG-4): FIXED — bookmarkDebounceRef (50ms) + renderedDebounceRef (200ms)
+Все 3 GAP-а закрыты. Следующий шаг: Human UAT Round 2 на Pixel 9, затем Phase 18 (текстовые заметки).
