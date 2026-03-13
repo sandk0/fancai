@@ -262,7 +262,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       // NOTE (January 2026): iOS description click handling moved to EpubReader.tsx
       // The old BroadcastChannel/postMessage approach didn't work with blob: iframes
       // due to Safari's storage partitioning. Now using rendition.getContents() API
-      // via onCenterTap callback in IOSTapZones → EpubReader.
+      // via onCenterTap callback in useGestureController.
     };
 
     // Register the hook

@@ -12,7 +12,7 @@ import type { GestureControllerOptions, GestureControllerReturn } from '../useGe
  * We focus on:
  * 1. Smoke test: module imports without errors
  * 2. Type verification: exported interfaces are usable
- * 3. Reused utilities: tested via useFollowFingerSwipe.test.ts
+ * 3. Reused utilities: tested via gestureUtils.test.ts
  */
 
 describe('useGestureController', () => {
@@ -154,22 +154,20 @@ describe('useGestureController', () => {
     });
   });
 
-  describe('reused utilities from useFollowFingerSwipe', () => {
+  describe('reused utilities from gestureUtils', () => {
     it('gesture controller imports all required utilities', async () => {
       // Verify the module imports compile and the utilities are accessible
-      // from the shared module (tested in detail in useFollowFingerSwipe.test.ts)
-      const swipeMod = await import('../useFollowFingerSwipe');
+      // from the shared module (tested in detail in gestureUtils.test.ts)
+      const mod = await import('../gestureUtils');
 
-      expect(swipeMod.FOLLOW_FINGER_CONFIG).toBeDefined();
-      expect(swipeMod.SPRING_FAST).toBeDefined();
-      expect(swipeMod.SPRING_RUBBER).toBeDefined();
-      expect(swipeMod.SPRING_SWIPE).toBeDefined();
-      expect(swipeMod.SPRING_TAP).toBeDefined();
-      expect(swipeMod.getStageInfo).toBeDefined();
-      expect(swipeMod.shouldNavigate).toBeDefined();
-      expect(swipeMod.calculateVelocity).toBeDefined();
-      expect(swipeMod.getRubberBandOffset).toBeDefined();
-      expect(swipeMod.getSpringConfig).toBeDefined();
+      expect(mod.FOLLOW_FINGER_CONFIG).toBeDefined();
+      expect(mod.SPRING_FAST).toBeDefined();
+      expect(mod.SPRING_RUBBER).toBeDefined();
+      expect(mod.SPRING_TAP).toBeDefined();
+      expect(mod.getStageInfo).toBeDefined();
+      expect(mod.shouldNavigate).toBeDefined();
+      expect(mod.calculateVelocity).toBeDefined();
+      expect(mod.getRubberBandOffset).toBeDefined();
     });
   });
 });
