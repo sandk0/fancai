@@ -41,6 +41,16 @@ interface UseTextSelectionReturn {
   clearSelection: () => void;
 }
 
+// Timestamp until which new selections should be suppressed.
+// Set externally (e.g., when dismissing a popup) to prevent the dismiss-tap
+// from immediately triggering a new selection via the 'selected' event.
+let suppressSelectionUntil = 0;
+
+/** Suppress the next selection event for `ms` milliseconds. */
+export function suppressSelection(ms = 300) {
+  suppressSelectionUntil = Date.now() + ms;
+}
+
 export const useTextSelection = (
   rendition: Rendition | null,
   enabled: boolean = true
@@ -58,6 +68,13 @@ export const useTextSelection = (
      */
     const handleSelected = (cfiRange: string, contents: Contents) => {
       try {
+        // Suppress selection if a popup was just dismissed (prevents ghost selection)
+        if (Date.now() < suppressSelectionUntil) {
+          contents.window.getSelection()?.removeAllRanges();
+          setSelection(null);
+          return;
+        }
+
         // Get selected text from the iframe window
         const windowSelection = contents.window.getSelection();
         const selectedText = windowSelection?.toString() || '';

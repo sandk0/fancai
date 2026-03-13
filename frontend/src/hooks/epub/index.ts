@@ -28,7 +28,7 @@ export { useEpubThemes, type ThemeName } from './useEpubThemes';
 export { useContentHooks } from './useContentHooks';
 export { useResizeHandler } from './useResizeHandler';
 export { useBookMetadata, type BookMetadata } from './useBookMetadata';
-export { useTextSelection, type Selection } from './useTextSelection';
+export { useTextSelection, suppressSelection, type Selection } from './useTextSelection';
 export { useToc, type UseTocReturn } from './useToc';
 export { useCFIGenerator } from './useCFIGenerator';
 export { useEntityCFIPopulation } from './useEntityCFIPopulation';
