@@ -29,18 +29,15 @@
 - ✓ PWA: install banner, offline degradation, SW update, graduated resume, EPUB cache (PWA-01..05) — v1.1
 - ✓ Фикс описаний: нормализация спецсимволов, full-mode TreeWalker highlighting (DSC-01) — v1.1
 
+- ✓ Gesture pipeline: свайпы Apple Books 60fps, spring physics, follow-finger (NAV-01..04) — v1.2
+- ✓ Адаптивная шапка 320px+, overflow menu, Vaul snap panels (HDR-01, HDR-02, PNL-01, PNL-02) — v1.2
+- ✓ Мобильное выделение текста и HighlightTooltip (SEL-01, SEL-02) — v1.2
+- ✓ DescriptionDrawer + EntityBottomSheet, edge taps (ENT-01, ENT-02) — v1.2
+- ✓ Dead code cleanup ~38KB, BookReaderPage → ReaderPage (CLN-01) — v1.2
+
 ### Active
 
-## Current Milestone: v1.2 Reader Stability & Polish
-
-**Goal:** Исправление регрессий v1.1 и полировка мобильного UX — навигация, анимации, шапка, панели, выделение текста, описания.
-
-**Target features:**
-- Стабильная навигация со свайпами и тапами: плавная анимация (Apple Books-like), переход между главами, без дублирования
-- Переработанная шапка ридера: адаптивная под все размеры экранов, вынос поиска и info
-- Работающее выделение текста и создание заметок
-- Корректные popup-ы описаний и сущностей (кнопка генерации, без перехвата тапов навигацией)
-- Адаптивные панели настроек/оглавления/заметок (полная высота, без авто-клавиатуры)
+(Определяется в следующем milestone)
 
 ### Out of Scope
 
@@ -60,22 +57,23 @@
 
 Shipped v1.0 за 9 дней (2026-03-01 → 2026-03-09). 9 фаз, 23 плана, 52 требования.
 Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 требование. +9674/-2680 строк, 74 файла.
+Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 13 требований. +64354/-5565 строк, 350 файлов.
 
 **Текущее состояние кодовой базы:**
-- Frontend: ~68K LOC TypeScript/React 19 + Vite 7
-- Backend: ~38K LOC Python/FastAPI + PostgreSQL 17 + Redis 7.4 + Celery
+- Frontend: ~130K LOC TypeScript/React 19 + Vite 7
+- Backend: ~37K LOC Python/FastAPI + PostgreSQL 17 + Redis 7.4 + Celery
 - AI: OpenRouter (Gemini 3 Flash + fallback) + FLUX.2 Klein для изображений
 - Деплой: Docker Compose + Caddy + auto-HTTPS на fancai.ru
 
 **Известный техдолг:**
-- 2 pre-existing сломанных теста (test_langextract_processor.py, test_circuit_breaker.py)
-- BookReaderPage.tsx и i18n ключи bookReader.* не переименованы
+- EntityPopup.tsx — orphaned (заменён на EntityBottomSheet, оставлен для reference)
+- BookReader.tsx — orphaned dead export (не импортируется production-кодом)
 - security_headers.py:76 — TODO: implement nonce generation
 - metrics.py:273 — pass в update_active_sessions_gauge (placeholder)
-- getNLPProcessorInfo() — мёртвая функция в admin.ts
-- IOSTapZones.tsx — dead code, экспортируется но не импортируется
-- useTouchNavigation.ts (18KB) — dead code, не импортируется
-- 18 визуальных тестов требуют ручной проверки на реальных устройствах
+- unawaited onCenterTap на строках 549, 789 useGestureController.ts (cosmetic async inconsistency)
+- Pre-existing test failures: ErrorBoundary.test.tsx (7), auth.test.ts (1)
+- 18+ визуальных тестов требуют ручной проверки на реальных устройствах
+- 3 мобильных бага ожидают UAT на Pixel 9 (Touch to Search, edge taps, annotation timing)
 
 **v2 requirements (backlog):**
 - DSC-v2-01: Умный парсинг описаний с начала предложения (NLP sentence boundary, spaCy)
@@ -102,6 +100,12 @@ Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 тре�
 | Immersive mode по умолчанию | Header скрыт — максимум текста на мобильных | ✓ Good |
 | Spring stiffness ×2 для быстрого отклика | Пользователь ожидает мгновенный отклик на свайп/тап | ✓ Good |
 | Animation toggle в настройках | Возможность отключить анимации для слабых устройств | ✓ Good |
+| ResizeObserver disconnect/reconnect | DOM span wrapping вызывает cascade — pause observer, mutate, resume | ✓ Good |
+| TreeWalker skip-фильтры для 3 систем | description/entity/annotation spans не пересекаются | ✓ Good |
+| selectstart listener вместо CSS | Единственный способ подавить Chrome Touch to Search | ✓ Good |
+| hooks.content вместо rendered event | Аннотации применяются ДО рендеринга страницы (epub.js lifecycle) | ✓ Good |
+| Vaul bottom sheets для мобильных popup | EntityPopup заменён на EntityBottomSheet — нет позиционирования | ✓ Good |
+| elementFromPoint вместо e.target | Стабильное определение интерактивных элементов в edge zones | ✓ Good |
 
 ## Constraints
 
@@ -112,4 +116,4 @@ Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 тре�
 - **Язык контента**: приоритет — русские книги
 
 ---
-*Last updated: 2026-03-10 after Phase 16 verification iteration*
+*Last updated: 2026-03-14 after v1.2 milestone*
