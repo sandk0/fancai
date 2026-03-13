@@ -548,18 +548,20 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setEditingBookmark(null);
   }, []);
 
-  // Dismiss edit mode when user taps inside the epub.js iframe.
-  // The backdrop handles taps in the parent DOM, but taps inside the iframe
-  // (which is most of the screen) need rendition.on('click') since iframe
-  // touch events don't cross the frame boundary.
+  // Dismiss popups when user taps inside the epub.js iframe.
+  // Backdrop handles parent DOM taps; this handles iframe taps (cross-frame boundary).
   useEffect(() => {
-    if (!rendition || !editingBookmark) return;
-    const dismiss = () => setEditingBookmark(null);
+    if (!rendition) return;
+    if (!editingBookmark && !highlightPopup) return;
+    const dismiss = () => {
+      if (editingBookmark) setEditingBookmark(null);
+      if (highlightPopup) closePopup();
+    };
     rendition.on('click', dismiss);
     return () => {
       rendition.off('click', dismiss);
     };
-  }, [rendition, editingBookmark]);
+  }, [rendition, editingBookmark, highlightPopup, closePopup]);
 
   const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
 
