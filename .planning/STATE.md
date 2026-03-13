@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: in_progress
-last_updated: "2026-03-12T17:12:09Z"
-last_activity: "2026-03-12 — Plan 19.3-01 complete: ResizeObserver cascade fix + highlighting coordination"
+last_updated: "2026-03-13T20:05:00Z"
+last_activity: "2026-03-13 — Plan 20-01 complete: gestureUtils extraction + 6 dead files removed"
 progress:
   total_phases: 8
   completed_phases: 8
-  total_plans: 17
-  completed_plans: 17
-  percent: 100
+  total_plans: 19
+  completed_plans: 18
+  percent: 95
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 19.3 complete -- ResizeObserver cascade fix + highlighting coordination
+**Текущий фокус:** Phase 20 -- Dead code cleanup (plan 01 complete, plan 02 pending)
 
 ## Текущая позиция
 
-Phase: 19.3 (ResizeObserver cascade fix + highlighting coordination)
-Plan: 1 of 1 (all plans complete)
-Status: Phase Complete — awaiting Human UAT Round 3 на Pixel 9
-Last activity: 2026-03-12 — Plan 19.3-01 complete: ResizeObserver cascade fix + highlighting coordination
+Phase: 20 (Dead code cleanup)
+Plan: 1 of 2 (plan 01 complete)
+Status: In Progress
+Last activity: 2026-03-13 — Plan 20-01 complete: gestureUtils extraction + 6 dead files removed
 
-Progress: [██████████] 100%
+Progress: [█████-----] 50%
 
 ## Метрики производительности
 
@@ -107,6 +107,7 @@ Progress: [██████████] 100%
 - [19.3-01] selection-blocked class на touchstart/touchend для двухуровневой Touch to Search suppression
 - [19.3-01] normalize() удалён из всех 3 highlighting cleanup — сохраняет spans других систем
 - [19.3-01] TreeWalker skip-фильтры: каждая система пропускает все 3 класса (.description-highlight, .entity-mention, .user-annotation)
+- [20-01] gestureUtils.ts: вынесены только 8 used named exports + 2 типа; SPRING_NORMAL, SPRING_SWIPE, getSpringConfig не перенесены (dead code)
 
 ### Roadmap Evolution
 
@@ -132,10 +133,7 @@ Progress: [██████████] 100%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-12
-Phase 19.3 COMPLETE (1 plan):
-- Plan 01 — ResizeObserver cascade fix: withResizeSuppression утилита, disconnect/reconnect pattern
-- Plan 01 — Highlighting coordination: полные skip-фильтры, удалён normalize() из всех cleanup
-- Plan 01 — CSS padding fix: убран padding: 0.75em !important, epub.js layout управляет padding
-- Plan 01 — Touch to Search: selection-blocked class на touchstart/touchend
-Следующий шаг: Human UAT Round 3 на Pixel 9, затем Phase 18 (текстовые заметки).
+Последняя сессия: 2026-03-13
+Phase 20 IN PROGRESS (2 plans):
+- Plan 01 COMPLETE — gestureUtils.ts extraction + 6 dead files удалены (~1953 строк)
+Следующий шаг: Plan 20-02 (следующий dead code cleanup).
