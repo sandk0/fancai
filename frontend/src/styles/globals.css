@@ -611,7 +611,7 @@
 }
 
 /* Apply scroll lock to body when reader is active */
-/* This class will be toggled by BookReaderPage */
+/* This class will be toggled by ReaderPage */
 body.reader-active {
   /* Prevent body scroll when reader is open */
   overflow: hidden;

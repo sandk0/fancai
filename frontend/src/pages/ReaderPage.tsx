@@ -59,7 +59,7 @@ const ReaderErrorFallback = ({ bookId }: ReaderErrorFallbackProps) => {
 
   const handleResetCache = async () => {
     if (!user?.id || !bookId) {
-      alert(t('bookReader.reset_identify_failed'));
+      alert(t('reader.error.reset_identify_failed'));
       return;
     }
 
@@ -69,35 +69,34 @@ const ReaderErrorFallback = ({ bookId }: ReaderErrorFallbackProps) => {
       window.location.reload();
     } catch (error) {
       logger.error('Failed to reset book cache:', error);
-      alert(t('bookReader.reset_failed'));
+      alert(t('reader.error.reset_failed'));
     } finally {
       setIsResetting(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
+    <div
+      className="flex items-center justify-center bg-background reader-container"
+      style={{ height: '100dvh', minHeight: '100vh' }}
+    >
       <div className="text-center max-w-md px-4">
         <div className="text-6xl mb-4">📖</div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          {t('bookReader.error_title')}
-        </h2>
-        <p className="text-muted-foreground mb-6">
-          {t('bookReader.error_desc')}
-        </p>
+        <h2 className="text-2xl font-bold text-foreground mb-2">{t('reader.error.title')}</h2>
+        <p className="text-muted-foreground mb-6">{t('reader.error.desc')}</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => navigate('/library')}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
-            {t('bookReader.back_to_library')}
+            {t('reader.error.back_to_library')}
           </button>
           <button
             onClick={handleResetCache}
             disabled={isResetting}
             className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isResetting ? t('bookReader.resetting') : t('bookReader.reset_cache')}
+            {isResetting ? t('reader.error.resetting') : t('reader.error.reset_cache')}
           </button>
         </div>
       </div>
@@ -105,7 +104,7 @@ const ReaderErrorFallback = ({ bookId }: ReaderErrorFallbackProps) => {
   );
 };
 
-const BookReaderPage = () => {
+const ReaderPage = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -117,7 +116,11 @@ const BookReaderPage = () => {
   // and TanStack Query refetch when app resumes from background
   const { isResuming, isReady } = usePWAResumeGuard();
 
-  const { data: bookData, isLoading, error } = useQuery({
+  const {
+    data: bookData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['book', bookId],
     queryFn: () => booksAPI.getBook(bookId!),
     // Only enable query when not resuming from background and bookId is available
@@ -138,10 +141,13 @@ const BookReaderPage = () => {
 
   if (isLoading || !isReady) {
     return (
-      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
+      <div
+        className="flex items-center justify-center bg-background reader-container"
+        style={{ height: '100dvh', minHeight: '100vh' }}
+      >
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">{t('bookReader.loading')}</p>
+          <p className="text-muted-foreground">{t('reader.loading')}</p>
         </div>
       </div>
     );
@@ -149,14 +155,17 @@ const BookReaderPage = () => {
 
   if (error || !bookData) {
     return (
-      <div className="flex items-center justify-center bg-background reader-container" style={{ height: '100dvh', minHeight: '100vh' }}>
+      <div
+        className="flex items-center justify-center bg-background reader-container"
+        style={{ height: '100dvh', minHeight: '100vh' }}
+      >
         <div className="text-center">
-          <p className="text-destructive mb-4">{t('bookReader.error_loading')}</p>
+          <p className="text-destructive mb-4">{t('reader.error.error_loading')}</p>
           <button
             onClick={() => navigate('/library')}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
           >
-            {t('bookReader.back_to_library')}
+            {t('reader.error.back_to_library')}
           </button>
         </div>
       </div>
@@ -174,7 +183,7 @@ const BookReaderPage = () => {
         /* Safe area padding handled by child components for better theme color coverage */
       }}
     >
-      <PageMeta title={t('bookReader.page_title')} description={t('bookReader.page_description')} />
+      <PageMeta title={t('reader.page_title')} description={t('reader.page_description')} />
       {/* Parsing Status Indicator - shown while Celery is processing */}
       {isParsing && (
         <div
@@ -182,15 +191,14 @@ const BookReaderPage = () => {
           style={{ bottom: 'calc(20px + env(safe-area-inset-bottom))' }}
         >
           <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          <span>{t('bookReader.preparing')} {progress}%</span>
+          <span>
+            {t('reader.preparing')} {progress}%
+          </span>
         </div>
       )}
 
       {/* Reader with integrated header and error protection */}
-      <ErrorBoundary
-        level="page"
-        fallback={<ReaderErrorFallback bookId={bookId} />}
-      >
+      <ErrorBoundary level="page" fallback={<ReaderErrorFallback bookId={bookId} />}>
         <EpubReader book={bookData} />
       </ErrorBoundary>
 
@@ -199,7 +207,7 @@ const BookReaderPage = () => {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-            <p className="text-muted-foreground">{t('bookReader.restoring_session')}</p>
+            <p className="text-muted-foreground">{t('reader.restoring_session')}</p>
           </div>
         </div>
       )}
@@ -207,4 +215,4 @@ const BookReaderPage = () => {
   );
 };
 
-export default BookReaderPage;
+export default ReaderPage;

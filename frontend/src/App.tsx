@@ -39,8 +39,8 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
 // Heavy pages with large dependencies (CRITICAL for bundle size)
-// BookReaderPage includes EpubReader which loads epub.js (~300KB)
-const BookReaderPage = lazy(() => import('@/pages/BookReaderPage'));
+// ReaderPage includes EpubReader which loads epub.js (~300KB)
+const ReaderPage = lazy(() => import('@/pages/ReaderPage'));
 const BookGalleryPage = lazy(() => import('@/pages/BookGalleryPage'));
 
 // Admin dashboard (large component, admin-only)
@@ -101,7 +101,7 @@ function AnimatedRoutes() {
               <AuthGuard>
                 <ChunkLoadErrorBoundary>
                   <Suspense fallback={<PageLoadingFallback />}>
-                    <BookReaderPage />
+                    <ReaderPage />
                   </Suspense>
                 </ChunkLoadErrorBoundary>
               </AuthGuard>
