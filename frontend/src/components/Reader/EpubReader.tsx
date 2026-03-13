@@ -21,6 +21,7 @@ import {
   useResizeHandler,
   useBookMetadata,
   useTextSelection,
+  suppressSelection,
   useToc,
 } from '@/hooks/epub';
 import { useGestureController } from '@/hooks/epub/useGestureController';
@@ -550,18 +551,28 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Dismiss popups when user taps inside the epub.js iframe.
   // Backdrop handles parent DOM taps; this handles iframe taps (cross-frame boundary).
+  // Also clear any text selection caused by the same tap to prevent ghost selection.
   useEffect(() => {
     if (!rendition) return;
     if (!editingBookmark && !highlightPopup) return;
     const dismiss = () => {
       if (editingBookmark) setEditingBookmark(null);
       if (highlightPopup) closePopup();
+      // Suppress selection for 300ms so the dismiss-tap can't trigger ghost selection
+      suppressSelection(300);
+      clearSelection();
+      try {
+        const contents = rendition.getContents()[0];
+        contents?.window?.getSelection()?.removeAllRanges();
+      } catch {
+        /* ignore */
+      }
     };
     rendition.on('click', dismiss);
     return () => {
       rendition.off('click', dismiss);
     };
-  }, [rendition, editingBookmark, highlightPopup, closePopup]);
+  }, [rendition, editingBookmark, highlightPopup, closePopup, clearSelection]);
 
   const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
 
