@@ -180,18 +180,19 @@ Plans:
 
 ### Phase 20: Очистка dead code
 
-**Goal**: Удаление устаревшего кода навигации, который заменён новой gesture pipeline
+**Goal**: Удаление устаревшего кода навигации (~38KB), переименование BookReaderPage -> ReaderPage, очистка backend dead code
 **Depends on**: Phase 16, Phase 18, Phase 19 (все фазы, использующие навигацию, должны быть стабилизированы)
 **Requirements**: CLN-01
 **Success Criteria** (what must be TRUE):
 
 1. Файлы useTouchNavigation.ts, IOSTapZones.tsx и hook useFollowFingerSwipe.ts удалены из кодовой базы (~38KB)
 2. Все тесты проходят, приложение собирается без ошибок после удаления
-   **Plans**: TBD
+   **Plans:** 1/2 plans complete
 
 Plans:
 
-- [ ] 20-01: TBD
+- [x] 20-01-PLAN.md -- Frontend dead code: вынос утилит в gestureUtils, удаление 6 файлов (~38KB) (8 min)
+- [ ] 20-02-PLAN.md -- Переименование BookReaderPage -> ReaderPage, i18n очистка, backend dead code
 
 ## Progress
 
@@ -223,4 +224,4 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 ->
 | 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 19.2. Мобильные баги ридера              | v1.2      | 2/2            | Complete    | 2026-03-12 |
 | 19.3. ResizeObserver cascade fix          | v1.2      | 1/3            | In progress | -          |
-| 20. Очистка dead code                     | v1.2      | 0/1            | Not started | -          |
+| 20. Очистка dead code                     | v1.2      | 1/2            | In progress | -          |

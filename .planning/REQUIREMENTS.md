@@ -36,7 +36,7 @@
 
 ### Очистка
 
-- [ ] **CLN-01**: Удалён dead code: useTouchNavigation.ts, IOSTapZones.tsx, useFollowFingerSwipe.ts (~38KB)
+- [x] **CLN-01**: Удалён dead code: useTouchNavigation.ts, IOSTapZones.tsx, useFollowFingerSwipe.ts (~38KB)
 
 ## v2 Requirements
 
@@ -78,7 +78,7 @@
 | SEL-02 | Phase 18 | Complete |
 | ENT-01 | Phase 19 | Complete |
 | ENT-02 | Phase 19 | Complete |
-| CLN-01 | Phase 20 | Pending |
+| CLN-01 | Phase 20 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 13 total
