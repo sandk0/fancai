@@ -210,8 +210,11 @@ export const SelectionMenu = memo(function SelectionMenu({
       <div
         className="fixed inset-0"
         style={{ zIndex: 599, background: 'rgba(0,0,0,0.01)' }}
-        onClick={onClose}
-        onTouchStart={onClose}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
         aria-hidden="true"
       />
       <div
