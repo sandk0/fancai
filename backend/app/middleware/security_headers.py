@@ -73,7 +73,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         PRODUCTION-GRADE CSP Policy:
         - Removed unsafe-eval (security risk)
         - Kept unsafe-inline for styles (required by Tailwind CSS)
-        - Added specific nonces for scripts (TODO: implement nonce generation)
         - Restricted img-src to specific domains
 
         Returns:

@@ -133,7 +133,6 @@ export const adminAPI = {
     return apiClient.get('/admin/stats');
   },
 
-
   /**
    * @deprecated NLP system removed December 2025.
    * Returns mock data for backwards compatibility.
@@ -147,9 +146,13 @@ export const adminAPI = {
    * @deprecated NLP system removed December 2025.
    * No-op for backwards compatibility.
    */
-  async updateMultiNLPSettings(settings: MultiNLPSettings): Promise<{ message: string; settings: MultiNLPSettings }> {
+  async updateMultiNLPSettings(
+    settings: MultiNLPSettings
+  ): Promise<{ message: string; settings: MultiNLPSettings }> {
     // NLP removed - return success without making API call
-    logger.warn('[DEPRECATED] Multi-NLP settings are no longer used. Description extraction is via LLM API.');
+    logger.warn(
+      '[DEPRECATED] Multi-NLP settings are no longer used. Description extraction is via LLM API.'
+    );
     return Promise.resolve({
       message: 'NLP settings are deprecated. Using LLM-based extraction.',
       settings,
@@ -161,12 +164,17 @@ export const adminAPI = {
     return apiClient.get('/admin/parsing-settings');
   },
 
-  async updateParsingSettings(settings: ParsingSettings): Promise<{ message: string; settings: ParsingSettings }> {
+  async updateParsingSettings(
+    settings: ParsingSettings
+  ): Promise<{ message: string; settings: ParsingSettings }> {
     return apiClient.put('/admin/parsing-settings', settings);
   },
 
   // User management
-  async getUsers(skip: number = 0, limit: number = 50): Promise<{
+  async getUsers(
+    skip: number = 0,
+    limit: number = 50
+  ): Promise<{
     users: Array<{
       id: string;
       email: string;
@@ -184,7 +192,7 @@ export const adminAPI = {
     const params = new URLSearchParams();
     if (skip > 0) params.append('skip', skip.toString());
     if (limit !== 50) params.append('limit', limit.toString());
-    
+
     const url = `/users/admin/users${params.toString() ? '?' + params.toString() : ''}`;
     return apiClient.get(url);
   },
@@ -221,7 +229,9 @@ export const adminAPI = {
     return apiClient.get('/admin/image-generation-settings');
   },
 
-  async updateImageGenerationSettings(settings: ImageGenerationSettings): Promise<{ message: string; settings: ImageGenerationSettings }> {
+  async updateImageGenerationSettings(
+    settings: ImageGenerationSettings
+  ): Promise<{ message: string; settings: ImageGenerationSettings }> {
     return apiClient.put('/admin/image-generation-settings', settings);
   },
 
@@ -230,25 +240,15 @@ export const adminAPI = {
     return apiClient.get('/admin/system-settings');
   },
 
-  async updateSystemSettings(settings: SystemSettings): Promise<{ message: string; settings: SystemSettings }> {
+  async updateSystemSettings(
+    settings: SystemSettings
+  ): Promise<{ message: string; settings: SystemSettings }> {
     return apiClient.put('/admin/system-settings', settings);
   },
 
   // Initialize default settings
   async initializeSettings(): Promise<{ message: string }> {
     return apiClient.post('/admin/initialize-settings');
-  },
-
-  async getNLPProcessorInfo(): Promise<{
-    processor_info: {
-      type: string;
-      loaded: boolean;
-      available: boolean;
-      model?: string;
-    };
-    available_models: Record<string, string[]>;
-  }> {
-    return apiClient.get('/admin/nlp-processor-info');
   },
 
   async getEntityDuplicates(bookId?: string): Promise<{
@@ -271,7 +271,10 @@ export const adminAPI = {
     return apiClient.get(`/admin/entities/duplicates${params}`);
   },
 
-  async mergeEntities(masterId: string, duplicateIds: string[]): Promise<{
+  async mergeEntities(
+    masterId: string,
+    duplicateIds: string[]
+  ): Promise<{
     success: boolean;
     merged_count: number;
     master_id: string;
@@ -284,16 +287,20 @@ export const adminAPI = {
   },
 
   async updateMentionCFI(mentionId: string, cfi: string): Promise<boolean> {
-    return apiClient.client.patch('/admin/entities/mentions/cfi', {
-      mention_id: mentionId,
-      cfi,
-    }).then(response => response.data);
+    return apiClient.client
+      .patch('/admin/entities/mentions/cfi', {
+        mention_id: mentionId,
+        cfi,
+      })
+      .then((response) => response.data);
   },
 
   async updateEntityCFI(entityId: string, cfi: string): Promise<boolean> {
-    return apiClient.client.patch('/admin/entities/cfi', {
-      entity_id: entityId,
-      cfi,
-    }).then(response => response.data);
+    return apiClient.client
+      .patch('/admin/entities/cfi', {
+        entity_id: entityId,
+        cfi,
+      })
+      .then((response) => response.data);
   },
 };
