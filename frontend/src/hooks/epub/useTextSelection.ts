@@ -106,13 +106,16 @@ export const useTextSelection = (
         }
 
         // Reject selection that extends beyond current page (paginated mode).
-        // In CSS-column layout, documentElement.clientWidth returns total width of ALL columns
-        // (e.g. 8610px for 21 pages), not one page. Use epub.js layout.columnWidth instead.
+        // In CSS-column layout, getBoundingClientRect() returns coordinates relative to the
+        // ENTIRE multi-column container (e.g. rectLeft=1784 for page 5 of 21), not the
+        // visible column. Checking rect.left/right vs columnWidth always fails.
+        // Instead, check selection WIDTH: a single-page selection has width <= columnWidth,
+        // while a cross-page selection has width >> columnWidth (spans multiple columns).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mgr = (rendition as any).manager;
         const columnWidth = mgr?.layout?.columnWidth as number | undefined;
         const pageWidth = columnWidth || contents.document.body.clientWidth;
-        const crossesPage = rect.left < -5 || rect.right > pageWidth + 5;
+        const crossesPage = rect.width > pageWidth + 5;
         logger.debug('[useTextSelection] Selection rect analysis', {
           rectLeft: Math.round(rect.left),
           rectRight: Math.round(rect.right),
@@ -196,10 +199,9 @@ export const useTextSelection = (
       if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
       const r = sel.getRangeAt(0).getBoundingClientRect();
       const colW = (mgrRef?.layout?.columnWidth as number) || c.document.body.clientWidth;
-      if (r.right > colW + 5 || r.left < -5) {
+      if (r.width > colW + 5) {
         logger.debug('[useTextSelection] REALTIME cross-page detected, clearing', {
-          left: Math.round(r.left),
-          right: Math.round(r.right),
+          width: Math.round(r.width),
           pageWidth: colW,
         });
         sel.removeAllRanges();
