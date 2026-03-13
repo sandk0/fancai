@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Reader Stability & Polish
 status: in_progress
-last_updated: "2026-03-13T20:05:00Z"
-last_activity: "2026-03-13 — Plan 20-01 complete: gestureUtils extraction + 6 dead files removed"
+last_updated: "2026-03-13T20:37:33Z"
+last_activity: "2026-03-13 — Plan 20-02 complete: BookReaderPage -> ReaderPage + backend dead code cleanup"
 progress:
   total_phases: 8
   completed_phases: 8
   total_plans: 19
-  completed_plans: 18
-  percent: 95
+  completed_plans: 19
+  percent: 100
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-10)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 20 -- Dead code cleanup (plan 01 complete, plan 02 pending)
+**Текущий фокус:** Phase 20 -- Dead code cleanup (COMPLETE, 2/2 plans)
 
 ## Текущая позиция
 
 Phase: 20 (Dead code cleanup)
-Plan: 1 of 2 (plan 01 complete)
-Status: In Progress
-Last activity: 2026-03-13 — Plan 20-01 complete: gestureUtils extraction + 6 dead files removed
+Plan: 2 of 2 (all complete)
+Status: Complete
+Last activity: 2026-03-13 — Plan 20-02 complete: BookReaderPage -> ReaderPage + backend dead code cleanup
 
-Progress: [█████-----] 50%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -78,7 +78,7 @@ Progress: [█████-----] 50%
 - [18-02] Edit mode в SelectionMenu через editMode prop с pre-populated полями (не отдельный компонент)
 - [18-02] HighlightTooltip позиционирование: выше/ниже точки тапа на основе 50% viewport
 - [19-01] DescriptionDrawer: snap points [0.4, 0.8], h-[95dvh], useGenerateImage мутация внутри компонента
-- [19-01] EntityBottomSheet: snap points [0.3, 0.6], entities.type_${type} i18n паттерн
+- [19-01] EntityBottomSheet: snap points [0.3, 0.6], entities.type\_${type} i18n паттерн
 - [19-01] isPanelOpen расширен: isDrawerOpen + !!popupEntity (закрытие при навигации)
 - [19-01] popupPosition state удалён -- bottom sheet не нуждается в позиционировании
 - [19-02] TYPE_COLORS bg opacity 0.2 -> 0.06, active 0.4 -> 0.15 (приглушённые описания)
@@ -101,13 +101,16 @@ Progress: [█████-----] 50%
 - [19.2-01] Порог 300ms для разделения short tap и long-press — согласован с gesture controller LONG_PRESS_TIMEOUT (350ms)
 - [19.2-01] getIframeRect helper удалён — iframe events уже в iframe-viewport coords, конвертация не нужна
 - [19.2-01] globals.css: iframe body правила удалены — useContentHooks.ts единственный источник стилей для iframe body
-- [19.3-01] disconnect/reconnect ResizeObserver при DOM span wrapping (не _size freeze) — observer callback не запускается
+- [19.3-01] disconnect/reconnect ResizeObserver при DOM span wrapping (не \_size freeze) — observer callback не запускается
 - [19.3-01] Async disconnect/reconnect для useDescriptionHighlighting (requestIdleCallback chunks)
 - [19.3-01] CSS padding: 0.75em !important удалён из useContentHooks — epub.js layout.format() единственный источник padding
 - [19.3-01] selection-blocked class на touchstart/touchend для двухуровневой Touch to Search suppression
 - [19.3-01] normalize() удалён из всех 3 highlighting cleanup — сохраняет spans других систем
 - [19.3-01] TreeWalker skip-фильтры: каждая система пропускает все 3 класса (.description-highlight, .entity-mention, .user-annotation)
 - [20-01] gestureUtils.ts: вынесены только 8 used named exports + 2 типа; SPRING_NORMAL, SPRING_SWIPE, getSpringConfig не перенесены (dead code)
+- [20-02] BookReaderPage -> ReaderPage: переименование для будущей мультиформатной поддержки
+- [20-02] bookReader._ i18n namespace удалён, уникальные ключи перенесены в reader._
+- [20-02] test_langextract_processor.py удалён (922 строки, тестировал несуществующий модуль)
 
 ### Roadmap Evolution
 
@@ -134,6 +137,8 @@ Progress: [█████-----] 50%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-13
-Phase 20 IN PROGRESS (2 plans):
-- Plan 01 COMPLETE — gestureUtils.ts extraction + 6 dead files удалены (~1953 строк)
-Следующий шаг: Plan 20-02 (следующий dead code cleanup).
+Phase 20 COMPLETE (2/2 plans):
+
+- Plan 01 COMPLETE -- gestureUtils.ts extraction + 6 dead files удалены (~1953 строк)
+- Plan 02 COMPLETE -- BookReaderPage -> ReaderPage + i18n cleanup + backend dead code (922 строки)
+  Следующий шаг: Phase 19.3 остаётся in progress (3 плана, 1 complete).

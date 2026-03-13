@@ -50,7 +50,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 19.1: UAT-фиксы** - Точечные исправления 5 UAT-багов: выделение при тапе, прозрачные drawer-ы, edge taps, задержка заметок (INSERTED) (gap closure — 3/4 fixes failed human UAT) (completed 2026-03-12)
 - [x] **Phase 19.2: Мобильные баги ридера** - Глубокое исправление 3 UAT-багов: Touch to Search, координаты iframe, annotation timing (INSERTED) (completed 2026-03-12)
 - [ ] **Phase 19.3: ResizeObserver cascade fix + highlighting coordination** - Устранение корневой причины: resize cascade при span wrapping, координация highlighting-систем, CSS padding fix, диагностика и фикс 3 мобильных багов (INSERTED) (in progress)
-- [ ] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB)
+- [x] **Phase 20: Очистка dead code** - Удаление устаревшего кода навигации (~38KB) (completed 2026-03-13)
 
 ## Phase Details
 
@@ -139,6 +139,7 @@ Plans:
 **Plans:** 3 plans (1 complete, 2 in progress)
 
 Plans:
+
 - [x] 19.3-01-PLAN.md — ResizeObserver suppression утилита + координация highlighting-систем + CSS padding fix + Touch to Search усиление (17 min)
 - [ ] 19.3-02-PLAN.md — Annotation off-by-one фикс + диагностическая инструментация для 3 багов + Pixel 9 UAT
 - [ ] 19.3-03-PLAN.md — Целевые фиксы Touch to Search и edge taps на основе диагностики + финальная верификация
@@ -157,6 +158,7 @@ Plans:
    **Plans:** 3/3 plans complete
 
 Plans:
+
 - [x] 19.1-01-PLAN.md -- Inline styles fix, непрозрачные drawer-ы, elementFromPoint для edge zones
 - [x] 19.1-02-PLAN.md -- Race condition в annotation rendering: bookmarksRef + дифференцированный debounce
 - [x] 19.1-03-PLAN.md -- Gap closure: CSS override fix, iframe coordinate conversion, раздельные debounce-таймеры
@@ -175,6 +177,7 @@ Plans:
    **Plans:** 2/2 plans complete
 
 Plans:
+
 - [ ] 19.2-01-PLAN.md — BUG-1 selectstart listener + BUG-5 координатная система iframe events
 - [ ] 19.2-02-PLAN.md — BUG-4 hooks.content registration для annotation rendering
 
@@ -187,12 +190,12 @@ Plans:
 
 1. Файлы useTouchNavigation.ts, IOSTapZones.tsx и hook useFollowFingerSwipe.ts удалены из кодовой базы (~38KB)
 2. Все тесты проходят, приложение собирается без ошибок после удаления
-   **Plans:** 1/2 plans complete
+   **Plans:** 2/2 plans complete
 
 Plans:
 
 - [x] 20-01-PLAN.md -- Frontend dead code: вынос утилит в gestureUtils, удаление 6 файлов (~38KB) (8 min)
-- [ ] 20-02-PLAN.md -- Переименование BookReaderPage -> ReaderPage, i18n очистка, backend dead code
+- [x] 20-02-PLAN.md -- Переименование BookReaderPage -> ReaderPage, i18n очистка, backend dead code (13 min)
 
 ## Progress
 
@@ -220,8 +223,8 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 ->
 | 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
 | 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
 | 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19. Описания и Entity Popup              | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19.1. UAT-фиксы                          | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 19.2. Мобильные баги ридера              | v1.2      | 2/2            | Complete    | 2026-03-12 |
+| 19. Описания и Entity Popup               | v1.2      | 2/2            | Complete    | 2026-03-11 |
+| 19.1. UAT-фиксы                           | v1.2      | 3/3            | Complete    | 2026-03-12 |
+| 19.2. Мобильные баги ридера               | v1.2      | 2/2            | Complete    | 2026-03-12 |
 | 19.3. ResizeObserver cascade fix          | v1.2      | 1/3            | In progress | -          |
-| 20. Очистка dead code                     | v1.2      | 1/2            | In progress | -          |
+| 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
