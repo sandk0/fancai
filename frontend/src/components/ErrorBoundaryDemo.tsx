@@ -61,7 +61,7 @@ export const ErrorBoundaryDemo = () => {
         <div className="mb-6 p-4 border border-border rounded-lg">
           <h3 className="text-lg font-semibold mb-2">2. Page-Level ErrorBoundary</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Перехватывает ошибки на уровне страницы (BookReaderPage)
+            Перехватывает ошибки на уровне страницы (ReaderPage)
           </p>
           <button
             onClick={() => setShouldThrowPage(true)}

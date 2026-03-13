@@ -63,10 +63,7 @@ async function getOfflineBooksPlaceholder(
   userId: string
 ): Promise<{ books: Book[]; total: number; skip: number; limit: number } | undefined> {
   try {
-    const offlineBooks = await db.offlineBooks
-      .where('userId')
-      .equals(userId)
-      .toArray();
+    const offlineBooks = await db.offlineBooks.where('userId').equals(userId).toArray();
 
     if (offlineBooks.length === 0) return undefined;
 
@@ -165,9 +162,7 @@ export function useBooks(
       const data = query.state.data;
       if (!data?.books) return false;
 
-      const hasProcessingBook = data.books.some(
-        (book) => book.is_processing
-      );
+      const hasProcessingBook = data.books.some((book) => book.is_processing);
 
       // Poll every 10 seconds if any book is still processing
       return hasProcessingBook ? 10 * 1000 : false;
@@ -186,19 +181,26 @@ export function useBooks(
         if (offlineData && !query.data) {
           // Устанавливаем offline данные как placeholder
           queryClient.setQueryData(
-            bookKeys.listPaginated(
-              userId,
-              params?.skip ?? 0,
-              params?.limit ?? 10,
-              params?.sort_by
-            ),
+            bookKeys.listPaginated(userId, params?.skip ?? 0, params?.limit ?? 10, params?.sort_by),
             offlineData
           );
-          logger.debug('[useBooks] Loaded offline placeholder data:', offlineData.books.length, 'books');
+          logger.debug(
+            '[useBooks] Loaded offline placeholder data:',
+            offlineData.books.length,
+            'books'
+          );
         }
       });
     }
-  }, [userId, params?.skip, params?.limit, params?.sort_by, query.data, query.isFetching, queryClient]);
+  }, [
+    userId,
+    params?.skip,
+    params?.limit,
+    params?.sort_by,
+    query.data,
+    query.isFetching,
+    queryClient,
+  ]);
 
   // Prefetch следующей страницы после успешной загрузки
   React.useEffect(() => {
@@ -209,12 +211,7 @@ export function useBooks(
       const nextSkip = currentSkip + currentLimit;
       if (nextSkip < query.data.total) {
         queryClient.prefetchQuery({
-          queryKey: bookKeys.listPaginated(
-            userId,
-            nextSkip,
-            currentLimit,
-            currentSortBy
-          ),
+          queryKey: bookKeys.listPaginated(userId, nextSkip, currentLimit, currentSortBy),
           queryFn: () =>
             booksAPI.getBooks({
               skip: nextSkip,
@@ -287,11 +284,7 @@ export function useBooksInfinite(
       const pages = query.state.data?.pages;
       if (!pages) return false;
 
-      const hasProcessingBook = pages.some((page) =>
-        page.books.some(
-          (book) => book.is_processing
-        )
-      );
+      const hasProcessingBook = pages.some((page) => page.books.some((book) => book.is_processing));
 
       return hasProcessingBook ? 10 * 1000 : false;
     },
@@ -336,7 +329,7 @@ export function useBook(
  *
  * @example
  * ```tsx
- * // В EpubReader или BookReaderPage
+ * // В EpubReader или ReaderPage
  * const { data: book, isLoading } = useBookForReader('book-123');
  * ```
  */
@@ -399,10 +392,7 @@ export function useReadingProgress(
  * ```
  */
 export function useUserStatistics(
-  options?: Omit<
-    UseQueryOptions<UserReadingStatistics, Error>,
-    'queryKey' | 'queryFn'
-  >
+  options?: Omit<UseQueryOptions<UserReadingStatistics, Error>, 'queryKey' | 'queryFn'>
 ) {
   const userId = getCurrentUserId();
 
@@ -459,9 +449,7 @@ export function useUploadBook(
 
       return booksAPI.uploadBook(formData, {
         onUploadProgress: (progressEvent) => {
-          const percent = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 1)
-          );
+          const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
           onProgress?.(percent);
         },
       });
@@ -497,12 +485,7 @@ export function useUploadBook(
  */
 export function useDeleteBook(
   options?: Omit<
-    UseMutationOptions<
-      { message: string },
-      Error,
-      string,
-      { previousBooks: unknown }
-    >,
+    UseMutationOptions<{ message: string }, Error, string, { previousBooks: unknown }>,
     'mutationFn'
   >
 ) {
@@ -603,16 +586,13 @@ export function useUpdateReadingProgress(
   const userId = getCurrentUserId();
 
   return useMutation({
-    mutationFn: ({ bookId, ...data }) =>
-      booksAPI.updateReadingProgress(bookId, data),
+    mutationFn: ({ bookId, ...data }) => booksAPI.updateReadingProgress(bookId, data),
     onMutate: async ({ bookId, ...newProgress }): Promise<{ previousProgress: unknown }> => {
       // Cancel queries
       await queryClient.cancelQueries({ queryKey: bookKeys.progress(userId, bookId) });
 
       // Snapshot
-      const previousProgress = queryClient.getQueryData(
-        bookKeys.progress(userId, bookId)
-      );
+      const previousProgress = queryClient.getQueryData(bookKeys.progress(userId, bookId));
 
       // Оптимистичное обновление
       queryClient.setQueryData(bookKeys.progress(userId, bookId), {
@@ -635,23 +615,20 @@ export function useUpdateReadingProgress(
       queryClient.setQueryData(bookKeys.progress(userId, variables.bookId), data);
 
       // Обновляем процент прогресса в деталях книги
-      queryClient.setQueryData<BookDetail>(
-        bookKeys.detail(userId, variables.bookId),
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            reading_progress: {
-              ...old.reading_progress,
-              current_chapter: data.progress.current_chapter,
-              current_position: data.progress.current_position,
-              reading_location_cfi: data.progress.reading_location_cfi,
-              progress_percent: data.progress.progress_percent,
-              max_chapter_reached: data.progress.max_chapter_reached,
-            },
-          };
-        }
-      );
+      queryClient.setQueryData<BookDetail>(bookKeys.detail(userId, variables.bookId), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          reading_progress: {
+            ...old.reading_progress,
+            current_chapter: data.progress.current_chapter,
+            current_position: data.progress.current_position,
+            reading_location_cfi: data.progress.reading_location_cfi,
+            progress_percent: data.progress.progress_percent,
+            max_chapter_reached: data.progress.max_chapter_reached,
+          },
+        };
+      });
 
       // Обновляем процент в списке книг
       queryClient.setQueriesData<{

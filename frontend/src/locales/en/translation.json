@@ -93,15 +93,23 @@
     }
   },
   "reader": {
+    "page_title": "Reading",
+    "page_description": "Read book with AI illustrations",
     "loading": "Loading book...",
     "preparing": "Preparing book...",
     "restoring_position": "Restoring position...",
     "restoring_session": "Restoring session...",
     "error": {
       "title": "Failed to load book",
+      "desc": "Could not open the book. Try going back to the library and opening the book again, or reset the book cache.",
       "technical_details": "Technical details",
       "retry": "Try again",
       "back_to_library": "Back to library",
+      "reset_cache": "Reset book cache",
+      "resetting": "Resetting...",
+      "reset_failed": "Could not reset cache. Try clearing app data in browser settings.",
+      "reset_identify_failed": "Could not identify book data. Try clearing app data in browser settings.",
+      "error_loading": "Error loading book",
       "network": "Check your internet connection and try again.",
       "not_found": "Book file not found. The book may have been deleted.",
       "session_expired": "Session expired. Please log in again.",
@@ -833,21 +841,6 @@
     "processed_ai": "AI Processed",
     "descriptions_found": "Descriptions found",
     "description": "Description"
-  },
-  "bookReader": {
-    "page_title": "Reading",
-    "page_description": "Read book with AI illustrations",
-    "loading": "Loading book...",
-    "error_title": "Reader loading error",
-    "error_desc": "Could not open the book. Try going back to the library and opening the book again, or reset the book cache.",
-    "back_to_library": "Back to library",
-    "reset_cache": "Reset book cache",
-    "resetting": "Resetting...",
-    "reset_failed": "Could not reset cache. Try clearing app data in browser settings.",
-    "reset_identify_failed": "Could not identify book data. Try clearing app data in browser settings.",
-    "error_loading": "Error loading book",
-    "preparing": "Preparing book...",
-    "restoring_session": "Restoring session..."
   },
   "settings": {
     "page_title": "Settings",
