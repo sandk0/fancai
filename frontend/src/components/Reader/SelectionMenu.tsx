@@ -204,13 +204,12 @@ export const SelectionMenu = memo(function SelectionMenu({
 
   return (
     <>
-      {/* Transparent backdrop to catch taps outside the menu.
-          document-level touchstart/mousedown listeners don't catch taps inside the
-          epub.js iframe (cross-frame boundary), so on mobile the menu was not dismissible.
-          This overlay sits in the parent DOM and reliably intercepts all taps. */}
+      {/* Backdrop to dismiss menu on outside tap.
+          Must have a painted background (rgba 0.01) — mobile browsers skip fully
+          transparent elements during touch hit-testing. */}
       <div
         className="fixed inset-0"
-        style={{ zIndex: 599 }}
+        style={{ zIndex: 599, background: 'rgba(0,0,0,0.01)' }}
         onClick={onClose}
         onTouchStart={onClose}
         aria-hidden="true"
