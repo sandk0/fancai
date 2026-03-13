@@ -70,6 +70,11 @@ export const useTextSelection = (
       try {
         // Suppress selection if a popup was just dismissed (prevents ghost selection)
         if (Date.now() < suppressSelectionUntil) {
+          logger.debug(
+            '[useTextSelection] SUPPRESSED by suppressSelectionUntil -- remaining:',
+            suppressSelectionUntil - Date.now(),
+            'ms'
+          );
           contents.window.getSelection()?.removeAllRanges();
           setSelection(null);
           return;
@@ -167,6 +172,9 @@ export const useTextSelection = (
         const hasSelection = windowSelection && windowSelection.toString().trim().length > 0;
 
         if (!hasSelection) {
+          logger.debug(
+            '[useTextSelection] handleClick -- no native selection, clearing React state'
+          );
           setSelection(null);
         }
       }, 50);

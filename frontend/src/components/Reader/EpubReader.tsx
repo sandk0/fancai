@@ -556,6 +556,12 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     if (!rendition) return;
     if (!editingBookmark && !highlightPopup) return;
     const dismiss = () => {
+      logger.debug(
+        '[EpubReader] dismiss handler fired -- editingBookmark:',
+        !!editingBookmark,
+        'highlightPopup:',
+        !!highlightPopup
+      );
       if (editingBookmark) setEditingBookmark(null);
       if (highlightPopup) closePopup();
       // Suppress selection for 300ms so the dismiss-tap can't trigger ghost selection
@@ -622,7 +628,10 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   }, []);
 
   useEffect(() => {
-    if (currentCFI && selectionRef.current) clearSelection();
+    if (currentCFI && selectionRef.current) {
+      logger.debug('[EpubReader] CFI changed while selection active -- clearing');
+      clearSelection();
+    }
   }, [currentCFI, clearSelection]);
 
   const handleTocChapterClick = useCallback(
