@@ -11,6 +11,5 @@ export { ProgressIndicator } from './ProgressIndicator';
 export { ProgressSaveIndicator } from './ProgressSaveIndicator';
 export { ExtractionIndicator } from './ExtractionIndicator';
 export { ImageGenerationStatus } from './ImageGenerationStatus';
-export { IOSTapZones } from './IOSTapZones';
 export { SelectionMenu } from './SelectionMenu';
 export { PositionConflictDialog } from './PositionConflictDialog';

@@ -363,7 +363,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setPopupEntity(null);
   }, []);
 
-  // Unified gesture controller replaces useFollowFingerSwipe + useTouchNavigation + IOSTapZones
+  // Unified gesture controller (swipe + tap navigation via iframe and iOS overlay)
   const gestureController = useGestureController({
     rendition,
     enabled: renditionReady && !isModalOpen,

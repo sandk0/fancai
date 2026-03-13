@@ -247,7 +247,7 @@ vi.mock('@/hooks/epub', () => ({
   })),
 }));
 
-// Mock gesture controller (replaces useFollowFingerSwipe + useTouchNavigation)
+// Mock gesture controller (unified swipe + tap navigation)
 const mockMotionValue = { get: () => 0, set: vi.fn(), on: vi.fn(() => vi.fn()), destroy: vi.fn() };
 vi.mock('@/hooks/epub/useGestureController', () => ({
   useGestureController: vi.fn(() => ({

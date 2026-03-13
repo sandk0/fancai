@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { m, useTransform } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import { ChapterHint } from './ChapterHint';
-import type { FollowFingerPhase } from '@/hooks/epub/useFollowFingerSwipe';
+import type { FollowFingerPhase } from '@/hooks/epub/gestureUtils';
 
 export interface FollowFingerContainerProps {
   translateX: MotionValue<number>;

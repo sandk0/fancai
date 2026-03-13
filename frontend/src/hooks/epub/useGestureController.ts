@@ -9,7 +9,7 @@
  * Architecture: Coordinator with FSM
  * - FSM states: idle -> pending -> swiping | tap | cancelled
  * - All touch state is ref-based (no re-renders on touchmove)
- * - Reuses exported utilities from useFollowFingerSwipe
+ * - Reuses exported utilities from gestureUtils
  * - Hybrid iOS/Android: swipe via iframe hooks.content.register(),
  *   taps via iframe on Android/desktop, overlay on iOS for center-tap
  *
@@ -32,8 +32,8 @@ import {
   shouldNavigate,
   calculateVelocity,
   getRubberBandOffset,
-} from './useFollowFingerSwipe';
-import type { FollowFingerPhase } from './useFollowFingerSwipe';
+} from './gestureUtils';
+import type { FollowFingerPhase } from './gestureUtils';
 
 // ---------------------------------------------------------------------------
 // FSM types
