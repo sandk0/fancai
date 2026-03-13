@@ -227,4 +227,4 @@ Phases execute in numeric order: 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 ->
 | 19.1. UAT-фиксы                           | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 19.2. Мобильные баги ридера               | v1.2      | 2/2            | Complete    | 2026-03-12 |
 | 19.3. ResizeObserver cascade fix          | v1.2      | 1/3            | In progress | -          |
-| 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
+| 20. Очистка dead code                     | v1.2      | Complete    | 2026-03-13 | 2026-03-13 |
