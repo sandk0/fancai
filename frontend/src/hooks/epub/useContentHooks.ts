@@ -242,6 +242,22 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
         { passive: true }
       );
 
+      // Cancel scroll lock on touchmove (swipe/drag) — lock should only
+      // stay active for stationary long-press (text selection), not navigation.
+      doc.addEventListener(
+        'touchmove',
+        () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          if (scrollLockCleanup) {
+            scrollLockCleanup();
+          }
+        },
+        { passive: true }
+      );
+
       doc.addEventListener(
         'touchend',
         () => {
