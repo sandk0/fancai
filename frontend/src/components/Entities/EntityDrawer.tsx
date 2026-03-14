@@ -145,9 +145,9 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     </nav>
   );
 
-  // Simple fade transition — no x/y transforms to avoid layout thrashing
+  // Simple fade transition — absolute positioning ensures consistent height
   const contentViews = (
-    <div className="flex-1 overflow-hidden relative min-h-0">
+    <div className="flex-1 relative min-h-0">
       <AnimatePresence mode="wait" initial={false}>
         {selectedRelationship ? (
           <m.div
@@ -156,7 +156,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="h-full overflow-auto px-5 pt-4 pb-20"
+            className="absolute inset-0 overflow-auto px-5 pt-4 pb-20"
           >
             <RelationshipCard
               edge={selectedRelationship.edge}
@@ -177,7 +177,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="h-full"
+            className="absolute inset-0"
           >
             <EntityProfile
               entity={entities[selectedEntityId]}
@@ -195,7 +195,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="h-full"
+            className="absolute inset-0"
           >
             <EntityList
               entities={entities}
@@ -222,7 +222,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
         defaultSnap={0.92}
         handleOnly
       >
-        {currentView !== 'list' && <div className="px-5 pb-3 flex-shrink-0">{breadcrumb}</div>}
+        {currentView !== 'list' && <div className="px-5 pt-3 pb-3 flex-shrink-0">{breadcrumb}</div>}
         {contentViews}
       </MobilePanel>
     );
