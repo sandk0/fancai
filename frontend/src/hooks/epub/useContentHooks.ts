@@ -194,7 +194,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
-      let overflowClipCleanup: (() => void) | null = null;
+      let scrollLockCleanup: (() => void) | null = null;
       const LONG_PRESS_THRESHOLD = 200; // ms
 
       // Get the EXACT epub.js stage container (the element that scrolls for pagination)
@@ -220,26 +220,22 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
 
-            // Apply overflow:clip to epub.js stage container to prevent page shift
-            // during text selection. Must use the EXACT epub.js container
-            // (rendition.manager.stage.container), not a DOM-traversal guess.
+            // Lock scrollLeft on epub.js stage container during text selection.
+            // Prevents page shift when browser tries to scroll CSS columns
+            // to show the selection. Carets may clip at page edges but
+            // selection data remains correct.
             if (stageContainer) {
-              const origOverflow = stageContainer.style.overflow;
-              const origOverflowX = stageContainer.style.overflowX;
-              stageContainer.style.overflowX = 'clip';
-              logger.debug('[useContentHooks] Applied overflow:clip to stage container', {
-                tagName: stageContainer.tagName,
-                className: stageContainer.className?.slice(0, 50),
-                scrollWidth: stageContainer.scrollWidth,
-                clientWidth: stageContainer.clientWidth,
-              });
-              overflowClipCleanup = () => {
-                stageContainer.style.overflow = origOverflow;
-                stageContainer.style.overflowX = origOverflowX;
-                overflowClipCleanup = null;
+              const lockedScroll = stageContainer.scrollLeft;
+              const lockHandler = () => {
+                if (stageContainer.scrollLeft !== lockedScroll) {
+                  stageContainer.scrollLeft = lockedScroll;
+                }
               };
-            } else {
-              logger.debug('[useContentHooks] No stage container found for scroll lock');
+              stageContainer.addEventListener('scroll', lockHandler);
+              scrollLockCleanup = () => {
+                stageContainer.removeEventListener('scroll', lockHandler);
+                scrollLockCleanup = null;
+              };
             }
           }, LONG_PRESS_THRESHOLD);
         },
@@ -261,9 +257,9 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             longPressTimer = null;
           }
 
-          // Restore overflow after selection is finalized
-          if (overflowClipCleanup) {
-            setTimeout(() => overflowClipCleanup?.(), 200);
+          // Release scroll lock after selection is finalized
+          if (scrollLockCleanup) {
+            setTimeout(() => scrollLockCleanup?.(), 100);
           }
 
           // Short tap: explicitly clear any existing selection to prevent
