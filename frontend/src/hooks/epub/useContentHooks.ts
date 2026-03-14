@@ -195,6 +195,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
       let scrollLockCleanup: (() => void) | null = null;
+      let pointerDown = false;
       const LONG_PRESS_THRESHOLD = 200; // ms
 
       // Get the EXACT epub.js stage container (the element that scrolls for pagination)
@@ -202,6 +203,19 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       const stageContainer = (rendition as any)?.manager?.stage?.container as
         | HTMLElement
         | undefined;
+
+      // Track pointer state via parent document (reliable — iframe touchend doesn't fire)
+      const parentDoc = doc.defaultView?.parent?.document;
+      const onParentPointerDown = () => {
+        pointerDown = true;
+      };
+      const onParentPointerUp = () => {
+        pointerDown = false;
+        // Release any active scroll lock when finger lifts
+        if (scrollLockCleanup) scrollLockCleanup();
+      };
+      parentDoc?.addEventListener('pointerdown', onParentPointerDown);
+      parentDoc?.addEventListener('pointerup', onParentPointerUp);
 
       doc.addEventListener(
         'touchstart',
@@ -220,10 +234,12 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
 
+            // Only lock scroll if finger is still down (actual long-press).
+            // Short taps trigger touchstart but pointerup fires before 200ms,
+            // so pointerDown is already false — skip lock to avoid blocking navigation.
+            if (!pointerDown) return;
+
             // Lock scrollLeft on epub.js stage container during text selection.
-            // Prevents page shift when browser tries to scroll CSS columns
-            // to show the selection. Carets may clip at page edges but
-            // selection data remains correct.
             if (stageContainer) {
               const lockedScroll = stageContainer.scrollLeft;
               const lockHandler = () => {
@@ -232,16 +248,8 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
                 }
               };
               stageContainer.addEventListener('scroll', lockHandler);
-              // Release lock on parent document touchend/pointerup — iframe
-              // touchend doesn't fire reliably (overlay captures the pointer).
-              const parentDoc = doc.defaultView?.parent?.document;
-              const releaseOnPointerUp = () => {
-                scrollLockCleanup?.();
-              };
-              parentDoc?.addEventListener('pointerup', releaseOnPointerUp, { once: true });
               scrollLockCleanup = () => {
                 stageContainer.removeEventListener('scroll', lockHandler);
-                parentDoc?.removeEventListener('pointerup', releaseOnPointerUp);
                 scrollLockCleanup = null;
               };
             }
