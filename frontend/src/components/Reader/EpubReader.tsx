@@ -552,27 +552,32 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // Shared dismiss logic: close popup + suppress selection so the dismiss-tap
   // doesn't create a ghost selection. Used by BOTH backdrop (parent DOM) and
   // iframe click paths to ensure consistent behavior.
-  const handleDismissHighlight = useCallback(() => {
-    closePopup();
-    suppressSelection(300);
+  // Block selection at CSS level: add selection-blocked class to iframe body
+  // for 500ms. This prevents the browser from creating ANY native selection
+  // from the dismiss tap (suppressSelection only blocks React state, not native).
+  const blockIframeSelection = useCallback(() => {
     try {
-      const contents = rendition?.getContents()[0];
-      contents?.window?.getSelection()?.removeAllRanges();
+      const doc = rendition?.getContents()[0]?.document;
+      if (!doc) return;
+      doc.getSelection()?.removeAllRanges();
+      doc.body.classList.add('selection-blocked');
+      setTimeout(() => doc.body.classList.remove('selection-blocked'), 500);
     } catch {
       /* ignore */
     }
-  }, [closePopup, rendition]);
+  }, [rendition]);
+
+  const handleDismissHighlight = useCallback(() => {
+    closePopup();
+    suppressSelection(300);
+    blockIframeSelection();
+  }, [closePopup, blockIframeSelection]);
 
   const handleDismissSelection = useCallback(() => {
     clearSelection();
     suppressSelection(300);
-    try {
-      const contents = rendition?.getContents()[0];
-      contents?.window?.getSelection()?.removeAllRanges();
-    } catch {
-      /* ignore */
-    }
-  }, [clearSelection, rendition]);
+    blockIframeSelection();
+  }, [clearSelection, blockIframeSelection]);
 
   // Dismiss popups when user taps inside the epub.js iframe.
   // Backdrop handles parent DOM taps (via handleDismissHighlight/handleDismissSelection);
