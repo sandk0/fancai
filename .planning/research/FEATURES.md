@@ -1,284 +1,229 @@
-# Feature Research: Стабилизация мобильного ридера v1.2
+# Feature Research: iOS Reader Navigation Fixes
 
-**Domain:** Мобильный EPUB-ридер (PWA), навигация, жесты и взаимодействие
-**Researched:** 2026-03-10
-**Confidence:** HIGH (анализ Apple Books, Kindle, Kobo, Google Play Books + ревью кода fancai v1.1)
+**Domain:** iOS touch event pipeline для iframe-based EPUB reader
+**Researched:** 2026-03-14
+**Confidence:** HIGH
 
-## Текущее состояние (после v1.1)
+## Executive Summary
 
-Реализовано и требует полировки:
-- Follow-finger свайпы с spring physics (`useFollowFingerSwipe.ts`) -- CSS transform на wrapper div
-- FSM gesture controller (`useGestureController.ts`, 863 строки) -- unified: idle -> pending -> swiping | cancelled
-- Тап-зоны: 25% iframe edges, 15% iOS overlay, center tap toggle UI
-- Auto-hide header (`useAutoHideUI`) -- immersive mode по умолчанию
-- Text selection через epub.js `selected` event (`useTextSelection.ts`)
-- Selection popup с Copy/Note (`SelectionMenu.tsx`)
-- Vaul bottom sheets для TOC, Settings, Entities, BookInfo
-- Rubber-band на границах глав с chapter hint
-- Navigation lock (ref-based mutex, guaranteed-last pattern)
+iOS Safari (и все браузеры на iOS, включая Chrome и PWA) имеет фундаментально иную модель обработки touch-событий в iframe по сравнению с Android/Desktop. Корень проблемы -- WebKit обрабатывает touch events в iframe с особенностями: координатные сдвиги, агрессивный перехват жестов для навигации браузера, ограниченная поддержка `touch-action` CSS, и несовместимое поведение `passive` event listeners. Существующая кодовая база уже содержит обширные iOS-специфичные workaround'ы (useEpubIOSFixes.ts, iOS overlay в useGestureController.ts, CSS @supports hacks), но все они нацелены на layout/spread проблемы, а не на полный touch event pipeline.
+
+Ключевая проблема: **touch events регистрируются внутри iframe, но iOS WebKit искажает их координаты, перехватывает жесты для своей навигации, и не уважает `preventDefault()` на passive listeners** -- в результате тапы, свайпы и выделение текста не работают.
+
+Наиболее вероятная корневая причина (требует диагностического подтверждения): **capture-phase `stopPropagation()` в useEpubIOSFixes.ts блокирует все touch events до того, как они достигают gesture controller handlers в bubble phase**.
 
 ## Feature Landscape
 
-### Table Stakes (Пользователи ожидают это)
+### Table Stakes (Пользователь ожидает, отсутствие = продукт сломан)
 
-Фичи, которые пользователь считает само собой разумеющимися. Отсутствие = ридер ощущается сломанным.
-
-| Feature | Почему ожидается | Сложность | Зависимости от epub.js | Заметки |
-|---------|-----------------|-----------|----------------------|---------|
-| **Slide-анимация при свайпе** | Apple Books (iOS 16+), Kindle, Kobo -- slide по умолчанию. Apple даже отказался от curl в пользу slide | LOW | Нет -- CSS transform на wrapper div вне iframe | Реализовано. Spring physics: stiffness 400, damping 40 (critical damping). Нужна полировка timing при tap navigation |
-| **Follow-finger tracking** | Палец тянет -- страница следует. Нативный UX. Ни один web-ридер конкурент этого не делает | MEDIUM | Нет -- MotionValue translateX на FollowFingerContainer | Реализовано. Потенциальная проблема: setState в touchmove (setPhase, setIsAtBoundary) может давать рывки на медленных устройствах |
-| **Тап-зоны (edge = nav, center = toggle UI)** | Apple Books, Kindle, Kobo, Google Play Books -- единообразный паттерн | LOW | Нет -- обработка touch events в iframe document | Реализовано. Пропорции: 25% edge (iframe), 15% (iOS overlay). Apple Books ~25%, Kindle ~40%, Kobo ~20% |
-| **Long press = выделение текста** | Системная конвенция iOS/Android. Все ридеры делегируют long press нативному selection | LOW | epub.js `selected` event для CFI range через iframe | Реализовано. Известный баг: epub.js #904 -- iOS Safari drag handles коллапсируют к 1 символу. Workaround: не мешать нативному selection, что уже делается |
-| **Selection popup (Copy / Highlight / Note)** | Apple Books: Copy, Highlight (4 цвета), Note, Translate, Search. Kindle: 4 цвета + Note. Kobo: Highlight + Note + Define | MEDIUM | epub.js `selected` для CFI range | Реализовано: Copy + Note submenu с цветами и стилями. Проблема: popup позиционируется relative to iframe bounds, может обрезаться на краю экрана |
-| **Immersive mode (auto-hide toolbar)** | Apple Books, Kindle: при чтении toolbar скрыт. Тап по центру -- показывает/скрывает | LOW | Нет | Реализовано. Header скрыт по умолчанию, spring animation при показе |
-| **Rubber-band на границе главы** | iOS-нативное ощущение. Apple Books: пружинный отскок + hint "Следующая глава" | LOW | `getStageInfo()` для определения scrollLeft vs maxScroll | Реализовано. Resistance factor 0.4, max 80px, chapter hint при offset >15px |
-| **Блокировка жестов при открытых панелях** | Свайп не должен переключать страницы при открытом оглавлении/настройках | LOW | Нет | Реализовано. `isPanelOpen` check в gesture controller |
-| **Свайп отменяется при вертикальном скролле** | Горизонтальный свайп не должен конфликтовать с вертикальной прокруткой | LOW | Нет | Реализовано. `maxVerticalRatio: 2.0` -- если deltaY/deltaX > 2, свайп отменяется |
-| **Прогресс чтения (%, страница/всего)** | Все ридеры показывают progress. Apple Books: внизу page number, вверху "X pages left in chapter" | LOW | epub.js locations | Реализовано в ReaderHeader. Показывается при видимом header |
-| **Компактная шапка на мобильных** | Кнопки 44px+, без перекрытия, responsive layout. Apple Books: 2 кнопки (back + menu). Kindle: back + search | MEDIUM | Нет | **ПРОБЛЕМА**: 6 кнопок (back, TOC, info, entities, search, settings) + progress bar на 375px экране -- переполнение |
-| **Bottom sheet для панелей** | Apple Books, Kindle: настройки в bottom sheet. Drag-to-dismiss, snap points | LOW | Нет | Реализовано через Vaul. Нужны snap points: полная высота для TOC (много контента), частичная для Settings |
+| Feature | Почему ожидается | Сложность | Заметки |
+|---------|-----------------|-----------|---------|
+| Тап по краю страницы = перелистывание | Базовая навигация, Apple Books / Kindle работают так | MEDIUM | На iOS тапы внутри iframe могут не генерировать click event без `cursor: pointer` на body. Уже есть в CSS, но iOS overlay покрывает только center zone (15%-85%). Edge taps (0-15%, 85-100%) обрабатываются только через iframe touchend, который может не срабатывать если capture-phase stopPropagation блокирует bubble phase |
+| Свайп = перелистывание с follow-finger | Стандарт iOS-ридеров, пользователь ожидает Apple Books-подобное поведение | HIGH | touchmove внутри iframe + `e.preventDefault()` для отмены скролла. На iOS: 1) `passive: true` по умолчанию для touchstart -- `preventDefault()` игнорируется; 2) `touch-action: none` НЕ поддерживается iOS Safari (только `auto` и `manipulation`); 3) epub.js собственные gesture handlers конфликтуют (уже блокируются в useEpubIOSFixes.ts через `stopPropagation`) |
+| Выделение текста long-press | Базовая функция чтения, копирование цитат | HIGH | iOS Safari имеет документированный баг с drag handles в iframe -- при смещении iframe от верха страницы (padding/margin) координаты drag handles сдвигаются. Баг был исправлен в iOS 12.2, но может рецидивировать. Текущий scroll lock механизм (useContentHooks.ts) привязан к parent document pointerdown/pointerup -- на iOS pointer events могут не срабатывать корректно |
+| Центральный тап = показать/скрыть UI | Стандарт всех ридеров | LOW | Уже есть iOS overlay div для center zone. Проблема: overlay может перехватывать touches, предназначенные для iframe (описания, entity mentions) |
+| Отсутствие двойного перелистывания | Один тап/свайп = одна страница | MEDIUM | Уже есть: useEpubIOSFixes.ts блокирует `manager.snap()`, фиксит `layout.divisor=1`. Но если touch event pipeline сломан, могут проскакивать двойные навигации |
 
 ### Differentiators (Конкурентное преимущество)
 
-| Feature | Ценность | Сложность | Зависимости от epub.js | Заметки |
-|---------|---------|-----------|----------------------|---------|
-| **AI-описания с highlight в тексте** | Уникальная фича: подсветка фрагментов + тап открывает drawer с AI-иллюстрацией. Ни у одного конкурента нет | HIGH | `rendition.hooks.content` для инъекции span-ов в iframe DOM | Реализовано. 8 fallback стратегий поиска текста. **Конфликт**: тап на description-highlight вызывает И `onCenterTap` И `onToggleUI` |
-| **Entity Wiki со спойлер-защитой** | Интерактивная энциклопедия персонажей без спойлеров. Ближайший аналог -- Kindle X-Ray, но без спойлер-защиты | HIGH | CFI tracking для текущей главы | Реализовано. Fuzzy matching threshold ~0.70-0.75 для русских имён |
-| **Follow-finger в web-ридере** | Ни один web-based EPUB ридер (Flow, Thorium Web, Readium Web) не реализовал follow-finger для reflowable EPUB | MEDIUM | Нет | Реализовано -- уникальное преимущество среди web-ридеров |
-| **Graduated resume (3 уровня)** | <30s passthrough, 30s-5min soft, >5min full reinit. Ни один web-ридер не делает | LOW | Нет | Реализовано |
-| **Haptic feedback при навигации** | Тактильная обратная связь при перелистывании. Kindle Voyage пионерировал. Усиливает native feel | LOW | Нет -- `navigator.vibrate()` | В backlog (NAV-v2-02). iOS: ограничения на programmatic haptics в Safari |
-| **Настраиваемые тап-зоны** | KOReader: полная настройка зон. Power-users ценят | MEDIUM | Нет | В backlog (NAV-v2-01) |
+| Feature | Value Proposition | Сложность | Заметки |
+|---------|-------------------|-----------|---------|
+| Debug overlay для iOS диагностики | Позволяет диагностировать touch проблемы на реальном устройстве без подключения к Mac | MEDIUM | Текущий DebugPanel (`/?debug=1`) логирует через `logger.debug()`. Нужно: 1) визуальный индикатор touch events (красная точка на touchstart, синяя на touchmove, зеленая на touchend); 2) лог координат, event.cancelable, event.defaultPrevented; 3) состояние FSM gesture controller в реальном времени |
+| Follow-finger с spring physics на iOS | Плавность Apple Books, визуальный feedback при свайпе | HIGH | translateX MotionValue работает на GPU через CSS transform. Сам transform работает на iOS. Проблема -- touchmove events, питающие translateX, могут не доставляться если iOS перехватывает жест для back-navigation |
+| Тап на описание/entity в edge zone | Интерактивные элементы работают даже у краев страницы | LOW | `elementFromPoint` + `getInteractiveType()` уже реализованы. На iOS -- координаты в iframe могут быть сдвинуты (WebKit bug #128924, исправлен, но аналогичные проблемы появляются) |
+| Тактильная обратная связь spring animations | Пользователь чувствует "вес" страницы через rubber-band | LOW | `SPRING_RUBBER`, `SPRING_TAP`, `SPRING_FAST` уже настроены. Зависит от работающего touch pipeline |
 
-### Anti-Features (Часто запрашиваемые, но проблемные)
+### Anti-Features (Часто запрашиваются, создают проблемы)
 
-| Feature | Почему запрашивают | Почему проблемно | Альтернатива |
-|---------|-------------------|-----------------|-------------|
-| **3D curl-анимация** | Скевоморфизм, "как настоящая книга" | Несовместимо с epub.js reflowable + iframe. Apple контролирует весь стек (Metal/CoreAnimation). Apple сам сделал slide по умолчанию в iOS 16 -- curl стал legacy опцией | Slide с spring physics. Уже реализована, ощущается нативно |
-| **Pinch-to-zoom** | "Хочу увеличить мелкий текст" | epub.js не поддерживает zoom. Reflowable + CSS columns ломается. `touch-action: pan-x pan-y` явно блокирует pinch | Настройки размера шрифта (уже есть). Системный zoom accessibility |
-| **Drag-to-select (без long press)** | "Выделять как на десктопе" | Невозможно отличить от свайпа навигации. Все мобильные ОС и ридеры используют long press. Это системная конвенция, не наше решение | Long press (нативный) + epub.js `selected` event |
-| **Авто-фокус textarea при открытии панели** | "Сразу печатать" | Клавиатура пушит viewport, ломает layout на iOS Safari. VisualViewport API нестабилен | Клавиатура появляется только при явном тапе на поле ввода |
-| **Постоянный bottom bar с прогрессом** | "Всегда видеть прогресс как в Kindle" | Уменьшает площадь чтения на 44px+. Конфликтует с immersive mode. Apple Books отказался от постоянного bottom bar в iOS 16 | Минималистичная строка прогресса (2-4px) внизу, или тапабельный номер страницы |
-| **Scroll mode (вместо paginated)** | "Удобнее скроллить" | epub.js 0.3.93 -- нестабильный scroll mode: CFI tracking ломается, пагинация непредсказуема. Двойная работа по QA | Оставить paginated. Scroll mode -- отдельный milestone |
+| Feature | Почему запрашивается | Почему проблематична | Альтернатива |
+|---------|---------------------|---------------------|-------------|
+| Pointer Events вместо Touch Events | "Pointer Events -- унифицированный API" | iOS Safari имеет документированные баги с pointer events (WebKit bug #214609 -- pointerenter с неправильным pointerType). Touch events надежнее на iOS. React pointer events могут не работать в iframe (issue #12901) | Оставить Touch Events, использовать pointer events только для parent document (scroll lock pointerdown/pointerup уже работает) |
+| `touch-action: none` для полного контроля | "Отменить все браузерные жесты" | iOS Safari НЕ поддерживает `touch-action: none` -- только `auto` и `manipulation`. Попытка использовать сломает ожидания | Использовать `touch-action: pan-x pan-y` (уже в CSS) + `preventDefault()` на `touchmove` с `{passive: false}` для подавления конкретных жестов |
+| Дублирование touch handlers на parent + iframe | "Ловить события в двух местах для надежности" | Двойная обработка одного touch = двойная навигация, конфликты между parent и iframe handlers | Единственный источник truth: iframe touch handlers через `hooks.content.register()`. iOS overlay -- только для center tap, не для navigation |
+| Замена epub.js iframe на shadow DOM | "Убрать iframe -- убрать проблемы" | epub.js архитектурно построен на iframe. Замена = переписать epub.js | Работать с iframe, но правильно: 1) `cursor: pointer` на body (есть); 2) touch handlers с `{passive: false}` для touchmove; 3) координатная трансформация через `iframe.getBoundingClientRect()` |
+| 3D page curl анимация | "Как настоящая книга" | Несовместима с epub.js CSS column layout + iframe. Apple Books реализует это нативно (WKWebView с Metal), веб-версия не может конкурировать | Slide анимация (уже реализована), Spring physics для тактильности |
 
 ## Feature Dependencies
 
 ```
-[Gesture Controller FSM]
-    +--requires--> [Follow-finger swipe] (translateX, spring physics)
-    +--requires--> [Tap zone detection] (edge/center classification)
-    +--requires--> [Navigation lock] (ref-based mutex, guaranteed-last)
-    +--enhances--> [Auto-hide UI] (onSwipeStart, onTapNavigate callbacks)
-
-[Text Selection]
-    +--requires--> [epub.js 'selected' event] (CFI range из iframe)
-    +--CONFLICTS--> [Gesture Controller] (long press vs pending state)
-    +--enhances--> [Selection Menu] (position, text, cfiRange)
-
-[Selection Menu]
-    +--requires--> [Text Selection] (selection state)
-    +--requires--> [Bookmark Actions] (createBookmark)
-    +--CONFLICTS--> [Virtual Keyboard] (iOS viewport resize при note textarea)
-
-[Description Highlighting]
-    +--requires--> [rendition.hooks.content] (DOM injection в iframe)
-    +--CONFLICTS--> [Gesture Controller center-tap] (тап на highlight = onCenterTap + onToggleUI оба)
-
-[Reader Header]
-    +--requires--> [Auto-hide UI] (isHeaderVisible)
-    +--enhances--> [Все панели] (кнопки open/close)
-    +--CONFLICTS--> [Screen width 375px] (6 кнопок + progress bar не помещаются)
-
-[Bottom Sheet Panels (Vaul)]
-    +--requires--> [isPanelOpen] (блокирует gesture controller)
-    +--CONFLICTS--> [Virtual Keyboard] (textarea фокус в note submenu)
-    +--CONFLICTS--> [Content scroll] (drag на sheet handle vs scroll контента)
-
-[Chapter Boundary Navigation]
-    +--requires--> [Rubber-band] (visual feedback, spring back)
-    +--requires--> [getStageInfo()] (isAtStart, isAtEnd detection)
-    +--requires--> [rendition.next()/prev()] (chapter transition)
+[iOS Touch Event Диагностика]
+    |
+    v
+[Fix touchstart/touchmove/touchend pipeline в iframe]
+    |
+    +---> [Fix тап навигации по краям]
+    |         |
+    |         +---> [Fix center tap (show/hide UI)]
+    |
+    +---> [Fix свайп навигации]
+    |         |
+    |         +---> [Follow-finger spring physics на iOS]
+    |
+    +---> [Fix выделения текста]
+              |
+              +---> [Scroll lock для iOS]
+              |
+              +---> [HighlightTooltip позиционирование на iOS]
 ```
 
-### Заметки о зависимостях
+### Dependency Notes
 
-- **Text Selection CONFLICTS with Gesture Controller**: Когда пользователь делает long press, FSM в состоянии `pending`. Если long press >350ms (LONG_PRESS_TIMEOUT), touchend не обрабатывается как tap -- корректно. НО: drag handles после selection -- это новые touch events, которые gesture controller может перехватить как новый свайп. Текущий guard: `sel.toString().length > 0` в touchstart. Проблема: selection может быть снята к моменту нового touch event. Решение: добавить состояние `selecting` в FSM, которое блокирует все жесты пока selection активен.
+- **Touch Event Pipeline является фундаментом**: Все остальные фичи (тапы, свайпы, выделение) зависят от корректной доставки и обработки touch events внутри iframe на iOS. Без диагностики невозможно понять что именно сломано.
+- **Диагностика первична**: Debug overlay с визуализацией touch events позволит увидеть, какие events доставляются, с какими координатами, и какие перехватываются iOS.
+- **Тап навигация проще свайпа**: Тапы -- дискретные events (touchstart + touchend без значительного движения). Свайпы -- continuous (touchstart + touchmove + touchend) с `preventDefault()`. На iOS `preventDefault()` на passive touchmove не работает -- это отдельная проблема.
+- **Выделение текста конфликтует с жестами**: На iOS long-press запускает нативное выделение. Gesture controller должен правильно различать: short tap = навигация, long press = выделение, horizontal drag = свайп. Текущий FSM (idle -> pending -> swiping | cancelled) правильный по логике, но timing на iOS может отличаться.
+- **Scroll lock зависит от pointer events**: Текущая реализация использует parent document pointerdown/pointerup для отслеживания состояния. На iOS pointer events в iframe могут работать иначе.
+- **capture-phase stopPropagation конфликт**: useEpubIOSFixes.ts добавляет capture-phase listeners с `e.stopPropagation()` для блокировки epub.js handlers. Но это может также блокировать gesture controller handlers в bubble phase. Это **наиболее вероятная корневая причина**, требующая диагностического подтверждения и рефакторинга подхода к блокировке epub.js.
 
-- **Description Highlight CONFLICTS with Gesture Controller center-tap**: Тап на `.description-highlight` вызывает handleCenterTap (который ищет description и открывает drawer) И onToggleUI (который toggle header). В EpubReader.tsx onCenterTap и onToggleUI вызываются последовательно в gesture controller. Правильное поведение: если onCenterTap нашёл описание и открыл drawer -- не вызывать onToggleUI. Решение: onCenterTap должен возвращать boolean (handled/not-handled), или использовать callback pattern.
+## MVP Definition
 
-- **Reader Header CONFLICTS with Screen Width**: 6 кнопок (back, TOC, info, entities, search, settings) + progress bar с процентами и страницами. На 375px экране (iPhone SE/13 mini): ~231px на кнопки (6 * 44px = 264px с gap) + ~100px на progress bar = 364px. Без gap не помещается. Apple Books: 2 кнопки вверху (back, reading menu button). Kindle: back + chapter title (truncated) + search. Решение: объединить info + entities + settings в один "..." menu, или вынести search и info в overflow.
+### Launch With (v1.3 -- iOS fix milestone)
 
-- **Virtual Keyboard CONFLICTS with Bottom Sheets**: При открытии SelectionMenu -> Note submenu -> textarea -> focus -> keyboard. На iOS Safari клавиатура пушит viewport вверх, Vaul drawer может сдвинуться за видимую область. VisualViewport API (`useVisualViewportHandler`) уже используется, но поведение нестабильно на старых iOS. Решение: для note input использовать отдельный full-screen modal, а не inline textarea в floating popup.
+- [ ] **Touch event диагностика** -- расширить DebugPanel для визуализации touch events: координаты, event type, cancelable, defaultPrevented, FSM state. Позволяет видеть проблему на реальном устройстве
+- [ ] **Fix touch event pipeline** -- обеспечить доставку touchstart/touchmove/touchend из iframe в gesture controller на iOS. Вероятный fix: рефакторинг capture-phase stopPropagation в useEpubIOSFixes.ts -- заменить на более точечную блокировку epub.js handlers (по event target или handler reference) вместо тотального stopPropagation
+- [ ] **Fix тап навигации** -- тапы по краям (prev/next zones) работают на iOS. Проверить: click event delegation (cursor:pointer), координатная трансформация (clientX в iframe vs screen coords), timing (300ms delay / double-tap zoom)
+- [ ] **Fix свайп навигации** -- горизонтальные свайпы в iframe перелистывают страницы. Ключевое: `touchmove` listener с `{passive: false}` + `preventDefault()` для подавления iOS scroll/back-navigation
+- [ ] **Fix выделения текста** -- long-press + drag handles работают на iOS. Проверить: scroll lock, координаты drag handles в iframe, suppression timing
 
-## Эталонное поведение топ-ридеров
+### Add After Validation (v1.3.x)
 
-### Apple Books (основной эталон)
+- [ ] **Follow-finger spring physics на iOS** -- если touch pipeline работает, translateX feeding из touchmove должен работать автоматически
+- [ ] **Rubber-band + chapter hints на iOS** -- зависит от корректного boundary detection (getStageInfo)
+- [ ] **iOS-specific timing tuning** -- LONG_PRESS_TIMEOUT, TAP_MAX_DURATION могут требовать iOS-специфичных значений
 
-| Аспект | Поведение | Статус в fancai |
-|--------|----------|----------------|
-| Анимация по умолчанию | Slide (с iOS 16). Curl, None -- опциональные | Slide реализован |
-| Follow-finger | Да, палец ведёт страницу 1:1 | Реализовано |
-| Тап-зоны | Левый/правый ~25%: перелистывание. Центр: toggle Reading Menu | Реализовано (25% iframe, 15% iOS) |
-| Reading Menu | Минималистичный. Тап центра показывает: back + "..." (Theme & Settings). Внизу: page number | **Нужна переработка** -- слишком много кнопок |
-| Прогресс | Внизу: тапабельный номер страницы. В меню: "X pages left in chapter" вверху | Только в header |
-| Выделение текста | Long press -> drag handles -> popup: Copy, Highlight (4 цвета), Note, Translate, Search, Lookup | Частично: Copy + Note |
-| Настройки | Bottom sheet из Reading Menu: Font, Size, Theme, Brightness, Page Turn Effect, Scroll, Lock Rotation | Vaul drawer |
-| TOC | Full-screen overlay или slide-in panel | Vaul drawer |
-| Переход глав | Rubber-band на границе, slide к следующей главе | Реализовано |
-| Immersive mode | Toolbar скрыт. Тап центра = показ/скрытие | Реализовано |
+### Future Consideration (v2+)
 
-### Kindle (альтернативный эталон)
-
-| Аспект | Поведение | Статус в fancai |
-|--------|----------|----------------|
-| Анимация | Slide (без follow-finger на mobile app). Curl -- опция | fancai лучше (follow-finger) |
-| Тап-зоны | ~40% боковые зоны. Центр: показ dual toolbar (top + bottom) | Реализовано с другими пропорциями |
-| Top toolbar | Back + Chapter title (truncated) + Search + Bookmark | **Нужна оптимизация** |
-| Bottom toolbar | Slider прогресса + Location/Page number + стрелки nav | Нет bottom bar |
-| Выделение | Long press -> drag -> inline color picker (4 цвета) + Note | Copy + Note submenu |
-| Page Flip | Свайп от нижнего края = preview page без потери позиции | Нет (отложено) |
-| X-Ray | Термины/персонажи со ссылками по тексту | Entity Wiki (конкурирует!) |
-
-### Kobo
-
-| Аспект | Поведение | Статус в fancai |
-|--------|----------|----------------|
-| Тап-зоны | Левый/правый край + центр. Long press на углу = быстрое пролистывание | Тапы -- да. Long press на углу -- нет |
-| Выделение | Long press -> drag handles -> Highlight, Add Note, Define, Translate | Частично |
-| Reading Menu | Тап центра -> overlay: навигация, настройки, закладки, TOC | Тап центра = header toggle |
-| Font size | Pinch-to-zoom маппится на font size | Нет (A+/A- в settings) |
-
-## Конкретные баги и конфликты для v1.2
-
-### 1. Gesture Controller vs Description Highlight Tap
-
-**Проблема**: В `useGestureController.ts` строки 468-476: при center tap вызываются оба `onCenterTapRef.current(viewportX, viewportY)` и `onToggleUIRef.current()`. Если тап попал на description-highlight и открыл drawer, toggle UI всё равно вызовется -- header мигнёт.
-
-**Решение**: `handleCenterTap` в EpubReader.tsx (строки 255-277) должен возвращать Promise<boolean>. В gesture controller: `const handled = await onCenterTapRef.current(x, y); if (!handled) onToggleUIRef.current();`
-
-**Сложность**: LOW. Изменение сигнатуры одного callback.
-
-### 2. Text Selection Drag Handles vs Gesture Controller
-
-**Проблема**: После long press и появления selection, пользователь тянет drag handles для расширения выделения. Эти touch events попадают в gesture controller, который может начать swipe (state: pending -> swiping).
-
-**Текущий guard**: `useGestureController.ts` строка 307-308: `const sel = doc.defaultView?.getSelection?.(); if (sel && sel.toString().length > 0) return;` -- это в touchstart. Но selection может быть пустой если пользователь тянет handle ДО выделения новых символов.
-
-**Решение**: Добавить проверку наличия selection handles. Или: в touchstart проверять `document.getSelection().rangeCount > 0` (наличие range, даже если toString пуст). Или: отслеживать `selectionchange` event и выставлять флаг `isSelecting`.
-
-**Сложность**: MEDIUM. Нужно тестировать на iOS и Android.
-
-### 3. Header Overflow на мобильных (375px)
-
-**Проблема**: ReaderHeader.tsx содержит 6 кнопок (back, TOC, info, entities, search, settings) + progress bar. На iPhone SE (375px): 6 * 44px = 264px кнопок + 100px progress + gaps = не помещается.
-
-**Эталон Apple Books**: 2 кнопки (back + reading menu). Всё остальное -- в reading menu.
-**Эталон Kindle**: back + title + search + bookmark. Остальное -- в bottom bar или settings.
-
-**Решение**: Оставить в header: back, TOC, search. Объединить info + entities + settings в "..." overflow menu (Popover). Progress bar вынести в мини-footer или показывать при header visible.
-
-**Сложность**: MEDIUM. Refactoring ReaderHeader + новый overflow menu компонент.
-
-### 4. Slide Animation "Дёрганье" при Tap Navigation
-
-**Проблема**: При тапе на край, gesture controller запускает slide animation (SPRING_FAST) и одновременно вызывает `onEdgeTap -> nextPage() -> rendition.next()`. epub.js перерисовывает iframe синхронно, что вызывает визуальный "дёрг" посередине анимации.
-
-**Решение Apple Books**: Анимация и навигация разделены. Сначала анимация slide-out (текущая страница уезжает), потом мгновенный swap контента, потом нет slide-in (новая страница уже на месте). Или: slide-out текущей + slide-in новой параллельно.
-
-**Текущий подход fancai**: animate translateX to -viewportWidth, onComplete: translateX.set(0). Проблема: epub.js display() может вызваться до завершения animation.
-
-**Решение**: Порядок: (1) запустить slide animation, (2) вызвать navigation только в onComplete callback. Уже частично так (строки 498-511), но onEdgeTap вызывается ВНЕ animation callback (строка 509). Нужно перенести navigation внутрь onComplete.
-
-**Сложность**: LOW-MEDIUM. Рефакторинг порядка вызовов в gesture controller.
-
-### 5. Панели Settings/TOC и авто-клавиатура
-
-**Проблема**: Открытие панели с Vaul может автоматически сфокусировать первый focusable element (input/textarea), что вызовет появление клавиатуры.
-
-**Решение**: Vaul `shouldScaleBackground={false}`, `modal={true}`. Для Vaul drawer: не использовать `autoFocus` на input-ах внутри. Для SearchPanel: фокус на input только при явном открытии search, не при swipe-to-open.
-
-**Сложность**: LOW.
-
-## MVP для v1.2 (Стабилизация)
-
-### P1: Обязательно (ридер ощущается сломанным без этого)
-
-- [ ] **Fix: gesture vs description-highlight tap** -- onCenterTap возвращает boolean, не toggle UI если description открыт
-- [ ] **Fix: header overflow мобильных** -- вынести info/entities/settings в overflow menu, оставить back + TOC + search
-- [ ] **Fix: text selection drag handles vs swipe** -- проверка rangeCount или selectionchange flag
-- [ ] **Fix: панели без авто-клавиатуры** -- отключить autoFocus в Vaul sheets
-- [ ] **Fix: slide animation при tap nav** -- navigation внутрь onComplete callback
-
-### P2: Желательно (полировка native feel)
-
-- [ ] **Мини-footer или inline progress** -- постоянная минималистичная строка прогресса (2-4px) или тапабельный page number внизу
-- [ ] **Snap points для Vaul panels** -- полная высота для TOC/Bookmarks, частичная для Settings
-- [ ] **Улучшение spring config** -- тестирование на реальных устройствах, подбор stiffness/damping для ощущения Apple Books
-
-### P3: Отложить (v2+)
-
-- [ ] **Haptic feedback** -- `navigator.vibrate()`. Просто, но iOS Safari ограничивает
-- [ ] **Настраиваемые тап-зоны** -- UI для настройки пропорций зон
-- [ ] **Page Flip preview** -- свайп от низа для preview без потери позиции
+- [ ] **Haptic feedback** -- navigator.vibrate() не поддерживается iOS Safari. Web Vibration API = Android only
+- [ ] **Настраиваемые зоны тапов** -- NAV-v2-01 из backlog
+- [ ] **Pointer Events миграция** -- когда iOS Safari полноценно поддержит pointer events в iframe
 
 ## Feature Prioritization Matrix
 
-| Feature | Ценность | Стоимость | Приоритет | Фаза |
-|---------|---------|-----------|-----------|------|
-| Fix: gesture vs description tap | HIGH | LOW | P1 | Ранняя |
-| Fix: header overflow | HIGH | MEDIUM | P1 | Ранняя |
-| Fix: selection vs swipe | HIGH | MEDIUM | P1 | Средняя |
-| Fix: panel auto-keyboard | MEDIUM | LOW | P1 | Ранняя |
-| Fix: tap-nav slide дёрганье | MEDIUM | LOW-MEDIUM | P1 | Средняя |
-| Мини-footer progress | MEDIUM | LOW | P2 | Поздняя |
-| Vaul snap points | MEDIUM | LOW | P2 | Средняя |
-| Spring tuning | LOW | LOW | P2 | Поздняя |
-| Haptic feedback | LOW | LOW | P3 | v2+ |
-| Настраиваемые тап-зоны | LOW | MEDIUM | P3 | v2+ |
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Touch event диагностика (debug) | LOW (dev-only) | LOW | P1 -- без нее невозможна отладка |
+| Fix тап навигации на iOS | HIGH | MEDIUM | P1 -- базовая навигация |
+| Fix свайп навигации на iOS | HIGH | HIGH | P1 -- основной UX-паттерн |
+| Fix выделения текста на iOS | HIGH | HIGH | P1 -- core reading feature |
+| Fix center tap (show/hide UI) | MEDIUM | LOW | P1 -- уже частично работает через overlay |
+| Follow-finger spring на iOS | MEDIUM | LOW (зависит от fix свайпа) | P2 -- визуальное улучшение |
+| Debug overlay визуализация touches | LOW | MEDIUM | P2 -- полезно, не критично |
+| Rubber-band + chapter hints iOS | LOW | LOW | P3 -- polish |
 
-**Ключ приоритетов:**
-- P1: Must fix -- без этого ридер ощущается сломанным на мобильных
-- P2: Should fix -- полировка, усиливает native feel
-- P3: Nice to have -- дифференциаторы для будущих версий
+**Priority key:**
+- P1: Блокирует использование ридера на iOS -- must fix
+- P2: Улучшает UX после базовой работоспособности
+- P3: Polish, может подождать
 
-## Паттерн разрешения конфликта Gesture vs Text Selection
+## Competitor Feature Analysis
 
-Сводная таблица подходов из анализа конкурентов:
+| Feature | Apple Books (native) | Kindle iOS (native) | Google Play Books (web) | fancai (текущее) |
+|---------|---------------------|--------------------|-----------------------|-----------------|
+| Тап навигация | Работает: нативные gesture recognizers | Работает: нативные handlers | Работает: собственный rendering (не iframe) | СЛОМАНО на iOS: iframe touch events не доставляются |
+| Свайп с follow-finger | Идеально: Metal/CoreAnimation | Хорошо: UIKit animations | Среднее: Canvas-based | СЛОМАНО на iOS: touchmove не доставляется/перехватывается |
+| Выделение текста | Идеально: нативный UITextView | Хорошо: кастомный selection | Среднее: кастомный rendering | СЛОМАНО на iOS: drag handles offset, scroll lock не работает |
+| Page turn animation | Curl/Slide/None | Slide | Slide | Slide (Spring physics) -- работает на Android/Desktop |
+| Debug tools | Нет | Нет | Chrome DevTools | DebugPanel (`/?debug=1`) -- работает |
 
-| Аспект | Apple Books | Kindle | Kobo | fancai (текущий) | fancai (цель v1.2) |
-|--------|-------------|--------|------|-----------------|-------------------|
-| Дискриминация tap vs swipe | ~10px threshold + время | Мгновенный snap (нет follow-finger) | ~10px threshold | 10px threshold + FSM (pending -> swiping) | Текущий подход корректен |
-| Long press timeout | ~350ms | ~500ms | ~400ms | 350ms | Оставить 350ms -- ближе к Apple |
-| Selection блокирует swipe? | Да, selection handles получают приоритет | Да, полная блокировка свайпа | Да | Частично -- check sel.toString() в touchstart | Полная блокировка: `selectionchange` event + флаг в FSM |
-| Tap на interactive element | Не toggle UI | Открывает element, не toggle | Открывает element | isInteractiveElement() + оба callback | onCenterTap returns boolean, conditional toggle |
-| Отмена свайпа при vertical | Да | Нет (нет свайпа) | Да | maxVerticalRatio: 2.0 | Корректно |
+**Критический вывод:** Нативные ридеры (Apple Books, Kindle) обходят все проблемы iOS WebKit, работая с WKWebView через нативные API. Web-ридеры (Google Play Books) обычно используют собственный rendering engine (Canvas), а не epub.js/iframe. fancai -- один из немногих полнофункциональных web-based EPUB ридеров с iframe, что делает iOS touch issues особенно актуальными.
 
-## Технические ограничения epub.js (влияние на features)
+## Технический анализ корневых проблем
 
-| Ограничение | Влияние на feature | Workaround в fancai |
-|------------|-------------------|---------------------|
-| Контент в iframe | Touch events не всплывают. Все handlers через `hooks.content.register()` | Уже реализовано |
-| CSS columns для paginated | scroll-snap не работает с CSS transform на iframe | Анимация на wrapper div (FollowFingerContainer), не на iframe |
-| iOS Safari selection в iframe | epub.js #904: drag handles коллапсируют | Не мешать нативному selection; проверка `sel.toString()` в touchstart |
-| Anonymous span wrapper | epub.js оборачивает body в `<span>`, сдвигая CFI paths | `resolveRangeFallback()` в useAnnotationRendering |
-| getContents() timing | Contents может быть пустой при быстрой навигации | Retry с setTimeout, или ждать `rendered` event |
-| rendition.display() синхронный reflow | Вызов display() во время animation = визуальный рывок | Вызывать display() только в onComplete animation callback |
+### Проблема 1: capture-phase stopPropagation конфликт (ВЕРОЯТНАЯ КОРНЕВАЯ ПРИЧИНА)
+
+useEpubIOSFixes.ts добавляет capture-phase listeners с `e.stopPropagation()` для блокировки epub.js handlers. Но это блокирует ВСЕ touch events до того, как они достигают gesture controller handlers в bubble phase.
+
+**Порядок событий:**
+1. Capture phase (parent -> child): useEpubIOSFixes `stopPropagation` БЛОКИРУЕТ дальнейшее распространение
+2. Target phase: событие на элементе -- **НЕ ДОСТИГАЕТСЯ**
+3. Bubble phase (child -> parent): gesture controller handlers -- **НИКОГДА НЕ ВЫЗЫВАЮТСЯ**
+
+**Текущий код (useEpubIOSFixes.ts:136-141):**
+```typescript
+const blockEpubJsTouchHandler = (e: TouchEvent) => {
+  e.stopPropagation();
+};
+doc.addEventListener('touchstart', blockEpubJsTouchHandler, { capture: true, passive: true });
+doc.addEventListener('touchmove', blockEpubJsTouchHandler, { capture: true, passive: true });
+doc.addEventListener('touchend', blockEpubJsTouchHandler, { capture: true, passive: true });
+```
+
+Gesture controller добавляет handlers в bubble phase (useGestureController.ts:856-859):
+```typescript
+doc.addEventListener('touchstart', wrappedTouchStart, { passive: true });
+doc.addEventListener('touchmove', handleTouchMove, { passive: false });
+doc.addEventListener('touchend', handleTouchEnd, { passive: true });
+```
+
+**stopPropagation в capture phase останавливает событие ДО bubble phase -- gesture controller handlers не вызываются.**
+
+**Confidence: HIGH** -- следует из стандарта DOM Events и анализа кода.
+
+### Проблема 2: iOS Safari passive event listeners
+
+iOS Safari по умолчанию делает touchstart listeners passive. Это означает:
+- `addEventListener('touchstart', handler)` без explicit `passive` -- passive: true по умолчанию
+- `handler(e) { e.preventDefault() }` -- **игнорируется**, потому что listener passive
+- Нужно: `addEventListener('touchstart', handler, { passive: false })` если требуется preventDefault
+
+**Текущее состояние в коде:**
+- useGestureController.ts touchstart: `{ passive: true }` -- **правильно** (не нужен preventDefault на touchstart)
+- useGestureController.ts touchmove: `{ passive: false }` -- **правильно** (нужен preventDefault для отмены скролла)
+
+**Confidence: HIGH** -- подтверждено Apple Developer Documentation и WebKit bugzilla.
+
+### Проблема 3: Координатный сдвиг в iframe
+
+WebKit bug #128924 (FIXED): touch events привязанные к iframe document node имеют неправильные координаты, когда iframe имеет offset (margin/padding). Координатный регион начинается с (0,0) вместо реальной позиции iframe.
+
+**Текущее состояние в коде:**
+- useGestureController.ts: `getIframeOffset()` получает `iframe.getBoundingClientRect().left`
+- Конвертация координат: `screenX = touch.clientX + iframeOffset`
+- Может быть некорректна на iOS если iframe coordinates уже сдвинуты внутренним WebKit behavior
+
+**Confidence: MEDIUM** -- баг помечен как FIXED, но аналогичные проблемы могут появляться в новых версиях iOS.
+
+### Проблема 4: iOS back-navigation gesture конфликт
+
+iOS Safari/PWA имеют edge-swipe gesture для навигации назад/вперед. Свайп от левого края (~20px) = browser back. Это конфликтует с "свайп вправо = предыдущая страница" в ридере.
+
+**Текущее состояние в коде:**
+- Tap zones: EDGE_ZONE_IFRAME = 0.15 (начинаются с 0% ширины)
+- Нет явной обработки edge-swipe конфликта с iOS
+- `touch-action: pan-x pan-y` позволяет панорамирование, но не блокирует edge gestures
+
+**Confidence: HIGH** -- документировано в pqina.nl/blog и Ionic framework issues.
+
+### Проблема 5: `touch-action` ограничения на iOS
+
+iOS Safari поддерживает только `touch-action: auto` и `touch-action: manipulation`. Значения `none`, `pan-x`, `pan-y` и комбинации (`pan-x pan-y`) имеют **ограниченную** поддержку. `manipulation` = pan-x + pan-y + pinch-zoom (но отключает double-tap-to-zoom).
+
+**Текущее состояние в коде:**
+- CSS: `touch-action: pan-x pan-y` на body в iframe
+- CSS: `touch-action: pan-x pan-y !important` в @supports (-webkit-touch-callout: none) блоке
+- Эффект на iOS может быть эквивалентен `manipulation` или вообще игнорироваться
+
+**Confidence: MEDIUM** -- Can I Use показывает partial support, конкретное поведение `pan-x pan-y` на iOS требует тестирования на устройстве.
 
 ## Sources
 
-- Apple Books slide/curl: [MacRumors](https://www.macrumors.com/how-to/re-enable-page-turning-animation-apple-books/), [9to5Mac](https://9to5mac.com/2023/03/01/curl-page-turn-effect-apple-books-is-back/), [TidBITS iOS 16 Books changes](https://tidbits.com/2022/10/03/apples-books-ios-16/)
-- Apple Books progress bar: [Apple Community discussions](https://discussions.apple.com/thread/254527336), [Gadget Hacks iOS update](https://ios.gadgethacks.com/how-to/apple-books-just-got-its-biggest-iphone-update-years-0385075/)
-- Kobo gestures: [Kobo Help Center](https://help.kobo.com/hc/en-us/articles/360017639973-Use-gestures-on-the-touch-screen), [Kobo Highlight iOS](https://help.kobo.com/hc/en-us/articles/360017708134-Highlight-text-on-the-Kobo-Books-app-for-iOS)
-- Kindle page turn: [Good e-Reader](https://goodereader.com/blog/kindle/the-kindle-paperwhite-5-has-a-new-page-turn-animation-system), [Epubor](https://www.epubor.com/kindle-turn-page.html)
-- epub.js issues: [#904 iOS text selection](https://github.com/futurepress/epub.js/issues/904), [#46 swipe](https://github.com/futurepress/epub.js/issues/46)
-- Bottom sheet UX: [NN/G guidelines](https://www.nngroup.com/articles/bottom-sheet/)
-- Spring physics: [Motion docs](https://motion.dev/docs/react-transitions), [Android spring](https://developer.android.com/develop/ui/views/animations/spring-animation)
-- Virtual keyboard: [VirtualKeyboard API](https://www.bram.us/2021/09/13/prevent-items-from-being-hidden-underneath-the-virtual-keyboard-by-means-of-the-virtualkeyboard-api/)
-- Immersive mode: [Android Developers](https://developer.android.com/design/ui/mobile/guides/layout-and-content/immersive-content)
-- Thumb zones: [Smashing Magazine](https://www.smashingmagazine.com/2016/09/the-thumb-zone-designing-for-mobile-users/)
-- Haptic feedback: [Good e-Reader](https://goodereader.com/blog/kindle/why-did-amazon-abandon-haptic-feedback-on-kindle-e-readers)
-- Gesture conflict resolution: [ResearchGate Bezel Swipe](https://www.researchgate.net/publication/221518883_Bezel_swipe_conflict-free_scrolling_and_multiple_selection_on_mobile_touch_screen_devices), [Android gesture nav](https://developer.android.com/develop/ui/views/touch-and-input/gestures/gesturenav)
-- Анализ кода fancai v1.1: useGestureController.ts, useFollowFingerSwipe.ts, useTextSelection.ts, ReaderHeader.tsx, SelectionMenu.tsx, FollowFingerContainer.tsx, EpubReader.tsx
+- [WebKit Bug #128924 -- Shifted document touch handling in iframes on iOS](https://bugs.webkit.org/show_bug.cgi?id=128924)
+- [WebKit Bug #182521 -- touchmove preventDefault() regression](https://bugs.webkit.org/show_bug.cgi?id=182521)
+- [WebKit Bug #133112 -- Touch-action CSS property support](https://bugs.webkit.org/show_bug.cgi?id=133112)
+- [WebKit Bug #154807 -- CSS pointer-events:none not working on iOS Safari](https://bugs.webkit.org/show_bug.cgi?id=154807)
+- [WebKit Bug #202143 -- iOS 13 does not send proper events](https://bugs.webkit.org/show_bug.cgi?id=202143)
+- [epub.js Issue #904 -- Mobile Safari text selection broken](https://github.com/futurepress/epub.js/issues/904)
+- [epub.js Issue #393 -- Swipe page in android and ios](https://github.com/futurepress/epub.js/issues/393)
+- [epub.js Tips and Tricks -- hooks.content.register pattern](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3))
+- [Apple Safari Web Content Guide -- Handling Events](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/HandlingEvents/HandlingEvents.html)
+- [PQINA -- Blocking Navigation Gestures on iOS](https://pqina.nl/blog/blocking-navigation-gestures-on-ios-13-4/)
+- [PQINA -- How To Prevent Scrolling The Page On iOS Safari](https://pqina.nl/blog/how-to-prevent-scrolling-the-page-on-ios-safari/)
+- [MDN -- touch-action CSS property](https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action)
+- [Can I Use -- CSS touch-action](https://caniuse.com/css-touch-action)
+- [React Issue #20999 -- preventDefault on onTouchMove not preventing scrolling on iOS](https://github.com/facebook/react/issues/20999)
+- [Why your click events don't work on Mobile Safari](https://www.shdon.com/blog/2013/06/07/why-your-click-events-don-t-work-on-mobile-safari)
+- [PWA on iOS -- Current Status and Limitations 2025](https://brainhub.eu/library/pwa-on-ios)
 
 ---
-*Feature research для: fancai v1.2 Reader Stability & Polish*
-*Researched: 2026-03-10*
+*Feature research for: iOS Reader Navigation Fixes (v1.3)*
+*Researched: 2026-03-14*
