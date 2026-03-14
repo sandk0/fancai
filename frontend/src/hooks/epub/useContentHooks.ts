@@ -194,7 +194,19 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
+      let overflowClipCleanup: (() => void) | null = null;
       const LONG_PRESS_THRESHOLD = 200; // ms
+
+      // Find the epub.js scrolling container (parent DOM) to lock during selection
+      const findScrollContainer = (): HTMLElement | null => {
+        const iframe = doc.defaultView?.frameElement;
+        let el = iframe?.parentElement;
+        while (el) {
+          if (el.scrollWidth > el.clientWidth) return el as HTMLElement;
+          el = el.parentElement;
+        }
+        return null;
+      };
 
       doc.addEventListener(
         'touchstart',
@@ -212,6 +224,22 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             );
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
+
+            // Apply overflow:clip to epub.js container to prevent page shift
+            // during text selection. Unlike overflow:hidden, clip prevents ALL
+            // scrolling including browser-initiated scroll for text selection.
+            const container = findScrollContainer();
+            if (container) {
+              const origOverflow = container.style.overflow;
+              const origOverflowX = container.style.overflowX;
+              container.style.overflowX = 'clip';
+              logger.debug('[useContentHooks] Applied overflow:clip to container');
+              overflowClipCleanup = () => {
+                container.style.overflow = origOverflow;
+                container.style.overflowX = origOverflowX;
+                overflowClipCleanup = null;
+              };
+            }
           }, LONG_PRESS_THRESHOLD);
         },
         { passive: true }
@@ -230,6 +258,11 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
           if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
+          }
+
+          // Restore overflow after selection is finalized
+          if (overflowClipCleanup) {
+            setTimeout(() => overflowClipCleanup?.(), 200);
           }
 
           // Short tap: explicitly clear any existing selection to prevent
