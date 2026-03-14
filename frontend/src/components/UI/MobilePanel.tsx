@@ -11,6 +11,8 @@ interface MobilePanelProps {
   children: React.ReactNode;
   snapPoints?: (number | string)[];
   defaultSnap?: number | string;
+  /** When true, drawer can only be dragged by handle bar, not content. Prevents false dismiss on scroll. */
+  handleOnly?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
   children,
   snapPoints = [0.5, 0.95],
   defaultSnap,
+  handleOnly = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -57,6 +60,7 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
       snapPoints={snapPoints}
       activeSnapPoint={activeSnap}
       setActiveSnapPoint={setActiveSnap}
+      handleOnly={handleOnly}
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />

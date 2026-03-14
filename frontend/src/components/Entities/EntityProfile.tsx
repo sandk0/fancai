@@ -97,7 +97,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                 </span>
               )}
             </h1>
-            <hr className="entity-rule mt-3" />
+            <div className="mt-3 border-t border-[var(--color-border-subtle)]" />
           </div>
         )}
       </div>
@@ -133,7 +133,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
               <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
                 {t('entities.about')}
               </h3>
-              <hr className="entity-rule mb-3" />
+              <div className="mb-3 border-t border-[var(--color-border-subtle)]" />
               <p className="text-sm text-[var(--color-text-default)] leading-relaxed">
                 {biography}
               </p>
@@ -146,7 +146,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
               <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
                 {t('entities.appearance')}
               </h3>
-              <hr className="entity-rule mb-3" />
+              <div className="mb-3 border-t border-[var(--color-border-subtle)]" />
               <p className="border-l-2 border-[var(--color-accent-500)]/30 pl-4 font-serif italic text-sm text-[var(--color-text-muted)]">
                 {appearance}
               </p>
@@ -159,7 +159,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
               <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
                 {t('entities.aliases_section')}
               </h3>
-              <hr className="entity-rule mb-3" />
+              <div className="mb-3 border-t border-[var(--color-border-subtle)]" />
               <p className="font-serif italic text-sm text-[var(--color-text-muted)]">
                 {entity.aliases.join(', ')}
               </p>
@@ -175,7 +175,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
               >
                 {t('entities.relations')}
               </h3>
-              <hr className="entity-rule mb-3" />
+              <div className="mb-3 border-t border-[var(--color-border-subtle)]" />
               <div className="space-y-0" role="list">
                 {relatedEntities.map((rel, idx) => {
                   const isRelMet = isEntityMetCFI(rel.entity, currentCFI ?? null, currentChapter);
@@ -237,7 +237,9 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                           />
                         )}
                       </button>
-                      {idx < relatedEntities.length - 1 && <hr className="entity-rule" />}
+                      {idx < relatedEntities.length - 1 && (
+                        <div className="mx-2 border-t border-[var(--color-border-subtle)]" />
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -254,7 +256,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
               >
                 {t('entities.by_chapters')}
               </h3>
-              <hr className="entity-rule mb-4" />
+              <div className="mb-4 border-t border-[var(--color-border-subtle)]" />
               <EntityEventTimeline events={entity.events || []} currentChapter={currentChapter} />
             </section>
           )}

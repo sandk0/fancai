@@ -20,7 +20,7 @@ export const RecapPanel: React.FC<Props> = ({ bookId, currentChapter, onEntityCl
       <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)]">
         {t('entities.recap_title')}
       </h3>
-      <hr className="entity-rule" />
+      <div className="border-t border-[var(--color-border-subtle)]" />
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
         {data.entities.map((entity) => (
           <button

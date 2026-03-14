@@ -23,7 +23,7 @@ export const EntityGallery: React.FC<Props> = ({ images, entityName, onImageClic
       <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
         {t('entities.gallery')}
       </h3>
-      <hr className="entity-rule mb-3" />
+      <div className="mb-3 border-t border-[var(--color-border-subtle)]" />
       <div className="grid grid-cols-2 gap-3">
         {images.map((img) => (
           <button

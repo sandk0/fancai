@@ -89,7 +89,7 @@ export const EntityList: React.FC<EntityListProps> = ({
   return (
     <div className="flex flex-col h-full">
       {/* Search — borderless, only border-bottom */}
-      <div className="px-3 py-2">
+      <div className="px-5 py-3">
         <Input
           inputSize="sm"
           placeholder={t('entities.search_placeholder')}
@@ -112,7 +112,7 @@ export const EntityList: React.FC<EntityListProps> = ({
       </div>
 
       {/* Filters — underlined text tabs */}
-      <div className="flex gap-4 px-3 pb-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-4 px-5 pb-3 overflow-x-auto scrollbar-hide">
         {TYPE_FILTERS.map((filter) => (
           <button
             key={filter.type}
@@ -138,7 +138,7 @@ export const EntityList: React.FC<EntityListProps> = ({
           </p>
         </div>
       ) : useVirtualization ? (
-        <div ref={parentRef} className="flex-1 overflow-auto px-3" style={{ contain: 'strict' }}>
+        <div ref={parentRef} className="flex-1 overflow-auto px-5" style={{ contain: 'strict' }}>
           <div
             style={{
               height: `${virtualizer.getTotalSize()}px`,
@@ -172,7 +172,7 @@ export const EntityList: React.FC<EntityListProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto px-3 pb-20">
+        <div className="flex-1 overflow-auto px-5 pb-20">
           {filteredEntities.map((entity, index) => (
             <div
               key={entity.id}
