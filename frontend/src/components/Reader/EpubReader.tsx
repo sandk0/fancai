@@ -549,36 +549,53 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setEditingBookmark(null);
   }, []);
 
+  // Shared dismiss logic: close popup + suppress selection so the dismiss-tap
+  // doesn't create a ghost selection. Used by BOTH backdrop (parent DOM) and
+  // iframe click paths to ensure consistent behavior.
+  const handleDismissHighlight = useCallback(() => {
+    closePopup();
+    suppressSelection(300);
+    try {
+      const contents = rendition?.getContents()[0];
+      contents?.window?.getSelection()?.removeAllRanges();
+    } catch {
+      /* ignore */
+    }
+  }, [closePopup, rendition]);
+
+  const handleDismissSelection = useCallback(() => {
+    clearSelection();
+    suppressSelection(300);
+    try {
+      const contents = rendition?.getContents()[0];
+      contents?.window?.getSelection()?.removeAllRanges();
+    } catch {
+      /* ignore */
+    }
+  }, [clearSelection, rendition]);
+
   // Dismiss popups when user taps inside the epub.js iframe.
-  // Backdrop handles parent DOM taps; this handles iframe taps (cross-frame boundary).
-  // Also clear any text selection caused by the same tap to prevent ghost selection.
+  // Backdrop handles parent DOM taps (via handleDismissHighlight/handleDismissSelection);
+  // this handles iframe taps (cross-frame boundary, where backdrop can't intercept).
   useEffect(() => {
     if (!rendition) return;
     if (!editingBookmark && !highlightPopup) return;
     const dismiss = () => {
       logger.debug(
-        '[EpubReader] dismiss handler fired -- editingBookmark:',
+        '[EpubReader] iframe dismiss fired -- editingBookmark:',
         !!editingBookmark,
         'highlightPopup:',
         !!highlightPopup
       );
       if (editingBookmark) setEditingBookmark(null);
-      if (highlightPopup) closePopup();
-      // Suppress selection for 300ms so the dismiss-tap can't trigger ghost selection
-      suppressSelection(300);
-      clearSelection();
-      try {
-        const contents = rendition.getContents()[0];
-        contents?.window?.getSelection()?.removeAllRanges();
-      } catch {
-        /* ignore */
-      }
+      if (highlightPopup) handleDismissHighlight();
+      else handleDismissSelection();
     };
     rendition.on('click', dismiss);
     return () => {
       rendition.off('click', dismiss);
     };
-  }, [rendition, editingBookmark, highlightPopup, closePopup, clearSelection]);
+  }, [rendition, editingBookmark, highlightPopup, handleDismissHighlight, handleDismissSelection]);
 
   const { nameHighlightingEnabled, updateNameHighlighting } = useReaderStore();
 
@@ -846,13 +863,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           data: selection,
           onCopy: handleCopy,
           onBookmark: handleBookmark,
-          onClose: clearSelection,
+          onClose: handleDismissSelection,
         }}
         highlight={{
           popup: highlightPopup,
           onEdit: handleHighlightEdit,
           onDelete: handleHighlightDelete,
-          onClose: closePopup,
+          onClose: handleDismissHighlight,
         }}
         selectionEditMode={
           editingBookmark
