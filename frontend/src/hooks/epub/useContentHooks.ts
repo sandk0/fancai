@@ -208,11 +208,14 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       const parentDoc = doc.defaultView?.parent?.document;
       const onParentPointerDown = () => {
         pointerDown = true;
+        // Release scroll lock from PREVIOUS touch on new pointerdown.
+        // NOT on pointerup — epub.js shifts the page on finger lift, so the
+        // lock must survive through pointerup. The NEXT touch (navigation tap)
+        // releases it, then its own gesture proceeds normally.
+        if (scrollLockCleanup) scrollLockCleanup();
       };
       const onParentPointerUp = () => {
         pointerDown = false;
-        // Release any active scroll lock when finger lifts
-        if (scrollLockCleanup) scrollLockCleanup();
       };
       parentDoc?.addEventListener('pointerdown', onParentPointerDown);
       parentDoc?.addEventListener('pointerup', onParentPointerUp);
