@@ -1,190 +1,322 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Drawer } from 'vaul';
+import { AnimatePresence, m } from 'motion/react';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
 import { EntityProfile } from './EntityProfile';
 import { EntityList } from './EntityList';
 import { RelationshipCard } from './RelationshipCard';
-import { X, Grid } from 'lucide-react';
+import { MobilePanel } from '../UI/MobilePanel';
+import { useIsMobile } from '@/hooks/shared/useIsMobile';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Z_INDEX } from '@/lib/zIndex';
+import { X, Grid, ChevronRight } from 'lucide-react';
 
 interface SelectedRelationship {
-    edge: NetworkEdge;
-    sourceEntity: EntityDetail;
-    targetEntity: EntityDetail;
+  edge: NetworkEdge;
+  sourceEntity: EntityDetail;
+  targetEntity: EntityDetail;
 }
 
+type ViewLevel = 'list' | 'profile' | 'relationship';
+
 interface EntityDrawerProps {
-    isOpen: boolean;
-    onClose: () => void;
-    entities: Record<string, EntityDetail>;
-    edges: NetworkEdge[];
-    currentChapter: number;
-    maxChapterReached: number;
-    currentCFI?: string | null;
-    initialEntityId?: string | null;
-    isLoading?: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  entities: Record<string, EntityDetail>;
+  edges: NetworkEdge[];
+  currentChapter: number;
+  maxChapterReached: number;
+  currentCFI?: string | null;
+  initialEntityId?: string | null;
+  isLoading?: boolean;
 }
 
 export const EntityDrawer: React.FC<EntityDrawerProps> = ({
-    isOpen,
-    onClose,
-    entities,
-    edges,
-    currentChapter,
-    currentCFI,
-    initialEntityId,
-    isLoading = false,
-    maxChapterReached,
+  isOpen,
+  onClose,
+  entities,
+  edges,
+  currentChapter,
+  currentCFI,
+  initialEntityId,
+  isLoading = false,
+  maxChapterReached,
 }) => {
-    const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
-    const [selectedRelationship, setSelectedRelationship] = useState<SelectedRelationship | null>(null);
-    const navigate = useNavigate();
-    const { bookId } = useParams();
-    const { t } = useTranslation();
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(initialEntityId || null);
+  const [selectedRelationship, setSelectedRelationship] = useState<SelectedRelationship | null>(
+    null
+  );
+  const [navigationDirection, setNavigationDirection] = useState<'forward' | 'backward'>('forward');
+  const navigate = useNavigate();
+  const { bookId } = useParams();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen && !isMobile, panelRef);
 
-    const effectiveChapter = Math.max(currentChapter, maxChapterReached || 0);
+  const effectiveChapter = Math.max(currentChapter, maxChapterReached || 0);
 
-    const [prevOpen, setPrevOpen] = useState(isOpen);
-    const [prevEntityId, setPrevEntityId] = useState(initialEntityId);
-    if (prevOpen !== isOpen || prevEntityId !== initialEntityId) {
-        setPrevOpen(isOpen);
-        setPrevEntityId(initialEntityId);
-        if (isOpen && initialEntityId) {
-            setSelectedEntityId(initialEntityId);
-            setSelectedRelationship(null);
-        } else if (isOpen && !initialEntityId) {
-            setSelectedEntityId(null);
-            setSelectedRelationship(null);
-        }
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+  const [prevEntityId, setPrevEntityId] = useState(initialEntityId);
+  if (prevOpen !== isOpen || prevEntityId !== initialEntityId) {
+    setPrevOpen(isOpen);
+    setPrevEntityId(initialEntityId);
+    if (isOpen && initialEntityId) {
+      setSelectedEntityId(initialEntityId);
+      setSelectedRelationship(null);
+    } else if (isOpen && !initialEntityId) {
+      setSelectedEntityId(null);
+      setSelectedRelationship(null);
     }
+  }
 
-    const relationships = React.useMemo(() => {
-        if (!selectedEntityId || !edges) return [];
-        return edges
-            .filter(e => e.source === selectedEntityId || e.target === selectedEntityId)
-            .map(e => {
-                const otherId = e.source === selectedEntityId ? e.target : e.source;
-                return {
-                    entity: entities[otherId],
-                    type: e.type,
-                    description: e.description,
-                    edge: e
-                };
-            })
-            .filter(r => r.entity);
-    }, [selectedEntityId, edges, entities]);
+  const relationships = React.useMemo(() => {
+    if (!selectedEntityId || !edges) return [];
+    return edges
+      .filter((e) => e.source === selectedEntityId || e.target === selectedEntityId)
+      .map((e) => {
+        const otherId = e.source === selectedEntityId ? e.target : e.source;
+        return {
+          entity: entities[otherId],
+          type: e.type,
+          description: e.description,
+          edge: e,
+        };
+      })
+      .filter((r) => r.entity);
+  }, [selectedEntityId, edges, entities]);
 
-    const handleRelationshipClick = (edge: NetworkEdge, sourceEntity: EntityDetail, targetEntity: EntityDetail) => {
-        setSelectedRelationship({ edge, sourceEntity, targetEntity });
-    };
+  const handleRelationshipClick = (
+    edge: NetworkEdge,
+    sourceEntity: EntityDetail,
+    targetEntity: EntityDetail
+  ) => {
+    setNavigationDirection('forward');
+    setSelectedRelationship({ edge, sourceEntity, targetEntity });
+  };
 
-    const handleBackFromRelationship = () => {
-        setSelectedRelationship(null);
-    };
+  const handleEntitySelect = (id: string) => {
+    setNavigationDirection('forward');
+    setSelectedEntityId(id);
+  };
 
-    const handleBackFromProfile = () => {
-        if (selectedRelationship) {
-            setSelectedRelationship(null);
-        } else {
-            setSelectedEntityId(null);
-        }
-    };
+  const handleBreadcrumbNavigate = (level: ViewLevel) => {
+    setNavigationDirection('backward');
+    if (level === 'list') {
+      setSelectedEntityId(null);
+      setSelectedRelationship(null);
+    } else if (level === 'profile') {
+      setSelectedRelationship(null);
+    }
+  };
 
-    const getBackButtonText = () => {
-        if (selectedRelationship) return t('entityDrawer.back_to_profile');
-        if (selectedEntityId) return t('entityDrawer.back_to_list');
-        return null;
-    };
+  // Determine current view for animation keys
+  const currentView: ViewLevel = selectedRelationship
+    ? 'relationship'
+    : selectedEntityId
+      ? 'profile'
+      : 'list';
 
-    const getTitle = () => {
-        if (selectedRelationship) {
-            return `${selectedRelationship.sourceEntity.name} ↔ ${selectedRelationship.targetEntity.name}`;
-        }
-        return t('entityDrawer.title');
-    };
+  // Animation variants for view transitions
+  const slideVariants = {
+    enter: (direction: 'forward' | 'backward') => ({
+      x: direction === 'forward' ? 80 : -80,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: 'forward' | 'backward') => ({
+      x: direction === 'forward' ? -80 : 80,
+      opacity: 0,
+    }),
+  };
 
+  const selectedEntity = selectedEntityId ? entities[selectedEntityId] : null;
+
+  // Breadcrumb navigation
+  const breadcrumb = (
+    <nav className="flex items-center gap-1 text-sm min-w-0 flex-1" aria-label="Breadcrumb">
+      <button
+        onClick={() => handleBreadcrumbNavigate('list')}
+        className={`shrink-0 transition-colors ${
+          currentView === 'list'
+            ? 'font-medium text-[var(--color-text-default)]'
+            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-default)]'
+        }`}
+      >
+        {t('entityDrawer.title')}
+      </button>
+      {selectedEntity && (
+        <>
+          <ChevronRight className="w-3 h-3 text-[var(--color-text-disabled)] shrink-0" />
+          <button
+            onClick={() => handleBreadcrumbNavigate('profile')}
+            className={`font-serif truncate transition-colors ${
+              currentView === 'profile'
+                ? 'font-medium text-[var(--color-text-default)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-default)]'
+            }`}
+          >
+            {selectedEntity.name}
+          </button>
+        </>
+      )}
+      {selectedRelationship && (
+        <>
+          <ChevronRight className="w-3 h-3 text-[var(--color-text-disabled)] shrink-0" />
+          <span className="font-serif text-[var(--color-text-default)] font-medium truncate">
+            {selectedRelationship.targetEntity.name}
+          </span>
+        </>
+      )}
+    </nav>
+  );
+
+  const drawerContent = (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 pb-3 flex-shrink-0">
+        {breadcrumb}
+        <div className="flex items-center gap-1 shrink-0">
+          {currentView === 'list' && (
+            <button
+              onClick={() => navigate(`/book/${bookId}/gallery`)}
+              className="p-2 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-500)] transition-colors"
+              title={t('entityDrawer.open_gallery')}
+            >
+              <Grid size={16} />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-default)] transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <hr className="entity-rule" />
+
+      {/* Animated content area */}
+      <div className="flex-1 overflow-hidden relative">
+        <AnimatePresence mode="wait" custom={navigationDirection}>
+          {selectedRelationship ? (
+            <m.div
+              key="relationship"
+              custom={navigationDirection}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="h-full overflow-auto p-4"
+            >
+              <RelationshipCard
+                edge={selectedRelationship.edge}
+                sourceEntity={selectedRelationship.sourceEntity}
+                targetEntity={selectedRelationship.targetEntity}
+                currentChapter={effectiveChapter}
+                currentCFI={currentCFI}
+                onEntityClick={(id) => {
+                  setNavigationDirection('forward');
+                  setSelectedRelationship(null);
+                  setSelectedEntityId(id);
+                }}
+              />
+            </m.div>
+          ) : selectedEntityId && entities[selectedEntityId] ? (
+            <m.div
+              key={`profile-${selectedEntityId}`}
+              custom={navigationDirection}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="h-full"
+            >
+              <EntityProfile
+                entity={entities[selectedEntityId]}
+                relatedEntities={relationships}
+                onEntityClick={handleEntitySelect}
+                onRelationshipClick={handleRelationshipClick}
+                currentChapter={effectiveChapter}
+                currentCFI={currentCFI}
+              />
+            </m.div>
+          ) : (
+            <m.div
+              key="list"
+              custom={navigationDirection}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="h-full"
+            >
+              <EntityList
+                entities={entities}
+                currentChapter={effectiveChapter}
+                currentCFI={currentCFI}
+                onEntitySelect={handleEntitySelect}
+                isLoading={isLoading}
+              />
+            </m.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+
+  // Mobile: Vaul bottom drawer via MobilePanel
+  if (isMobile) {
     return (
-        <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <Drawer.Portal>
-                <Drawer.Overlay className="fixed inset-0 bg-[var(--color-bg-overlay)] backdrop-blur-sm z-50" />
-                <Drawer.Content className="bg-[var(--color-bg-base)] flex flex-col rounded-t-[10px] h-[92vh] mt-24 fixed bottom-0 left-0 right-0 md:max-w-xl md:mx-auto z-50 outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset border-t border-[var(--color-border-default)] shadow-2xl">
-                    <div className="sr-only">
-                        <Drawer.Description>
-                            {t('entityDrawer.description')}
-                        </Drawer.Description>
-                    </div>
-                    <div className="p-4 bg-[var(--color-bg-base)] rounded-t-[10px] flex-1 flex flex-col h-full">
-                        <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-[var(--color-bg-hover)] mb-4" />
-
-                        <div className="flex justify-between items-center mb-4 px-2">
-                            {(selectedEntityId || selectedRelationship) ? (
-                                <button
-                                    onClick={selectedRelationship ? handleBackFromRelationship : handleBackFromProfile}
-                                    className="text-[var(--color-link)] text-sm font-medium hover:text-[var(--color-link-hover)]"
-                                >
-                                    {getBackButtonText()}
-                                </button>
-                                ) : (
-                                    <div className="flex items-center gap-3">
-                                        <Drawer.Title className="text-lg font-semibold text-[var(--color-text-default)]">
-                                            {getTitle()}
-                                        </Drawer.Title>
-                                        <button
-                                            onClick={() => navigate(`/book/${bookId}/gallery`)}
-                                        className="p-1.5 bg-[var(--color-bg-elevated)] rounded-full text-[var(--color-accent-500)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-400)] transition-colors"
-                                        title={t('entityDrawer.open_gallery')}
-                                    >
-                                        <Grid size={16} />
-                                    </button>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={onClose}
-                                className="p-3 bg-[var(--color-bg-elevated)] rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-default)] transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-hidden relative">
-                            {selectedRelationship ? (
-                                <div className="h-full overflow-auto p-2">
-                                    <RelationshipCard
-                                        edge={selectedRelationship.edge}
-                                        sourceEntity={selectedRelationship.sourceEntity}
-                                        targetEntity={selectedRelationship.targetEntity}
-                                        currentChapter={effectiveChapter}
-                                        currentCFI={currentCFI}
-                                        onEntityClick={(id) => {
-                                            setSelectedRelationship(null);
-                                            setSelectedEntityId(id);
-                                        }}
-                                    />
-                                </div>
-                            ) : selectedEntityId && entities[selectedEntityId] ? (
-                                <EntityProfile
-                                    entity={entities[selectedEntityId]}
-                                    relatedEntities={relationships}
-                                    onEntityClick={(id) => setSelectedEntityId(id)}
-                                    onRelationshipClick={handleRelationshipClick}
-                                    currentChapter={effectiveChapter}
-                                    currentCFI={currentCFI}
-                                />
-                            ) : (
-                                <EntityList
-                                    entities={entities}
-                                    currentChapter={effectiveChapter}
-                                    currentCFI={currentCFI}
-                                    onEntitySelect={(id) => setSelectedEntityId(id)}
-                                    isLoading={isLoading}
-                                />
-                            )}
-                        </div>
-                    </div>
-                </Drawer.Content>
-            </Drawer.Portal>
-        </Drawer.Root>
+      <MobilePanel
+        isOpen={isOpen}
+        onClose={onClose}
+        title={t('entityDrawer.title')}
+        snapPoints={[0.5, 0.92]}
+        defaultSnap={0.92}
+      >
+        {drawerContent}
+      </MobilePanel>
     );
+  }
+
+  // Desktop: side panel from right
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            style={{ zIndex: Z_INDEX.sidebar }}
+            onClick={onClose}
+          />
+          <m.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('entityDrawer.title')}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed top-0 right-0 h-full w-[420px] bg-[var(--color-bg-base)] shadow-xl flex flex-col pt-safe pb-safe border-l border-[var(--color-border-default)]"
+            style={{ zIndex: Z_INDEX.modal }}
+          >
+            <div className="pt-4">{drawerContent}</div>
+          </m.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
 };

@@ -6,239 +6,275 @@ import { entityTypeLabels, getBaseRoleLabel } from './entityTypeLabels';
 import { EntityEventTimeline } from './EntityEventTimeline';
 import { ScrollArea } from '../UI/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '../UI/avatar';
-import { Badge } from '../UI/badge';
-import { Card } from '../UI/Card';
 import { cn } from '@/lib/utils';
-import { Lock, ChevronRight, User, MapPin, Box } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface RelationItem {
-    entity: EntityDetail;
-    type: string;
-    description?: string | null;
-    edge?: NetworkEdge;
+  entity: EntityDetail;
+  type: string;
+  description?: string | null;
+  edge?: NetworkEdge;
 }
 
 interface EntityProfileProps {
-    entity: EntityDetail;
-    currentChapter: number;
-    currentCFI?: string | null;
-    relatedEntities?: RelationItem[];
-    onEntityClick?: (id: string) => void;
-    onRelationshipClick?: (edge: NetworkEdge, sourceEntity: EntityDetail, targetEntity: EntityDetail) => void;
+  entity: EntityDetail;
+  currentChapter: number;
+  currentCFI?: string | null;
+  relatedEntities?: RelationItem[];
+  onEntityClick?: (id: string) => void;
+  onRelationshipClick?: (
+    edge: NetworkEdge,
+    sourceEntity: EntityDetail,
+    targetEntity: EntityDetail
+  ) => void;
 }
 
-const PlaceholderIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
-    switch (type) {
-        case 'location': return <MapPin className={className} />;
-        case 'object': return <Box className={className} />;
-        default: return <User className={className} />;
-    }
+const getEntityTypeColor = (type: string): string => {
+  switch (type) {
+    case 'character':
+      return 'border-[var(--color-entity-character)]';
+    case 'location':
+      return 'border-[var(--color-entity-location)]';
+    case 'object':
+      return 'border-[var(--color-entity-object)]';
+    default:
+      return 'border-[var(--color-accent-500)]';
+  }
 };
 
 export const EntityProfile: React.FC<EntityProfileProps> = ({
-    entity,
-    currentChapter,
-    currentCFI,
-    relatedEntities = [],
-    onEntityClick,
-    onRelationshipClick
+  entity,
+  currentChapter,
+  currentCFI,
+  relatedEntities = [],
+  onEntityClick,
+  onRelationshipClick,
 }) => {
-    const { t } = useTranslation();
-    const isUnknown = !isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
-    const roleLabel = getBaseRoleLabel(entity.dynamic_role || entity.base_role);
-    const biography = entity.biography;
-    const appearance = entity.visual_summary_clean || entity.visual_summary;
-    // Backend already filters events by current chapter in _filter_events_by_chapter().
-    const events = entity.events || [];
+  const { t } = useTranslation();
+  const isUnknown = !isEntityMetCFI(entity, currentCFI ?? null, currentChapter);
+  const roleLabel = getBaseRoleLabel(entity.dynamic_role || entity.base_role);
+  const biography = entity.biography;
+  const appearance = entity.visual_summary_clean || entity.visual_summary;
+  const events = entity.events || [];
 
-    return (
-        <div className="bg-[var(--color-bg-base)] text-[var(--color-text-default)] h-full flex flex-col">
-            <div className="relative h-64 w-full flex-shrink-0">
-                {entity.avatar_url ? (
-                    <img
-                        src={entity.avatar_url}
-                        alt={entity.name}
-                        className={cn(
-                            "w-full h-full object-cover transition-all duration-700",
-                            isUnknown && "grayscale brightness-[0.4] blur-[2px]"
-                        )}
-                        style={{ maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)' }}
-                    />
-                ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-[var(--color-bg-emphasis)] to-[var(--color-bg-base)] flex items-center justify-center">
-                        <Avatar className="w-32 h-32 opacity-50">
-                            <AvatarFallback className="text-6xl font-serif bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                                <PlaceholderIcon type={entity.type} className="w-16 h-16" />
-                            </AvatarFallback>
-                        </Avatar>
-                    </div>
+  return (
+    <div className="bg-[var(--color-bg-base)] text-[var(--color-text-default)] h-full flex flex-col">
+      {/* Hero section */}
+      <div className={cn('relative w-full flex-shrink-0', entity.avatar_url ? 'h-48' : '')}>
+        {entity.avatar_url ? (
+          <>
+            <img
+              src={entity.avatar_url}
+              alt={entity.name}
+              className={cn(
+                'w-full h-full object-cover transition-all duration-700',
+                isUnknown && 'blur-[3px] brightness-75'
+              )}
+            />
+            {/* Gradient overlay — bottom 30% */}
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg-base)] via-transparent to-transparent"
+              style={{ top: '70%' }}
+            />
+            <div className="absolute bottom-0 left-0 p-5 w-full">
+              <h1 className="text-2xl font-serif font-bold text-[var(--color-text-default)] drop-shadow-md flex items-center gap-3">
+                {entity.name}
+                {isUnknown && (
+                  <span className="font-serif italic text-lg text-[var(--color-text-disabled)]">
+                    ?
+                  </span>
                 )}
-
-                <div className="absolute bottom-0 left-0 p-6 w-full bg-gradient-to-t from-[var(--color-bg-base)] via-[var(--color-bg-base)]/80 to-transparent">
-                    <h1 className="text-3xl font-serif font-bold text-[var(--color-text-default)] drop-shadow-md flex items-center gap-3">
-                        {entity.name}
-                        {isUnknown && <Lock className="w-5 h-5 text-[var(--color-text-muted)] opacity-70" aria-hidden="true" />}
-                    </h1>
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                        <Badge variant="outline" className="border-[var(--color-accent-500)]/50 text-[var(--color-accent-500)]">
-                            {entityTypeLabels[entity.type] || entity.type}
-                        </Badge>
-                        {roleLabel && !isUnknown && (
-                            <Badge variant="secondary" className="bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                                {roleLabel}
-                            </Badge>
-                        )}
-                        {entity.first_mention_chapter != null && !isUnknown && (
-                            <Badge variant="secondary" className="bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]">
-                                {t('entities.first_appearance', { chapter: entity.first_mention_chapter })}
-                            </Badge>
-                        )}
-                        {isUnknown && (
-                            <Badge variant="secondary" className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
-                                {t('entities.not_met')}
-                            </Badge>
-                        )}
-                    </div>
-                </div>
+              </h1>
             </div>
+          </>
+        ) : (
+          <div className="px-5 pt-4 pb-3">
+            <h1 className="text-2xl font-serif font-bold text-[var(--color-text-default)] flex items-center gap-3">
+              {entity.name}
+              {isUnknown && (
+                <span className="font-serif italic text-lg text-[var(--color-text-disabled)]">
+                  ?
+                </span>
+              )}
+            </h1>
+            <hr className="entity-rule mt-3" />
+          </div>
+        )}
+      </div>
 
-            <ScrollArea className="flex-1 p-6">
-                <div className="space-y-6 pb-20">
-                    {!isUnknown && biography && (
-                        <Card variant="elevated" padding="md">
-                            <h3 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-                                {t('entities.about')}
-                            </h3>
-                            <p className="text-sm text-[var(--color-text-default)] leading-relaxed">
-                                {biography}
+      {/* Metadata line */}
+      <div className="flex items-center gap-2 flex-wrap px-5 py-2">
+        <span
+          className={cn(
+            'text-xs uppercase tracking-widest font-medium border-l-2 pl-2',
+            getEntityTypeColor(entity.type)
+          )}
+        >
+          {entityTypeLabels[entity.type] || entity.type}
+        </span>
+        {roleLabel && !isUnknown && (
+          <span className="text-xs text-[var(--color-text-muted)]">· {roleLabel}</span>
+        )}
+        {entity.first_mention_chapter != null && !isUnknown && (
+          <span className="text-xs text-[var(--color-text-subtle)]">
+            · {t('entities.first_appearance', { chapter: entity.first_mention_chapter })}
+          </span>
+        )}
+        {isUnknown && (
+          <span className="text-xs text-[var(--color-text-muted)]">· {t('entities.not_met')}</span>
+        )}
+      </div>
+
+      <ScrollArea className="flex-1 px-5">
+        <div className="space-y-5 pb-20">
+          {/* Biography */}
+          {!isUnknown && biography && (
+            <section>
+              <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
+                {t('entities.about')}
+              </h3>
+              <hr className="entity-rule mb-3" />
+              <p className="text-sm text-[var(--color-text-default)] leading-relaxed">
+                {biography}
+              </p>
+            </section>
+          )}
+
+          {/* Appearance — blockquote style */}
+          {appearance && (
+            <section>
+              <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
+                {t('entities.appearance')}
+              </h3>
+              <hr className="entity-rule mb-3" />
+              <p className="border-l-2 border-[var(--color-accent-500)]/30 pl-4 font-serif italic text-sm text-[var(--color-text-muted)]">
+                {appearance}
+              </p>
+            </section>
+          )}
+
+          {/* Aliases — comma-separated serif italic */}
+          {entity.aliases && entity.aliases.length > 0 && !isUnknown && (
+            <section>
+              <h3 className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2">
+                {t('entities.aliases_section')}
+              </h3>
+              <hr className="entity-rule mb-3" />
+              <p className="font-serif italic text-sm text-[var(--color-text-muted)]">
+                {entity.aliases.join(', ')}
+              </p>
+            </section>
+          )}
+
+          {/* Relations — editorial rows */}
+          {!isUnknown && relatedEntities.length > 0 && (
+            <section aria-labelledby="relations-heading">
+              <h3
+                id="relations-heading"
+                className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2"
+              >
+                {t('entities.relations')}
+              </h3>
+              <hr className="entity-rule mb-3" />
+              <div className="space-y-0" role="list">
+                {relatedEntities.map((rel, idx) => {
+                  const isRelMet = isEntityMetCFI(rel.entity, currentCFI ?? null, currentChapter);
+                  const hasEdge = rel.edge && onRelationshipClick;
+
+                  const handleClick = () => {
+                    if (!isRelMet) return;
+                    if (hasEdge && rel.edge) {
+                      onRelationshipClick(rel.edge, entity, rel.entity);
+                    } else {
+                      onEntityClick?.(rel.entity.id);
+                    }
+                  };
+
+                  return (
+                    <React.Fragment key={rel.entity.id + idx}>
+                      <button
+                        type="button"
+                        role="listitem"
+                        onClick={handleClick}
+                        aria-label={`${rel.entity.name} — ${rel.type}`}
+                        className={cn(
+                          'w-full flex items-center text-left py-3 transition-colors rounded-lg',
+                          isRelMet ? 'hover:bg-[var(--color-bg-hover)]' : 'opacity-60'
+                        )}
+                      >
+                        <Avatar className={cn('h-8 w-8 mr-3', !isRelMet && 'blur-[2px]')}>
+                          <AvatarImage src={rel.entity.avatar_url || undefined} />
+                          <AvatarFallback className="text-xs">{rel.entity.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'font-serif text-sm font-medium truncate',
+                                isRelMet
+                                  ? 'text-[var(--color-text-default)]'
+                                  : 'text-[var(--color-text-muted)]'
+                              )}
+                            >
+                              {rel.entity.name}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-subtle)]">
+                              {rel.type}
+                            </span>
+                          </div>
+                          {rel.description && (
+                            <p className="text-xs text-[var(--color-text-subtle)] truncate mt-0.5">
+                              {rel.description}
                             </p>
-                        </Card>
-                    )}
-
-                    {appearance && (
-                        <Card variant="elevated" padding="md">
-                            <h3 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-                                {t('entities.appearance')}
-                            </h3>
-                            <p className="text-[var(--color-text-muted)] italic text-sm">
-                                {appearance}
-                            </p>
-                        </Card>
-                    )}
-
-                    {entity.aliases && entity.aliases.length > 0 && !isUnknown && (
-                        <div>
-                            <h3 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-                                {t('entities.aliases_section')}
-                            </h3>
-                            <div className="flex gap-1.5 flex-wrap">
-                                {entity.aliases.map((alias, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                        {alias}
-                                    </Badge>
-                                ))}
-                            </div>
+                          )}
                         </div>
-                    )}
+                        {isRelMet && (
+                          <ChevronRight
+                            className="w-4 h-4 text-[var(--color-text-disabled)] ml-2 shrink-0"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                      {idx < relatedEntities.length - 1 && <hr className="entity-rule" />}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-                    {!isUnknown && relatedEntities.length > 0 && (
-                        <section aria-labelledby="relations-heading">
-                            <h3 id="relations-heading" className="text-lg font-semibold mb-3 border-b border-[var(--color-border-default)] pb-2">
-                                {t('entities.relations')}
-                            </h3>
-                            <div className="grid grid-cols-1 gap-2" role="list">
-                                {relatedEntities.map((rel, idx) => {
-                                    const isRelMet = isEntityMetCFI(rel.entity, currentCFI ?? null, currentChapter);
-                                    const hasEdge = rel.edge && onRelationshipClick;
+          {/* Events timeline */}
+          {!isUnknown && events.length > 0 && (
+            <section aria-labelledby="events-heading">
+              <h3
+                id="events-heading"
+                className="font-serif text-sm uppercase tracking-widest text-[var(--color-text-disabled)] mb-2"
+              >
+                {t('entities.by_chapters')}
+              </h3>
+              <hr className="entity-rule mb-4" />
+              <EntityEventTimeline events={entity.events || []} currentChapter={currentChapter} />
+            </section>
+          )}
 
-                                    const handleClick = () => {
-                                        if (!isRelMet) return;
-                                        if (hasEdge && rel.edge) {
-                                            onRelationshipClick(rel.edge, entity, rel.entity);
-                                        } else {
-                                            onEntityClick?.(rel.entity.id);
-                                        }
-                                    };
-
-                                    return (
-                                        <Card
-                                            key={rel.entity.id + idx}
-                                            asChild
-                                            interactive
-                                            variant="subtle"
-                                            padding="sm"
-                                            disabled={!isRelMet}
-                                            className={cn("w-full", !isRelMet && "opacity-60")}
-                                        >
-                                            <button
-                                                type="button"
-                                                role="listitem"
-                                                onClick={handleClick}
-                                                aria-label={`${rel.entity.name} — ${rel.type}`}
-                                                className="flex items-center text-left"
-                                            >
-                                                <Avatar className="h-8 w-8 mr-3">
-                                                    <AvatarImage
-                                                        src={rel.entity.avatar_url || undefined}
-                                                        className={!isRelMet ? "grayscale" : ""}
-                                                    />
-                                                    <AvatarFallback>{rel.entity.name[0]}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className={cn(
-                                                            "text-sm font-medium truncate",
-                                                            isRelMet ? "text-[var(--color-text-default)]" : "text-[var(--color-text-muted)]"
-                                                        )}>
-                                                            {rel.entity.name}
-                                                        </span>
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="text-[10px] h-5 px-1.5 bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]"
-                                                        >
-                                                            {rel.type}
-                                                        </Badge>
-                                                    </div>
-                                                    {rel.description && (
-                                                        <p className="text-xs text-[var(--color-text-subtle)] truncate mt-0.5">
-                                                            {rel.description}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                {isRelMet && (
-                                                    <ChevronRight
-                                                        className="w-4 h-4 text-[var(--color-text-disabled)] ml-2 shrink-0"
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
-                                            </button>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        </section>
-                    )}
-
-                    {!isUnknown && events.length > 0 && (
-                        <section aria-labelledby="events-heading">
-                            <h3 id="events-heading" className="text-lg font-semibold mb-4 border-b border-[var(--color-border-default)] pb-2">
-                                {t('entities.by_chapters')}
-                            </h3>
-                            <EntityEventTimeline events={entity.events || []} currentChapter={currentChapter} />
-                        </section>
-                    )}
-
-                    {isUnknown && (
-                        <Card variant="elevated" padding="lg" className="text-center space-y-3">
-                            <Lock className="w-8 h-8 text-[var(--color-text-disabled)] mx-auto mb-2" aria-hidden="true" />
-                            <h4 className="text-[var(--color-text-default)] font-medium">{t('entities.info_hidden')}</h4>
-                            <p className="text-[var(--color-text-muted)] text-sm">
-                                {t('entities.info_hidden_desc')}
-                            </p>
-                        </Card>
-                    )}
-                </div>
-            </ScrollArea>
+          {/* Spoiler state — soft with ? */}
+          {isUnknown && (
+            <div className="text-center space-y-4 py-8">
+              <div className="w-16 h-16 rounded-full bg-[var(--color-spoiler-overlay)] flex items-center justify-center mx-auto">
+                <span className="font-serif italic text-3xl text-[var(--color-text-disabled)]">
+                  ?
+                </span>
+              </div>
+              <h4 className="font-serif text-[var(--color-text-default)] font-medium">
+                {t('entities.info_hidden')}
+              </h4>
+              <p className="text-[var(--color-text-muted)] text-sm max-w-[280px] mx-auto">
+                {t('entities.info_hidden_desc')}
+              </p>
+            </div>
+          )}
         </div>
-    );
+      </ScrollArea>
+    </div>
+  );
 };

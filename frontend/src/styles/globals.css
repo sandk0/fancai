@@ -289,6 +289,16 @@
     --color-relationship-friend: #ec4899;
     --color-relationship-mentor: #8b5cf6;
     --color-relationship-student: #6366f1;
+    --color-relationship-romance: #ec4899;
+    --color-relationship-rival: #f97316;
+
+    /* Entity type accent colors */
+    --color-entity-character: var(--color-accent-500);
+    --color-entity-location: var(--color-info);
+    --color-entity-object: var(--color-success);
+
+    /* Soft spoiler overlay */
+    --color-spoiler-overlay: rgba(0, 0, 0, 0.06);
 
     --radius: 0.5rem;
 
@@ -350,6 +360,16 @@
     --color-relationship-friend: #f472b6;
     --color-relationship-mentor: #a78bfa;
     --color-relationship-student: #818cf8;
+    --color-relationship-romance: #f472b6;
+    --color-relationship-rival: #fb923c;
+
+    /* Entity type accent colors */
+    --color-entity-character: var(--color-accent-500);
+    --color-entity-location: var(--color-info);
+    --color-entity-object: var(--color-success);
+
+    /* Soft spoiler overlay */
+    --color-spoiler-overlay: rgba(255, 255, 255, 0.06);
 
     /* Highlight colors - warm amber for dark theme */
     --highlight-bg: 45 93% 58% / 0.25;
@@ -407,6 +427,16 @@
     --color-relationship-friend: #db2777;
     --color-relationship-mentor: #7c3aed;
     --color-relationship-student: #4f46e5;
+    --color-relationship-romance: #db2777;
+    --color-relationship-rival: #ea580c;
+
+    /* Entity type accent colors */
+    --color-entity-character: var(--color-accent-500);
+    --color-entity-location: var(--color-info);
+    --color-entity-object: var(--color-success);
+
+    /* Soft spoiler overlay */
+    --color-spoiler-overlay: rgba(0, 0, 0, 0.06);
 
     /* Highlight colors - warm orange for sepia */
     --highlight-bg: 32 95% 44% / 0.25;
@@ -457,6 +487,24 @@
     --color-error-muted: #fee2e2;
     --color-info: #1e40af;
     --color-info-muted: #dbeafe;
+
+    /* Relationship type colors */
+    --color-relationship-kinship: #1e40af;
+    --color-relationship-ally: #059669;
+    --color-relationship-enemy: #dc2626;
+    --color-relationship-friend: #db2777;
+    --color-relationship-mentor: #7c3aed;
+    --color-relationship-student: #4f46e5;
+    --color-relationship-romance: #db2777;
+    --color-relationship-rival: #ea580c;
+
+    /* Entity type accent colors */
+    --color-entity-character: var(--color-accent-500);
+    --color-entity-location: var(--color-info);
+    --color-entity-object: var(--color-success);
+
+    /* Soft spoiler overlay */
+    --color-spoiler-overlay: rgba(0, 0, 0, 0.08);
 
     /* Highlight colors - blue for outdoor visibility */
     --highlight-bg: 224 64% 40% / 0.2;
@@ -1316,4 +1364,51 @@ a,
     padding-left: max(2rem, env(safe-area-inset-left));
     padding-right: max(2rem, env(safe-area-inset-right));
   }
+}
+
+/* ===========================================
+   Entity Wiki — Editorial Animations & Utilities
+   =========================================== */
+
+@keyframes entitySlideInFromRight {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes entityFadeScale {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes entityStaggerIn {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.entity-rule {
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: 0;
+}
+
+.entity-stagger-item {
+  animation: entityStaggerIn 0.3s ease-out both;
 }

@@ -18,15 +18,12 @@ const VIEWPORT_PADDING = 12;
 function getPopupStyle(position: { x: number; y: number }): React.CSSProperties {
   const { x, y } = position;
 
-  // Center horizontally on click point
   let left = x - POPUP_WIDTH / 2;
-  // Clamp to viewport
   left = Math.max(
     VIEWPORT_PADDING,
     Math.min(left, window.innerWidth - POPUP_WIDTH - VIEWPORT_PADDING)
   );
 
-  // Position below click point by default, above if not enough space
   const spaceBelow = window.innerHeight - y;
   const positionAbove = spaceBelow < POPUP_HEIGHT + 20;
   const top = positionAbove ? y - POPUP_HEIGHT - 8 : y + 8;
@@ -43,11 +40,11 @@ function getPopupStyle(position: { x: number; y: number }): React.CSSProperties 
 function getEntityIcon(type: string) {
   switch (type) {
     case 'character':
-      return <User className="w-full h-full text-muted-foreground" />;
+      return <User className="w-full h-full text-[var(--color-text-muted)]" />;
     case 'location':
-      return <MapPin className="w-full h-full text-muted-foreground" />;
+      return <MapPin className="w-full h-full text-[var(--color-text-muted)]" />;
     default:
-      return <Package className="w-full h-full text-muted-foreground" />;
+      return <Package className="w-full h-full text-[var(--color-text-muted)]" />;
   }
 }
 
@@ -60,7 +57,6 @@ export const EntityPopup = memo(function EntityPopup({
   const { t } = useTranslation();
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Close on click outside
   useEffect(() => {
     if (!entity) return;
 
@@ -70,7 +66,6 @@ export const EntityPopup = memo(function EntityPopup({
       }
     };
 
-    // Delay to prevent immediate close from the same click that opened it
     const timeoutId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
@@ -83,7 +78,6 @@ export const EntityPopup = memo(function EntityPopup({
     };
   }, [entity, onClose]);
 
-  // Close on Escape key
   useEffect(() => {
     if (!entity) return;
 
@@ -117,11 +111,10 @@ export const EntityPopup = memo(function EntityPopup({
           exit={{ opacity: 0, scale: 0.9 }}
           transition={{ duration: 0.15 }}
           style={getPopupStyle(position)}
-          className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg backdrop-blur-sm overflow-hidden"
+          className="bg-[var(--color-bg-elevated)] text-[var(--color-text-default)] border border-[var(--color-border-default)] rounded-xl shadow-lg backdrop-blur-sm overflow-hidden"
         >
           <div className="flex gap-3 p-3">
-            {/* Avatar */}
-            <div className="shrink-0 w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+            <div className="shrink-0 w-10 h-10 rounded-full overflow-hidden bg-[var(--color-bg-muted)] flex items-center justify-center">
               {entity.avatar_url ? (
                 <img
                   src={entity.avatar_url}
@@ -133,25 +126,23 @@ export const EntityPopup = memo(function EntityPopup({
               )}
             </div>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">{entity.name}</div>
-              <div className="text-[10px] text-muted-foreground capitalize">
+              <div className="font-serif font-medium text-sm truncate">{entity.name}</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] capitalize">
                 {t(`entities.types.${entity.type}`, entity.type)}
               </div>
               {truncatedDescription && (
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-tight">
+                <p className="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2 leading-tight italic">
                   {truncatedDescription}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Details link */}
-          <div className="border-t border-border px-3 py-1.5">
+          <div className="border-t border-[var(--color-border-default)] px-3 py-1.5">
             <button
               onClick={handleOpenDrawer}
-              className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+              className="text-xs font-serif text-[var(--color-link)] hover:text-[var(--color-link-hover)] font-medium transition-colors"
             >
               {t('reader.entity_popup.details')}
             </button>
