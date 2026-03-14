@@ -652,12 +652,10 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     localStorage.setItem(WAKE_LOCK_STORAGE_KEY, String(e));
   }, []);
 
-  useEffect(() => {
-    if (currentCFI && selectionRef.current) {
-      logger.debug('[EpubReader] CFI changed while selection active -- clearing');
-      clearSelection();
-    }
-  }, [currentCFI, clearSelection]);
+  // Clear selection on intentional navigation (swipe/tap).
+  // Previously cleared on any CFI change, but scroll shift during text selection
+  // caused spurious CFI changes that killed the selection. Now handled by
+  // the navigation callbacks (onTapNavigate, swipe) and handleClick in useTextSelection.
 
   const handleTocChapterClick = useCallback(
     async (href: string) => {

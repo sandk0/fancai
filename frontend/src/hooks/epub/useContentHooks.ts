@@ -194,6 +194,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
+      let scrollLockCleanup: (() => void) | null = null;
       const LONG_PRESS_THRESHOLD = 200; // ms
 
       doc.addEventListener(
@@ -212,6 +213,23 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             );
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
+
+            // Lock scroll position during text selection to prevent CSS column
+            // container from shifting when the browser creates a selection.
+            // Without this, selecting text on page 2+ causes the container to
+            // scroll back, triggering RELOCATED events and clearing the selection.
+            const scrollEl = doc.documentElement;
+            const lockedScroll = scrollEl.scrollLeft;
+            const lockScroll = () => {
+              if (scrollEl.scrollLeft !== lockedScroll) {
+                scrollEl.scrollLeft = lockedScroll;
+              }
+            };
+            scrollEl.addEventListener('scroll', lockScroll);
+            scrollLockCleanup = () => {
+              scrollEl.removeEventListener('scroll', lockScroll);
+              scrollLockCleanup = null;
+            };
           }, LONG_PRESS_THRESHOLD);
         },
         { passive: true }
@@ -230,6 +248,12 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
           if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
+          }
+
+          // Release scroll lock after selection is finalized
+          if (scrollLockCleanup) {
+            // Small delay to let the selection settle before unlocking
+            setTimeout(() => scrollLockCleanup?.(), 100);
           }
 
           // Short tap: explicitly clear any existing selection to prevent
