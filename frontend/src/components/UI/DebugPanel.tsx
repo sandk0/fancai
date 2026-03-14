@@ -1,18 +1,71 @@
 /**
- * DebugPanel - Floating production debug log viewer
+ * DebugPanel - Floating production debug log viewer with touch diagnostics
  *
  * Activated via ?debug=1 URL parameter. Shows a floating bug button
- * that opens a scrollable log panel capturing all logger.debug output.
+ * that opens a scrollable log panel with three tabs:
+ * - Logs: all logger.debug output (original behavior)
+ * - Touch: filtered touch-diag events with color coding
+ * - CSS: computed touch-action values for key reader elements
  *
- * Features: auto-scroll, copy to clipboard, clear buffer, log count.
+ * Features: auto-scroll, copy to clipboard, clear buffer, tab switching.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getDebugBuffer, clearDebugBuffer, isDebugActive } from '@/lib/logger';
 
-export function DebugPanel() {
+type TabId = 'logs' | 'touch' | 'css';
+
+interface DebugPanelProps {
+  /** Callback to get CSS touch-action info on demand */
+  onRequestCSSInfo?: () => Record<string, string>;
+}
+
+/** Color for touch event type */
+function getTouchEventColor(log: string): string {
+  if (log.includes('touchstart') || log.includes('pointerdown')) return '#22c55e';
+  if (log.includes('touchend') || log.includes('pointerup')) return '#ef4444';
+  if (log.includes('touchmove') || log.includes('pointermove')) return '#94a3b8';
+  return '#22c55e';
+}
+
+/** Read computed touch-action from DOM elements directly */
+function readTouchActionFromDOM(): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  const viewer = document.getElementById('epub-viewer');
+  if (viewer) {
+    result['#epub-viewer'] = getComputedStyle(viewer).touchAction;
+  }
+
+  const overlay = document.getElementById('gesture-controller-ios-overlay');
+  if (overlay) {
+    result['iOS overlay'] = getComputedStyle(overlay).touchAction;
+  }
+
+  const iframe = viewer?.querySelector('iframe') as HTMLIFrameElement | null;
+  if (iframe) {
+    result['iframe (element)'] = getComputedStyle(iframe).touchAction;
+    try {
+      const iframeDoc = iframe.contentDocument;
+      if (iframeDoc?.body) {
+        result['iframe body'] = getComputedStyle(iframeDoc.body).touchAction;
+      }
+      if (iframeDoc?.documentElement) {
+        result['iframe html'] = getComputedStyle(iframeDoc.documentElement).touchAction;
+      }
+    } catch {
+      result['iframe (cross-origin)'] = 'ACCESS DENIED';
+    }
+  }
+
+  return result;
+}
+
+export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('logs');
   const [logs, setLogs] = useState<readonly string[]>([]);
+  const [cssInfo, setCssInfo] = useState<Record<string, string>>({});
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Poll buffer when panel is open
@@ -31,10 +84,33 @@ export function DebugPanel() {
     }
   }, [logs, isOpen]);
 
+  // Refresh CSS info when switching to CSS tab
+  useEffect(() => {
+    if (activeTab === 'css') {
+      const info = onRequestCSSInfo ? onRequestCSSInfo() : readTouchActionFromDOM();
+      setCssInfo(info);
+    }
+  }, [activeTab, onRequestCSSInfo]);
+
+  // Filtered logs for Touch tab
+  const touchLogs = useMemo(() => logs.filter((log) => log.includes('[touch-diag]')), [logs]);
+
+  const displayedLogs = activeTab === 'touch' ? touchLogs : logs;
+
   const handleCopy = useCallback(() => {
-    const text = getDebugBuffer().join('\n');
+    let text: string;
+    if (activeTab === 'css') {
+      text = Object.entries(cssInfo)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n');
+    } else if (activeTab === 'touch') {
+      text = getDebugBuffer()
+        .filter((l) => l.includes('[touch-diag]'))
+        .join('\n');
+    } else {
+      text = getDebugBuffer().join('\n');
+    }
     navigator.clipboard.writeText(text).catch(() => {
-      // Fallback: select text for manual copy
       const textarea = document.createElement('textarea');
       textarea.value = text;
       document.body.appendChild(textarea);
@@ -42,14 +118,27 @@ export function DebugPanel() {
       document.execCommand('copy');
       document.body.removeChild(textarea);
     });
-  }, []);
+  }, [activeTab, cssInfo]);
 
   const handleClear = useCallback(() => {
     clearDebugBuffer();
     setLogs([]);
+    setCssInfo({});
   }, []);
 
   if (!isDebugActive()) return null;
+
+  const tabButtonStyle = (tab: TabId) => ({
+    color: activeTab === tab ? '#0f172a' : '#94a3b8',
+    background: activeTab === tab ? '#22c55e' : 'none',
+    border: `1px solid ${activeTab === tab ? '#22c55e' : '#475569'}`,
+    borderRadius: 4,
+    padding: '2px 6px',
+    fontSize: 10,
+    cursor: 'pointer' as const,
+    marginRight: 2,
+    fontWeight: activeTab === tab ? 700 : 400,
+  });
 
   return (
     <>
@@ -102,7 +191,7 @@ export function DebugPanel() {
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {/* Header */}
+          {/* Header with tabs */}
           <div
             style={{
               display: 'flex',
@@ -114,9 +203,24 @@ export function DebugPanel() {
               position: 'sticky',
               top: 0,
               background: '#0f172a',
+              flexWrap: 'wrap',
+              gap: 4,
             }}
           >
-            <span style={{ color: '#94a3b8' }}>Debug Log ({logs.length})</span>
+            {/* Tab buttons */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <button onClick={() => setActiveTab('logs')} style={tabButtonStyle('logs')}>
+                Logs ({logs.length})
+              </button>
+              <button onClick={() => setActiveTab('touch')} style={tabButtonStyle('touch')}>
+                Touch ({touchLogs.length})
+              </button>
+              <button onClick={() => setActiveTab('css')} style={tabButtonStyle('css')}>
+                CSS
+              </button>
+            </div>
+
+            {/* Action buttons */}
             <div>
               <button
                 onClick={handleCopy}
@@ -150,25 +254,72 @@ export function DebugPanel() {
             </div>
           </div>
 
-          {/* Logs */}
-          {logs.length === 0 ? (
-            <div style={{ color: '#64748b', padding: '8px 0' }}>
-              No logs yet. Interact with the reader...
+          {/* Tab content */}
+          {activeTab === 'css' ? (
+            /* CSS touch-action table */
+            <div>
+              {Object.keys(cssInfo).length === 0 ? (
+                <div style={{ color: '#64748b', padding: '8px 0' }}>
+                  No CSS data. Open a book and switch to this tab.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #334155' }}>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', color: '#94a3b8' }}>
+                        Element
+                      </th>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', color: '#94a3b8' }}>
+                        touch-action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(cssInfo).map(([selector, value]) => (
+                      <tr key={selector} style={{ borderBottom: '1px solid #1e293b' }}>
+                        <td style={{ padding: '4px 8px', color: '#e2e8f0' }}>{selector}</td>
+                        <td
+                          style={{
+                            padding: '4px 8px',
+                            color: value === 'auto' ? '#ef4444' : '#22c55e',
+                            fontWeight: value === 'auto' ? 700 : 400,
+                          }}
+                        >
+                          {value}
+                          {value === 'auto' && ' (WARNING)'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           ) : (
-            logs.map((log, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: '1px 0',
-                  borderBottom: '1px solid #1e293b',
-                  wordBreak: 'break-all',
-                  lineHeight: 1.4,
-                }}
-              >
-                {log}
-              </div>
-            ))
+            /* Logs / Touch tab */
+            <>
+              {displayedLogs.length === 0 ? (
+                <div style={{ color: '#64748b', padding: '8px 0' }}>
+                  {activeTab === 'touch'
+                    ? 'No touch events yet. Touch the screen...'
+                    : 'No logs yet. Interact with the reader...'}
+                </div>
+              ) : (
+                displayedLogs.map((log, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '1px 0',
+                      borderBottom: '1px solid #1e293b',
+                      wordBreak: 'break-all',
+                      lineHeight: 1.4,
+                      color: activeTab === 'touch' ? getTouchEventColor(log) : '#22c55e',
+                    }}
+                  >
+                    {log}
+                  </div>
+                ))
+              )}
+            </>
           )}
           <div ref={logEndRef} />
         </div>

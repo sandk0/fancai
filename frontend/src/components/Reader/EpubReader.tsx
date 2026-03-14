@@ -25,6 +25,7 @@ import {
   useToc,
 } from '@/hooks/epub';
 import { useGestureController } from '@/hooks/epub/useGestureController';
+import { useTouchDiagnostics } from '@/hooks/epub/useTouchDiagnostics';
 import { useRenditionHealthGuard } from '@/hooks/epub/useRenditionHealthGuard';
 import { useBookmarkActions } from '@/hooks/epub/useBookmarks';
 import { useAnnotationRendering } from '@/hooks/epub/useAnnotationRendering';
@@ -388,6 +389,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     pageAnimationEnabled,
     onPanelDismiss: handlePanelDismiss,
   });
+
+  // Touch diagnostics: logs touch/pointer events for iOS debugging (only active with ?debug=1)
+  useTouchDiagnostics(rendition);
 
   useKeyboardNavigation({
     onNext: nextPage,
