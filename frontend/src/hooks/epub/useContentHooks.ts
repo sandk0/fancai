@@ -236,7 +236,7 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
               // touchend doesn't fire reliably (overlay captures the pointer).
               const parentDoc = doc.defaultView?.parent?.document;
               const releaseOnPointerUp = () => {
-                setTimeout(() => scrollLockCleanup?.(), 100);
+                scrollLockCleanup?.();
               };
               parentDoc?.addEventListener('pointerup', releaseOnPointerUp, { once: true });
               scrollLockCleanup = () => {
