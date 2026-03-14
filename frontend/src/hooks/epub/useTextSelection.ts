@@ -204,11 +204,14 @@ export const useTextSelection = (
         (mgrRef?.layout?.delta as number) ||
         (mgrRef?.layout?.columnWidth as number) ||
         c.document.body.clientWidth;
-      if (d > 0) {
+      if (d > 0 && d < 2000) {
         const sc = Math.floor(Math.max(0, r.left) / d);
         const ec = Math.floor(Math.max(0, r.right - 1) / d);
         if (sc !== ec) {
           logger.debug('[useTextSelection] REALTIME cross-page detected, clearing', {
+            left: Math.round(r.left),
+            right: Math.round(r.right),
+            width: Math.round(r.width),
             startCol: sc,
             endCol: ec,
             delta: d,

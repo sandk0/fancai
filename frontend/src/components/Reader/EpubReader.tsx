@@ -545,13 +545,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     [deleteBookmark, closePopup]
   );
 
-  const handleCloseEditMode = useCallback(() => {
-    setEditingBookmark(null);
-  }, []);
-
-  // Shared dismiss logic: close popup + suppress selection so the dismiss-tap
-  // doesn't create a ghost selection. Used by BOTH backdrop (parent DOM) and
-  // iframe click paths to ensure consistent behavior.
   // Block selection at CSS level: add selection-blocked class to iframe body
   // for 500ms. This prevents the browser from creating ANY native selection
   // from the dismiss tap (suppressSelection only blocks React state, not native).
@@ -566,6 +559,16 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       /* ignore */
     }
   }, [rendition]);
+
+  const handleCloseEditMode = useCallback(() => {
+    setEditingBookmark(null);
+    suppressSelection(300);
+    blockIframeSelection();
+  }, [blockIframeSelection]);
+
+  // Shared dismiss logic: close popup + suppress selection so the dismiss-tap
+  // doesn't create a ghost selection. Used by BOTH backdrop (parent DOM) and
+  // iframe click paths to ensure consistent behavior.
 
   const handleDismissHighlight = useCallback(() => {
     closePopup();
