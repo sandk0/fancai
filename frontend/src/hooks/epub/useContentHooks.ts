@@ -214,20 +214,36 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
 
-            // Lock scroll position during text selection to prevent CSS column
-            // container from shifting when the browser creates a selection.
-            // Without this, selecting text on page 2+ causes the container to
-            // scroll back, triggering RELOCATED events and clearing the selection.
-            const scrollEl = doc.documentElement;
-            const lockedScroll = scrollEl.scrollLeft;
-            const lockScroll = () => {
-              if (scrollEl.scrollLeft !== lockedScroll) {
-                scrollEl.scrollLeft = lockedScroll;
+            // Lock scroll on epub.js stage container (parent DOM) during text
+            // selection. epub.js scrolls via manager.stage.container.scrollLeft,
+            // which is an ancestor of the iframe in the parent DOM. Without this
+            // lock, selecting text on page 2+ causes the container to scroll
+            // back, triggering RELOCATED events and clearing the selection.
+            const iframe = doc.defaultView?.frameElement;
+            const scrollEls: HTMLElement[] = [];
+            let ancestor = iframe?.parentElement;
+            while (ancestor) {
+              if (ancestor.scrollWidth > ancestor.clientWidth) {
+                scrollEls.push(ancestor);
               }
-            };
-            scrollEl.addEventListener('scroll', lockScroll);
+              ancestor = ancestor.parentElement;
+            }
+            // Also lock iframe's own documentElement just in case
+            if (doc.documentElement.scrollWidth > doc.documentElement.clientWidth) {
+              scrollEls.push(doc.documentElement as unknown as HTMLElement);
+            }
+
+            const locks = scrollEls.map((el) => {
+              const locked = el.scrollLeft;
+              const handler = () => {
+                if (el.scrollLeft !== locked) el.scrollLeft = locked;
+              };
+              el.addEventListener('scroll', handler);
+              return () => el.removeEventListener('scroll', handler);
+            });
+            logger.debug('[useContentHooks] Scroll locked on', scrollEls.length, 'elements');
             scrollLockCleanup = () => {
-              scrollEl.removeEventListener('scroll', lockScroll);
+              locks.forEach((unlock) => unlock());
               scrollLockCleanup = null;
             };
           }, LONG_PRESS_THRESHOLD);
