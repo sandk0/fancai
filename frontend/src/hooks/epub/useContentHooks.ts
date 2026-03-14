@@ -194,7 +194,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let longPressTimer: ReturnType<typeof setTimeout> | null = null;
       let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
       let touchStartTime = 0;
-      let scrollLockCleanup: (() => void) | null = null;
       const LONG_PRESS_THRESHOLD = 200; // ms
 
       doc.addEventListener(
@@ -213,39 +212,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             );
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
-
-            // Lock scroll on epub.js stage container (parent DOM) during text
-            // selection. epub.js scrolls via manager.stage.container.scrollLeft,
-            // which is an ancestor of the iframe in the parent DOM. Without this
-            // lock, selecting text on page 2+ causes the container to scroll
-            // back, triggering RELOCATED events and clearing the selection.
-            const iframe = doc.defaultView?.frameElement;
-            const scrollEls: HTMLElement[] = [];
-            let ancestor = iframe?.parentElement;
-            while (ancestor) {
-              if (ancestor.scrollWidth > ancestor.clientWidth) {
-                scrollEls.push(ancestor);
-              }
-              ancestor = ancestor.parentElement;
-            }
-            // Also lock iframe's own documentElement just in case
-            if (doc.documentElement.scrollWidth > doc.documentElement.clientWidth) {
-              scrollEls.push(doc.documentElement as unknown as HTMLElement);
-            }
-
-            const locks = scrollEls.map((el) => {
-              const locked = el.scrollLeft;
-              const handler = () => {
-                if (el.scrollLeft !== locked) el.scrollLeft = locked;
-              };
-              el.addEventListener('scroll', handler);
-              return () => el.removeEventListener('scroll', handler);
-            });
-            logger.debug('[useContentHooks] Scroll locked on', scrollEls.length, 'elements');
-            scrollLockCleanup = () => {
-              locks.forEach((unlock) => unlock());
-              scrollLockCleanup = null;
-            };
           }, LONG_PRESS_THRESHOLD);
         },
         { passive: true }
@@ -264,12 +230,6 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
           if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
-          }
-
-          // Release scroll lock after selection is finalized
-          if (scrollLockCleanup) {
-            // Small delay to let the selection settle before unlocking
-            setTimeout(() => scrollLockCleanup?.(), 100);
           }
 
           // Short tap: explicitly clear any existing selection to prevent
