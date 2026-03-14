@@ -115,7 +115,7 @@ export const RelationshipCard: React.FC<RelationshipCardProps> = ({
       onClick={() => isClickable && onEntityClick?.(entity.id)}
     >
       <Avatar className="h-14 w-14 border border-[var(--color-border-default)]">
-        <AvatarImage src={entity.avatar_url || undefined} />
+        {entity.avatar_url && <AvatarImage src={entity.avatar_url} />}
         <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] text-lg">
           {entity.name[0]}
         </AvatarFallback>

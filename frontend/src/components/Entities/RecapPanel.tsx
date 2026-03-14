@@ -30,7 +30,7 @@ export const RecapPanel: React.FC<Props> = ({ bookId, currentChapter, onEntityCl
             className="min-w-[140px] max-w-[160px] shrink-0 flex flex-col items-center text-center p-3 rounded-xl ring-1 ring-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors"
           >
             <Avatar className="h-12 w-12 mb-2">
-              <AvatarImage src={entity.avatar_url || undefined} />
+              {entity.avatar_url && <AvatarImage src={entity.avatar_url} />}
               <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
                 {entity.name[0]}
               </AvatarFallback>

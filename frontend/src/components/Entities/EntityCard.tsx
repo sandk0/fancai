@@ -67,17 +67,9 @@ export const EntityCard: React.FC<EntityCardProps> = ({
           !isMet && 'blur-[3px] brightness-75'
         )}
       >
-        <AvatarImage src={entity.avatar_url || undefined} />
+        {entity.avatar_url && <AvatarImage src={entity.avatar_url} className="object-cover" />}
         <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
-          {entity.avatar_url ? (
-            entity.name ? (
-              entity.name[0]
-            ) : (
-              '?'
-            )
-          ) : (
-            <TypeIcon type={entity.type} className="w-5 h-5" />
-          )}
+          <TypeIcon type={entity.type} className="w-5 h-5" />
         </AvatarFallback>
       </Avatar>
 

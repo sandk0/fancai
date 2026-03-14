@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, m } from 'motion/react';
 import { EntityDetail, NetworkEdge } from '../../types/entity';
@@ -10,7 +9,7 @@ import { MobilePanel } from '../UI/MobilePanel';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Z_INDEX } from '@/lib/zIndex';
-import { X, Grid, ChevronRight } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 
 interface SelectedRelationship {
   edge: NetworkEdge;
@@ -48,8 +47,6 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     null
   );
   const [navigationDirection, setNavigationDirection] = useState<'forward' | 'backward'>('forward');
-  const navigate = useNavigate();
-  const { bookId } = useParams();
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -111,17 +108,15 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     }
   };
 
-  // Determine current view for animation keys
   const currentView: ViewLevel = selectedRelationship
     ? 'relationship'
     : selectedEntityId
       ? 'profile'
       : 'list';
 
-  // Animation variants for view transitions
   const slideVariants = {
     enter: (direction: 'forward' | 'backward') => ({
-      x: direction === 'forward' ? 80 : -80,
+      x: direction === 'forward' ? 60 : -60,
       opacity: 0,
     }),
     center: {
@@ -129,14 +124,14 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
       opacity: 1,
     },
     exit: (direction: 'forward' | 'backward') => ({
-      x: direction === 'forward' ? -80 : 80,
+      x: direction === 'forward' ? -60 : 60,
       opacity: 0,
     }),
   };
 
   const selectedEntity = selectedEntityId ? entities[selectedEntityId] : null;
 
-  // Breadcrumb navigation
+  // Breadcrumb — shown only on desktop (mobile uses MobilePanel title)
   const breadcrumb = (
     <nav className="flex items-center gap-1 text-sm min-w-0 flex-1" aria-label="Breadcrumb">
       <button
@@ -175,115 +170,92 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
     </nav>
   );
 
-  const drawerContent = (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 pb-3 flex-shrink-0">
-        {breadcrumb}
-        <div className="flex items-center gap-1 shrink-0">
-          {currentView === 'list' && (
-            <button
-              onClick={() => navigate(`/book/${bookId}/gallery`)}
-              className="p-2 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-accent-500)] transition-colors"
-              title={t('entityDrawer.open_gallery')}
-            >
-              <Grid size={16} />
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-default)] transition-colors"
+  // Animated content views — shared between mobile and desktop
+  const animatedViews = (
+    <div className="flex-1 overflow-hidden relative min-h-0">
+      <AnimatePresence mode="wait" custom={navigationDirection} initial={false}>
+        {selectedRelationship ? (
+          <m.div
+            key="relationship"
+            custom={navigationDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="h-full overflow-auto px-4 pt-3 pb-20"
           >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-
-      <hr className="entity-rule" />
-
-      {/* Animated content area */}
-      <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="wait" custom={navigationDirection}>
-          {selectedRelationship ? (
-            <m.div
-              key="relationship"
-              custom={navigationDirection}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="h-full overflow-auto p-4"
-            >
-              <RelationshipCard
-                edge={selectedRelationship.edge}
-                sourceEntity={selectedRelationship.sourceEntity}
-                targetEntity={selectedRelationship.targetEntity}
-                currentChapter={effectiveChapter}
-                currentCFI={currentCFI}
-                onEntityClick={(id) => {
-                  setNavigationDirection('forward');
-                  setSelectedRelationship(null);
-                  setSelectedEntityId(id);
-                }}
-              />
-            </m.div>
-          ) : selectedEntityId && entities[selectedEntityId] ? (
-            <m.div
-              key={`profile-${selectedEntityId}`}
-              custom={navigationDirection}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="h-full"
-            >
-              <EntityProfile
-                entity={entities[selectedEntityId]}
-                relatedEntities={relationships}
-                onEntityClick={handleEntitySelect}
-                onRelationshipClick={handleRelationshipClick}
-                currentChapter={effectiveChapter}
-                currentCFI={currentCFI}
-              />
-            </m.div>
-          ) : (
-            <m.div
-              key="list"
-              custom={navigationDirection}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="h-full"
-            >
-              <EntityList
-                entities={entities}
-                currentChapter={effectiveChapter}
-                currentCFI={currentCFI}
-                onEntitySelect={handleEntitySelect}
-                isLoading={isLoading}
-              />
-            </m.div>
-          )}
-        </AnimatePresence>
-      </div>
+            <RelationshipCard
+              edge={selectedRelationship.edge}
+              sourceEntity={selectedRelationship.sourceEntity}
+              targetEntity={selectedRelationship.targetEntity}
+              currentChapter={effectiveChapter}
+              currentCFI={currentCFI}
+              onEntityClick={(id) => {
+                setNavigationDirection('forward');
+                setSelectedRelationship(null);
+                setSelectedEntityId(id);
+              }}
+            />
+          </m.div>
+        ) : selectedEntityId && entities[selectedEntityId] ? (
+          <m.div
+            key={`profile-${selectedEntityId}`}
+            custom={navigationDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="h-full"
+          >
+            <EntityProfile
+              entity={entities[selectedEntityId]}
+              relatedEntities={relationships}
+              onEntityClick={handleEntitySelect}
+              onRelationshipClick={handleRelationshipClick}
+              currentChapter={effectiveChapter}
+              currentCFI={currentCFI}
+            />
+          </m.div>
+        ) : (
+          <m.div
+            key="list"
+            custom={navigationDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="h-full"
+          >
+            <EntityList
+              entities={entities}
+              currentChapter={effectiveChapter}
+              currentCFI={currentCFI}
+              onEntitySelect={handleEntitySelect}
+              isLoading={isLoading}
+            />
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 
   // Mobile: Vaul bottom drawer via MobilePanel
+  // Single snap point to prevent false swipe-to-collapse
   if (isMobile) {
     return (
       <MobilePanel
         isOpen={isOpen}
         onClose={onClose}
         title={t('entityDrawer.title')}
-        snapPoints={[0.5, 0.92]}
+        snapPoints={[0.92]}
         defaultSnap={0.92}
       >
-        {drawerContent}
+        {/* Mobile breadcrumb — only when not on list view */}
+        {currentView !== 'list' && <div className="px-4 pb-2 flex-shrink-0">{breadcrumb}</div>}
+        {animatedViews}
       </MobilePanel>
     );
   }
@@ -313,7 +285,17 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             className="fixed top-0 right-0 h-full w-[420px] bg-[var(--color-bg-base)] shadow-xl flex flex-col pt-safe pb-safe border-l border-[var(--color-border-default)]"
             style={{ zIndex: Z_INDEX.modal }}
           >
-            <div className="pt-4">{drawerContent}</div>
+            {/* Desktop header */}
+            <div className="flex items-center gap-2 px-5 pt-5 pb-3 flex-shrink-0">
+              {breadcrumb}
+              <button
+                onClick={onClose}
+                className="p-2 rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-default)] transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {animatedViews}
           </m.div>
         </>
       )}

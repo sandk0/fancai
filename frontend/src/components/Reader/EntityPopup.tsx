@@ -127,7 +127,7 @@ export const EntityPopup = memo(function EntityPopup({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="font-serif font-medium text-sm truncate">{entity.name}</div>
+              <div className="font-medium text-sm truncate">{entity.name}</div>
               <div className="text-[10px] text-[var(--color-text-muted)] capitalize">
                 {t(`entities.types.${entity.type}`, entity.type)}
               </div>
@@ -142,7 +142,7 @@ export const EntityPopup = memo(function EntityPopup({
           <div className="border-t border-[var(--color-border-default)] px-3 py-1.5">
             <button
               onClick={handleOpenDrawer}
-              className="text-xs font-serif text-[var(--color-link)] hover:text-[var(--color-link-hover)] font-medium transition-colors"
+              className="text-xs text-[var(--color-accent-500)] hover:text-[var(--color-accent-600)] font-medium transition-colors"
             >
               {t('reader.entity_popup.details')}
             </button>

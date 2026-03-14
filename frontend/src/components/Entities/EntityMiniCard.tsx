@@ -33,7 +33,7 @@ export const EntityMiniCard: React.FC<Props> = ({
       className="flex items-start gap-3 p-3 rounded-xl ring-1 ring-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] max-w-[280px] text-left transition-colors"
     >
       <Avatar className="h-10 w-10 shrink-0">
-        <AvatarImage src={entity.avatar_url || undefined} />
+        {entity.avatar_url && <AvatarImage src={entity.avatar_url} />}
         <AvatarFallback className="bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
           {entity.name[0]}
         </AvatarFallback>

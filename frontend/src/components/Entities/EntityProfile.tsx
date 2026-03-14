@@ -203,8 +203,10 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
                         )}
                       >
                         <Avatar className={cn('h-8 w-8 mr-3', !isRelMet && 'blur-[2px]')}>
-                          <AvatarImage src={rel.entity.avatar_url || undefined} />
-                          <AvatarFallback className="text-xs">{rel.entity.name[0]}</AvatarFallback>
+                          {rel.entity.avatar_url && <AvatarImage src={rel.entity.avatar_url} />}
+                          <AvatarFallback className="text-xs bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]">
+                            {rel.entity.name[0]}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

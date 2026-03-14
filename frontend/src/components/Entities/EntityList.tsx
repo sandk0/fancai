@@ -107,7 +107,7 @@ export const EntityList: React.FC<EntityListProps> = ({
               </button>
             ) : undefined
           }
-          className="border-0 border-b border-[var(--color-border-subtle)] rounded-none bg-transparent font-serif italic placeholder:font-serif placeholder:italic focus:border-[var(--color-accent-500)]"
+          className="border-0 border-b border-[var(--color-border-subtle)] rounded-none bg-transparent italic placeholder:italic focus:ring-0 focus:ring-offset-0 focus:border-[var(--color-accent-500)]"
         />
       </div>
 
@@ -166,7 +166,6 @@ export const EntityList: React.FC<EntityListProps> = ({
                     currentCFI={currentCFI}
                     onClick={() => onEntitySelect(entity.id)}
                   />
-                  <hr className="entity-rule" />
                 </div>
               );
             })}
@@ -188,7 +187,6 @@ export const EntityList: React.FC<EntityListProps> = ({
                 currentCFI={currentCFI}
                 onClick={() => onEntitySelect(entity.id)}
               />
-              {index < filteredEntities.length - 1 && <hr className="entity-rule" />}
             </div>
           ))}
         </div>

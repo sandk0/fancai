@@ -85,7 +85,7 @@ export const EntityBottomSheet: React.FC<EntityBottomSheetProps> = ({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="font-serif font-medium text-sm truncate">{entity.name}</div>
+              <div className="font-medium text-sm truncate">{entity.name}</div>
               <div className="text-[10px] text-[var(--color-text-muted)] capitalize">
                 {t(`entities.type_${entity.type}`, entity.type)}
               </div>
@@ -101,7 +101,7 @@ export const EntityBottomSheet: React.FC<EntityBottomSheetProps> = ({
           <div className="border-t border-[var(--color-border-default)] px-5 py-3">
             <button
               onClick={handleOpenDrawer}
-              className="text-sm font-serif text-[var(--color-link)] hover:text-[var(--color-link-hover)] font-medium transition-colors min-h-[44px] flex items-center"
+              className="text-sm text-[var(--color-accent-500)] hover:text-[var(--color-accent-600)] font-medium transition-colors min-h-[44px] flex items-center"
             >
               {t('reader.entity_popup.details')}
             </button>
