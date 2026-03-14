@@ -232,17 +232,16 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
                 }
               };
               stageContainer.addEventListener('scroll', lockHandler);
-              // Safety timeout: iframe touchend may not fire (overlay captures
-              // the pointer), so auto-release after 3s to avoid blocking navigation.
-              const safetyTimer = setTimeout(() => {
-                if (scrollLockCleanup) {
-                  logger.debug('[useContentHooks] Scroll lock auto-released (safety timeout)');
-                  scrollLockCleanup();
-                }
-              }, 3000);
+              // Release lock on parent document touchend/pointerup — iframe
+              // touchend doesn't fire reliably (overlay captures the pointer).
+              const parentDoc = doc.defaultView?.parent?.document;
+              const releaseOnPointerUp = () => {
+                setTimeout(() => scrollLockCleanup?.(), 100);
+              };
+              parentDoc?.addEventListener('pointerup', releaseOnPointerUp, { once: true });
               scrollLockCleanup = () => {
                 stageContainer.removeEventListener('scroll', lockHandler);
-                clearTimeout(safetyTimer);
+                parentDoc?.removeEventListener('pointerup', releaseOnPointerUp);
                 scrollLockCleanup = null;
               };
             }
