@@ -106,24 +106,26 @@ export const useTextSelection = (
         }
 
         // Reject selection that extends beyond current page (paginated mode).
-        // In CSS-column layout, getBoundingClientRect() returns coordinates relative to the
-        // ENTIRE multi-column container (e.g. rectLeft=1784 for page 5 of 21), not the
-        // visible column. Checking rect.left/right vs columnWidth always fails.
-        // Instead, check selection WIDTH: a single-page selection has width <= columnWidth,
-        // while a cross-page selection has width >> columnWidth (spans multiple columns).
+        // In CSS-column layout, getBoundingClientRect() returns ABSOLUTE coordinates
+        // relative to the entire multi-column container (e.g. rectLeft=1784 for page 5).
+        // To detect cross-page: compute column index for start and end of selection.
+        // Same column = single-page, different columns = cross-page.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mgr = (rendition as any).manager;
         const columnWidth = mgr?.layout?.columnWidth as number | undefined;
         const pageWidth = columnWidth || contents.document.body.clientWidth;
-        const crossesPage = rect.width > pageWidth + 5;
+        const delta = (mgr?.layout?.delta as number) || pageWidth;
+        const startCol = delta > 0 ? Math.floor(Math.max(0, rect.left) / delta) : 0;
+        const endCol = delta > 0 ? Math.floor(Math.max(0, rect.right - 1) / delta) : 0;
+        const crossesPage = startCol !== endCol;
         logger.debug('[useTextSelection] Selection rect analysis', {
           rectLeft: Math.round(rect.left),
           rectRight: Math.round(rect.right),
           rectWidth: Math.round(rect.width),
           pageWidth,
-          docClientWidth: contents.document.documentElement.clientWidth,
-          bodyClientWidth: contents.document.body.clientWidth,
-          layoutColumnWidth: columnWidth,
+          delta,
+          startCol,
+          endCol,
           crossesPage,
           selectedText: selectedText.slice(0, 50),
         });
@@ -198,13 +200,21 @@ export const useTextSelection = (
       const sel = c.window?.getSelection();
       if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
       const r = sel.getRangeAt(0).getBoundingClientRect();
-      const colW = (mgrRef?.layout?.columnWidth as number) || c.document.body.clientWidth;
-      if (r.width > colW + 5) {
-        logger.debug('[useTextSelection] REALTIME cross-page detected, clearing', {
-          width: Math.round(r.width),
-          pageWidth: colW,
-        });
-        sel.removeAllRanges();
+      const d =
+        (mgrRef?.layout?.delta as number) ||
+        (mgrRef?.layout?.columnWidth as number) ||
+        c.document.body.clientWidth;
+      if (d > 0) {
+        const sc = Math.floor(Math.max(0, r.left) / d);
+        const ec = Math.floor(Math.max(0, r.right - 1) / d);
+        if (sc !== ec) {
+          logger.debug('[useTextSelection] REALTIME cross-page detected, clearing', {
+            startCol: sc,
+            endCol: ec,
+            delta: d,
+          });
+          sel.removeAllRanges();
+        }
       }
     };
 
