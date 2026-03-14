@@ -197,16 +197,11 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
       let overflowClipCleanup: (() => void) | null = null;
       const LONG_PRESS_THRESHOLD = 200; // ms
 
-      // Find the epub.js scrolling container (parent DOM) to lock during selection
-      const findScrollContainer = (): HTMLElement | null => {
-        const iframe = doc.defaultView?.frameElement;
-        let el = iframe?.parentElement;
-        while (el) {
-          if (el.scrollWidth > el.clientWidth) return el as HTMLElement;
-          el = el.parentElement;
-        }
-        return null;
-      };
+      // Get the EXACT epub.js stage container (the element that scrolls for pagination)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stageContainer = (rendition as any)?.manager?.stage?.container as
+        | HTMLElement
+        | undefined;
 
       doc.addEventListener(
         'touchstart',
@@ -225,20 +220,26 @@ export const useContentHooks = (rendition: Rendition | null, theme: ThemeName): 
             doc.body.classList.remove('selection-blocked');
             longPressTimer = null;
 
-            // Apply overflow:clip to epub.js container to prevent page shift
-            // during text selection. Unlike overflow:hidden, clip prevents ALL
-            // scrolling including browser-initiated scroll for text selection.
-            const container = findScrollContainer();
-            if (container) {
-              const origOverflow = container.style.overflow;
-              const origOverflowX = container.style.overflowX;
-              container.style.overflowX = 'clip';
-              logger.debug('[useContentHooks] Applied overflow:clip to container');
+            // Apply overflow:clip to epub.js stage container to prevent page shift
+            // during text selection. Must use the EXACT epub.js container
+            // (rendition.manager.stage.container), not a DOM-traversal guess.
+            if (stageContainer) {
+              const origOverflow = stageContainer.style.overflow;
+              const origOverflowX = stageContainer.style.overflowX;
+              stageContainer.style.overflowX = 'clip';
+              logger.debug('[useContentHooks] Applied overflow:clip to stage container', {
+                tagName: stageContainer.tagName,
+                className: stageContainer.className?.slice(0, 50),
+                scrollWidth: stageContainer.scrollWidth,
+                clientWidth: stageContainer.clientWidth,
+              });
               overflowClipCleanup = () => {
-                container.style.overflow = origOverflow;
-                container.style.overflowX = origOverflowX;
+                stageContainer.style.overflow = origOverflow;
+                stageContainer.style.overflowX = origOverflowX;
                 overflowClipCleanup = null;
               };
+            } else {
+              logger.debug('[useContentHooks] No stage container found for scroll lock');
             }
           }, LONG_PRESS_THRESHOLD);
         },
