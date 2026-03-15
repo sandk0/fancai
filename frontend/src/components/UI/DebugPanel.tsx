@@ -112,26 +112,19 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
       text = getDebugBuffer().join('\n');
     }
 
-    // iOS Safari: pause first so buffer doesn't update during copy
+    // Pause so buffer doesn't update
     setIsPaused(true);
 
-    navigator.clipboard.writeText(text).catch(() => {
-      // iOS Safari fallback: contentEditable + readOnly + setSelectionRange
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      textarea.style.top = '0';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.contentEditable = 'true';
-      textarea.readOnly = true;
-      textarea.focus();
-      textarea.setSelectionRange(0, text.length);
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    });
+    // iOS Safari: use native share sheet (most reliable on iOS)
+    if (navigator.share) {
+      navigator.share({ title: `Debug ${activeTab}`, text }).catch(() => {
+        // User cancelled share — that's fine
+      });
+      return;
+    }
+
+    // Desktop fallback
+    navigator.clipboard.writeText(text).catch(() => {});
   }, [activeTab, cssInfo]);
 
   const handleClear = useCallback(() => {
