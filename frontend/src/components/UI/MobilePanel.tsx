@@ -65,7 +65,8 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Drawer.Content
-          className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 h-dvh outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          style={{ height: 'calc(100dvh - var(--snap-point-height, 0px))' }}
           onPointerDown={(e) =>
             logger.debug('[MobilePanel] Drawer.Content pointerdown', {
               target: (e.target as HTMLElement).tagName,

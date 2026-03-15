@@ -126,7 +126,7 @@ export const EntityProfile: React.FC<EntityProfileProps> = ({
       </div>
 
       <ScrollArea className="flex-1 px-5">
-        <div className="space-y-5 pb-20">
+        <div className="space-y-5 pb-8">
           {/* Biography */}
           {!isUnknown && biography && (
             <section>

@@ -156,7 +156,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="absolute inset-0 overflow-auto px-5 pt-4 pb-20"
+            className="absolute inset-0 overflow-auto px-5 pt-4 pb-8"
           >
             <RelationshipCard
               edge={selectedRelationship.edge}
