@@ -942,6 +942,7 @@ export const useGestureController = (
       -webkit-tap-highlight-color: transparent;
       -webkit-user-select: none;
       user-select: none;
+      pointer-events: none;
     `;
 
     let touchStart: { x: number; y: number; time: number } | null = null;
