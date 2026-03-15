@@ -172,7 +172,7 @@ export const EntityList: React.FC<EntityListProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto px-5 pb-20">
+        <div className="flex-1 overflow-auto px-5 pb-32">
           {filteredEntities.map((entity, index) => (
             <div
               key={entity.id}

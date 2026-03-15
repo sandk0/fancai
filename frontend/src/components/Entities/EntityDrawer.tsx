@@ -147,7 +147,7 @@ export const EntityDrawer: React.FC<EntityDrawerProps> = ({
 
   // Simple fade transition — absolute positioning ensures consistent height
   const contentViews = (
-    <div className="flex-1 relative min-h-0">
+    <div className="flex-1 relative min-h-0 overflow-hidden">
       <AnimatePresence mode="wait" initial={false}>
         {selectedRelationship ? (
           <m.div
