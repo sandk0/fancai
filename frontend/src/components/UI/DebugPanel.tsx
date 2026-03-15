@@ -66,23 +66,24 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
   const [activeTab, setActiveTab] = useState<TabId>('logs');
   const [logs, setLogs] = useState<readonly string[]>([]);
   const [cssInfo, setCssInfo] = useState<Record<string, string>>({});
+  const [isPaused, setIsPaused] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // Poll buffer when panel is open
+  // Poll buffer when panel is open and not paused
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isPaused) return;
     const update = () => setLogs([...getDebugBuffer()]);
     update();
     const interval = setInterval(update, 300);
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, [isOpen, isPaused]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (disabled when paused)
   useEffect(() => {
-    if (isOpen && logEndRef.current) {
+    if (isOpen && !isPaused && logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs, isOpen]);
+  }, [logs, isOpen, isPaused]);
 
   // Refresh CSS info when switching to CSS tab
   useEffect(() => {
@@ -110,11 +111,24 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
     } else {
       text = getDebugBuffer().join('\n');
     }
+
+    // iOS Safari: pause first so buffer doesn't update during copy
+    setIsPaused(true);
+
     navigator.clipboard.writeText(text).catch(() => {
+      // iOS Safari fallback: contentEditable + readOnly + setSelectionRange
       const textarea = document.createElement('textarea');
       textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      textarea.style.opacity = '0';
       document.body.appendChild(textarea);
-      textarea.select();
+      textarea.contentEditable = 'true';
+      textarea.readOnly = true;
+      textarea.focus();
+      textarea.setSelectionRange(0, text.length);
       document.execCommand('copy');
       document.body.removeChild(textarea);
     });
@@ -221,24 +235,39 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
             </div>
 
             {/* Action buttons */}
-            <div>
+            <div style={{ display: 'flex', gap: 4 }}>
               <button
-                onClick={handleCopy}
+                onPointerUp={() => setIsPaused((p) => !p)}
+                style={{
+                  color: isPaused ? '#f59e0b' : '#94a3b8',
+                  background: isPaused ? 'rgba(245,158,11,0.15)' : 'none',
+                  border: `1px solid ${isPaused ? '#f59e0b' : '#475569'}`,
+                  borderRadius: 4,
+                  padding: '2px 8px',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  touchAction: 'manipulation',
+                }}
+              >
+                {isPaused ? '▶' : '⏸'}
+              </button>
+              <button
+                onPointerUp={handleCopy}
                 style={{
                   color: '#22c55e',
                   background: 'none',
                   border: '1px solid #22c55e',
                   borderRadius: 4,
                   padding: '2px 8px',
-                  marginRight: 4,
                   fontSize: 10,
                   cursor: 'pointer',
+                  touchAction: 'manipulation',
                 }}
               >
                 Copy
               </button>
               <button
-                onClick={handleClear}
+                onPointerUp={handleClear}
                 style={{
                   color: '#ef4444',
                   background: 'none',
@@ -247,6 +276,7 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
                   padding: '2px 8px',
                   fontSize: 10,
                   cursor: 'pointer',
+                  touchAction: 'manipulation',
                 }}
               >
                 Clear
