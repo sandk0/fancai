@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Reader Stability & Polish
-status: shipped
-last_updated: "2026-03-14T00:10:00.000Z"
-last_activity: "2026-03-14 — Milestone v1.2 archived and completed"
+milestone: v1.3
+milestone_name: iOS Reader Navigation Fixes
+status: active
+last_updated: "2026-03-15T12:40:00.000Z"
+last_activity: "2026-03-15 — Phase 21 выполнена: диагностика touch pipeline на iOS"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
+  total_phases: 5
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
 ---
 
 # Состояние проекта
@@ -20,15 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Планирование следующего milestone
+**Текущий фокус:** Phase 22 -- Хирургический фикс touch pipeline
 
 ## Текущая позиция
 
-Milestone: v1.2 SHIPPED (2026-03-13)
-Status: Archived to .planning/milestones/
-Next: /gsd:new-milestone для следующего цикла
+Phase: 22 (2 of 5) — Хирургический фикс touch pipeline
+Plan: —
+Status: Готов к планированию
+Last activity: 2026-03-15 — Phase 21 выполнена: диагностика touch pipeline на iOS
 
-Progress: [██████████] 100%
+Progress: [██░░░░░░░░] 20%
 
 ## Метрики производительности
 
@@ -39,26 +40,30 @@ Progress: [██████████] 100%
 | v1.0      | 9    | 23    | 9 дней  | --           |
 | v1.1      | 6    | 13    | 92 min  | 7 min        |
 | v1.2      | 8    | 21    | 4 дня   | --           |
+| v1.3      | 5    | —     | —       | —            |
 
 ## Накопленный контекст
 
 ### Решения
 
 Полная таблица решений: .planning/PROJECT.md
-Архив v1.0: .planning/milestones/v1.0-ROADMAP.md
-Архив v1.1: .planning/milestones/v1.1-ROADMAP.md
-Архив v1.2: .planning/milestones/v1.2-ROADMAP.md
+
+- Корневая причина: capture-phase stopPropagation() в useEpubIOSFixes.ts блокирует все touch events
+- Стратегия фикса: удаление ~3 addEventListener + 1 функция-обработчик (хирургическое изменение)
+- Строго последовательный pipeline: каждая фаза зависит от предыдущей
 
 ### Ожидающие задачи
 
-- Нет — milestone завершён, следующий milestone не начат
+Нет.
 
 ### Блокеры/Опасения
 
-- 3 мобильных бага ожидают Pixel 9 UAT (Touch to Search, edge taps, annotation timing)
-- EntityPopup.tsx и BookReader.tsx — orphaned dead code (не влияет на production)
+- Противоречие `touch-action: pan-x pan-y` vs `manipulation` на iOS -- разрешить в Phase 21
+- Тестирование только на физическом iPhone 15 Pro (iOS 26.3.1)
+- PWA standalone mode имеет недокументированные отличия от Safari tab
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-14
-v1.2 SHIPPED. Следующий шаг: /gsd:new-milestone
+Последняя сессия: 2026-03-15
+Phase 21 завершена. Диагностика показала: iOS overlay перехватывает 100% touch-событий, iframe не получает ни одного. CSS touch-action корректен (pan-x pan-y). Готов к Phase 22.
+Resume file: None

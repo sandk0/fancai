@@ -5,6 +5,7 @@
 - v1.0 Готовность к продакшену (shipped 2026-03-09) -- archived
 - v1.1 Reader Mobile / PWA (shipped 2026-03-09) -- archived
 - v1.2 Reader Stability & Polish (shipped 2026-03-13) -- archived
+- v1.3 iOS Reader Navigation Fixes (in progress)
 
 ## Phases
 
@@ -55,10 +56,93 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
+### v1.3 iOS Reader Navigation Fixes (In Progress)
+
+**Milestone Goal:** Навигация (тапы, свайпы) и выделение текста в ридере работают на iOS Safari, Chrome и PWA standalone так же, как на Android и десктопе
+
+- [x] **Phase 21: Диагностика iOS touch pipeline** - Debug-логирование touch-событий и верификация CSS touch-action на реальном iOS устройстве (completed 2026-03-15)
+- [ ] **Phase 22: Корневой фикс touch event pipeline** - Удаление capture-phase blockers, восстановление доставки touch-событий в gesture controller
+- [ ] **Phase 23: Навигация и iOS overlay ревизия** - Верификация тапов и свайпов, удаление или починка избыточного iOS overlay
+- [ ] **Phase 24: Выделение текста на iOS** - Long-press selection и scroll lock на iOS Safari/Chrome/PWA
+- [ ] **Phase 25: Регрессионное тестирование** - Кросс-платформенная верификация: Android + десктоп после всех iOS-фиксов
+
+## Phase Details
+
+### Phase 21: Диагностика iOS touch pipeline
+**Goal**: Разработчик видит полную картину touch-событий на реальном iOS устройстве и может подтвердить корневую причину блокировки
+**Depends on**: Nothing (первая фаза milestone)
+**Requirements**: DEBUG-01, DEBUG-02
+**Success Criteria** (что должно быть TRUE):
+  1. DebugPanel (`/?debug=1`) показывает каждый touch/pointer event (touchstart, touchmove, touchend) с координатами, типом и cancelable/defaultPrevented на iOS
+  2. DebugPanel показывает computed значение CSS `touch-action` для iframe элемента на iOS
+  3. Baseline данные собраны: видно, какие события доставляются, а какие блокируются capture-phase stopPropagation в useEpubIOSFixes.ts
+**Plans:** 1/1 plans complete
+
+Plans:
+- [ ] 21-01-PLAN.md — Диагностический hook useTouchDiagnostics + расширение DebugPanel вкладками Touch/CSS
+
+### Phase 22: Корневой фикс touch event pipeline
+**Goal**: Touch-события свободно доставляются из iframe в gesture controller на iOS -- capture-phase blockers удалены
+**Depends on**: Phase 21
+**Requirements**: TOUCH-01, TOUCH-02
+**Success Criteria** (что должно быть TRUE):
+  1. Touch-события (touchstart, touchmove, touchend) доставляются в useGestureController на iOS Safari, Chrome и PWA standalone
+  2. CSS `touch-action` имеет корректное computed значение на iOS (pan-x pan-y или manipulation -- по результатам Phase 21)
+  3. epub.js Snap gesture system остается деактивированной (gestures.destroy() + snap = noop работают без capture-phase blockers)
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: TBD
+
+### Phase 23: Навигация и iOS overlay ревизия
+**Goal**: Пользователь перелистывает страницы тапами и свайпами на iOS, iOS overlay убран или переработан
+**Depends on**: Phase 22
+**Requirements**: NAV-01, NAV-02, NAV-03, NAV-04
+**Success Criteria** (что должно быть TRUE):
+  1. Тап по левому/правому краю страницы перелистывает на предыдущую/следующую страницу на iOS Safari, Chrome и PWA
+  2. Тап по центру экрана переключает immersive mode (показ/скрытие UI) на iOS
+  3. Свайп влево/вправо перелистывает страницу с follow-finger анимацией на iOS
+  4. iOS overlay (gesture-controller-ios-overlay) убран как избыточный, либо переработан для корректной работы со свайпами во всей области экрана
+**Plans**: TBD
+
+Plans:
+- [ ] 23-01: TBD
+- [ ] 23-02: TBD
+
+### Phase 24: Выделение текста на iOS
+**Goal**: Пользователь может выделять текст и создавать заметки на iOS так же, как на Android и десктопе
+**Depends on**: Phase 23
+**Requirements**: SEL-01, SEL-02
+**Success Criteria** (что должно быть TRUE):
+  1. Long-press на тексте в ридере вызывает выделение текста на iOS Safari, Chrome и PWA
+  2. Drag-ручки выделения работают корректно, текст можно расширять/сужать
+  3. Scroll lock активируется при выделении текста и снимается при завершении (pointerDown tracking через parent document работает на iOS)
+**Plans**: TBD
+
+Plans:
+- [ ] 24-01: TBD
+
+### Phase 25: Регрессионное тестирование
+**Goal**: Все iOS-фиксы не ломают навигацию и выделение на Android и десктопе
+**Depends on**: Phase 24
+**Requirements**: REG-01
+**Success Criteria** (что должно быть TRUE):
+  1. Тапы по краям и центру работают на Android Chrome и десктопных браузерах (Firefox, Chrome, Safari)
+  2. Свайпы с follow-finger анимацией работают на Android
+  3. Выделение текста и scroll lock работают на Android и десктопе
+  4. Существующие автоматические тесты проходят (кроме pre-existing failures: ErrorBoundary 7, auth 1)
+**Plans**: TBD
+
+Plans:
+- [ ] 25-01: TBD
+
 ## Progress
 
-| Phase                                     | Milestone | Plans Complete | Status      | Completed  |
-| ----------------------------------------- | --------- | -------------- | ----------- | ---------- |
+**Execution Order:**
+Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
 | 1. Безопасность продакшена                | v1.0      | 2/2            | Complete    | 2026-03-01 |
 | 2. Очистка мертвого кода                  | v1.0      | 2/2            | Complete    | 2026-03-01 |
 | 3. Миграция сервисов                      | v1.0      | 4/4            | Complete    | 2026-03-01 |
@@ -82,3 +166,8 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 | 19.2. Мобильные баги ридера               | v1.2      | 2/2            | Complete    | 2026-03-12 |
 | 19.3. ResizeObserver cascade fix           | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
+| 21. Диагностика iOS touch pipeline        | 1/1 | Complete   | 2026-03-15 | -          |
+| 22. Корневой фикс touch event pipeline    | v1.3      | 0/?            | Not started | -          |
+| 23. Навигация и iOS overlay ревизия       | v1.3      | 0/?            | Not started | -          |
+| 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
+| 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
