@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: active
-last_updated: "2026-03-15T12:40:00.000Z"
+status: Готов к планированию
+last_updated: "2026-03-15T12:57:56.396Z"
 last_activity: "2026-03-15 — Phase 21 выполнена: диагностика touch pipeline на iOS"
 progress:
   total_phases: 5

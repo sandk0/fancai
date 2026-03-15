@@ -166,7 +166,7 @@ Plans:
 | 19.2. Мобильные баги ридера               | v1.2      | 2/2            | Complete    | 2026-03-12 |
 | 19.3. ResizeObserver cascade fix           | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
-| 21. Диагностика iOS touch pipeline        | 1/1 | Complete   | 2026-03-15 | -          |
+| 21. Диагностика iOS touch pipeline        | 1/1 | Complete    | 2026-03-15 | -          |
 | 22. Корневой фикс touch event pipeline    | v1.3      | 0/?            | Not started | -          |
 | 23. Навигация и iOS overlay ревизия       | v1.3      | 0/?            | Not started | -          |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
