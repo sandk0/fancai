@@ -11,9 +11,3 @@ export {
   useDeleteImage,
   useRegenerateImage,
 } from './useImageMutations';
-
-export {
-  useAsyncImageGeneration,
-  type AsyncGenerationStatus,
-  type UseAsyncImageGenerationOptions,
-} from './useAsyncImageGeneration';

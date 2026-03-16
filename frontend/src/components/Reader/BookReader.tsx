@@ -31,7 +31,6 @@ import {
   useDescriptionManagement,
   useChapterNavigation,
   useKeyboardNavigation,
-  useReaderImageModal,
 } from '@/hooks/reader';
 
 // Import sub-components
@@ -123,14 +122,20 @@ export const BookReader: React.FC<BookReaderProps> = ({
   // Hook 3: Auto-parser
   useAutoParser(bookId, chapter, refetch);
 
-  // Hook 4: Image modal
-  const {
-    selectedImage,
-    isOpen: isModalOpen,
-    openModal,
-    closeModal,
-    updateImageUrl,
-  } = useReaderImageModal();
+  // Hook 4: Image modal (inline state, useReaderImageModal was removed as dead code)
+  const [selectedImage, setSelectedImage] = useState<{
+    imageUrl: string;
+    description: Description | null;
+    imageId: string | null;
+  } | null>(null);
+  const isModalOpen = selectedImage !== null;
+  const openModal = (description: Description, imageUrl: string, imageId: string) => {
+    setSelectedImage({ imageUrl, description, imageId });
+  };
+  const closeModal = () => setSelectedImage(null);
+  const updateImageUrl = (newUrl: string) => {
+    setSelectedImage((prev) => (prev ? { ...prev, imageUrl: newUrl } : null));
+  };
 
   // Hook 5: Description management
   const {

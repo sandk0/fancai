@@ -20,4 +20,3 @@ export { useAutoParser } from './useAutoParser';
 export { useDescriptionManagement } from './useDescriptionManagement';
 export { useChapterNavigation } from './useChapterNavigation';
 export { useKeyboardNavigation } from '../shared/useKeyboardNavigation';
-export { useReaderImageModal } from './useReaderImageModal';
