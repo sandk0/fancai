@@ -855,6 +855,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
           selectedImage,
           onClose: closeModal,
           onImageRegenerated: handleImageRegenerated,
+          bookId: book.id,
         }}
         entityDrawer={{
           isOpen: isEntityDrawerOpen,

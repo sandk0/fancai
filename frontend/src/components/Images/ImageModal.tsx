@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { m } from 'motion/react';
-import { imagesAPI } from '@/api/images';
 import { notify } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';
 import { fetchImageWithAuth, downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useRegenerateImage } from '@/hooks/api/useImages/useImageMutations';
 import { Z_INDEX } from '@/lib/zIndex';
 import type { Description } from '@/types/api';
 import { logger } from '@/lib/logger';
@@ -19,6 +19,7 @@ interface ImageModalProps {
   title?: string;
   description?: string;
   imageId?: string;
+  bookId?: string;
   descriptionData?: Description;
   onImageRegenerated?: (newImageUrl: string) => void;
 }
@@ -30,6 +31,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   title,
   description,
   imageId,
+  bookId,
   descriptionData,
   onImageRegenerated,
 }) => {
@@ -42,6 +44,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const blobUrlRef = useRef<string | null>(null);
   const { t } = useTranslation();
+  const regenerateMutation = useRegenerateImage();
 
   useFocusTrap(isOpen, modalRef);
 
@@ -123,8 +126,10 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
     setIsRegenerating(true);
     try {
-      const result = await imagesAPI.regenerateImage(imageId, {
-        style_prompt: customPrompt || undefined,
+      const result = await regenerateMutation.mutateAsync({
+        imageId,
+        bookId: bookId || '',
+        params: { style_prompt: customPrompt || undefined },
       });
 
       setCurrentImageUrl(result.image_url);

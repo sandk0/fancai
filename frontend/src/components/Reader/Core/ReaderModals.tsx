@@ -31,6 +31,7 @@ interface ReaderModalsProps {
     selectedImage: GeneratedImage | null;
     onClose: () => void;
     onImageRegenerated: (url: string) => void;
+    bookId?: string;
   };
   entityDrawer: {
     isOpen: boolean;
@@ -117,6 +118,7 @@ export const ReaderModals: React.FC<ReaderModalsProps> = ({
             ''
           }
           imageId={imageModal.selectedImage.id}
+          bookId={imageModal.bookId}
           descriptionData={
             imageModal.selectedImage.description
               ? {
