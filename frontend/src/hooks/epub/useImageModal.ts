@@ -312,10 +312,10 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
   const closeModal = useCallback(() => {
     setIsOpen(false);
 
-    // Release Object URL if image was from cache
-    if (isCached && selectedDescription) {
-      imageCache.release(selectedDescription.id);
-    }
+    // Blob URL lifecycle managed by imageCache.cleanupStaleObjectURLs() (1 min interval, 30 min TTL).
+    // Do NOT call imageCache.release() here — the same blob URL is shared with
+    // TanStack Query cache (useImageForDescription, staleTime 30 min).
+    // Revoking it would break the image in DescriptionDrawer.
 
     // Don't clear selectedImage immediately -- allow animation
     setTimeout(() => {
@@ -325,7 +325,7 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
       setDescriptionPreview(null);
       setIsCached(false);
     }, 300);
-  }, [isCached, selectedDescription]);
+  }, []);
 
   // --- Cancel Generation ---
   const cancelGeneration = useCallback(() => {
