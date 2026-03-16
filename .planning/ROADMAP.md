@@ -65,6 +65,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [ ] **Phase 23: Навигация и iOS overlay ревизия** - Дедупликация FSM, динамический overlay top, верификация на iOS
 - [ ] **Phase 24: Выделение текста на iOS** - Long-press selection и scroll lock на iOS Safari/Chrome/PWA
 - [ ] **Phase 25: Регрессионное тестирование** - Кросс-платформенная верификация: Android + десктоп после всех iOS-фиксов
+- [ ] **Phase 26: fix(images)** - Исправление багов генерации/отображения изображений, рефакторинг useImageModal на TanStack Query
 
 ## Phase Details
 
@@ -136,10 +137,26 @@ Plans:
 Plans:
 - [ ] 25-01: TBD
 
+### Phase 26: fix(images): исправить баги генерации и отображения изображений в читалке
+**Goal:** Исправить 2 бага генерации/отображения изображений в drawer, добавить кнопку регенерации, рефакторинг useImageModal на TanStack Query
+**Depends on:** Phase 25
+**Requirements**: BUG-01, BUG-02, REGEN, INVALIDATE, MODAL-TQ, BUILD
+**Success Criteria** (что должно быть TRUE):
+  1. Изображение не пропадает при повторном открытии drawer (Баг 1)
+  2. Чужое изображение не показывается при смене описания (Баг 2)
+  3. Кнопка "Генерировать заново" при наличии изображения
+  4. useImageModal использует TQ polling вместо setInterval
+  5. TypeScript компиляция и production build проходят
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] 26-01-PLAN.md — Фикс инвалидации query keys + рефакторинг DescriptionDrawer (TQ query, регенерация, сброс мутации) + обновление EpubReader
+- [ ] 26-02-PLAN.md — Рефакторинг useImageModal на TanStack Query (useMutation + useQuery polling)
+
 ## Progress
 
 **Execution Order:**
-Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25
+Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -171,13 +188,4 @@ Plans:
 | 23. Навигация и iOS overlay ревизия       | 1/2 | In Progress|  | -          |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
-
-### Phase 26: fix(images): исправить баги генерации и отображения изображений в читалке
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 25
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 26 to break down)
+| 26. fix(images)                            | 1/2 | In Progress|  | -          |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Phase 23 Plan 01 завершена (shared FSM refactoring)
-last_updated: "2026-03-16T04:33:46.226Z"
-last_activity: 2026-03-16 — Phase 23 Plan 01 завершена (shared FSM refactoring, 16 min)
+status: Phase 26 Plan 02 завершена (useImageModal TQ refactoring)
+last_updated: "2026-03-16T15:09:27Z"
+last_activity: 2026-03-16 — Phase 26 Plan 02 завершена (useImageModal TQ refactoring, 6 min)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 5
+  percent: 83
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 23 Plan 01 завершена. Plan 02 (iOS верификация) следующий.
+**Текущий фокус:** Phase 26 завершена. Все планы fix-images выполнены.
 
 ## Текущая позиция
 
-Phase: 23 (3 of 5) — Навигация и iOS overlay ревизия
-Plan: 02 (следующий)
-Status: Phase 23 Plan 01 завершена (shared FSM refactoring)
-Last activity: 2026-03-16 — Phase 23 Plan 01 завершена (shared FSM refactoring, 16 min)
+Phase: 26 (6 of 6) — fix(images): исправить баги генерации и отображения изображений
+Plan: 02 (завершена)
+Status: Phase 26 Plan 02 завершена (useImageModal TQ refactoring)
+Last activity: 2026-03-16 — Phase 26 Plan 02 завершена (useImageModal TQ refactoring, 6 min)
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 83%
 
 ## Метрики производительности
 
@@ -56,6 +56,8 @@ Progress: [█████░░░░░] 50%
 - Shared FSM через dependency injection (GestureFSMDeps interface)
 - Overlay top динамический: 0 в immersive, safe-area+64px с header
 - Строго последовательный pipeline: каждая фаза зависит от предыдущей
+- TQ useQuery refetchInterval заменяет ручной setInterval для Celery task polling (Phase 26 Plan 02)
+- Visibility пауза через встроенный focusManager вместо useVisibilityManager (Phase 26 Plan 02)
 
 ### Ожидающие задачи
 
@@ -74,5 +76,5 @@ Progress: [█████░░░░░] 50%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-16
-Phase 23 Plan 01 завершена. Task 1 (a0698b2): shared FSM вынесена в gestureUtils.ts, useGestureController.ts уменьшен на 454 строки, overlay top динамический. Task 2 (7028711): 17 новых тестов для shared FSM, все 57 тестов зеленые.
+Phase 26 Plan 02 завершена. Task 1 (16137f2): useImageModal переписан на TanStack Query -- refetchInterval polling, focusManager visibility, invalidation byDescription+byBook+userStats. Код сокращён на 44% (584->329 строк). DescriptionDrawer.tsx auto-fix unknown error type.
 Resume file: None

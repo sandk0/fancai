@@ -33,6 +33,15 @@
 
 - [ ] **REG-01**: Навигация (тапы + свайпы) продолжает работать на Android и десктопе после всех изменений
 
+### Изображения (Phase 26)
+
+- [ ] **BUG-01**: Изображение не пропадает при повторном открытии drawer после генерации
+- [ ] **BUG-02**: Чужое изображение не показывается при смене описания в drawer
+- [ ] **REGEN**: Кнопка "Генерировать заново" при наличии существующего изображения
+- [ ] **INVALIDATE**: TanStack Query cache корректно инвалидируется при генерации (byBook + byDescription + userStats)
+- [x] **MODAL-TQ**: useImageModal использует TanStack Query polling вместо setInterval
+- [x] **BUILD**: TypeScript компиляция и production build проходят после всех изменений
+
 ## v2 Requirements
 
 ### Навигация
@@ -68,12 +77,18 @@
 | SEL-01 | Phase 24 | Pending |
 | SEL-02 | Phase 24 | Pending |
 | REG-01 | Phase 25 | Pending |
+| BUG-01 | Phase 26 | Pending |
+| BUG-02 | Phase 26 | Pending |
+| REGEN | Phase 26 | Pending |
+| INVALIDATE | Phase 26 | Pending |
+| MODAL-TQ | Phase 26 | Complete |
+| BUILD | Phase 26 | Complete |
 
 **Coverage:**
-- v1.3 requirements: 11 total
-- Mapped to phases: 11
+- v1.3 requirements: 17 total
+- Mapped to phases: 17
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-15 after roadmap creation*
+*Last updated: 2026-03-16 after Phase 26 planning*
