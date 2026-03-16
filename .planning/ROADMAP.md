@@ -65,7 +65,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [ ] **Phase 23: Навигация и iOS overlay ревизия** - Дедупликация FSM, динамический overlay top, верификация на iOS
 - [ ] **Phase 24: Выделение текста на iOS** - Long-press selection и scroll lock на iOS Safari/Chrome/PWA
 - [ ] **Phase 25: Регрессионное тестирование** - Кросс-платформенная верификация: Android + десктоп после всех iOS-фиксов
-- [ ] **Phase 26: fix(images)** - Исправление багов генерации/отображения изображений, рефакторинг useImageModal на TanStack Query
+- [x] **Phase 26: fix(images)** - Исправление багов генерации/отображения изображений, рефакторинг useImageModal на TanStack Query (completed 2026-03-16)
 
 ## Phase Details
 
@@ -147,7 +147,7 @@ Plans:
   3. Кнопка "Генерировать заново" при наличии изображения
   4. useImageModal использует TQ polling вместо setInterval
   5. TypeScript компиляция и production build проходят
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 26-01-PLAN.md — Фикс инвалидации query keys + рефакторинг DescriptionDrawer (TQ query, регенерация, сброс мутации) + обновление EpubReader
@@ -188,4 +188,4 @@ Plans:
 | 23. Навигация и iOS overlay ревизия       | 1/2 | In Progress|  | -          |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
-| 26. fix(images)                            | 1/2 | In Progress|  | -          |
+| 26. fix(images)                            | 2/2 | Complete   | 2026-03-16 | -          |

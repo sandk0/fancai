@@ -35,10 +35,10 @@
 
 ### Изображения (Phase 26)
 
-- [ ] **BUG-01**: Изображение не пропадает при повторном открытии drawer после генерации
-- [ ] **BUG-02**: Чужое изображение не показывается при смене описания в drawer
-- [ ] **REGEN**: Кнопка "Генерировать заново" при наличии существующего изображения
-- [ ] **INVALIDATE**: TanStack Query cache корректно инвалидируется при генерации (byBook + byDescription + userStats)
+- [x] **BUG-01**: Изображение не пропадает при повторном открытии drawer после генерации
+- [x] **BUG-02**: Чужое изображение не показывается при смене описания в drawer
+- [x] **REGEN**: Кнопка "Генерировать заново" при наличии существующего изображения
+- [x] **INVALIDATE**: TanStack Query cache корректно инвалидируется при генерации (byBook + byDescription + userStats)
 - [x] **MODAL-TQ**: useImageModal использует TanStack Query polling вместо setInterval
 - [x] **BUILD**: TypeScript компиляция и production build проходят после всех изменений
 
@@ -77,10 +77,10 @@
 | SEL-01 | Phase 24 | Pending |
 | SEL-02 | Phase 24 | Pending |
 | REG-01 | Phase 25 | Pending |
-| BUG-01 | Phase 26 | Pending |
-| BUG-02 | Phase 26 | Pending |
-| REGEN | Phase 26 | Pending |
-| INVALIDATE | Phase 26 | Pending |
+| BUG-01 | Phase 26 | Complete |
+| BUG-02 | Phase 26 | Complete |
+| REGEN | Phase 26 | Complete |
+| INVALIDATE | Phase 26 | Complete |
 | MODAL-TQ | Phase 26 | Complete |
 | BUILD | Phase 26 | Complete |
 

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Phase 26 Plan 02 завершена (useImageModal TQ refactoring)
-last_updated: "2026-03-16T15:09:27Z"
-last_activity: 2026-03-16 — Phase 26 Plan 02 завершена (useImageModal TQ refactoring, 6 min)
+status: "Phase 26 завершена (fix-images: image bugs + TQ refactoring)"
+last_updated: "2026-03-16T15:17:44.041Z"
+last_activity: 2026-03-16 — Phase 26 Plan 01 завершена (image bugs + regeneration, 9 min)
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
   completed_plans: 5
-  percent: 83
+  percent: 100
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 26 завершена. Все планы fix-images выполнены.
+**Текущий фокус:** Phase 26 завершена (оба плана). Milestone v1.3 завершён.
 
 ## Текущая позиция
 
 Phase: 26 (6 of 6) — fix(images): исправить баги генерации и отображения изображений
-Plan: 02 (завершена)
-Status: Phase 26 Plan 02 завершена (useImageModal TQ refactoring)
-Last activity: 2026-03-16 — Phase 26 Plan 02 завершена (useImageModal TQ refactoring, 6 min)
+Plan: 02 (завершена, оба плана выполнены)
+Status: Phase 26 завершена (fix-images: image bugs + TQ refactoring)
+Last activity: 2026-03-16 — Phase 26 Plan 01 завершена (image bugs + regeneration, 9 min)
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -58,6 +58,9 @@ Progress: [████████░░] 83%
 - Строго последовательный pipeline: каждая фаза зависит от предыдущей
 - TQ useQuery refetchInterval заменяет ручной setInterval для Celery task polling (Phase 26 Plan 02)
 - Visibility пауза через встроенный focusManager вместо useVisibilityManager (Phase 26 Plan 02)
+- useImageForDescription TQ query как SSoT для изображений в DescriptionDrawer (Phase 26 Plan 01)
+- mutation.reset() при смене описания для предотвращения stale data (Phase 26 Plan 01)
+- imageKeys.byBook инвалидация в useGenerateImage для обновления images[] (Phase 26 Plan 01)
 
 ### Ожидающие задачи
 
@@ -76,5 +79,5 @@ Progress: [████████░░] 83%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-16
-Phase 26 Plan 02 завершена. Task 1 (16137f2): useImageModal переписан на TanStack Query -- refetchInterval polling, focusManager visibility, invalidation byDescription+byBook+userStats. Код сокращён на 44% (584->329 строк). DescriptionDrawer.tsx auto-fix unknown error type.
+Phase 26 Plan 01 завершена. Task 1 (8f94b48): imageKeys.byBook инвалидация в useGenerateImage. Task 2 (3403846): DescriptionDrawer рефакторинг на TQ query, кнопка регенерации, сброс мутации. Phase 26 полностью завершена (2 плана).
 Resume file: None
