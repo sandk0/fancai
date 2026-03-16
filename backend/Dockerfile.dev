@@ -44,7 +44,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/uploads /app/logs /app/storage
+RUN mkdir -p /app/logs /app/storage
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser && \

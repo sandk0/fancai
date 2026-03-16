@@ -59,10 +59,10 @@ WORKDIR /app
 COPY --chown=appuser:appuser . .
 
 # Create necessary directories with proper permissions and make entrypoint executable
-RUN mkdir -p /app/logs /app/storage/books /app/storage/books/covers /app/storage/images /app/uploads && \
+RUN mkdir -p /app/logs /app/storage/books /app/storage/books/covers /app/storage/images && \
     chown -R appuser:appuser /app && \
     chmod -R 755 /app && \
-    chmod -R 775 /app/storage /app/uploads /app/logs && \
+    chmod -R 775 /app/storage /app/logs && \
     chmod +x /app/entrypoint.prod.sh
 
 # Switch to non-root user

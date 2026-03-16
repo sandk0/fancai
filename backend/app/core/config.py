@@ -53,7 +53,6 @@ class Settings(BaseSettings):
 
     # Файловые загрузки
     MAX_UPLOAD_SIZE: int = 52428800  # 50MB
-    UPLOAD_DIRECTORY: str = "./uploads"
     ALLOWED_EXTENSIONS: list = [".epub", ".fb2"]
 
     # AI сервисы - OpenRouter (Phase 3: migration from google-genai)

@@ -33,10 +33,7 @@ class BookService:
 
     def __init__(self):
         """Инициализация сервиса книг."""
-        from ...core.config import settings
-
-        self.upload_directory = Path(settings.UPLOAD_DIRECTORY)
-        self.upload_directory.mkdir(parents=True, exist_ok=True)
+        pass
 
     async def create_book_from_upload(
         self,
@@ -385,9 +382,9 @@ class BookService:
         elif "webp" in content_type:
             extension = "webp"
 
-        # Создаем директорию для обложек
-        covers_dir = self.upload_directory / "covers"
-        covers_dir.mkdir(exist_ok=True)
+        # Создаем директорию для обложек (persistent volume)
+        covers_dir = Path("/app/storage/books/covers")
+        covers_dir.mkdir(parents=True, exist_ok=True)
 
         # Путь к файлу обложки
         cover_path = covers_dir / f"{book_id}.{extension}"
