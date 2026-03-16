@@ -19,10 +19,10 @@
 
 ### Навигация
 
-- [ ] **NAV-01**: Тап по левому/правому краю перелистывает страницу на iOS
-- [ ] **NAV-02**: Тап по центру переключает immersive mode на iOS
-- [ ] **NAV-03**: Свайп влево/вправо перелистывает страницу на iOS
-- [ ] **NAV-04**: iOS overlay ревизия — убрать или починить если избыточен после root cause fix
+- [x] **NAV-01**: Тап по левому/правому краю перелистывает страницу на iOS
+- [x] **NAV-02**: Тап по центру переключает immersive mode на iOS
+- [x] **NAV-03**: Свайп влево/вправо перелистывает страницу на iOS
+- [x] **NAV-04**: iOS overlay ревизия — убрать или починить если избыточен после root cause fix
 
 ### Выделение текста
 
@@ -61,10 +61,10 @@
 | DEBUG-02 | Phase 21 | Pending |
 | TOUCH-01 | Phase 22 | Complete |
 | TOUCH-02 | Phase 22 | Complete |
-| NAV-01 | Phase 23 | Pending |
-| NAV-02 | Phase 23 | Pending |
-| NAV-03 | Phase 23 | Pending |
-| NAV-04 | Phase 23 | Pending |
+| NAV-01 | Phase 23 | Complete |
+| NAV-02 | Phase 23 | Complete |
+| NAV-03 | Phase 23 | Complete |
+| NAV-04 | Phase 23 | Complete |
 | SEL-01 | Phase 24 | Pending |
 | SEL-02 | Phase 24 | Pending |
 | REG-01 | Phase 25 | Pending |

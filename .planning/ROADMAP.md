@@ -62,7 +62,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 - [x] **Phase 21: Диагностика iOS touch pipeline** - Debug-логирование touch-событий и верификация CSS touch-action на реальном iOS устройстве (completed 2026-03-15)
 - [x] **Phase 22: Корневой фикс touch event pipeline** - Полноэкранный iOS overlay с FSM для всех жестов (тапы, свайпы, rubber-band) (completed 2026-03-16)
-- [ ] **Phase 23: Навигация и iOS overlay ревизия** - Верификация тапов и свайпов, удаление или починка избыточного iOS overlay
+- [ ] **Phase 23: Навигация и iOS overlay ревизия** - Дедупликация FSM, динамический overlay top, верификация на iOS
 - [ ] **Phase 24: Выделение текста на iOS** - Long-press selection и scroll lock на iOS Safari/Chrome/PWA
 - [ ] **Phase 25: Регрессионное тестирование** - Кросс-платформенная верификация: Android + десктоп после всех iOS-фиксов
 
@@ -103,11 +103,11 @@ Plans:
   2. Тап по центру экрана переключает immersive mode (показ/скрытие UI) на iOS
   3. Свайп влево/вправо перелистывает страницу с follow-finger анимацией на iOS
   4. iOS overlay (gesture-controller-ios-overlay) убран как избыточный, либо переработан для корректной работы со свайпами во всей области экрана
-**Plans**: TBD
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 23-01: TBD
-- [ ] 23-02: TBD
+- [ ] 23-01-PLAN.md — Вынос shared FSM в gestureUtils.ts, рефакторинг обоих handler-ов, динамический overlay top, обновление тестов
+- [ ] 23-02-PLAN.md — UAT на iPhone 15 Pro (8 проверок: taps, swipes, rubber-band, dynamic overlay top)
 
 ### Phase 24: Выделение текста на iOS
 **Goal**: Пользователь может выделять текст и создавать заметки на iOS так же, как на Android и десктопе
@@ -167,7 +167,17 @@ Plans:
 | 19.3. ResizeObserver cascade fix           | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
 | 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
-| 22. Корневой фикс touch event pipeline    | v1.3      | 1/1            | Complete    | 2026-03-16 |
-| 23. Навигация и iOS overlay ревизия       | v1.3      | 0/?            | Not started | -          |
+| 22. Корневой фикс touch event pipeline    | v1.3      | Complete    | 2026-03-16 | 2026-03-16 |
+| 23. Навигация и iOS overlay ревизия       | 1/2 | In Progress|  | -          |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
+
+### Phase 26: fix(images): исправить баги генерации и отображения изображений в читалке
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 25
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 26 to break down)

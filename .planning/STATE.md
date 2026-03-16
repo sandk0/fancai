@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Phase 22 завершена, готов к Phase 23
-last_updated: "2026-03-16T03:04:30.961Z"
-last_activity: 2026-03-16 — Phase 22 Plan 01 завершена (verified on iOS)
+status: Phase 23 Plan 01 завершена (shared FSM refactoring)
+last_updated: "2026-03-16T04:33:46.226Z"
+last_activity: 2026-03-16 — Phase 23 Plan 01 завершена (shared FSM refactoring, 16 min)
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 40
+  total_plans: 6
+  completed_plans: 3
+  percent: 50
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 22 завершена. Phase 23 (Навигация и iOS overlay ревизия) следующая.
+**Текущий фокус:** Phase 23 Plan 01 завершена. Plan 02 (iOS верификация) следующий.
 
 ## Текущая позиция
 
 Phase: 23 (3 of 5) — Навигация и iOS overlay ревизия
-Plan: 01 (ещё не создан)
-Status: Phase 22 завершена, готов к Phase 23
-Last activity: 2026-03-16 — Phase 22 Plan 01 завершена (verified on iOS)
+Plan: 02 (следующий)
+Status: Phase 23 Plan 01 завершена (shared FSM refactoring)
+Last activity: 2026-03-16 — Phase 23 Plan 01 завершена (shared FSM refactoring, 16 min)
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Метрики производительности
 
@@ -51,13 +51,19 @@ Progress: [████░░░░░░] 40%
 - Корневая причина: iOS Safari НЕ доставляет touch events в iframe contentDocument (100% source:parent)
 - Стратегия фикса: полноэкранный iOS overlay с FSM для всех жестов (Phase 22)
 - Overlay left:10px для Safari back gesture, touch-action:none
-- FSM inline в overlay useEffect (не вынесена в shared utility)
+- FSM вынесена в shared utility gestureUtils.ts (Phase 23 Plan 01)
 - Shared touchRef между overlay и iframe handler (platform-exclusive)
+- Shared FSM через dependency injection (GestureFSMDeps interface)
+- Overlay top динамический: 0 в immersive, safe-area+64px с header
 - Строго последовательный pipeline: каждая фаза зависит от предыдущей
 
 ### Ожидающие задачи
 
 Нет.
+
+### Эволюция Roadmap
+
+- Phase 26 добавлена: fix(images): исправить баги генерации и отображения изображений в читалке
 
 ### Блокеры/Опасения
 
@@ -68,5 +74,5 @@ Progress: [████░░░░░░] 40%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-16
-Phase 22 Plan 01 завершена. Task 1 (f7ddc45): iOS overlay расширен на полный экран с полной FSM. Task 2: верификация на iPhone 15 Pro пройдена (approved). Все 7 проверок пройдены: edge taps, center tap, swipes, rubber-band, vertical cancel, Safari back, panels.
+Phase 23 Plan 01 завершена. Task 1 (a0698b2): shared FSM вынесена в gestureUtils.ts, useGestureController.ts уменьшен на 454 строки, overlay top динамический. Task 2 (7028711): 17 новых тестов для shared FSM, все 57 тестов зеленые.
 Resume file: None
