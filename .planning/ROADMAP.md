@@ -187,7 +187,7 @@ Plans:
 **Goal:** Исправить 6 проблем frontend генерации: cache invalidation при регенерации, mock objects в IndexedDB, blob URL leak при удалении, 409 race condition, dead code cleanup
 **Requirements**: FIMG-01, FIMG-02, FIMG-03, FIMG-04, FIMG-05, FIMG-06
 **Depends on:** Phase 27
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
@@ -230,4 +230,4 @@ Plans:
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
 | 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
 | 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 28. Аудит Frontend генерации              | v1.3      | 0/2            | Not started | -          |
+| 28. Аудит Frontend генерации              | 2/2 | Complete   | 2026-03-16 | -          |

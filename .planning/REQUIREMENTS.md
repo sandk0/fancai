@@ -48,6 +48,15 @@
 - [x] **IMG-02**: `imagen_generator.py:generate_image()` использует серверный retry (tenacity, 4 попытки) для transient ошибок OpenRouter
 - [x] **IMG-03**: HTTP 400 от OpenRouter обрабатывается как non-retryable с логированием промпта
 
+### Аудит Frontend генерации (Phase 28)
+
+- [x] **FIMG-01**: ImageModal.tsx использует useRegenerateImage mutation вместо direct API call для корректной cache invalidation
+- [x] **FIMG-02**: useImageForDescription возвращает полный GeneratedImage из IndexedDB (не mock object с отсутствующими полями)
+- [x] **FIMG-03**: useDeleteImage принимает descriptionId и очищает imageCache при удалении
+- [x] **FIMG-04**: useImageModal при 409 conflict использует guard ref для предотвращения race condition
+- [x] **FIMG-05**: useAsyncImageGeneration.ts удалён (dead code, parallel polling не используется)
+- [x] **FIMG-06**: useReaderImageModal.ts удалён (deprecated, orphaned BookReader.tsx)
+
 ## v2 Requirements
 
 ### Навигация
@@ -93,9 +102,15 @@
 | IMG-01 | Phase 27 | Complete |
 | IMG-02 | Phase 27 | Complete |
 | IMG-03 | Phase 27 | Complete |
+| FIMG-01 | Phase 28 | Complete |
+| FIMG-02 | Phase 28 | Complete |
+| FIMG-03 | Phase 28 | Complete |
+| FIMG-04 | Phase 28 | Complete |
+| FIMG-05 | Phase 28 | Complete |
+| FIMG-06 | Phase 28 | Complete |
 
 **Coverage:**
-- v1.3 requirements: 20 total
+- v1.3 requirements: 26 total
 - Mapped to phases: 20
 - Unmapped: 0
 
