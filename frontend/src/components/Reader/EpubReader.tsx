@@ -388,6 +388,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     isPanelOpen,
     pageAnimationEnabled,
     onPanelDismiss: handlePanelDismiss,
+    isHeaderVisible: autoHide.isHeaderVisible,
   });
 
   // Touch diagnostics: logs touch/pointer events for iOS debugging (only active with ?debug=1)

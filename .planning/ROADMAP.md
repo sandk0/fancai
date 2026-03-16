@@ -89,10 +89,10 @@ Plans:
   1. Touch-события обрабатываются iOS overlay и приводят к корректной навигации (taps, swipes) на iOS Safari, Chrome и PWA standalone
   2. CSS `touch-action: none` на overlay, `touch-action: pan-x pan-y` на iframe элементах
   3. epub.js Snap gesture system остается деактивированной (gestures.destroy() + snap = noop)
-**Plans:** 1/1 plans (Task 1 done, Task 2 awaiting human-verify)
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 22-01-PLAN.md — Расширение iOS overlay до полноэкранного с полной FSM (taps + swipes + rubber-band) [Task 2: checkpoint:human-verify]
+- [x] 22-01-PLAN.md — Расширение iOS overlay до полноэкранного с полной FSM (taps + swipes + rubber-band)
 
 ### Phase 23: Навигация и iOS overlay ревизия
 **Goal**: Пользователь перелистывает страницы тапами и свайпами на iOS, iOS overlay убран или переработан
@@ -167,7 +167,7 @@ Plans:
 | 19.3. ResizeObserver cascade fix           | v1.2      | 3/3            | Complete    | 2026-03-12 |
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
 | 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
-| 22. Корневой фикс touch event pipeline    | v1.3      | 1/1            | Awaiting verify | -          |
+| 22. Корневой фикс touch event pipeline    | v1.3      | 1/1            | Complete    | 2026-03-16 |
 | 23. Навигация и iOS overlay ревизия       | v1.3      | 0/?            | Not started | -          |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |

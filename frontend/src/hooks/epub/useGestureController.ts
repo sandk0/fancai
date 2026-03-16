@@ -24,22 +24,25 @@ import type { NavigationLock } from '@/hooks/shared/useNavigationLock';
 import { isIOS } from '@/utils/iosSupport';
 import { logger } from '@/lib/logger';
 import {
-  FOLLOW_FINGER_CONFIG,
   SPRING_FAST,
-  SPRING_RUBBER,
   SPRING_TAP,
+  INITIAL_TOUCH,
   getStageInfo,
-  shouldNavigate,
-  calculateVelocity,
-  getRubberBandOffset,
+  processTouchStart,
+  processTouchMove,
+  processSwipeCompletion,
+  processTouchCancel,
 } from './gestureUtils';
-import type { FollowFingerPhase } from './gestureUtils';
+import type {
+  FollowFingerPhase,
+  TouchState,
+  GestureFSMDeps,
+  SwipeCompletionDeps,
+} from './gestureUtils';
 
 // ---------------------------------------------------------------------------
 // FSM types
 // ---------------------------------------------------------------------------
-
-type GestureState = 'idle' | 'pending' | 'swiping' | 'cancelled';
 
 type InteractiveType = 'description' | 'entity' | 'annotation' | 'link' | null;
 
@@ -84,6 +87,8 @@ export interface GestureControllerOptions {
   pageAnimationEnabled?: boolean;
   /** Called when user taps inside iframe while a panel is open — dismisses all panels */
   onPanelDismiss?: () => void;
+  /** Whether header is visible (for dynamic iOS overlay top) */
+  isHeaderVisible?: boolean;
 }
 
 export interface GestureControllerReturn {
@@ -100,30 +105,6 @@ export interface GestureControllerReturn {
   /** Trigger slide-in animation for tap navigation */
   triggerSlideAnimation: (direction: 'next' | 'prev') => void;
 }
-
-// ---------------------------------------------------------------------------
-// Internal touch state (ref-based, no re-renders)
-// ---------------------------------------------------------------------------
-
-interface TouchState {
-  state: GestureState;
-  startX: number;
-  startY: number;
-  startTime: number;
-  lastTouchX: number;
-  lastTouchTime: number;
-  boundary: 'start' | 'end' | null;
-}
-
-const INITIAL_TOUCH: TouchState = {
-  state: 'idle',
-  startX: 0,
-  startY: 0,
-  startTime: 0,
-  lastTouchX: 0,
-  lastTouchTime: 0,
-  boundary: null,
-};
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -146,6 +127,7 @@ export const useGestureController = (
     isPanelOpen,
     pageAnimationEnabled = true,
     onPanelDismiss,
+    isHeaderVisible,
   } = options;
 
   // Motion value for GPU-accelerated transform
@@ -218,6 +200,11 @@ export const useGestureController = (
   useEffect(() => {
     pageAnimationEnabledRef.current = pageAnimationEnabled;
   }, [pageAnimationEnabled]);
+
+  const isHeaderVisibleRef = useRef(isHeaderVisible ?? false);
+  useEffect(() => {
+    isHeaderVisibleRef.current = isHeaderVisible ?? false;
+  }, [isHeaderVisible]);
 
   // Stable reset
   const resetState = useCallback(() => {
@@ -328,161 +315,48 @@ export const useGestureController = (
         body.style.cursor = 'pointer';
       }
 
-      // ----- touchstart -----
-      const handleTouchStart = (e: TouchEvent) => {
-        if (!enabledRef.current) return;
-
-        // Don't start if there's active text selection
-        const sel = doc.defaultView?.getSelection?.();
-        if (sel && sel.toString().length > 0) return;
-
-        const touch = e.touches[0];
-        if (!touch) return;
-
-        // Stop running animation
-        if (animationRef.current) {
-          animationRef.current.stop();
-          animationRef.current = null;
-        }
-
-        // Check boundary for rubber-band
-        const info = getStageInfo(rendition);
-        const boundary = info
-          ? info.isAtStart && info.isAtEnd
-            ? null // Single-page chapter
-            : info.isAtStart
-              ? 'start'
-              : info.isAtEnd
-                ? 'end'
-                : null
-          : null;
-
-        const now = Date.now();
-        touchRef.current = {
-          state: 'pending',
-          startX: touch.clientX,
-          startY: touch.clientY,
-          startTime: now,
-          lastTouchX: touch.clientX,
-          lastTouchTime: now,
-          boundary,
-        };
+      // Shared FSM deps (created inside useEffect closure -- refs are stable)
+      const deps: GestureFSMDeps = {
+        touchRef,
+        translateX,
+        animationRef,
+        enabledRef,
+        isPanelOpenRef,
+        rendition,
+        setPhase,
+        setIsAtBoundary,
+        setShowChapterHint,
+        setChapterHintDirection,
+        showChapterHintRef,
+        chapterHintDirectionRef,
+        isAtBoundaryRef,
+        onSwipeStartRef,
+        resetState,
+      };
+      const swipeDeps: SwipeCompletionDeps = {
+        ...deps,
+        onNavigateRef,
+        onChapterChangeRef,
+        navLockRef,
+        pageAnimationEnabledRef,
       };
 
-      // ----- touchmove -----
-      const handleTouchMove = (e: TouchEvent) => {
-        if (!enabledRef.current) return;
-
-        const t = touchRef.current;
-        if (t.state !== 'pending' && t.state !== 'swiping') return;
-
-        // Selection passthrough: if user is dragging a selection (expanding highlight),
-        // cancel gesture to avoid intercepting native drag handles
+      // Selection check for iframe (overlay doesn't need this)
+      const checkSelection = () => {
         const sel = doc.defaultView?.getSelection?.();
-        if (sel && sel.toString().length > 0) {
-          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-          return;
-        }
+        return !!(sel && sel.toString().length > 0);
+      };
 
+      // ----- touchstart (shared FSM) -----
+      const handleTouchStart = (e: TouchEvent) => {
         const touch = e.touches[0];
         if (!touch) return;
+        processTouchStart(touch, deps, checkSelection);
+      };
 
-        const deltaX = touch.clientX - t.startX;
-        const deltaY = touch.clientY - t.startY;
-        const absDeltaX = Math.abs(deltaX);
-        const absDeltaY = Math.abs(deltaY);
-
-        // Vertical scroll detection -- cancel with animated snap-back
-        if (
-          absDeltaY > FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold &&
-          absDeltaY / Math.max(absDeltaX, 1) > FOLLOW_FINGER_CONFIG.maxVerticalRatio
-        ) {
-          if (t.state === 'swiping') {
-            setPhase('animating');
-            animationRef.current = animate(translateX, 0, {
-              ...SPRING_RUBBER,
-              onComplete: () => {
-                animationRef.current = null;
-                resetState();
-              },
-            });
-          }
-          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-          return;
-        }
-
-        // Not enough horizontal movement yet -- wait
-        if (t.state === 'pending' && absDeltaX <= FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold) {
-          return;
-        }
-
-        // Transition pending -> swiping
-        if (t.state === 'pending') {
-          // Block swipe navigation when panels are open
-          if (isPanelOpenRef.current) {
-            touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-            return;
-          }
-
-          t.state = 'swiping';
-          setPhase('tracking');
-
-          // Notify auto-hide: swipe started
-          onSwipeStartRef.current();
-        }
-
-        // Prevent browser scroll for horizontal swipe
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-
-        // Rubber-band at boundary
-        const boundary = t.boundary;
-        const isRubberBand =
-          boundary !== null &&
-          ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
-
-        if (isRubberBand) {
-          const rubberOffset = getRubberBandOffset(deltaX);
-          translateX.set(rubberOffset);
-
-          const absRubber = Math.abs(rubberOffset);
-          const showHint = absRubber > 15;
-          const hintDir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-          // Only setState when value actually changes (minimize re-renders in touchmove)
-          if (showHint !== showChapterHintRef.current) {
-            showChapterHintRef.current = showHint;
-            setShowChapterHint(showHint);
-          }
-          if (hintDir !== chapterHintDirectionRef.current) {
-            chapterHintDirectionRef.current = hintDir;
-            setChapterHintDirection(hintDir);
-          }
-          if (boundary !== isAtBoundaryRef.current) {
-            isAtBoundaryRef.current = boundary;
-            setIsAtBoundary(boundary);
-          }
-        } else {
-          translateX.set(deltaX);
-          // Only setState when value actually changes
-          if (showChapterHintRef.current !== false) {
-            showChapterHintRef.current = false;
-            setShowChapterHint(false);
-          }
-          if (chapterHintDirectionRef.current !== null) {
-            chapterHintDirectionRef.current = null;
-            setChapterHintDirection(null);
-          }
-          if (isAtBoundaryRef.current !== null) {
-            isAtBoundaryRef.current = null;
-            setIsAtBoundary(null);
-          }
-        }
-
-        // Update last touch for velocity
-        t.lastTouchX = touch.clientX;
-        t.lastTouchTime = Date.now();
+      // ----- touchmove (shared FSM) -----
+      const handleTouchMove = (e: TouchEvent) => {
+        processTouchMove(e, deps, checkSelection);
       };
 
       // ----- touchend -----
@@ -633,135 +507,20 @@ export const useGestureController = (
           return;
         }
 
-        // ---------- SWIPE COMPLETION (state === 'swiping') ----------
-        const deltaX = touch.clientX - t.startX;
-        const currentTime = Date.now();
-        const velocity = calculateVelocity(
-          touch.clientX,
-          currentTime,
+        // ---------- SWIPE COMPLETION (shared FSM) ----------
+        processSwipeCompletion(
+          touch,
+          t.startX,
           t.lastTouchX,
-          t.lastTouchTime
+          t.lastTouchTime,
+          t.boundary,
+          swipeDeps
         );
-
-        const info = getStageInfo(rendition);
-        const viewportWidth = info?.viewportWidth || window.innerWidth;
-
-        // Check boundary rubber-band
-        const boundary = t.boundary;
-        const isRubberBand =
-          boundary !== null &&
-          ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
-
-        if (isRubberBand) {
-          const rubberOffset = Math.abs(getRubberBandOffset(deltaX));
-          const absVelocity = Math.abs(velocity);
-          const shouldTransition =
-            rubberOffset >= viewportWidth * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold ||
-            (absVelocity > FOLLOW_FINGER_CONFIG.quickSwipeVelocity && rubberOffset > 10);
-
-          setPhase('animating');
-
-          if (shouldTransition && onChapterChangeRef.current) {
-            // Two-phase chapter transition: navigate FIRST, then slide-in
-            const dir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-            void (async () => {
-              if (navLockRef.current.acquire()) {
-                try {
-                  await onChapterChangeRef.current!(dir);
-                } finally {
-                  navLockRef.current.release();
-                }
-              }
-              if (pageAnimationEnabledRef.current) {
-                const slideFrom = dir === 'next' ? viewportWidth : -viewportWidth;
-                translateX.set(slideFrom);
-                animationRef.current = animate(translateX, 0, {
-                  ...SPRING_TAP,
-                  onComplete: () => {
-                    animationRef.current = null;
-                    resetState();
-                  },
-                });
-              } else {
-                translateX.set(0);
-                resetState();
-              }
-            })();
-          } else {
-            // Snap-back (insufficient offset for chapter transition)
-            animationRef.current = animate(translateX, 0, {
-              ...SPRING_RUBBER,
-              velocity: velocity * 1000,
-              onComplete: () => {
-                animationRef.current = null;
-                resetState();
-              },
-            });
-          }
-          return;
-        }
-
-        // Normal swipe completion
-        const navigate = shouldNavigate(deltaX, velocity, viewportWidth);
-        const direction: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-        setPhase('animating');
-
-        if (navigate) {
-          // Two-phase swipe: navigate FIRST, then slide-in from edge
-          void (async () => {
-            if (navLockRef.current.acquire()) {
-              try {
-                await onNavigateRef.current(direction);
-              } finally {
-                navLockRef.current.release();
-              }
-            }
-            if (pageAnimationEnabledRef.current) {
-              const slideFrom = direction === 'next' ? viewportWidth : -viewportWidth;
-              translateX.set(slideFrom);
-              animationRef.current = animate(translateX, 0, {
-                ...SPRING_TAP,
-                onComplete: () => {
-                  animationRef.current = null;
-                  resetState();
-                },
-              });
-            } else {
-              translateX.set(0);
-              resetState();
-            }
-          })();
-        } else {
-          // Snap back
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_RUBBER,
-            velocity: velocity * 1000,
-            onComplete: () => {
-              animationRef.current = null;
-              resetState();
-            },
-          });
-        }
       };
 
-      // ----- touchcancel -----
+      // ----- touchcancel (shared FSM) -----
       const handleTouchCancel = () => {
-        if (touchRef.current.state === 'swiping') {
-          setPhase('animating');
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_RUBBER,
-            onComplete: () => {
-              animationRef.current = null;
-              resetState();
-            },
-          });
-          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-          return;
-        }
-        touchRef.current = { ...INITIAL_TOUCH };
-        resetState();
+        processTouchCancel(deps);
       };
 
       // ----- click (desktop fallback) -----
@@ -947,149 +706,42 @@ export const useGestureController = (
     overlay.setAttribute('aria-hidden', 'true');
     overlay.setAttribute('role', 'presentation');
 
-    // ----- handleOverlayTouchStart -----
-    const handleOverlayTouchStart = (e: TouchEvent) => {
-      if (!enabledRef.current) return;
-
-      const touch = e.touches[0];
-      if (!touch) return;
-
-      // Stop running animation
-      if (animationRef.current) {
-        animationRef.current.stop();
-        animationRef.current = null;
-      }
-
-      // Check boundary for rubber-band
-      const info = getStageInfo(rendition);
-      const boundary = info
-        ? info.isAtStart && info.isAtEnd
-          ? null // Single-page chapter
-          : info.isAtStart
-            ? 'start'
-            : info.isAtEnd
-              ? 'end'
-              : null
-        : null;
-
-      const now = Date.now();
-      touchRef.current = {
-        state: 'pending',
-        startX: touch.clientX,
-        startY: touch.clientY,
-        startTime: now,
-        lastTouchX: touch.clientX,
-        lastTouchTime: now,
-        boundary,
-      };
+    // Shared FSM deps for overlay (created inside useEffect closure -- refs are stable)
+    const deps: GestureFSMDeps = {
+      touchRef,
+      translateX,
+      animationRef,
+      enabledRef,
+      isPanelOpenRef,
+      rendition,
+      setPhase,
+      setIsAtBoundary,
+      setShowChapterHint,
+      setChapterHintDirection,
+      showChapterHintRef,
+      chapterHintDirectionRef,
+      isAtBoundaryRef,
+      onSwipeStartRef,
+      resetState,
+    };
+    const swipeDeps: SwipeCompletionDeps = {
+      ...deps,
+      onNavigateRef,
+      onChapterChangeRef,
+      navLockRef,
+      pageAnimationEnabledRef,
     };
 
-    // ----- handleOverlayTouchMove -----
-    const handleOverlayTouchMove = (e: TouchEvent) => {
-      if (!enabledRef.current) return;
-
-      const t = touchRef.current;
-      if (t.state !== 'pending' && t.state !== 'swiping') return;
-
+    // ----- handleOverlayTouchStart (shared FSM) -----
+    const handleOverlayTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (!touch) return;
+      processTouchStart(touch, deps);
+    };
 
-      const deltaX = touch.clientX - t.startX;
-      const deltaY = touch.clientY - t.startY;
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-
-      // Vertical scroll detection -- cancel with animated snap-back
-      if (
-        absDeltaY > FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold &&
-        absDeltaY / Math.max(absDeltaX, 1) > FOLLOW_FINGER_CONFIG.maxVerticalRatio
-      ) {
-        if (t.state === 'swiping') {
-          setPhase('animating');
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_RUBBER,
-            onComplete: () => {
-              animationRef.current = null;
-              resetState();
-            },
-          });
-        }
-        touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-        return;
-      }
-
-      // Not enough horizontal movement yet -- wait
-      if (t.state === 'pending' && absDeltaX <= FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold) {
-        return;
-      }
-
-      // Transition pending -> swiping
-      if (t.state === 'pending') {
-        // Block swipe navigation when panels are open
-        if (isPanelOpenRef.current) {
-          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-          return;
-        }
-
-        t.state = 'swiping';
-        setPhase('tracking');
-
-        // Notify auto-hide: swipe started
-        onSwipeStartRef.current();
-      }
-
-      // Prevent browser scroll for horizontal swipe
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-
-      // Rubber-band at boundary
-      const boundary = t.boundary;
-      const isRubberBand =
-        boundary !== null &&
-        ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
-
-      if (isRubberBand) {
-        const rubberOffset = getRubberBandOffset(deltaX);
-        translateX.set(rubberOffset);
-
-        const absRubber = Math.abs(rubberOffset);
-        const showHint = absRubber > 15;
-        const hintDir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-        // Only setState when value actually changes (minimize re-renders in touchmove)
-        if (showHint !== showChapterHintRef.current) {
-          showChapterHintRef.current = showHint;
-          setShowChapterHint(showHint);
-        }
-        if (hintDir !== chapterHintDirectionRef.current) {
-          chapterHintDirectionRef.current = hintDir;
-          setChapterHintDirection(hintDir);
-        }
-        if (boundary !== isAtBoundaryRef.current) {
-          isAtBoundaryRef.current = boundary;
-          setIsAtBoundary(boundary);
-        }
-      } else {
-        translateX.set(deltaX);
-        // Only setState when value actually changes
-        if (showChapterHintRef.current !== false) {
-          showChapterHintRef.current = false;
-          setShowChapterHint(false);
-        }
-        if (chapterHintDirectionRef.current !== null) {
-          chapterHintDirectionRef.current = null;
-          setChapterHintDirection(null);
-        }
-        if (isAtBoundaryRef.current !== null) {
-          isAtBoundaryRef.current = null;
-          setIsAtBoundary(null);
-        }
-      }
-
-      // Update last touch for velocity
-      t.lastTouchX = touch.clientX;
-      t.lastTouchTime = Date.now();
+    // ----- handleOverlayTouchMove (shared FSM) -----
+    const handleOverlayTouchMove = (e: TouchEvent) => {
+      processTouchMove(e, deps);
     };
 
     // ----- handleOverlayTouchEnd -----
@@ -1263,130 +915,13 @@ export const useGestureController = (
         return;
       }
 
-      // ---------- SWIPE COMPLETION (state === 'swiping') ----------
-      const deltaX = touch.clientX - t.startX;
-      const currentTime = Date.now();
-      const velocity = calculateVelocity(touch.clientX, currentTime, t.lastTouchX, t.lastTouchTime);
-
-      const info = getStageInfo(rendition);
-      const viewportWidth = info?.viewportWidth || window.innerWidth;
-
-      // Check boundary rubber-band
-      const boundary = t.boundary;
-      const isRubberBand =
-        boundary !== null &&
-        ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
-
-      if (isRubberBand) {
-        const rubberOffset = Math.abs(getRubberBandOffset(deltaX));
-        const absVelocity = Math.abs(velocity);
-        const shouldTransition =
-          rubberOffset >= viewportWidth * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold ||
-          (absVelocity > FOLLOW_FINGER_CONFIG.quickSwipeVelocity && rubberOffset > 10);
-
-        setPhase('animating');
-
-        if (shouldTransition && onChapterChangeRef.current) {
-          // Two-phase chapter transition: navigate FIRST, then slide-in
-          const dir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-          void (async () => {
-            if (navLockRef.current.acquire()) {
-              try {
-                await onChapterChangeRef.current!(dir);
-              } finally {
-                navLockRef.current.release();
-              }
-            }
-            if (pageAnimationEnabledRef.current) {
-              const slideFrom = dir === 'next' ? viewportWidth : -viewportWidth;
-              translateX.set(slideFrom);
-              animationRef.current = animate(translateX, 0, {
-                ...SPRING_TAP,
-                onComplete: () => {
-                  animationRef.current = null;
-                  resetState();
-                },
-              });
-            } else {
-              translateX.set(0);
-              resetState();
-            }
-          })();
-        } else {
-          // Snap-back (insufficient offset for chapter transition)
-          animationRef.current = animate(translateX, 0, {
-            ...SPRING_RUBBER,
-            velocity: velocity * 1000,
-            onComplete: () => {
-              animationRef.current = null;
-              resetState();
-            },
-          });
-        }
-        return;
-      }
-
-      // Normal swipe completion
-      const navigate = shouldNavigate(deltaX, velocity, viewportWidth);
-      const direction: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
-
-      setPhase('animating');
-
-      if (navigate) {
-        // Two-phase swipe: navigate FIRST, then slide-in from edge
-        void (async () => {
-          if (navLockRef.current.acquire()) {
-            try {
-              await onNavigateRef.current(direction);
-            } finally {
-              navLockRef.current.release();
-            }
-          }
-          if (pageAnimationEnabledRef.current) {
-            const slideFrom = direction === 'next' ? viewportWidth : -viewportWidth;
-            translateX.set(slideFrom);
-            animationRef.current = animate(translateX, 0, {
-              ...SPRING_TAP,
-              onComplete: () => {
-                animationRef.current = null;
-                resetState();
-              },
-            });
-          } else {
-            translateX.set(0);
-            resetState();
-          }
-        })();
-      } else {
-        // Snap back
-        animationRef.current = animate(translateX, 0, {
-          ...SPRING_RUBBER,
-          velocity: velocity * 1000,
-          onComplete: () => {
-            animationRef.current = null;
-            resetState();
-          },
-        });
-      }
+      // ---------- SWIPE COMPLETION (shared FSM) ----------
+      processSwipeCompletion(touch, t.startX, t.lastTouchX, t.lastTouchTime, t.boundary, swipeDeps);
     };
 
-    // ----- handleOverlayTouchCancel -----
+    // ----- handleOverlayTouchCancel (shared FSM) -----
     const handleOverlayTouchCancel = () => {
-      if (touchRef.current.state === 'swiping') {
-        setPhase('animating');
-        animationRef.current = animate(translateX, 0, {
-          ...SPRING_RUBBER,
-          onComplete: () => {
-            animationRef.current = null;
-            resetState();
-          },
-        });
-        touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
-        return;
-      }
-      touchRef.current = { ...INITIAL_TOUCH };
-      resetState();
+      processTouchCancel(deps);
     };
 
     // Bind events to overlay
@@ -1409,6 +944,18 @@ export const useGestureController = (
       overlay.remove();
     };
   }, [rendition, enabled, translateX, resetState, getTapAction, getInteractiveType]);
+
+  // -------------------------------------------------------------------------
+  // Dynamic iOS overlay top (separate effect to avoid recreating overlay)
+  // In immersive mode (header hidden): top=0 for full-screen touch area.
+  // When header visible: top=safe-area+64px to avoid overlapping header.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isIOS()) return;
+    const overlay = document.getElementById('gesture-controller-ios-overlay');
+    if (!overlay) return;
+    overlay.style.top = isHeaderVisible ? 'calc(env(safe-area-inset-top) + 64px)' : '0';
+  }, [isHeaderVisible]);
 
   // -------------------------------------------------------------------------
   // Slide-in animation for tap navigation

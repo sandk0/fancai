@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Ожидает ручной верификации на iOS
-last_updated: "2026-03-16T02:37:31.097Z"
-last_activity: 2026-03-16 — Phase 22 Plan 01 Task 1 выполнена, Task 2 ожидает верификации
+status: Phase 22 завершена, готов к Phase 23
+last_updated: "2026-03-16T03:04:30.961Z"
+last_activity: 2026-03-16 — Phase 22 Plan 01 завершена (verified on iOS)
 progress:
   total_phases: 5
   completed_phases: 2
@@ -20,14 +20,14 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 22 -- Полноэкранный iOS overlay с FSM (ожидает верификации на устройстве)
+**Текущий фокус:** Phase 22 завершена. Phase 23 (Навигация и iOS overlay ревизия) следующая.
 
 ## Текущая позиция
 
-Phase: 22 (2 of 5) — Хирургический фикс touch pipeline
-Plan: 01 (Task 2 checkpoint:human-verify)
-Status: Ожидает ручной верификации на iOS
-Last activity: 2026-03-16 — Phase 22 Plan 01 Task 1 выполнена, Task 2 ожидает верификации
+Phase: 23 (3 of 5) — Навигация и iOS overlay ревизия
+Plan: 01 (ещё не создан)
+Status: Phase 22 завершена, готов к Phase 23
+Last activity: 2026-03-16 — Phase 22 Plan 01 завершена (verified on iOS)
 
 Progress: [████░░░░░░] 40%
 
@@ -68,5 +68,5 @@ Progress: [████░░░░░░] 40%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-16
-Phase 22 Plan 01 Task 1 выполнена (f7ddc45). iOS overlay расширен на полный экран с полной FSM. Task 2 (checkpoint:human-verify) ожидает ручной верификации на iPhone 15 Pro.
+Phase 22 Plan 01 завершена. Task 1 (f7ddc45): iOS overlay расширен на полный экран с полной FSM. Task 2: верификация на iPhone 15 Pro пройдена (approved). Все 7 проверок пройдены: edge taps, center tap, swipes, rubber-band, vertical cancel, Safari back, panels.
 Resume file: None
