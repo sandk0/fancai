@@ -173,13 +173,6 @@ export function useTouchDiagnostics(rendition: Rendition | null): void {
       // Log CSS touch-action info
       const info = getTouchActionInfo(rendition);
       logger.debug('[touch-diag] CSS touch-action', info);
-
-      // Experiment: test -webkit-overflow-scrolling on #epub-viewer
-      const viewer = document.getElementById('epub-viewer');
-      if (viewer) {
-        viewer.style.setProperty('-webkit-overflow-scrolling', 'touch');
-        logger.debug('[touch-diag] Applied -webkit-overflow-scrolling: touch to #epub-viewer');
-      }
     };
 
     rendition.on('rendered', onRendered as (...args: unknown[]) => void);
