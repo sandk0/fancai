@@ -361,6 +361,23 @@ class ImagenService:
         """Проверяет доступность сервиса."""
         return self._available
 
+    @retry_image_generation
+    async def _generate_with_retry(self, prompt: str, aspect_ratio: str) -> bytes:
+        """
+        OpenRouter FLUX.2 вызов с retry.
+
+        Retry только HTTP-вызов генерации — cache check и prompt engineering
+        НЕ повторяются. Retryable: RuntimeError (missing choices),
+        ConnectionError, RateLimitError, TimeoutError.
+        Non-retryable: ValueError (400 Bad Request).
+        """
+        return await self._client.generate_image(
+            prompt=prompt,
+            model=settings.OPENROUTER_IMAGE_MODEL,
+            aspect_ratio=aspect_ratio,
+            image_size="1K",
+        )
+
     async def generate_image(
         self,
         description: str,
@@ -441,13 +458,8 @@ class ImagenService:
                 custom_style=custom_style,
             )
 
-            # Генерируем изображение через OpenRouter FLUX.2
-            image_bytes = await self._client.generate_image(
-                prompt=prompt,
-                model=settings.OPENROUTER_IMAGE_MODEL,
-                aspect_ratio=effective_aspect,
-                image_size="1K",
-            )
+            # Генерируем изображение через OpenRouter FLUX.2 (с серверным retry)
+            image_bytes = await self._generate_with_retry(prompt, effective_aspect)
 
             # Создаём data URL из bytes
             image_base64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -475,9 +487,18 @@ class ImagenService:
                 prompt_used=prompt,
             )
 
-        except Exception as e:
+        except ValueError as e:
+            # Non-retryable (400 Bad Request) — НЕ retry-ился
             error_msg = str(e)
-            logger.error(f"Image generation failed: {error_msg}")
+            logger.error(f"Image generation failed (non-retryable): {error_msg}")
+            return ImageGenerationResult(
+                success=False,
+                error_message=f"Image generation failed: {error_msg}",
+            )
+        except Exception as e:
+            # Retry exhausted или другая ошибка
+            error_msg = str(e)
+            logger.error(f"Image generation failed after retries: {error_msg}")
             return ImageGenerationResult(
                 success=False,
                 error_message=f"Image generation failed: {error_msg}",

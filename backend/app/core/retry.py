@@ -128,6 +128,7 @@ IMAGE_GENERATION_EXCEPTIONS: tuple[Type[Exception], ...] = (
     TimeoutError,
     asyncio.TimeoutError,
     ConnectionError,
+    RuntimeError,  # OpenRouter missing choices — transient
 )
 
 # LLM extraction specific exceptions
