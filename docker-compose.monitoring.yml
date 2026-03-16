@@ -7,7 +7,7 @@
 services:
   # ─── Netdata — системные метрики хоста + бизнес-метрики fancai ───────────────
   netdata:
-    image: netdata/netdata:v2.5.0
+    image: netdata/netdata:v2.9.0
     container_name: fancai_netdata
     hostname: fancai-prod
     pid: host
@@ -40,7 +40,7 @@ services:
 
   # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.112.0
+    image: victoriametrics/victoria-metrics:v1.137.0
     container_name: fancai_victoriametrics
     restart: unless-stopped
     ports:
@@ -77,7 +77,7 @@ services:
   # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
   # Auth: порт на 127.0.0.1 — доступ только через Caddy basic_auth
   dozzle:
-    image: amir20/dozzle:v10.0.3
+    image: amir20/dozzle:v10.1.1
     container_name: fancai_dozzle
     restart: unless-stopped
     ports:
