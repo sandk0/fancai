@@ -74,6 +74,7 @@ services:
           memory: 128M
     networks:
       - monitoring_net
+      - fancai_network  # Доступ к PostgreSQL и Redis для health checks
 
   # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
   # Auth: порт на 127.0.0.1 — доступ только через Caddy basic_auth
