@@ -6,14 +6,18 @@
 - generate_text: успех, fallback при 5xx, все модели недоступны
 - generate_structured: успех с Pydantic моделью
 - fallback: только на httpx.HTTPStatusError и httpx.TimeoutException
+- generate_image: success, missing choices, 400, 429, 500, logging
 """
 
 import json
+import logging
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from pydantic import BaseModel
 from typing import Optional, List
+
+from app.core.retry import RateLimitError
 
 # ---------------------------------------------------------------------------
 # Helpers — создание мок-ответов httpx
@@ -507,3 +511,137 @@ class TestModuleExports:
             assert (
                 "/" in model_id
             ), f"Model ID должен содержать '/' (provider/model): {model_id}"
+
+
+# ---------------------------------------------------------------------------
+# Helpers — generate_image
+# ---------------------------------------------------------------------------
+
+
+def _make_image_response(image_b64: str = "iVBORw0KGgo=") -> httpx.Response:
+    """Мок успешного ответа generate_image от OpenRouter."""
+    body = {
+        "choices": [
+            {
+                "message": {
+                    "images": [
+                        {"image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+                    ]
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 0},
+    }
+    return _make_response(200, body)
+
+
+@pytest.fixture
+def mock_client():
+    """OpenRouterClient с замоканным _post_with_breaker."""
+    from app.core.openrouter_client import OpenRouterClient
+
+    client = OpenRouterClient.__new__(OpenRouterClient)
+    client._post_with_breaker = AsyncMock()
+    return client
+
+
+# ---------------------------------------------------------------------------
+# Тесты generate_image
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateImage:
+    """Тесты для метода generate_image — валидация ответа и обработка HTTP ошибок."""
+
+    @pytest.mark.asyncio
+    async def test_generate_image_success(self, mock_client):
+        """generate_image возвращает bytes при успешном ответе с choices."""
+        mock_client._post_with_breaker.return_value = _make_image_response()
+
+        result = await mock_client.generate_image(prompt="a cat sitting on a chair")
+
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_generate_image_missing_choices(self, mock_client):
+        """Ответ без choices бросает RuntimeError с 'no choices'."""
+        error_body = {"error": {"message": "model busy"}}
+        mock_client._post_with_breaker.return_value = _make_response(200, error_body)
+
+        with pytest.raises(RuntimeError, match="no choices"):
+            await mock_client.generate_image(prompt="a dog")
+
+    @pytest.mark.asyncio
+    async def test_generate_image_empty_choices(self, mock_client):
+        """Ответ с пустым choices бросает RuntimeError с 'no choices'."""
+        empty_choices_body = {"choices": []}
+        mock_client._post_with_breaker.return_value = _make_response(
+            200, empty_choices_body
+        )
+
+        with pytest.raises(RuntimeError, match="no choices"):
+            await mock_client.generate_image(prompt="a dog")
+
+    @pytest.mark.asyncio
+    async def test_generate_image_400_bad_request(self, mock_client):
+        """HTTP 400 бросает ValueError (non-retryable), НЕ httpx.HTTPStatusError."""
+        error_resp = _make_response(400, {"error": {"message": "content moderation"}})
+        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+            "400 Bad Request",
+            request=httpx.Request(
+                "POST", "https://openrouter.ai/api/v1/chat/completions"
+            ),
+            response=error_resp,
+        )
+
+        with pytest.raises(ValueError, match="rejected prompt") as exc_info:
+            await mock_client.generate_image(prompt="bad prompt")
+        assert "content moderation" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_generate_image_429_rate_limit(self, mock_client):
+        """HTTP 429 бросает RateLimitError (retryable через tenacity)."""
+        error_resp = _make_response(429, {"error": {"message": "rate limited"}})
+        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+            "429 Too Many Requests",
+            request=httpx.Request(
+                "POST", "https://openrouter.ai/api/v1/chat/completions"
+            ),
+            response=error_resp,
+        )
+
+        with pytest.raises(RateLimitError):
+            await mock_client.generate_image(prompt="a cat")
+
+    @pytest.mark.asyncio
+    async def test_generate_image_500_propagates(self, mock_client):
+        """HTTP 500 пробрасывается как httpx.HTTPStatusError (retryable через tenacity)."""
+        error_resp = _make_response(500, {"error": {"message": "server error"}})
+        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+            "500 Internal Server Error",
+            request=httpx.Request(
+                "POST", "https://openrouter.ai/api/v1/chat/completions"
+            ),
+            response=error_resp,
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await mock_client.generate_image(prompt="a cat")
+
+    @pytest.mark.asyncio
+    async def test_generate_image_missing_choices_logs(self, mock_client, caplog):
+        """Missing choices логируется с structured data: model, response_preview, prompt_preview."""
+        error_body = {"error": {"message": "model busy"}}
+        mock_client._post_with_breaker.return_value = _make_response(200, error_body)
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError):
+                await mock_client.generate_image(prompt="test prompt for logging")
+
+        # Проверяем что лог содержит structured extra
+        assert len(caplog.records) >= 1
+        log_record = caplog.records[-1]
+        assert hasattr(log_record, "model")
+        assert hasattr(log_record, "response_preview")
+        assert hasattr(log_record, "prompt_preview")
