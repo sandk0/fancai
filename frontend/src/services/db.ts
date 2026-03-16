@@ -74,6 +74,8 @@ export interface CachedImage {
   /** Размер в байтах */
   size: number;
   cachedAt: number;
+  /** JSON-сериализованный GeneratedImage для полного восстановления из кеша */
+  metadata?: string;
 }
 
 /** Тип операции синхронизации */

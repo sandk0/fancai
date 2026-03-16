@@ -176,16 +176,27 @@ Plans:
 **Goal:** Генерация изображений работает с первой попытки в >90% случаев. Серверный retry, валидация ответа OpenRouter, structured logging при ошибках
 **Requirements**: IMG-01, IMG-02, IMG-03
 **Depends on:** Phase 26
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 27-01-PLAN.md — Валидация ответа OpenRouter (choices) + обработка HTTP 400/429 в generate_image()
 - [ ] 27-02-PLAN.md — Серверный retry через tenacity (_generate_with_retry в ImagenService)
 
+### Phase 28: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
+
+**Goal:** Исправить 6 проблем frontend генерации: cache invalidation при регенерации, mock objects в IndexedDB, blob URL leak при удалении, 409 race condition, dead code cleanup
+**Requirements**: FIMG-01, FIMG-02, FIMG-03, FIMG-04, FIMG-05, FIMG-06
+**Depends on:** Phase 27
+**Plans:** 2 plans
+
+Plans:
+- [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
+- [ ] 28-02-PLAN.md — ImageModal useRegenerateImage mutation + dead code cleanup (FIMG-01, FIMG-05, FIMG-06)
+
 ## Progress
 
 **Execution Order:**
-Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
+Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26 -> 27 -> 28
 
 | Phase                                     | Milestone | Plans Complete | Status      | Completed  |
 | ----------------------------------------- | --------- | -------------- | ----------- | ---------- |
@@ -218,4 +229,5 @@ Plans:
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
 | 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 27. Надёжность генерации изображений      | 1/2 | In Progress|  | -          |
+| 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
+| 28. Аудит Frontend генерации              | v1.3      | 0/2            | Not started | -          |

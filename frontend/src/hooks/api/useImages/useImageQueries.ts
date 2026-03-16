@@ -4,19 +4,12 @@
  * @module hooks/api/useImages/useImageQueries
  */
 
-import {
-  useQuery,
-  type UseQueryOptions,
-} from '@tanstack/react-query';
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { imagesAPI } from '@/api/images';
 import { imageCache } from '@/services/imageCache';
 import { imageKeys, getCurrentUserId } from '../queryKeys';
 import { logger } from '@/lib/logger';
-import type {
-  GeneratedImage,
-  GenerationStatus,
-  DescriptionType,
-} from '@/types/api';
+import type { GeneratedImage, GenerationStatus, DescriptionType } from '@/types/api';
 
 /**
  * Получение изображений книги
@@ -85,9 +78,7 @@ export function useBookImages(
 
       // Кэшируем изображения в IndexedDB
       if (response.images.length > 0) {
-        logger.debug(
-          `💾 [useBookImages] Caching ${response.images.length} images to IndexedDB`
-        );
+        logger.debug(`💾 [useBookImages] Caching ${response.images.length} images to IndexedDB`);
 
         await Promise.all(
           response.images.map(async (image) => {
@@ -96,18 +87,10 @@ export function useBookImages(
               const cached = await imageCache.get(userId, image.description.id);
               if (!cached) {
                 // Загружаем и кэшируем
-                await imageCache.set(
-                  userId,
-                  image.description.id,
-                  image.image_url,
-                  bookId
-                );
+                await imageCache.set(userId, image.description.id, image.image_url, bookId);
               }
             } catch (err) {
-              logger.warn(
-                `⚠️ [useBookImages] Failed to cache image ${image.id}:`,
-                err
-              );
+              logger.warn(`⚠️ [useBookImages] Failed to cache image ${image.id}:`, err);
             }
           })
         );
@@ -152,22 +135,27 @@ export function useImageForDescription(
   return useQuery({
     queryKey: imageKeys.byDescription(userId, descriptionId),
     queryFn: async () => {
-      logger.debug(
-        `🖼️ [useImageForDescription] Fetching image for description ${descriptionId}`
-      );
+      logger.debug(`🖼️ [useImageForDescription] Fetching image for description ${descriptionId}`);
 
-      // 1. Проверяем IndexedDB кэш
-      const cachedUrl = await imageCache.get(userId, descriptionId);
-      if (cachedUrl) {
+      // 1. Проверяем IndexedDB кэш (с metadata для полного GeneratedImage)
+      const cached = await imageCache.getWithMetadata(userId, descriptionId);
+      if (cached) {
         logger.debug(
-          `✅ [useImageForDescription] Image loaded from IndexedDB cache`
+          `✅ [useImageForDescription] Image loaded from IndexedDB cache (hasMetadata: ${!!cached.metadata})`
         );
 
-        // Возвращаем mock объект с кэшированным URL
-        // В реальности нужно хранить полный GeneratedImage в кэше
+        // Если metadata содержит полный GeneratedImage -- используем его
+        if (cached.metadata && 'id' in cached.metadata) {
+          return {
+            ...cached.metadata,
+            image_url: cached.url, // Заменяем на blob URL
+          } as GeneratedImage;
+        }
+
+        // Fallback для старых записей без metadata -- mock объект
         return {
           id: descriptionId,
-          image_url: cachedUrl,
+          image_url: cached.url,
           description: {
             id: descriptionId,
             type: 'location' as DescriptionType,
@@ -189,9 +177,7 @@ export function useImageForDescription(
       }
 
       // 2. Загружаем с API
-      logger.debug(
-        `📡 [useImageForDescription] Image not in cache, fetching from API`
-      );
+      logger.debug(`📡 [useImageForDescription] Image not in cache, fetching from API`);
       const image = await imagesAPI.getImageForDescription(descriptionId);
 
       // 3. Кэшируем
@@ -201,13 +187,11 @@ export function useImageForDescription(
           userId,
           descriptionId,
           image.image_url,
-          bookId
+          bookId,
+          image as unknown as Record<string, unknown>
         );
       } catch (err) {
-        logger.warn(
-          `⚠️ [useImageForDescription] Failed to cache image:`,
-          err
-        );
+        logger.warn(`⚠️ [useImageForDescription] Failed to cache image:`, err);
       }
 
       return image;
@@ -235,10 +219,7 @@ export function useImageForDescription(
  * ```
  */
 export function useGenerationStatus(
-  options?: Omit<
-    UseQueryOptions<GenerationStatus, Error>,
-    'queryKey' | 'queryFn'
-  >
+  options?: Omit<UseQueryOptions<GenerationStatus, Error>, 'queryKey' | 'queryFn'>
 ) {
   const userId = getCurrentUserId();
 
