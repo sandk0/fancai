@@ -3,6 +3,7 @@
  *
  * Verifies ENT-01: renders type badge, full text, generate/view buttons,
  * spinner during generation, image preview after generation.
+ * Updated for TQ-based image loading (no more `image` prop).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -14,7 +15,7 @@ import type { Description, GeneratedImage } from '@/types/api';
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, fallback?: string) => {
       const translations: Record<string, string> = {
         'reader.description_drawer.generate': 'Generate',
         'reader.description_drawer.generating': 'Generating...',
@@ -24,8 +25,9 @@ vi.mock('react-i18next', () => ({
         'reader.description_drawer.type.atmosphere': 'Atmosphere',
         'reader.description_drawer.type.object': 'Object',
         'reader.description_drawer.type.action': 'Action',
+        'reader.description_drawer.regeneration_error': 'Regeneration error',
       };
-      return translations[key] || key;
+      return translations[key] || fallback || key;
     },
   }),
 }));
@@ -48,15 +50,49 @@ vi.mock('vaul', () => ({
 
 // Track generateImage mock state
 const mockMutate = vi.fn();
+const mockReset = vi.fn();
 let mockMutationState = {
   isPending: false,
+  isError: false,
   data: null as { image_url: string; description_id: string } | null,
   mutate: mockMutate,
+  reset: mockReset,
 };
 
-// Mock useGenerateImage
+// Track regenerateImage mock state
+const mockRegenMutate = vi.fn();
+const mockRegenReset = vi.fn();
+let mockRegenMutationState = {
+  isPending: false,
+  isError: false,
+  data: null as { image_url: string; description_id: string } | null,
+  mutate: mockRegenMutate,
+  reset: mockRegenReset,
+};
+
+// Track useImageForDescription mock state
+let mockImageQueryState = {
+  data: undefined as GeneratedImage | undefined,
+  isLoading: false,
+};
+
+// Mock useGenerateImage and useRegenerateImage
 vi.mock('@/hooks/api/useImages/useImageMutations', () => ({
   useGenerateImage: () => mockMutationState,
+  useRegenerateImage: () => mockRegenMutationState,
+}));
+
+// Mock useImageForDescription
+vi.mock('@/hooks/api/useImages/useImageQueries', () => ({
+  useImageForDescription: () => mockImageQueryState,
+}));
+
+// Mock notify
+vi.mock('@/stores/ui', () => ({
+  notify: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
 }));
 
 const mockDescription = {
@@ -88,8 +124,21 @@ describe('DescriptionDrawer', () => {
     vi.clearAllMocks();
     mockMutationState = {
       isPending: false,
+      isError: false,
       data: null,
       mutate: mockMutate,
+      reset: mockReset,
+    };
+    mockRegenMutationState = {
+      isPending: false,
+      isError: false,
+      data: null,
+      mutate: mockRegenMutate,
+      reset: mockRegenReset,
+    };
+    mockImageQueryState = {
+      data: undefined,
+      isLoading: false,
     };
   });
 
@@ -119,8 +168,13 @@ describe('DescriptionDrawer', () => {
     expect(btn).toBeInTheDocument();
   });
 
-  it('shows "View image" button when image with status=completed', () => {
-    render(<DescriptionDrawer {...defaultProps} image={mockCompletedImage} />);
+  it('shows "View image" button when TQ query returns completed image', () => {
+    mockImageQueryState = {
+      data: mockCompletedImage,
+      isLoading: false,
+    };
+
+    render(<DescriptionDrawer {...defaultProps} />);
 
     expect(screen.getByText('View image')).toBeInTheDocument();
   });
@@ -128,8 +182,10 @@ describe('DescriptionDrawer', () => {
   it('shows spinner and "Generating..." when isPending', () => {
     mockMutationState = {
       isPending: true,
+      isError: false,
       data: null,
       mutate: mockMutate,
+      reset: mockReset,
     };
 
     render(<DescriptionDrawer {...defaultProps} />);
@@ -143,8 +199,10 @@ describe('DescriptionDrawer', () => {
   it('shows image preview after successful generation', () => {
     mockMutationState = {
       isPending: false,
+      isError: false,
       data: { image_url: 'https://example.com/generated.jpg', description_id: 'desc-1' },
       mutate: mockMutate,
+      reset: mockReset,
     };
 
     render(<DescriptionDrawer {...defaultProps} />);
@@ -157,8 +215,10 @@ describe('DescriptionDrawer', () => {
     const onOpenImage = vi.fn();
     mockMutationState = {
       isPending: false,
+      isError: false,
       data: { image_url: 'https://example.com/generated.jpg', description_id: 'desc-1' },
       mutate: mockMutate,
+      reset: mockReset,
     };
 
     render(<DescriptionDrawer {...defaultProps} onOpenImage={onOpenImage} />);
@@ -187,15 +247,33 @@ describe('DescriptionDrawer', () => {
     });
   });
 
-  it('clicking "View image" calls onOpenImage with description and image', () => {
+  it('clicking "View image" calls onOpenImage with description and image from TQ', () => {
     const onOpenImage = vi.fn();
+    mockImageQueryState = {
+      data: mockCompletedImage,
+      isLoading: false,
+    };
 
-    render(
-      <DescriptionDrawer {...defaultProps} image={mockCompletedImage} onOpenImage={onOpenImage} />
-    );
+    render(<DescriptionDrawer {...defaultProps} onOpenImage={onOpenImage} />);
 
     fireEvent.click(screen.getByText('View image'));
 
     expect(onOpenImage).toHaveBeenCalledWith(mockDescription, mockCompletedImage);
+  });
+
+  it('does not show stale mutation data for different description (Bug 2 guard)', () => {
+    // generateMutation.data belongs to a different description
+    mockMutationState = {
+      isPending: false,
+      isError: false,
+      data: { image_url: 'https://example.com/stale.jpg', description_id: 'desc-OTHER' },
+      mutate: mockMutate,
+      reset: mockReset,
+    };
+
+    render(<DescriptionDrawer {...defaultProps} />);
+
+    // Should not find an img element because description_id doesn't match
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 });

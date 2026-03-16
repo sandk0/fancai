@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { booksAPI } from '@/api/books';
 import { STORAGE_KEYS } from '@/types/state';
-import type { BookDetail, Description, GeneratedImage } from '@/types/api';
+import type { BookDetail, Description } from '@/types/api';
 import {
   useEpubLoader,
   useLocationGeneration,
@@ -76,7 +76,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     localStorage.setItem(`${STORAGE_KEYS.READER_SETTINGS}_toc_open`, String(isTocOpen));
   }, [isTocOpen]);
   const [drawerDescription, setDrawerDescription] = useState<Description | null>(null);
-  const [drawerImage, setDrawerImage] = useState<GeneratedImage | undefined>(undefined);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [popupEntity, setPopupEntity] = useState<import('@/types/entity').EntityDetail | null>(
     null
@@ -257,11 +256,10 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
       const d = descriptions.find((x) => x.id === id);
       if (d) {
         setDrawerDescription(d);
-        setDrawerImage(images.find((x) => x.description_id === id));
         setIsDrawerOpen(true);
       }
     },
-    [descriptions, images]
+    [descriptions]
   );
 
   // Entity click handler and entity list (needed before handleCenterTap)
@@ -409,9 +407,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     rendition,
     descriptions,
     images,
-    onDescriptionClick: (d, i) => {
+    onDescriptionClick: (d, _i) => {
       setDrawerDescription(d);
-      setDrawerImage(i);
       setIsDrawerOpen(true);
     },
     enabled: renditionReady && descriptionHighlightingEnabled,
@@ -843,7 +840,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
       <DescriptionDrawer
         description={drawerDescription}
-        image={drawerImage}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onOpenImage={(d, i) => {
