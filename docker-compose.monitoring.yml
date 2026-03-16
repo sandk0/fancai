@@ -51,10 +51,11 @@ services:
       - -storageDataPath=/storage
       - -retentionPeriod=90d
       - -selfScrapeInterval=10s
+      - -memory.allowedPercent=80
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
     networks:
       - monitoring_net
 
