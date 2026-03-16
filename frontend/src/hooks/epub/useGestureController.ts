@@ -914,9 +914,12 @@ export const useGestureController = (
   }, [rendition, translateX, resetState, getIframeOffset, getTapAction, getInteractiveType]);
 
   // -------------------------------------------------------------------------
-  // iOS center-tap overlay
-  // On iOS, center-tap from iframe may not work reliably.
-  // We create a transparent overlay for center-tap detection.
+  // iOS full-screen gesture overlay
+  // iOS Safari does not deliver touch/pointer events to iframe contentDocument
+  // (confirmed: 100% events source:parent, 0% source:iframe).
+  // This overlay handles ALL gestures on iOS: edge taps, center taps,
+  // horizontal swipes with follow-finger, rubber-band at boundaries,
+  // vertical cancel, and touchcancel.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!isIOS() || !rendition || !enabled) return;
@@ -929,82 +932,469 @@ export const useGestureController = (
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
-    // FIX: overlay не должен покрывать область шапки (см. debug/header-click-hides-immediately.md)
     overlay.style.cssText = `
       position: absolute;
       top: calc(env(safe-area-inset-top) + 64px);
       bottom: env(safe-area-inset-bottom);
-      left: 15%;
-      right: 15%;
+      left: 10px;
+      right: 0;
       z-index: 5;
       background-color: transparent;
-      touch-action: pan-x pan-y;
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
       -webkit-user-select: none;
       user-select: none;
     `;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('role', 'presentation');
 
-    let touchStart: { x: number; y: number; time: number } | null = null;
-
+    // ----- handleOverlayTouchStart -----
     const handleOverlayTouchStart = (e: TouchEvent) => {
       if (!enabledRef.current) return;
+
       const touch = e.touches[0];
       if (!touch) return;
-      touchStart = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+
+      // Stop running animation
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+
+      // Check boundary for rubber-band
+      const info = getStageInfo(rendition);
+      const boundary = info
+        ? info.isAtStart && info.isAtEnd
+          ? null // Single-page chapter
+          : info.isAtStart
+            ? 'start'
+            : info.isAtEnd
+              ? 'end'
+              : null
+        : null;
+
+      const now = Date.now();
+      touchRef.current = {
+        state: 'pending',
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startTime: now,
+        lastTouchX: touch.clientX,
+        lastTouchTime: now,
+        boundary,
+      };
     };
 
+    // ----- handleOverlayTouchMove -----
+    const handleOverlayTouchMove = (e: TouchEvent) => {
+      if (!enabledRef.current) return;
+
+      const t = touchRef.current;
+      if (t.state !== 'pending' && t.state !== 'swiping') return;
+
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      const deltaX = touch.clientX - t.startX;
+      const deltaY = touch.clientY - t.startY;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      // Vertical scroll detection -- cancel with animated snap-back
+      if (
+        absDeltaY > FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold &&
+        absDeltaY / Math.max(absDeltaX, 1) > FOLLOW_FINGER_CONFIG.maxVerticalRatio
+      ) {
+        if (t.state === 'swiping') {
+          setPhase('animating');
+          animationRef.current = animate(translateX, 0, {
+            ...SPRING_RUBBER,
+            onComplete: () => {
+              animationRef.current = null;
+              resetState();
+            },
+          });
+        }
+        touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+        return;
+      }
+
+      // Not enough horizontal movement yet -- wait
+      if (t.state === 'pending' && absDeltaX <= FOLLOW_FINGER_CONFIG.tapVsSwipeThreshold) {
+        return;
+      }
+
+      // Transition pending -> swiping
+      if (t.state === 'pending') {
+        // Block swipe navigation when panels are open
+        if (isPanelOpenRef.current) {
+          touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+          return;
+        }
+
+        t.state = 'swiping';
+        setPhase('tracking');
+
+        // Notify auto-hide: swipe started
+        onSwipeStartRef.current();
+      }
+
+      // Prevent browser scroll for horizontal swipe
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
+      // Rubber-band at boundary
+      const boundary = t.boundary;
+      const isRubberBand =
+        boundary !== null &&
+        ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
+
+      if (isRubberBand) {
+        const rubberOffset = getRubberBandOffset(deltaX);
+        translateX.set(rubberOffset);
+
+        const absRubber = Math.abs(rubberOffset);
+        const showHint = absRubber > 15;
+        const hintDir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
+
+        // Only setState when value actually changes (minimize re-renders in touchmove)
+        if (showHint !== showChapterHintRef.current) {
+          showChapterHintRef.current = showHint;
+          setShowChapterHint(showHint);
+        }
+        if (hintDir !== chapterHintDirectionRef.current) {
+          chapterHintDirectionRef.current = hintDir;
+          setChapterHintDirection(hintDir);
+        }
+        if (boundary !== isAtBoundaryRef.current) {
+          isAtBoundaryRef.current = boundary;
+          setIsAtBoundary(boundary);
+        }
+      } else {
+        translateX.set(deltaX);
+        // Only setState when value actually changes
+        if (showChapterHintRef.current !== false) {
+          showChapterHintRef.current = false;
+          setShowChapterHint(false);
+        }
+        if (chapterHintDirectionRef.current !== null) {
+          chapterHintDirectionRef.current = null;
+          setChapterHintDirection(null);
+        }
+        if (isAtBoundaryRef.current !== null) {
+          isAtBoundaryRef.current = null;
+          setIsAtBoundary(null);
+        }
+      }
+
+      // Update last touch for velocity
+      t.lastTouchX = touch.clientX;
+      t.lastTouchTime = Date.now();
+    };
+
+    // ----- handleOverlayTouchEnd -----
     const handleOverlayTouchEnd = (e: TouchEvent) => {
-      if (!enabledRef.current || !touchStart) return;
+      if (!enabledRef.current) return;
+
+      const t = touchRef.current;
+      if (t.state === 'idle' || t.state === 'cancelled') {
+        touchRef.current = { ...INITIAL_TOUCH };
+        return;
+      }
 
       const touch = e.changedTouches[0];
       if (!touch) {
-        touchStart = null;
+        resetState();
         return;
       }
 
-      const deltaX = Math.abs(touch.clientX - touchStart.x);
-      const deltaY = Math.abs(touch.clientY - touchStart.y);
-      const duration = Date.now() - touchStart.time;
-      touchStart = null;
+      // ---------- TAP DETECTION (state === 'pending') ----------
+      if (t.state === 'pending') {
+        const deltaX = Math.abs(touch.clientX - t.startX);
+        const deltaY = Math.abs(touch.clientY - t.startY);
+        const duration = Date.now() - t.startTime;
 
-      // Not a tap
-      if (
-        duration >= TAP_MAX_DURATION ||
-        deltaX >= TAP_MAX_MOVEMENT ||
-        deltaY >= TAP_MAX_MOVEMENT
-      ) {
-        return;
-      }
+        touchRef.current = { ...INITIAL_TOUCH };
 
-      // FIX: не вызывать toggleUI если тап в области header (fallback-защита)
-      const headerThreshold = 80; // safe-area + header height
-      if (touch.clientY < headerThreshold) {
-        return;
-      }
+        // Long press -- don't handle (native text selection)
+        if (duration >= LONG_PRESS_TIMEOUT) {
+          return;
+        }
 
-      // Bridge: iOS overlay tap while panel open → dismiss all panels
-      if (isPanelOpenRef.current) {
-        onPanelDismissRef.current?.();
-        return;
-      }
+        // FIX: don't fire toggleUI if tap is in header area (fallback guard)
+        const headerThreshold = 80; // safe-area + header height
+        if (touch.clientY < headerThreshold) {
+          return;
+        }
 
-      // Center tap on iOS -- find description/entity via iframe elementFromPoint
-      const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
-      if (iframe) {
-        const iframeRect = iframe.getBoundingClientRect();
-        const viewportX = touch.clientX - iframeRect.left;
-        const viewportY = touch.clientY - iframeRect.top;
+        // Bridge: iOS overlay tap while panel open -> dismiss all panels
+        if (isPanelOpenRef.current) {
+          onPanelDismissRef.current?.();
+          return;
+        }
+
+        // Interactive element detection through iframe boundary
+        const iframe = document.querySelector('#epub-viewer iframe') as HTMLIFrameElement | null;
+        if (iframe) {
+          const iframeRect = iframe.getBoundingClientRect();
+          const viewportX = touch.clientX - iframeRect.left;
+          const viewportY = touch.clientY - iframeRect.top;
+
+          // Check interactive elements FIRST -- before zone detection
+          const iframeDoc = iframe.contentDocument;
+          const el = iframeDoc?.elementFromPoint(viewportX, viewportY);
+          const interactiveType = getInteractiveType(el ?? null);
+
+          // Relaxed movement threshold for interactive targets (finger jitter at edges)
+          const INTERACTIVE_MAX_MOVEMENT = 40;
+
+          logger.debug(
+            '[gesture:overlay] TAP detection -- clientX:',
+            touch.clientX,
+            'clientY:',
+            touch.clientY,
+            'viewportX:',
+            viewportX,
+            'viewportY:',
+            viewportY,
+            'interactiveType:',
+            interactiveType,
+            'deltaX:',
+            deltaX,
+            'deltaY:',
+            deltaY
+          );
+
+          if (
+            interactiveType &&
+            deltaX < INTERACTIVE_MAX_MOVEMENT &&
+            deltaY < INTERACTIVE_MAX_MOVEMENT
+          ) {
+            if (interactiveType === 'description' || interactiveType === 'entity') {
+              onCenterTapRef.current(viewportX, viewportY);
+              return;
+            }
+            // Other interactive (links, annotations) -- dispatch synthetic click
+            if (el) (el as HTMLElement).click?.();
+            return;
+          }
+
+          // Too much movement -- not a tap
+          if (deltaX >= TAP_MAX_MOVEMENT || deltaY >= TAP_MAX_MOVEMENT) {
+            return;
+          }
+        } else {
+          // No iframe -- still check movement
+          if (deltaX >= TAP_MAX_MOVEMENT || deltaY >= TAP_MAX_MOVEMENT) {
+            return;
+          }
+        }
+
+        // Zone detection -- coordinates already in screen space (overlay in parent document)
+        const action = getTapAction(touch.clientX, true);
+
+        logger.debug(
+          '[gesture:overlay] Zone detection -- clientX:',
+          touch.clientX,
+          'action:',
+          action,
+          'screenWidth:',
+          window.innerWidth
+        );
+
+        if (action === 'center') {
+          // Center tap: try interactive detection via iframe, then toggle UI
+          const iframeForCenter = document.querySelector(
+            '#epub-viewer iframe'
+          ) as HTMLIFrameElement | null;
+          if (iframeForCenter) {
+            const iframeRect = iframeForCenter.getBoundingClientRect();
+            void (async () => {
+              const handled = await onCenterTapRef.current(
+                touch.clientX - iframeRect.left,
+                touch.clientY - iframeRect.top
+              );
+              if (!handled) onToggleUIRef.current();
+            })();
+          } else {
+            onToggleUIRef.current();
+          }
+          return;
+        }
+
+        // Edge tap -> navigation with two-phase spring animation
+        onTapNavigateRef.current();
+
         void (async () => {
-          const handled = await onCenterTapRef.current(viewportX, viewportY);
-          if (!handled) onToggleUIRef.current();
+          const stageInfo = getStageInfo(rendition);
+          const vw = stageInfo?.viewportWidth || window.innerWidth;
+
+          // Phase 1: instant navigation
+          if (navLockRef.current.acquire()) {
+            try {
+              await onNavigateRef.current(action);
+            } finally {
+              navLockRef.current.release();
+            }
+          }
+
+          // Phase 2: visual spring slide-in (page arrives from edge)
+          if (pageAnimationEnabledRef.current) {
+            const slideFrom = action === 'next' ? vw : -vw;
+            translateX.set(slideFrom);
+            setPhase('animating');
+            if (animationRef.current) {
+              animationRef.current.stop();
+              animationRef.current = null;
+            }
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_TAP,
+              onComplete: () => {
+                animationRef.current = null;
+                resetState();
+              },
+            });
+          } else {
+            translateX.set(0);
+            resetState();
+          }
+        })();
+
+        return;
+      }
+
+      // ---------- SWIPE COMPLETION (state === 'swiping') ----------
+      const deltaX = touch.clientX - t.startX;
+      const currentTime = Date.now();
+      const velocity = calculateVelocity(touch.clientX, currentTime, t.lastTouchX, t.lastTouchTime);
+
+      const info = getStageInfo(rendition);
+      const viewportWidth = info?.viewportWidth || window.innerWidth;
+
+      // Check boundary rubber-band
+      const boundary = t.boundary;
+      const isRubberBand =
+        boundary !== null &&
+        ((boundary === 'start' && deltaX > 0) || (boundary === 'end' && deltaX < 0));
+
+      if (isRubberBand) {
+        const rubberOffset = Math.abs(getRubberBandOffset(deltaX));
+        const absVelocity = Math.abs(velocity);
+        const shouldTransition =
+          rubberOffset >= viewportWidth * FOLLOW_FINGER_CONFIG.chapterTransitionThreshold ||
+          (absVelocity > FOLLOW_FINGER_CONFIG.quickSwipeVelocity && rubberOffset > 10);
+
+        setPhase('animating');
+
+        if (shouldTransition && onChapterChangeRef.current) {
+          // Two-phase chapter transition: navigate FIRST, then slide-in
+          const dir: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
+
+          void (async () => {
+            if (navLockRef.current.acquire()) {
+              try {
+                await onChapterChangeRef.current!(dir);
+              } finally {
+                navLockRef.current.release();
+              }
+            }
+            if (pageAnimationEnabledRef.current) {
+              const slideFrom = dir === 'next' ? viewportWidth : -viewportWidth;
+              translateX.set(slideFrom);
+              animationRef.current = animate(translateX, 0, {
+                ...SPRING_TAP,
+                onComplete: () => {
+                  animationRef.current = null;
+                  resetState();
+                },
+              });
+            } else {
+              translateX.set(0);
+              resetState();
+            }
+          })();
+        } else {
+          // Snap-back (insufficient offset for chapter transition)
+          animationRef.current = animate(translateX, 0, {
+            ...SPRING_RUBBER,
+            velocity: velocity * 1000,
+            onComplete: () => {
+              animationRef.current = null;
+              resetState();
+            },
+          });
+        }
+        return;
+      }
+
+      // Normal swipe completion
+      const navigate = shouldNavigate(deltaX, velocity, viewportWidth);
+      const direction: 'next' | 'prev' = deltaX > 0 ? 'prev' : 'next';
+
+      setPhase('animating');
+
+      if (navigate) {
+        // Two-phase swipe: navigate FIRST, then slide-in from edge
+        void (async () => {
+          if (navLockRef.current.acquire()) {
+            try {
+              await onNavigateRef.current(direction);
+            } finally {
+              navLockRef.current.release();
+            }
+          }
+          if (pageAnimationEnabledRef.current) {
+            const slideFrom = direction === 'next' ? viewportWidth : -viewportWidth;
+            translateX.set(slideFrom);
+            animationRef.current = animate(translateX, 0, {
+              ...SPRING_TAP,
+              onComplete: () => {
+                animationRef.current = null;
+                resetState();
+              },
+            });
+          } else {
+            translateX.set(0);
+            resetState();
+          }
         })();
       } else {
-        onToggleUIRef.current();
+        // Snap back
+        animationRef.current = animate(translateX, 0, {
+          ...SPRING_RUBBER,
+          velocity: velocity * 1000,
+          onComplete: () => {
+            animationRef.current = null;
+            resetState();
+          },
+        });
       }
     };
 
+    // ----- handleOverlayTouchCancel -----
+    const handleOverlayTouchCancel = () => {
+      if (touchRef.current.state === 'swiping') {
+        setPhase('animating');
+        animationRef.current = animate(translateX, 0, {
+          ...SPRING_RUBBER,
+          onComplete: () => {
+            animationRef.current = null;
+            resetState();
+          },
+        });
+        touchRef.current = { ...INITIAL_TOUCH, state: 'cancelled' };
+        return;
+      }
+      touchRef.current = { ...INITIAL_TOUCH };
+      resetState();
+    };
+
+    // Bind events to overlay
     overlay.addEventListener('touchstart', handleOverlayTouchStart, { passive: true });
+    overlay.addEventListener('touchmove', handleOverlayTouchMove, { passive: false });
     overlay.addEventListener('touchend', handleOverlayTouchEnd, { passive: true });
+    overlay.addEventListener('touchcancel', handleOverlayTouchCancel, { passive: true });
 
     // Find the reader container to append the overlay
     const container = document.querySelector('.relative.h-full.w-full');
@@ -1014,10 +1404,12 @@ export const useGestureController = (
 
     return () => {
       overlay.removeEventListener('touchstart', handleOverlayTouchStart);
+      overlay.removeEventListener('touchmove', handleOverlayTouchMove);
       overlay.removeEventListener('touchend', handleOverlayTouchEnd);
+      overlay.removeEventListener('touchcancel', handleOverlayTouchCancel);
       overlay.remove();
     };
-  }, [rendition, enabled]);
+  }, [rendition, enabled, translateX, resetState, getTapAction, getInteractiveType]);
 
   // -------------------------------------------------------------------------
   // Slide-in animation for tap navigation
