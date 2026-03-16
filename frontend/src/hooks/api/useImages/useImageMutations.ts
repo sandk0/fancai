@@ -4,21 +4,13 @@
  * @module hooks/api/useImages/useImageMutations
  */
 
-import {
-  useMutation,
-  useQueryClient,
-  type UseMutationOptions,
-} from '@tanstack/react-query';
+import { useMutation, useQueryClient, type UseMutationOptions } from '@tanstack/react-query';
 import { imagesAPI } from '@/api/images';
 import { imageCache } from '@/services/imageCache';
 import { imageKeys, getCurrentUserId } from '../queryKeys';
 import { QUERY_RETRY_PRESETS } from '@/lib/queryClient';
 import { logger } from '@/lib/logger';
-import type {
-  ImageGenerationParams,
-  BatchGenerationRequest,
-  DescriptionType,
-} from '@/types/api';
+import type { ImageGenerationParams, BatchGenerationRequest, DescriptionType } from '@/types/api';
 
 /**
  * Мутация генерации изображения для описания
@@ -72,28 +64,24 @@ export function useGenerateImage(
 
   return useMutation({
     mutationFn: async ({ descriptionId, params = {} }) => {
-      logger.debug(
-        `[useGenerateImage] Generating image for description ${descriptionId}`
-      );
+      logger.debug(`[useGenerateImage] Generating image for description ${descriptionId}`);
       return imagesAPI.generateImageForDescription(descriptionId, params);
     },
     onSuccess: async (data, variables) => {
       // Cache the generated image
       // P1.3: Now using proper bookId for cache organization
       try {
-        await imageCache.set(
-          userId,
-          variables.descriptionId,
-          data.image_url,
-          variables.bookId
-        );
+        await imageCache.set(userId, variables.descriptionId, data.image_url, variables.bookId);
       } catch (err) {
         logger.warn(`[useGenerateImage] Failed to cache image:`, err);
       }
 
-      // Invalidate related queries
+      // Invalidate ALL related query keys
       queryClient.invalidateQueries({
         queryKey: imageKeys.byDescription(userId, variables.descriptionId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: imageKeys.byBook(userId, variables.bookId),
       });
       queryClient.invalidateQueries({ queryKey: imageKeys.userStats(userId) });
     },
@@ -167,17 +155,9 @@ export function useBatchGenerateImages(
       await Promise.all(
         data.images.map(async (image) => {
           try {
-            await imageCache.set(
-              userId,
-              image.description_id,
-              image.image_url,
-              bookId
-            );
+            await imageCache.set(userId, image.description_id, image.image_url, bookId);
           } catch (err) {
-            logger.warn(
-              `[useBatchGenerateImages] Failed to cache image:`,
-              err
-            );
+            logger.warn(`[useBatchGenerateImages] Failed to cache image:`, err);
           }
         })
       );
@@ -208,10 +188,7 @@ export function useBatchGenerateImages(
  * ```
  */
 export function useDeleteImage(
-  options?: Omit<
-    UseMutationOptions<{ message: string }, Error, string>,
-    'mutationFn'
-  >
+  options?: Omit<UseMutationOptions<{ message: string }, Error, string>, 'mutationFn'>
 ) {
   const queryClient = useQueryClient();
   const userId = getCurrentUserId();
@@ -291,12 +268,7 @@ export function useRegenerateImage(
       // Update cache
       // P1.3: Now using proper bookId for cache organization
       try {
-        await imageCache.set(
-          userId,
-          data.description_id,
-          data.image_url,
-          variables.bookId
-        );
+        await imageCache.set(userId, data.description_id, data.image_url, variables.bookId);
       } catch (err) {
         logger.warn(`[useRegenerateImage] Failed to cache image:`, err);
       }
