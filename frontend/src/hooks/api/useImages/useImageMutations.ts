@@ -180,25 +180,30 @@ export function useBatchGenerateImages(
  * ```tsx
  * const deleteMutation = useDeleteImage();
  *
- * const handleDelete = async (imageId: string) => {
+ * const handleDelete = async (imageId: string, descriptionId: string) => {
  *   if (confirm('Удалить изображение?')) {
- *     await deleteMutation.mutateAsync(imageId);
+ *     await deleteMutation.mutateAsync({ imageId, descriptionId });
  *   }
  * };
  * ```
  */
 export function useDeleteImage(
-  options?: Omit<UseMutationOptions<{ message: string }, Error, string>, 'mutationFn'>
+  options?: Omit<
+    UseMutationOptions<{ message: string }, Error, { imageId: string; descriptionId: string }>,
+    'mutationFn'
+  >
 ) {
   const queryClient = useQueryClient();
   const userId = getCurrentUserId();
 
   return useMutation({
-    mutationFn: (imageId: string) => imagesAPI.deleteImage(imageId),
-    onSuccess: async (_data, _imageId) => {
-      // Удаляем из всех кэшей
-      // TODO: нужен descriptionId для удаления из imageCache
-      // await imageCache.delete(descriptionId);
+    mutationFn: ({ imageId }: { imageId: string; descriptionId: string }) =>
+      imagesAPI.deleteImage(imageId),
+    onSuccess: async (_data, { descriptionId }) => {
+      // Очистить blob URL из памяти
+      imageCache.release(descriptionId);
+      // Удалить из IndexedDB
+      await imageCache.delete(userId, descriptionId);
 
       // Инвалидация всех image queries
       queryClient.invalidateQueries({ queryKey: imageKeys.all(userId) });

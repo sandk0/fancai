@@ -69,6 +69,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
 
   // Ref for description in polling useEffect (avoid stale closure)
   const descriptionRef = useRef<Description | null>(null);
+  // Guard ref to prevent double-fetch on 409 conflict
+  const isFetchingExistingRef = useRef(false);
   useEffect(() => {
     descriptionRef.current = selectedDescription;
   }, [selectedDescription]);
@@ -269,6 +271,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
           err.details?.detail?.includes?.('already exists');
 
         if (isConflict) {
+          if (isFetchingExistingRef.current) return; // prevent double-fetch
+          isFetchingExistingRef.current = true;
           try {
             // Fetch existing image
             const existingImage = await imagesAPI.getImageForDescription(description.id);
@@ -290,6 +294,8 @@ export const useImageModal = (options: UseImageModalOptions = {}): UseImageModal
               i18n.t('hooks.imageModal.error_title'),
               i18n.t('hooks.imageModal.load_error_short')
             );
+          } finally {
+            isFetchingExistingRef.current = false;
           }
         } else {
           const errorMessage = (error as Error).message || i18n.t('hooks.imageModal.create_error');
