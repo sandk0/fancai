@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
 status: "Phase 26 завершена (fix-images: image bugs + TQ refactoring)"
-last_updated: "2026-03-16T15:17:44.041Z"
+last_updated: "2026-03-16T15:53:09.870Z"
 last_activity: 2026-03-16 — Phase 26 Plan 01 завершена (image bugs + regeneration, 9 min)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -35,12 +35,12 @@ Progress: [██████████] 100%
 
 **Общая статистика:**
 
-| Milestone | Фазы | Планы | Время   | Среднее/план |
-| --------- | ---- | ----- | ------- | ------------ |
-| v1.0      | 9    | 23    | 9 дней  | --           |
-| v1.1      | 6    | 13    | 92 min  | 7 min        |
-| v1.2      | 8    | 21    | 4 дня   | --           |
-| v1.3      | 5    | —     | —       | —            |
+| Milestone | Фазы | Планы | Время  | Среднее/план |
+| --------- | ---- | ----- | ------ | ------------ |
+| v1.0      | 9    | 23    | 9 дней | --           |
+| v1.1      | 6    | 13    | 92 min | 7 min        |
+| v1.2      | 8    | 21    | 4 дня  | --           |
+| v1.3      | 5    | —     | —      | —            |
 
 ## Накопленный контекст
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 - Shared touchRef между overlay и iframe handler (platform-exclusive)
 - Shared FSM через dependency injection (GestureFSMDeps interface)
 - Overlay top динамический: 0 в immersive, safe-area+64px с header
+- UAT на iPhone 15 Pro: все 8 проверок пройдены (Safari, Chrome, PWA) -- Phase 23 Plan 02
 - Строго последовательный pipeline: каждая фаза зависит от предыдущей
 - TQ useQuery refetchInterval заменяет ручной setInterval для Celery task polling (Phase 26 Plan 02)
 - Visibility пауза через встроенный focusManager вместо useVisibilityManager (Phase 26 Plan 02)
