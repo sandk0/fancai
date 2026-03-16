@@ -168,13 +168,24 @@ Plans:
 
 Plans:
 
-- [ ] 26-01-PLAN.md — Фикс инвалидации query keys + рефакторинг DescriptionDrawer (TQ query, регенерация, сброс мутации) + обновление EpubReader
-- [ ] 26-02-PLAN.md — Рефакторинг useImageModal на TanStack Query (useMutation + useQuery polling)
+- [x] 26-01-PLAN.md — Фикс инвалидации query keys + рефакторинг DescriptionDrawer (TQ query, регенерация, сброс мутации) + обновление EpubReader
+- [x] 26-02-PLAN.md — Рефакторинг useImageModal на TanStack Query (useMutation + useQuery polling)
+
+### Phase 27: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
+
+**Goal:** Генерация изображений работает с первой попытки в >90% случаев. Серверный retry, валидация ответа OpenRouter, structured logging при ошибках
+**Requirements**: IMG-01, IMG-02, IMG-03
+**Depends on:** Phase 26
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] 27-01-PLAN.md — Валидация ответа OpenRouter (choices) + обработка HTTP 400/429 в generate_image()
+- [ ] 27-02-PLAN.md — Серверный retry через tenacity (_generate_with_retry в ImagenService)
 
 ## Progress
 
 **Execution Order:**
-Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26
+Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 
 | Phase                                     | Milestone | Plans Complete | Status      | Completed  |
 | ----------------------------------------- | --------- | -------------- | ----------- | ---------- |
@@ -203,7 +214,8 @@ Plans:
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
 | 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
 | 22. Корневой фикс touch event pipeline    | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
-| 23. Навигация и iOS overlay ревизия       | v1.3      | 2/2            | Complete    | 2026-03-16 |
+| 23. Навигация и iOS overlay ревизия       | v1.3      | Complete    | 2026-03-16 | 2026-03-16 |
 | 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
-| 26. fix(images)                           | 2/2       | Complete       | 2026-03-16  | -          |
+| 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
+| 27. Надёжность генерации изображений      | 1/2 | In Progress|  | -          |

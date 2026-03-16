@@ -10,7 +10,7 @@
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch, call
 from app.services.imagen_generator import (
     ImageGenerationResult,
     PromptTranslator,
@@ -389,3 +389,187 @@ class TestDescriptionType:
         assert DescriptionType.ATMOSPHERE.value == "atmosphere"
         assert DescriptionType.OBJECT.value == "object"
         assert DescriptionType.ACTION.value == "action"
+
+
+# =============================================================================
+# Тест 8: Retry-поведение ImagenService
+# =============================================================================
+
+
+@pytest.fixture(autouse=False)
+def no_retry_wait(monkeypatch):
+    """Убираем задержку tenacity в тестах."""
+    import tenacity
+
+    monkeypatch.setattr(tenacity.nap, "time", lambda *a, **kw: None)
+
+
+@pytest.fixture
+def imagen_service(mock_openrouter_client):
+    """ImagenService с mock клиентом и prompt engineer."""
+    service = ImagenService.__new__(ImagenService)
+    service._client = mock_openrouter_client
+    service._available = True
+    service._model = "black-forest-labs/flux.2-klein-4b"
+    # Mock prompt engineer
+    prompt_eng = MagicMock()
+    prompt_eng.create_prompt = AsyncMock(
+        return_value="A castle on a hill, digital art, SFW"
+    )
+    service._prompt_engineer = prompt_eng
+    return service
+
+
+class TestImagenServiceRetry:
+    """Тесты retry-поведения ImagenService.generate_image()."""
+
+    @pytest.mark.asyncio
+    async def test_generate_image_retry_on_transient_error(
+        self, imagen_service, sample_image_bytes, no_retry_wait
+    ):
+        """Transient ошибка (RuntimeError) retry-ится, второй вызов успешен."""
+        # RuntimeError на первый вызов, bytes на второй
+        imagen_service._client.generate_image = AsyncMock(
+            side_effect=[RuntimeError("no choices in response"), sample_image_bytes]
+        )
+
+        # Mock Redis cache check -> None (нет кэша)
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.close = AsyncMock()
+
+        with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
+            with patch.object(
+                ImagenService,
+                "_save_image",
+                new=AsyncMock(return_value="/tmp/test.png"),
+            ):
+                with patch.object(
+                    ImagenService,
+                    "_cache_result",
+                    new=AsyncMock(),
+                ):
+                    with patch(
+                        "app.services.imagen_generator.settings"
+                    ) as mock_settings:
+                        mock_settings.OPENROUTER_API_KEY = "test-key"
+                        mock_settings.OPENROUTER_IMAGE_MODEL = (
+                            "black-forest-labs/flux.2-klein-4b"
+                        )
+                        mock_settings.REDIS_URL = "redis://localhost:6379"
+
+                        result = await imagen_service.generate_image(
+                            "Старый замок", description_type="location"
+                        )
+
+        # Retry-ился: success=True
+        assert result.success is True
+        # generate_image вызван 2 раза (1 fail + 1 success)
+        assert imagen_service._client.generate_image.call_count == 2
+        # prompt engineer НЕ повторялся
+        assert imagen_service._prompt_engineer.create_prompt.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_generate_image_no_retry_on_value_error(
+        self, imagen_service, no_retry_wait
+    ):
+        """ValueError (400 Bad Request) НЕ retry-ится, сразу success=False."""
+        imagen_service._client.generate_image = AsyncMock(
+            side_effect=ValueError(
+                "OpenRouter rejected prompt (400): content moderation"
+            )
+        )
+
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.close = AsyncMock()
+
+        with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
+                mock_settings.OPENROUTER_API_KEY = "test-key"
+                mock_settings.OPENROUTER_IMAGE_MODEL = (
+                    "black-forest-labs/flux.2-klein-4b"
+                )
+                mock_settings.REDIS_URL = "redis://localhost:6379"
+
+                result = await imagen_service.generate_image(
+                    "Тест", description_type="location"
+                )
+
+        # Нет retry — сразу fail
+        assert result.success is False
+        assert "rejected prompt" in result.error_message
+        # generate_image вызван ровно 1 раз (без retry)
+        assert imagen_service._client.generate_image.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_generate_image_retry_exhausted(self, imagen_service, no_retry_wait):
+        """При retry exhaustion (5 попыток) возвращает success=False."""
+        # RuntimeError каждый раз — retry 5 раз и fail
+        imagen_service._client.generate_image = AsyncMock(
+            side_effect=RuntimeError("no choices in response")
+        )
+
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.close = AsyncMock()
+
+        with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
+            with patch("app.services.imagen_generator.settings") as mock_settings:
+                mock_settings.OPENROUTER_API_KEY = "test-key"
+                mock_settings.OPENROUTER_IMAGE_MODEL = (
+                    "black-forest-labs/flux.2-klein-4b"
+                )
+                mock_settings.REDIS_URL = "redis://localhost:6379"
+
+                result = await imagen_service.generate_image(
+                    "Тест", description_type="location"
+                )
+
+        # Retry exhausted — fail
+        assert result.success is False
+        # 1 initial + 4 retries = 5 вызовов
+        assert imagen_service._client.generate_image.call_count == 5
+
+    @pytest.mark.asyncio
+    async def test_generate_image_retry_on_connection_error(
+        self, imagen_service, sample_image_bytes, no_retry_wait
+    ):
+        """ConnectionError (retryable) retry-ится через tenacity."""
+        # ConnectionError на первый, success на второй
+        imagen_service._client.generate_image = AsyncMock(
+            side_effect=[ConnectionError("Connection refused"), sample_image_bytes]
+        )
+
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.close = AsyncMock()
+
+        with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
+            with patch.object(
+                ImagenService,
+                "_save_image",
+                new=AsyncMock(return_value="/tmp/test.png"),
+            ):
+                with patch.object(
+                    ImagenService,
+                    "_cache_result",
+                    new=AsyncMock(),
+                ):
+                    with patch(
+                        "app.services.imagen_generator.settings"
+                    ) as mock_settings:
+                        mock_settings.OPENROUTER_API_KEY = "test-key"
+                        mock_settings.OPENROUTER_IMAGE_MODEL = (
+                            "black-forest-labs/flux.2-klein-4b"
+                        )
+                        mock_settings.REDIS_URL = "redis://localhost:6379"
+
+                        result = await imagen_service.generate_image(
+                            "Замок", description_type="location"
+                        )
+
+        # ConnectionError retry-ился -> success
+        assert result.success is True
+        # Вызван больше 1 раза (retry)
+        assert imagen_service._client.generate_image.call_count > 1

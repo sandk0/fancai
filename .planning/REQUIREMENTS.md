@@ -42,6 +42,12 @@
 - [x] **MODAL-TQ**: useImageModal использует TanStack Query polling вместо setInterval
 - [x] **BUILD**: TypeScript компиляция и production build проходят после всех изменений
 
+### Надёжность генерации (Phase 27)
+
+- [x] **IMG-01**: `openrouter_client.py:generate_image()` валидирует наличие `choices` в JSON ответе и логирует полный ответ при ошибке
+- [ ] **IMG-02**: `imagen_generator.py:generate_image()` использует серверный retry (tenacity, 4 попытки) для transient ошибок OpenRouter
+- [x] **IMG-03**: HTTP 400 от OpenRouter обрабатывается как non-retryable с логированием промпта
+
 ## v2 Requirements
 
 ### Навигация
@@ -84,9 +90,13 @@
 | MODAL-TQ | Phase 26 | Complete |
 | BUILD | Phase 26 | Complete |
 
+| IMG-01 | Phase 27 | Complete |
+| IMG-02 | Phase 27 | Pending |
+| IMG-03 | Phase 27 | Complete |
+
 **Coverage:**
-- v1.3 requirements: 17 total
-- Mapped to phases: 17
+- v1.3 requirements: 20 total
+- Mapped to phases: 20
 - Unmapped: 0
 
 ---

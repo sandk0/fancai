@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: "Phase 26 завершена (fix-images: image bugs + TQ refactoring)"
-last_updated: "2026-03-16T15:53:09.870Z"
-last_activity: 2026-03-16 — Phase 26 Plan 01 завершена (image bugs + regeneration, 9 min)
+status: Phase 27 Plan 01 завершена (choices validation + 400/429 handling)
+last_updated: "2026-03-16T18:52:40.814Z"
+last_activity: 2026-03-16 — Phase 27 Plan 01 завершена (choices validation + 400/429 handling, 5 min)
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 8
+  completed_plans: 7
+  percent: 87
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 26 завершена (оба плана). Milestone v1.3 завершён.
+**Текущий фокус:** Phase 27 (OpenRouter FLUX.2 retry и error handling). Plan 01 завершена, Plan 02 следующая.
 
 ## Текущая позиция
 
-Phase: 26 (6 of 6) — fix(images): исправить баги генерации и отображения изображений
-Plan: 02 (завершена, оба плана выполнены)
-Status: Phase 26 завершена (fix-images: image bugs + TQ refactoring)
-Last activity: 2026-03-16 — Phase 26 Plan 01 завершена (image bugs + regeneration, 9 min)
+Phase: 27 (7 of 7) — Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
+Plan: 01 of 02 (Plan 01 завершена)
+Status: Phase 27 Plan 01 завершена (choices validation + 400/429 handling)
+Last activity: 2026-03-16 — Phase 27 Plan 01 завершена (choices validation + 400/429 handling, 5 min)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 87%
 
 ## Метрики производительности
 
@@ -62,6 +62,9 @@ Progress: [██████████] 100%
 - useImageForDescription TQ query как SSoT для изображений в DescriptionDrawer (Phase 26 Plan 01)
 - mutation.reset() при смене описания для предотвращения stale data (Phase 26 Plan 01)
 - imageKeys.byBook инвалидация в useGenerateImage для обновления images[] (Phase 26 Plan 01)
+- ValueError для HTTP 400 (non-retryable), RateLimitError для HTTP 429 (retryable) в generate_image (Phase 27 Plan 01)
+- RuntimeError для missing choices в OpenRouter ответе -- транзиентная ошибка (Phase 27 Plan 01)
+- Structured logging extra: model, duration, response_preview, prompt_preview (Phase 27 Plan 01)
 
 ### Ожидающие задачи
 
@@ -70,6 +73,7 @@ Progress: [██████████] 100%
 ### Эволюция Roadmap
 
 - Phase 26 добавлена: fix(images): исправить баги генерации и отображения изображений в читалке
+- Phase 27 добавлена: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
 
 ### Блокеры/Опасения
 
@@ -80,5 +84,5 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-16
-Phase 26 Plan 01 завершена. Task 1 (8f94b48): imageKeys.byBook инвалидация в useGenerateImage. Task 2 (3403846): DescriptionDrawer рефакторинг на TQ query, кнопка регенерации, сброс мутации. Phase 26 полностью завершена (2 плана).
-Resume file: None
+Phase 27 Plan 01 завершена. Task 1 (0e56df6): 7 failing TDD tests for generate_image. Task 2 (7dc326c): choices validation + HTTP 400/429 handling in generate_image. Все 23 теста зелёные.
+Resume file: .planning/phases/27-openrouter-flux-2-retry-error-handling/27-02-PLAN.md
