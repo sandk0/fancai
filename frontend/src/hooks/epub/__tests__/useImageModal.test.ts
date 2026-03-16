@@ -14,7 +14,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useImageModal } from '../useImageModal';
 import type { Description, GeneratedImage } from '@/types/api';
 
@@ -46,6 +48,12 @@ vi.mock('@/services/imageCache', () => ({
 
 vi.mock('@/hooks/api/queryKeys', () => ({
   getCurrentUserId: vi.fn().mockReturnValue('user-123'),
+  imageKeys: {
+    taskStatus: (taskId: string) => ['images', 'taskStatus', taskId],
+    byDescription: (userId: string, descId: string) => ['images', 'byDescription', userId, descId],
+    byBook: (userId: string, bookId: string) => ['images', 'byBook', userId, bookId],
+    userStats: (userId: string) => ['images', 'userStats', userId],
+  },
 }));
 
 vi.mock('@/hooks/shared/useVisibilityManager', () => ({
@@ -105,10 +113,24 @@ const mockImage: GeneratedImage = {
   chapter: { id: 'ch-1', number: 1, title: 'Chapter 1' },
 };
 
+// QueryClient wrapper for TanStack Query hooks
+let queryClient: QueryClient;
+
+const createWrapper = () => {
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+};
+
 describe('useImageModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
     // Reset document.visibilityState
     Object.defineProperty(document, 'visibilityState', {
       value: 'visible',
@@ -119,11 +141,14 @@ describe('useImageModal', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    queryClient.clear();
   });
 
   describe('Initial State', () => {
     it('should have correct initial state', () => {
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.selectedImage).toBeNull();
       expect(result.current.selectedDescription).toBeNull();
@@ -136,7 +161,9 @@ describe('useImageModal', () => {
     });
 
     it('should expose control functions', () => {
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       expect(typeof result.current.openModal).toBe('function');
       expect(typeof result.current.closeModal).toBe('function');
@@ -149,7 +176,9 @@ describe('useImageModal', () => {
     it('should open modal with provided image', async () => {
       vi.mocked(imageCache.get).mockResolvedValue(null);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -166,7 +195,9 @@ describe('useImageModal', () => {
       const cachedUrl = 'blob:http://localhost/cached-image';
       vi.mocked(imageCache.get).mockResolvedValue(cachedUrl);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -179,7 +210,9 @@ describe('useImageModal', () => {
     it('should cache image when not in cache', async () => {
       vi.mocked(imageCache.get).mockResolvedValue(null);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -196,15 +229,15 @@ describe('useImageModal', () => {
     it('should set description preview', async () => {
       vi.mocked(imageCache.get).mockResolvedValue(null);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
       });
 
-      expect(result.current.descriptionPreview).toBe(
-        mockDescription.content?.substring(0, 100)
-      );
+      expect(result.current.descriptionPreview).toBe(mockDescription.content?.substring(0, 100));
     });
   });
 
@@ -213,7 +246,9 @@ describe('useImageModal', () => {
       const cachedUrl = 'blob:http://localhost/cached-image';
       vi.mocked(imageCache.get).mockResolvedValue(cachedUrl);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -245,7 +280,9 @@ describe('useImageModal', () => {
         message: 'Pending',
       });
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -254,11 +291,7 @@ describe('useImageModal', () => {
       expect(result.current.isOpen).toBe(true);
       expect(result.current.isGenerating).toBe(true);
       expect(result.current.generationStatus).toBe('generating');
-      expect(imagesAPI.generateAsync).toHaveBeenCalledWith(
-        mockDescription.id,
-        {},
-        expect.any(AbortSignal)
-      );
+      expect(imagesAPI.generateAsync).toHaveBeenCalledWith(mockDescription.id, {});
     });
 
     it('should poll and complete generation on SUCCESS', async () => {
@@ -282,7 +315,9 @@ describe('useImageModal', () => {
         },
       });
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -297,9 +332,7 @@ describe('useImageModal', () => {
 
       expect(result.current.generationStatus).toBe('completed');
       expect(result.current.isGenerating).toBe(false);
-      expect(result.current.selectedImage?.image_url).toBe(
-        'https://example.com/new-image.png'
-      );
+      expect(result.current.selectedImage?.image_url).toBe('https://example.com/new-image.png');
       expect(notify.success).toHaveBeenCalled();
     });
 
@@ -322,7 +355,9 @@ describe('useImageModal', () => {
         },
       });
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -350,7 +385,9 @@ describe('useImageModal', () => {
       });
       vi.mocked(imagesAPI.getImageForDescription).mockResolvedValue(mockImage);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -367,11 +404,11 @@ describe('useImageModal', () => {
         response: { status: 409 },
         message: 'Image already exists',
       });
-      vi.mocked(imagesAPI.getImageForDescription).mockRejectedValue(
-        new Error('Fetch failed')
-      );
+      vi.mocked(imagesAPI.getImageForDescription).mockRejectedValue(new Error('Fetch failed'));
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -389,7 +426,9 @@ describe('useImageModal', () => {
         message: 'Server error',
       });
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -418,7 +457,9 @@ describe('useImageModal', () => {
         message: 'Pending',
       });
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -440,7 +481,9 @@ describe('useImageModal', () => {
     it('should close modal and reset state after animation delay', async () => {
       vi.mocked(imageCache.get).mockResolvedValue(null);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -468,7 +511,9 @@ describe('useImageModal', () => {
       const cachedUrl = 'blob:http://localhost/cached-image';
       vi.mocked(imageCache.get).mockResolvedValue(cachedUrl);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
@@ -488,7 +533,9 @@ describe('useImageModal', () => {
     it('should update image URL when image is selected', async () => {
       vi.mocked(imageCache.get).mockResolvedValue(null);
 
-      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }));
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -498,17 +545,15 @@ describe('useImageModal', () => {
         result.current.updateImage('https://example.com/regenerated.png');
       });
 
-      expect(result.current.selectedImage?.image_url).toBe(
-        'https://example.com/regenerated.png'
-      );
+      expect(result.current.selectedImage?.image_url).toBe('https://example.com/regenerated.png');
     });
   });
 
   describe('Cache disabled', () => {
     it('should skip cache when enableCache is false', async () => {
-      const { result } = renderHook(() =>
-        useImageModal({ bookId: 'book-1', enableCache: false })
-      );
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1', enableCache: false }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription, mockImage);
@@ -535,9 +580,9 @@ describe('useImageModal', () => {
         message: 'Pending',
       });
 
-      const { result, unmount } = renderHook(() =>
-        useImageModal({ bookId: 'book-1' })
-      );
+      const { result, unmount } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.openModal(mockDescription);
