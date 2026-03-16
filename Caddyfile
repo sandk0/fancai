@@ -82,11 +82,6 @@ monitor.fancai.ru {
         reverse_proxy fancai_victoriametrics:8428
     }
 
-    handle /uptime/* {
-        uri strip_prefix /uptime
-        reverse_proxy fancai_uptime_kuma:3001
-    }
-
     handle /dozzle/* {
         uri strip_prefix /dozzle
         reverse_proxy fancai_dozzle:8080
@@ -100,6 +95,17 @@ monitor.fancai.ru {
     handle {
         redir * /netdata/ permanent
     }
+}
+
+# Uptime Kuma — отдельный поддомен (не поддерживает subpath)
+uptime.fancai.ru {
+    encode zstd gzip
+
+    basic_auth {
+        admin {$MONITOR_PASSWORD_HASH}
+    }
+
+    reverse_proxy fancai_uptime_kuma:3001
 }
 
 # www -> non-www редирект
