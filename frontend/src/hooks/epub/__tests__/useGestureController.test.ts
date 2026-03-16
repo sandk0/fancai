@@ -169,5 +169,70 @@ describe('useGestureController', () => {
       expect(mod.calculateVelocity).toBeDefined();
       expect(mod.getRubberBandOffset).toBeDefined();
     });
+
+    it('gesture controller imports shared FSM functions', async () => {
+      const mod = await import('../gestureUtils');
+
+      expect(mod.processTouchStart).toBeDefined();
+      expect(mod.processTouchMove).toBeDefined();
+      expect(mod.processSwipeCompletion).toBeDefined();
+      expect(mod.processTouchCancel).toBeDefined();
+      expect(mod.INITIAL_TOUCH).toBeDefined();
+    });
+  });
+
+  describe('shared FSM usage in source code', () => {
+    it('uses processTouchStart, processTouchMove, processSwipeCompletion, processTouchCancel', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+
+      expect(source).toContain('processTouchStart(');
+      expect(source).toContain('processTouchMove(');
+      expect(source).toContain('processSwipeCompletion(');
+      expect(source).toContain('processTouchCancel(');
+    });
+  });
+
+  describe('isHeaderVisible support', () => {
+    it('GestureControllerOptions includes isHeaderVisible field', () => {
+      const mockOptions: GestureControllerOptions = {
+        rendition: null,
+        enabled: true,
+        onNavigate: async () => {},
+        onEdgeTap: () => {},
+        onCenterTap: () => false,
+        onToggleUI: () => {},
+        onSwipeStart: () => {},
+        onTapNavigate: () => {},
+        navLock: {
+          acquire: () => true,
+          release: () => {},
+          forceRelease: () => {},
+          isLocked: () => false,
+        },
+        isPanelOpen: false,
+        isHeaderVisible: true,
+      };
+      expect(mockOptions.isHeaderVisible).toBe(true);
+    });
+
+    it('dynamic overlay top depends on isHeaderVisible in source code', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+
+      // Separate useEffect for overlay.style.top
+      expect(source).toContain('gesture-controller-ios-overlay');
+      expect(source).toContain('isHeaderVisible');
+      // Dynamic top: 0 when header hidden, safe-area+64px when visible
+      expect(source).toContain('overlay.style.top = isHeaderVisible');
+    });
   });
 });
