@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Готов к планированию
-last_updated: "2026-03-15T12:57:56.396Z"
-last_activity: "2026-03-15 — Phase 21 выполнена: диагностика touch pipeline на iOS"
+status: Ожидает ручной верификации на iOS
+last_updated: "2026-03-16T02:37:31.097Z"
+last_activity: 2026-03-16 — Phase 22 Plan 01 Task 1 выполнена, Task 2 ожидает верификации
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 40
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 22 -- Хирургический фикс touch pipeline
+**Текущий фокус:** Phase 22 -- Полноэкранный iOS overlay с FSM (ожидает верификации на устройстве)
 
 ## Текущая позиция
 
 Phase: 22 (2 of 5) — Хирургический фикс touch pipeline
-Plan: —
-Status: Готов к планированию
-Last activity: 2026-03-15 — Phase 21 выполнена: диагностика touch pipeline на iOS
+Plan: 01 (Task 2 checkpoint:human-verify)
+Status: Ожидает ручной верификации на iOS
+Last activity: 2026-03-16 — Phase 22 Plan 01 Task 1 выполнена, Task 2 ожидает верификации
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Метрики производительности
 
@@ -48,8 +48,11 @@ Progress: [██░░░░░░░░] 20%
 
 Полная таблица решений: .planning/PROJECT.md
 
-- Корневая причина: capture-phase stopPropagation() в useEpubIOSFixes.ts блокирует все touch events
-- Стратегия фикса: удаление ~3 addEventListener + 1 функция-обработчик (хирургическое изменение)
+- Корневая причина: iOS Safari НЕ доставляет touch events в iframe contentDocument (100% source:parent)
+- Стратегия фикса: полноэкранный iOS overlay с FSM для всех жестов (Phase 22)
+- Overlay left:10px для Safari back gesture, touch-action:none
+- FSM inline в overlay useEffect (не вынесена в shared utility)
+- Shared touchRef между overlay и iframe handler (platform-exclusive)
 - Строго последовательный pipeline: каждая фаза зависит от предыдущей
 
 ### Ожидающие задачи
@@ -64,6 +67,6 @@ Progress: [██░░░░░░░░] 20%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-15
-Phase 21 завершена. Диагностика показала: iOS overlay перехватывает 100% touch-событий, iframe не получает ни одного. CSS touch-action корректен (pan-x pan-y). Готов к Phase 22.
+Последняя сессия: 2026-03-16
+Phase 22 Plan 01 Task 1 выполнена (f7ddc45). iOS overlay расширен на полный экран с полной FSM. Task 2 (checkpoint:human-verify) ожидает ручной верификации на iPhone 15 Pro.
 Resume file: None

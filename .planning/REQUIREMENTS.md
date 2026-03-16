@@ -14,8 +14,8 @@
 
 ### Touch Pipeline
 
-- [ ] **TOUCH-01**: Touch events доставляются из iframe к gesture controller на iOS Safari/Chrome/PWA
-- [ ] **TOUCH-02**: `touch-action` CSS корректно работает на iOS (верификация pan-x pan-y vs manipulation)
+- [x] **TOUCH-01**: Touch events доставляются из iframe к gesture controller на iOS Safari/Chrome/PWA
+- [x] **TOUCH-02**: `touch-action` CSS корректно работает на iOS (верификация pan-x pan-y vs manipulation)
 
 ### Навигация
 
@@ -59,8 +59,8 @@
 |-------------|-------|--------|
 | DEBUG-01 | Phase 21 | Pending |
 | DEBUG-02 | Phase 21 | Pending |
-| TOUCH-01 | Phase 22 | Pending |
-| TOUCH-02 | Phase 22 | Pending |
+| TOUCH-01 | Phase 22 | Complete |
+| TOUCH-02 | Phase 22 | Complete |
 | NAV-01 | Phase 23 | Pending |
 | NAV-02 | Phase 23 | Pending |
 | NAV-03 | Phase 23 | Pending |

@@ -47,7 +47,6 @@ type InteractiveType = 'description' | 'entity' | 'annotation' | 'link' | null;
 // Configuration
 // ---------------------------------------------------------------------------
 
-const TAP_MAX_DURATION = 250; // ms
 const TAP_MAX_MOVEMENT = 20; // px
 const LONG_PRESS_TIMEOUT = 250; // ms -- after this, release without action = long-press
 
