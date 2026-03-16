@@ -41,6 +41,7 @@ from app.monitoring.metrics import (
     circuit_breaker_state,
     circuit_breaker_failure_count,
 )
+from app.core.retry import RateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -565,6 +566,29 @@ class OpenRouterClient:
             resp = await self._post_with_breaker("/chat/completions", body)
             data = resp.json()
 
+            # Валидация: OpenRouter может вернуть JSON без choices (transient error)
+            if "choices" not in data or not data["choices"]:
+                error_info = data.get("error", {})
+                error_msg = (
+                    error_info.get("message", "Unknown error")
+                    if isinstance(error_info, dict)
+                    else str(error_info)
+                )
+                response_preview = str(data)[:500]
+                logger.error(
+                    "OpenRouter image: missing 'choices' in response",
+                    extra={
+                        "model": model,
+                        "duration": f"{time.time() - start_time:.2f}s",
+                        "response_preview": response_preview,
+                        "prompt_preview": prompt[:200],
+                        "error": error_msg,
+                    },
+                )
+                raise RuntimeError(
+                    f"OpenRouter {model}: no choices in response. Error: {error_msg}"
+                )
+
             # Ответ: choices[0].message.images[0].image_url.url
             # Формат: "data:image/png;base64,iVBORw0KGgo..."
             images = data["choices"][0]["message"].get("images", [])
@@ -608,6 +632,44 @@ class OpenRouterClient:
         except CircuitBreakerError:
             # Already logged in _post_with_breaker
             raise
+
+        except httpx.HTTPStatusError as e:
+            duration = time.time() - start_time
+            sc = e.response.status_code
+
+            if sc == 400:
+                # Non-retryable: OpenRouter отклонил промпт (модерация)
+                try:
+                    err_body = e.response.json()
+                    detail = err_body.get("error", {}).get("message", str(e))
+                except Exception:
+                    detail = e.response.text[:500]
+                logger.error(
+                    "OpenRouter image: 400 Bad Request (non-retryable)",
+                    extra={
+                        "model": model,
+                        "duration": f"{duration:.2f}s",
+                        "error_detail": detail,
+                        "prompt_preview": prompt[:200],
+                    },
+                )
+                record_llm_error(model=model, error_type="BadRequest")
+                record_llm_request(model=model, status="error", duration=duration)
+                # ValueError НЕ входит в IMAGE_GENERATION_EXCEPTIONS — tenacity НЕ retry-ит
+                raise ValueError(f"OpenRouter rejected prompt (400): {detail}")
+
+            elif sc == 429:
+                logger.warning(f"OpenRouter rate limit (429) for image model {model}")
+                record_llm_error(model=model, error_type="RateLimit")
+                record_llm_request(model=model, status="error", duration=duration)
+                # RateLimitError входит в IMAGE_GENERATION_EXCEPTIONS — tenacity retry-ит
+                raise RateLimitError(f"Rate limit for {model}")
+
+            else:
+                # 5xx и прочее — пробрасываем как есть
+                record_llm_error(model=model, error_type=f"HTTP_{sc}")
+                record_llm_request(model=model, status="error", duration=duration)
+                raise
 
         except Exception as e:
             duration = time.time() - start_time
