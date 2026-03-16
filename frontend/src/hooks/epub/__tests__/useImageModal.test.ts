@@ -507,7 +507,7 @@ describe('useImageModal', () => {
       expect(result.current.descriptionPreview).toBeNull();
     });
 
-    it('should release cached image URL on close', async () => {
+    it('should NOT release cached image URL on close (managed by cleanup interval)', async () => {
       const cachedUrl = 'blob:http://localhost/cached-image';
       vi.mocked(imageCache.get).mockResolvedValue(cachedUrl);
 
@@ -525,7 +525,32 @@ describe('useImageModal', () => {
         result.current.closeModal();
       });
 
-      expect(imageCache.release).toHaveBeenCalledWith(mockDescription.id);
+      expect(imageCache.release).not.toHaveBeenCalled();
+    });
+
+    it('should keep blob URL valid after modal close for DescriptionDrawer reuse', async () => {
+      const cachedUrl = 'blob:http://localhost/cached-image';
+      vi.mocked(imageCache.get).mockResolvedValue(cachedUrl);
+
+      const { result } = renderHook(() => useImageModal({ bookId: 'book-1' }), {
+        wrapper: createWrapper(),
+      });
+
+      // Open with cached image
+      await act(async () => {
+        await result.current.openModal(mockDescription);
+      });
+
+      expect(result.current.isCached).toBe(true);
+      expect(result.current.selectedImage?.image_url).toBe(cachedUrl);
+
+      // Close modal
+      act(() => {
+        result.current.closeModal();
+      });
+
+      // imageCache.release should NOT be called -- blob URL stays valid for TQ cache
+      expect(imageCache.release).not.toHaveBeenCalled();
     });
   });
 
