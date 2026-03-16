@@ -74,31 +74,31 @@ monitor.fancai.ru {
 
     handle /netdata/* {
         uri strip_prefix /netdata
-        reverse_proxy localhost:19999
+        reverse_proxy fancai_netdata:19999
     }
 
     handle /victoria/* {
         uri strip_prefix /victoria
-        reverse_proxy localhost:8428
+        reverse_proxy fancai_victoriametrics:8428
     }
 
     handle /uptime/* {
         uri strip_prefix /uptime
-        reverse_proxy localhost:3001
+        reverse_proxy fancai_uptime_kuma:3001
     }
 
     handle /dozzle/* {
         uri strip_prefix /dozzle
-        reverse_proxy localhost:8080
+        reverse_proxy fancai_dozzle:8080
     }
 
     handle /flower/* {
         uri strip_prefix /flower
-        reverse_proxy localhost:5555
+        reverse_proxy fancai_flower:5555
     }
 
     handle {
-        redir /netdata/ permanent
+        redir * /netdata/ permanent
     }
 }
 

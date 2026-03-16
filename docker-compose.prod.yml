@@ -49,6 +49,7 @@ services:
       retries: 3
     networks:
       - fancai_network
+      - monitoring_net
     deploy:
       resources:
         limits:
@@ -374,3 +375,6 @@ networks:
         - subnet: 172.22.0.0/16
     driver_opts:
       com.docker.network.bridge.name: br-fancai
+  monitoring_net:
+    external: true
+    name: app_monitoring_net

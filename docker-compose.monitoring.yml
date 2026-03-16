@@ -9,17 +9,16 @@ services:
   netdata:
     image: netdata/netdata:v2.5.0
     container_name: fancai_netdata
+    hostname: fancai-prod
     pid: host
-    network_mode: host
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
-    environment:
-      # Bind to localhost only — доступ через Caddy reverse proxy
-      - NETDATA_LISTENER_PORT=127.0.0.1:19999
+    ports:
+      - "127.0.0.1:19999:19999"
     volumes:
       - netdataconfig:/etc/netdata
       - netdatalib:/var/lib/netdata
@@ -36,8 +35,8 @@ services:
       resources:
         limits:
           memory: 256M
-    # ВАЖНО: network_mode=host — НЕ включать в bridge-сети
-    # Порт 19999 привязан к 127.0.0.1 через NETDATA_LISTENER_PORT
+    networks:
+      - monitoring_net
 
   # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
   victoriametrics:
@@ -61,7 +60,7 @@ services:
 
   # ─── Uptime Kuma — мониторинг доступности сервисов ───────────────────────────
   uptime-kuma:
-    image: louislam/uptime-kuma:2.4.1
+    image: louislam/uptime-kuma:2.2.1
     container_name: fancai_uptime_kuma
     restart: unless-stopped
     ports:
