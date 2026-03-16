@@ -1,6 +1,10 @@
 /**
  * useReaderImageModal - Custom hook for image modal state management
  *
+ * @deprecated Use useImageModal from '@/hooks/epub/useImageModal' directly.
+ * This hook is only used by the orphaned BookReader.tsx component.
+ * EpubReader.tsx uses useImageModal directly.
+ *
  * Manages image modal visibility and selected image/description state.
  *
  * @returns Modal state and control functions
@@ -50,7 +54,7 @@ export const useReaderImageModal = (): UseReaderImageModalReturn => {
 
   const updateImageUrl = useCallback((newUrl: string) => {
     logger.debug('🖼️ [useReaderImageModal] Updating image URL');
-    setSelectedImage(prev => {
+    setSelectedImage((prev) => {
       if (!prev) return null;
       return {
         ...prev,

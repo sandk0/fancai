@@ -250,6 +250,13 @@ export const imageKeys = {
   userStats: (userId: string) => [...imageKeys.all(userId), 'user', 'stats'] as const,
 
   /**
+   * Статус async задачи генерации изображения (Celery task polling)
+   * Не содержит userId, т.к. taskId уже уникален и привязан к пользователю через Celery.
+   * @param taskId - ID задачи Celery
+   */
+  taskStatus: (taskId: string) => ['images', 'task', taskId] as const,
+
+  /**
    * Админ-статистика по изображениям (не зависит от userId)
    */
   adminStats: () => ['images', 'admin', 'stats'] as const,
