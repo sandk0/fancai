@@ -193,6 +193,17 @@ Plans:
 - [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
 - [ ] 28-02-PLAN.md — ImageModal useRegenerateImage mutation + dead code cleanup (FIMG-01, FIMG-05, FIMG-06)
 
+### Phase 28.2: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (INSERTED)
+
+**Goal:** Переключить DescriptionDrawer с синхронного на async endpoint с polling (устранение axios timeout), разделить circuit breaker LLM/Image, добавить structured logging pipeline, показать ошибки генерации в UI, iOS IndexedDB graceful handling
+**Requirements**: N/A (decimal bugfix phase)
+**Depends on:** Phase 28
+**Plans:** 2 plans
+
+Plans:
+- [ ] 28.2-01-PLAN.md — Backend: отдельный circuit breaker для image generation + structured logging с timing на каждом этапе pipeline
+- [ ] 28.2-02-PLAN.md — Frontend: DescriptionDrawer async endpoint + polling + error display + iOS IndexedDB fix + тесты
+
 ### Phase 28.1: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (INSERTED)
 
 **Goal:** Убрать imageCache.release() из closeModal() — blob URL lifecycle управляется автоматическим cleanup interval (1 мин, TTL 30 мин), ручной release ломает shared blob URL в TQ cache
@@ -242,3 +253,4 @@ Plans:
 | 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
 | 28. Аудит Frontend генерации              | 2/2 | Complete    | 2026-03-16 | -          |
 | 28.1. fix: blob URL revoked ImageModal    | 1/1 | Complete    | 2026-03-16 | -          |
+| 28.2. fix: OpenRouter 2/3 + iOS storage   | v1.3      | 0/2            | Planned     | -          |
