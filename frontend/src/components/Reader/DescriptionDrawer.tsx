@@ -117,15 +117,6 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
 
   const [activeSnap, setActiveSnap] = useState<number | string | null>(SNAP_POINTS[0]);
 
-  // Reset snap point when opening
-  useEffect(() => {
-    if (isOpen) {
-      setActiveSnap(SNAP_POINTS[0]);
-    }
-  }, [isOpen]);
-
-  if (!description) return null;
-
   const handleGenerate = useCallback(async () => {
     if (!description) return;
     setGenStatus('generating');
@@ -161,6 +152,15 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
       }
     }
   }, [description, queryClient, t]);
+
+  // Reset snap point when opening
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSnap(SNAP_POINTS[0]);
+    }
+  }, [isOpen]);
+
+  if (!description) return null;
 
   const renderImageButton = () => {
     const isRegenerating = regenerateMutation.isPending;

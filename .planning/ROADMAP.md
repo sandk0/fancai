@@ -198,7 +198,7 @@ Plans:
 **Goal:** Переключить DescriptionDrawer с синхронного на async endpoint с polling (устранение axios timeout), разделить circuit breaker LLM/Image, добавить structured logging pipeline, показать ошибки генерации в UI, iOS IndexedDB graceful handling
 **Requirements**: N/A (decimal bugfix phase)
 **Depends on:** Phase 28
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 28.2-01-PLAN.md — Backend: отдельный circuit breaker для image generation + structured logging с timing на каждом этапе pipeline
@@ -253,4 +253,4 @@ Plans:
 | 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
 | 28. Аудит Frontend генерации              | 2/2 | Complete    | 2026-03-16 | -          |
 | 28.1. fix: blob URL revoked ImageModal    | 1/1 | Complete    | 2026-03-16 | -          |
-| 28.2. fix: OpenRouter 2/3 + iOS storage   | v1.3      | 0/2            | Planned     | -          |
+| 28.2. fix: OpenRouter 2/3 + iOS storage   | 2/2 | Complete   | 2026-03-17 | -          |
