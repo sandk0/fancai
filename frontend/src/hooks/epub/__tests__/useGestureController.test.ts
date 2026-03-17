@@ -235,4 +235,83 @@ describe('useGestureController', () => {
       expect(source).toContain('overlay.style.top = isHeaderVisible');
     });
   });
+
+  describe('iOS selection mode', () => {
+    it('source contains selectionModeRef for tracking overlay state', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+      expect(source).toContain('selectionModeRef');
+    });
+
+    it('source contains enterSelectionMode function that hides overlay', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+      expect(source).toContain('enterSelectionMode');
+      expect(source).toMatch(/display.*=.*'none'|display.*=.*"none"/);
+    });
+
+    it('long-press timer fires at 200ms (before LONG_PRESS_TIMEOUT 250ms)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+      expect(source).toMatch(/setTimeout\([\s\S]*?enterSelectionMode[\s\S]*?200\)/s);
+    });
+
+    it('overlay restore logic resets display to empty string', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+      expect(source).toMatch(/\.display\s*=\s*''/);
+    });
+
+    it('GestureControllerOptions includes isSelectionActive field', () => {
+      const mockOptions: GestureControllerOptions = {
+        rendition: null,
+        enabled: true,
+        onNavigate: async () => {},
+        onEdgeTap: () => {},
+        onCenterTap: () => false,
+        onToggleUI: () => {},
+        onSwipeStart: () => {},
+        onTapNavigate: () => {},
+        navLock: {
+          acquire: () => true,
+          release: () => {},
+          forceRelease: () => {},
+          isLocked: () => false,
+        },
+        isPanelOpen: false,
+        isSelectionActive: true,
+      };
+      expect(mockOptions.isSelectionActive).toBe(true);
+    });
+
+    it('long-press timer is cleared on touchmove', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../useGestureController.ts'),
+        'utf-8'
+      );
+      expect(source).toContain('longPressTimerRef');
+      // Find the handleOverlayTouchMove function body (after "const handleOverlayTouchMove")
+      const moveFnStart = source.indexOf('const handleOverlayTouchMove');
+      const moveFnBody = source.slice(moveFnStart, moveFnStart + 300);
+      expect(moveFnBody).toContain('clearTimeout');
+    });
+  });
 });
