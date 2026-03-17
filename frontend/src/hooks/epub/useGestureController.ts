@@ -769,44 +769,42 @@ export const useGestureController = (
       overlay.style.display = 'none';
       selectionModeRef.current = true;
 
-      // Bridge: listen for native iOS selection on iframe document.
-      // epub.js listens to selectionchange too, but the touch started on our overlay
-      // so epub.js might miss it. We detect selection to restore overlay on dismiss.
-      let selectionSeen = false;
-      const contents = rendition?.getContents()?.[0];
-      const iframeDoc = (contents as { document?: Document } | undefined)?.document;
-      if (iframeDoc) {
-        const onSelChange = () => {
-          if (!selectionModeRef.current) return;
-          const sel = iframeDoc.defaultView?.getSelection();
-          const hasText = !!(sel && sel.toString().trim().length > 0);
-          if (hasText && !selectionSeen) {
-            selectionSeen = true;
-            // epub.js should fire 'selected' via its own selectionchange listener.
-            // As fallback, dispatch synthetic mouseup to trigger epub.js handler.
-            setTimeout(() => {
-              if (selectionModeRef.current && !isSelectionActiveRef.current) {
-                iframeDoc.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-              }
-            }, 350);
-          } else if (!hasText && selectionSeen) {
-            // Native selection cleared — restore overlay
-            restoreOverlay();
-          }
-        };
-        iframeDoc.addEventListener('selectionchange', onSelChange);
-        iframeSelectionCleanup = () => {
-          iframeDoc.removeEventListener('selectionchange', onSelChange);
-        };
-      }
+      // Restore on next touchstart on parent document.
+      // iOS doesn't deliver events to iframe content, so we can't use selectionchange.
+      // Instead: any touchstart on document after the long-press = user dismissed selection.
+      // Native iOS menu items (Copy/Paste) are system UI — no DOM events — so this
+      // won't fire while the user interacts with the native menu.
+      const restoreOnTouch = () => {
+        if (!selectionModeRef.current) return;
+        // Clear iframe selection manually (iOS can't do it — events don't reach iframe)
+        try {
+          const c = rendition?.getContents()?.[0];
+          const iDoc = (c as { document?: Document } | undefined)?.document;
+          iDoc?.defaultView?.getSelection()?.removeAllRanges();
+        } catch {
+          /* ignore */
+        }
+        document.removeEventListener('touchstart', restoreOnTouch, true);
+        restoreOverlay();
+      };
 
-      // Fallback: restore overlay if no selection detected after 5s
+      // Attach after current touch sequence completes (avoid catching the long-press itself)
+      setTimeout(() => {
+        if (selectionModeRef.current) {
+          document.addEventListener('touchstart', restoreOnTouch, { capture: true });
+        }
+      }, 300);
+
+      iframeSelectionCleanup = () => {
+        document.removeEventListener('touchstart', restoreOnTouch, true);
+      };
+
+      // Fallback: restore after 30s if user never taps (e.g. switched apps)
       fallbackRestoreTimer = setTimeout(() => {
         fallbackRestoreTimer = null;
-        if (selectionModeRef.current && !isSelectionActiveRef.current) {
-          restoreOverlay();
-        }
-      }, 5000);
+        document.removeEventListener('touchstart', restoreOnTouch, true);
+        if (selectionModeRef.current) restoreOverlay();
+      }, 30000);
     };
 
     // ----- handleOverlayTouchStart (shared FSM) -----
