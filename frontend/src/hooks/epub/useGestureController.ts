@@ -745,11 +745,68 @@ export const useGestureController = (
     };
 
     // --- Selection mode: hide/show overlay for text selection passthrough ---
+    let iframeSelectionCleanup: (() => void) | null = null;
+    let fallbackRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const restoreOverlay = () => {
+      if (!selectionModeRef.current) return;
+      selectionModeRef.current = false;
+      overlay.style.display = '';
+      overlay.style.pointerEvents = '';
+      if (iframeSelectionCleanup) {
+        iframeSelectionCleanup();
+        iframeSelectionCleanup = null;
+      }
+      if (fallbackRestoreTimer) {
+        clearTimeout(fallbackRestoreTimer);
+        fallbackRestoreTimer = null;
+      }
+    };
+
     const enterSelectionMode = () => {
       if (selectionModeRef.current) return;
       overlay.style.pointerEvents = 'none';
       overlay.style.display = 'none';
       selectionModeRef.current = true;
+
+      // Bridge: listen for native iOS selection on iframe document.
+      // epub.js listens to selectionchange too, but the touch started on our overlay
+      // so epub.js might miss it. We detect selection to restore overlay on dismiss.
+      let selectionSeen = false;
+      const contents = rendition?.getContents()?.[0];
+      const iframeDoc = (contents as { document?: Document } | undefined)?.document;
+      if (iframeDoc) {
+        const onSelChange = () => {
+          if (!selectionModeRef.current) return;
+          const sel = iframeDoc.defaultView?.getSelection();
+          const hasText = !!(sel && sel.toString().trim().length > 0);
+          if (hasText && !selectionSeen) {
+            selectionSeen = true;
+            // epub.js should fire 'selected' via its own selectionchange listener.
+            // As fallback, dispatch synthetic mouseup to trigger epub.js handler.
+            setTimeout(() => {
+              if (selectionModeRef.current && !isSelectionActiveRef.current) {
+                iframeDoc.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+              }
+            }, 350);
+          } else if (!hasText && selectionSeen) {
+            // Native selection cleared — restore overlay
+            restoreOverlay();
+          }
+        };
+        iframeDoc.addEventListener('selectionchange', onSelChange);
+        iframeSelectionCleanup = () => {
+          iframeDoc.removeEventListener('selectionchange', onSelChange);
+        };
+      }
+
+      // Fallback: restore overlay if no selection detected after 5s
+      fallbackRestoreTimer = setTimeout(() => {
+        fallbackRestoreTimer = null;
+        if (selectionModeRef.current && !isSelectionActiveRef.current) {
+          restoreOverlay();
+        }
+      }, 5000);
     };
 
     // ----- handleOverlayTouchStart (shared FSM) -----
@@ -988,6 +1045,15 @@ export const useGestureController = (
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
       }
+      if (iframeSelectionCleanup) {
+        iframeSelectionCleanup();
+        iframeSelectionCleanup = null;
+      }
+      if (fallbackRestoreTimer) {
+        clearTimeout(fallbackRestoreTimer);
+        fallbackRestoreTimer = null;
+      }
+      selectionModeRef.current = false;
       overlay.removeEventListener('touchstart', handleOverlayTouchStart);
       overlay.removeEventListener('touchmove', handleOverlayTouchMove);
       overlay.removeEventListener('touchend', handleOverlayTouchEnd);
@@ -997,23 +1063,21 @@ export const useGestureController = (
   }, [rendition, enabled, translateX, resetState, getTapAction, getInteractiveType]);
 
   // -------------------------------------------------------------------------
-  // Restore iOS overlay when selection is dismissed (isSelectionActive: true -> false)
+  // Restore iOS overlay when selection is dismissed via React state
+  // (isSelectionActive: true -> false). This complements the selectionchange
+  // bridge inside enterSelectionMode which handles native dismiss path.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!isIOS()) return;
     // Selection still active or never entered selection mode -- skip
     if (isSelectionActive || !selectionModeRef.current) return;
-    // Selection dismissed -- restore overlay with debounce
+    // Selection dismissed via React state -- restore overlay
     selectionModeRef.current = false;
-    const restoreTimer = setTimeout(() => {
-      if (selectionModeRef.current) return; // re-entered selection mode
-      const ol = document.getElementById('gesture-controller-ios-overlay');
-      if (ol) {
-        ol.style.display = '';
-        ol.style.pointerEvents = '';
-      }
-    }, 100);
-    return () => clearTimeout(restoreTimer);
+    const ol = document.getElementById('gesture-controller-ios-overlay');
+    if (ol) {
+      ol.style.display = '';
+      ol.style.pointerEvents = '';
+    }
   }, [isSelectionActive]);
 
   // -------------------------------------------------------------------------
