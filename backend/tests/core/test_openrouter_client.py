@@ -537,11 +537,12 @@ def _make_image_response(image_b64: str = "iVBORw0KGgo=") -> httpx.Response:
 
 @pytest.fixture
 def mock_client():
-    """OpenRouterClient с замоканным _post_with_breaker."""
+    """OpenRouterClient с замоканными _post_with_breaker и _post_with_image_breaker."""
     from app.core.openrouter_client import OpenRouterClient
 
     client = OpenRouterClient.__new__(OpenRouterClient)
     client._post_with_breaker = AsyncMock()
+    client._post_with_image_breaker = AsyncMock()
     return client
 
 
@@ -556,7 +557,7 @@ class TestGenerateImage:
     @pytest.mark.asyncio
     async def test_generate_image_success(self, mock_client):
         """generate_image возвращает bytes при успешном ответе с choices."""
-        mock_client._post_with_breaker.return_value = _make_image_response()
+        mock_client._post_with_image_breaker.return_value = _make_image_response()
 
         result = await mock_client.generate_image(prompt="a cat sitting on a chair")
 
@@ -567,7 +568,9 @@ class TestGenerateImage:
     async def test_generate_image_missing_choices(self, mock_client):
         """Ответ без choices бросает RuntimeError с 'no choices'."""
         error_body = {"error": {"message": "model busy"}}
-        mock_client._post_with_breaker.return_value = _make_response(200, error_body)
+        mock_client._post_with_image_breaker.return_value = _make_response(
+            200, error_body
+        )
 
         with pytest.raises(RuntimeError, match="no choices"):
             await mock_client.generate_image(prompt="a dog")
@@ -576,7 +579,7 @@ class TestGenerateImage:
     async def test_generate_image_empty_choices(self, mock_client):
         """Ответ с пустым choices бросает RuntimeError с 'no choices'."""
         empty_choices_body = {"choices": []}
-        mock_client._post_with_breaker.return_value = _make_response(
+        mock_client._post_with_image_breaker.return_value = _make_response(
             200, empty_choices_body
         )
 
@@ -587,7 +590,7 @@ class TestGenerateImage:
     async def test_generate_image_400_bad_request(self, mock_client):
         """HTTP 400 бросает ValueError (non-retryable), НЕ httpx.HTTPStatusError."""
         error_resp = _make_response(400, {"error": {"message": "content moderation"}})
-        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+        mock_client._post_with_image_breaker.side_effect = httpx.HTTPStatusError(
             "400 Bad Request",
             request=httpx.Request(
                 "POST", "https://openrouter.ai/api/v1/chat/completions"
@@ -603,7 +606,7 @@ class TestGenerateImage:
     async def test_generate_image_429_rate_limit(self, mock_client):
         """HTTP 429 бросает RateLimitError (retryable через tenacity)."""
         error_resp = _make_response(429, {"error": {"message": "rate limited"}})
-        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+        mock_client._post_with_image_breaker.side_effect = httpx.HTTPStatusError(
             "429 Too Many Requests",
             request=httpx.Request(
                 "POST", "https://openrouter.ai/api/v1/chat/completions"
@@ -618,7 +621,7 @@ class TestGenerateImage:
     async def test_generate_image_500_propagates(self, mock_client):
         """HTTP 500 пробрасывается как httpx.HTTPStatusError (retryable через tenacity)."""
         error_resp = _make_response(500, {"error": {"message": "server error"}})
-        mock_client._post_with_breaker.side_effect = httpx.HTTPStatusError(
+        mock_client._post_with_image_breaker.side_effect = httpx.HTTPStatusError(
             "500 Internal Server Error",
             request=httpx.Request(
                 "POST", "https://openrouter.ai/api/v1/chat/completions"
@@ -633,7 +636,9 @@ class TestGenerateImage:
     async def test_generate_image_missing_choices_logs(self, mock_client, caplog):
         """Missing choices логируется с structured data: model, response_preview, prompt_preview."""
         error_body = {"error": {"message": "model busy"}}
-        mock_client._post_with_breaker.return_value = _make_response(200, error_body)
+        mock_client._post_with_image_breaker.return_value = _make_response(
+            200, error_body
+        )
 
         with caplog.at_level(logging.ERROR):
             with pytest.raises(RuntimeError):

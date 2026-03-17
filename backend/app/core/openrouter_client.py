@@ -89,15 +89,26 @@ openrouter_breaker = CircuitBreaker(
     name="openrouter_api",
 )
 
+# Отдельный circuit breaker для image generation.
+# LLM failures (entity extraction, translation) НЕ должны блокировать image generation.
+openrouter_image_breaker = CircuitBreaker(
+    failure_threshold=5,
+    recovery_timeout=60,
+    expected_exception=CIRCUIT_BREAKER_EXCEPTIONS,
+    name="openrouter_image",
+)
+
 
 def _update_cb_metrics() -> None:
     """Update Prometheus gauges for circuit breaker state."""
-    state = openrouter_breaker.state
-    state_value = {"closed": 0, "half_open": 1, "open": 2}.get(state, -1)
-    circuit_breaker_state.labels(name="openrouter_api").set(state_value)
-    circuit_breaker_failure_count.labels(name="openrouter_api").set(
-        openrouter_breaker.failure_count
-    )
+    for name, breaker in [
+        ("openrouter_api", openrouter_breaker),
+        ("openrouter_image", openrouter_image_breaker),
+    ]:
+        state = breaker.state
+        state_value = {"closed": 0, "half_open": 1, "open": 2}.get(state, -1)
+        circuit_breaker_state.labels(name=name).set(state_value)
+        circuit_breaker_failure_count.labels(name=name).set(breaker.failure_count)
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +207,7 @@ class OpenRouterClient:
     Использует httpx.AsyncClient напрямую (без OpenAI SDK).
     Реализует client-side fallback chain для LLM.
     Image generation использует /chat/completions с modalities.
-    Все HTTP-вызовы защищены единым circuit breaker (openrouter_breaker).
+    LLM HTTP-вызовы защищены openrouter_breaker, image generation — openrouter_image_breaker.
     """
 
     def __init__(self, api_key: str, timeout: int = 120):
@@ -264,6 +275,31 @@ class OpenRouterClient:
             return result
         except CIRCUIT_BREAKER_EXCEPTIONS:
             # Network error counted by CB — update metrics
+            _update_cb_metrics()
+            raise
+
+    async def _post_with_image_breaker(
+        self, endpoint: str, body: dict
+    ) -> httpx.Response:
+        """HTTP POST через image-specific circuit breaker."""
+        if openrouter_image_breaker.opened:
+            logger.error(
+                "[OpenRouter] Image circuit breaker OPEN -- "
+                "image запросы заблокированы на 60 сек"
+            )
+            _update_cb_metrics()
+            raise CircuitBreakerError(openrouter_image_breaker)
+
+        async def _do_post() -> httpx.Response:
+            resp = await self._get_client().post(endpoint, json=body)
+            resp.raise_for_status()
+            return resp
+
+        try:
+            result = await openrouter_image_breaker.call_async(_do_post)
+            _update_cb_metrics()
+            return result
+        except CIRCUIT_BREAKER_EXCEPTIONS:
             _update_cb_metrics()
             raise
 
@@ -563,7 +599,7 @@ class OpenRouterClient:
 
         start_time = time.time()
         try:
-            resp = await self._post_with_breaker("/chat/completions", body)
+            resp = await self._post_with_image_breaker("/chat/completions", body)
             data = resp.json()
 
             # Валидация: OpenRouter может вернуть JSON без choices (transient error)

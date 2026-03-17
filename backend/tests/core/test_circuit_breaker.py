@@ -22,6 +22,7 @@ import pytest
 from app.core.openrouter_client import (
     OpenRouterClient,
     openrouter_breaker,
+    openrouter_image_breaker,
     CircuitBreakerError,
     CIRCUIT_BREAKER_EXCEPTIONS,
 )
@@ -30,10 +31,11 @@ from app.monitoring.metrics import circuit_breaker_state
 
 def _reset_breaker() -> None:
     """Reset circuit breaker state before each test."""
-    openrouter_breaker._failure_count = 0
-    openrouter_breaker._state = "closed"
-    openrouter_breaker._opened = monotonic()
-    openrouter_breaker._last_failure = None
+    for breaker in (openrouter_breaker, openrouter_image_breaker):
+        breaker._failure_count = 0
+        breaker._state = "closed"
+        breaker._opened = monotonic()
+        breaker._last_failure = None
 
 
 def _make_client() -> OpenRouterClient:
@@ -231,10 +233,11 @@ async def test_generate_image_protected_by_cb():
     mock_http = AsyncMock()
     mock_http.is_closed = False
 
-    # Set CB to open state (uses monotonic clock)
-    openrouter_breaker._failure_count = 5
-    openrouter_breaker._state = "open"
-    openrouter_breaker._opened = monotonic()
+    # Set image CB to open state (uses monotonic clock)
+    # generate_image uses openrouter_image_breaker (separate from LLM breaker)
+    openrouter_image_breaker._failure_count = 5
+    openrouter_image_breaker._state = "open"
+    openrouter_image_breaker._opened = monotonic()
 
     with patch.object(client, "_get_client", return_value=mock_http):
         with pytest.raises(CircuitBreakerError):

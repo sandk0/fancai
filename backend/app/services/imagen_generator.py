@@ -125,10 +125,19 @@ class PromptTranslator:
                 logger.warning(f"Redis cache read error: {e}")
 
         try:
+            stage_start = time.time()
             translation = await self._client.generate_text(
                 prompt=russian_text,
                 system_prompt=self.TRANSLATION_SYSTEM_PROMPT,
                 temperature=0.1,
+            )
+
+            logger.info(
+                "Translation complete",
+                extra={
+                    "pipeline_stage": "translation",
+                    "duration": f"{time.time() - stage_start:.2f}s",
+                },
             )
 
             # Кэшируем в Redis (7 дней)
@@ -143,7 +152,14 @@ class PromptTranslator:
             return translation
 
         except Exception as e:
-            logger.error(f"Translation failed: {e}")
+            logger.error(
+                f"Translation failed, using original text",
+                extra={
+                    "pipeline_stage": "translation",
+                    "duration": f"{time.time() - stage_start:.2f}s",
+                    "error": str(e)[:200],
+                },
+            )
             return russian_text
 
 
@@ -418,7 +434,8 @@ class ImagenService:
             except ValueError:
                 desc_type = DescriptionType.LOCATION
 
-            # Semantic caching: проверяем Redis
+            # Stage 1: Redis cache check
+            stage_start = time.time()
             effective_aspect = aspect_ratio or "4:3"
             cache_key = f"imagen:cache:{hashlib.md5((description + effective_aspect).encode()).hexdigest()}"
 
@@ -432,7 +449,12 @@ class ImagenService:
                 if cached_url:
                     cached_url_str = cached_url.decode("utf-8")
                     logger.info(
-                        f"Semantic Cache HIT for prompt. URL: {cached_url_str[:30]}..."
+                        "Image pipeline: cache HIT",
+                        extra={
+                            "pipeline_stage": "cache_check",
+                            "duration": f"{time.time() - stage_start:.2f}s",
+                            "result": "hit",
+                        },
                     )
                     return ImageGenerationResult(
                         success=True,
@@ -442,7 +464,13 @@ class ImagenService:
                         prompt_used=description,
                     )
             except Exception as cache_e:
-                logger.warning(f"Cache check failed: {cache_e}")
+                logger.warning(
+                    f"Image pipeline: cache check failed: {cache_e}",
+                    extra={
+                        "pipeline_stage": "cache_check",
+                        "duration": f"{time.time() - stage_start:.2f}s",
+                    },
+                )
             finally:
                 if redis_client is not None:
                     try:
@@ -450,31 +478,64 @@ class ImagenService:
                     except Exception:
                         pass
 
-            # Создаём оптимизированный промпт (с переводом и SFW суффиксом)
+            logger.info(
+                "Image pipeline: cache MISS",
+                extra={
+                    "pipeline_stage": "cache_check",
+                    "duration": f"{time.time() - stage_start:.2f}s",
+                    "result": "miss",
+                },
+            )
+
+            # Stage 2: Prompt engineering (includes translation RU->EN)
+            stage_start = time.time()
             prompt = await self._prompt_engineer.create_prompt(
                 description=description,
                 description_type=desc_type,
                 genre=genre,
                 custom_style=custom_style,
             )
+            translation_duration = time.time() - stage_start
+            logger.info(
+                "Image pipeline: prompt ready",
+                extra={
+                    "pipeline_stage": "translation_and_prompt",
+                    "duration": f"{translation_duration:.2f}s",
+                    "prompt_preview": prompt[:100],
+                },
+            )
 
-            # Генерируем изображение через OpenRouter FLUX.2 (с серверным retry)
+            # Stage 3: Image generation via OpenRouter FLUX.2 (with retry)
+            stage_start = time.time()
             image_bytes = await self._generate_with_retry(prompt, effective_aspect)
+            generation_duration = time.time() - stage_start
+            logger.info(
+                "Image pipeline: FLUX.2 generation complete",
+                extra={
+                    "pipeline_stage": "flux2_generation",
+                    "duration": f"{generation_duration:.2f}s",
+                    "image_size_bytes": len(image_bytes),
+                },
+            )
 
-            # Создаём data URL из bytes
+            # Stage 4: Post-processing (base64 + save + cache)
+            stage_start = time.time()
             image_base64 = base64.b64encode(image_bytes).decode("utf-8")
             image_url = f"data:image/png;base64,{image_base64}"
-
-            # Сохраняем локально
             local_path = await self._save_image(image_bytes, prompt)
-
-            # Кэшируем результат в Redis
             await self._cache_result(cache_key, image_url)
+            post_duration = time.time() - stage_start
 
-            generation_time = time.time() - start_time
-
+            total_duration = time.time() - start_time
             logger.info(
-                f"Image generated in {generation_time:.2f}s via OpenRouter FLUX.2"
+                f"Image pipeline: SUCCESS in {total_duration:.2f}s",
+                extra={
+                    "pipeline_stage": "complete",
+                    "total_duration": f"{total_duration:.2f}s",
+                    "translation_duration": f"{translation_duration:.2f}s",
+                    "generation_duration": f"{generation_duration:.2f}s",
+                    "post_duration": f"{post_duration:.2f}s",
+                },
             )
 
             return ImageGenerationResult(
@@ -482,26 +543,42 @@ class ImagenService:
                 image_url=image_url,
                 image_data=image_bytes,
                 local_path=local_path,
-                generation_time_seconds=generation_time,
+                generation_time_seconds=total_duration,
                 model_used=settings.OPENROUTER_IMAGE_MODEL,
                 prompt_used=prompt,
             )
 
         except ValueError as e:
-            # Non-retryable (400 Bad Request) — НЕ retry-ился
             error_msg = str(e)
-            logger.error(f"Image generation failed (non-retryable): {error_msg}")
+            total_duration = time.time() - start_time
+            logger.error(
+                f"Image pipeline: FAILED (non-retryable) in {total_duration:.2f}s",
+                extra={
+                    "pipeline_stage": "error",
+                    "error_type": "ValueError",
+                    "error_message": error_msg[:200],
+                    "total_duration": f"{total_duration:.2f}s",
+                },
+            )
             return ImageGenerationResult(
                 success=False,
                 error_message=f"Image generation failed: {error_msg}",
             )
         except Exception as e:
-            # Retry exhausted или другая ошибка
-            error_msg = str(e)
-            logger.error(f"Image generation failed after retries: {error_msg}")
+            total_duration = time.time() - start_time
+            logger.error(
+                f"Image pipeline: FAILED in {total_duration:.2f}s: {e}",
+                extra={
+                    "pipeline_stage": "error",
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)[:200],
+                    "total_duration": f"{total_duration:.2f}s",
+                },
+            )
             return ImageGenerationResult(
                 success=False,
-                error_message=f"Image generation failed: {error_msg}",
+                error_message=f"Image generation error: {str(e)}",
+                generation_time_seconds=total_duration,
             )
 
     async def _cache_result(self, cache_key: str, url: str) -> None:
