@@ -33,7 +33,9 @@ function getImagesTable(): MemoryTable<CachedImage> {
 function switchToFallback(err: unknown): void {
   if (!useMemoryFallback) {
     useMemoryFallback = true;
-    logger.warn('[ImageCache] Switching to in-memory fallback:', err);
+    const errorName = err instanceof Error ? err.constructor.name : 'Unknown';
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logger.warn(`[ImageCache] Switching to in-memory fallback (${errorName}): ${errorMsg}`);
     notifyFallbackOnce();
   }
 }

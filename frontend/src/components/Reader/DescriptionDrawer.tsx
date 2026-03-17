@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Drawer } from 'vaul';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageForDescription } from '@/hooks/api/useImages/useImageQueries';
-import { useGenerateImage, useRegenerateImage } from '@/hooks/api/useImages/useImageMutations';
+import { useRegenerateImage } from '@/hooks/api/useImages/useImageMutations';
+import { imagesAPI } from '@/api/images';
+import { imageCache } from '@/services/imageCache';
+import { imageKeys, getCurrentUserId } from '@/hooks/api/queryKeys';
 import { notify } from '@/stores/ui';
 import type { Description, GeneratedImage } from '@/types/api';
 
@@ -26,7 +30,8 @@ const SNAP_POINTS: [number, number] = [0.4, 0.8];
  * regeneration button with overlay spinner, and image preview.
  *
  * SSoT for images: useImageForDescription TQ query (IndexedDB L1 -> API L2).
- * Mutation state is reset on description change to prevent stale data (Bug 2 fix).
+ * Uses async generation endpoint with TQ polling (pattern from useImageModal).
+ * Error messages displayed to user under retry button.
  */
 export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
   description,
@@ -36,8 +41,8 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
   bookId,
 }) => {
   const { t } = useTranslation();
-  const generateMutation = useGenerateImage();
   const regenerateMutation = useRegenerateImage();
+  const queryClient = useQueryClient();
 
   // SSoT: image from TQ cache (IndexedDB L1 -> API L2)
   const { data: image, isLoading: isImageLoading } = useImageForDescription(
@@ -46,12 +51,69 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
     { enabled: !!description?.id && isOpen }
   );
 
-  // Reset mutations on description change (Bug 2 fix: prevents stale generateMutation.data)
+  // --- Async generation state ---
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [genStatus, setGenStatus] = useState<'idle' | 'generating' | 'error'>('idle');
+  const [genError, setGenError] = useState<string | null>(null);
+
+  // Reset generation state on description change
   useEffect(() => {
-    generateMutation.reset();
+    setTaskId(null);
+    setGenStatus('idle');
+    setGenError(null);
     regenerateMutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [description?.id]);
+
+  // TQ polling query (pattern from useImageModal)
+  const POLLING_INTERVAL = 3000;
+  const { data: taskStatus } = useQuery({
+    queryKey: imageKeys.taskStatus(taskId!),
+    queryFn: () => imagesAPI.getTaskStatus(taskId!),
+    enabled: !!taskId && isOpen,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'SUCCESS' || status === 'FAILURE') return false;
+      return POLLING_INTERVAL;
+    },
+    refetchOnWindowFocus: false,
+    retry: 2,
+  });
+
+  // React to polling completion
+  useEffect(() => {
+    if (!taskStatus || !taskId) return;
+
+    if (taskStatus.status === 'SUCCESS' && taskStatus.result?.success) {
+      setGenStatus('idle');
+      setTaskId(null);
+      // Invalidate TQ cache so useImageForDescription refetches
+      const userId = getCurrentUserId();
+      queryClient.invalidateQueries({
+        queryKey: imageKeys.byDescription(userId, description?.id ?? ''),
+      });
+      queryClient.invalidateQueries({
+        queryKey: imageKeys.byBook(userId, bookId),
+      });
+      queryClient.invalidateQueries({ queryKey: imageKeys.userStats(userId) });
+      // Cache the new image
+      if (taskStatus.result.image_url && description) {
+        imageCache.set(userId, description.id, taskStatus.result.image_url, bookId).catch(() => {});
+      }
+    } else if (taskStatus.status === 'FAILURE') {
+      const errorMessage =
+        taskStatus.result?.error_message ||
+        taskStatus.message ||
+        t('reader.description_drawer.generation_failed');
+      setGenError(errorMessage);
+      setGenStatus('error');
+      setTaskId(null);
+      notify.error(
+        t('reader.description_drawer.generation_error_title', 'Generation error'),
+        errorMessage
+      );
+    }
+  }, [taskStatus, taskId, description?.id, bookId, queryClient, t, description]);
 
   const [activeSnap, setActiveSnap] = useState<number | string | null>(SNAP_POINTS[0]);
 
@@ -64,12 +126,41 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
 
   if (!description) return null;
 
-  const handleGenerate = () => {
-    generateMutation.mutate({
-      descriptionId: description.id,
-      bookId,
-    });
-  };
+  const handleGenerate = useCallback(async () => {
+    if (!description) return;
+    setGenStatus('generating');
+    setGenError(null);
+    try {
+      const result = await imagesAPI.generateAsync(description.id, {});
+      setTaskId(result.task_id);
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { status?: number };
+        message?: string;
+        details?: { detail?: string };
+      };
+      const isConflict =
+        err.response?.status === 409 ||
+        err.message?.includes('already exists') ||
+        err.details?.detail?.includes?.('already exists');
+      if (isConflict) {
+        // Image already exists -- just invalidate TQ cache to refetch
+        const userId = getCurrentUserId();
+        queryClient.invalidateQueries({
+          queryKey: imageKeys.byDescription(userId, description.id),
+        });
+        setGenStatus('idle');
+      } else {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setGenError(errorMessage);
+        setGenStatus('error');
+        notify.error(
+          t('reader.description_drawer.generation_error_title', 'Generation error'),
+          errorMessage
+        );
+      }
+    }
+  }, [description, queryClient, t]);
 
   const renderImageButton = () => {
     const isRegenerating = regenerateMutation.isPending;
@@ -121,7 +212,7 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
     }
 
     // Generation in progress
-    if (generateMutation.isPending) {
+    if (genStatus === 'generating') {
       return (
         <button
           disabled
@@ -133,15 +224,18 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
       );
     }
 
-    // Generation error — show retry button
-    if (generateMutation.isError) {
+    // Generation error — show retry button with error text
+    if (genStatus === 'error') {
       return (
-        <button
-          onClick={handleGenerate}
-          className="mt-4 w-full py-2.5 min-h-[44px] rounded-lg bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
-        >
-          {t('reader.description_drawer.generate')}
-        </button>
+        <div className="mt-4 space-y-2">
+          <button
+            onClick={handleGenerate}
+            className="w-full py-2.5 min-h-[44px] rounded-lg bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
+          >
+            {t('reader.description_drawer.retry', 'Retry')}
+          </button>
+          {genError && <p className="text-xs text-destructive/70 px-1">{genError}</p>}
+        </div>
       );
     }
 
@@ -188,16 +282,14 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
             {/* Image button: always visible */}
             {renderImageButton()}
 
-            {/* Image preview: from TQ query or just-generated (with description_id guard) */}
-            {(image?.status === 'completed' ||
-              (generateMutation.data &&
-                generateMutation.data.description_id === description.id)) && (
+            {/* Image preview: from TQ query (SSoT after async generation + invalidation) */}
+            {image?.status === 'completed' && (
               <button
-                onClick={() => onOpenImage(description!, image || undefined)}
+                onClick={() => onOpenImage(description!, image)}
                 className="mt-3 w-full rounded-lg overflow-hidden relative"
               >
                 <img
-                  src={image?.image_url || generateMutation.data?.image_url || ''}
+                  src={image.image_url}
                   alt={description.content.slice(0, 80)}
                   className="w-full h-auto rounded-lg"
                 />
