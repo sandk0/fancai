@@ -89,6 +89,8 @@ export interface GestureControllerOptions {
   onPanelDismiss?: () => void;
   /** Whether header is visible (for dynamic iOS overlay top) */
   isHeaderVisible?: boolean;
+  /** Whether text selection is currently active (iOS: keeps overlay hidden) */
+  isSelectionActive?: boolean;
 }
 
 export interface GestureControllerReturn {
@@ -128,6 +130,7 @@ export const useGestureController = (
     pageAnimationEnabled = true,
     onPanelDismiss,
     isHeaderVisible,
+    isSelectionActive,
   } = options;
 
   // Motion value for GPU-accelerated transform
@@ -162,6 +165,10 @@ export const useGestureController = (
 
   // Pending nav ref for guaranteed-last pattern
   const pendingNavRef = useRef<'next' | 'prev' | null>(null);
+
+  // iOS selection mode: overlay hide/show for text selection passthrough
+  const selectionModeRef = useRef(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -205,6 +212,11 @@ export const useGestureController = (
   useEffect(() => {
     isHeaderVisibleRef.current = isHeaderVisible ?? false;
   }, [isHeaderVisible]);
+
+  const isSelectionActiveRef = useRef(isSelectionActive ?? false);
+  useEffect(() => {
+    isSelectionActiveRef.current = isSelectionActive ?? false;
+  }, [isSelectionActive]);
 
   // Stable reset
   const resetState = useCallback(() => {
@@ -732,20 +744,51 @@ export const useGestureController = (
       pageAnimationEnabledRef,
     };
 
+    // --- Selection mode: hide/show overlay for text selection passthrough ---
+    const enterSelectionMode = () => {
+      if (selectionModeRef.current) return;
+      overlay.style.pointerEvents = 'none';
+      overlay.style.display = 'none';
+      selectionModeRef.current = true;
+    };
+
     // ----- handleOverlayTouchStart (shared FSM) -----
     const handleOverlayTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (!touch) return;
       processTouchStart(touch, deps);
+
+      // Long-press detection for text selection passthrough (iOS only)
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTimerRef.current = null;
+        if (touchRef.current.state === 'pending') {
+          enterSelectionMode();
+        }
+      }, 200); // 200ms < LONG_PRESS_TIMEOUT (250ms): overlay hides BEFORE iOS Safari hit-test
     };
 
     // ----- handleOverlayTouchMove (shared FSM) -----
     const handleOverlayTouchMove = (e: TouchEvent) => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
       processTouchMove(e, deps);
     };
 
     // ----- handleOverlayTouchEnd -----
     const handleOverlayTouchEnd = (e: TouchEvent) => {
+      // Cancel long-press timer
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      // If in selection mode, overlay is hidden -- skip gesture processing
+      if (selectionModeRef.current) {
+        touchRef.current = { ...INITIAL_TOUCH };
+        return;
+      }
       if (!enabledRef.current) return;
 
       const t = touchRef.current;
@@ -921,6 +964,10 @@ export const useGestureController = (
 
     // ----- handleOverlayTouchCancel (shared FSM) -----
     const handleOverlayTouchCancel = () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
       processTouchCancel(deps);
     };
 
@@ -937,6 +984,10 @@ export const useGestureController = (
     }
 
     return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
       overlay.removeEventListener('touchstart', handleOverlayTouchStart);
       overlay.removeEventListener('touchmove', handleOverlayTouchMove);
       overlay.removeEventListener('touchend', handleOverlayTouchEnd);
@@ -944,6 +995,26 @@ export const useGestureController = (
       overlay.remove();
     };
   }, [rendition, enabled, translateX, resetState, getTapAction, getInteractiveType]);
+
+  // -------------------------------------------------------------------------
+  // Restore iOS overlay when selection is dismissed (isSelectionActive: true -> false)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isIOS()) return;
+    // Selection still active or never entered selection mode -- skip
+    if (isSelectionActive || !selectionModeRef.current) return;
+    // Selection dismissed -- restore overlay with debounce
+    selectionModeRef.current = false;
+    const restoreTimer = setTimeout(() => {
+      if (selectionModeRef.current) return; // re-entered selection mode
+      const ol = document.getElementById('gesture-controller-ios-overlay');
+      if (ol) {
+        ol.style.display = '';
+        ol.style.pointerEvents = '';
+      }
+    }, 100);
+    return () => clearTimeout(restoreTimer);
+  }, [isSelectionActive]);
 
   // -------------------------------------------------------------------------
   // Dynamic iOS overlay top (separate effect to avoid recreating overlay)

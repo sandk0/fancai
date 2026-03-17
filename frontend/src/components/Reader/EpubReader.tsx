@@ -362,6 +362,13 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setPopupEntity(null);
   }, []);
 
+  // Text selection (moved before gesture controller for isSelectionActive prop)
+  const { selection, clearSelection } = useTextSelection(rendition, renditionReady && !isModalOpen);
+  const selectionRef = useRef(selection);
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
+
   // Unified gesture controller (swipe + tap navigation via iframe and iOS overlay)
   const gestureController = useGestureController({
     rendition,
@@ -387,6 +394,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     pageAnimationEnabled,
     onPanelDismiss: handlePanelDismiss,
     isHeaderVisible: autoHide.isHeaderVisible,
+    isSelectionActive: selection !== null,
   });
 
   // Touch diagnostics: logs touch/pointer events for iOS debugging (only active with ?debug=1)
@@ -417,11 +425,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   useResizeHandler({ rendition, enabled: renditionReady, onResized: () => {} });
   const { metadata: bookMetadata } = useBookMetadata(epubBook);
-  const { selection, clearSelection } = useTextSelection(rendition, renditionReady && !isModalOpen);
-  const selectionRef = useRef(selection);
-  useEffect(() => {
-    selectionRef.current = selection;
-  }, [selection]);
 
   useReadingSession({
     bookId: book.id,

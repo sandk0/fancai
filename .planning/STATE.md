@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Phase 28 завершена (все планы выполнены, image mutation + dead code cleanup)
-last_updated: "2026-03-16T20:12:16.629Z"
-last_activity: 2026-03-16 — Phase 28 Plan 02 завершена (ImageModal mutation hook + dead code cleanup, 10 min)
+status: Phase 28.1 завершена (blob URL fix -- imageCache.release убран из closeModal)
+last_updated: "2026-03-16T21:06:09.801Z"
+last_activity: 2026-03-17 — Phase 28.1 Plan 01 завершена (blob URL lifecycle fix, 2 min)
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 9
+  completed_phases: 7
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -20,14 +20,14 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 28 завершена (все планы выполнены). Milestone v1.3 завершён.
+**Текущий фокус:** Phase 28.1 завершена (blob URL fix). Milestone v1.3 завершён.
 
 ## Текущая позиция
 
-Phase: 28 (8 of 8) — Аудит Frontend генерации изображений (cache, mutations, UX, error handling)
-Plan: 02 of 02 (Plan 02 завершена, Phase 28 завершена)
-Status: Phase 28 завершена (все планы выполнены, image mutation + dead code cleanup)
-Last activity: 2026-03-16 — Phase 28 Plan 02 завершена (ImageModal mutation hook + dead code cleanup, 10 min)
+Phase: 28.1 (9 of 9) — fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer
+Plan: 01 of 01 (Plan 01 завершена, Phase 28.1 завершена)
+Status: Phase 28.1 завершена (blob URL fix -- imageCache.release убран из closeModal)
+Last activity: 2026-03-17 — Phase 28.1 Plan 01 завершена (blob URL lifecycle fix, 2 min)
 
 Progress: [██████████] 100%
 
@@ -72,6 +72,7 @@ Progress: [██████████] 100%
 - useDeleteImage принимает {imageId, descriptionId} -- нет внешних consumers, breaking change безопасен (Phase 28 Plan 01)
 - useRegenerateImage() вызывается напрямую внутри ImageModal (direct hook) -- безопасно т.к. conditional render = mount/unmount (Phase 28 Plan 02)
 - BookReader.tsx: useReaderImageModal заменён на inline state вместо удаления всего orphaned компонента (Phase 28 Plan 02)
+- imageCache.release() убран из closeModal -- blob URL shared с TQ cache (staleTime 30 мин), revoke ломает изображение (Phase 28.1 Plan 01)
 
 ### Ожидающие задачи
 
@@ -82,6 +83,7 @@ Progress: [██████████] 100%
 - Phase 26 добавлена: fix(images): исправить баги генерации и отображения изображений в читалке
 - Phase 27 добавлена: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
 - Phase 28 добавлена: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
+- Phase 28.1 inserted after Phase 28: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (URGENT)
 
 ### Блокеры/Опасения
 
@@ -91,6 +93,6 @@ Progress: [██████████] 100%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-16
-Phase 28 Plan 02 завершена. Task 1 (4ed214b): ImageModal переключён на useRegenerateImage mutation hook. Task 2 (6d622df): удалены useAsyncImageGeneration.ts (241 строк) и useReaderImageModal.ts (73 строки), barrel exports обновлены. Production build проходит.
-Resume file: None
+Последняя сессия: 2026-03-17
+Phase 28.1 Plan 01 завершена. Task 1 (796a8ac): убран imageCache.release() из closeModal, добавлен комментарий о lifecycle. Task 2 (0108bfe): тест инвертирован (not.toHaveBeenCalled), добавлен новый тест blob URL reuse. Все 20 тестов проходят, production build OK.
+Resume file: .planning/phases/28.1-fix-blob-url-revoked-imagemodal-descriptiondrawer/28.1-01-SUMMARY.md

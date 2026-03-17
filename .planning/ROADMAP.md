@@ -129,11 +129,11 @@ Plans:
 1. Long-press на тексте в ридере вызывает выделение текста на iOS Safari, Chrome и PWA
 2. Drag-ручки выделения работают корректно, текст можно расширять/сужать
 3. Scroll lock активируется при выделении текста и снимается при завершении (pointerDown tracking через parent document работает на iOS)
-   **Plans**: TBD
+   **Plans:** 1 plans
 
 Plans:
 
-- [ ] 24-01: TBD
+- [ ] 24-01-PLAN.md — Overlay passthrough при long-press (display:none), iOS caret offset, overlay restore, тесты + UAT
 
 ### Phase 25: Регрессионное тестирование
 
@@ -193,6 +193,16 @@ Plans:
 - [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
 - [ ] 28-02-PLAN.md — ImageModal useRegenerateImage mutation + dead code cleanup (FIMG-01, FIMG-05, FIMG-06)
 
+### Phase 28.1: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (INSERTED)
+
+**Goal:** Убрать imageCache.release() из closeModal() — blob URL lifecycle управляется автоматическим cleanup interval (1 мин, TTL 30 мин), ручной release ломает shared blob URL в TQ cache
+**Requirements**: N/A (decimal bugfix phase)
+**Depends on:** Phase 28
+**Plans:** 1/1 plans complete
+
+Plans:
+- [ ] 28.1-01-PLAN.md — Убрать imageCache.release() из closeModal + обновить тесты blob URL lifecycle
+
 ## Progress
 
 **Execution Order:**
@@ -226,8 +236,9 @@ Plans:
 | 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
 | 22. Корневой фикс touch event pipeline    | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
 | 23. Навигация и iOS overlay ревизия       | v1.3      | Complete    | 2026-03-16 | 2026-03-16 |
-| 24. Выделение текста на iOS               | v1.3      | 0/?            | Not started | -          |
+| 24. Выделение текста на iOS               | v1.3      | 0/1            | Planned     | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
 | 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
 | 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 28. Аудит Frontend генерации              | 2/2 | Complete   | 2026-03-16 | -          |
+| 28. Аудит Frontend генерации              | 2/2 | Complete    | 2026-03-16 | -          |
+| 28.1. fix: blob URL revoked ImageModal    | 1/1 | Complete    | 2026-03-16 | -          |
