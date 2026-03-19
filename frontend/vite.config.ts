@@ -93,55 +93,24 @@ export default defineConfig({
     // CSS code splitting
     cssCodeSplit: true,
 
-    // Minification (esbuild is faster than terser)
-    minify: 'esbuild',
+    // Minification (Vite 8 uses Oxc by default — no explicit setting needed)
 
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Core React framework
-          'vendor-react': ['react', 'react-dom'],
-
-          // Router (separate chunk)
-          'vendor-router': ['react-router-dom'],
-
-          // Data fetching & state management
-          'vendor-data': ['@tanstack/react-query', 'axios', 'zustand'],
-
-          // UI libraries (heavy animations)
-          'vendor-ui': ['motion', 'lucide-react'],
-
-          // Form & validation
-          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
-
-          // Radix UI components (many deps)
-          'vendor-radix': [
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-slider',
-            '@radix-ui/react-slot',
-            '@radix-ui/react-tooltip',
-          ],
-
-          // EPUB.js and reader dependencies (HEAVY - lazy load candidate)
-          // Note: These are NOT in manualChunks because we'll lazy load them
-          // 'vendor-epub': ['epubjs', 'react-reader'],
-
-          // Other utilities
-          'vendor-utils': [
-            'clsx',
-            'tailwind-merge',
-            'class-variance-authority',
-            'dompurify',
-            'sonner',
-          ],
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) return 'vendor-react';
+          if (id.includes('node_modules/react-router-dom/')) return 'vendor-router';
+          if (id.includes('node_modules/@tanstack/react-query/') || id.includes('node_modules/axios/') || id.includes('node_modules/zustand/')) return 'vendor-data';
+          if (id.includes('node_modules/motion/') || id.includes('node_modules/lucide-react/')) return 'vendor-ui';
+          if (id.includes('node_modules/react-hook-form/') || id.includes('node_modules/@hookform/') || id.includes('node_modules/zod/')) return 'vendor-forms';
+          if (id.includes('node_modules/@radix-ui/')) return 'vendor-radix';
+          if (id.includes('node_modules/clsx/') || id.includes('node_modules/tailwind-merge/') || id.includes('node_modules/class-variance-authority/') || id.includes('node_modules/dompurify/') || id.includes('node_modules/sonner/')) return 'vendor-utils';
         },
 
         // Asset file names (organized by type)
         assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.');
+          const name = assetInfo.name ?? assetInfo.names?.[0] ?? 'asset';
+          const info = name.split('.');
           const ext = info[info.length - 1];
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
             return 'assets/images/[name]-[hash][extname]';
