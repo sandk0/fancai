@@ -1,18 +1,18 @@
 # FastAPI и веб-фреймворк
 fastapi==0.135.1  # Mar 2026: updated from 0.128.0
-uvicorn[standard]==0.41.0
+uvicorn[standard]==0.42.0
 gunicorn==25.1.0
 python-multipart==0.0.22
-PyJWT[crypto]==2.10.1
+PyJWT[crypto]==2.12.1
 bcrypt==5.0.0
 
 # База данных
-sqlalchemy==2.0.47
+sqlalchemy==2.0.48
 alembic==1.18.4
 asyncpg==0.31.0
 
 # Redis и кэширование
-redis==7.1.0
+redis==7.3.0
 celery==5.6.2  # Jan 2026: Soft shutdown, memory leak fixes, Pydantic support
 kombu==5.6.2  # Required for Celery 5.6.2
 psutil==7.2.2
@@ -54,14 +54,14 @@ aiosqlite==0.22.1
 hypothesis
 
 # Форматирование и линтинг
-black==26.1.0
-ruff==0.15.4
+black==26.3.1
+ruff==0.15.6
 mypy==1.19.1
 
 # Type stubs для mypy
 types-requests==2.32.4.20260107
 types-aiofiles==25.1.0.20251011
-sqlalchemy[mypy]==2.0.47
+sqlalchemy[mypy]==2.0.48
 
 # Утилиты
 python-dateutil==2.9.0.post0
