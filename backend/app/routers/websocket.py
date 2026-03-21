@@ -1,18 +1,18 @@
 """
 WebSocket Router for real-time book processing progress.
 
-Phase 5: WebSocket Implementation (Updated January 2026)
+Phase 5: WebSocket Implementation (Updated March 2026)
 
 Features:
 - Real-time progress updates for book processing
 - Redis PubSub for multi-worker support
 - Graceful connection management
-- Cookie-based JWT authentication (HttpOnly cookies)
-- Fallback to query param for backward compatibility
+- JWT authentication via first message (recommended), cookie, or query param
+- Fallthrough auth: if one token source fails, tries the next
 
 Usage:
     wss://host/ws/book-progress/{book_id}
-    (Authentication via HttpOnly cookie 'access_token')
+    (Client sends {"type": "auth", "token": "JWT"} as first message)
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
@@ -148,70 +148,64 @@ async def get_user_from_websocket(
     websocket: WebSocket, query_token: Optional[str] = None
 ) -> Optional[User]:
     """
-    Authenticate WebSocket connection using HttpOnly cookie or query param fallback.
+    Authenticate WebSocket connection.
+
+    Tries each token source in priority order. If a token exists but is
+    invalid/revoked, falls through to the next source instead of failing.
 
     Priority:
-    1. HttpOnly cookie 'access_token' (secure, recommended)
-    2. Query parameter 'token' (backward compatibility, logs warning)
-
-    Also checks token blacklist for revoked tokens (logout support).
+    1. HttpOnly cookie 'access_token'
+    2. Explicit token (query param or first-message)
     """
-    token = None
-    auth_source = None
+    # Collect candidate tokens in priority order
+    candidates: list[tuple[str, str]] = []
 
-    # Priority 1: Try HttpOnly cookie (secure method)
     cookie_token = websocket.cookies.get("access_token")
     if cookie_token:
-        token = cookie_token
-        auth_source = "cookie"
-    # Priority 2: Fallback to query param (backward compat, less secure)
-    elif query_token:
-        token = query_token
-        auth_source = "query_param"
-        logger.warning(
-            "WebSocket auth via query param (deprecated) - use cookies instead"
-        )
+        candidates.append((cookie_token, "cookie"))
 
-    if not token:
+    if query_token:
+        candidates.append((query_token, "first_message"))
+
+    if not candidates:
         logger.warning("WebSocket auth failed: no token provided")
         return None
 
-    try:
-        # Check token blacklist (logout support)
-        if await token_blacklist.is_blacklisted(token, require_online=False):
-            logger.warning(
-                f"WebSocket auth failed: token revoked (source={auth_source})"
-            )
-            return None
-
-        # Verify JWT token
-        payload = auth_service.verify_token(token, "access")
-        if not payload:
-            logger.warning(
-                f"WebSocket auth failed: invalid token (source={auth_source})"
-            )
-            return None
-
-        user_id_str = payload.get("sub")
-        if not user_id_str:
-            return None
-
-        user_id = UUID(user_id_str)
-
-        # Fetch user from database
-        async with AsyncSessionLocal() as session:
-            user = await auth_service.get_user_by_id(session, user_id)
-            if user and user.is_active:
-                logger.info(
-                    f"WebSocket auth success: user={user.email}, source={auth_source}"
+    for token, auth_source in candidates:
+        try:
+            if await token_blacklist.is_blacklisted(token, require_online=False):
+                logger.warning(
+                    f"WebSocket auth failed: token revoked (source={auth_source})"
                 )
-                return user
+                continue
 
-        return None
+            payload = auth_service.verify_token(token, "access")
+            if not payload:
+                logger.warning(
+                    f"WebSocket auth failed: invalid token (source={auth_source})"
+                )
+                continue
 
-    except Exception as e:
-        logger.warning(f"WebSocket auth failed: {e}")
-        return None
+            user_id_str = payload.get("sub")
+            if not user_id_str:
+                continue
+
+            user_id = UUID(user_id_str)
+
+            async with AsyncSessionLocal() as session:
+                user = await auth_service.get_user_by_id(session, user_id)
+                if user and user.is_active:
+                    logger.info(
+                        f"WebSocket auth success: user={user.email}, source={auth_source}"
+                    )
+                    return user
+
+        except Exception as e:
+            logger.warning(f"WebSocket auth error (source={auth_source}): {e}")
+            continue
+
+    logger.warning("WebSocket auth failed: all token sources exhausted")
+    return None
 
 
 @router.websocket("/book-progress/{book_id}")
