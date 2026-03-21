@@ -138,6 +138,7 @@ async def register_user(
             httponly=True,
             secure=not settings.DEBUG,
             samesite="lax",
+            path="/",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
         response.set_cookie(
@@ -206,6 +207,7 @@ async def login_user(
         httponly=True,
         secure=not settings.DEBUG,
         samesite="lax",
+        path="/",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
@@ -271,6 +273,7 @@ async def refresh_token(
         httponly=True,
         secure=not settings.DEBUG,
         samesite="lax",
+        path="/",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     # Rotation of refresh token? If create_tokens_for_user logic is used inside refresh service.

@@ -17,6 +17,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { booksAPI } from '@/api/books';
 import { logger } from '@/lib/logger';
+import { STORAGE_KEYS } from '@/types/state';
 
 /** Status of WebSocket connection */
 export type WSConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -124,7 +125,12 @@ export function useBookProgressWS({
     const port = window.location.port;
     const portSuffix = port ? `:${port}` : '';
 
-    return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}`;
+    // Pass token as query param — HttpOnly cookies are scoped to /api/ path
+    // and not sent on /ws/ WebSocket connections
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+
+    return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}${tokenParam}`;
   }, [isAuthenticated, bookId]);
 
   /**
