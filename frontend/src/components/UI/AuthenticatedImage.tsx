@@ -10,7 +10,7 @@
  * @component
  */
 
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { fetchImageWithAuth } from '@/utils/fetchWithTokenRefresh';
 import { logger } from '@/lib/logger';
 
@@ -45,6 +45,12 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
+  // Stable refs for callbacks to avoid re-triggering effect
+  const onLoadRef = useRef(onLoad);
+  const onErrorRef = useRef(onError);
+  onLoadRef.current = onLoad;
+  onErrorRef.current = onError;
+
   useEffect(() => {
     let isMounted = true;
     let currentBlobUrl: string | null = null;
@@ -72,7 +78,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
             currentBlobUrl = newBlobUrl;
             setBlobUrl(currentBlobUrl);
             setIsLoading(false);
-            onLoad?.();
+            onLoadRef.current?.();
           } else {
             // fetchImageWithAuth returns null on failure
             throw new Error('Failed to fetch image');
@@ -88,7 +94,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
         if (isMounted) {
           setIsLoading(false);
           setHasError(true);
-          onError?.();
+          onErrorRef.current?.();
         }
       }
     };
@@ -102,7 +108,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
         URL.revokeObjectURL(currentBlobUrl);
       }
     };
-  }, [src, onLoad, onError]);
+  }, [src]);
 
   if (isLoading) {
     // Show a loading placeholder or the fallback
