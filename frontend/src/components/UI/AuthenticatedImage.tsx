@@ -64,6 +64,7 @@ export const AuthenticatedImage = memo(function AuthenticatedImage({
 
       setIsLoading(true);
       setHasError(false);
+      setBlobUrl(null);
 
       try {
         // Use fetchImageWithAuth for automatic token refresh on 401 errors

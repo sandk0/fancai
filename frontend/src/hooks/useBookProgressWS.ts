@@ -5,7 +5,7 @@
  *
  * Features:
  * - Automatic connection/reconnection
- * - JWT authentication via HttpOnly cookie (browser sends automatically)
+ * - JWT authentication via first message after connect (token not in URL/logs)
  * - Ping/pong keepalive
  * - Graceful cleanup on unmount
  * - Fallback to polling on connection failure
@@ -125,12 +125,9 @@ export function useBookProgressWS({
     const port = window.location.port;
     const portSuffix = port ? `:${port}` : '';
 
-    // Pass token as query param — HttpOnly cookies are scoped to /api/ path
-    // and not sent on /ws/ WebSocket connections
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-
-    return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}${tokenParam}`;
+    // Token is sent as first message after connection, not in URL —
+    // prevents JWT from appearing in server access logs
+    return `${protocol}//${host}${portSuffix}/ws/book-progress/${bookId}`;
   }, [isAuthenticated, bookId]);
 
   /**
@@ -193,7 +190,14 @@ export function useBookProgressWS({
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        logger.debug('[useBookProgressWS] Connected');
+        logger.debug('[useBookProgressWS] Connected, sending auth...');
+
+        // Send JWT as first message — keeps token out of URL/logs
+        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        if (token && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'auth', token }));
+        }
+
         setStatus('connected');
         reconnectAttempts.current = 0;
 

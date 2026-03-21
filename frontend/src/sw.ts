@@ -143,10 +143,13 @@ registerRoute(
 );
 
 // --- Book Covers ---
-// StaleWhileRevalidate: Show cached cover immediately, update in background
-// Covers rarely change but should be available offline and load fast
+// Covers are fetched via AuthenticatedImage with JWT Bearer token.
+// SW cannot add auth headers during revalidation, so we skip caching
+// for /api/ cover requests. AuthenticatedImage caches blob URLs in React state.
+// Only cache covers served as static files (non-API, e.g. /storage/ path).
 registerRoute(
-  ({ url, sameOrigin }) => sameOrigin && url.pathname.includes('/cover'),
+  ({ url, sameOrigin }) =>
+    sameOrigin && url.pathname.includes('/cover') && !url.pathname.startsWith('/api/'),
   new StaleWhileRevalidate({
     cacheName: 'book-covers',
     plugins: [

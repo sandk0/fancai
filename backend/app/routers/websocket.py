@@ -221,8 +221,10 @@ async def websocket_book_progress(
     """
     WebSocket endpoint for real-time book processing progress.
 
-    Query params:
-        token: JWT access token for authentication
+    Authentication (in priority order):
+        1. First message: {"type": "auth", "token": "JWT"} (recommended, keeps token out of logs)
+        2. HttpOnly cookie 'access_token'
+        3. Query parameter ?token=JWT (deprecated, token appears in access logs)
 
     Message format (server -> client):
         {
@@ -237,7 +239,7 @@ async def websocket_book_progress(
 
     Message format (client -> server):
         {
-            "type": "ping" | "cancel"
+            "type": "ping" | "cancel" | "auth"
         }
     """
     # Validate UUID format
@@ -247,17 +249,38 @@ async def websocket_book_progress(
         await websocket.close(code=4000, reason="Invalid book ID")
         return
 
-    # Authenticate via cookie (priority) or query param (fallback)
+    # Accept WebSocket first — auth happens via first message or cookie/query
+    await websocket.accept()
+
+    # Try cookie or query param auth first
     user = await get_user_from_websocket(websocket, token)
+
+    # If no cookie/query auth, wait for auth message (5s timeout)
+    if not user:
+        try:
+            data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+            if data.get("type") == "auth" and data.get("token"):
+                user = await get_user_from_websocket(websocket, data["token"])
+                if user:
+                    logger.info(
+                        f"WebSocket auth success: user={user.email}, source=first_message"
+                    )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"WebSocket auth via first message failed: {e}")
+
     if not user:
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
         )
         return
 
-    # Connect
-    if not await manager.connect(book_id, websocket):
-        return
+    # Register connection
+    if book_id not in manager.active_connections:
+        manager.active_connections[book_id] = []
+    manager.active_connections[book_id].append(websocket)
+    logger.info(
+        f"WebSocket connected for book {book_id}, total: {len(manager.active_connections[book_id])}"
+    )
 
     # Subscribe to Redis PubSub for this book
     pubsub = await manager.subscribe_to_book(book_id)
@@ -287,6 +310,8 @@ async def websocket_book_progress(
 
                 if data.get("type") == "ping":
                     await websocket.send_json({"type": "pong"})
+                elif data.get("type") == "auth":
+                    pass  # Already authenticated, ignore duplicate auth messages
                 elif data.get("type") == "cancel":
                     # Forward cancel request (implementation in tasks.py)
                     logger.info(f"Cancel request received for book {book_id}")

@@ -326,10 +326,11 @@ async def logout_user(
                 # Add token to blacklist (используем DI)
                 await token_bl.add(token, expires_at)
 
-    # Clear cookies
+    # Clear cookies — must match path used when setting them
+    response.delete_cookie(key="access_token", path="/")
+    # Also delete legacy cookies without explicit path (set before path="/" fix)
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token", path="/api/v1/auth/refresh")
-    # Also delete without path just in case
     response.delete_cookie(key="refresh_token")
 
     return LogoutResponse()
