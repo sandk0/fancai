@@ -19,7 +19,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { epubCache, epubDb } from '@/services/epubCache';
 import { booksAPI } from '@/api/books';
 import { useAuthStore } from '@/stores/auth';
-import { STORAGE_KEYS } from '@/types/state';
 import { isOnline } from './useOnlineStatus';
 import { logger } from '@/lib/logger';
 
@@ -122,15 +121,10 @@ export function useEpubOffline(bookId: string) {
 
       // Get book file URL
       const bookUrl = booksAPI.getBookFileUrl(bookId);
-      const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
-      // Download EPUB file with progress tracking
+      // Download EPUB file with progress tracking (cookie-based auth)
       const response = await fetch(bookUrl, {
-        headers: authToken
-          ? {
-              Authorization: `Bearer ${authToken}`,
-            }
-          : {},
+        credentials: 'include', // Cookie-based auth — browser sends access_token cookie
         signal: controller.signal,
       });
 
@@ -263,14 +257,9 @@ export function useEpubOffline(bookId: string) {
     // Fetch from network (only if not cached and online)
     try {
       const bookUrl = booksAPI.getBookFileUrl(bookId);
-      const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
       const response = await fetch(bookUrl, {
-        headers: authToken
-          ? {
-              Authorization: `Bearer ${authToken}`,
-            }
-          : {},
+        credentials: 'include', // Cookie-based auth — browser sends access_token cookie
       });
 
       if (!response.ok) {

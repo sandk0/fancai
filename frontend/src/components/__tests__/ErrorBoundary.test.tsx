@@ -37,8 +37,8 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+      expect(screen.getByText(/упс! что-то пошло не так/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /обновить/i })).toBeInTheDocument();
     });
 
     it('renders children when there is no error', () => {
@@ -49,7 +49,7 @@ describe('ErrorBoundary', () => {
       );
 
       expect(screen.getByText('No error')).toBeInTheDocument();
-      expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/упс! что-то пошло не так/i)).not.toBeInTheDocument();
     });
 
     it('logs error to console', () => {
@@ -71,9 +71,9 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /reload page/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
+      expect(screen.getByText(/упс! что-то пошло не так/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /обновить страницу/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /на главную/i })).toBeInTheDocument();
     });
 
     it('displays page-level error UI correctly', () => {
@@ -83,8 +83,8 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText(/page load error/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+      expect(screen.getByText(/ошибка загрузки страницы/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /попробовать снова/i })).toBeInTheDocument();
     });
 
     it('displays component-level error UI correctly', () => {
@@ -94,7 +94,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText(/component error/i)).toBeInTheDocument();
+      expect(screen.getByText(/ошибка компонента/i)).toBeInTheDocument();
     });
   });
 
@@ -109,7 +109,7 @@ describe('ErrorBoundary', () => {
       );
 
       expect(screen.getByText('Custom error message')).toBeInTheDocument();
-      expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/упс! что-то пошло не так/i)).not.toBeInTheDocument();
     });
   });
 
@@ -121,7 +121,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      const resetButton = screen.getByRole('button', { name: /reload/i });
+      const resetButton = screen.getByRole('button', { name: /обновить/i });
       fireEvent.click(resetButton);
 
       expect(window.location.reload).toHaveBeenCalled();
@@ -134,12 +134,12 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText(/component error/i)).toBeInTheDocument();
+      expect(screen.getByText(/ошибка компонента/i)).toBeInTheDocument();
 
-      const resetButton = screen.getByRole('button', { name: /try again/i });
+      const resetButton = screen.getByRole('button', { name: /попробовать снова/i });
       fireEvent.click(resetButton);
 
-      expect(screen.getByText(/component error/i)).toBeInTheDocument();
+      expect(screen.getByText(/ошибка компонента/i)).toBeInTheDocument();
     });
   });
 
@@ -151,7 +151,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      const homeButton = screen.getByRole('button', { name: /home/i });
+      const homeButton = screen.getByRole('button', { name: /на главную/i });
       fireEvent.click(homeButton);
 
       expect(window.location.href).toBe('/');

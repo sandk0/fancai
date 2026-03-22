@@ -130,7 +130,7 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
             {/* Switch thumb */}
             <span
               className={cn(
-                'pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg',
+                'pointer-events-none block h-5 w-5 rounded-full bg-[var(--color-bg-base)] shadow-lg',
                 'ring-0 transition-transform duration-200',
                 isChecked ? 'translate-x-5' : 'translate-x-0'
               )}

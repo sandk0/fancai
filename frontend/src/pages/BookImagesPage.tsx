@@ -114,7 +114,7 @@ const BookImagesPage: React.FC = () => {
 
               {/* Action Button */}
               <Link
-                to={`/books/${bookId}`}
+                to={`/book/${bookId}/read`}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-primary-foreground transition-all hover:scale-105 shadow-lg bg-white/20 hover:bg-white/30"
               >
                 <BookOpen className="w-5 h-5" />

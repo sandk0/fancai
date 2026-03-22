@@ -15,6 +15,7 @@ import { useEffect, useRef, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { HighlightPopup } from '@/hooks/epub/useAnnotationRendering';
+import { Z_INDEX } from '@/lib/zIndex';
 
 interface HighlightTooltipProps {
   popup: HighlightPopup | null;
@@ -76,7 +77,7 @@ export const HighlightTooltip = memo(function HighlightTooltip({
       position: 'fixed',
       left: `${left}px`,
       top: `${top}px`,
-      zIndex: 600,
+      zIndex: Z_INDEX.modal,
     };
   }, [popup]);
 
@@ -88,7 +89,7 @@ export const HighlightTooltip = memo(function HighlightTooltip({
           Catches taps in the parent DOM; iframe taps handled by rendition.on('click'). */}
       <div
         className="fixed inset-0"
-        style={{ zIndex: 599, background: 'rgba(0,0,0,0.01)' }}
+        style={{ zIndex: Z_INDEX.modalOverlay, background: 'rgba(0,0,0,0.01)' }}
         onPointerDown={(e) => {
           e.preventDefault();
           e.stopPropagation();

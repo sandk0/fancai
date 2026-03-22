@@ -13,35 +13,28 @@
 import { STORAGE_KEYS } from '@/types/state';
 import { logger } from '@/lib/logger';
 
-let globalRefreshPromise: Promise<string> | null = null;
+let globalRefreshPromise: Promise<void> | null = null;
 
 /**
- * Refresh the access token using the refresh token
+ * Refresh the access token via HttpOnly cookie.
  *
- * @returns Promise with the new access token
- * @throws Error if refresh fails or no refresh token available
+ * Sends POST /auth/refresh with `credentials: 'include'` — the refresh_token
+ * cookie is attached automatically by the browser. No body is needed.
+ * On success the server sets a new access_token cookie in the response.
+ *
+ * @throws Error if refresh fails (non-2xx) or rate-limited (429)
  */
-async function refreshAccessToken(): Promise<string> {
+async function refreshAccessToken(): Promise<void> {
   // Return existing promise if refresh is already in progress (Mutex)
   if (globalRefreshPromise) {
     return globalRefreshPromise;
   }
 
   globalRefreshPromise = (async () => {
-    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     const response = await fetch(`${baseUrl}/auth/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-      credentials: 'include', // Ensure cookies are sent/received
+      credentials: 'include', // Cookie-based auth — browser sends refresh_token cookie
     });
 
     if (!response.ok) {
@@ -55,21 +48,7 @@ async function refreshAccessToken(): Promise<string> {
       throw new Error(`Token refresh failed: ${response.status}`);
     }
 
-    // Try to parse tokens if returned, otherwise assume cookie-based flow
-    try {
-      const data = await response.json();
-      if (data && data.tokens) {
-        const { tokens } = data;
-        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, tokens.access_token);
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-        return tokens.access_token;
-      }
-    } catch {
-      // No JSON or invalid structure - likely cookie-only response, which is fine
-    }
-
-    // If no token in body, return placeholder (cookie handles auth)
-    return '';
+    // Server sets new access_token cookie via Set-Cookie header — nothing to store
   })();
 
   try {
@@ -103,21 +82,19 @@ function clearAuthData(): void {
  * Configuration options for fetchWithTokenRefresh
  */
 export interface FetchWithTokenRefreshOptions extends Omit<RequestInit, 'headers'> {
-  /** Custom headers (Authorization will be added automatically) */
+  /** Custom headers to merge with the request */
   headers?: Record<string, string>;
-  /** Whether to skip adding Authorization header (default: false) */
-  skipAuth?: boolean;
   /** Maximum number of retry attempts (default: 1) */
   maxRetries?: number;
 }
 
 /**
- * Fetch with automatic token refresh on 401 errors
+ * Fetch with automatic token refresh on 401 errors (cookie-based auth).
  *
- * This function wraps the native fetch API and handles:
- * - Automatic addition of Authorization header
- * - Token refresh on 401 Unauthorized errors
- * - Automatic retry after successful token refresh
+ * Auth is handled entirely via HttpOnly cookies — the browser sends
+ * the `access_token` cookie automatically with `credentials: 'include'`.
+ * No Authorization header is set. On 401 the function calls refreshAccessToken()
+ * which POSTs to /auth/refresh (also cookie-based), then retries the original request.
  *
  * @param url - The URL to fetch
  * @param options - Fetch options with additional token refresh configuration
@@ -125,7 +102,7 @@ export interface FetchWithTokenRefreshOptions extends Omit<RequestInit, 'headers
  *
  * @example
  * ```typescript
- * // Basic usage
+ * // Basic usage — cookies handle auth automatically
  * const response = await fetchWithTokenRefresh('/api/images/123');
  * const blob = await response.blob();
  *
@@ -141,32 +118,19 @@ export async function fetchWithTokenRefresh(
   options: FetchWithTokenRefreshOptions = {}
 ): Promise<Response> {
   const {
-    skipAuth = false,
     maxRetries = 1,
     headers: customHeaders = {},
     ...fetchOptions
   } = options;
 
-  // Build headers with Authorization
-  const buildHeaders = (token: string | null): Record<string, string> => {
-    const headers: Record<string, string> = { ...customHeaders };
-
-    if (!skipAuth && token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  };
-
-  let token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   let retryCount = 0;
 
   while (retryCount <= maxRetries) {
     try {
       const response = await fetch(url, {
         ...fetchOptions,
-        headers: buildHeaders(token),
-        credentials: 'include', // Ensure cookies are sent
+        headers: { ...customHeaders },
+        credentials: 'include', // Cookie-based auth — browser sends access_token cookie
       });
 
       // If 401 and we haven't exhausted retries, try to refresh token
@@ -174,10 +138,10 @@ export async function fetchWithTokenRefresh(
         logger.debug('[fetchWithTokenRefresh] 401 received, attempting token refresh...');
 
         try {
-          token = await refreshAccessToken();
+          await refreshAccessToken();
           logger.debug('[fetchWithTokenRefresh] Token refreshed successfully, retrying request...');
           retryCount++;
-          continue; // Retry with new token
+          continue; // Retry — cookies already updated by server
         } catch (refreshError: unknown) {
           logger.warn('[fetchWithTokenRefresh] Token refresh failed:', refreshError);
 

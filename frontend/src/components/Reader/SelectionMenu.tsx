@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, StickyNote, X } from 'lucide-react';
 import type { Selection } from '@/hooks/epub/useTextSelection';
 import { BOOKMARK_COLORS } from '@/hooks/epub/useBookmarks';
+import { Z_INDEX } from '@/lib/zIndex';
 
 type SubmenuState = 'main' | 'note';
 
@@ -162,7 +163,7 @@ export const SelectionMenu = memo(function SelectionMenu({
       position: 'fixed',
       left: `${left}px`,
       top: `${top}px`,
-      zIndex: 600,
+      zIndex: Z_INDEX.modal,
     };
   }, [selection, editMode, submenu]);
 
@@ -209,13 +210,14 @@ export const SelectionMenu = memo(function SelectionMenu({
           transparent elements during touch hit-testing. */}
       <div
         className="fixed inset-0"
-        style={{ zIndex: 599, background: 'rgba(0,0,0,0.01)' }}
+        style={{ zIndex: Z_INDEX.modalOverlay, background: 'rgba(0,0,0,0.01)' }}
         onPointerDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
           onClose();
         }}
         aria-hidden="true"
+        role="presentation"
       />
       <div
         ref={menuRef}

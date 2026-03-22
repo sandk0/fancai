@@ -532,7 +532,7 @@ async def update_reading_session_beacon(
 
     except HTTPException:
         raise
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid data format",
@@ -726,7 +726,7 @@ async def end_reading_session_beacon(
 
     except HTTPException:
         raise
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid data format",

@@ -10,7 +10,6 @@ interface UseEntityNameHighlightingOptions {
   currentChapter: number;
   currentCFI?: string | null;
   enabled?: boolean;
-  onEntityClick?: (entity: EntityDetail, position: { x: number; y: number }) => void;
 }
 
 const DEBOUNCE_DELAY_MS = 150;
@@ -21,7 +20,6 @@ export const useEntityNameHighlighting = ({
   currentChapter,
   currentCFI,
   enabled = false,
-  onEntityClick,
 }: UseEntityNameHighlightingOptions) => {
   const processingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,30 +176,6 @@ export const useEntityNameHighlighting = ({
   useEffect(() => {
     if (!rendition || !enabled) return;
 
-    const handleClick = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (t?.classList?.contains('entity-mention')) {
-        const id = t.getAttribute('data-entity-id');
-        if (id && onEntityClick) {
-          e.preventDefault();
-          e.stopPropagation();
-          const entity = visibleEntities.find((x) => x.id === id);
-          if (entity) {
-            // Compute position relative to the main viewport (accounting for iframe offset)
-            const rect = t.getBoundingClientRect();
-            const contents = rendition!.getContents();
-            const iframe = contents?.[0]?.document?.defaultView?.frameElement as HTMLElement | null;
-            const iframeRect = iframe?.getBoundingClientRect();
-            const position = {
-              x: (iframeRect?.left || 0) + rect.left + rect.width / 2,
-              y: (iframeRect?.top || 0) + rect.bottom,
-            };
-            onEntityClick(entity, position);
-          }
-        }
-      }
-    };
-
     const handle = () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(processContents, DEBOUNCE_DELAY_MS);
@@ -209,16 +183,14 @@ export const useEntityNameHighlighting = ({
 
     rendition.on('rendered', handle);
     rendition.on('relocated', handle);
-    rendition.on('click', handleClick as (e: unknown) => void);
     handle();
 
     return () => {
       rendition.off('rendered', handle);
       rendition.off('relocated', handle);
-      rendition.off('click', handleClick as (e: unknown) => void);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [rendition, processContents, enabled, visibleEntities, onEntityClick]);
+  }, [rendition, processContents, enabled]);
 
   return { processContents };
 };

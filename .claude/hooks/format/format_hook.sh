@@ -14,12 +14,12 @@ EXT="${FILE##*.}"
 case "$EXT" in
   ts|tsx|js|jsx|json|css|md)
     if command -v npx &> /dev/null; then
-      npx prettier --write "$FILE" 2>/dev/null
+      npx prettier --write "$FILE" >/dev/null 2>&1
     fi
     ;;
   py)
     if command -v black &> /dev/null; then
-      black --quiet "$FILE" 2>/dev/null
+      black --quiet "$FILE" >/dev/null 2>&1
     fi
     ;;
 esac

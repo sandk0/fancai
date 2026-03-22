@@ -112,6 +112,14 @@ None - no external service configuration required.
 - Все image-related hooks унифицированы с TQ архитектурой проекта
 - Готово к дальнейшей работе над milestone
 
+## Self-Check: PASSED
+
+- FOUND: frontend/src/hooks/epub/useImageModal.ts
+- FOUND: frontend/src/hooks/api/queryKeys.ts
+- FOUND: frontend/src/hooks/reader/useReaderImageModal.ts
+- FOUND: .planning/phases/26-fix-images/26-02-SUMMARY.md
+- FOUND: commit 16137f2
+
 ---
 *Phase: 26-fix-images*
 *Completed: 2026-03-16*

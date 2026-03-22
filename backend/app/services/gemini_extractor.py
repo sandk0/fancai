@@ -21,7 +21,6 @@ import time
 import logging
 import asyncio
 import hashlib
-import json
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
@@ -31,12 +30,10 @@ from app.core.retry import (
     retry_llm_extraction,
     LLMExtractionError,
     RateLimitError,
-    TimeoutError as RetryTimeoutError,
 )
 from app.core.cache import cache_manager
 from app.services.tsa_parser import TSAParser, get_tsa_parser
 from app.monitoring.metrics import (
-    record_llm_request,
     record_llm_error,
     record_llm_rate_limit,
     record_description_count,
@@ -44,7 +41,6 @@ from app.monitoring.metrics import (
     record_llm_cache_hit,
     record_llm_cache_miss,
 )
-from app.core.json_utils import clean_json_text
 from app.services.llm_cache_service import llm_cache, ChapterCacheKey
 from app.core.openrouter_client import get_openrouter_client
 from pydantic import BaseModel, Field

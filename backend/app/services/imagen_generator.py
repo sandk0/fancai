@@ -16,7 +16,6 @@ Created: 2025-12-13
 Updated: 2026-03-01 - Мигрирован на OpenRouter FLUX.2 Klein 4B (Plan 03-03)
 """
 
-import os
 import hashlib
 import time
 import base64
@@ -29,9 +28,6 @@ import logging
 
 from app.core.retry import (
     retry_image_generation,
-    ImageGenerationError,
-    RateLimitError,
-    TimeoutError as RetryTimeoutError,
 )
 from app.core.openrouter_client import get_openrouter_client
 from app.core.config import settings
@@ -153,7 +149,7 @@ class PromptTranslator:
 
         except Exception as e:
             logger.error(
-                f"Translation failed, using original text",
+                "Translation failed, using original text",
                 extra={
                     "pipeline_stage": "translation",
                     "duration": f"{time.time() - stage_start:.2f}s",

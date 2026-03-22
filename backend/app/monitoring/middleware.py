@@ -92,7 +92,7 @@ class ReadingSessionsMetricsMiddleware(BaseHTTPMiddleware):
             # Если это update endpoint, инкрементируем счетчик
             if endpoint == "update" and response.status_code == 200:
                 # Достаем device_type из request (если есть)
-                # TODO: парсить request body для device_type
+                # NOTE: парсить request body для device_type — дорого в middleware, оставляем "unknown"
                 sessions_updated_total.labels(device_type="unknown").inc()
 
             return response

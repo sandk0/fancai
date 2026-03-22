@@ -11,8 +11,10 @@ interface BookGridProps {
   books: BookType[];
   isLoading?: boolean;
   searchQuery?: string;
+  hasActiveFilters?: boolean;
   onBookClick: (bookId: string) => void;
   onClearSearch?: () => void;
+  onClearFilters?: () => void;
   onUploadClick?: () => void;
   onParsingComplete?: () => void;
   onDelete?: (bookId: string) => void;
@@ -26,7 +28,7 @@ const BookCardSkeleton = memo(() => (
 ));
 
 export const BookGrid = memo(function BookGrid({
-  books, isLoading = false, searchQuery, onBookClick, onClearSearch, onUploadClick, onParsingComplete, onDelete,
+  books, isLoading = false, searchQuery, hasActiveFilters, onBookClick, onClearSearch, onClearFilters, onUploadClick, onParsingComplete, onDelete,
 }: BookGridProps) {
   const { t } = useTranslation();
   const columns = useColumns();
@@ -68,6 +70,16 @@ export const BookGrid = memo(function BookGrid({
         <h3 className="text-xl font-bold mb-2">{t('library.empty.search_title')}</h3>
         <p className="opacity-70 mb-6">{t('library.empty.search_desc', { query: searchQuery })}</p>
         {onClearSearch && <button onClick={onClearSearch} className="px-6 py-3 bg-primary text-white rounded-xl">{t('library.empty.clear_search')}</button>}
+      </div>
+    );
+  }
+
+  if (books.length === 0 && hasActiveFilters) {
+    return (
+      <div className="text-center py-16 px-4">
+        <h3 className="text-xl font-bold mb-2">{t('library.empty.filter_title')}</h3>
+        <p className="opacity-70 mb-6">{t('library.empty.filter_desc')}</p>
+        {onClearFilters && <button onClick={onClearFilters} className="px-6 py-3 bg-primary text-white rounded-xl">{t('library.filter.reset')}</button>}
       </div>
     );
   }

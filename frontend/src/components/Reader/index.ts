@@ -1,13 +1,8 @@
-export { BookReader } from './BookReader';
 export { EpubReader } from './EpubReader';
 export { ReaderHeader } from './ReaderHeader';
-export { ReaderContent } from './ReaderContent';
 export { ReaderControls } from './ReaderControls';
-export { ReaderNavigationControls } from './ReaderNavigationControls';
-export { ReaderToolbar } from './ReaderToolbar';
 export { TocSidebar } from './TocSidebar';
 export { BookInfo } from './BookInfo';
-export { ProgressIndicator } from './ProgressIndicator';
 export { ProgressSaveIndicator } from './ProgressSaveIndicator';
 export { ExtractionIndicator } from './ExtractionIndicator';
 export { ImageGenerationStatus } from './ImageGenerationStatus';

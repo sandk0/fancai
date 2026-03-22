@@ -101,7 +101,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   } = useWakeLock();
   useVisualViewportHandler();
 
-  const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   const userId = getCurrentUserId();
 
   const {
@@ -113,7 +112,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   } = useEpubLoader({
     bookUrl: booksAPI.getBookFileUrl(book.id),
     viewerRef,
-    authToken,
     bookId: book.id,
     userId: userId || undefined,
     onReady: () => requestAnimationFrame(() => setRenditionReady(true)),
@@ -415,10 +413,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     rendition,
     descriptions,
     images,
-    onDescriptionClick: (d, _i) => {
-      setDrawerDescription(d);
-      setIsDrawerOpen(true);
-    },
     enabled: renditionReady && descriptionHighlightingEnabled,
     highlightMode: descriptionHighlightMode,
   });
@@ -618,7 +612,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     currentChapter,
     currentCFI,
     enabled: renditionReady && nameHighlightingEnabled,
-    onEntityClick: (entity, _position) => handleEntityClick(entity),
   });
 
   const handleEntityPopupOpenDrawer = useCallback((entityId: string) => {

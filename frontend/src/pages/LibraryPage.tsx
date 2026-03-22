@@ -451,8 +451,10 @@ const LibraryPage: React.FC = () => {
           books={displayBooks}
           isLoading={isLoading && books.length === 0}
           searchQuery={searchQuery}
+          hasActiveFilters={activeFiltersCount > 0}
           onBookClick={handleBookClick}
           onClearSearch={handleClearSearch}
+          onClearFilters={handleClearFilters}
           onUploadClick={handleUploadClick}
           onParsingComplete={() =>
             queryClient.invalidateQueries({ queryKey: bookKeys.all(getCurrentUserId()) })

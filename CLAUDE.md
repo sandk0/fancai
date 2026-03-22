@@ -62,3 +62,32 @@ For iOS/theme/Reader rules: `.claude/rules/frontend.md`
 For Reader/EPUB rules: `.claude/rules/reader.md`
 For skill routing: `.claude/rules/auto-routing.md`
 GSD planning: `.planning/` (ROADMAP.md, STATE.md)
+
+<!-- GSD:profile-start -->
+
+## Профиль разработчика
+
+> Сгенерировано GSD из session_analysis. Обновить: `/gsd:profile-user --refresh`
+
+| Dimension      | Rating              | Confidence |
+| -------------- | ------------------- | ---------- |
+| Communication  | terse-direct        | HIGH       |
+| Decisions      | fast-intuitive      | HIGH       |
+| Explanations   | detailed-structured | MEDIUM     |
+| Debugging      | hypothesis-driven   | HIGH       |
+| UX Philosophy  | design-conscious    | MEDIUM     |
+| Vendor Choices | opinionated         | MEDIUM     |
+| Frustrations   | regression          | MEDIUM     |
+| Learning       | self-directed       | MEDIUM     |
+
+**Директивы:**
+
+- **Коммуникация:** Ответы краткие и ориентированные на действие. Начинай с результата — без длинных вступлений.
+- **Решения:** Варианты с краткими метками. Не объясняй каждый подробно. Лучший вариант — первым.
+- **Объяснения:** Структурированные объяснения с обоснованием выбора реализации. Рассуждения для неочевидных решений. Заголовки и примеры кода.
+- **Отладка:** Работай с гипотезой разработчика напрямую — подтверди, опровергни или уточни прежде чем предлагать фикс.
+- **UX:** UX-детали — функциональные требования, не "потом отполируем". Скролл, отступы, анимации.
+- **Инструменты:** Уважай выбор инструментов. Не предлагай замену библиотек, если текущий выбор не сломан.
+- **Границы:** Перед коммитом фикса убедись, что не ломает соседнее поведение. Не модифицируй за пределами scope без предупреждения.
+- **Обучение:** Разработчик уже прочитал логи, коммиты и код. Структурируй исследования для самостоятельного чтения.
+<!-- GSD:profile-end -->

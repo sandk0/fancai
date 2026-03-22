@@ -155,13 +155,14 @@ def get_optional_current_user():
         credentials: Optional[HTTPAuthorizationCredentials] = Depends(
             HTTPBearer(auto_error=False)
         ),
+        access_token_cookie: Optional[str] = Cookie(None, alias="access_token"),
     ) -> Optional[User]:
-        if credentials is None:
+        if credentials is None and not access_token_cookie:
             return None
 
         try:
-            # Проверяем токен
-            token = credentials.credentials
+            # 1. Try Authorization header, 2. Try Cookie
+            token = credentials.credentials if credentials else access_token_cookie
 
             # Check if token is blacklisted (revoked via logout)
             if await token_blacklist.is_blacklisted(token):

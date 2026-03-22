@@ -446,7 +446,7 @@ describe('EpubReader Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Не удалось загрузить книгу/)).toBeInTheDocument();
-        expect(screen.getByText(/Не удалось открыть файл книги/)).toBeInTheDocument();
+        expect(screen.getByText(/Ошибка формата книги/)).toBeInTheDocument();
       });
     });
 
@@ -523,11 +523,12 @@ describe('EpubReader Component', () => {
 
       renderEpubReader();
 
-      // Verify authToken was passed
+      // Verify useEpubLoader was called with bookUrl containing book ID
       await waitFor(() => {
         const calls = vi.mocked(useEpubLoader).mock.calls;
         expect(calls.length).toBeGreaterThan(0);
-        expect(calls[0][0]).toHaveProperty('authToken');
+        expect(calls[0][0]).toHaveProperty('bookUrl');
+        expect(calls[0][0].bookUrl).toContain('test-book-id');
       });
     });
 
@@ -584,7 +585,7 @@ describe('EpubReader Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Не удалось загрузить книгу/)).toBeInTheDocument();
-        expect(screen.getByText(/Не удалось открыть файл книги/)).toBeInTheDocument();
+        expect(screen.getByText(/Ошибка формата книги/)).toBeInTheDocument();
       });
     });
 

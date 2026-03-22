@@ -15,7 +15,7 @@ import { useUIStore } from '@/stores/ui';
 import { useTranslation } from 'react-i18next';
 import { ThemeSwitcher } from '@/components/UI/ThemeSwitcher';
 import { isActiveRoute } from '@/utils/navigation';
-import { cn } from '@/utils/cn';
+import { cn } from '@/lib/utils';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuthStore();

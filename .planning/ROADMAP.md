@@ -179,8 +179,9 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
+
 - [ ] 27-01-PLAN.md — Валидация ответа OpenRouter (choices) + обработка HTTP 400/429 в generate_image()
-- [ ] 27-02-PLAN.md — Серверный retry через tenacity (_generate_with_retry в ImagenService)
+- [ ] 27-02-PLAN.md — Серверный retry через tenacity (\_generate_with_retry в ImagenService)
 
 ### Phase 28: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
 
@@ -190,10 +191,11 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
+
 - [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
 - [ ] 28-02-PLAN.md — ImageModal useRegenerateImage mutation + dead code cleanup (FIMG-01, FIMG-05, FIMG-06)
 
-### Phase 28.2: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (INSERTED)
+### Phase 28.2: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (INSERTED) -- completed 2026-03-17
 
 **Goal:** Переключить DescriptionDrawer с синхронного на async endpoint с polling (устранение axios timeout), разделить circuit breaker LLM/Image, добавить structured logging pipeline, показать ошибки генерации в UI, iOS IndexedDB graceful handling
 **Requirements**: N/A (decimal bugfix phase)
@@ -201,8 +203,9 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 28.2-01-PLAN.md — Backend: отдельный circuit breaker для image generation + structured logging с timing на каждом этапе pipeline
-- [ ] 28.2-02-PLAN.md — Frontend: DescriptionDrawer async endpoint + polling + error display + iOS IndexedDB fix + тесты
+
+- [x] 28.2-01-PLAN.md — Backend: отдельный circuit breaker для image generation + structured logging с timing на каждом этапе pipeline
+- [x] 28.2-02-PLAN.md — Frontend: DescriptionDrawer async endpoint + polling + error display + iOS IndexedDB fix + тесты
 
 ### Phase 28.1: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (INSERTED)
 
@@ -212,6 +215,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
+
 - [ ] 28.1-01-PLAN.md — Убрать imageCache.release() из closeModal + обновить тесты blob URL lifecycle
 
 ## Progress
@@ -246,11 +250,11 @@ Plans:
 | 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
 | 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
 | 22. Корневой фикс touch event pipeline    | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
-| 23. Навигация и iOS overlay ревизия       | v1.3      | Complete    | 2026-03-16 | 2026-03-16 |
+| 23. Навигация и iOS overlay ревизия       | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
 | 24. Выделение текста на iOS               | v1.3      | 0/1            | Planned     | -          |
 | 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
 | 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
 | 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 28. Аудит Frontend генерации              | 2/2 | Complete    | 2026-03-16 | -          |
-| 28.1. fix: blob URL revoked ImageModal    | 1/1 | Complete    | 2026-03-16 | -          |
-| 28.2. fix: OpenRouter 2/3 + iOS storage   | 2/2 | Complete   | 2026-03-17 | -          |
+| 28. Аудит Frontend генерации              | 2/2       | Complete       | 2026-03-16  | -          |
+| 28.1. fix: blob URL revoked ImageModal    | 1/1       | Complete       | 2026-03-16  | -          |
+| 28.2. fix: OpenRouter 2/3 + iOS storage   | 2/2       | Complete       | 2026-03-17  | -          |

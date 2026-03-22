@@ -22,10 +22,10 @@ interface DebugPanelProps {
 
 /** Color for touch event type */
 function getTouchEventColor(log: string): string {
-  if (log.includes('touchstart') || log.includes('pointerdown')) return '#22c55e';
-  if (log.includes('touchend') || log.includes('pointerup')) return '#ef4444';
-  if (log.includes('touchmove') || log.includes('pointermove')) return '#94a3b8';
-  return '#22c55e';
+  if (log.includes('touchstart') || log.includes('pointerdown')) return 'var(--color-success)';
+  if (log.includes('touchend') || log.includes('pointerup')) return 'var(--color-error)';
+  if (log.includes('touchmove') || log.includes('pointermove')) return 'var(--color-text-muted)';
+  return 'var(--color-success)';
 }
 
 /** Read computed touch-action from DOM elements directly */
@@ -136,9 +136,9 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
   if (!isDebugActive()) return null;
 
   const tabButtonStyle = (tab: TabId) => ({
-    color: activeTab === tab ? '#0f172a' : '#94a3b8',
-    background: activeTab === tab ? '#22c55e' : 'none',
-    border: `1px solid ${activeTab === tab ? '#22c55e' : '#475569'}`,
+    color: activeTab === tab ? 'var(--color-bg-base)' : 'var(--color-text-muted)',
+    background: activeTab === tab ? 'var(--color-success)' : 'none',
+    border: `1px solid ${activeTab === tab ? 'var(--color-success)' : 'var(--color-text-disabled)'}`,
     borderRadius: 4,
     padding: '2px 6px',
     fontSize: 10,
@@ -160,9 +160,9 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
           width: 44,
           height: 44,
           borderRadius: '50%',
-          background: isOpen ? '#dc2626' : '#1e293b',
-          color: '#22c55e',
-          border: '2px solid #22c55e',
+          background: isOpen ? 'var(--color-error)' : 'var(--color-bg-muted)',
+          color: 'var(--color-success)',
+          border: '2px solid var(--color-success)',
           fontSize: 20,
           cursor: 'pointer',
           display: 'flex',
@@ -186,14 +186,14 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
             right: 8,
             maxHeight: '50vh',
             zIndex: 99998,
-            background: '#0f172a',
-            color: '#22c55e',
+            background: 'var(--color-bg-subtle)',
+            color: 'var(--color-success)',
             fontSize: 10,
             fontFamily: 'ui-monospace, monospace',
             overflow: 'auto',
             padding: 8,
             borderRadius: 8,
-            border: '1px solid #334155',
+            border: '1px solid var(--color-bg-emphasis)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             WebkitOverflowScrolling: 'touch',
           }}
@@ -206,10 +206,10 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
               alignItems: 'center',
               marginBottom: 6,
               paddingBottom: 4,
-              borderBottom: '1px solid #334155',
+              borderBottom: '1px solid var(--color-bg-emphasis)',
               position: 'sticky',
               top: 0,
-              background: '#0f172a',
+              background: 'var(--color-bg-subtle)',
               flexWrap: 'wrap',
               gap: 4,
             }}
@@ -232,9 +232,9 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
               <button
                 onPointerUp={() => setIsPaused((p) => !p)}
                 style={{
-                  color: isPaused ? '#f59e0b' : '#94a3b8',
+                  color: isPaused ? 'var(--color-warning)' : 'var(--color-text-muted)',
                   background: isPaused ? 'rgba(245,158,11,0.15)' : 'none',
-                  border: `1px solid ${isPaused ? '#f59e0b' : '#475569'}`,
+                  border: `1px solid ${isPaused ? 'var(--color-warning)' : 'var(--color-text-disabled)'}`,
                   borderRadius: 4,
                   padding: '2px 8px',
                   fontSize: 10,
@@ -247,9 +247,9 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
               <button
                 onPointerUp={handleCopy}
                 style={{
-                  color: '#22c55e',
+                  color: 'var(--color-success)',
                   background: 'none',
-                  border: '1px solid #22c55e',
+                  border: '1px solid var(--color-success)',
                   borderRadius: 4,
                   padding: '2px 8px',
                   fontSize: 10,
@@ -262,9 +262,9 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
               <button
                 onPointerUp={handleClear}
                 style={{
-                  color: '#ef4444',
+                  color: 'var(--color-error)',
                   background: 'none',
-                  border: '1px solid #ef4444',
+                  border: '1px solid var(--color-error)',
                   borderRadius: 4,
                   padding: '2px 8px',
                   fontSize: 10,
@@ -282,29 +282,29 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
             /* CSS touch-action table */
             <div>
               {Object.keys(cssInfo).length === 0 ? (
-                <div style={{ color: '#64748b', padding: '8px 0' }}>
+                <div style={{ color: 'var(--color-text-disabled)', padding: '8px 0' }}>
                   No CSS data. Open a book and switch to this tab.
                 </div>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #334155' }}>
-                      <th style={{ textAlign: 'left', padding: '4px 8px', color: '#94a3b8' }}>
+                    <tr style={{ borderBottom: '1px solid var(--color-bg-emphasis)' }}>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--color-text-muted)' }}>
                         Element
                       </th>
-                      <th style={{ textAlign: 'left', padding: '4px 8px', color: '#94a3b8' }}>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--color-text-muted)' }}>
                         touch-action
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(cssInfo).map(([selector, value]) => (
-                      <tr key={selector} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td style={{ padding: '4px 8px', color: '#e2e8f0' }}>{selector}</td>
+                      <tr key={selector} style={{ borderBottom: '1px solid var(--color-bg-muted)' }}>
+                        <td style={{ padding: '4px 8px', color: 'var(--color-border-default)' }}>{selector}</td>
                         <td
                           style={{
                             padding: '4px 8px',
-                            color: value === 'auto' ? '#ef4444' : '#22c55e',
+                            color: value === 'auto' ? 'var(--color-error)' : 'var(--color-success)',
                             fontWeight: value === 'auto' ? 700 : 400,
                           }}
                         >
@@ -321,7 +321,7 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
             /* Logs / Touch tab */
             <>
               {displayedLogs.length === 0 ? (
-                <div style={{ color: '#64748b', padding: '8px 0' }}>
+                <div style={{ color: 'var(--color-text-disabled)', padding: '8px 0' }}>
                   {activeTab === 'touch'
                     ? 'No touch events yet. Touch the screen...'
                     : 'No logs yet. Interact with the reader...'}
@@ -332,10 +332,10 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
                     key={i}
                     style={{
                       padding: '1px 0',
-                      borderBottom: '1px solid #1e293b',
+                      borderBottom: '1px solid var(--color-bg-muted)',
                       wordBreak: 'break-all',
                       lineHeight: 1.4,
-                      color: activeTab === 'touch' ? getTouchEventColor(log) : '#22c55e',
+                      color: activeTab === 'touch' ? getTouchEventColor(log) : 'var(--color-success)',
                     }}
                   >
                     {log}

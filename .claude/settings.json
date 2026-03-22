@@ -84,6 +84,16 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docker-safety.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-prompt-guard.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -100,9 +110,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-context-monitor.js"
+            "command": "node .claude/hooks/gsd-context-monitor.js",
+            "timeout": 10
           }
-        ]
+        ],
+        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task"
       }
     ],
     "SessionStart": [
@@ -132,16 +144,6 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-progress.sh",
             "async": true
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "RESPOND WITH ONLY RAW JSON, NO MARKDOWN, NO CODE BLOCKS, NO EXPLANATION. Check: were source code files (.py, .ts, .tsx, .js, .jsx) modified via Edit/Write tools AND no test commands (pytest, npm test, vitest) were run? If code was modified without tests: {\"ok\":false,\"reason\":\"Code was modified but tests were not run. Please run the relevant test suite.\"} Otherwise (only config/docs changed, or tests were run, or research/analysis task): {\"ok\":true}"
           }
         ]
       }

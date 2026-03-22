@@ -19,7 +19,6 @@ interface UseDescriptionHighlightingOptions {
   rendition: Rendition | null;
   descriptions: Description[];
   images: GeneratedImage[];
-  onDescriptionClick: (description: Description, image?: GeneratedImage) => void;
   enabled?: boolean;
   density?: DescriptionDensity;
   highlightMode?: DescriptionHighlightMode;
@@ -232,7 +231,6 @@ export const useDescriptionHighlighting = ({
   rendition,
   descriptions,
   images,
-  onDescriptionClick,
   enabled = true,
   density = 'all',
   highlightMode = 'anchor',
@@ -479,27 +477,6 @@ export const useDescriptionHighlighting = ({
   useEffect(() => {
     if (!rendition || !enabled) return;
 
-    // iOS PWA FIX: Listen for clicks via rendition and message
-    const handleClick = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (t?.classList?.contains('description-highlight')) {
-        const id = t.getAttribute('data-description-id');
-        if (id) {
-          e.preventDefault();
-          e.stopPropagation();
-          const d = safeDescriptions.find((x) => x.id === id);
-          if (d) onDescriptionClick(d, imagesByDescId.get(id));
-        }
-      }
-    };
-
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'DESCRIPTION_CLICK' && e.data.id) {
-        const d = safeDescriptions.find((x) => x.id === e.data.id);
-        if (d) onDescriptionClick(d, imagesByDescId.get(e.data.id));
-      }
-    };
-
     const handle = () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(processContents, DEBOUNCE_DELAY_MS);
@@ -507,18 +484,14 @@ export const useDescriptionHighlighting = ({
 
     rendition.on('rendered', handle);
     rendition.on('relocated', handle);
-    rendition.on('click', handleClick as (e: unknown) => void);
-    window.addEventListener('message', handleMessage);
     handle();
 
     return () => {
       rendition.off('rendered', handle);
       rendition.off('relocated', handle);
-      rendition.off('click', handleClick as (e: unknown) => void);
-      window.removeEventListener('message', handleMessage);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [rendition, processContents, enabled, safeDescriptions, imagesByDescId, onDescriptionClick]);
+  }, [rendition, processContents, enabled, safeDescriptions, imagesByDescId]);
 
   // Force re-highlight when descriptions load late
   const prevCount = useRef(0);

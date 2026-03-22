@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/utils/cn';
+import { cn } from '@/lib/utils';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large' | 'sm' | 'lg';
@@ -26,7 +26,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const colorClasses = {
     primary: 'border-primary/20 border-t-primary',
     secondary: 'border-muted border-t-muted-foreground',
-    white: 'border-white/20 border-t-white',
+    white: 'border-foreground/20 border-t-foreground',
   };
 
   return (

@@ -338,8 +338,6 @@ class OpenRouterClient:
 
         models = [model] if model else FALLBACK_MODELS
 
-        last_exception: Optional[Exception] = None
-
         for i, current_model in enumerate(models):
             is_last = i == len(models) - 1
             start_time = time.time()
@@ -402,7 +400,6 @@ class OpenRouterClient:
                 record_llm_request(
                     model=current_model, status="error", duration=duration
                 )
-                last_exception = e
 
                 # Записываем fallback переключение если есть следующая модель
                 if not is_last:

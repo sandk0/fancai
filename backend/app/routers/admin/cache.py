@@ -119,8 +119,7 @@ async def warm_cache(
     if not cache_manager.is_available:
         raise HTTPException(status_code=503, detail="Redis cache is not available")
 
-    # TODO: Implement cache warming logic if needed
-    # Example: pre-cache popular books, user lists, etc.
+    # NOTE: Cache warming logic — intentionally deferred, endpoint returns "skipped"
 
     return {
         "message": "Cache warming not implemented yet",

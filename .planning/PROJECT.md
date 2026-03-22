@@ -37,7 +37,16 @@
 
 ### Active
 
-(Определяется в следующем milestone)
+## Current Milestone: v1.3 iOS Reader Navigation Fixes
+
+**Goal:** Починить полностью нерабочую навигацию (тапы, свайпы) и выделение текста на iOS — Safari, Chrome, PWA
+
+**Target features:**
+- Диагностика и фикс iOS touch event pipeline в epub.js reader
+- Фикс навигации тапами по краям страницы на iOS
+- Фикс свайпов для перелистывания страниц на iOS
+- Фикс выделения текста на iOS
+- Доработка debug-логгера (`/?debug=1`) для iOS/PWA диагностики
 
 ### Out of Scope
 
@@ -116,4 +125,4 @@ Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 1
 - **Язык контента**: приоритет — русские книги
 
 ---
-*Last updated: 2026-03-14 after v1.2 milestone*
+*Last updated: 2026-03-14 after v1.3 milestone start*

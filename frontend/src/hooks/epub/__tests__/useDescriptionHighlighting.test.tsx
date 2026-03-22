@@ -71,7 +71,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: null,
           descriptions: [],
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -85,7 +84,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions: [],
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: false,
         })
       );
@@ -99,7 +97,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions: [],
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -118,7 +115,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions: [],
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -132,7 +128,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions: [],
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -149,7 +144,6 @@ describe('useDescriptionHighlighting', () => {
             rendition,
             descriptions: [],
             images: [],
-            onDescriptionClick: vi.fn(),
             enabled: true,
           }),
         {
@@ -189,7 +183,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -218,7 +211,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -250,7 +242,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -261,116 +252,54 @@ describe('useDescriptionHighlighting', () => {
       expect(highlight).not.toBeNull();
       expect(highlight.classList.contains('description-highlight')).toBe(true);
     });
-  });
 
-  describe('Click Handler', () => {
-    it('should call onDescriptionClick when highlight is clicked', async () => {
-      const onDescriptionClick = vi.fn();
+    it('should create highlight spans with attributes required by gesture controller', async () => {
       const descriptions: Description[] = [
         {
-          id: 'desc-1',
-          content: 'clickable text here in the document',
+          id: 'desc-gc-1',
+          content: 'gesture controller needs this span to detect clicks',
           type: 'character',
           confidence_score: 0.9,
           priority_score: 0.5,
         },
+        {
+          id: 'desc-gc-2',
+          content: 'second span for gesture controller detection',
+          type: 'location',
+          confidence_score: 0.85,
+          priority_score: 0.5,
+        },
       ];
 
-      mockDocument.body.innerHTML = '<p>This is clickable text here in the document.</p>';
+      mockDocument.body.innerHTML =
+        '<p>gesture controller needs this span to detect clicks in this text.</p>' +
+        '<p>second span for gesture controller detection appears here.</p>';
 
       renderHook(() =>
         useDescriptionHighlighting({
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick,
           enabled: true,
         })
       );
 
       await triggerRenderedAndFlush(mockRendition);
 
-      const highlight = mockDocument.querySelector('.description-highlight');
-      expect(highlight).not.toBeNull();
+      // Gesture controller's getInteractiveType() looks for .description-highlight class
+      const highlights = mockDocument.querySelectorAll('.description-highlight');
+      expect(highlights.length).toBe(2);
 
-      const clickHandler = (mockRendition.on as any).mock.calls.find(
-        (call: any) => call[0] === 'click'
-      )?.[1];
-      expect(clickHandler).toBeDefined();
+      // Each highlight must have data-description-id for identification
+      const ids = Array.from(highlights).map((el) => el.getAttribute('data-description-id'));
+      expect(ids).toContain('desc-gc-1');
+      expect(ids).toContain('desc-gc-2');
 
-      const clickEvent = new MouseEvent('click', { bubbles: true });
-      Object.defineProperty(clickEvent, 'target', { value: highlight });
-      clickHandler(clickEvent);
-
-      expect(onDescriptionClick).toHaveBeenCalledWith(descriptions[0], undefined);
-    });
-
-    it('should pass associated image when clicking highlighted description', async () => {
-      const onDescriptionClick = vi.fn();
-      const descriptions: Description[] = [
-        {
-          id: 'desc-1',
-          content: 'text with image content in the document',
-          type: 'character',
-          confidence_score: 0.9,
-          priority_score: 0.5,
-        },
-      ];
-
-      const images: GeneratedImage[] = [
-        {
-          id: 'img-1',
-          image_url: 'https://example.com/image.png',
-          service_used: 'imagen',
-          prompt_used: 'test prompt',
-          status: 'completed',
-          is_moderated: false,
-          view_count: 0,
-          download_count: 0,
-          created_at: new Date().toISOString(),
-          description_id: 'desc-1',
-          description: {
-            id: 'desc-1',
-            type: 'character',
-            text: 'text with image content in the document',
-            content: 'text with image content in the document',
-            confidence_score: 0.9,
-            priority_score: 0.5,
-          },
-          chapter: {
-            id: 'ch-1',
-            number: 1,
-          },
-        } as GeneratedImage,
-      ];
-
-      mockDocument.body.innerHTML = '<p>Here is text with image content in the document.</p>';
-
-      renderHook(() =>
-        useDescriptionHighlighting({
-          rendition: mockRendition as Rendition,
-          descriptions,
-          images,
-          onDescriptionClick,
-          enabled: true,
-        })
-      );
-
-      await triggerRenderedAndFlush(mockRendition);
-
-      const highlight = mockDocument.querySelector('.description-highlight');
-      expect(highlight).not.toBeNull();
-
-      const clickHandler = (mockRendition.on as any).mock.calls.find(
-        (call: any) => call[0] === 'click'
-      )?.[1];
-      expect(clickHandler).toBeDefined();
-
-      const clickEvent = new MouseEvent('click', { bubbles: true });
-      Object.defineProperty(clickEvent, 'target', { value: highlight });
-      clickHandler(clickEvent);
-
-      expect(onDescriptionClick).toHaveBeenCalledWith(descriptions[0], images[0]);
+      // Verify closest('.description-highlight') works for nested content
+      // (gesture controller uses el.closest?.('.description-highlight'))
+      highlights.forEach((highlight) => {
+        expect(highlight.closest('.description-highlight')).toBe(highlight);
+      });
     });
   });
 
@@ -401,7 +330,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -421,7 +349,6 @@ describe('useDescriptionHighlighting', () => {
             rendition: mockRendition as Rendition,
             descriptions,
             images: [],
-            onDescriptionClick: vi.fn(),
             enabled: true,
           }),
         {
@@ -475,7 +402,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -507,7 +433,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -542,7 +467,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -576,7 +500,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -607,7 +530,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -636,7 +558,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );
@@ -665,7 +586,6 @@ describe('useDescriptionHighlighting', () => {
           rendition: mockRendition as Rendition,
           descriptions,
           images: [],
-          onDescriptionClick: vi.fn(),
           enabled: true,
         })
       );

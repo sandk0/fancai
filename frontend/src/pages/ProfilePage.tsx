@@ -282,7 +282,14 @@ const ProfilePage: React.FC = () => {
               </div>
 
               {/* Progress Bar */}
-              <div className="relative h-3 rounded-full overflow-hidden bg-muted">
+              <div
+                className="relative h-3 rounded-full overflow-hidden bg-muted"
+                role="progressbar"
+                aria-valuenow={Math.round((goal.current / goal.target) * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={goal.label}
+              >
                 <div
                   className="h-full rounded-full transition-all duration-500 bg-primary"
                   style={{

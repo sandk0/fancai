@@ -10,7 +10,8 @@
   },
   "planning": {
     "commit_docs": true,
-    "search_gitignored": false
+    "search_gitignored": false,
+    "sub_repos": []
   },
   "parallelization": {
     "enabled": true,
@@ -33,5 +34,8 @@
   "safety": {
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
+  },
+  "hooks": {
+    "context_warnings": true
   }
 }

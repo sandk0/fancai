@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Drawer } from 'vaul';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
+import { Z_INDEX } from '@/lib/zIndex';
 import { logger } from '@/lib/logger';
 
 interface MobilePanelProps {
@@ -63,10 +64,10 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
       handleOnly={handleOnly}
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Drawer.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm" style={{ zIndex: Z_INDEX.modalOverlay }} />
         <Drawer.Content
-          className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 h-dvh outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-          style={{ paddingBottom: 'var(--snap-point-height, 0px)' }}
+          className="bg-background flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 h-dvh outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          style={{ zIndex: Z_INDEX.modal, paddingBottom: 'var(--snap-point-height, 0px)' }}
           onPointerDown={(e) =>
             logger.debug('[MobilePanel] Drawer.Content pointerdown', {
               target: (e.target as HTMLElement).tagName,

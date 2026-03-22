@@ -10,7 +10,7 @@ import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import { LazyImage } from '@/components/UI/LazyImage';
 import { downloadWithAuth } from '@/utils/fetchWithTokenRefresh';
-import { cn } from '@/utils/cn';
+import { cn } from '@/lib/utils';
 import type { GeneratedImage } from '@/types/api';
 import { logger } from '@/lib/logger';
 

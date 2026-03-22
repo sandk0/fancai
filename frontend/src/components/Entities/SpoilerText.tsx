@@ -41,13 +41,14 @@ export const SpoilerText: React.FC<SpoilerTextProps> = ({
     }
 
     return (
-        <span
+        <button
+            type="button"
             onClick={() => setIsRevealed(true)}
-            className="cursor-pointer select-none rounded-sm bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm"
-            title={t('entities.spoiler_click_to_reveal')}
+            className="cursor-pointer select-none rounded-sm bg-[var(--color-bg-elevated)] text-transparent hover:bg-[var(--color-bg-hover)] transition-colors px-1 backdrop-blur-sm appearance-none border-0 font-inherit text-inherit inline p-0"
+            aria-label={t('entities.spoiler_click_to_reveal')}
         >
             {/* Render redacted blocks roughly matching text length */}
             {Array(Math.ceil(text.length / 8)).fill('████').join(' ')}
-        </span>
+        </button>
     );
 };

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/utils/cn';
+import { cn } from '@/lib/utils';
 import { isActiveRoute } from '@/utils/navigation';
 import { Z_INDEX } from '@/lib/zIndex';
 

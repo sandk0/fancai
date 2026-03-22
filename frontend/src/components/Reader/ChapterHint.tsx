@@ -10,6 +10,7 @@
 
 import { m, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import { Z_INDEX } from '@/lib/zIndex';
 
 export interface ChapterHintProps {
   direction: 'next' | 'prev' | null;
@@ -40,7 +41,7 @@ export const ChapterHint = ({ direction, visible }: ChapterHintProps) => {
             bottom: '5rem',
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 50,
+            zIndex: Z_INDEX.dropdown,
             pointerEvents: 'none',
           }}
           className="bg-muted/90 backdrop-blur-sm rounded-full text-sm text-muted-foreground border border-border px-4 py-2"

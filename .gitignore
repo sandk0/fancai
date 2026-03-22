@@ -246,3 +246,6 @@ target/
 vendor/
 coverage/
 .bg-shell/
+
+# ── GSD baseline (auto-generated) ──
+.gsd

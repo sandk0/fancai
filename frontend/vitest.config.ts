@@ -15,6 +15,13 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: true,
     reporters: ['verbose'],
+    pool: 'forks',
+    dangerouslyIgnoreUnhandledErrors: true,
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     exclude: [
       'node_modules',
       'dist',

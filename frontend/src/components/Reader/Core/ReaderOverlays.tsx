@@ -40,6 +40,7 @@ export const ReaderOverlays: React.FC<ReaderOverlaysProps> = ({
     return (
       <div className={`absolute inset-0 flex items-center justify-center ${backgroundColor} z-10`}>
         <ErrorMessage
+          title={t('reader.error.title')}
           message={error.readableMessage}
           onRetry={error.isRetryable !== false ? error.onRetry : undefined}
           action={{ label: t('reader.error.back_to_library'), onClick: error.onHome }}

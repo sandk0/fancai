@@ -269,11 +269,7 @@ def update_active_sessions_gauge(count: int, device_type: Optional[str] = None):
     if device_type:
         active_sessions_count.labels(device_type=device_type).set(count)
     else:
-        # Обновляем для всех типов устройств
-        for device in ["mobile", "tablet", "desktop", "unknown"]:
-            # Здесь нужен запрос к БД для получения точного count по device_type
-            # Пока ставим placeholder
-            pass
+        active_sessions_count.labels(device_type="all").set(count)
 
 
 def update_abandoned_sessions_gauge(count: int):

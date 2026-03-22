@@ -3,6 +3,7 @@ import { Drawer } from 'vaul';
 import { User, MapPin, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { EntityDetail } from '@/types/entity';
+import { Z_INDEX } from '@/lib/zIndex';
 
 interface EntityBottomSheetProps {
   entity: EntityDetail | null;
@@ -63,8 +64,8 @@ export const EntityBottomSheet: React.FC<EntityBottomSheetProps> = ({
       setActiveSnapPoint={setActiveSnap}
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-base)] rounded-t-xl z-50 h-[95dvh] outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--color-accent-500)]">
+        <Drawer.Overlay className="fixed inset-0 bg-black/40" style={{ zIndex: Z_INDEX.modalOverlay }} />
+        <Drawer.Content aria-label={entity.name} className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-base)] rounded-t-xl h-[95dvh] outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--color-accent-500)]" style={{ zIndex: Z_INDEX.modal }}>
           {/* Handle bar */}
           <div className="mx-auto w-10 h-1 rounded-full bg-[var(--color-bg-hover)] my-3 flex-shrink-0" />
 

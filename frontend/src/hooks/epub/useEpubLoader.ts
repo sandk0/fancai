@@ -11,7 +11,6 @@ import i18n from '@/lib/i18n';
 interface UseEpubLoaderOptions {
   bookUrl: string;
   viewerRef: React.RefObject<HTMLDivElement | null>;
-  authToken: string | null;
   bookId?: string;
   userId?: string;
   onReady?: () => void;
@@ -29,7 +28,6 @@ async function fetchEpubData(
   bookId: string | undefined,
   userId: string | undefined,
   bookUrl: string,
-  authToken: string | null,
   signal: AbortSignal,
 ): Promise<ArrayBuffer> {
   let arrayBuffer: ArrayBuffer | null = null;
@@ -50,7 +48,6 @@ async function fetchEpubData(
     logger.debug('[useEpubLoader] Fetching EPUB from network:', bookUrl);
 
     const response = await fetchWithTokenRefresh(bookUrl, {
-      headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
       signal,
     });
 
@@ -67,7 +64,6 @@ async function fetchEpubData(
 export const useEpubLoader = ({
   bookUrl,
   viewerRef,
-  authToken,
   bookId,
   userId,
   onReady,
@@ -104,7 +100,7 @@ export const useEpubLoader = ({
         setError('');
 
         const arrayBuffer = await fetchEpubData(
-          bookId, userId, bookUrl, authToken, abortController.signal,
+          bookId, userId, bookUrl, abortController.signal,
         );
 
         if (!isMounted) return;
@@ -180,7 +176,7 @@ export const useEpubLoader = ({
       setBook(null);
       setRendition(null);
     };
-  }, [bookUrl, authToken, bookId, userId, reloadKey, viewerRef]);
+  }, [bookUrl, bookId, userId, reloadKey, viewerRef]);
 
   return {
     book,
