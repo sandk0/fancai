@@ -5,7 +5,7 @@
 - v1.0 Готовность к продакшену (shipped 2026-03-09) -- archived
 - v1.1 Reader Mobile / PWA (shipped 2026-03-09) -- archived
 - v1.2 Reader Stability & Polish (shipped 2026-03-13) -- archived
-- v1.3 iOS Reader Navigation Fixes (in progress)
+- v1.3 iOS Reader Navigation Fixes (shipped 2026-03-23) -- archived
 
 ## Phases
 
@@ -56,205 +56,29 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
-### v1.3 iOS Reader Navigation Fixes (In Progress)
+<details>
+<summary>v1.3 iOS Reader Navigation Fixes (Phases 21-28.2) -- SHIPPED 2026-03-23</summary>
 
-**Milestone Goal:** Навигация (тапы, свайпы) и выделение текста в ридере работают на iOS Safari, Chrome и PWA standalone так же, как на Android и десктопе
+- [x] Phase 21: Диагностика iOS touch pipeline (1/1 plans) -- completed 2026-03-15
+- [x] Phase 22: Корневой фикс touch event pipeline (1/1 plans) -- completed 2026-03-16
+- [x] Phase 23: Навигация и iOS overlay ревизия (2/2 plans) -- completed 2026-03-16
+- [x] Phase 24: Выделение текста на iOS (1/1 plans) -- completed 2026-03-23
+- [x] Phase 25: Регрессионное тестирование (1/1 plans) -- completed 2026-03-23
+- [x] Phase 26: fix(images) (2/2 plans) -- completed 2026-03-16
+- [x] Phase 27: Надёжность генерации изображений (2/2 plans) -- completed 2026-03-16
+- [x] Phase 28: Аудит Frontend генерации (2/2 plans) -- completed 2026-03-16
+- [x] Phase 28.1: fix: blob URL revoked ImageModal (1/1 plans) -- completed 2026-03-16
+- [x] Phase 28.2: fix: OpenRouter 2/3 + iOS storage (2/2 plans) -- completed 2026-03-17
 
-- [x] **Phase 21: Диагностика iOS touch pipeline** - Debug-логирование touch-событий и верификация CSS touch-action на реальном iOS устройстве (completed 2026-03-15)
-- [x] **Phase 22: Корневой фикс touch event pipeline** - Полноэкранный iOS overlay с FSM для всех жестов (тапы, свайпы, rubber-band) (completed 2026-03-16)
-- [x] **Phase 23: Навигация и iOS overlay ревизия** - Дедупликация FSM, динамический overlay top, верификация на iOS (completed 2026-03-16)
-- [ ] **Phase 24: Выделение текста на iOS** - Long-press selection и scroll lock на iOS Safari/Chrome/PWA
-- [ ] **Phase 25: Регрессионное тестирование** - Кросс-платформенная верификация: Android + десктоп после всех iOS-фиксов
-- [x] **Phase 26: fix(images)** - Исправление багов генерации/отображения изображений, рефакторинг useImageModal на TanStack Query (completed 2026-03-16)
+Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
-## Phase Details
-
-### Phase 21: Диагностика iOS touch pipeline
-
-**Goal**: Разработчик видит полную картину touch-событий на реальном iOS устройстве и может подтвердить корневую причину блокировки
-**Depends on**: Nothing (первая фаза milestone)
-**Requirements**: DEBUG-01, DEBUG-02
-**Success Criteria** (что должно быть TRUE):
-
-1. DebugPanel (`/?debug=1`) показывает каждый touch/pointer event (touchstart, touchmove, touchend) с координатами, типом и cancelable/defaultPrevented на iOS
-2. DebugPanel показывает computed значение CSS `touch-action` для iframe элемента на iOS
-3. Baseline данные собраны: видно, какие события доставляются, а какие блокируются capture-phase stopPropagation в useEpubIOSFixes.ts
-   **Plans:** 1/1 plans complete
-
-Plans:
-
-- [x] 21-01-PLAN.md — Диагностический hook useTouchDiagnostics + расширение DebugPanel вкладками Touch/CSS
-
-### Phase 22: Корневой фикс touch event pipeline
-
-**Goal**: Полноэкранный iOS overlay обрабатывает ВСЕ touch-жесты (edge taps, center taps, свайпы) через FSM, идентичную iframe handler
-**Depends on**: Phase 21
-**Requirements**: TOUCH-01, TOUCH-02
-**Success Criteria** (что должно быть TRUE):
-
-1. Touch-события обрабатываются iOS overlay и приводят к корректной навигации (taps, swipes) на iOS Safari, Chrome и PWA standalone
-2. CSS `touch-action: none` на overlay, `touch-action: pan-x pan-y` на iframe элементах
-3. epub.js Snap gesture system остается деактивированной (gestures.destroy() + snap = noop)
-   **Plans:** 1/1 plans complete
-
-Plans:
-
-- [x] 22-01-PLAN.md — Расширение iOS overlay до полноэкранного с полной FSM (taps + swipes + rubber-band)
-
-### Phase 23: Навигация и iOS overlay ревизия
-
-**Goal**: Пользователь перелистывает страницы тапами и свайпами на iOS, iOS overlay убран или переработан
-**Depends on**: Phase 22
-**Requirements**: NAV-01, NAV-02, NAV-03, NAV-04
-**Success Criteria** (что должно быть TRUE):
-
-1. Тап по левому/правому краю страницы перелистывает на предыдущую/следующую страницу на iOS Safari, Chrome и PWA
-2. Тап по центру экрана переключает immersive mode (показ/скрытие UI) на iOS
-3. Свайп влево/вправо перелистывает страницу с follow-finger анимацией на iOS
-4. iOS overlay (gesture-controller-ios-overlay) убран как избыточный, либо переработан для корректной работы со свайпами во всей области экрана
-   **Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 23-01-PLAN.md — Вынос shared FSM в gestureUtils.ts, рефакторинг обоих handler-ов, динамический overlay top, обновление тестов
-- [x] 23-02-PLAN.md — UAT на iPhone 15 Pro (8 проверок: taps, swipes, rubber-band, dynamic overlay top)
-
-### Phase 24: Выделение текста на iOS
-
-**Goal**: Пользователь может выделять текст и создавать заметки на iOS так же, как на Android и десктопе
-**Depends on**: Phase 23
-**Requirements**: SEL-01, SEL-02
-**Success Criteria** (что должно быть TRUE):
-
-1. Long-press на тексте в ридере вызывает выделение текста на iOS Safari, Chrome и PWA
-2. Drag-ручки выделения работают корректно, текст можно расширять/сужать
-3. Scroll lock активируется при выделении текста и снимается при завершении (pointerDown tracking через parent document работает на iOS)
-   **Plans:** 1 plans
-
-Plans:
-
-- [ ] 24-01-PLAN.md — Overlay passthrough при long-press (display:none), iOS caret offset, overlay restore, тесты + UAT
-
-### Phase 25: Регрессионное тестирование
-
-**Goal**: Все iOS-фиксы не ломают навигацию и выделение на Android и десктопе
-**Depends on**: Phase 24
-**Requirements**: REG-01
-**Success Criteria** (что должно быть TRUE):
-
-1. Тапы по краям и центру работают на Android Chrome и десктопных браузерах (Firefox, Chrome, Safari)
-2. Свайпы с follow-finger анимацией работают на Android
-3. Выделение текста и scroll lock работают на Android и десктопе
-4. Существующие автоматические тесты проходят (кроме pre-existing failures: ErrorBoundary 7, auth 1)
-   **Plans**: TBD
-
-Plans:
-
-- [ ] 25-01: TBD
-
-### Phase 26: fix(images): исправить баги генерации и отображения изображений в читалке
-
-**Goal:** Исправить 2 бага генерации/отображения изображений в drawer, добавить кнопку регенерации, рефакторинг useImageModal на TanStack Query
-**Depends on:** Phase 25
-**Requirements**: BUG-01, BUG-02, REGEN, INVALIDATE, MODAL-TQ, BUILD
-**Success Criteria** (что должно быть TRUE):
-
-1. Изображение не пропадает при повторном открытии drawer (Баг 1)
-2. Чужое изображение не показывается при смене описания (Баг 2)
-3. Кнопка "Генерировать заново" при наличии изображения
-4. useImageModal использует TQ polling вместо setInterval
-5. TypeScript компиляция и production build проходят
-   **Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 26-01-PLAN.md — Фикс инвалидации query keys + рефакторинг DescriptionDrawer (TQ query, регенерация, сброс мутации) + обновление EpubReader
-- [x] 26-02-PLAN.md — Рефакторинг useImageModal на TanStack Query (useMutation + useQuery polling)
-
-### Phase 27: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
-
-**Goal:** Генерация изображений работает с первой попытки в >90% случаев. Серверный retry, валидация ответа OpenRouter, structured logging при ошибках
-**Requirements**: IMG-01, IMG-02, IMG-03
-**Depends on:** Phase 26
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [ ] 27-01-PLAN.md — Валидация ответа OpenRouter (choices) + обработка HTTP 400/429 в generate_image()
-- [ ] 27-02-PLAN.md — Серверный retry через tenacity (\_generate_with_retry в ImagenService)
-
-### Phase 28: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
-
-**Goal:** Исправить 6 проблем frontend генерации: cache invalidation при регенерации, mock objects в IndexedDB, blob URL leak при удалении, 409 race condition, dead code cleanup
-**Requirements**: FIMG-01, FIMG-02, FIMG-03, FIMG-04, FIMG-05, FIMG-06
-**Depends on:** Phase 27
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [ ] 28-01-PLAN.md — IndexedDB metadata, useDeleteImage cleanup, 409 guard ref (FIMG-02, FIMG-03, FIMG-04)
-- [ ] 28-02-PLAN.md — ImageModal useRegenerateImage mutation + dead code cleanup (FIMG-01, FIMG-05, FIMG-06)
-
-### Phase 28.2: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (INSERTED) -- completed 2026-03-17
-
-**Goal:** Переключить DescriptionDrawer с синхронного на async endpoint с polling (устранение axios timeout), разделить circuit breaker LLM/Image, добавить structured logging pipeline, показать ошибки генерации в UI, iOS IndexedDB graceful handling
-**Requirements**: N/A (decimal bugfix phase)
-**Depends on:** Phase 28
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 28.2-01-PLAN.md — Backend: отдельный circuit breaker для image generation + structured logging с timing на каждом этапе pipeline
-- [x] 28.2-02-PLAN.md — Frontend: DescriptionDrawer async endpoint + polling + error display + iOS IndexedDB fix + тесты
-
-### Phase 28.1: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (INSERTED)
-
-**Goal:** Убрать imageCache.release() из closeModal() — blob URL lifecycle управляется автоматическим cleanup interval (1 мин, TTL 30 мин), ручной release ломает shared blob URL в TQ cache
-**Requirements**: N/A (decimal bugfix phase)
-**Depends on:** Phase 28
-**Plans:** 1/1 plans complete
-
-Plans:
-
-- [ ] 28.1-01-PLAN.md — Убрать imageCache.release() из closeModal + обновить тесты blob URL lifecycle
+</details>
 
 ## Progress
 
-**Execution Order:**
-Фазы выполняются последовательно: 21 -> 22 -> 23 -> 24 -> 25 -> 26 -> 27 -> 28
-
-| Phase                                     | Milestone | Plans Complete | Status      | Completed  |
-| ----------------------------------------- | --------- | -------------- | ----------- | ---------- |
-| 1. Безопасность продакшена                | v1.0      | 2/2            | Complete    | 2026-03-01 |
-| 2. Очистка мертвого кода                  | v1.0      | 2/2            | Complete    | 2026-03-01 |
-| 3. Миграция сервисов                      | v1.0      | 4/4            | Complete    | 2026-03-01 |
-| 4. Обслуживание инфраструктуры            | v1.0      | 3/3            | Complete    | 2026-03-02 |
-| 4.1. Фиксы интеграции и ребрендинг        | v1.0      | 3/3            | Complete    | 2026-03-04 |
-| 5. Стабилизация AI и техдолг              | v1.0      | 2/2            | Complete    | 2026-03-04 |
-| 6. Качество Entity Wiki                   | v1.0      | 2/2            | Complete    | 2026-03-04 |
-| 7. Обработка ошибок и UX                  | v1.0      | 2/2            | Complete    | 2026-03-05 |
-| 8. Функции ридера                         | v1.0      | 3/3            | Complete    | 2026-03-07 |
-| 9. Стабилизация навигации                 | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 10. Follow-finger свайпы                  | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 11. Единый gesture handler и мобильный UI | v1.1      | 3/3            | Complete    | 2026-03-09 |
-| 12. Viewport и iOS                        | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 13. PWA и offline                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 14. Фикс описаний                         | v1.1      | 2/2            | Complete    | 2026-03-09 |
-| 16. Навигация и свайпы                    | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 17. Шапка и панели                        | v1.2      | 5/5            | Complete    | 2026-03-11 |
-| 18. Выделение текста и заметки            | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19. Описания и Entity Popup               | v1.2      | 2/2            | Complete    | 2026-03-11 |
-| 19.1. UAT-фиксы                           | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 19.2. Мобильные баги ридера               | v1.2      | 2/2            | Complete    | 2026-03-12 |
-| 19.3. ResizeObserver cascade fix          | v1.2      | 3/3            | Complete    | 2026-03-12 |
-| 20. Очистка dead code                     | v1.2      | 2/2            | Complete    | 2026-03-13 |
-| 21. Диагностика iOS touch pipeline        | v1.3      | 1/1            | Complete    | 2026-03-15 |
-| 22. Корневой фикс touch event pipeline    | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
-| 23. Навигация и iOS overlay ревизия       | v1.3      | Complete       | 2026-03-16  | 2026-03-16 |
-| 24. Выделение текста на iOS               | v1.3      | 0/1            | Planned     | -          |
-| 25. Регрессионное тестирование            | v1.3      | 0/?            | Not started | -          |
-| 26. fix(images)                           | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 27. Надёжность генерации изображений      | v1.3      | 2/2            | Complete    | 2026-03-16 |
-| 28. Аудит Frontend генерации              | 2/2       | Complete       | 2026-03-16  | -          |
-| 28.1. fix: blob URL revoked ImageModal    | 1/1       | Complete       | 2026-03-16  | -          |
-| 28.2. fix: OpenRouter 2/3 + iOS storage   | 2/2       | Complete       | 2026-03-17  | -          |
+| Phase                                     | Milestone | Plans Complete | Status   | Completed  |
+| ----------------------------------------- | --------- | -------------- | -------- | ---------- |
+| 1-8                                       | v1.0      | 23/23          | Complete | 2026-03-07 |
+| 9-14                                      | v1.1      | 13/13          | Complete | 2026-03-09 |
+| 16-20                                     | v1.2      | 21/21          | Complete | 2026-03-13 |
+| 21-28.2                                   | v1.3      | 14/14          | Complete | 2026-03-23 |

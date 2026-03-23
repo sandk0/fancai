@@ -1,229 +1,367 @@
-# Feature Research: iOS Reader Navigation Fixes
+# Feature Research: Гибридный NLP-пайплайн обработки книг
 
-**Domain:** iOS touch event pipeline для iframe-based EPUB reader
-**Researched:** 2026-03-14
-**Confidence:** HIGH
+**Domain:** ML/NLP pipeline для AI-ридера художественной литературы
+**Researched:** 2026-03-24
+**Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-iOS Safari (и все браузеры на iOS, включая Chrome и PWA) имеет фундаментально иную модель обработки touch-событий в iframe по сравнению с Android/Desktop. Корень проблемы -- WebKit обрабатывает touch events в iframe с особенностями: координатные сдвиги, агрессивный перехват жестов для навигации браузера, ограниченная поддержка `touch-action` CSS, и несовместимое поведение `passive` event listeners. Существующая кодовая база уже содержит обширные iOS-специфичные workaround'ы (useEpubIOSFixes.ts, iOS overlay в useGestureController.ts, CSS @supports hacks), но все они нацелены на layout/spread проблемы, а не на полный touch event pipeline.
+Текущий пайплайн fancai обрабатывает каждую книгу целиком через LLM (Gemini 3 Flash), что стоит ~$1.50/книга и занимает 5-15 минут. Гибридная архитектура заменяет LLM на локальные модели для NER и классификации описаний, оставляя LLM только для synthesis (биографии, отношения). Итоговая стоимость: $0.02-0.05/книга (экономия 97-99%).
 
-Ключевая проблема: **touch events регистрируются внутри iframe, но iOS WebKit искажает их координаты, перехватывает жесты для своей навигации, и не уважает `preventDefault()` на passive listeners** -- в результате тапы, свайпы и выделение текста не работают.
+Исследование верифицировало существующий документ `rag-nlp-optimization-research.md` и аудит. Основные выводы подтверждены, ключевые уточнения внесены ниже.
 
-Наиболее вероятная корневая причина (требует диагностического подтверждения): **capture-phase `stopPropagation()` в useEpubIOSFixes.ts блокирует все touch events до того, как они достигают gesture controller handlers в bubble phase**.
+Пять целевых фич имеют чёткую иерархию зависимостей: GLiNER2 NER и Description Classifier работают независимо, pgvector обогащает контекст для LLM synthesis, а feature flags обеспечивают безопасный rollout каждого компонента.
+
+---
 
 ## Feature Landscape
 
-### Table Stakes (Пользователь ожидает, отсутствие = продукт сломан)
+### Table Stakes (Без этого пайплайн не имеет смысла)
 
-| Feature | Почему ожидается | Сложность | Заметки |
-|---------|-----------------|-----------|---------|
-| Тап по краю страницы = перелистывание | Базовая навигация, Apple Books / Kindle работают так | MEDIUM | На iOS тапы внутри iframe могут не генерировать click event без `cursor: pointer` на body. Уже есть в CSS, но iOS overlay покрывает только center zone (15%-85%). Edge taps (0-15%, 85-100%) обрабатываются только через iframe touchend, который может не срабатывать если capture-phase stopPropagation блокирует bubble phase |
-| Свайп = перелистывание с follow-finger | Стандарт iOS-ридеров, пользователь ожидает Apple Books-подобное поведение | HIGH | touchmove внутри iframe + `e.preventDefault()` для отмены скролла. На iOS: 1) `passive: true` по умолчанию для touchstart -- `preventDefault()` игнорируется; 2) `touch-action: none` НЕ поддерживается iOS Safari (только `auto` и `manipulation`); 3) epub.js собственные gesture handlers конфликтуют (уже блокируются в useEpubIOSFixes.ts через `stopPropagation`) |
-| Выделение текста long-press | Базовая функция чтения, копирование цитат | HIGH | iOS Safari имеет документированный баг с drag handles в iframe -- при смещении iframe от верха страницы (padding/margin) координаты drag handles сдвигаются. Баг был исправлен в iOS 12.2, но может рецидивировать. Текущий scroll lock механизм (useContentHooks.ts) привязан к parent document pointerdown/pointerup -- на iOS pointer events могут не срабатывать корректно |
-| Центральный тап = показать/скрыть UI | Стандарт всех ридеров | LOW | Уже есть iOS overlay div для center zone. Проблема: overlay может перехватывать touches, предназначенные для iframe (описания, entity mentions) |
-| Отсутствие двойного перелистывания | Один тап/свайп = одна страница | MEDIUM | Уже есть: useEpubIOSFixes.ts блокирует `manager.snap()`, фиксит `layout.divisor=1`. Но если touch event pipeline сломан, могут проскакивать двойные навигации |
+Фичи, без которых гибридный пайплайн не может заменить текущий LLM-only подход.
+
+| Feature | Почему обязательно | Сложность | Заметки |
+|---------|-------------------|-----------|---------|
+| **GLiNER2 NER extraction** | Основа экономии: заменяет TSA extraction ($1.31/книга) на бесплатный локальный NER | HIGH | 205M params, ~800MB-1.2GB RAM, ~100-200ms/sentence на EPYC 9645. DeBERTa: max 512 tokens, нужен chunking. Literature domain F1=0.564 (> GPT-4o 0.561 по EMNLP 2025). Zero-shot с русскими лейблами ["персонаж", "локация", "артефакт", "организация"] |
+| **Chunking для длинных глав** | Главы 10-50K символов, GLiNER2 принимает max ~2000 символов (512 tokens) | MEDIUM | Sentence/paragraph chunking с overlap 1-2 предложения. GLiNER2 API имеет встроенный windowing через `model.extract()`, но нужен контроль над chunk boundaries для сохранения entity spans. Оптимальный chunk_size: 100-250 tokens (не 512 — quality degradation на длинных чанках по данным исследований) |
+| **Маппинг NEREntity на ExtractedEntity** | Backward compatibility с текущим pipeline (ConsistencyManager, book_tasks.py) | MEDIUM | NEREntity (text, label, start, end, score) должен конвертироваться в существующий ChapterAnalysisResult. Текущий pipeline ожидает: entities[], descriptions[], relationships[], tagged_text. GLiNER2 не производит tagged_text — нужен adapter |
+| **Feature flag USE_GLINER_NER** | Безопасный rollback на LLM при проблемах с качеством | LOW | FeatureFlagManager уже в продакшене (6 flags, NLP category). Добавить flag + env var GLINER_CONFIDENCE_THRESHOLD=0.4 |
+| **Docker: NLP-зависимости** | GLiNER2 + PyTorch CPU в Celery worker, увеличение RAM до 4GB | MEDIUM | Текущий image 468MB, станет ~1.5-2GB. NLP убрали в декабре 2025 ("NLP REMOVED for RAM optimization"). Celery concurrency=1, max-tasks-per-child=0 (модели persist в памяти) |
+| **Description classifier (baseline)** | Заменяет LLM extraction описаний (текущий TSA парсит описания из tagged_text) | HIGH | В БД 519 размеченных описаний — готовый training set. TF-IDF + LogisticRegression как baseline (<1ms/sentence, ~5MB). Upgrade: sentence-transformer + linear head если TF-IDF F1 < 0.75 |
+| **LLM synthesis (batch)** | Единственное, для чего LLM ещё нужен: биографии, milestones, relationships | MEDIUM | Один batch-вызов на книгу вместо per-chapter. DeepSeek V3.2 ($0.26/$0.38) — output в 8x дешевле Gemini 3 Flash ($3.00). Context: entities + mention counts + top context chunks |
 
 ### Differentiators (Конкурентное преимущество)
 
+Фичи, повышающие качество или снижающие стоимость сверх базовой замены.
+
 | Feature | Value Proposition | Сложность | Заметки |
 |---------|-------------------|-----------|---------|
-| Debug overlay для iOS диагностики | Позволяет диагностировать touch проблемы на реальном устройстве без подключения к Mac | MEDIUM | Текущий DebugPanel (`/?debug=1`) логирует через `logger.debug()`. Нужно: 1) визуальный индикатор touch events (красная точка на touchstart, синяя на touchmove, зеленая на touchend); 2) лог координат, event.cancelable, event.defaultPrevented; 3) состояние FSM gesture controller в реальном времени |
-| Follow-finger с spring physics на iOS | Плавность Apple Books, визуальный feedback при свайпе | HIGH | translateX MotionValue работает на GPU через CSS transform. Сам transform работает на iOS. Проблема -- touchmove events, питающие translateX, могут не доставляться если iOS перехватывает жест для back-navigation |
-| Тап на описание/entity в edge zone | Интерактивные элементы работают даже у краев страницы | LOW | `elementFromPoint` + `getInteractiveType()` уже реализованы. На iOS -- координаты в iframe могут быть сдвинуты (WebKit bug #128924, исправлен, но аналогичные проблемы появляются) |
-| Тактильная обратная связь spring animations | Пользователь чувствует "вес" страницы через rubber-band | LOW | `SPRING_RUBBER`, `SPRING_TAP`, `SPRING_FAST` уже настроены. Зависит от работающего touch pipeline |
+| **pgvector embeddings для контекста** | Вместо передачи всего текста в LLM — vector search релевантных чанков. Повышает quality synthesis при снижении input tokens | MEDIUM | multilingual-e5-small (118M, 384 dims) для старта. pgvector/pgvector:pg17 Docker image. HNSW index (не IVFFlat — лучше для малых датасетов без tuning). ~7.5MB на 100 книг. Alembic migration + CREATE EXTENSION vector |
+| **Active learning для classifier** | Со временем classifier становится лучше: low-confidence predictions (0.4-0.6) проверяются LLM, результат добавляется в training set | LOW | Паттерн: classifier predict -> threshold check -> LLM verify -> retrain. Экономия растёт экспоненциально с количеством книг. Переобучение: ежемесячный batch retrain |
+| **Embedding-based alias detection** | Дополняет SequenceMatcher для entity dedup. Cosine similarity между entity embeddings выявляет candidates для LLM dedup | LOW | Не заменяет LLM dedup полностью ("Геральт" vs "Ведьмак" семантически далеки). Работает для: "Гарри Поттер" vs "мистер Поттер". ~5-10 alias pairs на книгу -> 1 LLM вызов |
+| **Co-occurrence графы (NetworkX)** | Базовые relationships (кто с кем взаимодействует) без LLM. GLiNER entities per chapter -> co-occurrence matrix -> graph | LOW | Типизацию (ALLY/ENEMY/FRIEND) оставить на LLM synthesis. Бесплатный компонент Phase 1 |
+| **Context caching (Gemini)** | Системный промпт TSA (~2000 токенов) одинаков для всех глав. Cache read = 10% от base price | LOW | Экономия ~$0.044/книга (88% на системном промпте). OpenRouter поддерживает automatic context caching для Gemini. Незначительно в абсолюте, но принцип важен |
+| **DeepSeek V3.2 для synthesis** | Output tokens $0.38/1M vs $3.00 (Gemini 3 Flash) — 8x экономия. "GPT-5 class" quality по OpenRouter | LOW | Ограничение: 164K context window (vs 1M Gemini). Для synthesis ~35K input — достаточно. Data privacy: серверы в Китае, но для fiction это приемлемо. Цена проверена 2026-03-24: $0.26/$0.38 |
+| **Incremental processing (per-chapter UI updates)** | NER + embed per chapter -> WebSocket progress updates. Пользователь видит entities по мере обработки | MEDIUM | `useBookProgressWS.ts` уже существует. Phase 1 (NER) — incremental-friendly. Phase 2 (synthesis) — batch after all chapters |
+| **Cross-validation по книгам** | Правильная стратегия split для classifier: 80/10/10 по книгам, не по предложениям | LOW | Без этого — data leakage через стиль автора. Stratify по жанру (если доступен). Критически важно для quality classifier |
 
-### Anti-Features (Часто запрашиваются, создают проблемы)
+### Anti-Features (Не реализовывать)
 
-| Feature | Почему запрашивается | Почему проблематична | Альтернатива |
-|---------|---------------------|---------------------|-------------|
-| Pointer Events вместо Touch Events | "Pointer Events -- унифицированный API" | iOS Safari имеет документированные баги с pointer events (WebKit bug #214609 -- pointerenter с неправильным pointerType). Touch events надежнее на iOS. React pointer events могут не работать в iframe (issue #12901) | Оставить Touch Events, использовать pointer events только для parent document (scroll lock pointerdown/pointerup уже работает) |
-| `touch-action: none` для полного контроля | "Отменить все браузерные жесты" | iOS Safari НЕ поддерживает `touch-action: none` -- только `auto` и `manipulation`. Попытка использовать сломает ожидания | Использовать `touch-action: pan-x pan-y` (уже в CSS) + `preventDefault()` на `touchmove` с `{passive: false}` для подавления конкретных жестов |
-| Дублирование touch handlers на parent + iframe | "Ловить события в двух местах для надежности" | Двойная обработка одного touch = двойная навигация, конфликты между parent и iframe handlers | Единственный источник truth: iframe touch handlers через `hooks.content.register()`. iOS overlay -- только для center tap, не для navigation |
-| Замена epub.js iframe на shadow DOM | "Убрать iframe -- убрать проблемы" | epub.js архитектурно построен на iframe. Замена = переписать epub.js | Работать с iframe, но правильно: 1) `cursor: pointer` на body (есть); 2) touch handlers с `{passive: false}` для touchmove; 3) координатная трансформация через `iframe.getBoundingClientRect()` |
-| 3D page curl анимация | "Как настоящая книга" | Несовместима с epub.js CSS column layout + iframe. Apple Books реализует это нативно (WKWebView с Metal), веб-версия не может конкурировать | Slide анимация (уже реализована), Spring physics для тактильности |
+Фичи, которые кажутся полезными, но создают проблемы в контексте fancai.
+
+| Feature | Почему хочется | Почему проблема | Альтернатива |
+|---------|---------------|-----------------|-------------|
+| **Self-hosted LLM (llama.cpp)** | Нулевая стоимость inference | На 12 vCPU без GPU: ~2-5 tokens/sec для 7B модели — неприемлемо для обработки книг (часы вместо минут) | DeepSeek V3.2 через OpenRouter ($0.02/книга) |
+| **ONNX-конвертация GLiNER2 сразу** | Ускорение inference 2-3x | Premature optimization. PyTorch на EPYC 9645 с AVX-512: ~100-200ms/sentence — достаточно для batch processing. ONNX добавляет complexity | PyTorch для Phase 1, ONNX как опция Phase 5 если нужно |
+| **Полноценный coreference resolution (русский)** | Разрешение "он" -> "Геральт" повысило бы quality | Русский coref SOTA: F1 ~65-70% (RuCoCo). Нет production-ready CPU решений в 2026. Наташа coref — экспериментальная, малоактивная с 2021 | Оставить alias resolution на LLM dedup для нерешённых пар |
+| **GigaEmbeddings (Sber, 3B)** | SOTA на ruMTEB (69.1 avg) | 6GB RAM — конфликтует с GLiNER2 в одном worker. Избыточно для entity context retrieval | multilingual-e5-small (118M) для старта, ru-en-RoSBERTa (~400M) как upgrade |
+| **GraphRAG / LightRAG для Knowledge Graph** | Красивая визуализация отношений | Зависит от LLM для extraction — не экономит. pgvector + embeddings проще и дешевле для entity context | Co-occurrence графы (бесплатно) + LLM synthesis для типизации |
+| **Zero-shot classification (BART-large-mnli)** | "Is this a visual description?" без обучения | ~800M params, ~500ms/sentence. 2500 предложений x 500ms = 20+ минут на CPU. TF-IDF classifier: <1ms/sentence, 5MB | TF-IDF + LogReg baseline, sentence-transformer upgrade если F1 < 0.75 |
+| **Prompt compression (LLMLingua)** | Сжатие промптов 2-5x без потери quality | Для fiction каждое слово может быть частью описания/имени. Сжатие удаляет ключевые детали | Уменьшить объём input через NER + vector search (передавать только релевантные чанки) |
+| **Fine-tuning GLiNER2 сразу** | Повысить quality для русской fiction | Нужно 500+ книг для meaningful fine-tune. Сейчас 8 книг. Zero-shot quality достаточен для MVP | Накапливать данные, fine-tune после 500+ книг. Built-in GLiNER2Trainer готов |
+| **Gemini Batch API (50% скидка)** | Снижение стоимости synthesis вдвое | Требует прямого Google API ключа, google-genai SDK (убран из deps). Два API клиента параллельно — complexity | OpenRouter с DeepSeek V3.2 ($0.02/книга) дешевле без дополнительной сложности |
+| **Multi-class description classifier** | location/character/atmosphere/object | Усложняет обучение при 519 примерах. Binary проще обучить и валидировать | Binary first (описание/не описание), type classification через rule-based: entity PER -> character, LOC -> location |
+
+---
 
 ## Feature Dependencies
 
 ```
-[iOS Touch Event Диагностика]
+GLiNER2 NER (extraction)
     |
-    v
-[Fix touchstart/touchmove/touchend pipeline в iframe]
+    +-- Chunking (длинные главы)
+    |       |
+    |       +-- NEREntity -> ExtractedEntity маппинг
+    |               |
+    |               +-- Feature flag USE_GLINER_NER
+    |                       |
+    |                       +-- A/B test на 5 книгах (Go/No-Go)
     |
-    +---> [Fix тап навигации по краям]
-    |         |
-    |         +---> [Fix center tap (show/hide UI)]
+    +-- Co-occurrence графы (NetworkX)
+            |
+            +-- Embedding-based alias detection
+                    |
+                    +-- pgvector embeddings
+                            |
+                            +-- LLM batch synthesis (контекст из vector search)
+
+Description Classifier (параллельно с NER)
     |
-    +---> [Fix свайп навигации]
-    |         |
-    |         +---> [Follow-finger spring physics на iOS]
+    +-- Training data export (519 descriptions)
+    |       |
+    |       +-- TF-IDF + LogReg baseline
+    |       |       |
+    |       |       +-- [if F1 < 0.75] Sentence-transformer upgrade
+    |       |
+    |       +-- Cross-validation по книгам (не по предложениям!)
     |
-    +---> [Fix выделения текста]
-              |
-              +---> [Scroll lock для iOS]
-              |
-              +---> [HighlightTooltip позиционирование на iOS]
+    +-- Feature flag USE_DESCRIPTION_CLASSIFIER
+            |
+            +-- Active learning (LLM проверяет low-confidence)
+
+Docker Infrastructure (параллельно)
+    |
+    +-- pgvector/pgvector:pg17 image (для embeddings)
+    |       |
+    |       +-- Alembic migration (vector extension + chapter_embeddings table)
+    |
+    +-- Celery worker: 4GB RAM, concurrency=1, max-tasks-per-child=0
+            |
+            +-- NLP dependencies (gliner2, torch-cpu, sentence-transformers, scikit-learn)
+
+Feature Flags (сквозная фича)
+    |
+    +-- USE_GLINER_NER
+    +-- USE_DESCRIPTION_CLASSIFIER
+    +-- USE_HYBRID_PIPELINE (мастер-флаг)
+    +-- USE_PGVECTOR_EMBEDDINGS
 ```
 
 ### Dependency Notes
 
-- **Touch Event Pipeline является фундаментом**: Все остальные фичи (тапы, свайпы, выделение) зависят от корректной доставки и обработки touch events внутри iframe на iOS. Без диагностики невозможно понять что именно сломано.
-- **Диагностика первична**: Debug overlay с визуализацией touch events позволит увидеть, какие events доставляются, с какими координатами, и какие перехватываются iOS.
-- **Тап навигация проще свайпа**: Тапы -- дискретные events (touchstart + touchend без значительного движения). Свайпы -- continuous (touchstart + touchmove + touchend) с `preventDefault()`. На iOS `preventDefault()` на passive touchmove не работает -- это отдельная проблема.
-- **Выделение текста конфликтует с жестами**: На iOS long-press запускает нативное выделение. Gesture controller должен правильно различать: short tap = навигация, long press = выделение, horizontal drag = свайп. Текущий FSM (idle -> pending -> swiping | cancelled) правильный по логике, но timing на iOS может отличаться.
-- **Scroll lock зависит от pointer events**: Текущая реализация использует parent document pointerdown/pointerup для отслеживания состояния. На iOS pointer events в iframe могут работать иначе.
-- **capture-phase stopPropagation конфликт**: useEpubIOSFixes.ts добавляет capture-phase listeners с `e.stopPropagation()` для блокировки epub.js handlers. Но это может также блокировать gesture controller handlers в bubble phase. Это **наиболее вероятная корневая причина**, требующая диагностического подтверждения и рефакторинга подхода к блокировке epub.js.
+- **GLiNER2 NER и Description Classifier — независимы:** могут разрабатываться параллельно. Оба работают per-chapter на тексте. NER не зависит от classifier и наоборот.
+- **pgvector embeddings зависит от Docker infrastructure:** нужен pgvector/pgvector:pg17 image + Alembic migration перед использованием embeddings.
+- **LLM batch synthesis зависит от pgvector:** использует vector search для выбора релевантных чанков контекста. Без pgvector fallback — передача полного текста (дороже, но работает).
+- **Active learning зависит от Description Classifier:** сначала baseline classifier, потом цикл улучшения.
+- **Co-occurrence графы зависят от GLiNER2 NER:** строятся из entities, извлечённых NER.
+- **A/B test критичен для Go/No-Go:** Entity recall >= 80% vs LLM baseline -> продолжаем. Recall < 70% -> исследовать fine-tuning.
+
+---
 
 ## MVP Definition
 
-### Launch With (v1.3 -- iOS fix milestone)
+### Phase 1: Core Pipeline (Must Have)
 
-- [ ] **Touch event диагностика** -- расширить DebugPanel для визуализации touch events: координаты, event type, cancelable, defaultPrevented, FSM state. Позволяет видеть проблему на реальном устройстве
-- [ ] **Fix touch event pipeline** -- обеспечить доставку touchstart/touchmove/touchend из iframe в gesture controller на iOS. Вероятный fix: рефакторинг capture-phase stopPropagation в useEpubIOSFixes.ts -- заменить на более точечную блокировку epub.js handlers (по event target или handler reference) вместо тотального stopPropagation
-- [ ] **Fix тап навигации** -- тапы по краям (prev/next zones) работают на iOS. Проверить: click event delegation (cursor:pointer), координатная трансформация (clientX в iframe vs screen coords), timing (300ms delay / double-tap zoom)
-- [ ] **Fix свайп навигации** -- горизонтальные свайпы в iframe перелистывают страницы. Ключевое: `touchmove` listener с `{passive: false}` + `preventDefault()` для подавления iOS scroll/back-navigation
-- [ ] **Fix выделения текста** -- long-press + drag handles работают на iOS. Проверить: scroll lock, координаты drag handles в iframe, suppression timing
+- [x] **GLiNER2 NERService** — singleton, lazy load, chunking для длинных глав
+- [x] **NEREntity -> ExtractedEntity маппинг** — backward compat с ConsistencyManager
+- [x] **Feature flag USE_GLINER_NER** — toggle между GLiNER2 и LLM extraction
+- [x] **Docker: Celery worker 4GB RAM** — NLP-зависимости, concurrency=1
+- [x] **A/B test на 5 книгах** — Go/No-Go gate: recall >= 80%
 
-### Add After Validation (v1.3.x)
+### Phase 2: Description Classifier (Must Have)
 
-- [ ] **Follow-finger spring physics на iOS** -- если touch pipeline работает, translateX feeding из touchmove должен работать автоматически
-- [ ] **Rubber-band + chapter hints на iOS** -- зависит от корректного boundary detection (getStageInfo)
-- [ ] **iOS-specific timing tuning** -- LONG_PRESS_TIMEOUT, TAP_MAX_DURATION могут требовать iOS-специфичных значений
+- [x] **Export training data** — 519 descriptions + negative samples из БД
+- [x] **TF-IDF + LogReg baseline** — F1 >= 0.70 (per-book cross-validation)
+- [x] **Feature flag USE_DESCRIPTION_CLASSIFIER** — toggle
 
-### Future Consideration (v2+)
+### Phase 3: LLM Synthesis Optimization (Must Have)
 
-- [ ] **Haptic feedback** -- navigator.vibrate() не поддерживается iOS Safari. Web Vibration API = Android only
-- [ ] **Настраиваемые зоны тапов** -- NAV-v2-01 из backlog
-- [ ] **Pointer Events миграция** -- когда iOS Safari полноценно поддержит pointer events в iframe
+- [x] **Batch synthesis** — один вызов на книгу (DeepSeek V3.2)
+- [x] **Fallback chain** — DeepSeek V3.2 -> Gemini 3.1 Flash Lite -> Claude Haiku 4.5
+- [x] **EntityResolutionService** — рефакторинг ConsistencyManager
+
+### Phase 4: Embeddings (Add After Validation)
+
+- [ ] **pgvector/pgvector:pg17** — Docker image swap
+- [ ] **Alembic migration** — vector extension + chapter_embeddings table
+- [ ] **EmbeddingService** — multilingual-e5-small, batch encode
+- [ ] **Vector search для entity context** — обогащение synthesis input
+
+### Phase 5: Optimization (Future)
+
+- [ ] **Active learning** — classifier improvement cycle
+- [ ] **Context caching** — Gemini system prompt cache
+- [ ] **ONNX conversion** — если нужно ускорение
+- [ ] **Cost monitoring** — per-book cost dashboard
+- [ ] **Gradual rollout** — 10% -> 50% -> 100%
+
+---
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Touch event диагностика (debug) | LOW (dev-only) | LOW | P1 -- без нее невозможна отладка |
-| Fix тап навигации на iOS | HIGH | MEDIUM | P1 -- базовая навигация |
-| Fix свайп навигации на iOS | HIGH | HIGH | P1 -- основной UX-паттерн |
-| Fix выделения текста на iOS | HIGH | HIGH | P1 -- core reading feature |
-| Fix center tap (show/hide UI) | MEDIUM | LOW | P1 -- уже частично работает через overlay |
-| Follow-finger spring на iOS | MEDIUM | LOW (зависит от fix свайпа) | P2 -- визуальное улучшение |
-| Debug overlay визуализация touches | LOW | MEDIUM | P2 -- полезно, не критично |
-| Rubber-band + chapter hints iOS | LOW | LOW | P3 -- polish |
+| Feature | Экономия / Качество | Сложность | Приоритет | Зависимости |
+|---------|---------------------|-----------|-----------|-------------|
+| GLiNER2 NER | ~70% LLM вызовов | HIGH | **P0** | Docker, feature flags |
+| NER chunking (512 token limit) | Без этого NER не работает на главах | MEDIUM | **P0** | GLiNER2 |
+| Feature flags (4 новых) | Безопасный rollout + rollback | LOW | **P0** | Существующий FeatureFlagManager |
+| Docker NLP setup | Инфраструктура для всех NLP фич | MEDIUM | **P0** | — |
+| Description classifier (TF-IDF) | ~85% LLM вызовов для описаний | MEDIUM | **P1** | Training data export |
+| LLM batch synthesis | ~90% общая экономия | MEDIUM | **P1** | GLiNER2, ConsistencyManager refactor |
+| DeepSeek V3.2 integration | Output 8x дешевле Gemini 3 Flash | LOW | **P1** | OpenRouter client (уже поддерживает) |
+| pgvector embeddings | Quality synthesis (лучший контекст) | MEDIUM | **P2** | Docker image swap, Alembic |
+| EmbeddingService (e5-small) | Vector search для synthesis | MEDIUM | **P2** | pgvector |
+| Active learning | Classifier улучшается со временем | LOW | **P3** | Description classifier |
+| Co-occurrence графы | Бесплатные базовые relationships | LOW | **P3** | GLiNER2 NER |
+| Context caching | ~$0.044/книга экономия | LOW | **P3** | — |
+| Incremental processing (WS) | UX: entities по мере обработки | MEDIUM | **P3** | GLiNER2, WebSocket (есть) |
 
 **Priority key:**
-- P1: Блокирует использование ридера на iOS -- must fix
-- P2: Улучшает UX после базовой работоспособности
-- P3: Polish, может подождать
-
-## Competitor Feature Analysis
-
-| Feature | Apple Books (native) | Kindle iOS (native) | Google Play Books (web) | fancai (текущее) |
-|---------|---------------------|--------------------|-----------------------|-----------------|
-| Тап навигация | Работает: нативные gesture recognizers | Работает: нативные handlers | Работает: собственный rendering (не iframe) | СЛОМАНО на iOS: iframe touch events не доставляются |
-| Свайп с follow-finger | Идеально: Metal/CoreAnimation | Хорошо: UIKit animations | Среднее: Canvas-based | СЛОМАНО на iOS: touchmove не доставляется/перехватывается |
-| Выделение текста | Идеально: нативный UITextView | Хорошо: кастомный selection | Среднее: кастомный rendering | СЛОМАНО на iOS: drag handles offset, scroll lock не работает |
-| Page turn animation | Curl/Slide/None | Slide | Slide | Slide (Spring physics) -- работает на Android/Desktop |
-| Debug tools | Нет | Нет | Chrome DevTools | DebugPanel (`/?debug=1`) -- работает |
-
-**Критический вывод:** Нативные ридеры (Apple Books, Kindle) обходят все проблемы iOS WebKit, работая с WKWebView через нативные API. Web-ридеры (Google Play Books) обычно используют собственный rendering engine (Canvas), а не epub.js/iframe. fancai -- один из немногих полнофункциональных web-based EPUB ридеров с iframe, что делает iOS touch issues особенно актуальными.
-
-## Технический анализ корневых проблем
-
-### Проблема 1: capture-phase stopPropagation конфликт (ВЕРОЯТНАЯ КОРНЕВАЯ ПРИЧИНА)
-
-useEpubIOSFixes.ts добавляет capture-phase listeners с `e.stopPropagation()` для блокировки epub.js handlers. Но это блокирует ВСЕ touch events до того, как они достигают gesture controller handlers в bubble phase.
-
-**Порядок событий:**
-1. Capture phase (parent -> child): useEpubIOSFixes `stopPropagation` БЛОКИРУЕТ дальнейшее распространение
-2. Target phase: событие на элементе -- **НЕ ДОСТИГАЕТСЯ**
-3. Bubble phase (child -> parent): gesture controller handlers -- **НИКОГДА НЕ ВЫЗЫВАЮТСЯ**
-
-**Текущий код (useEpubIOSFixes.ts:136-141):**
-```typescript
-const blockEpubJsTouchHandler = (e: TouchEvent) => {
-  e.stopPropagation();
-};
-doc.addEventListener('touchstart', blockEpubJsTouchHandler, { capture: true, passive: true });
-doc.addEventListener('touchmove', blockEpubJsTouchHandler, { capture: true, passive: true });
-doc.addEventListener('touchend', blockEpubJsTouchHandler, { capture: true, passive: true });
-```
-
-Gesture controller добавляет handlers в bubble phase (useGestureController.ts:856-859):
-```typescript
-doc.addEventListener('touchstart', wrappedTouchStart, { passive: true });
-doc.addEventListener('touchmove', handleTouchMove, { passive: false });
-doc.addEventListener('touchend', handleTouchEnd, { passive: true });
-```
-
-**stopPropagation в capture phase останавливает событие ДО bubble phase -- gesture controller handlers не вызываются.**
-
-**Confidence: HIGH** -- следует из стандарта DOM Events и анализа кода.
-
-### Проблема 2: iOS Safari passive event listeners
-
-iOS Safari по умолчанию делает touchstart listeners passive. Это означает:
-- `addEventListener('touchstart', handler)` без explicit `passive` -- passive: true по умолчанию
-- `handler(e) { e.preventDefault() }` -- **игнорируется**, потому что listener passive
-- Нужно: `addEventListener('touchstart', handler, { passive: false })` если требуется preventDefault
-
-**Текущее состояние в коде:**
-- useGestureController.ts touchstart: `{ passive: true }` -- **правильно** (не нужен preventDefault на touchstart)
-- useGestureController.ts touchmove: `{ passive: false }` -- **правильно** (нужен preventDefault для отмены скролла)
-
-**Confidence: HIGH** -- подтверждено Apple Developer Documentation и WebKit bugzilla.
-
-### Проблема 3: Координатный сдвиг в iframe
-
-WebKit bug #128924 (FIXED): touch events привязанные к iframe document node имеют неправильные координаты, когда iframe имеет offset (margin/padding). Координатный регион начинается с (0,0) вместо реальной позиции iframe.
-
-**Текущее состояние в коде:**
-- useGestureController.ts: `getIframeOffset()` получает `iframe.getBoundingClientRect().left`
-- Конвертация координат: `screenX = touch.clientX + iframeOffset`
-- Может быть некорректна на iOS если iframe coordinates уже сдвинуты внутренним WebKit behavior
-
-**Confidence: MEDIUM** -- баг помечен как FIXED, но аналогичные проблемы могут появляться в новых версиях iOS.
-
-### Проблема 4: iOS back-navigation gesture конфликт
-
-iOS Safari/PWA имеют edge-swipe gesture для навигации назад/вперед. Свайп от левого края (~20px) = browser back. Это конфликтует с "свайп вправо = предыдущая страница" в ридере.
-
-**Текущее состояние в коде:**
-- Tap zones: EDGE_ZONE_IFRAME = 0.15 (начинаются с 0% ширины)
-- Нет явной обработки edge-swipe конфликта с iOS
-- `touch-action: pan-x pan-y` позволяет панорамирование, но не блокирует edge gestures
-
-**Confidence: HIGH** -- документировано в pqina.nl/blog и Ionic framework issues.
-
-### Проблема 5: `touch-action` ограничения на iOS
-
-iOS Safari поддерживает только `touch-action: auto` и `touch-action: manipulation`. Значения `none`, `pan-x`, `pan-y` и комбинации (`pan-x pan-y`) имеют **ограниченную** поддержку. `manipulation` = pan-x + pan-y + pinch-zoom (но отключает double-tap-to-zoom).
-
-**Текущее состояние в коде:**
-- CSS: `touch-action: pan-x pan-y` на body в iframe
-- CSS: `touch-action: pan-x pan-y !important` в @supports (-webkit-touch-callout: none) блоке
-- Эффект на iOS может быть эквивалентен `manipulation` или вообще игнорироваться
-
-**Confidence: MEDIUM** -- Can I Use показывает partial support, конкретное поведение `pan-x pan-y` на iOS требует тестирования на устройстве.
-
-## Sources
-
-- [WebKit Bug #128924 -- Shifted document touch handling in iframes on iOS](https://bugs.webkit.org/show_bug.cgi?id=128924)
-- [WebKit Bug #182521 -- touchmove preventDefault() regression](https://bugs.webkit.org/show_bug.cgi?id=182521)
-- [WebKit Bug #133112 -- Touch-action CSS property support](https://bugs.webkit.org/show_bug.cgi?id=133112)
-- [WebKit Bug #154807 -- CSS pointer-events:none not working on iOS Safari](https://bugs.webkit.org/show_bug.cgi?id=154807)
-- [WebKit Bug #202143 -- iOS 13 does not send proper events](https://bugs.webkit.org/show_bug.cgi?id=202143)
-- [epub.js Issue #904 -- Mobile Safari text selection broken](https://github.com/futurepress/epub.js/issues/904)
-- [epub.js Issue #393 -- Swipe page in android and ios](https://github.com/futurepress/epub.js/issues/393)
-- [epub.js Tips and Tricks -- hooks.content.register pattern](https://github.com/futurepress/epub.js/wiki/Tips-and-Tricks-(v0.3))
-- [Apple Safari Web Content Guide -- Handling Events](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/HandlingEvents/HandlingEvents.html)
-- [PQINA -- Blocking Navigation Gestures on iOS](https://pqina.nl/blog/blocking-navigation-gestures-on-ios-13-4/)
-- [PQINA -- How To Prevent Scrolling The Page On iOS Safari](https://pqina.nl/blog/how-to-prevent-scrolling-the-page-on-ios-safari/)
-- [MDN -- touch-action CSS property](https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action)
-- [Can I Use -- CSS touch-action](https://caniuse.com/css-touch-action)
-- [React Issue #20999 -- preventDefault on onTouchMove not preventing scrolling on iOS](https://github.com/facebook/react/issues/20999)
-- [Why your click events don't work on Mobile Safari](https://www.shdon.com/blog/2013/06/07/why-your-click-events-don-t-work-on-mobile-safari)
-- [PWA on iOS -- Current Status and Limitations 2025](https://brainhub.eu/library/pwa-on-ios)
+- **P0**: Блокирует весь пайплайн, без этого ничего не работает
+- **P1**: Составляет основу экономии (97-99%), должен быть в MVP
+- **P2**: Повышает качество, не критичен для запуска
+- **P3**: Optimization, defer до валидации основного pipeline
 
 ---
-*Feature research for: iOS Reader Navigation Fixes (v1.3)*
-*Researched: 2026-03-14*
+
+## Детали реализации ключевых фич
+
+### 1. GLiNER2 Zero-Shot NER
+
+**Как работает с русской fiction:**
+- Zero-shot: произвольные лейблы на русском (["персонаж", "локация", "артефакт", "организация"])
+- Multilingual DeBERTa backbone — обучен на 100+ языках включая русский
+- Literature domain F1=0.564 (EMNLP 2025) — превосходит GPT-4o (0.561) на этом домене
+- Детерминизм: возвращает только spans из исходного текста, не галлюцинирует
+- Точные character offsets — не нужен TSA-парсинг
+
+**Entity types для fiction:**
+- `"персонаж"` — character (PER). Основной тип, наибольший recall ожидается
+- `"локация"` — location (LOC). Включает fictional places ("Хогвартс", "Ривия")
+- `"артефакт"` — object (OBJ). Мечи, кольца, артефакты. Может иметь повышенный FP rate
+- `"организация"` — organization (ORG). Ордена, школы, фракции
+
+**Chunking стратегия (512 token limit):**
+- **Optimal chunk_size: 100-250 tokens** (не 512). По исследованиям, quality degradation на полных 512-token chunks. При chunk_size=100 извлекается больше entities
+- Overlap: 1-2 предложения между чанками для entity spans на границах
+- Sentence-level chunking: spaCy `ru_core_news_sm` для sentence boundary detection (или razdel — lightweight русский tokenizer)
+- Post-processing: дедупликация entities на границах (same text + overlapping offsets -> merge, keep highest score)
+- GLiNER2 API: `model.extract(text, labels, threshold=0.4)` — встроенный windowing, но лучше контролировать chunking самостоятельно для precision
+
+**Confidence threshold:**
+- Default: 0.4 (по рекомендации GLiNER docs)
+- Для fiction может понадобиться 0.3-0.5 — определяется A/B тестом
+- Low-confidence entities (0.3-0.4) — fallback на LLM для проверки
+
+### 2. Description Classifier
+
+**TF-IDF vs Sentence-Transformer:**
+
+| Подход | Размер | Latency | Ожидаемый F1 (519 examples) | Когда |
+|--------|--------|---------|----------------------------|-------|
+| TF-IDF + LogReg | ~5MB | <1ms/sent | 0.65-0.80 | Baseline, всегда |
+| Sentence-transformer + linear head | ~200MB | ~5-15ms/sent | 0.75-0.90 | Если TF-IDF F1 < 0.75 |
+
+**Training data (519 descriptions в БД):**
+- Positive: 519 записей из таблицы `descriptions` (content field)
+- Negative: нужно сгенерировать — неописательные предложения из тех же глав
+  - Стратегия: для каждой главы, содержащей описания, случайные предложения НЕ помеченные как описания
+  - Ratio: 1:1 или 1:2 (positive:negative)
+- **Критично:** split по книгам (не по предложениям) — иначе data leakage через стиль автора
+
+**Active learning паттерн:**
+1. Classifier предсказывает с confidence score
+2. High-confidence (>0.7): принять без LLM
+3. Low-confidence (0.4-0.6): отправить на LLM для проверки ($0.001 per sentence)
+4. LLM verdict -> training set для retrain
+5. Переобучение: ежемесячный batch retrain на накопленных данных
+6. Со временем: всё меньше low-confidence -> всё меньше LLM вызовов
+
+**Multi-sentence описания:**
+- Sliding window: классифицировать 3-sentence windows
+- Merge heuristic: >= 2 adjacent "визуальных" предложения -> объединить
+- Paragraph-level fallback: >= 3 визуальных предложения в абзаце -> весь абзац
+
+### 3. pgvector Embeddings
+
+**Embedding стратегия для книг:**
+- Embed каждую главу по чанкам (~500 символов, ~125 tokens per chunk)
+- Модель: multilingual-e5-small (118M params, 384 dims, ~500MB RAM)
+- Index: HNSW (vector_cosine_ops) — лучше IVFFlat для малых датасетов, не требует tuning
+- Хранение: отдельная таблица `chapter_embeddings` (chapter_id, chunk_index, chunk_text, embedding)
+- Стоимость хранения: ~7.5MB на 100 книг (пренебрежимо)
+
+**Vector search для entity context:**
+- Для каждого entity -> query: entity name + type -> top-5 relevant chunks
+- Агрегировать: все чанки, содержащие entity mentions -> context для synthesis
+- Преимущество vs full text: передаём ~5-10K tokens вместо 375K -> снижение стоимости synthesis
+
+**Upgrade path:**
+- Start: multilingual-e5-small (118M, 384 dims) — минимальный RAM
+- Upgrade: ru-en-RoSBERTa (~400M, 768 dims) — значительно лучше на ruMTEB для русского
+- Skip: GigaEmbeddings (6GB) — не влезает рядом с GLiNER2
+
+### 4. LLM Synthesis Optimization
+
+**Batch synthesis:**
+- Один вызов на книгу вместо per-entity/per-chapter
+- Input: все entities + mention counts + top context chunks из pgvector (~35K tokens)
+- Output: biography milestones, visual_summary, relationships (~20K tokens)
+- Модель: DeepSeek V3.2 ($0.26/$0.38) — output 8x дешевле Gemini 3 Flash
+
+**Cost model (DeepSeek V3.2):**
+- Synthesis: 35K input + 20K output = $0.009 + $0.008 = **$0.017**
+- Description enrichment: 5K input + 3K output = **$0.002**
+- Alias resolution: 3K input + 2K output = **$0.002**
+- **Total LLM: ~$0.021/книга** (vs $1.50 текущий)
+
+**Fallback chain:**
+```
+DeepSeek V3.2 ($0.26/$0.38)         — primary (output-cheap)
+  -> Gemini 3.1 Flash Lite ($0.25/$1.50) — secondary (quality)
+    -> Claude Haiku 4.5 ($1.00/$5.00)    — last resort
+```
+
+### 5. Feature Flag Rollout
+
+**Паттерн: Canary Deployment для ML pipeline**
+
+Новые feature flags (добавить в DEFAULT_FEATURE_FLAGS):
+```
+USE_GLINER_NER          -> NLP category, default: false
+USE_DESCRIPTION_CLASSIFIER -> NLP category, default: false
+USE_PGVECTOR_EMBEDDINGS -> NLP category, default: false
+USE_HYBRID_PIPELINE     -> NLP category, default: false (мастер-флаг)
+```
+
+**Стратегия rollout:**
+1. **Development (flag=false):** разработка и unit tests с flag on в тестах
+2. **A/B test (flag=on для 5 книг):** обработать одну книгу обоими pipelines, сравнить
+3. **Canary (10%):** включить flag, обработать следующие 2-3 книги новым pipeline
+4. **Rollout (50%):** расширить на половину новых обработок
+5. **GA (100%):** полный переход, старый pipeline остаётся как fallback
+
+**Rollback:**
+- Каждый flag контролирует отдельный компонент — granular rollback
+- Entities маркируются `extraction_pipeline='hybrid_v1'` — можно фильтровать
+- `USE_HYBRID_PIPELINE=false` — полный fallback на gemini_extractor
+
+**Мониторинг:**
+- Per-book cost tracking (LLM usage log уже есть: `llm_usage_log` model)
+- Entity count comparison (hybrid vs LLM)
+- Description precision/recall (сравнение с LLM baseline)
+- Processing time (local NER + LLM synthesis vs full LLM)
+
+---
+
+## Верификация существующего исследования
+
+Документ `rag-nlp-optimization-research.md` (обновлён 2026-03-23) и аудит `rag-nlp-optimization-audit.md` проверены. Ключевые выводы:
+
+| Утверждение | Статус | Уточнение |
+|-------------|--------|-----------|
+| GLiNER2 F1=0.564 на Literature > GPT-4o (0.561) | VERIFIED (EMNLP 2025, arxiv:2507.18546) | Для 2024 LLMs. Frontier 2026 LLMs превосходят, но GLiNER выигрывает по стоимости/детерминизму |
+| GLiNER2 205M params, CPU-first | VERIFIED (PyPI gliner2 v1.2.4) | "Lightning-fast inference on standard hardware" |
+| DeepSeek V3.2: $0.26/$0.38 | VERIFIED (openrouter.ai, 2026-03-24) | 164K context window. Не $0.28/$0.42 — зависит от провайдера |
+| Стоимость книги $1.50 (текущий) | VERIFIED (audit v2, пересчёт с TSA output) | Ранее занижено до $0.68 — аудит исправил |
+| 519 descriptions в БД | VERIFIED (audit, SSH) | 8 книг, 233 главы, 274 entities, 519 descriptions |
+| pgvector отсутствует | VERIFIED | postgres:17.9-alpine не включает pgvector |
+| Celery 1.5GB RAM — недостаточно | VERIFIED | GLiNER2 ~800MB-1.2GB + app ~300MB = нужно >= 3GB |
+| ruMTEB: e5-small уступает русским моделям | VERIFIED (NAACL 2025) | Для MVP достаточен, upgrade на ru-en-RoSBERTa позже |
+| Русский coref SOTA F1 ~65-70% | MEDIUM confidence | Нет production-ready CPU решений |
+
+---
+
+## Источники
+
+### Верифицированные (HIGH confidence)
+- [GLiNER2 EMNLP 2025](https://arxiv.org/html/2507.18546v1) — F1 benchmarks, Literature domain
+- [GLiNER2 PyPI](https://pypi.org/project/gliner2/) — v1.2.4, январь 2026
+- [GLiNER2 GitHub](https://github.com/fastino-ai/GLiNER2) — API, examples
+- [GLiNER token limit discussion](https://github.com/urchade/GLiNER/discussions/113) — 512 token max, chunking strategies
+- [OpenRouter DeepSeek V3.2](https://openrouter.ai/deepseek/deepseek-v3.2) — $0.26/$0.38, проверено 2026-03-24
+- [pgvector GitHub](https://github.com/pgvector/pgvector) — HNSW vs IVFFlat
+- [ruMTEB NAACL 2025](https://aclanthology.org/2025.naacl-long.12/) — русские embedding benchmarks
+
+### Из существующего исследования (MEDIUM confidence)
+- [Natasha/Slovnet](https://github.com/natasha/slovnet) — legacy, не рекомендуется для новой разработки
+- [ru-en-RoSBERTa](https://arxiv.org/abs/2408.00503) — русская embedding модель
+- [OpenRouter Gemini 3.1 Flash Lite](https://openrouter.ai/google/gemini-3.1-flash-lite-preview) — $0.25/$1.50
+
+### WebSearch only (LOW confidence — требует валидации)
+- DeepSeek V3.2 "GPT-5 class quality" — маркетинговое утверждение OpenRouter
+- GLiNER2 latency ~100-200ms на EPYC — оценка, нужен бенчмарк на production
+- TF-IDF F1 0.65-0.80 на 519 examples — теоретическая оценка, зависит от данных
+
+---
+*Feature research for: Гибридный NLP-пайплайн обработки книг (fancai v1.4)*
+*Researched: 2026-03-24*

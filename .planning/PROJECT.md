@@ -35,18 +35,15 @@
 - ✓ DescriptionDrawer + EntityBottomSheet, edge taps (ENT-01, ENT-02) — v1.2
 - ✓ Dead code cleanup ~38KB, BookReaderPage → ReaderPage (CLN-01) — v1.2
 
+- ✓ iOS touch pipeline: полноэкранный overlay с FSM для всех жестов (TOUCH-01, TOUCH-02) — v1.3
+- ✓ iOS навигация: shared FSM в gestureUtils.ts, дедупликация ~454 строк (NAV-01..04) — v1.3
+- ✓ iOS выделение текста: overlay passthrough при long-press (SEL-01, SEL-02) — v1.3
+- ✓ Надёжность генерации изображений: серверный retry (tenacity), раздельный circuit breaker LLM/Image (IMG-01..03) — v1.3
+- ✓ Frontend image audit: TQ-based SSoT, IndexedDB metadata, async generation с polling (BUG-01..02, FIMG-01..06) — v1.3
+
 ### Active
 
-## Current Milestone: v1.3 iOS Reader Navigation Fixes
-
-**Goal:** Починить полностью нерабочую навигацию (тапы, свайпы) и выделение текста на iOS — Safari, Chrome, PWA
-
-**Target features:**
-- Диагностика и фикс iOS touch event pipeline в epub.js reader
-- Фикс навигации тапами по краям страницы на iOS
-- Фикс свайпов для перелистывания страниц на iOS
-- Фикс выделения текста на iOS
-- Доработка debug-логгера (`/?debug=1`) для iOS/PWA диагностики
+(Нет активных требований — запустить `/gsd:new-milestone` для следующего цикла)
 
 ### Out of Scope
 
@@ -67,6 +64,7 @@
 Shipped v1.0 за 9 дней (2026-03-01 → 2026-03-09). 9 фаз, 23 плана, 52 требования.
 Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 требование. +9674/-2680 строк, 74 файла.
 Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 13 требований. +64354/-5565 строк, 350 файлов.
+Shipped v1.3 за 9 дней (2026-03-14 → 2026-03-23). 10 фаз, 14 планов, 20 требований. 88 коммитов.
 
 **Текущее состояние кодовой базы:**
 - Frontend: ~130K LOC TypeScript/React 19 + Vite 7
@@ -115,6 +113,9 @@ Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 1
 | hooks.content вместо rendered event | Аннотации применяются ДО рендеринга страницы (epub.js lifecycle) | ✓ Good |
 | Vaul bottom sheets для мобильных popup | EntityPopup заменён на EntityBottomSheet — нет позиционирования | ✓ Good |
 | elementFromPoint вместо e.target | Стабильное определение интерактивных элементов в edge zones | ✓ Good |
+| Shared FSM через dependency injection | Дедупликация ~454 строк, обе платформы используют один код | ✓ Good |
+| Раздельный circuit breaker LLM/Image | LLM failures не блокируют image generation | ✓ Good |
+| Async generation с TQ polling | Устранение axios timeout при генерации изображений | ✓ Good |
 
 ## Constraints
 
@@ -125,4 +126,4 @@ Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 1
 - **Язык контента**: приоритет — русские книги
 
 ---
-*Last updated: 2026-03-14 after v1.3 milestone start*
+*Last updated: 2026-03-23 after v1.3 milestone*

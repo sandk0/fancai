@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: iOS Reader Navigation Fixes
-status: Phase 28.2 завершена (отдельный image CB + async generation + iOS fallback)
-last_updated: "2026-03-17T13:29:43Z"
-last_activity: 2026-03-17 — Phase 28.2 Plan 01 завершена (отдельный image circuit breaker + structured pipeline logging, 10 min)
+status: Milestone v1.3 завершён — готов к архивации
+last_updated: "2026-03-23T21:05:45.776Z"
+last_activity: 2026-03-23
 progress:
   total_phases: 10
   completed_phases: 8
-  total_plans: 13
+  total_plans: 14
   completed_plans: 13
   percent: 100
 ---
@@ -20,14 +20,13 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 28.2 завершена (отдельный image CB + async generation). Milestone v1.3 завершён.
+**Текущий фокус:** Milestone v1.3 завершён. Все 10 фаз выполнены. Готов к архивации.
 
 ## Текущая позиция
 
-Phase: 28.2 (10 of 10) — fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS
-Plan: 02 of 02 (Plan 02 завершена, Phase 28.2 завершена)
-Status: Phase 28.2 завершена (отдельный image CB + async generation + iOS fallback)
-Last activity: 2026-03-17 — Phase 28.2 Plan 02 завершена (async generation + error display + iOS fallback, 7 min)
+Phase: All complete (10 of 10)
+Status: Milestone v1.3 завершён — готов к архивации
+Last activity: 2026-03-23
 
 Progress: [██████████] 100%
 
