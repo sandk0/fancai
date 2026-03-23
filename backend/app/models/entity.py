@@ -53,8 +53,10 @@ class Entity(Base):
     type: Mapped[str] = mapped_column(entity_type_pg_enum, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     name_lower: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=False,
-        comment="Casefolded name for locale-independent case-insensitive matching"
+        String(255),
+        nullable=False,
+        index=False,
+        comment="Casefolded name for locale-independent case-insensitive matching",
     )
     visual_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -84,8 +86,13 @@ class Entity(Base):
     biography_milestones: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB, nullable=True
     )
-    base_role: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, index=True
+    base_role: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+
+    pipeline_version: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Pipeline version: null=legacy LLM, 'hybrid_v1'=GLiNER2+classifier",
     )
 
     created_at: Mapped[datetime] = mapped_column(

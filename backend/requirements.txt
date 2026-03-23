@@ -10,6 +10,7 @@ bcrypt==5.0.0
 sqlalchemy==2.0.48
 alembic==1.18.4
 asyncpg==0.31.0
+pgvector==0.4.2
 
 # Redis и кэширование
 redis==7.3.0
