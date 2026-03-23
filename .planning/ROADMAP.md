@@ -79,7 +79,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 **Milestone Goal:** Миграция с all-LLM pipeline на гибридную архитектуру (GLiNER2 + classifier + pgvector + LLM synthesis). Стоимость обработки книги: $1.50 -> $0.02-0.05 (97-99% экономия).
 
-- [ ] **Phase 29: Docker и DB инфраструктура** - pgvector image, Celery worker limits, schema migration, feature flags, отдельный Dockerfile
+- [x] **Phase 29: Docker и DB инфраструктура** - pgvector image, Celery worker limits, schema migration, feature flags, отдельный Dockerfile (completed 2026-03-23)
 - [ ] **Phase 30: GLiNER2 NER Service** - Локальная entity extraction с chunking, adapter для ConsistencyManager, A/B тест на 5 книгах
 - [ ] **Phase 31: Description Classifier** - TF-IDF + LogReg classifier с leave-one-book-out CV, rule-based prefilter, LLM enrichment top-K
 - [ ] **Phase 32: pgvector Embeddings** - EmbeddingService (multilingual-e5-small), HNSW индекс, vector search для entity context
@@ -98,7 +98,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
   3. Колонки extraction_source и pipeline_version существуют в таблицах entities и descriptions, таблица chapter_embeddings создана с vector(384)
   4. Четыре feature flags (USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS) зарегистрированы и по умолчанию выключены
   5. docker compose build собирает отдельный Celery image с PyTorch CPU-only (~250MB wheel, не ~2.5GB CUDA)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 29-01-PLAN.md — Docker инфраструктура: Dockerfile.celery + docker-compose.prod.yml (pgvector, Celery 4GB, nlp_models volume)
@@ -191,7 +191,7 @@ Note: Phases 30, 31, 32 зависят только от Phase 29 и могут 
 | 9-14 | v1.1 | 13/13 | Complete | 2026-03-09 |
 | 16-20 | v1.2 | 21/21 | Complete | 2026-03-13 |
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
-| 29. Docker и DB инфраструктура | v1.4 | 1/2 | In Progress|  |
+| 29. Docker и DB инфраструктура | v1.4 | 1/2 | Complete    | 2026-03-23 |
 | 30. GLiNER2 NER Service | v1.4 | 0/? | Not started | - |
 | 31. Description Classifier | v1.4 | 0/? | Not started | - |
 | 32. pgvector Embeddings | v1.4 | 0/? | Not started | - |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Оптимизация обработки книг
 status: planning
-last_updated: "2026-03-23T23:05:03.106Z"
+last_updated: "2026-03-23T23:34:22.139Z"
 last_activity: 2026-03-23
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 2
   percent: 0
 ---
 
@@ -24,8 +24,8 @@ progress:
 
 ## Текущая позиция
 
-Phase: 29 of 34 (Docker и DB инфраструктура) — 1 of 6 in milestone v1.4
-Plan: —
+Phase: 30 of 34 (gliner2 ner service)
+Plan: Not started
 Status: Ready to plan
 Last activity: 2026-03-23
 
