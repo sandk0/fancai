@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Оптимизация обработки книг
-status: executing
-last_updated: "2026-03-23T23:16:03Z"
-last_activity: 2026-03-24
+status: planning
+last_updated: "2026-03-23T23:05:03.106Z"
+last_activity: 2026-03-23
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 0
+  percent: 0
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-24)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki — загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 29 — Docker и DB инфраструктура (Plan 02 завершен: hybrid pipeline schema)
+**Текущий фокус:** Phase 29 — Docker и DB инфраструктура (pgvector migration, Celery limits, feature flags)
 
 ## Текущая позиция
 
 Phase: 29 of 34 (Docker и DB инфраструктура) — 1 of 6 in milestone v1.4
-Plan: 02 of 02 (Plan 02 завершен)
-Status: Plan 02 завершен — hybrid pipeline schema, feature flags, тесты
-Last activity: 2026-03-24 — Plan 02 завершен (10 мин)
+Plan: —
+Status: Ready to plan
+Last activity: 2026-03-23
 
-Progress: [█████░░░░░] 50%
+Progress: [░░░░░░░░░░] 0%
 
 ## Метрики производительности
 
@@ -43,10 +43,6 @@ Progress: [█████░░░░░] 50%
 | v1.3      | 10   | 14    | 9 дней | —            |
 | v1.4      | 6    | —     | —      | —            |
 
-| Phase | Plan | Длительность | Задач | Файлов |
-| ----- | ---- | ------------ | ----- | ------ |
-| 29    | 02   | 10 мин       | 3     | 10     |
-
 ## Накопленный контекст
 
 ### Решения
@@ -59,9 +55,6 @@ Progress: [█████░░░░░] 50%
 - v1.4: GLiNER2 F1=0.564 на Literature — сопоставим с GPT-4o (0.561)
 - v1.4: Leave-one-book-out CV обязателен для classifier (random split дает data leakage)
 - v1.4: DeepSeek V3.2 ($0.26/$0.38) как primary synthesis model
-- 29-02: Ручная Alembic-миграция вместо autogenerate (нет локальной production DB)
-- 29-02: pgvector в shared requirements.txt для Alembic и API
-- 29-02: Все 4 NLP флага disabled по умолчанию для безопасного rollout
 
 ### Ожидающие задачи
 
@@ -76,5 +69,5 @@ Progress: [█████░░░░░] 50%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-24
-Остановились на: Phase 29 Plan 02 завершен (hybrid pipeline schema)
-Resume file: .planning/phases/29-docker-db/29-02-SUMMARY.md
+Остановились на: Roadmap v1.4 создана, ready to plan Phase 29
+Resume file: .planning/phases/29-docker-db/29-CONTEXT.md

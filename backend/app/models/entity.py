@@ -88,6 +88,13 @@ class Entity(Base):
     )
     base_role: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
 
+    extraction_source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="llm",
+        index=True,
+        comment="Source: 'llm'=OpenRouter LLM, 'gliner'=local GLiNER2, 'hybrid'=combined",
+    )
     pipeline_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,

@@ -11,8 +11,8 @@
 
 - [x] **INFRA-01**: PostgreSQL мигрирован на pgvector/pgvector:pg17 через pg_dump/restore (не image swap — Alpine/Debian несовместимы)
 - [x] **INFRA-02**: Celery worker настроен на 4GB RAM, concurrency=1, max-tasks-per-child=0 для NLP моделей в памяти
-- [x] **INFRA-03**: Колонка pipeline_version добавлена в таблицы entities и descriptions для трекинга и rollback
-- [x] **INFRA-04**: Feature flags USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS зарегистрированы в FeatureFlagManager
+- [ ] **INFRA-03**: Колонка pipeline_version добавлена в таблицы entities и descriptions для трекинга и rollback
+- [ ] **INFRA-04**: Feature flags USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS зарегистрированы в FeatureFlagManager
 - [x] **INFRA-05**: Отдельный Dockerfile для Celery worker с PyTorch CPU-only (без раздувания API image)
 
 ### NER (Entity Extraction)
@@ -78,8 +78,8 @@
 |-------------|-------|--------|
 | INFRA-01 | Phase 29 | Complete |
 | INFRA-02 | Phase 29 | Complete |
-| INFRA-03 | Phase 29 | Complete |
-| INFRA-04 | Phase 29 | Complete |
+| INFRA-03 | Phase 29 | Pending |
+| INFRA-04 | Phase 29 | Pending |
 | INFRA-05 | Phase 29 | Complete |
 | NER-01 | Phase 30 | Pending |
 | NER-02 | Phase 30 | Pending |
@@ -109,4 +109,4 @@
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after Phase 29 Plan 02 completion*
+*Last updated: 2026-03-24 after roadmap creation*

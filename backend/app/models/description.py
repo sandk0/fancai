@@ -90,6 +90,13 @@ class Description(Base):
     image_generated: Mapped[bool] = mapped_column(default=False, nullable=False)
     generation_requested: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    extraction_source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="llm",
+        index=True,
+        comment="Source: 'llm'=OpenRouter LLM, 'gliner'=local GLiNER2, 'hybrid'=combined",
+    )
     pipeline_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,

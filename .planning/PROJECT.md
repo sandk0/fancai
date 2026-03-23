@@ -43,7 +43,17 @@
 
 ### Active
 
-(Нет активных требований — запустить `/gsd:new-milestone` для следующего цикла)
+## Current Milestone: v1.4 Оптимизация обработки книг
+
+**Goal:** Миграция с all-LLM pipeline на гибридную архитектуру (GLiNER2 + classifier + pgvector + LLM synthesis), снижение стоимости обработки книги с ~$1.50 до ~$0.02-0.05 (97-99%).
+
+**Target features:**
+- GLiNER2 NER: локальная entity extraction с точными позициями (бесплатно, 205M params)
+- Description classifier: rule-based + TF-IDF/sentence-transformer вместо LLM для описаний
+- pgvector embeddings: контекстный поиск для entity synthesis
+- LLM synthesis: один batch-вызов на книгу (DeepSeek V3.2 / Gemini 3.1 Flash Lite)
+- Feature flags: поэтапный rollout с rollback на текущий pipeline
+- Docker: pgvector/pgvector:pg17, Celery worker 4GB RAM, concurrency=1
 
 ### Out of Scope
 
@@ -125,5 +135,22 @@ Shipped v1.3 за 9 дней (2026-03-14 → 2026-03-23). 10 фаз, 14 план
 - **Домен**: fancai.ru, Москва (Europe/Moscow)
 - **Язык контента**: приоритет — русские книги
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-23 after v1.3 milestone*
+*Last updated: 2026-03-24 after v1.4 milestone start*

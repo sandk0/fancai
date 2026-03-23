@@ -23,7 +23,18 @@ def upgrade() -> None:
     # 1. pgvector extension
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-    # 2. pipeline_version в entities
+    # 2. extraction_source + pipeline_version в entities
+    op.add_column(
+        "entities",
+        sa.Column(
+            "extraction_source",
+            sa.String(20),
+            nullable=False,
+            server_default="llm",
+            comment="Source: 'llm'=OpenRouter LLM, 'gliner'=local GLiNER2, 'hybrid'=combined",
+        ),
+    )
+    op.create_index("ix_entities_extraction_source", "entities", ["extraction_source"])
     op.add_column(
         "entities",
         sa.Column(
@@ -35,7 +46,20 @@ def upgrade() -> None:
     )
     op.create_index("ix_entities_pipeline_version", "entities", ["pipeline_version"])
 
-    # 3. pipeline_version в descriptions
+    # 3. extraction_source + pipeline_version в descriptions
+    op.add_column(
+        "descriptions",
+        sa.Column(
+            "extraction_source",
+            sa.String(20),
+            nullable=False,
+            server_default="llm",
+            comment="Source: 'llm'=OpenRouter LLM, 'gliner'=local GLiNER2, 'hybrid'=combined",
+        ),
+    )
+    op.create_index(
+        "ix_descriptions_extraction_source", "descriptions", ["extraction_source"]
+    )
     op.add_column(
         "descriptions",
         sa.Column(
@@ -97,6 +121,10 @@ def downgrade() -> None:
     op.drop_table("chapter_embeddings")
     op.drop_index("ix_descriptions_pipeline_version", table_name="descriptions")
     op.drop_column("descriptions", "pipeline_version")
+    op.drop_index("ix_descriptions_extraction_source", table_name="descriptions")
+    op.drop_column("descriptions", "extraction_source")
     op.drop_index("ix_entities_pipeline_version", table_name="entities")
     op.drop_column("entities", "pipeline_version")
+    op.drop_index("ix_entities_extraction_source", table_name="entities")
+    op.drop_column("entities", "extraction_source")
     op.execute("DROP EXTENSION IF EXISTS vector")
