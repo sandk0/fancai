@@ -44,7 +44,7 @@ class DescriptionType(enum.StrEnum):
     ACTION = "action"
 
     @classmethod
-    def _missing_(cls, value: object) -> 'DescriptionType | None':
+    def _missing_(cls, value: object) -> "DescriptionType | None":
         """Case-insensitive lookup для backward compat с Celery tasks."""
         if isinstance(value, str):
             lower = value.lower()
@@ -69,7 +69,8 @@ class Description(Base):
 
     type: Mapped[DescriptionType] = mapped_column(
         SQLEnum(DescriptionType, values_callable=lambda obj: [e.value for e in obj]),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -88,6 +89,13 @@ class Description(Base):
 
     image_generated: Mapped[bool] = mapped_column(default=False, nullable=False)
     generation_requested: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    pipeline_version: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Pipeline version: null=legacy LLM, 'hybrid_v1'=GLiNER2+classifier",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

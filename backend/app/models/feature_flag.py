@@ -138,4 +138,32 @@ DEFAULT_FEATURE_FLAGS = [
         "description": "Enable image generation caching",
         "default_value": True,
     },
+    {
+        "name": "USE_GLINER_NER",
+        "enabled": False,
+        "category": FeatureFlagCategory.NLP.value,
+        "description": "Использовать GLiNER2 для локальной entity extraction вместо LLM",
+        "default_value": False,
+    },
+    {
+        "name": "USE_DESCRIPTION_CLASSIFIER",
+        "enabled": False,
+        "category": FeatureFlagCategory.NLP.value,
+        "description": "Использовать TF-IDF/sentence-transformer для классификации описаний",
+        "default_value": False,
+    },
+    {
+        "name": "USE_HYBRID_PIPELINE",
+        "enabled": False,
+        "category": FeatureFlagCategory.NLP.value,
+        "description": "Активировать полный гибридный pipeline (NER + classifier + synthesis)",
+        "default_value": False,
+    },
+    {
+        "name": "USE_PGVECTOR_EMBEDDINGS",
+        "enabled": False,
+        "category": FeatureFlagCategory.NLP.value,
+        "description": "Использовать pgvector embeddings для контекстного обогащения при synthesis",
+        "default_value": False,
+    },
 ]

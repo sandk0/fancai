@@ -1,119 +1,112 @@
-# Requirements: fancai v1.3
+# Requirements: fancai v1.4
 
-**Defined:** 2026-03-14
-**Core Value:** Навигация и выделение текста в ридере должны работать на iOS так же, как на Android и десктопе
+**Defined:** 2026-03-24
+**Core Value:** Пользователь загружает книгу, читает её, получает AI-сгенерированный глоссарий персонажей без спойлеров, видит иллюстрации, делает заметки и выделения — и всё это работает стабильно на любом устройстве.
 
-## v1.3 Requirements
+## v1.4 Requirements
 
-Требования для фикса iOS навигации. Каждое привязано к фазам roadmap.
+Миграция с all-LLM pipeline на гибридную архитектуру. Стоимость обработки книги: $1.50 → $0.02-0.05 (97-99% экономия).
 
-### Диагностика
+### Infrastructure
 
-- [ ] **DEBUG-01**: DebugPanel показывает touch/pointer events с координатами и типом на iOS
-- [ ] **DEBUG-02**: DebugPanel показывает computed `touch-action` CSS значение для iframe
+- [x] **INFRA-01**: PostgreSQL мигрирован на pgvector/pgvector:pg17 через pg_dump/restore (не image swap — Alpine/Debian несовместимы)
+- [x] **INFRA-02**: Celery worker настроен на 4GB RAM, concurrency=1, max-tasks-per-child=0 для NLP моделей в памяти
+- [x] **INFRA-03**: Колонка pipeline_version добавлена в таблицы entities и descriptions для трекинга и rollback
+- [x] **INFRA-04**: Feature flags USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS зарегистрированы в FeatureFlagManager
+- [x] **INFRA-05**: Отдельный Dockerfile для Celery worker с PyTorch CPU-only (без раздувания API image)
 
-### Touch Pipeline
+### NER (Entity Extraction)
 
-- [x] **TOUCH-01**: Touch events доставляются из iframe к gesture controller на iOS Safari/Chrome/PWA
-- [x] **TOUCH-02**: `touch-action` CSS корректно работает на iOS (верификация pan-x pan-y vs manipulation)
+- [ ] **NER-01**: NERService извлекает entities (персонаж, локация, артефакт, организация) из текста главы через GLiNER2
+- [ ] **NER-02**: Chunking разбивает главы >512 токенов с overlap на границах предложений для entity spans
+- [ ] **NER-03**: Adapter маппит NEREntity → ExtractedEntity для backward compatibility с ConsistencyManager
+- [ ] **NER-04**: A/B тест на 5 книгах показывает entity recall ≥80% vs текущий LLM baseline
+- [ ] **NER-05**: Confidence threshold откалиброван для русской художественной литературы (диапазон 0.3-0.5)
 
-### Навигация
+### Description Classifier
 
-- [x] **NAV-01**: Тап по левому/правому краю перелистывает страницу на iOS
-- [x] **NAV-02**: Тап по центру переключает immersive mode на iOS
-- [x] **NAV-03**: Свайп влево/вправо перелистывает страницу на iOS
-- [x] **NAV-04**: iOS overlay ревизия — убрать или починить если избыточен после root cause fix
+- [ ] **DESC-01**: Training data экспортирована из таблицы descriptions (≥500 positive + ≥500 negative samples)
+- [ ] **DESC-02**: TF-IDF + LogisticRegression baseline обучен с leave-one-book-out cross-validation (не random split)
+- [ ] **DESC-03**: Rule-based prefilter (визуальные прилагательные/существительные) с recall ≥90% на training data
+- [ ] **DESC-04**: Sentence-transformer classifier реализован как upgrade path (если TF-IDF F1 < 0.75)
+- [ ] **DESC-05**: LLM обогащает только top-K candidate описаний (тип, entities_mentioned, visual_summary)
 
-### Выделение текста
+### Embeddings
 
-- [ ] **SEL-01**: Long-press выделяет текст на iOS
-- [ ] **SEL-02**: Scroll lock работает при выделении текста на iOS
+- [ ] **EMB-01**: pgvector extension установлен, таблица chapter_embeddings создана через Alembic migration
+- [ ] **EMB-02**: EmbeddingService кодирует главы через multilingual-e5-small (384 dims) как singleton
+- [ ] **EMB-03**: HNSW индекс создан для vector_cosine_ops (лучше IVFFlat для малых датасетов)
+- [ ] **EMB-04**: Vector search возвращает top-K релевантных chunks для enrichment entity context при synthesis
 
-### Регрессия
+### LLM Synthesis
 
-- [ ] **REG-01**: Навигация (тапы + свайпы) продолжает работать на Android и десктопе после всех изменений
+- [ ] **SYN-01**: Один batch synthesis вызов на книгу (biography milestones + visual_summary + relationships) вместо per-entity
+- [ ] **SYN-02**: DeepSeek V3.2 ($0.26/$0.38) как основная модель synthesis, Gemini 3.1 Flash Lite как fallback
+- [ ] **SYN-03**: Context caching для повторяющихся системных промптов (экономия ~88% на system prompt)
+- [ ] **SYN-04**: Cost monitoring логирует стоимость обработки каждой книги (input/output tokens × price)
 
-### Изображения (Phase 26)
+### Rollout
 
-- [x] **BUG-01**: Изображение не пропадает при повторном открытии drawer после генерации
-- [x] **BUG-02**: Чужое изображение не показывается при смене описания в drawer
-- [x] **REGEN**: Кнопка "Генерировать заново" при наличии существующего изображения
-- [x] **INVALIDATE**: TanStack Query cache корректно инвалидируется при генерации (byBook + byDescription + userStats)
-- [x] **MODAL-TQ**: useImageModal использует TanStack Query polling вместо setInterval
-- [x] **BUILD**: TypeScript компиляция и production build проходят после всех изменений
-
-### Надёжность генерации (Phase 27)
-
-- [x] **IMG-01**: `openrouter_client.py:generate_image()` валидирует наличие `choices` в JSON ответе и логирует полный ответ при ошибке
-- [x] **IMG-02**: `imagen_generator.py:generate_image()` использует серверный retry (tenacity, 4 попытки) для transient ошибок OpenRouter
-- [x] **IMG-03**: HTTP 400 от OpenRouter обрабатывается как non-retryable с логированием промпта
-
-### Аудит Frontend генерации (Phase 28)
-
-- [x] **FIMG-01**: ImageModal.tsx использует useRegenerateImage mutation вместо direct API call для корректной cache invalidation
-- [x] **FIMG-02**: useImageForDescription возвращает полный GeneratedImage из IndexedDB (не mock object с отсутствующими полями)
-- [x] **FIMG-03**: useDeleteImage принимает descriptionId и очищает imageCache при удалении
-- [x] **FIMG-04**: useImageModal при 409 conflict использует guard ref для предотвращения race condition
-- [x] **FIMG-05**: useAsyncImageGeneration.ts удалён (dead code, parallel polling не используется)
-- [x] **FIMG-06**: useReaderImageModal.ts удалён (deprecated, orphaned BookReader.tsx)
+- [ ] **ROLL-01**: Поэтапный rollout через feature flags: 5 книг A/B → 10% → 50% → 100%
+- [ ] **ROLL-02**: E2E integration tests покрывают полный hybrid pipeline (EPUB → NER → classifier → embeddings → synthesis → DB)
 
 ## v2 Requirements
 
-### Навигация
+Отложены на следующий milestone.
 
-- **NAV-v2-01**: Настраиваемые зоны тапов
-- **NAV-v2-02**: Haptic feedback при перелистывании
-
-### Описания
-
-- **DSC-v2-01**: Умный парсинг описаний с начала предложения (NLP sentence boundary, spaCy)
+- **ONNX-01**: GLiNER2 конвертирован в ONNX для ускорения inference
+- **AL-01**: Active learning pipeline: low-confidence predictions → LLM verification → re-train
+- **EMBED-UPG-01**: Upgrade embedding модели на ru-en-RoSBERTa (768 dims) для улучшения русскоязычного retrieval
+- **COREF-01**: Coreference resolution для местоимённых ссылок
+- **BATCH-API-01**: Прямой Gemini Batch API (-50% скидка) вместо OpenRouter для synthesis
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Поддержка iOS < 18 | Фокус на актуальной iOS 26.3.1, обратная совместимость — backlog |
-| iOS Simulator тестирование | Только реальное устройство (iPhone 15 Pro) |
-| Переписывание epub.js gesture system | Минимальный фикс (удаление blockers), не переписывание |
-| Pointer Events API миграция | Исследование показало, что touch events достаточны после фикса |
+| Self-hosted LLM | 12 vCPU без GPU — 2-5 tokens/sec неприемлемо |
+| GigaEmbeddings (Sber, 3B) | 6 GB RAM — конфликт с GLiNER2 в одном worker |
+| Full coreference resolution | F1 ~65-70% на русском — не production-ready |
+| LangChain/LlamaIndex | Overhead без пользы — текущий custom pipeline достаточен |
+| GLiNER RE (Relation Extraction) | Качество на русском не верифицировано — RE остаётся на LLM |
+| ONNX optimization | Отложено в v2 — сначала валидация pipeline |
+| Active learning | Отложено в v2 — сначала baseline |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBUG-01 | Phase 21 | Pending |
-| DEBUG-02 | Phase 21 | Pending |
-| TOUCH-01 | Phase 22 | Complete |
-| TOUCH-02 | Phase 22 | Complete |
-| NAV-01 | Phase 23 | Complete |
-| NAV-02 | Phase 23 | Complete |
-| NAV-03 | Phase 23 | Complete |
-| NAV-04 | Phase 23 | Complete |
-| SEL-01 | Phase 24 | Pending |
-| SEL-02 | Phase 24 | Pending |
-| REG-01 | Phase 25 | Pending |
-| BUG-01 | Phase 26 | Complete |
-| BUG-02 | Phase 26 | Complete |
-| REGEN | Phase 26 | Complete |
-| INVALIDATE | Phase 26 | Complete |
-| MODAL-TQ | Phase 26 | Complete |
-| BUILD | Phase 26 | Complete |
-
-| IMG-01 | Phase 27 | Complete |
-| IMG-02 | Phase 27 | Complete |
-| IMG-03 | Phase 27 | Complete |
-| FIMG-01 | Phase 28 | Complete |
-| FIMG-02 | Phase 28 | Complete |
-| FIMG-03 | Phase 28 | Complete |
-| FIMG-04 | Phase 28 | Complete |
-| FIMG-05 | Phase 28 | Complete |
-| FIMG-06 | Phase 28 | Complete |
+| INFRA-01 | Phase 29 | Complete |
+| INFRA-02 | Phase 29 | Complete |
+| INFRA-03 | Phase 29 | Complete |
+| INFRA-04 | Phase 29 | Complete |
+| INFRA-05 | Phase 29 | Complete |
+| NER-01 | Phase 30 | Pending |
+| NER-02 | Phase 30 | Pending |
+| NER-03 | Phase 30 | Pending |
+| NER-04 | Phase 30 | Pending |
+| NER-05 | Phase 30 | Pending |
+| DESC-01 | Phase 31 | Pending |
+| DESC-02 | Phase 31 | Pending |
+| DESC-03 | Phase 31 | Pending |
+| DESC-04 | Phase 31 | Pending |
+| DESC-05 | Phase 31 | Pending |
+| EMB-01 | Phase 32 | Pending |
+| EMB-02 | Phase 32 | Pending |
+| EMB-03 | Phase 32 | Pending |
+| EMB-04 | Phase 32 | Pending |
+| SYN-01 | Phase 33 | Pending |
+| SYN-02 | Phase 33 | Pending |
+| SYN-03 | Phase 33 | Pending |
+| SYN-04 | Phase 33 | Pending |
+| ROLL-01 | Phase 34 | Pending |
+| ROLL-02 | Phase 34 | Pending |
 
 **Coverage:**
-- v1.3 requirements: 26 total
-- Mapped to phases: 20
+- v1.4 requirements: 25 total
+- Mapped to phases: 25
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-14*
-*Last updated: 2026-03-16 after Phase 26 planning*
+*Requirements defined: 2026-03-24*
+*Last updated: 2026-03-24 after Phase 29 Plan 02 completion*
