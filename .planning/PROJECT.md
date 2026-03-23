@@ -41,6 +41,8 @@
 - ✓ Надёжность генерации изображений: серверный retry (tenacity), раздельный circuit breaker LLM/Image (IMG-01..03) — v1.3
 - ✓ Frontend image audit: TQ-based SSoT, IndexedDB metadata, async generation с polling (BUG-01..02, FIMG-01..06) — v1.3
 
+- ✓ Docker и DB инфраструктура для NLP: pgvector, Dockerfile.celery, 4GB Celery, schema migration, feature flags (INFRA-01..05) — v1.4
+
 ### Active
 
 ## Current Milestone: v1.4 Оптимизация обработки книг
