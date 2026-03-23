@@ -7,12 +7,12 @@
 # - PostgreSQL: 12GB (with shared_buffers=4GB)
 # - Redis: 768MB (maxmemory=640mb)
 # - Backend: 2GB
-# - Celery Worker: 1.5GB
+# - Celery Worker: 4GB (NLP: PyTorch + GLiNER2 + sentence-transformers)
 # - Celery Beat: 256MB
 # - Caddy: 128MB
 # - Frontend: 256MB (build-only, exits after completing)
 # - pgbackup: 256MB
-# Total: ~18GB (leaving 14GB for OS + headroom)
+# Total: ~20.5GB (leaving 11.5GB for OS + headroom)
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml up -d
@@ -141,16 +141,14 @@ services:
           cpus: '0.5'
           memory: 768M
 
-  # Celery Worker
+  # Celery Worker (NLP: PyTorch + GLiNER2 + sentence-transformers)
   celery-worker:
-    image: fancai-backend:latest
+    image: fancai-celery:latest
     build:
       context: ./backend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.celery
     container_name: fancai_celery
     init: true
-    command: >
-      celery -A app.core.celery_app worker --loglevel=${LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=100 --max-memory-per-child=512000 --prefetch-multiplier=1
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -161,6 +159,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # NLP — HuggingFace model cache
+      - HF_HOME=/models
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
       - METRICS_PASSWORD=${METRICS_PASSWORD:-}
@@ -172,6 +172,7 @@ services:
     volumes:
       - ./backend/storage:/app/storage
       - /dev/shm:/dev/shm
+      - nlp_models:/models
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,17 +184,17 @@ services:
       interval: 60s
       timeout: 15s
       retries: 3
-      start_period: 30s
+      start_period: 120s
     networks:
       - fancai_network
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1536M
+          cpus: '4.0'
+          memory: 4G
         reservations:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '1.0'
+          memory: 2G
 
   # Celery Beat Scheduler
   celery-beat:
@@ -240,7 +241,7 @@ services:
 
   # PostgreSQL Database (optimized for 32GB server, 12 vCPU)
   postgres:
-    image: postgres:17.9-alpine
+    image: pgvector/pgvector:0.8.2-pg17
     container_name: fancai_postgres
     shm_size: 10g
     environment:
@@ -358,6 +359,8 @@ volumes:
   caddy_config:       # Caddy конфигурационный кеш
     driver: local
   frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
+  nlp_models:            # HuggingFace model cache (GLiNER2, sentence-transformers)
+    driver: local
   # mkdir -p /backups/postgres && chown 999:999 /backups/postgres
   pgbackup_data:
     driver: local
