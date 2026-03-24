@@ -114,11 +114,11 @@ Plans:
   3. NEREntity -> ExtractedEntity adapter обеспечивает backward compatibility — ConsistencyManager работает без изменений
   4. A/B тест на 5 книгах показывает entity recall >= 80% по сравнению с текущим LLM baseline
   5. Confidence threshold откалиброван для русской художественной литературы (ожидаемый диапазон 0.3-0.5)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 30-01: TBD
-- [ ] 30-02: TBD
+- [ ] 30-01-PLAN.md — NERService ядро: GLiNER2 singleton, TextChunker, NERAdapter, метрики, интеграция в book_tasks.py, unit-тесты
+- [ ] 30-02-PLAN.md — A/B тест: скрипт экспорта fixture данных, recall тест на 5 книгах, threshold sweep калибровка
 
 ### Phase 31: Description Classifier
 **Goal**: Описания классифицируются локально через TF-IDF/sentence-transformer вместо LLM, с верифицированным качеством через leave-one-book-out cross-validation
@@ -192,7 +192,7 @@ Note: Phases 30, 31, 32 зависят только от Phase 29 и могут 
 | 16-20 | v1.2 | 21/21 | Complete | 2026-03-13 |
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
 | 29. Docker и DB инфраструктура | v1.4 | 1/2 | Complete    | 2026-03-23 |
-| 30. GLiNER2 NER Service | v1.4 | 0/? | Not started | - |
+| 30. GLiNER2 NER Service | v1.4 | 0/2 | Planning | - |
 | 31. Description Classifier | v1.4 | 0/? | Not started | - |
 | 32. pgvector Embeddings | v1.4 | 0/? | Not started | - |
 | 33. LLM Batch Synthesis | v1.4 | 0/? | Not started | - |
