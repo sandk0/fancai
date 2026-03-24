@@ -78,3 +78,6 @@ aioboto3==15.5.0
 
 # Graph Analysis & Map-Reduce (Phase 6)
 networkx==3.6.1
+
+# NER — GLiNER2 entity extraction (Phase 30)
+razdel==0.5.0
