@@ -91,7 +91,7 @@ HEALTHCHECK --interval=60s --timeout=15s --start-period=120s --retries=3 \
 # Entrypoint handles env validation, then hands off to CMD via exec "$@"
 ENTRYPOINT ["/app/entrypoint.prod.sh"]
 
-# Celery worker: concurrency=1 (one NLP process), max-tasks-per-child=0
-# (models persist in memory, worker never restarts)
+# Celery worker: concurrency=1 (one NLP process), no max-tasks-per-child
+# (omitting = None = unlimited, models persist in memory, worker never restarts)
 # NOTE: Memory limit per child is NOT set — it would kill NLP workers that legitimately use 2-3GB
-CMD ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--max-tasks-per-child=0", "--prefetch-multiplier=1"]
+CMD ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--prefetch-multiplier=1"]
