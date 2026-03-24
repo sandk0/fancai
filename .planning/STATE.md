@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Оптимизация обработки книг
 status: planning
-last_updated: "2026-03-23T23:34:22.139Z"
+last_updated: "2026-03-24T00:10:28.891Z"
 last_activity: 2026-03-23
 progress:
   total_phases: 6
@@ -70,4 +70,4 @@ Progress: [░░░░░░░░░░] 0%
 
 Последняя сессия: 2026-03-24
 Остановились на: Roadmap v1.4 создана, ready to plan Phase 29
-Resume file: .planning/phases/29-docker-db/29-CONTEXT.md
+Resume file: .planning/phases/30-gliner2-ner-service/30-CONTEXT.md
