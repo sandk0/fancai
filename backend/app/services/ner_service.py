@@ -282,22 +282,42 @@ class NERService:
             if self._loaded:
                 return
 
+            import os
+            from pathlib import Path
+
             import torch
             from gliner import GLiNER as GLiNER2
+            from huggingface_hub import snapshot_download
             from transformers import AutoTokenizer
 
-            logger.info("Loading GLiNER2 model (fastino/gliner2-base-v1)...")
+            MODEL_ID = "fastino/gliner2-base-v1"
+            CACHE_DIR = "/models"
+
+            logger.info(f"Loading GLiNER2 model ({MODEL_ID})...")
             start = time.time()
+
+            # Download model and fix config filename mismatch:
+            # fastino/gliner2-base-v1 ships config.json, but gliner
+            # library expects gliner_config.json
+            model_dir = Path(
+                snapshot_download(
+                    repo_id=MODEL_ID,
+                    cache_dir=CACHE_DIR,
+                )
+            )
+            gliner_cfg = model_dir / "gliner_config.json"
+            if not gliner_cfg.exists() and (model_dir / "config.json").exists():
+                os.symlink("config.json", str(gliner_cfg))
 
             with torch.no_grad():
                 self._model = GLiNER2.from_pretrained(
-                    "fastino/gliner2-base-v1",
-                    cache_dir="/models",
+                    str(model_dir),
+                    cache_dir=CACHE_DIR,
                 )
 
             self._tokenizer = AutoTokenizer.from_pretrained(
-                "fastino/gliner2-base-v1",
-                cache_dir="/models",
+                MODEL_ID,
+                cache_dir=CACHE_DIR,
             )
 
             self._loaded = True
