@@ -27,7 +27,7 @@
 - **D-09:** Короткие главы (< max_tokens) обрабатываются как один chunk без split.
 
 ### Маппинг entity types
-- **D-10:** GLiNER2 labels → EntityType маппинг: person→character, location→location, artifact→object, organization→organization.
+- **D-10:** GLiNER2 labels → EntityType маппинг: person→character, location→location, artifact→object, organization→object (EntityType enum не содержит organization).
 - **D-11:** Поля visual_summary, aliases, importance, chapter_event_action, chapter_event_inner — пустые defaults. Phase 33 (LLM Synthesis) обогатит за один batch вызов.
 - **D-12:** Минимальная длина entity имени ≥ 2 символов. Однобуквенные токены отфильтровываются.
 - **D-13:** Adapter агрегирует множественные mentions одного entity в главе: один ExtractedEntity с first_mention_offset = минимальный offset, confidence = среднее.
