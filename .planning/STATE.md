@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: iOS Reader Navigation Fixes
-status: Phase 28.2 завершена (отдельный image CB + async generation + iOS fallback)
-last_updated: "2026-03-17T13:29:43Z"
-last_activity: 2026-03-17 — Phase 28.2 Plan 01 завершена (отдельный image circuit breaker + structured pipeline logging, 10 min)
+milestone: v1.4
+milestone_name: Оптимизация обработки книг
+status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
+last_updated: "2026-03-24T02:28:00Z"
+last_activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция в pipeline, 13 min)
 progress:
-  total_phases: 10
-  completed_phases: 8
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 28.2 завершена (отдельный image CB + async generation). Milestone v1.3 завершён.
+**Текущий фокус:** Phase 30 Plan 01 завершена — NERService core + feature flag routing. Следующий: Plan 02 (A/B тестирование).
 
 ## Текущая позиция
 
-Phase: 28.2 (10 of 10) — fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS
-Plan: 02 of 02 (Plan 02 завершена, Phase 28.2 завершена)
-Status: Phase 28.2 завершена (отдельный image CB + async generation + iOS fallback)
-Last activity: 2026-03-17 — Phase 28.2 Plan 02 завершена (async generation + error display + iOS fallback, 7 min)
+Phase: 30 (1 of 6) — GLiNER2 NER Service
+Plan: 01 of 02 (Plan 01 завершена)
+Status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
+Last activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция, 13 min)
 
-Progress: [██████████] 100%
+Progress: [█████░░░░░] 50%
 
 ## Метрики производительности
 
@@ -79,6 +79,12 @@ Progress: [██████████] 100%
 - openrouter_image_breaker как отдельный CircuitBreaker -- LLM failures НЕ блокируют image generation (Phase 28.2 Plan 01)
 - pipeline_stage structured logging с timing на каждом этапе image pipeline для диагностики (Phase 28.2 Plan 01)
 
+- NERService lazy singleton: get_ner_service() с threading.Lock, паттерн как get_gemini_extractor() (Phase 30 Plan 01)
+- TextChunker: razdel.sentenize() + DeBERTa tokenizer, 384 max_tokens, 2 sentence overlap (Phase 30 Plan 01)
+- LABEL_MAP: person->character, location->location, artifact->object, organization->object (Phase 30 Plan 01)
+- SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
+- Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
+
 ### Ожидающие задачи
 
 Нет.
@@ -99,6 +105,6 @@ Progress: [██████████] 100%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-17
-Phase 28.2 Plan 01 завершена. Task 1 (51df5b3): openrouter_image_breaker + _post_with_image_breaker + structured pipeline logging (10 точек). 48 тестов проходят.
-Resume file: .planning/phases/28.2-fix-openrouter-2-3-ios/28.2-01-SUMMARY.md
+Последняя сессия: 2026-03-24
+Phase 30 Plan 01 завершена. NERService (c810ea9) + feature flag routing (207943a) + тесты (d0d302a). 30 NER-тестов проходят.
+Resume file: .planning/phases/30-gliner2-ner-service/30-01-SUMMARY.md
