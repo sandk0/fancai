@@ -433,6 +433,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     return
 
                                 # 3. Analyze chapter — Modal / NER (GLiNER2) / LLM (Gemini)
+                                modal_raw_descriptions = (
+                                    None  # Для проброса image_prompt_en
+                                )
                                 if use_modal and MODAL_AVAILABLE:
                                     extractor = get_llm_extractor()
                                     modal_json = await asyncio.to_thread(
@@ -444,6 +447,14 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     result = modal_response_to_chapter_result(
                                         modal_json
                                     )
+                                    # Сохраняем raw descriptions для image_prompt_en
+                                    modal_raw_descriptions = {
+                                        d.get("content", ""): d.get(
+                                            "image_prompt_en", ""
+                                        )
+                                        for d in modal_json.get("descriptions", [])
+                                        if d.get("image_prompt_en")
+                                    }
                                     logger.info(
                                         "Modal extraction complete",
                                         chapter_id=str(local_chapter.id),
@@ -542,6 +553,13 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                         position_in_chapter=i,
                                         word_count=d_dict.get("word_count", 0),
                                     )
+                                    # Проброс image_prompt_en из Modal extraction
+                                    if modal_raw_descriptions:
+                                        content_key = d_dict.get("content", "")
+                                        if content_key in modal_raw_descriptions:
+                                            new_desc.image_prompt_en = (
+                                                modal_raw_descriptions[content_key]
+                                            )
                                     session.add(new_desc)
                                     await session.flush()  # Get new_desc.id
 

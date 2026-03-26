@@ -208,6 +208,33 @@ async def _generate_image_async(
                 task_id=task_id,
                 filename=filename,
             )
+
+            # Push notification (аналогично OpenRouter path)
+            try:
+                from app.models.chapter import Chapter
+                from app.services.push_notification_service import (
+                    push_notification_service,
+                )
+
+                if desc_obj:
+                    chapter_result = await db.execute(
+                        select(Chapter).where(Chapter.id == desc_obj.chapter_id)
+                    )
+                    chapter_obj = chapter_result.scalar_one_or_none()
+                    if chapter_obj:
+                        await push_notification_service.send_image_ready_notification(
+                            db=db,
+                            user_id=user_id,
+                            book_id=chapter_obj.book_id,
+                            description_id=description_id,
+                            image_count=1,
+                        )
+            except Exception as e:
+                logger.warning(
+                    "Failed to send image ready push notification",
+                    error=str(e),
+                )
+
             return {
                 "task_id": task_id,
                 "image_id": str(generated_image.id),
