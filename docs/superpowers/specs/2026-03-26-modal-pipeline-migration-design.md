@@ -11,24 +11,24 @@
 
 Migrate the entire fancai AI pipeline from OpenRouter (Gemini 3.0 Flash + FLUX.2 Klein) to Modal self-hosted (Qwen3.5-9B + FLUX.2 Klein). Big Bang approach — both LLM and images in a single deployment.
 
-**Cost impact:** $6.13/book → $0.45-1.34/book (78-93% savings)
-**Books/month on $30 free tier:** ~5 → 22-67
+**Cost impact:** $6.13/book → $0.45-1.34/book (78-93% savings). Includes ~$0.06/session idle cost (scaledown_window=120s × 2 containers).
+**Books/month on $30 free tier:** ~5 → 20-60 (accounting for ~$2.50/month idle overhead)
 
 ### Key Decisions
 
-| Decision              | Choice                      | Rationale                                             |
-| --------------------- | --------------------------- | ----------------------------------------------------- |
-| LLM model             | Qwen3.5-9B (BF16, L4)       | Fits L4 with 6GB headroom, 91.5 IFEval, no MoE bugs   |
-| Backup LLM            | Qwen3.5-35B-A3B (GPTQ-Int4) | Test if 9B quality insufficient                       |
-| Image model           | FLUX.2 Klein 4B (L4)        | Same as current, 53x cheaper self-hosted              |
-| Character consistency | Deferred                    | Add later as premium feature                          |
-| KV cache              | FP8 dtype                   | 64K context on L4 (conservative; up to 128K possible) |
-| Fallback              | None                        | Modal only, no OpenRouter fallback                    |
-| Image storage (R2)    | Deferred                    | VPS disk sufficient for now                           |
-| Monetization          | Deferred                    | Research credit-based vs subscription later           |
-| Translation           | In extraction schema        | `image_prompt_en` field, single LLM call              |
-| Migration approach    | Big Bang                    | One deployment, feature flag for rollback             |
-| v1.4 phases 31-32     | Cancelled                   | Modal LLM replaces classifier + pgvector              |
+| Decision              | Choice                      | Rationale                                                                                                                                                             |
+| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM model             | Qwen3.5-9B (BF16, L4)       | Fits L4 with ~3.6GB usable headroom (gpu_memory_utilization=0.90), 91.5 IFEval, no MoE bugs. Gated DeltaNet: only 8/32 layers use KV cache → 65K+ context easily fits |
+| Backup LLM            | Qwen3.5-35B-A3B (GPTQ-Int4) | Test if 9B quality insufficient                                                                                                                                       |
+| Image model           | FLUX.2 Klein 4B (L4)        | Same as current, 53x cheaper self-hosted                                                                                                                              |
+| Character consistency | Deferred                    | Add later as premium feature                                                                                                                                          |
+| KV cache              | FP8 dtype                   | 64K context on L4 (conservative; up to 128K possible)                                                                                                                 |
+| Fallback              | None                        | Modal only, no OpenRouter fallback                                                                                                                                    |
+| Image storage (R2)    | Deferred                    | VPS disk sufficient for now                                                                                                                                           |
+| Monetization          | Deferred                    | Research credit-based vs subscription later                                                                                                                           |
+| Translation           | In extraction schema        | `image_prompt_en` field, single LLM call                                                                                                                              |
+| Migration approach    | Big Bang                    | One deployment, feature flag for rollback                                                                                                                             |
+| v1.4 phases 31-32     | Cancelled                   | Modal LLM replaces classifier + pgvector                                                                                                                              |
 
 ---
 
@@ -93,7 +93,7 @@ llm_image = (
 
 diffusers_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("diffusers>=0.32", "torch>=2.5", "transformers", "accelerate")
+    .pip_install("diffusers>=0.37", "torch>=2.5", "transformers", "accelerate")
 )
 ```
 
@@ -108,9 +108,10 @@ model_volume = modal.Volume.from_name("fancai-models", create_if_missing=True)
     image=llm_image,
     gpu="L4",
     volumes={VOLUME_PATH: model_volume},
-    scaledown_window=300,
+    scaledown_window=120,                                    # 2 min idle (saves ~$2.40/month vs 300s)
     timeout=600,
     enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},       # GPU memory snapshot (alpha)
 )
 class LLMExtractor:
     @modal.enter()
@@ -124,22 +125,43 @@ class LLMExtractor:
             kv_cache_dtype="fp8",
             dtype="bfloat16",
             enable_prefix_caching=True,
-            reasoning_parser="qwen3",
+            # NOTE: reasoning_parser omitted — unnecessary with enable_thinking=False
             chat_template_kwargs={"enable_thinking": False},
         )
 
     @modal.method()
     def extract_chapter(self, chapter_text: str, system_prompt: str,
                         schema_json: str) -> dict:
+        """Extract entities/descriptions from one chapter."""
+        import json
         from vllm import SamplingParams
+        from vllm.sampling_params import StructuredOutputsParams
         params = SamplingParams(
             max_tokens=8192,
             temperature=0.1,
-            guided_json=schema_json,
+            structured_outputs=StructuredOutputsParams(json=schema_json),
         )
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"<book_text>{chapter_text}</book_text>"},
+        ]
+        result = self.llm.chat(messages, params)
+        return json.loads(result[0].outputs[0].text)
+
+    @modal.method()
+    def reduce_entities(self, entities_json: str, system_prompt: str,
+                        schema_json: str) -> dict:
+        """Entity deduplication (replaces OpenRouter in ConsistencyManager)."""
+        import json
+        from vllm import SamplingParams
+        from vllm.sampling_params import StructuredOutputsParams
+        params = SamplingParams(
+            max_tokens=4096, temperature=0.0,
+            structured_outputs=StructuredOutputsParams(json=schema_json),
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": entities_json},
         ]
         result = self.llm.chat(messages, params)
         return json.loads(result[0].outputs[0].text)
@@ -154,16 +176,17 @@ FLUX_MODEL_ID = "black-forest-labs/FLUX.2-klein-4B"
     image=diffusers_image,
     gpu="L4",
     volumes={VOLUME_PATH: model_volume},
-    scaledown_window=300,
+    scaledown_window=120,                                    # 2 min idle
     timeout=120,
     enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
 )
 class ImageGenerator:
     @modal.enter()
     def load_model(self):
-        from diffusers import FluxPipeline
+        from diffusers import Flux2KleinPipeline              # NOT FluxPipeline (FLUX.1)
         import torch
-        self.pipe = FluxPipeline.from_pretrained(
+        self.pipe = Flux2KleinPipeline.from_pretrained(
             FLUX_MODEL_ID,
             torch_dtype=torch.bfloat16,
             cache_dir=VOLUME_PATH,
@@ -172,9 +195,11 @@ class ImageGenerator:
     @modal.method()
     def generate(self, prompt: str, width: int = 768,
                  height: int = 768, num_steps: int = 4) -> bytes:
+        import io
         image = self.pipe(
             prompt=prompt, width=width, height=height,
-            num_inference_steps=num_steps, guidance_scale=3.5,
+            num_inference_steps=num_steps,
+            guidance_scale=1.0,                                # 1.0 for distilled Klein 4B
         ).images[0]
         buf = io.BytesIO()
         image.save(buf, format="PNG")
@@ -184,7 +209,7 @@ class ImageGenerator:
 ### Key Config
 
 - `enable_thinking: False` — thinking mode incompatible with structured output in Qwen3.5
-- `guided_json` — vLLM structured output via XGrammar, no MTP (avoids Issue #35700)
+- `StructuredOutputsParams(json=...)` — vLLM structured output (replaces removed `guided_json` param), no MTP (avoids Issue #35700)
 - `<book_text>` XML delimiters — prompt injection protection
 - `kv_cache_dtype="fp8"` — doubles effective KV cache memory; `max_model_len=65536` is conservative, can increase to 131072 if needed
 
@@ -213,39 +238,39 @@ def get_image_generator():
     return cls()
 ```
 
-**Important:** The existing `process_book_task` uses `asyncio.Semaphore(10)` + `asyncio.gather()` for parallel chapter processing. The Modal integration preserves this architecture — it swaps the internal `gemini_extractor.analyze_chapter()` call for `extractor.extract_chapter.remote()` within the existing parallel loop. No change to the chapter orchestration pattern.
+**Integration point:** The existing `process_book_task` uses `asyncio.Semaphore(10)` + `asyncio.gather()` for parallel chapter processing. Each chapter is processed by `process_chapter_safe(idx, chapter_id)` which loads the chapter text from DB, then calls `gemini_extractor.analyze_chapter()`. The Modal integration replaces **only that one call** — everything else (DB writes, ConsistencyManager, EntityEvents, WebSocket progress, Description/DescriptionEntity creation) remains untouched.
 
 ```python
-# Inside existing process_book_task — swap extraction call
-async def process_single_chapter(chapter_text, chapter_idx):
-    async with semaphore:
-        extractor = get_llm_extractor()
-        # Modal .remote() is synchronous — wrap in asyncio.to_thread()
-        result = await asyncio.to_thread(
-            extractor.extract_chapter.remote,
-            chapter_text=chapter_text,
-            system_prompt=EXTRACTION_PROMPT,
-            schema_json=ENTITY_SCHEMA_JSON,
-        )
-        validated = ChapterAnalysisResult.model_validate(result)
+# book_tasks.py line ~442 — THE ONLY LINE THAT CHANGES:
 
-        # Image generation per description
-        generator = get_image_generator()
-        for desc in validated.descriptions:
-            image_bytes = await asyncio.to_thread(
-                generator.generate.remote, prompt=desc.image_prompt_en
-            )
-            save_image_to_disk(image_bytes, book_id, desc.id)
+# Before (OpenRouter/Gemini):
+result = await gemini_extractor.analyze_chapter(local_chapter.content)
 
-        return validated
-
-# Parallel chapter processing (existing pattern preserved)
-results = await asyncio.gather(*[
-    process_single_chapter(ch.text, idx) for idx, ch in enumerate(chapters)
-])
+# After (Modal):
+if MODAL_AVAILABLE and use_modal:
+    extractor = get_llm_extractor()
+    modal_json = await asyncio.to_thread(
+        extractor.extract_chapter.remote,
+        chapter_text=local_chapter.content,
+        system_prompt=EXTRACTION_PROMPT,
+        schema_json=ENTITY_SCHEMA_JSON,
+    )
+    # Convert Modal JSON → existing dataclasses (NOT Pydantic .model_validate())
+    result = modal_response_to_chapter_result(modal_json)
+else:
+    result = await gemini_extractor.analyze_chapter(local_chapter.content)
 ```
 
-**VPS environment:** `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` must be added to VPS environment (docker-compose or .env) for Celery workers to call Modal.
+**Critical: `ChapterAnalysisResult` is a dataclass, not Pydantic.** The `modal_response_to_chapter_result()` converter must manually construct:
+
+- `ChapterAnalysisResult(descriptions=List[ExtractedDescription], entities=List[ExtractedEntity], relationships=List[ExtractedRelationship])`
+- These dataclasses are defined in `gemini_extractor.py` — extract them to a shared `schemas.py` module
+
+**Image generation is NOT inline.** Images are generated separately via `image_tasks.py` (on-demand when user clicks "generate" or batch via `generate_image_batch_task`). Modal `ImageGenerator` integration goes in `image_tasks.py`, not `book_tasks.py`.
+
+**ConsistencyManager `reduce_entities`** also migrates to Modal. The `optimize_book_entities()` → `_single_reduce_pass()` currently calls `get_openrouter_client().generate_text()`. Replace with `extractor.reduce_entities.remote()`.
+
+**VPS environment:** `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` must be added to `docker-compose.prod.yml` celery-worker environment.
 
 ### Feature Flag Rollback
 
@@ -260,15 +285,28 @@ Old code (`gemini_extractor.py`, `openrouter_client.py`, `imagen_generator.py`) 
 
 ### Translation in Extraction Schema
 
-`image_prompt_en` field added to description schema. Single LLM call per chapter handles extraction + English prompt generation. Eliminates 60-100 separate translation calls per book.
+`image_prompt_en` field added to the Modal extraction output. The LLM generates English image prompts alongside extraction, eliminating separate translation calls during on-demand image generation.
+
+**Note on current flow:** Currently, translation RU→EN happens on-demand inside `imagen_generator.py` when a user requests an image (not during book processing). With Modal, `image_prompt_en` is pre-computed during extraction and stored in the Description DB record, so on-demand image generation skips translation entirely.
+
+**Modal extraction schema** must output fields compatible with existing dataclasses:
 
 ```python
-class DescriptionResult(BaseModel):
-    entity_name: str
-    description_text: str       # Russian
-    description_type: str
-    image_prompt_en: str        # English, 30-60 words, for FLUX.2
+# Modal LLM returns JSON with these fields → converted to dataclasses on VPS
+{
+    "entities": [
+        {"name": "...", "entity_type": "...", "visual_summary": "...", ...}
+    ],
+    "descriptions": [
+        {"content": "...", "type": "...", "confidence": 0.9,
+         "entities": ["entity1", "entity2"],
+         "image_prompt_en": "..."}   # NEW field
+    ],
+    "relationships": [...]
+}
 ```
+
+**DB field names** match existing schema: `content` (not `description_text`), `type` (not `description_type`), `entities` as list (not `entity_name`). The `image_prompt_en` is the only new column.
 
 ### Parallel Chapter Processing
 
@@ -284,16 +322,24 @@ VPS local:    PostgreSQL writes, image file saves to /app/storage/
 
 ### Image Tasks (On-Demand)
 
-`image_tasks.py` handles on-demand image generation (user clicks "generate" in the reader). This also needs the Modal path:
+`image_tasks.py` handles on-demand image generation. Currently receives **Russian text** and translates internally via `PromptTranslator`. With Modal:
+
+- If `image_prompt_en` is pre-stored in Description record (from extraction) → use it directly
+- If not (legacy descriptions without `image_prompt_en`) → translate on VPS via `ImagenPromptEngineer` (kept as fallback)
 
 ```python
-# backend/app/tasks/image_tasks.py
-if MODAL_AVAILABLE and await flag_manager.is_enabled("USE_MODAL_PIPELINE"):
+# Inside _generate_image_async() in image_tasks.py
+if MODAL_AVAILABLE and use_modal:
+    # Use pre-computed English prompt if available, otherwise fallback
+    prompt_en = description.image_prompt_en or translate_fallback(description.content)
     generator = get_image_generator()
     image_bytes = await asyncio.to_thread(generator.generate.remote, prompt=prompt_en)
 else:
-    image_bytes = await imagen_service.generate(prompt_en)  # old OpenRouter path
+    image_bytes = await imagen_service.generate_image(
+        description=description.content, ...)  # old OpenRouter path (Russian input)
 ```
+
+**Rate limiting sleep (2s between images) can be removed** for Modal path — no API rate limits.
 
 ### Prompt Engineering Preservation
 
@@ -306,21 +352,22 @@ The current `ImagenPromptEngineer` (imagen_generator.py) contains genre-aware te
 
 ### Code Changes
 
-| File                     | Change                                       |
-| ------------------------ | -------------------------------------------- |
-| `book_tasks.py`          | Add Modal path behind feature flag           |
-| `image_tasks.py`         | Add Modal path behind feature flag           |
-| `models/description.py`  | **NEW:** Add `image_prompt_en` column        |
-| `models/usage_record.py` | **NEW:** Cost tracking model                 |
-| Alembic migration        | **NEW:** `image_prompt_en` + `usage_records` |
-| `gemini_extractor.py`    | Keep (delete after A/B)                      |
-| `imagen_generator.py`    | Keep (delete after A/B)                      |
-| `openrouter_client.py`   | Keep (delete after A/B)                      |
-| `ner_service.py`         | Keep as CPU fallback behind flag             |
-| `consistency_manager.py` | No changes                                   |
-| `Dockerfile.celery`      | Add `modal` dependency                       |
-| `requirements.txt`       | Add `modal`                                  |
-| `docker-compose.yml`     | Add `MODAL_TOKEN_ID/SECRET` env vars         |
+| File                      | Change                                                        |
+| ------------------------- | ------------------------------------------------------------- |
+| `book_tasks.py`           | Add Modal path behind feature flag                            |
+| `image_tasks.py`          | Add Modal path behind feature flag                            |
+| `models/description.py`   | **NEW:** Add `image_prompt_en` column                         |
+| `models/usage_record.py`  | **NEW:** Cost tracking model                                  |
+| Alembic migration         | **NEW:** `image_prompt_en` + `usage_records`                  |
+| `gemini_extractor.py`     | Keep (delete after A/B)                                       |
+| `imagen_generator.py`     | Keep (delete after A/B)                                       |
+| `openrouter_client.py`    | Keep (delete after A/B)                                       |
+| `ner_service.py`          | Keep as CPU fallback behind flag                              |
+| `consistency_manager.py`  | Replace OpenRouter `reduce` call with Modal `reduce_entities` |
+| `gemini_extractor.py`     | Extract dataclasses to shared `schemas.py` module             |
+| `Dockerfile.celery`       | Add `modal` dependency                                        |
+| `requirements.txt`        | Add `modal`                                                   |
+| `docker-compose.prod.yml` | Add `MODAL_TOKEN_ID/SECRET` env vars                          |
 
 ---
 
