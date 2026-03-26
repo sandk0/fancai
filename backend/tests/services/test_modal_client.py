@@ -98,6 +98,23 @@ class TestModalResponseConverter:
         assert result.entities[0].chapter_event_action is None
         assert result.descriptions[0].description_type == DescriptionType.ATMOSPHERE
 
+    def test_handles_bare_empty_dict(self):
+        result = modal_response_to_chapter_result({})
+        assert result.entities == []
+        assert result.descriptions == []
+        assert result.relationships == []
+
+    def test_unknown_description_type_defaults_to_location(self):
+        modal_json = {
+            "entities": [],
+            "descriptions": [
+                {"content": "x", "type": "mood", "confidence": 0.5, "entities": []}
+            ],
+            "relationships": [],
+        }
+        result = modal_response_to_chapter_result(modal_json)
+        assert result.descriptions[0].description_type == DescriptionType.LOCATION
+
     def test_description_type_mapping(self):
         """All DescriptionType values must be handled."""
         for dtype in ["location", "character", "atmosphere", "object", "action"]:
