@@ -53,10 +53,17 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_usage_records_book_id"), "usage_records", ["book_id"], unique=False
     )
+    op.create_index(
+        op.f("ix_usage_records_created_at"),
+        "usage_records",
+        ["created_at"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
     # Удаляем индекс и таблицу usage_records
+    op.drop_index(op.f("ix_usage_records_created_at"), table_name="usage_records")
     op.drop_index(op.f("ix_usage_records_book_id"), table_name="usage_records")
     op.drop_table("usage_records")
 

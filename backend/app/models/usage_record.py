@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Float, Integer, String, DateTime, Text, func
+from sqlalchemy import Float, Integer, String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.database import Base
@@ -30,5 +30,5 @@ class UsageRecord(Base):
     tokens_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
