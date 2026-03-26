@@ -12,7 +12,7 @@ import asyncio
 from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
 from app.models.chapter import Chapter
-from app.services.modal_client import MODAL_AVAILABLE, get_image_generator
+from app.services.modal_client import is_modal_enabled, get_image_generator
 from app.services.push_notification_service import push_notification_service
 from app.tasks.common import run_async
 
@@ -132,13 +132,7 @@ async def _generate_image_async(
         logger.debug("Starting async image generation", task_id=task_id)
 
         # Проверяем флаг USE_MODAL_PIPELINE — если включён, используем Modal
-        use_modal = False
-        if MODAL_AVAILABLE:
-            from app.services.feature_flag_manager import FeatureFlagManager
-
-            flag_mgr = FeatureFlagManager(db)
-            await flag_mgr.initialize()
-            use_modal = await flag_mgr.is_enabled("USE_MODAL_PIPELINE", default=False)
+        use_modal = await is_modal_enabled(db)
 
         if use_modal:
             # Modal ImageGenerator — приоритет: предвычисленный image_prompt_en из БД
@@ -165,13 +159,16 @@ async def _generate_image_async(
                 )
 
             generator = get_image_generator()
+            import time as time_mod
+
+            gen_start = time_mod.monotonic()
             image_bytes = await asyncio.to_thread(
                 generator.generate.remote, prompt=prompt_en
             )
+            gen_seconds = round(time_mod.monotonic() - gen_start, 2)
 
             # Сохраняем файл на диск
             import hashlib
-            import time as time_mod
             from pathlib import Path
 
             filename = (
@@ -192,6 +189,7 @@ async def _generate_image_async(
                 image_url=f"/api/v1/images/file/{filename}",
                 local_path=str(local_path),
                 prompt_used=prompt_en,
+                generation_time_seconds=gen_seconds,
             )
             db.add(generated_image)
             await db.commit()

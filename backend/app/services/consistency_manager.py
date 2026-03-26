@@ -28,7 +28,7 @@ from app.core.json_utils import parse_json_safe
 from app.core.openrouter_client import get_openrouter_client
 import asyncio
 import random
-from app.services.modal_client import MODAL_AVAILABLE, get_llm_extractor
+from app.services.modal_client import is_modal_enabled, get_llm_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -615,13 +615,7 @@ CRITICAL RULES:
 """
 
         # Modal или OpenRouter для reduce
-        use_modal = False
-        if MODAL_AVAILABLE:
-            from app.services.feature_flag_manager import FeatureFlagManager
-
-            flag_mgr = FeatureFlagManager(self.db)
-            await flag_mgr.initialize()
-            use_modal = await flag_mgr.is_enabled("USE_MODAL_PIPELINE", default=False)
+        use_modal = await is_modal_enabled(self.db)
 
         if use_modal:
             extractor = get_llm_extractor()

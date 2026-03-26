@@ -23,7 +23,7 @@ from app.services.consistency_manager import ConsistencyManager
 from app.services.ner_service import get_ner_service
 from app.services.feature_flag_manager import FeatureFlagManager
 from app.services.modal_client import (
-    MODAL_AVAILABLE,
+    is_modal_enabled,
     get_llm_extractor,
     modal_response_to_chapter_result,
 )
@@ -289,7 +289,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Phase 30: Feature flag for NER pipeline
         flag_manager = FeatureFlagManager(db)
         use_gliner = await flag_manager.is_enabled("USE_GLINER_NER", default=False)
-        use_modal = await flag_manager.is_enabled("USE_MODAL_PIPELINE", default=False)
+        use_modal = await is_modal_enabled(db)
 
         # Snapshot NER service if enabled (lazy singleton, model loads on first call)
         ner_service = get_ner_service() if use_gliner else None
@@ -436,7 +436,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 modal_raw_descriptions = (
                                     None  # Для проброса image_prompt_en
                                 )
-                                if use_modal and MODAL_AVAILABLE:
+                                if use_modal:
                                     extractor = get_llm_extractor()
                                     modal_json = await asyncio.to_thread(
                                         extractor.extract_chapter.remote,

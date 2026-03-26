@@ -26,6 +26,17 @@ except ImportError:
 _DESCRIPTION_TYPE_MAP = {dt.value: dt for dt in DescriptionType}
 
 
+async def is_modal_enabled(db) -> bool:
+    """Проверка: Modal SDK доступен И feature flag включён."""
+    if not MODAL_AVAILABLE:
+        return False
+    from app.services.feature_flag_manager import FeatureFlagManager
+
+    flag_mgr = FeatureFlagManager(db)
+    await flag_mgr.initialize()
+    return await flag_mgr.is_enabled("USE_MODAL_PIPELINE", default=False)
+
+
 def get_llm_extractor():
     """Lazy-ссылка на развёрнутый Modal LLMExtractor."""
     if not MODAL_AVAILABLE:
@@ -75,6 +86,7 @@ def modal_response_to_chapter_result(
             confidence=d.get("confidence", 0.0),
             entities=[{"name": name} for name in d.get("entities", [])],
             position=d.get("text_offset", 0) or 0,
+            source="modal",
         )
         for d in modal_json.get("descriptions", [])
     ]

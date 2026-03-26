@@ -46,6 +46,7 @@ class ExtractedDescription:
     attributes: Dict[str, Any] = field(default_factory=dict)
     position: int = 0
     source_span: Tuple[int, int] = (0, 0)
+    source: str = "gemini_direct"
 
     def to_dict(self) -> Dict[str, Any]:
         """Конвертация в формат Multi-NLP системы."""
@@ -62,7 +63,7 @@ class ExtractedDescription:
             "type": self.description_type.value,
             "confidence_score": self.confidence,
             "priority_score": self._calculate_priority(),
-            "source": "gemini_direct",
+            "source": self.source,
             "position": self.position,
             "word_count": len(self.content.split()),
             "entities_mentioned": entity_names,
