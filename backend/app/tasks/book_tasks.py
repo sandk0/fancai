@@ -22,6 +22,15 @@ from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
 from app.services.ner_service import get_ner_service
 from app.services.feature_flag_manager import FeatureFlagManager
+from app.services.modal_client import (
+    MODAL_AVAILABLE,
+    get_llm_extractor,
+    modal_response_to_chapter_result,
+)
+from app.prompts.modal_extraction import (
+    EXTRACTION_SYSTEM_PROMPT,
+    EXTRACTION_SCHEMA_JSON,
+)
 from app.core.pubsub import publish_book_progress, publish_entities_updated
 from app.services.push_notification_service import push_notification_service
 
@@ -280,6 +289,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Phase 30: Feature flag for NER pipeline
         flag_manager = FeatureFlagManager(db)
         use_gliner = await flag_manager.is_enabled("USE_GLINER_NER", default=False)
+        use_modal = await flag_manager.is_enabled("USE_MODAL_PIPELINE", default=False)
 
         # Snapshot NER service if enabled (lazy singleton, model loads on first call)
         ner_service = get_ner_service() if use_gliner else None
@@ -422,8 +432,24 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     await session.commit()
                                     return
 
-                                # 3. Analyze chapter — NER (GLiNER2) or LLM (Gemini)
-                                if use_gliner and ner_service:
+                                # 3. Analyze chapter — Modal / NER (GLiNER2) / LLM (Gemini)
+                                if use_modal and MODAL_AVAILABLE:
+                                    extractor = get_llm_extractor()
+                                    modal_json = await asyncio.to_thread(
+                                        extractor.extract_chapter.remote,
+                                        chapter_text=local_chapter.content,
+                                        system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                                        schema_json=EXTRACTION_SCHEMA_JSON,
+                                    )
+                                    result = modal_response_to_chapter_result(
+                                        modal_json
+                                    )
+                                    logger.info(
+                                        "Modal extraction complete",
+                                        chapter_id=str(local_chapter.id),
+                                        entities_count=len(result.entities),
+                                    )
+                                elif use_gliner and ner_service:
                                     # Phase 30: NER via GLiNER2 (synchronous PyTorch inference in thread pool)
                                     ner_result = await asyncio.to_thread(
                                         ner_service.extract_chapter,
