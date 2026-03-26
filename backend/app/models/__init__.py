@@ -22,6 +22,7 @@ from .password_reset import PasswordResetToken
 from .llm_usage_log import LlmUsageLog
 from .bookmark import Bookmark
 from .chapter_embedding import ChapterEmbedding
+from .usage_record import UsageRecord
 
 __all__ = [
     "User",
@@ -49,4 +50,5 @@ __all__ = [
     "LlmUsageLog",
     "Bookmark",
     "ChapterEmbedding",
+    "UsageRecord",
 ]

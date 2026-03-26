@@ -103,6 +103,12 @@ class Description(Base):
         index=True,
         comment="Pipeline version: null=legacy LLM, 'hybrid_v1'=GLiNER2+classifier",
     )
+    image_prompt_en: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+        comment="Pre-computed English image prompt from LLM extraction",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

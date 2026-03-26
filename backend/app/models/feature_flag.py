@@ -166,4 +166,11 @@ DEFAULT_FEATURE_FLAGS = [
         "description": "Использовать pgvector embeddings для контекстного обогащения при synthesis",
         "default_value": False,
     },
+    {
+        "name": "USE_MODAL_PIPELINE",
+        "enabled": False,
+        "category": FeatureFlagCategory.SYSTEM.value,
+        "description": "Использовать Modal self-hosted LLM + image gen вместо OpenRouter",
+        "default_value": False,
+    },
 ]
