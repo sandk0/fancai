@@ -31,7 +31,8 @@ from loguru import logger
 from app.models.description import Description, DescriptionType
 from app.models.chapter import Chapter
 from app.core.cache import cache_manager, DistributedLock
-from app.services.gemini_extractor import gemini_extractor, ExtractedDescription
+from app.schemas.extraction import ExtractedDescription
+from app.services.gemini_extractor import gemini_extractor
 from app.schemas.responses import DescriptionResponse
 from app.schemas.responses.descriptions import (
     ChapterMinimalInfo,

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from razdel import sentenize
 
-from app.services.gemini_extractor import (
+from app.schemas.extraction import (
     ChapterAnalysisResult,
     ExtractedEntity,
 )

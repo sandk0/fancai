@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 import uuid as uuid_module
 from app.models.entity import Entity, EntityType
 from app.models.entity_relationship import EntityRelationship
-from app.services.gemini_extractor import (
+from app.schemas.extraction import (
     ChapterAnalysisResult,
     ExtractedEntity,
     ExtractedRelationship,
