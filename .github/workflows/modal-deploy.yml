@@ -1,0 +1,65 @@
+name: Deploy Modal Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modal/**'
+      - '.github/workflows/modal-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  validate:
+    name: Validate Modal Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Modal and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install modal pydantic
+
+      - name: Validate Modal app
+        run: |
+          cd modal
+          python -m py_compile app.py
+          python -m py_compile config.py
+          python -m py_compile llm_extractor.py
+          python -m py_compile image_generator.py
+          python -m py_compile schemas.py
+
+  deploy:
+    name: Deploy to Modal
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Modal
+        run: pip install --upgrade pip modal
+
+      - name: Deploy Modal app
+        run: cd modal && modal deploy app.py
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
