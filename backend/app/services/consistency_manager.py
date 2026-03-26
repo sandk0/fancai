@@ -26,7 +26,9 @@ from app.schemas.extraction import (
 from app.services.imagen_generator import get_imagen_service
 from app.core.json_utils import parse_json_safe
 from app.core.openrouter_client import get_openrouter_client
+import asyncio
 import random
+from app.services.modal_client import MODAL_AVAILABLE, get_llm_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -612,16 +614,37 @@ CRITICAL RULES:
 - ALWAYS preserve chapter information for spoiler protection
 """
 
-        openrouter = get_openrouter_client()
-        raw_text = await openrouter.generate_text(
-            prompt=REDUCE_PROMPT,
-            system_prompt="Respond ONLY with valid JSON, no markdown.",
-            temperature=0.1,
-        )
+        # Modal или OpenRouter для reduce
+        use_modal = False
+        if MODAL_AVAILABLE:
+            from app.services.feature_flag_manager import FeatureFlagManager
 
-        raw_plan = parse_json_safe(raw_text)
-        plan: dict = raw_plan if isinstance(raw_plan, dict) else {}
-        return plan
+            flag_mgr = FeatureFlagManager(self.db)
+            await flag_mgr.initialize()
+            use_modal = await flag_mgr.is_enabled("USE_MODAL_PIPELINE", default=False)
+
+        if use_modal:
+            extractor = get_llm_extractor()
+            from app.prompts.modal_extraction import REDUCE_SCHEMA_JSON
+
+            raw_json = await asyncio.to_thread(
+                extractor.reduce_entities.remote,
+                entities_json=entity_list_text,
+                system_prompt="Respond ONLY with valid JSON, no markdown.",
+                schema_json=REDUCE_SCHEMA_JSON,
+            )
+            return raw_json  # уже dict из Modal
+        else:
+            openrouter = get_openrouter_client()
+            raw_text = await openrouter.generate_text(
+                prompt=REDUCE_PROMPT,
+                system_prompt="Respond ONLY with valid JSON, no markdown.",
+                temperature=0.1,
+            )
+
+            raw_plan = parse_json_safe(raw_text)
+            plan: dict = raw_plan if isinstance(raw_plan, dict) else {}
+            return plan
 
     async def _execute_reduce_operations(self, plan: dict, book_id: str) -> None:
         """
