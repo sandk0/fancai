@@ -34,6 +34,32 @@ from app.prompts.modal_extraction import (
 from app.core.pubsub import publish_book_progress, publish_entities_updated
 from app.services.push_notification_service import push_notification_service
 
+import time
+
+# STAB-05/06: Timeout and time budget constants
+CELERY_HARD_LIMIT = 10800  # 3 hours, from celery_app.py task-level override
+SAFETY_MARGIN = 300  # 5 minutes buffer for cleanup/commit
+VPS_TIMEOUT = 960  # LLM_TIMEOUT(900) + 60s buffer (D-10). Local constant — not imported from modal/config.py (different services)
+
+
+def check_time_budget(task_start_time: float, *, chapter_idx: int) -> None:
+    """Check if enough time remains before Celery hard limit.
+
+    Raises TimeoutError if remaining time < VPS_TIMEOUT (STAB-06, D-12).
+    Call before each Modal/LLM chapter extraction.
+
+    Args:
+        task_start_time: time.monotonic() value from task start
+        chapter_idx: chapter index for error message
+    """
+    elapsed = time.monotonic() - task_start_time
+    remaining = CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN
+    if remaining < VPS_TIMEOUT:
+        raise TimeoutError(
+            f"Time budget exhausted: remaining={remaining:.0f}s, "
+            f"needed={VPS_TIMEOUT}s. Skipping chapter {chapter_idx}."
+        )
+
 
 def find_entity_fuzzy(
     entity_name: str, entity_map: Dict[str, Entity], cutoff: float = 0.7
@@ -366,6 +392,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async processing", book_id=str(book_id))
 
+        # STAB-06: Record task start time for per-book time budget check
+        task_start_time = time.monotonic()
+
         # Initialize services
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
@@ -518,18 +547,31 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     await session.commit()
                                     return
 
+                                # Per-book time budget check (D-12, STAB-06)
+                                if use_modal:
+                                    check_time_budget(task_start_time, chapter_idx=idx)
+
                                 # 3. Analyze chapter — Modal / NER (GLiNER2) / LLM (Gemini)
                                 modal_raw_descriptions = (
                                     None  # Для проброса image_prompt_en
                                 )
                                 if use_modal:
                                     extractor = get_llm_extractor()
-                                    modal_json = await asyncio.to_thread(
-                                        extractor.extract_chapter.remote,
-                                        chapter_text=local_chapter.content,
-                                        system_prompt=EXTRACTION_SYSTEM_PROMPT,
-                                        schema_json=EXTRACTION_SCHEMA_JSON,
-                                    )
+                                    try:
+                                        modal_json = await asyncio.wait_for(
+                                            asyncio.to_thread(
+                                                extractor.extract_chapter.remote,
+                                                chapter_text=local_chapter.content,
+                                                system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                                                schema_json=EXTRACTION_SCHEMA_JSON,
+                                            ),
+                                            timeout=VPS_TIMEOUT,
+                                        )
+                                    except asyncio.TimeoutError:
+                                        raise TimeoutError(
+                                            f"VPS-side timeout: Modal did not respond in {VPS_TIMEOUT}s "
+                                            f"(LLM_TIMEOUT=900s + buffer=60s)"
+                                        )
                                     result = modal_response_to_chapter_result(
                                         modal_json
                                     )
