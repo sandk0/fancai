@@ -31,3 +31,7 @@ COMMON_CLS_KWARGS = dict(
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
 )
+
+# Импорт классов — Modal должен видеть @app.cls декораторы при deploy
+import llm_extractor  # noqa: F401, E402
+import image_generator  # noqa: F401, E402
