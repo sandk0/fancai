@@ -44,6 +44,7 @@
 - ✓ Docker и DB инфраструктура для NLP: pgvector, Dockerfile.celery, 4GB Celery, schema migration, feature flags (INFRA-01..05) — v1.4
 
 - ✓ Production semantics: корректные статусы книг, maxLength constraints, VPS timeout, reconciliation endpoint (STAB-01..03, STAB-05..09) — v1.5
+- ✓ Error classification и observability: ErrorClassifier (5 типов), structured per-chapter logging (9 полей), finish_reason check, Alembic migration error_type (STAB-04, OBS-01, OBS-02) — v1.5
 
 ### Active
 
