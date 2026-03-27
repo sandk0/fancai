@@ -1,6 +1,6 @@
 """add image_prompt_en, usage_records, modal flag
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: b094a7b42ccb
 Revises: c3f7a2b8d901
 Create Date: 2026-03-27 00:00:01.000000+00:00
 
@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "b094a7b42ccb"
 down_revision: Union[str, None] = "c3f7a2b8d901"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
