@@ -82,8 +82,9 @@ def close_abandoned_sessions(self) -> dict:
 
     except Exception as e:
         error_message = str(e)
-        logger.opt(exception=True).error(
-            f"Error closing abandoned sessions: {error_message}"
+        logger.error(
+            f"Error closing abandoned sessions: {error_message}",
+            exc_info=True,
         )
 
         # Retry с exponential backoff
@@ -157,8 +158,9 @@ async def _close_abandoned_sessions_impl(deadline: datetime) -> int:
                     )
 
                 except Exception as e:
-                    logger.opt(exception=True).warning(
-                        f"Failed to close session {session.id}: {e}"
+                    logger.warning(
+                        f"Failed to close session {session.id}: {e}",
+                        exc_info=True,
                     )
                     continue
 
@@ -173,8 +175,9 @@ async def _close_abandoned_sessions_impl(deadline: datetime) -> int:
 
         except Exception as e:
             await db.rollback()
-            logger.opt(exception=True).error(
-                f"Database error while closing sessions: {e}"
+            logger.error(
+                f"Database error while closing sessions: {e}",
+                exc_info=True,
             )
             raise
 
@@ -269,5 +272,5 @@ async def _get_cleanup_statistics_impl(hours: int) -> dict:
             }
 
         except Exception as e:
-            logger.opt(exception=True).error(f"Error getting cleanup statistics: {e}")
+            logger.error(f"Error getting cleanup statistics: {e}", exc_info=True)
             raise

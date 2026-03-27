@@ -40,45 +40,105 @@ logger = logging.getLogger(__name__)
 # EPUB STRUCTURE CONSTANTS (Шаг 2.1)
 # ============================================================================
 
-SERVICE_EPUB_TYPES = frozenset({
-    "cover", "titlepage", "halftitlepage", "copyright-page",
-    "toc", "landmarks", "page-list",
-    "frontmatter", "backmatter", "colophon", "dedication", "acknowledgments",
-})
+SERVICE_EPUB_TYPES = frozenset(
+    {
+        "cover",
+        "titlepage",
+        "halftitlepage",
+        "copyright-page",
+        "toc",
+        "landmarks",
+        "page-list",
+        "frontmatter",
+        "backmatter",
+        "colophon",
+        "dedication",
+        "acknowledgments",
+    }
+)
 
-CONTENT_EPUB_TYPES = frozenset({
-    "bodymatter", "chapter", "part", "volume",
-    "prologue", "epilogue", "afterword", "conclusion",
-    "preface", "foreword", "introduction",
-})
+CONTENT_EPUB_TYPES = frozenset(
+    {
+        "bodymatter",
+        "chapter",
+        "part",
+        "volume",
+        "prologue",
+        "epilogue",
+        "afterword",
+        "conclusion",
+        "preface",
+        "foreword",
+        "introduction",
+    }
+)
 
 SERVICE_FILENAME_PATTERNS = (
     # English
-    "cover", "titlepage", "title_page", "title-page",
-    "copyright", "copyrights", "toc", "contents",
-    "halftitle", "dedication", "epigraph", "colophon",
-    "frontmatter", "front_matter", "annotation",
+    "cover",
+    "titlepage",
+    "title_page",
+    "title-page",
+    "copyright",
+    "copyrights",
+    "toc",
+    "contents",
+    "halftitle",
+    "dedication",
+    "epigraph",
+    "colophon",
+    "frontmatter",
+    "front_matter",
+    "annotation",
     # Russian transliterated (Litres требует Latin filenames)
-    "annotaciya", "oblozhka", "oglav", "soderzhanie",
+    "annotaciya",
+    "oblozhka",
+    "oglav",
+    "soderzhanie",
 )
 
-SERVICE_TITLE_KEYWORDS = frozenset({
-    # Русские (подтверждены из российских EPUB — Литрес, Эксмо, АСТ)
-    "аннотация", "обложка", "содержание", "оглавление",
-    "об авторе", "о книге", "от автора", "от издателя",
-    "от редактора", "от переводчика",
-    "правовая информация", "авторские права",
-    "благодарности", "посвящение",
-    "алфавитный указатель", "библиография", "примечания",
-    "общая информация",  # Эксмо/АСТ (книга Ведьмак)
-    "цитаты",            # Эксмо/АСТ (книга Ведьмак)
-    "isbn",
-    # English
-    "cover", "title page", "copyright", "contents", "table of contents",
-    "about the author", "acknowledgments", "acknowledgements",
-    "dedication", "foreword", "preface", "bibliography", "index", "notes",
-    "annotation", "colophon",
-})
+SERVICE_TITLE_KEYWORDS = frozenset(
+    {
+        # Русские (подтверждены из российских EPUB — Литрес, Эксмо, АСТ)
+        "аннотация",
+        "обложка",
+        "содержание",
+        "оглавление",
+        "об авторе",
+        "о книге",
+        "от автора",
+        "от издателя",
+        "от редактора",
+        "от переводчика",
+        "правовая информация",
+        "авторские права",
+        "благодарности",
+        "посвящение",
+        "алфавитный указатель",
+        "библиография",
+        "примечания",
+        "общая информация",  # Эксмо/АСТ (книга Ведьмак)
+        "цитаты",  # Эксмо/АСТ (книга Ведьмак)
+        "isbn",
+        # English
+        "cover",
+        "title page",
+        "copyright",
+        "contents",
+        "table of contents",
+        "about the author",
+        "acknowledgments",
+        "acknowledgements",
+        "dedication",
+        "foreword",
+        "preface",
+        "bibliography",
+        "index",
+        "notes",
+        "annotation",
+        "colophon",
+    }
+)
 
 RUSSIAN_COPYRIGHT_PATTERNS = [
     re.compile(r"УДК\s+\d"),
@@ -230,23 +290,58 @@ class ChapterNumberExtractor:
 
     # Compound-first: десятки для составных числительных (21–99)
     _TENS: Dict[str, int] = {
-        "двадцать": 20, "тридцать": 30, "сорок": 40, "пятьдесят": 50,
-        "шестьдесят": 60, "семьдесят": 70, "восемьдесят": 80, "девяносто": 90,
+        "двадцать": 20,
+        "тридцать": 30,
+        "сорок": 40,
+        "пятьдесят": 50,
+        "шестьдесят": 60,
+        "семьдесят": 70,
+        "восемьдесят": 80,
+        "девяносто": 90,
     }
     # Единицы для составных (только 1–9, используются в "двадцать первая" = 20+1)
     _UNIT_ORDINALS_F: Dict[str, int] = {
-        "первая": 1, "вторая": 2, "третья": 3, "четвёртая": 4, "четвертая": 4,
-        "пятая": 5, "шестая": 6, "седьмая": 7, "восьмая": 8, "девятая": 9,
+        "первая": 1,
+        "вторая": 2,
+        "третья": 3,
+        "четвёртая": 4,
+        "четвертая": 4,
+        "пятая": 5,
+        "шестая": 6,
+        "седьмая": 7,
+        "восьмая": 8,
+        "девятая": 9,
     }
     # Простые порядковые (1–20, 30, 40...) — для одиночных числительных
     _SIMPLE_ORDINALS_F: Dict[str, int] = {
-        "первая": 1, "вторая": 2, "третья": 3, "четвёртая": 4, "четвертая": 4,
-        "пятая": 5, "шестая": 6, "седьмая": 7, "восьмая": 8, "девятая": 9,
-        "десятая": 10, "одиннадцатая": 11, "двенадцатая": 12, "тринадцатая": 13,
-        "четырнадцатая": 14, "пятнадцатая": 15, "шестнадцатая": 16,
-        "семнадцатая": 17, "восемнадцатая": 18, "девятнадцатая": 19,
-        "двадцатая": 20, "тридцатая": 30, "сороковая": 40, "пятидесятая": 50,
-        "шестидесятая": 60, "семидесятая": 70, "восьмидесятая": 80, "девяностая": 90,
+        "первая": 1,
+        "вторая": 2,
+        "третья": 3,
+        "четвёртая": 4,
+        "четвертая": 4,
+        "пятая": 5,
+        "шестая": 6,
+        "седьмая": 7,
+        "восьмая": 8,
+        "девятая": 9,
+        "десятая": 10,
+        "одиннадцатая": 11,
+        "двенадцатая": 12,
+        "тринадцатая": 13,
+        "четырнадцатая": 14,
+        "пятнадцатая": 15,
+        "шестнадцатая": 16,
+        "семнадцатая": 17,
+        "восемнадцатая": 18,
+        "девятнадцатая": 19,
+        "двадцатая": 20,
+        "тридцатая": 30,
+        "сороковая": 40,
+        "пятидесятая": 50,
+        "шестидесятая": 60,
+        "семидесятая": 70,
+        "восьмидесятая": 80,
+        "девяностая": 90,
     }
 
     def __init__(self, config: ParserConfig):
@@ -285,11 +380,10 @@ class ChapterNumberExtractor:
 
         # 3. Простые числительные — по убыванию длины слова
         # (предотвращает ранний матч "первая" перед "одиннадцатая")
-        for word, val in sorted(self._SIMPLE_ORDINALS_F.items(), key=lambda x: -len(x[0])):
-            if (
-                f"глава {word}" in search_text
-                or f"chapter {word}" in search_text
-            ):
+        for word, val in sorted(
+            self._SIMPLE_ORDINALS_F.items(), key=lambda x: -len(x[0])
+        ):
+            if f"глава {word}" in search_text or f"chapter {word}" in search_text:
                 return val
 
         # 4. Fallback: config.text_number_map (English слова и legacy русские)
@@ -357,7 +451,7 @@ class EPUBParser:
             return ParsedBook(metadata=metadata, chapters=chapters, file_format="epub")
 
         except Exception as e:
-            logger.opt(exception=True).error(f"Error parsing EPUB: {e}")
+            logger.error(f"Error parsing EPUB: {e}", exc_info=True)
             raise Exception(f"Error parsing EPUB file: {str(e)}")
 
     def _extract_metadata(self, book) -> BookMetadata:
@@ -675,15 +769,13 @@ class EPUBParser:
             # Строим map: basename файла → заголовок из TOC
             toc_flat = self._flatten_toc(book.toc)
             toc_title_map = {
-                self._normalize_href(href): title
-                for href, title in toc_flat
-                if href
+                self._normalize_href(href): title for href, title in toc_flat if href
             }
             logger.info(f"📚 TOC title map has {len(toc_title_map)} entries")
 
             # Определяем начало основного контента
             bodymatter_basename = self._get_bodymatter_basename(book)
-            bodymatter_reached = (bodymatter_basename is None)
+            bodymatter_reached = bodymatter_basename is None
             if bodymatter_basename:
                 logger.info(f"📖 Bodymatter starts at: {bodymatter_basename}")
 
@@ -894,7 +986,9 @@ class EPUBParser:
                                 if "bodymatter" in a.get("epub:type", ""):
                                     href = a.get("href", "")
                                     if href:
-                                        logger.info(f"Bodymatter from landmarks: {href}")
+                                        logger.info(
+                                            f"Bodymatter from landmarks: {href}"
+                                        )
                                         return self._normalize_href(href)
                 except Exception:
                     continue
@@ -902,7 +996,7 @@ class EPUBParser:
         # Уровень 2: EPUB 2 Guide
         # fb2converter генерирует guide с type="cover-page" и type="text"
         # fb2toepub — НЕ генерирует guide вообще
-        for ref in (book.guide or []):
+        for ref in book.guide or []:
             ref_type = ref.get("type", "").lower()
             if ref_type in ("text", "start"):
                 href = ref.get("href", "")
@@ -1082,7 +1176,7 @@ class FB2Parser:
             return ParsedBook(metadata=metadata, chapters=chapters, file_format="fb2")
 
         except Exception as e:
-            logger.opt(exception=True).error(f"Error parsing FB2: {e}")
+            logger.error(f"Error parsing FB2: {e}", exc_info=True)
             raise Exception(f"Error parsing FB2 file: {str(e)}")
 
     def _extract_metadata(self, root) -> BookMetadata:

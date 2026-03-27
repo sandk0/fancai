@@ -784,4 +784,4 @@ CRITICAL RULES:
 
         except Exception as e:
             await self.db.rollback()
-            logger.opt(exception=True).error(f"Entity Optimization Failed: {e}")
+            logger.error(f"Entity Optimization Failed: {e}", exc_info=True)
