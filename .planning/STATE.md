@@ -1,35 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Modal Batch Processing & Production Stability
-status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
-last_updated: "2026-03-27T22:04:00Z"
+milestone: v1.4
+milestone_name: Оптимизация обработки книг
+status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
+last_updated: "2026-03-28T22:08:00Z"
 last_activity: 2026-03-28
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 1
-  percent: 33
+  total_phases: 6
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 50
 ---
 
 # Состояние проекта
 
 ## Ссылка на проект
 
-См.: .planning/PROJECT.md (обновлен 2026-03-27)
+См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 35 Plan 01 завершена — Modal constraints. Следующий: Plan 02 (семантика статусов книг).
+**Текущий фокус:** Phase 35 Plan 02 завершена — status semantics + VPS timeout + time budget. Следующий: Plan 03 (schema constraints + reconciliation + GPU config).
 
 ## Текущая позиция
 
-Phase: 35 (1 of 4 в v1.5) — Стабилизация production semantics
-Plan: 02 of 03 (Plan 01 завершена)
-Status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
+Phase: 35 (production-semantics)
+Plan: 02 of 03 (Plan 02 завершена)
+Status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
 Last activity: 2026-03-28
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -85,10 +85,10 @@ Progress: [███░░░░░░░] 33%
 - SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
 - Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
 
-- max_length constraints на всех string полях Modal schemas: Pydantic maxLength -> xgrammar enforcement (Phase 35 Plan 01)
-- NUM_GPU_BLOCKS_OVERRIDE=512 как стартовое значение — калибровать по production логам (Phase 35 Plan 01)
-- STAB-08: max_tokens в reduce_entities было 4096, исправлено на 16384 (Phase 35 Plan 01)
-- Standard logging (не loguru) для Modal контейнера (Phase 35 Plan 01)
+- _finalize_book_status() extracted helper: query failed chapters -> set status -> WebSocket -> push notification (Phase 35 Plan 02)
+- check_time_budget() standalone function: time.monotonic() + CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN (Phase 35 Plan 02)
+- VPS_TIMEOUT=960 как локальная константа (LLM_TIMEOUT=900 + 60s buffer), не импорт из modal (Phase 35 Plan 02)
+- pubsub **kwargs: обратная совместимость + расширяемость WebSocket message format (Phase 35 Plan 02)
 
 ### Ожидающие задачи
 
@@ -111,5 +111,5 @@ Progress: [███░░░░░░░] 33%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Phase 35 Plan 01 завершена. max_length schemas (502c66d, 7bdf0cd) + config/llm_extractor (3b18d39). 10 тестов проходят.
-Resume file: .planning/phases/35-production-semantics/35-01-SUMMARY.md
+Phase 35 Plan 02 завершена. Status semantics (4b901b3) + VPS timeout + time budget (cfd7f0c). 14 тестов проходят.
+Resume file: .planning/phases/35-production-semantics/35-02-SUMMARY.md
