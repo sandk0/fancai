@@ -26,7 +26,10 @@ from app.services.modal_client import (
     is_modal_enabled,
     get_llm_extractor,
     modal_response_to_chapter_result,
+    extract_modal_metrics,
+    extract_modal_result,
 )
+from app.core.error_classifier import classify_error, ERROR_TYPE_TRUNCATED
 from app.prompts.modal_extraction import (
     EXTRACTION_SYSTEM_PROMPT,
     EXTRACTION_SCHEMA_JSON,
@@ -59,6 +62,30 @@ def check_time_budget(task_start_time: float, *, chapter_idx: int) -> None:
             f"Time budget exhausted: remaining={remaining:.0f}s, "
             f"needed={VPS_TIMEOUT}s. Skipping chapter {chapter_idx}."
         )
+
+
+def _log_chapter_result(
+    *,
+    chapter_id: str,
+    book_id: str,
+    duration_ms: int,
+    result_type: str,  # "success" | "error"
+    error_type: str | None = None,
+    metrics: dict | None = None,
+) -> None:
+    """Per-chapter structured log with 9 fields (OBS-02, D-06, D-07)."""
+    m = metrics or {}
+    logger.bind(
+        chapter_id=chapter_id,
+        book_id=book_id,
+        duration_ms=duration_ms,
+        result_type=result_type,
+        error_type=error_type,
+        finish_reason=m.get("finish_reason"),
+        cold_start_ms=m.get("cold_start_ms", 0),
+        inference_ms=m.get("inference_ms", 0),
+        is_cold_start=m.get("is_cold_start", False),
+    ).info("chapter_processed")
 
 
 def find_entity_fuzzy(
@@ -476,6 +503,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                     async with AsyncSessionLocal() as session:
                         async with chapter_semaphore:
                             local_chapter = None
+                            chapter_start = time.monotonic()
+                            metrics: dict | None = None
                             try:
                                 stmt = select(Chapter).where(Chapter.id == chapter_id)
                                 res = await session.execute(stmt)
@@ -572,15 +601,78 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                             f"VPS-side timeout: Modal did not respond in {VPS_TIMEOUT}s "
                                             f"(LLM_TIMEOUT=900s + buffer=60s)"
                                         )
+
+                                    # Extract metrics (D-08 backward compat)
+                                    metrics = extract_modal_metrics(modal_json)
+
+                                    # STAB-04, D-03: Handle truncated response
+                                    if (
+                                        modal_json.get("result") is None
+                                        and "truncated_text" in modal_json
+                                    ):
+                                        logger.warning(
+                                            f"Truncated response for chapter {idx}, retrying",
+                                            chapter_id=str(chapter_id),
+                                            truncated_preview=modal_json[
+                                                "truncated_text"
+                                            ][:100],
+                                        )
+                                        # D-04: 1 retry with same params (max_tokens fixed on Modal side)
+                                        try:
+                                            retry_json = await asyncio.wait_for(
+                                                asyncio.to_thread(
+                                                    extractor.extract_chapter.remote,
+                                                    chapter_text=local_chapter.content,
+                                                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                                                    schema_json=EXTRACTION_SCHEMA_JSON,
+                                                ),
+                                                timeout=VPS_TIMEOUT,
+                                            )
+                                        except asyncio.TimeoutError:
+                                            raise TimeoutError(
+                                                f"VPS-side timeout on truncated retry: Modal did not respond in {VPS_TIMEOUT}s"
+                                            )
+                                        retry_metrics = extract_modal_metrics(
+                                            retry_json
+                                        )
+                                        metrics = retry_metrics
+
+                                        if (
+                                            retry_json.get("result") is None
+                                            and "truncated_text" in retry_json
+                                        ):
+                                            # D-04: Still truncated after retry -- mark and continue
+                                            local_chapter.error_type = (
+                                                ERROR_TYPE_TRUNCATED
+                                            )
+                                            local_chapter.parsing_error = f"Truncated after retry: {retry_json['truncated_text'][:500]}"
+                                            local_chapter.parse_attempts += 1
+                                            await session.commit()
+                                            duration_ms = int(
+                                                (time.monotonic() - chapter_start)
+                                                * 1000
+                                            )
+                                            _log_chapter_result(
+                                                chapter_id=str(chapter_id),
+                                                book_id=str(book_id),
+                                                duration_ms=duration_ms,
+                                                result_type="error",
+                                                error_type=ERROR_TYPE_TRUNCATED,
+                                                metrics=metrics,
+                                            )
+                                            return  # Continue to next chapter
+                                        modal_json = retry_json  # Retry succeeded
+
                                     result = modal_response_to_chapter_result(
                                         modal_json
                                     )
                                     # Сохраняем raw descriptions для image_prompt_en
+                                    result_data = extract_modal_result(modal_json)
                                     modal_raw_descriptions = {
                                         d.get("content", ""): d.get(
                                             "image_prompt_en", ""
                                         )
-                                        for d in modal_json.get("descriptions", [])
+                                        for d in result_data.get("descriptions", [])
                                         if d.get("image_prompt_en")
                                     }
                                     logger.info(
@@ -741,6 +833,19 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
                                 await session.commit()
 
+                                # OBS-02: Structured success log
+                                duration_ms = int(
+                                    (time.monotonic() - chapter_start) * 1000
+                                )
+                                _log_chapter_result(
+                                    chapter_id=str(chapter_id),
+                                    book_id=str(book_id),
+                                    duration_ms=duration_ms,
+                                    result_type="success",
+                                    error_type=None,
+                                    metrics=metrics,
+                                )
+
                                 num_descriptions = len(descriptions_data)
                                 logger.info(
                                     f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
@@ -765,6 +870,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 )
 
                             except Exception as e:
+                                error_type = classify_error(e)
                                 logger.opt(exception=True).error(
                                     f"Error parsing chapter {idx + 1}: {e}"
                                 )
@@ -778,6 +884,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                         # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
                                         if local_chapter:
                                             local_chapter.parsing_error = str(e)[:1000]
+                                            local_chapter.error_type = (
+                                                error_type  # OBS-01
+                                            )
                                             local_chapter.parse_attempts += 1
                                             await session.commit()
                                 except Exception as commit_err:
@@ -788,13 +897,37 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                         await session.rollback()
                                     except Exception:
                                         pass
+                                # OBS-02: Structured error log
+                                duration_ms = int(
+                                    (time.monotonic() - chapter_start) * 1000
+                                )
+                                _log_chapter_result(
+                                    chapter_id=str(chapter_id),
+                                    book_id=str(book_id),
+                                    duration_ms=duration_ms,
+                                    result_type="error",
+                                    error_type=error_type,
+                                    metrics=metrics,
+                                )
                 except BaseException as fatal_err:
                     # Catch-all: CancelledError, session creation failures, context manager cleanup errors.
                     # Prevents ANY exception from propagating and affecting sibling tasks.
+                    fatal_error_type = classify_error(fatal_err)
                     logger.opt(exception=True).error(
                         f"Fatal error in chapter {idx + 1} processing: "
                         f"{type(fatal_err).__name__}: {fatal_err}"
                     )
+                    # Best effort: save error_type to DB (session may be broken)
+                    try:
+                        async with AsyncSessionLocal() as emergency_session:
+                            ch = await emergency_session.get(Chapter, chapter_id)
+                            if ch:
+                                ch.error_type = fatal_error_type
+                                ch.parsing_error = f"{type(fatal_err).__name__}: {str(fatal_err)[:500]}"
+                                ch.parse_attempts += 1
+                                await emergency_session.commit()
+                    except Exception:
+                        pass  # Best effort
 
             logger.info(f"Spawning {len(chapters)} parallel tasks...")
             results = await asyncio.gather(

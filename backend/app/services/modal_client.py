@@ -53,6 +53,30 @@ def get_image_generator():
     return cls()
 
 
+def extract_modal_metrics(modal_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract metrics from Modal response (backward compatible with D-08).
+
+    New format: {"result": {...}, "metrics": {"cold_start_ms": ..., ...}}
+    Old format: {"entities": [...], ...} -> no metrics -> {}
+    """
+    return modal_json.get("metrics", {})
+
+
+def extract_modal_result(modal_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract result from Modal response (backward compatible).
+
+    New format: {"result": {...}, "metrics": {...}}
+    Old format: {"entities": [...], "descriptions": [...], ...}
+    """
+    result = modal_json.get("result")
+    if result is not None:
+        return result
+    # Backward compat: old format -- entire dict is the result
+    if "entities" in modal_json or "descriptions" in modal_json:
+        return modal_json
+    return modal_json
+
+
 def modal_response_to_chapter_result(
     modal_json: Dict[str, Any],
 ) -> ChapterAnalysisResult:
@@ -61,7 +85,12 @@ def modal_response_to_chapter_result(
     Modal LLM возвращает JSON, соответствующий ModalExtractionResponse.
     Эта функция конвертирует его в существующую структуру dataclass'ов,
     используемую ConsistencyManager, book_tasks и остальным pipeline.
+
+    Supports both new format {"result": {...}, "metrics": {...}}
+    and old format {"entities": [...], ...} via extract_modal_result (D-08).
     """
+    result_data = extract_modal_result(modal_json)
+
     entities = [
         ExtractedEntity(
             name=e.get("name", ""),
@@ -74,7 +103,7 @@ def modal_response_to_chapter_result(
             chapter_event_action=e.get("chapter_event_action"),
             chapter_event_inner=e.get("chapter_event_inner"),
         )
-        for e in modal_json.get("entities", [])
+        for e in result_data.get("entities", [])
     ]
 
     descriptions = [
@@ -88,7 +117,7 @@ def modal_response_to_chapter_result(
             position=d.get("text_offset", 0) or 0,
             source="modal",
         )
-        for d in modal_json.get("descriptions", [])
+        for d in result_data.get("descriptions", [])
     ]
 
     relationships = [
@@ -99,7 +128,7 @@ def modal_response_to_chapter_result(
             weight=r.get("weight", 0.5),
             context=r.get("context", ""),
         )
-        for r in modal_json.get("relationships", [])
+        for r in result_data.get("relationships", [])
     ]
 
     return ChapterAnalysisResult(
