@@ -6,7 +6,8 @@
 - v1.1 Reader Mobile / PWA (shipped 2026-03-09) -- archived
 - v1.2 Reader Stability & Polish (shipped 2026-03-13) -- archived
 - v1.3 iOS Reader Navigation Fixes (shipped 2026-03-23) -- archived
-- v1.4 Оптимизация обработки книг (in progress)
+- v1.4 Оптимизация обработки книг (abandoned 2026-03-27: strategic pivot to Modal)
+- v1.5 Modal Batch Processing & Production Stability (in progress)
 
 ## Phases
 
@@ -75,115 +76,107 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
-### v1.4 Оптимизация обработки книг (In Progress)
+<details>
+<summary>v1.4 Оптимизация обработки книг (Phases 29-34) -- ABANDONED 2026-03-27</summary>
 
-**Milestone Goal:** Миграция с all-LLM pipeline на гибридную архитектуру (GLiNER2 + classifier + pgvector + LLM synthesis). Стоимость обработки книги: $1.50 -> $0.02-0.05 (97-99% экономия).
+**Milestone Goal:** Миграция с all-LLM pipeline на гибридную архитектуру (GLiNER2 + classifier + pgvector + LLM synthesis).
 
-- [x] **Phase 29: Docker и DB инфраструктура** - pgvector image, Celery worker limits, schema migration, feature flags, отдельный Dockerfile (completed 2026-03-23)
-- [ ] **Phase 30: GLiNER2 NER Service** - Локальная entity extraction с chunking, adapter для ConsistencyManager, A/B тест на 5 книгах
-- [ ] **Phase 31: Description Classifier** - TF-IDF + LogReg classifier с leave-one-book-out CV, rule-based prefilter, LLM enrichment top-K
-- [ ] **Phase 32: pgvector Embeddings** - EmbeddingService (multilingual-e5-small), HNSW индекс, vector search для entity context
-- [ ] **Phase 33: LLM Batch Synthesis** - Один batch вызов на книгу через DeepSeek V3.2, context caching, cost monitoring
-- [ ] **Phase 34: Rollout и интеграция** - E2E integration tests, поэтапный rollout через feature flags
+**Причина отмены:** Стратегический разворот — отказ от self-hosted LLM (GLiNER2, pgvector embeddings, local classifier) в пользу Modal (vLLM batch) + OpenRouter (fallback). Решение принято после серии аудитов (7 документов, 2 LLM-аудитора), показавших что:
+1. Modal pipeline уже в production и требует стабилизации (10/23 глав падают)
+2. Self-hosted модели добавляют operational complexity (Docker, RAM, GPU) без пропорциональной выгоды
+3. vLLM batch processing на Modal L40S даёт 7-13x ускорение при 86-93% экономии
+
+**Что сохраняется из v1.4:**
+- Phase 29 (Docker/DB инфраструктура) — completed, pgvector и feature flags в production
+- Phase 30 Plan 01 (NERService core) — код написан, но не rollout'ен; может быть использован как fallback
+
+**Что отменено:** Phases 30 (Plan 02), 31, 32, 33, 34
+
+- [x] Phase 29: Docker и DB инфраструктура (completed 2026-03-23)
+- [~] Phase 30: GLiNER2 NER Service (Plan 01 done, Plan 02 abandoned)
+- [ ] ~~Phase 31: Description Classifier~~ (abandoned)
+- [ ] ~~Phase 32: pgvector Embeddings~~ (abandoned)
+- [ ] ~~Phase 33: LLM Batch Synthesis~~ (abandoned)
+- [ ] ~~Phase 34: Rollout и интеграция~~ (abandoned)
+
+Full details: `.planning/milestones/v1.4-ROADMAP.md`
+
+</details>
+
+### v1.5 Modal Batch Processing & Production Stability
+
+**Milestone Goal:** Стабилизация сломанного Modal pipeline (10/23 глав падают) и переход от sequential per-chapter к chunked sub-batch обработке. Ожидаемый эффект: корректные статусы книг, 7-13x ускорение, $3.48 -> $0.26-0.49 за книгу.
+
+- [ ] **Phase 35: Стабилизация production semantics** - Корректные статусы книг, schema constraints, timeout/budget защита
+- [ ] **Phase 36: Error classification и observability** - Типизированная классификация ошибок, structured logging, finish_reason проверка
+- [ ] **Phase 37: Sub-batch архитектура** - Chunked batch обработка 4-8 глав за вызов, pre-validation, compile cache
+- [ ] **Phase 38: Auto-fallback и production hardening** - Circuit breaker Modal->OpenRouter, xgrammar backend для batch
 
 ## Phase Details
 
-### Phase 29: Docker и DB инфраструктура
-**Goal**: Инфраструктура готова для NLP-моделей — pgvector работает с мигрированными данными, Celery worker настроен на 4GB RAM, schema поддерживает hybrid pipeline, feature flags контролируют rollout
-**Depends on**: Nothing (first phase of v1.4)
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+### Phase 35: Стабилизация production semantics
+**Goal**: Pipeline выдаёт корректные статусы книг и не создаёт broken JSON — каждая обработанная книга отражает реальный результат
+**Depends on**: Nothing (первая фаза v1.5)
+**Requirements**: STAB-01, STAB-02, STAB-03, STAB-05, STAB-06, STAB-07, STAB-08, STAB-09
 **Success Criteria** (what must be TRUE):
-  1. PostgreSQL запущен на pgvector/pgvector:pg17, все существующие данные доступны, ORDER BY на русском тексте корректен
-  2. Celery worker стартует с concurrency=1 и memory limit 4GB без OOM при загрузке PyTorch CPU
-  3. Колонки extraction_source и pipeline_version существуют в таблицах entities и descriptions, таблица chapter_embeddings создана с vector(384)
-  4. Четыре feature flags (USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS) зарегистрированы и по умолчанию выключены
-  5. docker compose build собирает отдельный Celery image с PyTorch CPU-only (~250MB wheel, не ~2.5GB CUDA)
-**Plans:** 2/2 plans complete
+  1. Книга со сбойными главами получает статус `completed_with_errors`, а не `descriptions_extracted=True` — пользователь видит честный результат
+  2. Существующие книги с inconsistent статусами в БД обнаружены reconciliation-скриптом и помечены для переобработки
+  3. Modal не генерирует broken JSON — все string поля ограничены `maxLength`, reduce_entities обрабатывает книги со 100+ entities
+  4. Celery task не блокируется при зависании Modal — VPS-side timeout + time budget check предотвращают превышение hard limit
+  5. `num_gpu_blocks_override` настроен — снижение timeout rate из-за KV cache overestimation Qwen3.5
+  6. Push notification `send_book_ready_notification` НЕ отправляется при `completed_with_errors`
+**Plans:** 3 plans
 
 Plans:
-- [x] 29-01-PLAN.md — Docker инфраструктура: Dockerfile.celery + docker-compose.prod.yml (pgvector, Celery 4GB, nlp_models volume)
-- [ ] 29-02-PLAN.md — Schema, модели, feature flags, Alembic-миграция, тесты
+- [ ] 35-01-PLAN.md — Modal constraints: max_length schemas, num_gpu_blocks_override, LLM_TIMEOUT=900
+- [ ] 35-02-PLAN.md — Семантика статусов: корректные статусы книг, VPS-side timeout, time budget check
+- [ ] 35-03-PLAN.md — Reconciliation endpoint + верификация STAB-08/STAB-09
 
-### Phase 30: GLiNER2 NER Service
-**Goal**: Пользователь получает entity extraction сопоставимого качества с LLM, но бесплатно через локальную GLiNER2 модель
-**Depends on**: Phase 29
-**Requirements**: NER-01, NER-02, NER-03, NER-04, NER-05
+### Phase 36: Error classification и observability
+**Goal**: Каждая ошибка pipeline классифицирована по типу, каждая глава имеет structured log с метриками — основа для retry-стратегий и диагностики
+**Depends on**: Phase 35
+**Requirements**: STAB-04, OBS-01, OBS-02
 **Success Criteria** (what must be TRUE):
-  1. NERService извлекает персонажей, локации, артефакты и организации из текста главы через GLiNER2 с корректными character offsets
-  2. Главы >512 токенов корректно разбиваются на чанки с overlap на границах предложений, entity spans на границах дедуплицируются
-  3. NEREntity -> ExtractedEntity adapter обеспечивает backward compatibility — ConsistencyManager работает без изменений
-  4. A/B тест на 5 книгах показывает entity recall >= 80% по сравнению с текущим LLM baseline
-  5. Confidence threshold откалиброван для русской художественной литературы (ожидаемый диапазон 0.3-0.5)
-**Plans:** 2 plans
-
-Plans:
-- [ ] 30-01-PLAN.md — NERService ядро: GLiNER2 singleton, TextChunker, NERAdapter, метрики, интеграция в book_tasks.py, unit-тесты
-- [ ] 30-02-PLAN.md — A/B тест: скрипт экспорта fixture данных, recall тест на 5 книгах, threshold sweep калибровка
-
-### Phase 31: Description Classifier
-**Goal**: Описания классифицируются локально через TF-IDF/sentence-transformer вместо LLM, с верифицированным качеством через leave-one-book-out cross-validation
-**Depends on**: Phase 29
-**Requirements**: DESC-01, DESC-02, DESC-03, DESC-04, DESC-05
-**Success Criteria** (what must be TRUE):
-  1. Training data экспортирована из production БД с корректным per-book split (>= 500 positive + >= 500 negative samples)
-  2. TF-IDF + LogReg classifier обучен с leave-one-book-out CV и достигает F1 >= 0.70 (или автоматический upgrade на sentence-transformer)
-  3. Rule-based prefilter отсеивает очевидно не-визуальные предложения с recall >= 90%
-  4. LLM вызывается только для top-K candidate описаний (тип, entities_mentioned, visual_summary), остальные классифицируются локально
+  1. `ErrorClassifier` раздельно обрабатывает timeout, JSON error, Modal error, cancelled — `error_type` сохраняется в `chapter.parsing_error`
+  2. `finish_reason` проверяется до `json.loads()` — при `finish_reason="length"` результат помечается как truncated, а не падает с JSONDecodeError
+  3. Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + метрики cold start/inference от Modal
 **Plans**: TBD
 
 Plans:
-- [ ] 31-01: TBD
-- [ ] 31-02: TBD
+- [ ] 36-01: TBD
+- [ ] 36-02: TBD
 
-### Phase 32: pgvector Embeddings
-**Goal**: Релевантные текстовые чанки находятся по семантической близости для обогащения entity context при synthesis
-**Depends on**: Phase 29
-**Requirements**: EMB-01, EMB-02, EMB-03, EMB-04
+### Phase 37: Sub-batch архитектура
+**Goal**: Pipeline обрабатывает 4-8 глав за один Modal вызов вместо sequential per-chapter — ускорение 7-13x с checkpoint после каждого sub-batch
+**Depends on**: Phase 36
+**Requirements**: BATCH-01, BATCH-02, BATCH-03
 **Success Criteria** (what must be TRUE):
-  1. pgvector extension активен, таблица chapter_embeddings с vector(384) создана через Alembic migration
-  2. EmbeddingService кодирует главы через multilingual-e5-small как singleton, модель загружается один раз и персистит в памяти worker
-  3. HNSW индекс создан для vector_cosine_ops, vector search возвращает top-K релевантных чанков за < 50ms
-  4. Vector search интегрирован в synthesis pipeline — entity context обогащается релевантными чанками вместо полного текста главы
+  1. Oversized главы (>32K estimated tokens) автоматически маршрутизируются в sequential path — batch не падает из-за одной большой главы
+  2. `extract_chapters_batch()` обрабатывает sub-batch из 4-8 глав за один Modal вызов с checkpoint после каждого sub-batch
+  3. Compile cache volume сохраняет `torch.compile` артефакты между cold starts — повторные запуски на 20-30 секунд быстрее
+  4. При падении sub-batch каждая глава из него retry'ится individual'но — partial failure не теряет весь batch
+  5. Staging тестирование на 3-5 реальных книгах проведено перед production rollout
+  6. E2E обработка 23 глав < 15 минут, cost < $0.50/book, success rate > 95% chapters
+  7. `reduce_entities`/`ConsistencyManager` вызываются один раз после завершения всех sub-batches, не после каждого
 **Plans**: TBD
 
 Plans:
-- [ ] 32-01: TBD
-- [ ] 32-02: TBD
+- [ ] 37-01: TBD
+- [ ] 37-02: TBD
 
-### Phase 33: LLM Batch Synthesis
-**Goal**: LLM вызывается один раз на книгу (вместо per-chapter) через DeepSeek V3.2, с cost monitoring и context caching, снижая стоимость до $0.02-0.05/книга
-**Depends on**: Phase 30, Phase 31, Phase 32
-**Requirements**: SYN-01, SYN-02, SYN-03, SYN-04
+### Phase 38: Auto-fallback и production hardening
+**Goal**: При недоступности Modal pipeline автоматически переключается на OpenRouter (Gemini 3.0 Flash) — пользователь всегда получает результат
+**Depends on**: Phase 37
+**Requirements**: RESIL-01, RESIL-02
 **Success Criteria** (what must be TRUE):
-  1. Один batch synthesis вызов на книгу генерирует biography milestones, visual_summary и relationships для всех entities
-  2. DeepSeek V3.2 используется как primary модель с fallback на Gemini 3.1 Flash Lite, оба через OpenRouter
-  3. Context caching снижает стоимость повторяющихся системных промптов (~88% экономия на system prompt)
-  4. Cost monitoring логирует input/output tokens и стоимость обработки каждой книги, доступен для анализа
+  1. После 3 consecutive Modal failures circuit breaker переключает pipeline на OpenRouter (Gemini 3.0 Flash) с автоматическим recovery
+  2. Batch path использует `StructuredOutputsConfig(backend=...)` — выбор backend определяется A/B-тестом на 3+ книгах
 **Plans**: TBD
 
 Plans:
-- [ ] 33-01: TBD
-- [ ] 33-02: TBD
-
-### Phase 34: Rollout и интеграция
-**Goal**: Hybrid pipeline проверен E2E тестами и поэтапно раскатан на production через feature flags с возможностью мгновенного rollback
-**Depends on**: Phase 33
-**Requirements**: ROLL-01, ROLL-02
-**Success Criteria** (what must be TRUE):
-  1. E2E integration tests покрывают полный путь: EPUB -> NER -> classifier -> embeddings -> synthesis -> DB, тесты зелёные
-  2. Поэтапный rollout работает: 5 книг A/B -> 10% -> 50% -> 100%, с мониторингом quality/cost на каждом этапе
-  3. Rollback на LLM pipeline через один SQL UPDATE feature flags занимает < 1 минуты
-**Plans**: TBD
-
-Plans:
-- [ ] 34-01: TBD
-- [ ] 34-02: TBD
+- [ ] 38-01: TBD
 
 ## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 29 -> 30 -> 31 -> 32 -> 33 -> 34
-Note: Phases 30, 31, 32 зависят только от Phase 29 и могут разрабатываться параллельно. Phase 33 ждёт все три.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -191,9 +184,8 @@ Note: Phases 30, 31, 32 зависят только от Phase 29 и могут 
 | 9-14 | v1.1 | 13/13 | Complete | 2026-03-09 |
 | 16-20 | v1.2 | 21/21 | Complete | 2026-03-13 |
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
-| 29. Docker и DB инфраструктура | v1.4 | 1/2 | Complete    | 2026-03-23 |
-| 30. GLiNER2 NER Service | v1.4 | 0/2 | Planning | - |
-| 31. Description Classifier | v1.4 | 0/? | Not started | - |
-| 32. pgvector Embeddings | v1.4 | 0/? | Not started | - |
-| 33. LLM Batch Synthesis | v1.4 | 0/? | Not started | - |
-| 34. Rollout и интеграция | v1.4 | 0/? | Not started | - |
+| 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
+| 35. Стабилизация production semantics | v1.5 | 0/3 | Planned | - |
+| 36. Error classification и observability | v1.5 | 0/? | Not started | - |
+| 37. Sub-batch архитектура | v1.5 | 0/? | Not started | - |
+| 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |

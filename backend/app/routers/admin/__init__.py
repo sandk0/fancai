@@ -14,6 +14,7 @@ from . import (
     cache,
     feature_flags,
     entities,
+    reconciliation,
 )
 
 # Create main admin router
@@ -29,6 +30,7 @@ router.include_router(reading_sessions.router)
 router.include_router(cache.router)
 router.include_router(feature_flags.router)
 router.include_router(entities.router)
+router.include_router(reconciliation.router)
 
 # Export both names for compatibility
 admin_router = router
