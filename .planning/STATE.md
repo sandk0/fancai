@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
-status: Roadmap created — ready for /gsd:plan-phase 35
-last_updated: "2026-03-27T19:00:00Z"
-last_activity: 2026-03-27 — Roadmap v1.5 создан (4 фазы, 16 требований)
+status: planning
+last_updated: "2026-03-27T22:11:33.486Z"
+last_activity: 2026-03-27
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ progress:
 ## Текущая позиция
 
 Phase: 35 (1 of 4 в v1.5) — Стабилизация production semantics
-Plan: 0 of ? в текущей фазе
-Status: Ready to plan
-Last activity: 2026-03-27 — Roadmap v1.5 создан
+Plan: 03 of 03 в текущей фазе (Plan 03 завершён)
+Status: Phase 35 Plan 03 завершён — reconciliation endpoint + STAB-09 audit
+Last activity: 2026-03-27
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Метрики производительности
 
@@ -52,6 +52,8 @@ Progress: [░░░░░░░░░░] 0%
 
 - v1.4 -> v1.5: Стратегический разворот от self-hosted LLM к Modal batch + OpenRouter fallback
 - Эталонный документ: `docs/research/FINAL-consolidated-audit.md` (перекрёстно проверен GPT 5.4)
+- select(Book.id, Book.title) для scalar query без lazy raise; отдельный select(Book) для update (Phase 35 Plan 03)
+- logger.opt(exception=True) в файлах со stdlib logging заменён на exc_info=True -- предотвращает AttributeError в error handlers (Phase 35 Plan 03)
 
 ### Блокеры/Опасения
 
@@ -71,6 +73,6 @@ Progress: [░░░░░░░░░░] 0%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Остановка: Phase 35 context gathered (discuss-phase)
-Файл возобновления: `.planning/phases/35-production-semantics/35-CONTEXT.md`
-Следующий шаг: `/gsd:plan-phase 35`
+Остановка: Phase 35 Plan 03 завершён (reconciliation endpoint + STAB-09 audit)
+Файл возобновления: `.planning/phases/35-production-semantics/35-03-SUMMARY.md`
+Следующий шаг: Ожидание завершения Plans 01-02 (параллельное выполнение)
