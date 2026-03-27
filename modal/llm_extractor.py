@@ -35,7 +35,6 @@ class LLMExtractor:
             kv_cache_dtype=KV_CACHE_DTYPE,
             dtype="bfloat16",
             enable_prefix_caching=True,
-            chat_template_kwargs={"enable_thinking": False},
         )
 
     @modal.method()
