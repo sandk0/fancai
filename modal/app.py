@@ -22,7 +22,7 @@ model_volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 _modal_src = Path(__file__).parent
 
 llm_image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .pip_install("vllm>=0.18.0", "pydantic>=2.0")
     .add_local_dir(_modal_src, remote_path="/root")
 )
