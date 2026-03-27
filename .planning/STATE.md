@@ -1,35 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Оптимизация обработки книг
-status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
-last_updated: "2026-03-24T02:28:00Z"
-last_activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция в pipeline, 13 min)
+milestone: v1.5
+milestone_name: Modal Batch Processing & Production Stability
+status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
+last_updated: "2026-03-27T22:04:00Z"
+last_activity: 2026-03-28
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 0
-  total_plans: 2
+  total_plans: 3
   completed_plans: 1
-  percent: 50
+  percent: 33
 ---
 
 # Состояние проекта
 
 ## Ссылка на проект
 
-См.: .planning/PROJECT.md (обновлен 2026-03-14)
+См.: .planning/PROJECT.md (обновлен 2026-03-27)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 30 Plan 01 завершена — NERService core + feature flag routing. Следующий: Plan 02 (A/B тестирование).
+**Текущий фокус:** Phase 35 Plan 01 завершена — Modal constraints. Следующий: Plan 02 (семантика статусов книг).
 
 ## Текущая позиция
 
-Phase: 30 (1 of 6) — GLiNER2 NER Service
-Plan: 01 of 02 (Plan 01 завершена)
-Status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
-Last activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция, 13 min)
+Phase: 35 (1 of 4 в v1.5) — Стабилизация production semantics
+Plan: 02 of 03 (Plan 01 завершена)
+Status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
+Last activity: 2026-03-28
 
-Progress: [█████░░░░░] 50%
+Progress: [███░░░░░░░] 33%
 
 ## Метрики производительности
 
@@ -85,6 +85,11 @@ Progress: [█████░░░░░] 50%
 - SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
 - Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
 
+- max_length constraints на всех string полях Modal schemas: Pydantic maxLength -> xgrammar enforcement (Phase 35 Plan 01)
+- NUM_GPU_BLOCKS_OVERRIDE=512 как стартовое значение — калибровать по production логам (Phase 35 Plan 01)
+- STAB-08: max_tokens в reduce_entities было 4096, исправлено на 16384 (Phase 35 Plan 01)
+- Standard logging (не loguru) для Modal контейнера (Phase 35 Plan 01)
+
 ### Ожидающие задачи
 
 Нет.
@@ -105,6 +110,6 @@ Progress: [█████░░░░░] 50%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-24
-Phase 30 Plan 01 завершена. NERService (c810ea9) + feature flag routing (207943a) + тесты (d0d302a). 30 NER-тестов проходят.
-Resume file: .planning/phases/30-gliner2-ner-service/30-01-SUMMARY.md
+Последняя сессия: 2026-03-28
+Phase 35 Plan 01 завершена. max_length schemas (502c66d, 7bdf0cd) + config/llm_extractor (3b18d39). 10 тестов проходят.
+Resume file: .planning/phases/35-production-semantics/35-01-SUMMARY.md

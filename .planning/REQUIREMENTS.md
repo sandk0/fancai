@@ -1,112 +1,98 @@
-# Requirements: fancai v1.4
+# Requirements: fancai v1.5
 
-**Defined:** 2026-03-24
+**Defined:** 2026-03-27
 **Core Value:** Пользователь загружает книгу, читает её, получает AI-сгенерированный глоссарий персонажей без спойлеров, видит иллюстрации, делает заметки и выделения — и всё это работает стабильно на любом устройстве.
 
-## v1.4 Requirements
+## v1.5 Requirements
 
-Миграция с all-LLM pipeline на гибридную архитектуру. Стоимость обработки книги: $1.50 → $0.02-0.05 (97-99% экономия).
+Modal Batch Processing & Production Stability. Стабилизация сломанного pipeline и переход от sequential к batch-обработке глав.
+Эталонный документ: `docs/research/FINAL-consolidated-audit.md`
 
-### Infrastructure
+### Стабилизация
 
-- [x] **INFRA-01**: PostgreSQL мигрирован на pgvector/pgvector:pg17 через pg_dump/restore (не image swap — Alpine/Debian несовместимы)
-- [x] **INFRA-02**: Celery worker настроен на 4GB RAM, concurrency=1, max-tasks-per-child=0 для NLP моделей в памяти
-- [ ] **INFRA-03**: Колонка pipeline_version добавлена в таблицы entities и descriptions для трекинга и rollback
-- [ ] **INFRA-04**: Feature flags USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_HYBRID_PIPELINE, USE_PGVECTOR_EMBEDDINGS зарегистрированы в FeatureFlagManager
-- [x] **INFRA-05**: Отдельный Dockerfile для Celery worker с PyTorch CPU-only (без раздувания API image)
+- [ ] **STAB-01**: Пользователь видит корректный статус книги — `descriptions_extracted=True` только при 0 failed chapters, WebSocket публикует `completed_with_errors` при partial failures
+- [ ] **STAB-02**: Существующие книги с inconsistent статусами обнаружены и помечены для переобработки (reconciliation script)
+- [x] **STAB-03**: Все string поля в Pydantic-схемах Modal имеют `max_length` constraints, предотвращающие broken JSON от неограниченной генерации
+- [ ] **STAB-04**: llm_extractor проверяет `finish_reason` перед `json.loads()` — при `finish_reason="length"` помечает результат как incomplete
+- [ ] **STAB-05**: Modal вызовы защищены VPS-side timeout (`asyncio.wait_for(..., timeout=LLM_TIMEOUT+60)`) — Celery поток не блокируется при зависании Modal
+- [ ] **STAB-06**: `LLM_TIMEOUT=900s` + per-task Celery time budget check предотвращает превышение hard limit
+- [x] **STAB-07**: `num_gpu_blocks_override` настроен в Modal config — обход KV cache overestimation для Qwen3.5 (Bug #37121)
+- [x] **STAB-08**: `reduce_entities` max_tokens увеличен до 16384 — корректная обработка книг со 100+ entities
+- [ ] **STAB-09**: Все файлы с `logger.opt()` проверены — Loguru import гарантирован; файлы в Modal контейнере используют стандартный logging API
 
-### NER (Entity Extraction)
+### Error & Observability
 
-- [ ] **NER-01**: NERService извлекает entities (персонаж, локация, артефакт, организация) из текста главы через GLiNER2
-- [ ] **NER-02**: Chunking разбивает главы >512 токенов с overlap на границах предложений для entity spans
-- [ ] **NER-03**: Adapter маппит NEREntity → ExtractedEntity для backward compatibility с ConsistencyManager
-- [ ] **NER-04**: A/B тест на 5 книгах показывает entity recall ≥80% vs текущий LLM baseline
-- [ ] **NER-05**: Confidence threshold откалиброван для русской художественной литературы (диапазон 0.3-0.5)
+- [ ] **OBS-01**: ErrorClassifier модуль раздельно обрабатывает `FunctionTimeoutError`, `RemoteError`, `InputCancellation`, `JSONDecodeError` — `error_type` сохраняется в `chapter.parsing_error`
+- [ ] **OBS-02**: Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + Modal возвращает метрики `cold_start_ms`, `inference_ms`
 
-### Description Classifier
+### Batch Processing
 
-- [ ] **DESC-01**: Training data экспортирована из таблицы descriptions (≥500 positive + ≥500 negative samples)
-- [ ] **DESC-02**: TF-IDF + LogisticRegression baseline обучен с leave-one-book-out cross-validation (не random split)
-- [ ] **DESC-03**: Rule-based prefilter (визуальные прилагательные/существительные) с recall ≥90% на training data
-- [ ] **DESC-04**: Sentence-transformer classifier реализован как upgrade path (если TF-IDF F1 < 0.75)
-- [ ] **DESC-05**: LLM обогащает только top-K candidate описаний (тип, entities_mentioned, visual_summary)
+- [ ] **BATCH-01**: Pre-validation длины глав — oversized chapters (>32K estimated tokens) маршрутизируются в sequential path
+- [ ] **BATCH-02**: `extract_chapters_batch()` обрабатывает sub-batch из 4-8 глав (до 12 по результатам profiling) за один Modal вызов через batch chat API с checkpoint после каждого sub-batch
+- [ ] **BATCH-03**: Compile cache volume в Modal сохраняет `torch.compile` артефакты между cold starts (-20-30s)
 
-### Embeddings
+### Resilience
 
-- [ ] **EMB-01**: pgvector extension установлен, таблица chapter_embeddings создана через Alembic migration
-- [ ] **EMB-02**: EmbeddingService кодирует главы через multilingual-e5-small (384 dims) как singleton
-- [ ] **EMB-03**: HNSW индекс создан для vector_cosine_ops (лучше IVFFlat для малых датасетов)
-- [ ] **EMB-04**: Vector search возвращает top-K релевантных chunks для enrichment entity context при synthesis
-
-### LLM Synthesis
-
-- [ ] **SYN-01**: Один batch synthesis вызов на книгу (biography milestones + visual_summary + relationships) вместо per-entity
-- [ ] **SYN-02**: DeepSeek V3.2 ($0.26/$0.38) как основная модель synthesis, Gemini 3.1 Flash Lite как fallback
-- [ ] **SYN-03**: Context caching для повторяющихся системных промптов (экономия ~88% на system prompt)
-- [ ] **SYN-04**: Cost monitoring логирует стоимость обработки каждой книги (input/output tokens × price)
-
-### Rollout
-
-- [ ] **ROLL-01**: Поэтапный rollout через feature flags: 5 книг A/B → 10% → 50% → 100%
-- [ ] **ROLL-02**: E2E integration tests покрывают полный hybrid pipeline (EPUB → NER → classifier → embeddings → synthesis → DB)
+- [ ] **RESIL-01**: Auto-fallback на OpenRouter (Gemini 3.0 Flash) при 3 consecutive Modal failures — circuit breaker с автоматическим recovery
+- [ ] **RESIL-02**: Batch path использует `StructuredOutputsConfig(backend=...)` — выбор backend (xgrammar/guidance/auto) определяется A/B-тестом на 3+ книгах
 
 ## v2 Requirements
 
-Отложены на следующий milestone.
+Отложены за пределы v1.5. Не в текущем roadmap.
 
-- **ONNX-01**: GLiNER2 конвертирован в ONNX для ускорения inference
-- **AL-01**: Active learning pipeline: low-confidence predictions → LLM verification → re-train
-- **EMBED-UPG-01**: Upgrade embedding модели на ru-en-RoSBERTa (768 dims) для улучшения русскоязычного retrieval
-- **COREF-01**: Coreference resolution для местоимённых ссылок
-- **BATCH-API-01**: Прямой Gemini Batch API (-50% скидка) вместо OpenRouter для synthesis
+### Оптимизация
+
+- **OPT-01**: GPU snapshot POC — тестирование `snap=True` с `vllm.LLM` + Modal для 9B модели
+- **OPT-02**: xgrammar vs auto benchmark matrix — сравнение backend'ов для structured output при стабильном batch
+- **OPT-03**: Server mode migration — переход с offline LLM class на vLLM server для расширенных возможностей
+
+### Из v1.4 (abandoned)
+
+- **NER-01**: NER extraction через GLiNER2 (отменено — стратегический разворот к Modal/OpenRouter)
+- **DESC-01**: Description classifier (отменено — стратегический разворот)
+- **EMB-01**: pgvector embeddings (отменено — стратегический разворот)
 
 ## Out of Scope
 
+Явно исключено. Документировано для предотвращения scope creep.
+
 | Feature | Reason |
 |---------|--------|
-| Self-hosted LLM | 12 vCPU без GPU — 2-5 tokens/sec неприемлемо |
-| GigaEmbeddings (Sber, 3B) | 6 GB RAM — конфликт с GLiNER2 в одном worker |
-| Full coreference resolution | F1 ~65-70% на русском — не production-ready |
-| LangChain/LlamaIndex | Overhead без пользы — текущий custom pipeline достаточен |
-| GLiNER RE (Relation Extraction) | Качество на русском не верифицировано — RE остаётся на LLM |
-| ONNX optimization | Отложено в v2 — сначала валидация pipeline |
-| Active learning | Отложено в v2 — сначала baseline |
+| GPU snapshots (в основном milestone) | Alpha 8+ месяцев, ноль примеров `vllm.LLM` + `snap=True`, нет benchmark'ов для 9B |
+| Thinking mode Qwen3.5 | Issue #35700 (OPEN): structured output конфликтует с thinking mode |
+| Real-time progress через modal.Queue | Overkill — текущий WebSocket progress + VPS-side loop достаточен |
+| Prometheus push gateway | Overkill для текущего масштаба (1 user). Loguru structured + return metadata достаточно |
+| Auto scale-up GPU containers | $3.90-5.85/hr при 2+ контейнерах, user base не требует |
+| FlashInfer/Triton backend | FA2 оптимален для L40S (Ada Lovelace SM 8.9) |
+| Self-hosted LLM на VPS | 12 vCPU без GPU — 2-5 tokens/sec неприемлемо (решение v1.4) |
+| Server mode vLLM | Offline LLM class достаточен для batch; server mode — v2 если blocker |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 29 | Complete |
-| INFRA-02 | Phase 29 | Complete |
-| INFRA-03 | Phase 29 | Pending |
-| INFRA-04 | Phase 29 | Pending |
-| INFRA-05 | Phase 29 | Complete |
-| NER-01 | Phase 30 | Pending |
-| NER-02 | Phase 30 | Pending |
-| NER-03 | Phase 30 | Pending |
-| NER-04 | Phase 30 | Pending |
-| NER-05 | Phase 30 | Pending |
-| DESC-01 | Phase 31 | Pending |
-| DESC-02 | Phase 31 | Pending |
-| DESC-03 | Phase 31 | Pending |
-| DESC-04 | Phase 31 | Pending |
-| DESC-05 | Phase 31 | Pending |
-| EMB-01 | Phase 32 | Pending |
-| EMB-02 | Phase 32 | Pending |
-| EMB-03 | Phase 32 | Pending |
-| EMB-04 | Phase 32 | Pending |
-| SYN-01 | Phase 33 | Pending |
-| SYN-02 | Phase 33 | Pending |
-| SYN-03 | Phase 33 | Pending |
-| SYN-04 | Phase 33 | Pending |
-| ROLL-01 | Phase 34 | Pending |
-| ROLL-02 | Phase 34 | Pending |
+| STAB-01 | Phase 35 | Pending |
+| STAB-02 | Phase 35 | Pending |
+| STAB-03 | Phase 35 | Complete (35-01) |
+| STAB-04 | Phase 36 | Pending |
+| STAB-05 | Phase 35 | Pending |
+| STAB-06 | Phase 35 | Pending |
+| STAB-07 | Phase 35 | Complete (35-01) |
+| STAB-08 | Phase 35 | Complete (35-01) |
+| STAB-09 | Phase 35 | Pending |
+| OBS-01 | Phase 36 | Pending |
+| OBS-02 | Phase 36 | Pending |
+| BATCH-01 | Phase 37 | Pending |
+| BATCH-02 | Phase 37 | Pending |
+| BATCH-03 | Phase 37 | Pending |
+| RESIL-01 | Phase 38 | Pending |
+| RESIL-02 | Phase 38 | Pending |
 
 **Coverage:**
-- v1.4 requirements: 25 total
-- Mapped to phases: 25
+- v1.5 requirements: 16 total
+- Mapped to phases: 16
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after roadmap creation*
+*Requirements defined: 2026-03-27*
+*Last updated: 2026-03-27 after roadmap creation*
