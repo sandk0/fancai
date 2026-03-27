@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Оптимизация обработки книг
-status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
-last_updated: "2026-03-24T02:28:00Z"
-last_activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция в pipeline, 13 min)
+status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
+last_updated: "2026-03-28T22:08:00Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
   percent: 50
 ---
 
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 30 Plan 01 завершена — NERService core + feature flag routing. Следующий: Plan 02 (A/B тестирование).
+**Текущий фокус:** Phase 35 Plan 02 завершена — status semantics + VPS timeout + time budget. Следующий: Plan 03 (schema constraints + reconciliation + GPU config).
 
 ## Текущая позиция
 
-Phase: 30 (1 of 6) — GLiNER2 NER Service
-Plan: 01 of 02 (Plan 01 завершена)
-Status: Phase 30 Plan 01 завершена (NERService + TextChunker + NERAdapter + feature flag routing)
-Last activity: 2026-03-24 — Phase 30 Plan 01 завершена (NERService core + тесты + интеграция, 13 min)
+Phase: 35 (production-semantics)
+Plan: 02 of 03 (Plan 02 завершена)
+Status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
+Last activity: 2026-03-28
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -85,6 +85,11 @@ Progress: [█████░░░░░] 50%
 - SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
 - Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
 
+- _finalize_book_status() extracted helper: query failed chapters -> set status -> WebSocket -> push notification (Phase 35 Plan 02)
+- check_time_budget() standalone function: time.monotonic() + CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN (Phase 35 Plan 02)
+- VPS_TIMEOUT=960 как локальная константа (LLM_TIMEOUT=900 + 60s buffer), не импорт из modal (Phase 35 Plan 02)
+- pubsub **kwargs: обратная совместимость + расширяемость WebSocket message format (Phase 35 Plan 02)
+
 ### Ожидающие задачи
 
 Нет.
@@ -105,6 +110,6 @@ Progress: [█████░░░░░] 50%
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-03-24
-Phase 30 Plan 01 завершена. NERService (c810ea9) + feature flag routing (207943a) + тесты (d0d302a). 30 NER-тестов проходят.
-Resume file: .planning/phases/30-gliner2-ner-service/30-01-SUMMARY.md
+Последняя сессия: 2026-03-28
+Phase 35 Plan 02 завершена. Status semantics (4b901b3) + VPS timeout + time budget (cfd7f0c). 14 тестов проходят.
+Resume file: .planning/phases/35-production-semantics/35-02-SUMMARY.md
