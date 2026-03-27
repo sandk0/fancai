@@ -348,8 +348,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 book_id=str(book_id),
             )
 
-            # Semaphore to limit massive concurrency
-            chapter_semaphore = asyncio.Semaphore(10)
+            # Semaphore to limit concurrency
+            # Modal: 1 GPU контейнер обрабатывает последовательно (не плодить 50 GPU)
+            # OpenRouter/GLiNER: 10 параллельных запросов
+            chapter_semaphore = asyncio.Semaphore(1 if use_modal else 10)
 
             # Progress tracking
             chapters_done_count = 0
