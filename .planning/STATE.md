@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
-status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
-last_updated: "2026-03-27T22:21:49.791Z"
-last_activity: 2026-03-27
+status: Phase 36 Plan 01 завершена (Modal metrics transport + finish_reason check)
+last_updated: "2026-03-27T23:08:32.076Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 5
+  completed_plans: 4
+  percent: 80
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 35 Plan 02 завершена — status semantics + VPS timeout + time budget. Следующий: Plan 03 (schema constraints + reconciliation + GPU config).
+**Текущий фокус:** Phase 36 Plan 01 завершена — Modal metrics transport + finish_reason check. Следующий: Plan 02 (structured logging + error classification на VPS).
 
 ## Текущая позиция
 
 Phase: 36
-Plan: Not started
-Status: Phase 35 Plan 02 завершена (status semantics + VPS timeout + time budget check)
-Last activity: 2026-03-27
+Plan: 01 завершён, следующий 02
+Status: Phase 36 Plan 01 завершена (Modal metrics transport + finish_reason check)
+Last activity: 2026-03-28
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Метрики производительности
 
@@ -90,6 +90,10 @@ Progress: [██████████] 100%
 - VPS_TIMEOUT=960 как локальная константа (LLM_TIMEOUT=900 + 60s buffer), не импорт из modal (Phase 35 Plan 02)
 - pubsub **kwargs: обратная совместимость + расширяемость WebSocket message format (Phase 35 Plan 02)
 
+- time.monotonic() для cold start и inference timing — монотонный таймер, не подвержен NTP drift (Phase 36 Plan 01)
+- Modal response wrapper {result, metrics}: единый контракт для extract_chapter и reduce_entities (Phase 36 Plan 01)
+- finish_reason check BEFORE json.loads() — предотвращает JSONDecodeError на truncated output (Phase 36 Plan 01)
+
 ### Ожидающие задачи
 
 Нет.
@@ -111,5 +115,5 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Phase 35 Plan 02 завершена. Status semantics (4b901b3) + VPS timeout + time budget (cfd7f0c). 14 тестов проходят.
-Resume file: .planning/phases/35-production-semantics/35-02-SUMMARY.md
+Phase 36 Plan 01 завершена. Modal metrics transport (f59f940, 009c2e8). 6 тестов проходят. TDD RED->GREEN.
+Resume file: None

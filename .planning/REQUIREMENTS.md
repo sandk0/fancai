@@ -13,7 +13,7 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 - [ ] **STAB-01**: Пользователь видит корректный статус книги — `descriptions_extracted=True` только при 0 failed chapters, WebSocket публикует `completed_with_errors` при partial failures
 - [ ] **STAB-02**: Существующие книги с inconsistent статусами обнаружены и помечены для переобработки (reconciliation script)
 - [x] **STAB-03**: Все string поля в Pydantic-схемах Modal имеют `max_length` constraints, предотвращающие broken JSON от неограниченной генерации
-- [ ] **STAB-04**: llm_extractor проверяет `finish_reason` перед `json.loads()` — при `finish_reason="length"` помечает результат как incomplete
+- [x] **STAB-04**: llm_extractor проверяет `finish_reason` перед `json.loads()` — при `finish_reason="length"` помечает результат как incomplete
 - [ ] **STAB-05**: Modal вызовы защищены VPS-side timeout (`asyncio.wait_for(..., timeout=LLM_TIMEOUT+60)`) — Celery поток не блокируется при зависании Modal
 - [ ] **STAB-06**: `LLM_TIMEOUT=900s` + per-task Celery time budget check предотвращает превышение hard limit
 - [x] **STAB-07**: `num_gpu_blocks_override` настроен в Modal config — обход KV cache overestimation для Qwen3.5 (Bug #37121)
@@ -23,7 +23,7 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 ### Error & Observability
 
 - [ ] **OBS-01**: ErrorClassifier модуль раздельно обрабатывает `FunctionTimeoutError`, `RemoteError`, `InputCancellation`, `JSONDecodeError` — `error_type` сохраняется в `chapter.parsing_error`
-- [ ] **OBS-02**: Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + Modal возвращает метрики `cold_start_ms`, `inference_ms`
+- [x] **OBS-02**: Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + Modal возвращает метрики `cold_start_ms`, `inference_ms`
 
 ### Batch Processing
 
@@ -74,14 +74,14 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 | STAB-01 | Phase 35 | Pending |
 | STAB-02 | Phase 35 | Pending |
 | STAB-03 | Phase 35 | Complete (35-01) |
-| STAB-04 | Phase 36 | Pending |
+| STAB-04 | Phase 36 | Complete |
 | STAB-05 | Phase 35 | Pending |
 | STAB-06 | Phase 35 | Pending |
 | STAB-07 | Phase 35 | Complete (35-01) |
 | STAB-08 | Phase 35 | Complete (35-01) |
 | STAB-09 | Phase 35 | Pending |
 | OBS-01 | Phase 36 | Pending |
-| OBS-02 | Phase 36 | Pending |
+| OBS-02 | Phase 36 | Complete |
 | BATCH-01 | Phase 37 | Pending |
 | BATCH-02 | Phase 37 | Pending |
 | BATCH-03 | Phase 37 | Pending |

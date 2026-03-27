@@ -48,6 +48,7 @@ class Chapter(Base):
     parsing_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     parse_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     is_service_page: Mapped[bool | None] = mapped_column(default=None, nullable=True)
     file_path: Mapped[str | None] = mapped_column(

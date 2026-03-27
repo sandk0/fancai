@@ -140,10 +140,10 @@ Plans:
   1. `ErrorClassifier` раздельно обрабатывает timeout, JSON error, Modal error, cancelled — `error_type` сохраняется в `chapter.parsing_error`
   2. `finish_reason` проверяется до `json.loads()` — при `finish_reason="length"` результат помечается как truncated, а не падает с JSONDecodeError
   3. Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + метрики cold start/inference от Modal
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 36-01-PLAN.md — Modal metrics transport: finish_reason проверка до json.loads, cold_start_ms timing, metrics dict в return
+- [x] 36-01-PLAN.md — Modal metrics transport: finish_reason проверка до json.loads, cold_start_ms timing, metrics dict в return
 - [ ] 36-02-PLAN.md — ErrorClassifier + Alembic migration + structured logging + truncated retry + modal_client backward compat
 
 ### Phase 37: Sub-batch архитектура
@@ -186,6 +186,6 @@ Plans:
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
 | 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
-| 36. Error classification и observability | v1.5 | 0/2 | Not started | - |
+| 36. Error classification и observability | v1.5 | 1/2 | In Progress|  |
 | 37. Sub-batch архитектура | v1.5 | 0/? | Not started | - |
 | 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
