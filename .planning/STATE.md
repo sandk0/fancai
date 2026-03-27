@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
-status: Phase 36 Plan 01 завершена (Modal metrics transport + finish_reason check)
-last_updated: "2026-03-27T23:08:32.076Z"
+status: Phase 36 завершена (error classification + structured logging + metrics transport)
+last_updated: "2026-03-27T23:21:11.000Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 36 Plan 01 завершена — Modal metrics transport + finish_reason check. Следующий: Plan 02 (structured logging + error classification на VPS).
+**Текущий фокус:** Phase 36 полностью завершена — error classification, structured logging, metrics transport. Phase 37 следующая (retry strategies).
 
 ## Текущая позиция
 
-Phase: 36
-Plan: 01 завершён, следующий 02
-Status: Phase 36 Plan 01 завершена (Modal metrics transport + finish_reason check)
+Phase: 36 завершена
+Plan: 02 завершён (последний в фазе)
+Status: Phase 36 завершена (error classification + structured logging + metrics transport)
 Last activity: 2026-03-28
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Метрики производительности
 
@@ -93,6 +93,11 @@ Progress: [████████░░] 80%
 - time.monotonic() для cold start и inference timing — монотонный таймер, не подвержен NTP drift (Phase 36 Plan 01)
 - Modal response wrapper {result, metrics}: единый контракт для extract_chapter и reduce_entities (Phase 36 Plan 01)
 - finish_reason check BEFORE json.loads() — предотвращает JSONDecodeError на truncated output (Phase 36 Plan 01)
+- type(exc).__name__ для Modal SDK exceptions вместо isinstance — Modal не установлен на VPS (Phase 36 Plan 02)
+- error_type String(20) nullable без default — PG17 metadata-only ADD COLUMN, instant (Phase 36 Plan 02)
+- Fallback modal_error для неизвестных exceptions — лучше неточная классификация чем null (Phase 36 Plan 02)
+- Best-effort error_type save через emergency_session в BaseException блоке (Phase 36 Plan 02)
+- extract_modal_result() проверяет result key первым, fallback на весь dict — backward compat (Phase 36 Plan 02)
 
 ### Ожидающие задачи
 
@@ -115,5 +120,5 @@ Progress: [████████░░] 80%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Phase 36 Plan 01 завершена. Modal metrics transport (f59f940, 009c2e8). 6 тестов проходят. TDD RED->GREEN.
+Phase 36 полностью завершена. Plan 01: Modal metrics transport (f59f940, 009c2e8). Plan 02: ErrorClassifier + structured logging (8e1e677, 7b62f96). 40 тестов проходят.
 Resume file: None

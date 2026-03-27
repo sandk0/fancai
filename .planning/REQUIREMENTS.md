@@ -22,7 +22,7 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 
 ### Error & Observability
 
-- [ ] **OBS-01**: ErrorClassifier модуль раздельно обрабатывает `FunctionTimeoutError`, `RemoteError`, `InputCancellation`, `JSONDecodeError` — `error_type` сохраняется в `chapter.parsing_error`
+- [x] **OBS-01**: ErrorClassifier модуль раздельно обрабатывает `FunctionTimeoutError`, `RemoteError`, `InputCancellation`, `JSONDecodeError` — `error_type` сохраняется в `chapter.parsing_error`
 - [x] **OBS-02**: Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + Modal возвращает метрики `cold_start_ms`, `inference_ms`
 
 ### Batch Processing
@@ -80,7 +80,7 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 | STAB-07 | Phase 35 | Complete (35-01) |
 | STAB-08 | Phase 35 | Complete (35-01) |
 | STAB-09 | Phase 35 | Pending |
-| OBS-01 | Phase 36 | Pending |
+| OBS-01 | Phase 36 | Complete |
 | OBS-02 | Phase 36 | Complete |
 | BATCH-01 | Phase 37 | Pending |
 | BATCH-02 | Phase 37 | Pending |

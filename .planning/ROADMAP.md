@@ -108,7 +108,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 **Milestone Goal:** Стабилизация сломанного Modal pipeline (10/23 глав падают) и переход от sequential per-chapter к chunked sub-batch обработке. Ожидаемый эффект: корректные статусы книг, 7-13x ускорение, $3.48 -> $0.26-0.49 за книгу.
 
 - [x] **Phase 35: Стабилизация production semantics** - Корректные статусы книг, schema constraints, timeout/budget защита (completed 2026-03-27)
-- [ ] **Phase 36: Error classification и observability** - Типизированная классификация ошибок, structured logging, finish_reason проверка
+- [x] **Phase 36: Error classification и observability** - Типизированная классификация ошибок, structured logging, finish_reason проверка (completed 2026-03-27)
 - [ ] **Phase 37: Sub-batch архитектура** - Chunked batch обработка 4-8 глав за вызов, pre-validation, compile cache
 - [ ] **Phase 38: Auto-fallback и production hardening** - Circuit breaker Modal->OpenRouter, xgrammar backend для batch
 
@@ -140,11 +140,11 @@ Plans:
   1. `ErrorClassifier` раздельно обрабатывает timeout, JSON error, Modal error, cancelled — `error_type` сохраняется в `chapter.parsing_error`
   2. `finish_reason` проверяется до `json.loads()` — при `finish_reason="length"` результат помечается как truncated, а не падает с JSONDecodeError
   3. Per-chapter structured JSON log содержит `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason` + метрики cold start/inference от Modal
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 36-01-PLAN.md — Modal metrics transport: finish_reason проверка до json.loads, cold_start_ms timing, metrics dict в return
-- [ ] 36-02-PLAN.md — ErrorClassifier + Alembic migration + structured logging + truncated retry + modal_client backward compat
+- [x] 36-02-PLAN.md — ErrorClassifier + Alembic migration + structured logging + truncated retry + modal_client backward compat
 
 ### Phase 37: Sub-batch архитектура
 **Goal**: Pipeline обрабатывает 4-8 глав за один Modal вызов вместо sequential per-chapter — ускорение 7-13x с checkpoint после каждого sub-batch
@@ -186,6 +186,6 @@ Plans:
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
 | 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
-| 36. Error classification и observability | v1.5 | 1/2 | In Progress|  |
+| 36. Error classification и observability | v1.5 | 2/2 | Complete   | 2026-03-27 |
 | 37. Sub-batch архитектура | v1.5 | 0/? | Not started | - |
 | 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
