@@ -186,6 +186,6 @@ Plans:
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
 | 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
-| 36. Error classification и observability | v1.5 | 2/2 | Complete   | 2026-03-27 |
+| 36. Error classification и observability | v1.5 | 2/2 | Complete    | 2026-03-27 |
 | 37. Sub-batch архитектура | v1.5 | 0/? | Not started | - |
 | 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
