@@ -1,264 +1,199 @@
-# Pitfalls Research: Гибридный NLP Pipeline в Production
+# Pitfalls Research: Modal Batch Processing & Production Stability
 
-**Domain:** Добавление NLP-моделей (GLiNER2, TF-IDF classifier, pgvector) в существующее production-приложение
-**Researched:** 2026-03-24
-**Confidence:** HIGH (верифицировано по исходникам, Docker-конфигурации, офиц. документации, issue-трекерам)
+**Domain:** Sub-batch vLLM processing, production semantics, error classification, OpenRouter fallback
+**Researched:** 2026-03-27
+**Confidence:** HIGH (верифицировано по production-коду commit `e5b430b`, FINAL-consolidated-audit.md, GitHub Issues, Modal docs)
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: PostgreSQL Alpine -> Debian: несовместимость данных при смене образа
+### Pitfall 1: Semantic corruption — `descriptions_extracted=True` при partial failures
 
 **What goes wrong:**
-Текущий `postgres:17.9-alpine` использует musl libc. `pgvector/pgvector:pg17` основан на Debian (Bookworm/Trixie) и использует glibc. **Эти data directories НЕ совместимы** из-за различий в collation rules C-библиотек. Если просто заменить image в docker-compose.prod.yml и запустить контейнер с тем же volume `postgres_data`, PostgreSQL может:
-- Отказаться стартовать с ошибкой collation mismatch
-- Стартовать, но выдавать некорректные результаты ORDER BY/индексов на текстовых колонках
-- Повредить индексы при REINDEX
-
-Это **самый опасный** pitfall в миграции -- потенциальная потеря данных в production.
+`book_tasks.py:918` безусловно ставит `descriptions_extracted = True` и `descriptions_processing_error = None` **до** проверки failed chapters (строка 952). Книга с 10/23 failed chapters получает статус "успешно обработана". WebSocket публикует `status="completed"` (строка 929), push notification отправляется, кэш инвалидируется — пользователь видит "успех", но 43% контента отсутствует.
 
 **Why it happens:**
-Docker Hub документация гласит: "Don't try to run a data directory created with the alpine-based images on a Debian based image." Это часто упускают, потому что PostgreSQL 17 -> PostgreSQL 17 кажется safe swap. Но base OS различается (musl vs glibc), и text collation -- фундаментально несовместимый.
+Код писался для happy path, где extraction всегда завершается успешно. Проверка failed chapters добавлена позже как постфактум-логика, но не интегрирована в flow принятия решения о статусе.
 
 **How to avoid:**
-1. **pg_dump ПЕРЕД сменой образа** -- полный logical backup:
-   ```bash
-   docker exec fancai_postgres pg_dump -U $DB_USER -d $DB_NAME -F custom -Z6 -f /tmp/backup.dump
-   docker cp fancai_postgres:/tmp/backup.dump ./backup-before-pgvector.dump
-   ```
-2. **Удалить** volume `postgres_data` после backup
-3. Запустить новый `pgvector/pgvector:pg17` с чистым volume
-4. pg_restore из backup
-5. CREATE EXTENSION vector; через Alembic migration
-6. Сверить количество записей по всем таблицам (entities: 274, descriptions: 519, chapters: 233)
-
-**Дополнительная сложность:** текущий compose использует `PGDATA=/var/lib/postgresql/data/pgdata` -- custom subdirectory. Убедиться, что в новом образе путь идентичен. `pgvector/pgvector:pg17` наследует от `postgres:17` (Debian) -- PGDATA по умолчанию `/var/lib/postgresql/data`. Custom PGDATA в env variable должен быть сохранён.
+1. Перенести `descriptions_extracted = True` **после** `failed_chapters` query (строка 952)
+2. Условие: `descriptions_extracted = (len(failed_chapters) == 0)`
+3. При partial success: `descriptions_processing_error = f"{len(failed_chapters)}/{total_chapters} chapters failed"`
+4. WebSocket status: `"completed_with_errors"` при `failed_chapters > 0`
+5. **Reconciliation script**: найти все книги в БД с `descriptions_extracted=True` и `Chapter.parsing_error IS NOT NULL`, пометить для переобработки
 
 **Warning signs:**
-- PostgreSQL не стартует после `docker compose up -d`
-- `pg_isready` healthcheck fails
-- Ошибки в логах: `database files are incompatible with server`, `collation version mismatch`
-- ORDER BY на текстовых колонках даёт другой порядок (русский текст!)
+- Frontend показывает Entity Wiki как "полную", но пользователь не видит персонажей из поздних глав
+- `descriptions_extracted=True` при `chapters_failed > 0` в task result JSON
+- Push notification "Обработка завершена успешно!" при наличии ошибок в логах
 
 **Phase to address:**
-Первая фаза (инфраструктура/Docker) -- ДО любых NLP-изменений. Это prerequisite.
-
-**Confidence:** HIGH
-**Sources:**
-- [docker-library/postgres Discussion #1192](https://github.com/docker-library/postgres/discussions/1192) -- Alpine data directory issue
-- [docker-library/postgres PR #1259](https://github.com/docker-library/postgres/pull/1259) -- PGDATA changes in PG 18+
-- [pgvector/pgvector Docker Hub](https://hub.docker.com/r/pgvector/pgvector) -- Debian-based tags only (pg17-bookworm, pg17-trixie)
+Phase 1 (P0 — первый приоритет, блокер для всего остального)
 
 ---
 
-### Pitfall 2: Celery worker OOM при загрузке PyTorch-моделей
+### Pitfall 2: Batch error isolation отсутствует — одна глава убивает весь sub-batch
 
 **What goes wrong:**
-Текущий Celery worker: 1.5 GB RAM limit, concurrency=2, max-memory-per-child=512MB. GLiNER2 (PyTorch, 205M params) потребляет ~800MB-1.2GB RAM. При concurrency=2 prefork pool создаёт 2 child-процесса, каждый может загрузить модель -> 2.4GB только на модели, что превышает limit 1.5GB. Worker будет убит OOM killer, задачи потеряются.
-
-Критические подводные камни:
-1. **fork() дублирует память** -- prefork pool наследует адресное пространство parent. Если модель загружена в parent (импорт на уровне модуля), каждый fork получает copy-on-write копию, но при первом inference copy-on-write триггерит полное копирование.
-2. **max-memory-per-child=512MB** -- текущее значение. Child будет убит ПОСЛЕ выполнения задачи, если превысит 512MB. Но GLiNER2 сама по себе ~800MB -> child будет убит после КАЖДОЙ задачи -> постоянный restart -> модель загружается заново (30-60 сек) -> throughput падает катастрофически.
-3. **max-tasks-per-child=100** -> каждые 100 задач child перезапускается -> модель загружается заново. С NLP-моделями это неприемлемо.
-4. **PyTorch memory leaks** -- внутренние кэши не очищаются между вызовами. На 100+ inference calls memory растёт.
+vLLM Issue #16732 (CLOSED, `not_planned` stale bot) — ошибка валидации input одного запроса в batch **убивает весь batch**. При sub-batch из 8 глав, если одна глава слишком длинная или содержит невалидный input, `llm.chat(messages=[...])` бросает exception для всего вызова. Результаты обработки остальных 7 глав **теряются**.
 
 **Why it happens:**
-Celery использует billiard (fork of multiprocessing) с prefork pool. Fork-based workers наследуют всё состояние parent process. PyTorch allocator не fork-safe: внутренние кэши дублируются, thread pools конфликтуют.
+vLLM offline `LLM.chat()` не имеет per-request error isolation. `FinishReason.ERROR` существует в engine API, но описывается как "retryable internal request-level error" — это не graceful per-request isolation для input validation failures. PR по исправлению не мержился.
 
 **How to avoid:**
-1. **concurrency=1** -- один worker process, модели загружены один раз, нет fork overhead
-2. **max-tasks-per-child=0** (бесконечно) -- не перезапускать child, модели persist в памяти
-3. **max-memory-per-child=0** (отключить) -- мониторить через Netdata вместо kill-and-restart
-4. **memory limit=4GB** для контейнера (с запасом: ~300MB Python + ~1.2GB GLiNER2 + ~500MB e5-small + ~20MB TF-IDF + ~2GB headroom)
-5. **Lazy loading** -- загружать модели ТОЛЬКО в child process (не на уровне модуля):
-   ```python
-   # WRONG: загружается в parent при импорте
-   model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
-
-   # RIGHT: lazy singleton в child process
-   _model = None
-   def get_model():
-       global _model
-       if _model is None:
-           _model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
-       return _model
-   ```
-6. **torch.no_grad()** для inference -- предотвращает кэширование градиентов
-7. **Мониторинг** через Netdata/Flower -- alert при >3.5GB
+1. **Pre-validation длин**: `estimated_tokens = len(text) / 3.5` (для русского). Если > `MAX_MODEL_LEN - max_tokens - system_prompt_tokens` (~32K tokens для input), выделить в отдельный sequential обработку
+2. **Try-catch вокруг каждого sub-batch**: при падении sub-batch, retry каждой главы individually
+3. **Checkpoint после каждого sub-batch**: сохранять результаты в БД до запуска следующего sub-batch
+4. **Не класть oversized главы в batch**: отфильтровать и обработать отдельно
 
 **Warning signs:**
-- Celery worker container restarts в `docker compose logs celery-worker`
-- OOM Killer в `dmesg` на хосте
-- Задачи обработки книг зависают (worker убит mid-task)
-- Flower показывает частые worker reconnect
+- Весь sub-batch возвращает exception, хотя упала только одна глава
+- Количество failed chapters кратно sub-batch size (все 8, не 1)
+- Production логи: `Exception` без `chapter_id` — непонятно какая глава виновата
 
 **Phase to address:**
-Первая фаза (Docker/infra) -- изменить compose limits. Вторая фаза (GLiNER2 integration) -- lazy loading, singleton pattern.
-
-**Confidence:** HIGH
-**Sources:**
-- [celery/celery#6036](https://github.com/celery/celery/issues/6036) -- fork vs spawn issue
-- [celery/celery#2927](https://github.com/celery/celery/issues/2927) -- prefork memory leak
-- [PyTorch multiprocessing best practices](https://docs.pytorch.org/docs/stable/notes/multiprocessing.html) -- fork safety
-- [celery/celery#4809](https://github.com/celery/celery/issues/4809) -- max-memory-per-child kills workers incorrectly
-- Текущая конфигурация: `docker-compose.prod.yml:152-153`, `celery_app.py:28-31`
+Phase 3 (Sub-batch architecture) — pre-validation обязателен **до** внедрения batch
 
 ---
 
-### Pitfall 3: GLiNER2 false positives на русских нарицательных существительных
+### Pitfall 3: 7x KV cache overestimation для Qwen3.5 (Issue #37121, OPEN)
 
 **What goes wrong:**
-GLiNER2 обучен на DeBERTa-v3 multilingual backbone с zero-shot NER. На русской художественной литературе модель:
-1. **Классифицирует нарицательные как сущности:** "ведьмак" (lowercase, generic noun) -> PERSON. "трактир" -> LOCATION. "меч" -> OBJECT. Десятки false positives на книгу.
-2. **Пропускает entities в диалогах:** речь внутри кавычек/тире часто содержит имена, но контекст (атрибуция "сказал он") находится ВНЕ чанка DeBERTa. Модель видит `-- Геральт придёт завтра, -- сказал Лютик.` но может не распознать "Геральт" если surrounding context обрезан chunking-ом.
-3. **Boundary entities при chunking:** модель max 384 words (~512 subtokens). Русская глава ~30k символов -> ~15 чанков. Entity на границе чанков разрезается: "Геральт из" | "Ривии" -> две неполных сущности или пропуск.
+Qwen3.5 — гибридная архитектура: 24 слоя GatedDeltaNet (O(1) state) + 8 слоёв Attention (O(n) KV). vLLM KV cache profiler считает все 32 слоя как Attention, завышая потребность в памяти в ~7 раз. Результат: аллоцируется мало KV cache blocks (или 0), ограничивая concurrency в batch mode. Потенциальная причина части production timeout'ов.
 
 **Why it happens:**
-- DeBERTa pre-trained на news/Wikipedia, не на fiction. Нарицательные существительные в fiction часто являются names (Ведьмак = имя собственное в контексте). Модель не различает без fine-tuning.
-- Русский не имеет обязательной заглавной буквы для определения proper nouns (в диалогах, после тире). В news domain заглавная буква -- сильный сигнал для NER; в fiction она менее надёжна.
-- GLiNER paper (NAACL 2024) benchmark на CrossNER Literature дал F1=0.564 -- это значит ~44% ошибок. Хороший результат для zero-shot, но FAR from production-ready без пост-обработки.
+`get_max_concurrency_for_kv_cache_config` и `unify_kv_cache_spec_page_size` используют uniform multipliers для всех layer groups. Mamba constant O(1) state падируется до attention page size. PR #37429 ("Fix KV cache sizing for hybrid models") — OPEN, NOT MERGED на 27.03.2026.
 
 **How to avoid:**
-1. **Confidence threshold tuning:** начать с 0.5, поднять до 0.6-0.7 для снижения false positives. Мониторить precision/recall на 5 test-книгах.
-2. **Post-processing rules:**
-   - Отбрасывать entities < 3 символов
-   - Отбрасывать entities из стоп-листа (нарицательные: "человек", "женщина", "старик", "дом", "город")
-   - Merge частичных имён: "Геральт" + "Геральт из Ривии" -> longest match
-3. **Overlap chunking:** 2-3 предложения overlap между чанками. Deduplicate entities по character offset.
-4. **A/B тестирование на 5 книгах** с ручной разметкой: сравнить GLiNER2 entities vs текущие LLM entities. Go/No-Go: recall >= 80%.
-5. **Fine-tuning path:** после накопления данных через A/B тесты (500+ verified entities) -- fine-tune GLiNER2 на fancai-специфичных данных через GLiNER2Trainer.
+1. Добавить `num_gpu_blocks_override` в `LLM()` init (`modal/llm_extractor.py`)
+2. **Не hardcode 512** — репро из Issue сделан на 4B-AWQ + DGX Spark + v0.17.1, а не на 9B + L40S + v0.18.0
+3. Провести profiling sweep: замерить `vllm` reported KV cache blocks с override=256, 512, 1024, без override
+4. Вынести значение в `modal/config.py` как `NUM_GPU_BLOCKS_OVERRIDE`
+5. Мониторить KV cache utilization в structured logging
 
 **Warning signs:**
-- Entity count значительно выше LLM baseline (>2x) -- sign of false positives
-- Много entities с confidence 0.4-0.6 -- пограничные случаи
-- Entities типа "человек", "место", "вещь" в результатах
+- vLLM при старте рапортует `num_gpu_blocks: 0` или аномально малое число
+- Inference latency нелинейно растёт при увеличении batch size
+- OOM при batch mode, но не при sequential
 
 **Phase to address:**
-Фаза GLiNER2 NER -- A/B тест обязателен. НЕ переключать pipeline без ручной проверки на минимум 5 книгах разных жанров.
-
-**Confidence:** HIGH
-**Sources:**
-- [GLiNER EMNLP 2025](https://arxiv.org/html/2507.18546v1) -- Literature F1=0.564
-- [Building a Fiction AST with GLiNER](https://justin.poehnelt.com/posts/building-a-fiction-ast-training-ner-gliner-onnx/) -- fiction-specific fine-tuning required
-- [GLiNER GitHub #275](https://github.com/urchade/GLiNER/issues/275) -- max token length limitation
-- Существующий research: `docs/research/rag-nlp-optimization-research.md` Section 2.2
+Phase 1 (P0.5 — сразу после semantics fix, до sub-batch)
 
 ---
 
-### Pitfall 4: TF-IDF classifier data leakage через стиль автора
+### Pitfall 4: Structured output ломается без `maxLength` — broken JSON при длинной генерации
 
 **What goes wrong:**
-519 описаний в БД fancai -- из 8 книг. TF-IDF + LogisticRegression при random split по предложениям даёт F1 ~0.85-0.90 (на тесте). Но при деплое на новую книгу F1 падает до ~0.50-0.60. Модель выучила **стиль конкретных авторов**, а не паттерн "визуальное описание".
-
-Три формы data leakage:
-1. **Author style leakage:** 8 книг = 3-5 авторов. Если split по предложениям, train и test содержат предложения одного автора. Модель учит: "если лексика Толкина -> описание" вместо "если визуальные прилагательные -> описание".
-2. **Class imbalance:** 519 positive (descriptions) vs сколько negative? Если negative сэмплов мало или они из тех же книг -- imbalance + leakage.
-3. **Vocabulary overfitting:** 519 примеров -> TF-IDF vocabulary ~5000-10000 уникальных слов. При dim >> n_samples, LogisticRegression без сильной регуляризации переобучается.
+`modal/schemas.py` — **ноль** `maxLength` constraints на всех string полях. Модель может генерировать строку произвольной длины, исчерпать `max_tokens=32768`, и создать незавершённый JSON. xgrammar FSM не может гарантировать закрытие JSON, если tokens закончились в середине string.
 
 **Why it happens:**
-Классическая ошибка в NLP classification -- split по samples вместо split по документам/авторам. С 519 примерами из 8 книг это гарантированная проблема.
+Pydantic `Field()` по умолчанию не ставит `maxLength` в JSON Schema. Без explicit `max_length=N` xgrammar/guidance не ограничивают длину генерируемых строк. Первый `content` field в массиве descriptions может занять 90% max_tokens, оставляя 10% на entities/relationships — JSON обрезается.
 
 **How to avoid:**
-1. **Leave-one-book-out cross-validation:** train на 7 книгах, test на 1. Повторить 8 раз. Средний F1 -- реальная оценка generalization.
-2. **Negative sampling:** для каждого positive (description), взять 2-3 random предложения из той же главы как negative. Итого: ~519 positive + ~1500 negative = ~2000 samples.
-3. **Сильная регуляризация:** LogisticRegression(C=0.1) или (C=0.01), не дефолтный C=1.0. TF-IDF с max_features=3000 (ограничить vocabulary).
-4. **Go/No-Go:** если leave-one-book-out F1 < 0.70 -> не деплоить TF-IDF, переходить к sentence-transformer.
-5. **Active learning:** low-confidence predictions (0.4-0.6) -> LLM верифицирует -> расширяет training set. Это **не опция, а необходимость** при 519 примерах.
+Добавить `max_length` на все string поля в `modal/schemas.py`:
+
+| Поле | Рекомендация | Обоснование |
+|------|-------------|-------------|
+| `content` (description) | `max_length=2000` | ~500 слов, достаточно для visual scene |
+| `image_prompt_en` | `max_length=300` | 30-60 слов по ТЗ |
+| `visual_summary` | `max_length=500` | Внешность персонажа |
+| `chapter_event_action` | `max_length=300` | Одно действие |
+| `chapter_event_inner` | `max_length=300` | Одно переживание |
+| `context` (relationship) | `max_length=300` | Контекст связи |
+| `name` | `max_length=200` | Имя сущности |
+
+**Нюанс**: xgrammar обрезает строку ровно на `maxLength` символов, без word boundary. Это **приемлемо** — обрезанное описание лучше broken JSON.
+
+**Дополнительный нюанс**: если на поле есть `format` или `pattern`, то `maxLength` **игнорируется** (format/pattern имеет приоритет). В текущих схемах `format`/`pattern` не используются — безопасно.
 
 **Warning signs:**
-- Train F1 >> Test F1 (> 0.15 gap) -- overfitting
-- Leave-one-book-out F1 значительно ниже random split F1
-- Classifier уверенно предсказывает "description" для любого текста конкретного автора
+- `JSONDecodeError` в логах
+- `finish_reason == "length"` — модель исчерпала max_tokens
+- Главы с большим количеством entities (10+) чаще ломаются
 
 **Phase to address:**
-Фаза Description Classifier. Leave-one-book-out CV обязателен в acceptance criteria.
-
-**Confidence:** HIGH
-**Sources:**
-- [Techniques and pitfalls for ML training with small data sets](https://www.trustbit.tech/blog/2021/06/30/techniques-and-pitfalls-for-ml-training-with-small-data-sets)
-- Существующий research: `docs/research/rag-nlp-optimization-research.md` Section 4.2
+Phase 1 (P1 — сразу после `num_gpu_blocks_override`)
 
 ---
 
-### Pitfall 5: Feature flag inconsistency между старым и новым pipeline
+### Pitfall 5: Celery time budget overflow при sequential + повышенном timeout
 
 **What goes wrong:**
-Книги, обработанные текущим LLM pipeline, имеют entities с одной характеристикой (LLM-generated names, visual_summary, relationships). Книги, обработанные новым hybrid pipeline, будут иметь entities с другой (GLiNER2 names, no visual_summary до synthesis, no relationships до synthesis). Конкретные проблемы:
-1. **Разный формат Entity Wiki:** старые entities имеют visual_summary и biography, новые -- только имя и тип до synthesis-фазы
-2. **Несовместимые упоминания:** старый pipeline хранит text_offset из LLM (неточные), новый -- character offset из GLiNER2 (точные). Frontend highlighting может сломаться на старых данных.
-3. **Reprocessing ambiguity:** если пользователь запрашивает reprocess книги, какой pipeline использовать? Если новый -- старые entities удаляются, но frontend может кэшировать старые.
+`book_tasks.py:72-73`: `time_limit=10800` (3h hard), `soft_time_limit=10500` (2h55m). При `LLM_TIMEOUT=900` (предлагаемое повышение) и 23 главах sequential: 23 x 900s = 20700s = 5.75 часов — **вдвое превышает** Celery hard limit. Task убивается Celery, теряя все результаты.
 
 **Why it happens:**
-Feature flags контролируют pipeline ДЛЯ НОВЫХ книг, но не решают проблему уже обработанных книг. В БД нет маркера `extraction_pipeline` на entity/description -- невозможно отличить старые данные от новых.
+Celery time_limit — это wall-clock deadline на весь task, а не per-chapter. При sequential mode каждая глава обрабатывается последовательно. Повышение per-chapter timeout без учёта total budget — классическая ошибка.
 
 **How to avoid:**
-1. **Добавить колонку `pipeline_version`** в таблицы `entities` и `descriptions`:
-   ```sql
-   ALTER TABLE entities ADD COLUMN pipeline_version VARCHAR(20) DEFAULT 'llm_v1';
-   ALTER TABLE descriptions ADD COLUMN pipeline_version VARCHAR(20) DEFAULT 'llm_v1';
-   ```
-   Новые записи hybrid pipeline -> `hybrid_v1`.
-2. **НЕ удалять старые данные** при reprocessing. Создавать новые entities с `pipeline_version='hybrid_v1'`. Переключать отображение через pipeline_version filter.
-3. **Frontend: version-aware rendering.** Если `pipeline_version='llm_v1'` -- использовать старый highlighting (fuzzy match). Если `hybrid_v1` -- использовать точные character offsets.
-4. **Snapshot feature flags** в начале book processing task. Использовать snapshot для всего pipeline (не перечитывать из БД).
-5. **Gradual rollout:** 10% новых книг -> hybrid, 90% -> LLM. Мониторить quality metrics.
+1. Добавить per-task time budget check: `remaining_budget = soft_time_limit - elapsed`. Если `remaining_budget < LLM_TIMEOUT`, прекратить обработку новых глав
+2. При достижении budget: сохранить результаты обработанных глав, пометить книгу как `partial`
+3. **Не поднимать LLM_TIMEOUT выше 900s** без одновременного снижения числа sequential обработок
+4. В batch mode проблема менее острая: 3 sub-batch x 180s = 540s + cold start 130s = 670s — влезает с запасом
 
 **Warning signs:**
-- Entity Wiki показывает пустые поля (visual_summary=null) для книг после переключения
-- Highlighting descriptions не работает на книгах, обработанных hybrid pipeline
-- Frontend кэш (IndexedDB) содержит stale entity data после reprocessing
+- Celery task убит по `SoftTimeLimitExceeded` — все результаты потеряны
+- Task статистика: большая часть глав обработана, но commit не произошёл
+- Книга зависает в `is_processing=True` навсегда (пока cleanup task не подберёт)
 
 **Phase to address:**
-Первая фаза (schema migration) -- добавить `pipeline_version`. Каждая последующая фаза -- записывать version при создании entities/descriptions.
-
-**Confidence:** HIGH
-**Sources:**
-- [Martin Fowler: Feature Toggles](https://martinfowler.com/articles/feature-toggles.html)
-- Анализ кодовой базы: `backend/app/models/entity.py` -- нет pipeline_version колонки
-- Анализ кодовой базы: `backend/app/services/feature_flag_manager.py`
+Phase 2 (одновременно с повышением timeout)
 
 ---
 
-### Pitfall 6: Docker image размер и build time с PyTorch CPU
+### Pitfall 6: `json.loads()` без защиты и без `finish_reason` проверки в `llm_extractor.py`
 
 **What goes wrong:**
-Текущий backend image: ~468 MB. Добавление PyTorch + GLiNER2 + sentence-transformers + scikit-learn через default pip увеличит image до ~3.5 GB. Build time: 15-30 минут вместо 2-3 минут.
+`llm_extractor.py:58` и `:78`: `json.loads(result[0].outputs[0].text)` — голый вызов без try/except. Если structured output обрезан (finish_reason="length") или модель сгенерировала невалидный JSON несмотря на FSM constraints, метод бросает `json.JSONDecodeError`. Это исключение пробрасывается через Modal RPC как `RemoteError`, теряя stacktrace и контекст.
 
 **Why it happens:**
-`pip install torch` по умолчанию скачивает CUDA-версию (~2.5 GB). CPU-only через `--index-url https://download.pytorch.org/whl/cpu` -- ~300 MB. Разница 8x. Текущая конфигурация использует один Docker image для API и Celery worker -- API НЕ нуждается в PyTorch, но получит его.
+`json.loads()` — единственный способ десериализовать ответ vLLM. В happy path structured output гарантирует валидный JSON. Но при `finish_reason="length"` (исчерпание max_tokens) FSM может не завершить JSON корректно.
 
 **How to avoid:**
-1. **CPU-only PyTorch index** в отдельном requirements-nlp.txt:
-   ```
-   --extra-index-url https://download.pytorch.org/whl/cpu
-   torch==2.7.1+cpu
-   gliner2==1.2.4
-   sentence-transformers==4.1.0
-   scikit-learn==1.7.0
-   ```
-2. **Отдельный Dockerfile.celery** для Celery worker с NLP зависимостями. Backend API остаётся на текущем Dockerfile.prod (~500 MB). Celery worker image ~1.5-2 GB.
-3. **Docker build cache mount:**
-   ```dockerfile
-   RUN --mount=type=cache,target=/root/.cache/pip pip install ...
-   ```
-4. **HuggingFace model cache volume** -- модели (~300-500 MB) скачиваются один раз, не на каждый rebuild:
-   ```yaml
-   volumes:
-     - hf_cache:/home/appuser/.cache/huggingface
-   ```
+1. Проверять `finish_reason` до `json.loads()`:
+```python
+finish_reason = result[0].outputs[0].finish_reason
+if finish_reason == "length":
+    logger.warning("Chapter truncated", finish_reason=finish_reason)
+```
+2. Оборачивать `json.loads()` в try/except с информативным сообщением:
+```python
+try:
+    parsed = json.loads(result[0].outputs[0].text)
+except json.JSONDecodeError as e:
+    raise ValueError(f"JSON parse failed (finish_reason={finish_reason}): {e}") from e
+```
+3. Возвращать structured error dict вместо re-raise — чтобы caller мог отличить "JSON broken" от "Modal crashed"
 
 **Warning signs:**
-- `docker compose build` > 10 минут
-- Disk usage растёт на 3+ GB за deploy
-- `docker system df` > 20 GB build cache
+- `RemoteError` в логах book_tasks без понятной причины
+- Потеря контекста ошибки: не видно какая глава, какой finish_reason
 
 **Phase to address:**
-Первая фаза (Docker/infra) -- отдельный Dockerfile.celery, CPU-only PyTorch.
+Phase 1 (P3 — error classification)
 
-**Confidence:** HIGH
-**Sources:**
-- [Optimizing PyTorch Docker images](https://mveg.es/posts/optimizing-pytorch-docker-images-cut-size-by-60percent/)
-- [Reducing Docker size with PyTorch](https://discuss.pytorch.org/t/reducing-docker-size-with-pytorch-model/78991)
-- Текущий Dockerfile: `backend/Dockerfile.prod`
+---
+
+### Pitfall 7: `reduce_entities` с `max_tokens=4096` — недостаточно для больших книг
+
+**What goes wrong:**
+`llm_extractor.py:69`: `max_tokens=4096` для reduce. При 100+ entities из 23 глав (реальная книга — 80-150 entities) JSON ответ reduce может превысить 4096 tokens. Результат: `finish_reason="length"`, обрезанный JSON, `JSONDecodeError`. Production уже показывает `JSONDecodeError` в reduce path.
+
+**Why it happens:**
+Значение 4096 взято из ранних тестов с малым количеством entities. `ModalReduceResponse` содержит `merge_operations: List[dict]` — при 50+ merge операциях JSON легко превышает 4096 tokens.
+
+**How to avoid:**
+1. Увеличить `max_tokens` в reduce до 8192-16384
+2. Добавить `maxLength` на reduce schema (ограничить размер каждой merge operation)
+3. При слишком большом наборе entities — делить на batches и reduce итеративно (уже реализовано в ConsistencyManager как `recursive batched reduce`, но не в Modal path)
+
+**Warning signs:**
+- `JSONDecodeError` именно в reduce path (а не extract)
+- Книги с большим cast (эпики, серии) чаще ломаются
+- `finish_reason="length"` при reduce вызовах
+
+**Phase to address:**
+Phase 1 (одновременно с maxLength для schemas)
 
 ---
 
@@ -266,110 +201,237 @@ Feature flags контролируют pipeline ДЛЯ НОВЫХ книг, но
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Один Docker image для API и Celery | Проще build, один image | API image раздут PyTorch | Never -- разделить с первого дня |
-| max-tasks-per-child=0 (бесконечно) | Модели persist в памяти | Memory leaks накапливаются | С мониторингом Netdata (alert >3.5GB) |
-| Threshold GLiNER2 hardcoded | Быстрый старт | Нельзя тюнить без redeploy | MVP only -- в env var |
-| Skip leave-one-book-out CV | Быстрее baseline | Overfitting не обнаружится до production | Never -- CV обязателен |
-| Не маркировать pipeline_version | Меньше миграций | Невозможно rollback | Never -- обязательно |
-| HF models без volume mount | Проще Dockerfile | Скачивание 300-500MB на каждый restart | Never -- volume mount |
+| `Semaphore(1)` для Modal | Не плодить GPU контейнеры | 107 мин на 23 главы, невозможность 100+ глав | Только для sequential стабилизации, не для production batch |
+| Generic `except Exception` в book_tasks | Быстрая реализация | Невозможно отличить timeout от JSON error от crash — нет retry strategy | Никогда в production pipeline с external GPU |
+| `json.loads()` без try/except в Modal | Меньше кода | Потеря контекста ошибки через Modal RPC boundary | Никогда |
+| Auto backend для structured output | Не нужно выбирать | vLLM может выбрать неоптимальный backend для batch | Допустимо до benchmark matrix |
+| `enable_gpu_snapshot=True` без sleep mode | "Может заработает" | Snapshot без offload weights может быть бесполезен | Только как эксперимент, не полагаться |
+| Celery task = весь pipeline в одной функции | Простота | Невозможен partial retry, нет granular monitoring | Только при sequential mode с малым числом глав |
+
+---
 
 ## Integration Gotchas
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| pgvector + Alembic | `CREATE EXTENSION vector` без `IF NOT EXISTS` -- fails на re-run | `op.execute("CREATE EXTENSION IF NOT EXISTS vector")` |
-| GLiNER2 + Celery | Импорт модели на уровне модуля | Lazy singleton в get_model(), загрузка в child process |
-| PyTorch + billiard fork | Thread pool конфликтует после fork() | `torch.set_num_threads(1)` или concurrency=1 |
-| sentence-transformers + GLiNER2 | Конфликт версий tokenizers | Pin `tokenizers` version, тест совместимости |
-| TF-IDF model persistence | Serialized модели incompatible между sklearn versions | Сохранять sklearn version + retrain при upgrade |
-| Feature flags + Celery | Async DB session в sync Celery context | Sync session (паттерн уже есть в book_tasks.py) |
-| asyncpg + pgvector | asyncpg не знает vector type -> raw bytes | `pip install pgvector` -- авто-регистрация codec для SQLAlchemy + asyncpg |
-| DeepSeek V3.2 structured output | JSON Schema mode менее надёжен чем у Gemini | Pydantic validation + retry + Gemini fallback через tenacity |
+### Modal <-> VPS (Celery worker)
+
+| Common Mistake | Correct Approach |
+|----------------|------------------|
+| `asyncio.to_thread(extractor.remote, ...)` без VPS-side timeout — если Modal завис, поток Celery заблокирован навсегда | `asyncio.wait_for(asyncio.to_thread(...), timeout=LLM_TIMEOUT + 60)` — запас на сетевой overhead |
+| Catch `Exception` — теряется тип ошибки Modal | Catch отдельно: `modal.exception.FunctionTimeoutError`, `modal.exception.RemoteError`, `modal.exception.InputCancellation`, `json.JSONDecodeError` |
+| `get_llm_extractor()` вызывается на каждую главу (создаёт новый handle) | Вызвать один раз и переиспользовать handle для всех глав книги |
+| Не импортировать `modal` exceptions на VPS — `ImportError` если Modal SDK не установлен | Условный import с `try/except ImportError`, как уже сделано для `modal` в `modal_client.py` |
+
+### vLLM <-> Pydantic schemas (structured output)
+
+| Common Mistake | Correct Approach |
+|----------------|------------------|
+| Передать Pydantic model напрямую в `StructuredOutputsParams(json=...)` | Передать `model.model_json_schema()` — строковый JSON Schema |
+| Полагаться на `auto` backend без проверки | Явно задать backend через `structured_outputs_config=StructuredOutputsConfig(backend="xgrammar")` для batch, или провести benchmark |
+| Использовать `format`/`pattern` в schema совместно с `maxLength` | xgrammar **игнорирует** `maxLength` при наличии `format`/`pattern` — не совмещать |
+| Включить thinking mode Qwen3.5 с structured output | Issue #35700: structured output конфликтует с thinking mode. Явно: `enable_thinking: false` в chat template |
+
+### Celery <-> Modal (concurrency)
+
+| Common Mistake | Correct Approach |
+|----------------|------------------|
+| Два Celery task одновременно обрабатывают разные книги через Modal | Global concurrency limit: не более 1-2 concurrent Modal GPU containers. Redis counter или `celery_app.control.inspect().active()` |
+| `acks_late=True` без idempotency — task перезапускается при worker crash, дублируя Modal вызовы | Distributed lock per book (`book_tasks.py` уже имеет Redis lock — OK). Но нет lock на уровне Modal container count |
+| Retry целой book task при partial failure | Retry только failed chapters, не всю книгу. Сохранять checkpoint после каждого sub-batch |
+
+---
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| GLiNER2 inference без batching | ~2-3 сек/чанк, 750 чанков = 25-40 мин/книга | Batch чанки главы, один forward pass | Книги > 30 глав |
-| Embedding по одному чанку | 750 x 50ms = 37 сек | `model.encode(batch, batch_size=64)` | Книги > 100 глав |
-| IVFFlat lists=100 на 500 vectors | recall деградация | HNSW вместо IVFFlat на малых данных | < 10000 embeddings |
-| `text.split('.')` для sentence splitting | Теряет "г. Москва", аббревиатуры | `razdel` или spaCy ru_core_news_sm | Русские тексты |
-| Обе модели загружаются при старте | startup 60-90 сек, healthcheck restart loop | Lazy load + start_period=120s | Cold start |
+| Sub-batch size слишком большой (12+) при отсутствии batch error isolation | Один failed request убивает 12 глав вместо 4 | Начать с sub-batch=4, увеличивать по результатам benchmark | При первой oversized главе |
+| `enable_prefix_caching=True` без common system prompt | Каждый запрос в batch имеет уникальный system prompt — prefix caching бесполезен | Убедиться, что system prompt идентичен для всех глав в batch (уже так в коде — OK) | Если кто-то добавит per-chapter prompt customization |
+| Cold start 100-130s при каждой книге | Каждая книга ждёт 2+ минуты на старт | `scaledown_window=120` уже помогает. Compile cache volume (-30s). GPU snapshot (POC). | При burst нагрузке: 3+ книги за 5 минут |
+| `max_tokens=32768` для коротких глав (1-2K слов) | GPU генерирует до max_tokens даже когда ответ 500 tokens (wasteful KV allocation) | Structured output FSM останавливает генерацию при завершении JSON schema — wasteful allocation есть, но не wasteful generation. Не проблема | Не ломается, но занимает KV cache slots |
+| Два GPU контейнера одновременно (разные книги) | $3.90/hr вместо $1.95/hr | Global Celery concurrency limit для Modal tasks | При 3+ concurrent пользователях — $140/день |
+
+---
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Model loading из untrusted source | Arbitrary code execution через serialized model | ТОЛЬКО HuggingFace Hub, pin revision hash |
-| Raw EPUB content в LLM prompts | Prompt injection | Sanitize перед embedding/synthesis |
-| Feature flag API без audit log | Unauthorized pipeline switch | Audit log для flag changes |
+| `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` в `.env` без ротации | Утечка токена = доступ к GPU billing ($1.95/hr) | Ротация каждые 90 дней, ограничить scope токена в Modal dashboard |
+| Отсутствие spending limit в Modal | Бесконечный billing при баге (infinite retry loop) | `modal.config.set_max_monthly_spend(100)` или через dashboard |
+| User content передаётся напрямую в vLLM system prompt | Prompt injection через content книги | System prompt и user content чётко разделены через `<book_text>` tags — OK в текущем коде |
+| `logger.opt(exception=True)` в Modal контейнере без Loguru | Исключение вместо логирования при Modal-only execution | Проверить каждый файл: если `from app.core.logging import logger` — Loguru — OK. В Modal контейнере нет `app.core.logging` — использовать stdlib `logging` |
+
+---
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Entity Wiki пустой до synthesis | "Сломано" -- entities без описаний | Badge "Обрабатывается...", заполнять по мере synthesis |
-| Reprocessing удаляет entities | Потеря привязок к заметкам | Soft delete + pipeline_version |
-| Cold start model loading | Первая книга медленнее | Pre-warm при старте worker |
-| Разное quality между книгами | Старые (LLM) vs новые (hybrid) | Gradual rollout + quality monitoring |
+| Push notification "Обработка завершена!" при 10/23 failed chapters | Пользователь думает всё готово, открывает Wiki — половина персонажей отсутствует | Notification с текстом: "Обработано 13 из 23 глав. Некоторые персонажи могут отсутствовать" |
+| WebSocket `status="completed"` до проверки failed chapters | Frontend скрывает progress bar, показывает "Готово" | Два статуса: `"completed"` и `"completed_with_errors"` — frontend показывает предупреждение |
+| Молчаливый пропуск failed chapters без индикации в UI | Пользователь не знает, что часть данных отсутствует | Badge или warning в Entity Wiki: "Обработано 13/23 глав" |
+| Cold start 100-130s без feedback | Пользователь нажимает "Обработать", ничего не происходит 2 минуты | WebSocket progress: "Запуск GPU...", "Загрузка модели...", "Обработка главы 1/23..." |
+
+---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **pgvector migration:** pg_dump/restore выполнен, но `CREATE EXTENSION vector` не в Alembic
-- [ ] **GLiNER2:** Extraction работает, но chunking overlap не дедуплицирует entities -> duplicates
-- [ ] **TF-IDF:** F1 высокий на random split, но leave-one-book-out CV не проведён
-- [ ] **Feature flags:** USE_GLINER_NER=true, но pipeline_version не записывается -> rollback невозможен
-- [ ] **Docker:** PyTorch установлен, но CUDA-версия -> image 3.5GB вместо 1.5GB
-- [ ] **Celery memory:** limits 4GB, но max-memory-per-child=512000 не изменён -> child kills
-- [ ] **Embeddings:** e5-small работает, но IVFFlat lists=100 на 500 vectors -> recall < 50%
-- [ ] **Rollback:** Flags off, но entities hybrid_v1 остаются в БД -> mixed data
-- [ ] **Healthcheck:** Celery inspect ping timeout=10s, model loading 60s -> false restart
+- [ ] **Sub-batch метод**: `extract_chapters_batch()` добавлен, но нет pre-validation длин — первая oversized глава убивает весь batch
+- [ ] **Error classification**: catch разделён по типам, но `modal.exception` не импортирован условно — `ImportError` на VPS без Modal SDK
+- [ ] **maxLength в schemas**: добавлен на extract, но забыт на reduce — `ModalReduceResponse` по-прежнему без ограничений
+- [ ] **Observability**: structured logging добавлен, но `finish_reason` не логируется — невозможно различить truncation vs crash
+- [ ] **Timeout fix**: `LLM_TIMEOUT` повышен, но нет VPS-side timeout — `asyncio.to_thread()` может заблокировать Celery worker навсегда
+- [ ] **GPU snapshot**: включен в `modal/app.py`, но `enable_sleep_mode` отсутствует в `LLM()` — snapshot может не работать для 9B моделей
+- [ ] **OpenRouter fallback**: feature flag переключает Modal/OpenRouter, но нет автоматического fallback при Modal outage — ручное переключение
+- [ ] **Reconciliation**: новый код корректен, но существующие inconsistent книги в БД не исправлены — нужен migration script
+- [ ] **Concurrent books**: один GPU контейнер = OK, но два concurrent book tasks плодят два контейнера ($3.90/hr) — нет global limit
+- [ ] **Reduce path**: `max_tokens` увеличен для extract, но `reduce_entities` по-прежнему 4096 — книги с 100+ entities ломаются
+
+---
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| pgvector data loss (Alpine->Debian) | LOW (при backup) | pg_restore, revert image |
-| Celery OOM crash loop | LOW | Revert limits, `--concurrency=1 --max-tasks-per-child=0` |
-| GLiNER2 low quality | MEDIUM | Flag off, DELETE WHERE pipeline_version='hybrid_v1' |
-| TF-IDF overfitting | LOW | Flag off, revert на LLM |
-| Pipeline inconsistency (no version) | HIGH | Ручная маркировка по created_at. С version -- LOW |
-| Docker image bloat | LOW | Rebuild CPU-only, `docker system prune` |
-| Model loading timeout | LOW | Увеличить start_period, pre-warm task |
+| Semantic corruption (books с `descriptions_extracted=True` + failed chapters) | LOW | SQL: `UPDATE books SET descriptions_extracted=false WHERE id IN (SELECT DISTINCT b.id FROM books b JOIN chapters c ON c.book_id=b.id WHERE b.descriptions_extracted=true AND c.parsing_error IS NOT NULL)` |
+| Batch error kills sub-batch | MEDIUM | Retry failed chapters individually в sequential mode. Checkpoint уже сохранён — не нужно переобрабатывать успешные главы |
+| KV cache overestimation (wrong override value) | LOW | Изменить `NUM_GPU_BLOCKS_OVERRIDE` в config, redeploy Modal app. Не нужен migration или data fix |
+| Celery task killed by time limit | HIGH | Книга застревает в `is_processing=True`. `cleanup_tasks.py:137` подбирает через 4+ часа — но результаты потеряны. При checkpoint: LOW — retry только необработанные главы |
+| Modal outage | LOW (если fallback реализован) | Feature flag `USE_MODAL_PIPELINE=false` → весь pipeline переключается на OpenRouter Gemini. Данные не теряются |
+| `max_tokens` exceeded в reduce | LOW | Увеличить `max_tokens` в `llm_extractor.py`, redeploy. Retry reduce для пострадавших книг |
+
+---
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| PG Alpine->Debian data loss | Phase 0 (Infra) | pg_restore OK, table counts match, `pg_extension` has vector |
-| Celery worker OOM | Phase 0 (Infra) | 1 час под нагрузкой, memory < 3.5GB |
-| GLiNER2 false positives | Phase 1 (NER) | A/B 5 книг: recall >= 80%, precision >= 60% |
-| TF-IDF data leakage | Phase 2 (Classifier) | Leave-one-book-out F1 >= 0.70, gap < 0.15 |
-| Feature flag inconsistency | Phase 0 (Infra) | pipeline_version в Alembic, записывается на CREATE |
-| Docker image bloat | Phase 0 (Infra) | Celery image < 2GB, build < 10 min |
-| Chunking boundaries | Phase 1 (NER) | Overlap test на 3 книгах, no split entities |
-| Model loading timeout | Phase 1 (NER) | Cold start < 120s, healthcheck start_period=120s |
-| pgvector index | Phase 4 (Embeddings) | Top-5 retrieval recall >= 80% |
+| Semantic corruption (`descriptions_extracted` unconditional) | Phase 1: Production semantics | `SELECT count(*) FROM books WHERE descriptions_extracted=true AND EXISTS (SELECT 1 FROM chapters WHERE chapters.book_id=books.id AND parsing_error IS NOT NULL)` = 0 |
+| KV cache overestimation (#37121) | Phase 1: Config fix + profiling | vLLM startup log shows non-zero `num_gpu_blocks`. Profiling report с разными override values |
+| Broken JSON (no maxLength) | Phase 1: Schema constraints | `JSONDecodeError` rate < 5% на тестовой книге (23 главы). Все string fields в schemas.py имеют `max_length` |
+| Generic exception handling | Phase 2: Error classification | `chapter.parsing_error` содержит structured `error_type` (timeout/json/modal/unknown). Логи содержат `finish_reason` |
+| Celery time budget overflow | Phase 2: Time budget | Task не убивается по `SoftTimeLimitExceeded`. Книга с partial results получает `descriptions_extracted=false` |
+| VPS-side timeout отсутствует | Phase 2: Timeout protection | `asyncio.wait_for()` оборачивает все `to_thread(modal.remote)` вызовы |
+| Batch error isolation отсутствует | Phase 3: Sub-batch + pre-validation | Pre-validation: oversized chapters обрабатываются отдельно. Sub-batch failure retry: каждая глава individually |
+| `reduce_entities` max_tokens=4096 | Phase 1: Schema constraints | Книга с 100+ entities: reduce завершается без `JSONDecodeError` |
+| Concurrent Modal containers | Phase 3: Concurrency control | Redis counter ограничивает Modal GPU containers до 1-2 concurrent |
+| OpenRouter fallback ручной | Phase 4: Auto-fallback | При `modal.exception.RemoteError` 3 раза подряд — автоматическое переключение на OpenRouter |
+
+---
+
+## Qwen3.5-specific Gotchas
+
+Отдельная секция, потому что Qwen3.5 — hybrid architecture с уникальными проблемами.
+
+### G1. Thinking mode + structured output (Issue #35700, OPEN)
+
+Structured output constraints конфликтуют с reasoning/thinking mode. Issue открыт для Qwen3.5 27B FP8 в OpenAI-serving mode. Наш стек: 9B + offline `LLM.chat()` — вероятно работает в non-thinking mode, но не проверено explicit.
+
+**Prevention**: явно отключить thinking mode. Если structured output ломается — добавить `enable_in_reasoning=True` через `structured_outputs_config`.
+
+### G2. Format mismatch warning (Issue #37103, OPEN)
+
+Корреляция с timeout'ами. Текущий production не задаёт explicit chat template — vLLM автоопределяет. При несовпадении — warning, потенциально деградация.
+
+**Prevention**: зафиксировать chat template или убедиться, что auto-detect корректен для Qwen3.5-9B.
+
+### G3. DeltaNet overhead в prefill
+
+24/32 слоёв GatedDeltaNet — inference profile отличается от чистого Transformer. Prefill может быть медленнее ожидаемого (DeltaNet sequential dependency в recurrence). Batch mode может не дать линейный speedup.
+
+**Prevention**: benchmark matrix с реальными данными, не экстраполяции. Ожидание 7-13x speedup, не 17x.
+
+### G4. Новые баги structured output для Qwen3.5
+
+27B variant уже имеет отдельный баг (открыт 2026-03-02). Может затронуть 9B. Structured output на Qwen3.5 — **работоспособная, но хрупкая** комбинация.
+
+**Prevention**: pin vLLM version (0.18.0), CI smoke-test на тестовой главе, мониторить `finish_reason` distribution.
+
+---
+
+## Modal-specific Gotchas
+
+### M1. GPU snapshot — alpha без примеров для `vllm.LLM`
+
+`enable_gpu_snapshot=True` уже включён в production (`modal/app.py:43`). Но:
+- Все примеры Modal — server mode (`vllm serve`), не offline `vllm.LLM`
+- Benchmark'ы только до 3B моделей
+- Для 9B — нет данных о restore time
+- Может конфликтовать с `torch.compile`
+
+**Prevention**: POC с замерами. Если не работает — fallback на compile cache volume (проще, надёжнее).
+
+### M2. Cold start variability
+
+Production: throughput от 6.33 до 84.16 tok/s, latency от 41s до 584s. Cold start может быть > 5 минут при GPU queueing или image pull.
+
+**Prevention**: `startup_timeout` в Modal cls kwargs (Modal v1.1.4+). Compile cache volume для torch.compile артефактов.
+
+### M3. Billing при scaledown
+
+GPU оплачивается во время scaledown. `scaledown_window=120s` = $0.065 за idle период. `min_containers` и `buffer_containers` — оплачиваются полностью.
+
+**Prevention**: `scaledown_window=60` после перехода на batch (быстрее обработка — меньше idle). Не использовать `min_containers` для L40S.
+
+---
+
+## Data Consistency при Partial Failures
+
+Критический раздел для sub-batch архитектуры.
+
+### D1. Entity graph неполный при partial sub-batch
+
+Sub-batch 1 (главы 1-8) успешен. Sub-batch 2 (главы 9-16) упал. Relationships между entities из глав 1-8 и 9-16 **отсутствуют**. Entity Wiki показывает неполную картину.
+
+**Prevention**: reduce/synthesis вызывать **только** после всех sub-batches. Если часть sub-batches упала — пометить книгу как `partial`, отложить reduce.
+
+### D2. ConsistencyManager на неполных данных
+
+ConsistencyManager работает на всех entities книги. При partial results может создать неконсистентные merge operations (дедупликация частично видимых entities).
+
+**Prevention**: не запускать ConsistencyManager до завершения всех глав. Флаг `all_chapters_processed: bool` перед reduce phase.
+
+### D3. Reduce вызывается после каждого sub-batch вместо одного раза
+
+При неправильной интеграции sub-batch: reduce запускается после каждого sub-batch (3 раза вместо 1). Результат: неполная дедупликация, overhead на 3 GPU вызова.
+
+**Prevention**: чёткое разделение: extract loop -> checkpoint -> reduce (один раз). Не вызывать reduce внутри sub-batch loop.
+
+---
 
 ## Sources
 
-- [docker-library/postgres #1192](https://github.com/docker-library/postgres/discussions/1192) -- Alpine vs Debian data incompatibility
-- [docker-library/postgres PR #1259](https://github.com/docker-library/postgres/pull/1259) -- PGDATA changes
-- [celery/celery#6036](https://github.com/celery/celery/issues/6036) -- fork vs spawn
-- [celery/celery#2927](https://github.com/celery/celery/issues/2927) -- prefork memory leak
-- [celery/celery#4809](https://github.com/celery/celery/issues/4809) -- max-memory-per-child
-- [PyTorch multiprocessing](https://docs.pytorch.org/docs/stable/notes/multiprocessing.html)
-- [pytorch/pytorch#174468](https://github.com/pytorch/pytorch/issues/174468) -- memory leak
-- [GLiNER EMNLP 2025](https://arxiv.org/html/2507.18546v1) -- Literature F1=0.564
-- [Fiction AST with GLiNER](https://justin.poehnelt.com/posts/building-a-fiction-ast-training-ner-gliner-onnx/)
-- [GLiNER#275](https://github.com/urchade/GLiNER/issues/275) -- token length
-- [Martin Fowler: Feature Toggles](https://martinfowler.com/articles/feature-toggles.html)
-- [PyTorch Docker optimization](https://mveg.es/posts/optimizing-pytorch-docker-images-cut-size-by-60percent/)
-- [pgvector Docker Hub](https://hub.docker.com/r/pgvector/pgvector)
-- [Small dataset ML pitfalls](https://www.trustbit.tech/blog/2021/06/30/techniques-and-pitfalls-for-ml-training-with-small-data-sets)
-- Кодовая база: docker-compose.prod.yml, celery_app.py, Dockerfile.prod, requirements.txt, book_tasks.py, entity.py, feature_flag_manager.py
-- Existing research: `docs/research/rag-nlp-optimization-research.md`
+### Production-код (commit `e5b430b`)
+- `backend/app/tasks/book_tasks.py:914-920` — безусловный `descriptions_extracted=True`
+- `modal/llm_extractor.py:58,78` — голый `json.loads()` без защиты
+- `modal/schemas.py` — ноль `maxLength` constraints
+- `modal/config.py` — отсутствует `NUM_GPU_BLOCKS_OVERRIDE`
+
+### Аудит
+- `docs/research/FINAL-consolidated-audit.md` — финальный аудит, перекрёстно проверен GPT 5.4 Codex
+
+### GitHub Issues/PRs
+- [Issue #16732](https://github.com/vllm-project/vllm/issues/16732) — batch error isolation (CLOSED, not_planned)
+- [Issue #37121](https://github.com/vllm-project/vllm/issues/37121) — KV cache 7x overestimation (OPEN)
+- [PR #37429](https://github.com/vllm-project/vllm/pull/37429) — fix hybrid KV cache (OPEN, NOT MERGED)
+- [Issue #35700](https://github.com/vllm-project/vllm/issues/35700) — Qwen3.5 structured output + thinking mode (OPEN)
+- [Issue #37103](https://github.com/vllm-project/vllm/issues/37103) — format mismatch warning (OPEN)
+
+### Modal Documentation
+- [Modal Pricing](https://modal.com/pricing) — L40S $1.95/hr
+- [Modal GPU Snapshot](https://modal.com/docs/examples/gpu_snapshot) — alpha, примеры до 3B
+- [Modal Memory Snapshots](https://modal.com/docs/guide/memory-snapshots) — ограничения
+- [Modal Scaling](https://modal.com/docs/guide/scale) — scaledown billing
+
+### vLLM Documentation
+- [Structured Outputs](https://docs.vllm.ai/en/latest/features/structured_outputs/) — backend selection
+- [Sleep Mode](https://docs.vllm.ai/en/latest/features/sleep_mode/) — LLM class sleep/wake API
+- [Qwen3.5 Recipe](https://docs.vllm.ai/projects/recipes/en/latest/Qwen/Qwen3.5.html) — usage guide
+
+### Celery Best Practices
+- [Celery Task Resilience (GitGuardian)](https://blog.gitguardian.com/celery-tasks-retries-errors/) — retry patterns
+- [Advanced Celery (Vinta)](https://www.vintasoftware.com/blog/celery-wild-tips-and-tricks-run-async-tasks-real-world) — idempotency
 
 ---
-*Pitfalls research for: Hybrid NLP Pipeline в Production (fancai v1.4)*
-*Researched: 2026-03-24*
+*Pitfalls research for: Modal Batch Processing & Production Stability (v1.5)*
+*Researched: 2026-03-27*

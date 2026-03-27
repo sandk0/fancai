@@ -1,198 +1,210 @@
-# Сводное исследование проекта
+# Итоговое исследование проекта
 
-**Проект:** fancai v1.4 — Гибридный NLP pipeline
-**Домен:** ML/NLP pipeline для AI-ридера художественной литературы
-**Исследовано:** 2026-03-24
-**Уверенность:** HIGH
+**Project:** fancai v1.5 — Modal Batch Processing & Production Stability
+**Domain:** Стабилизация и ускорение GPU inference pipeline (vLLM + Modal + OpenRouter)
+**Researched:** 2026-03-27
+**Confidence:** HIGH (производственный код проверен, аудит верифицирован GPT 5.4 cross-audit)
 
 ## Обзор
 
-Текущий fancai pipeline обрабатывает каждую книгу целиком через LLM (Gemini 3 Flash) — стоимость ~$1.50/книга, время 5-15 минут. Гибридная архитектура заменяет LLM-based extraction на локальные NLP-модели (GLiNER2 NER + TF-IDF classifier), оставляя LLM только для synthesis (~3 вызовов на книгу). Итоговая экономия: 97-99% стоимости ($0.02/книга). Ключевая особенность подхода: все компоненты интегрируются через feature flags — текущий LLM pipeline остается fallback, переключение — один SQL UPDATE.
+v1.5 — это не feature-milestone, а engineering-milestone: стабилизация сломанного производственного pipeline и переход от sequential к batch-обработке глав. Существующий pipeline критически дефектен: книга с 43% failed chapters получает статус "успешно обработана" из-за безусловного `descriptions_extracted=True` в `book_tasks.py:918`. Одновременно 10 из 23 глав в тестовой книге падают с `JSONDecodeError` из-за отсутствия `maxLength` constraints в Pydantic-схемах — модель генерирует бесконечные строки, исчерпывает `max_tokens`, создаёт broken JSON. Generic `except Exception` скрывает все типы ошибок, делая retry-стратегию невозможной.
 
-Основной технический риск — не качество NLP (GLiNER2 Literature F1=0.564 верифицирован по EMNLP 2025), а инфраструктурная сложность: смена PostgreSQL image (Alpine -> Debian) несовместима на уровне data directory, что требует полного pg_dump/restore. Второй по критичности риск — Celery worker OOM при неправильных настройках concurrency и memory limits. Оба риска хорошо задокументированы и имеют конкретные mitigation-паттерны.
+Рекомендуемый подход: двухэтапная реализация. Этап 1 (стабилизация) — семь независимых LOW-complexity fix'ов, устраняющих критические production дефекты без изменения архитектуры. Этап 2 (batch) — новый метод `extract_chapters_batch()` в `llm_extractor.py` и `ChapterBatchRunner` в backend, трансформирующие pipeline из sequential в sub-batch (4-8 глав за вызов). Ожидаемый эффект: speedup 7-13x ($3.48 -> $0.26-0.49 за книгу). Для книг 100+ глав batch — необходимость, не оптимизация: sequential при `LLM_TIMEOUT=900s` превышает Celery 3h hard limit в 1.9x.
 
-Рекомендуемая стратегия реализации: инфраструктура первой (Docker + Alembic + feature flags), затем NER и description classifier как независимые компоненты, pgvector embeddings как quality-enhancement после валидации основного pipeline. Обязательный Go/No-Go gate после NER-фазы: entity recall >= 80% на 5 тестовых книгах.
-
----
+Ключевые риски: (1) отсутствие batch error isolation в vLLM (Issue #16732, closed not_planned) — одна oversized глава убивает весь sub-batch; mitigation — pre-validation длин обязательна до batch. (2) Bug #37121 (7x KV cache overestimation для Qwen3.5) — потенциальная причина части production timeout'ов; mitigation — `num_gpu_blocks_override=512` как стартовая гипотеза с profiling sweep. (3) GPU snapshots — alpha 8+ месяцев, ноль примеров для `vllm.LLM` + Modal; не включать в milestone.
 
 ## Ключевые выводы
 
 ### Рекомендуемый стек
 
-Исследование верифицирует пять новых зависимостей. PyTorch должен устанавливаться **только** CPU-версией через отдельный index URL — CUDA-версия добавляет +2 GB к image без пользы. Celery worker требует отдельного Dockerfile с NLP-зависимостями; API-контейнер остается легким (~500 MB).
+Существующий стек не меняется. v1.5 вносит только точечные изменения конфигурации.
 
-**Основные технологии:**
-- **GLiNER2 1.2.4** — zero-shot NER для fiction. F1=0.564 на Literature domain (> GPT-4o 0.561). 205M params, CPU-first, детерминированные character offsets. Python 3.12 совместим.
-- **torch 2.11.0+cpu** — runtime для GLiNER2. Устанавливать ТОЛЬКО через `--index-url https://download.pytorch.org/whl/cpu` (CPU wheel ~250 MB vs CUDA ~2.5 GB).
-- **sentence-transformers 5.3.0** — embedding API для pgvector. Стартовая модель: `intfloat/multilingual-e5-small` (118M, 384 dims, ~500 MB RAM).
-- **scikit-learn 1.8.0** — TF-IDF + LogisticRegression description classifier. <1ms/sentence, ~5 MB модель.
-- **pgvector/pgvector:pg17 (0.8.2)** — Docker image для PostgreSQL 17 + pgvector. Debian-based (не Alpine). Требует полной миграции данных из текущего postgres:17.9-alpine.
-- **DeepSeek V3.2 через OpenRouter** ($0.26/$0.38) — primary model для LLM synthesis. Output в 8x дешевле Gemini 3 Flash. Fallback: Gemini 3.1 Flash Lite -> Claude Haiku 4.5.
+**Изменения в зависимостях:**
+- `modal>=0.73` -> `modal>=1.3.0` — единственное изменение в requirements.txt (нужно для `startup_timeout`, появившегося в v1.1.4)
+- `vllm>=0.18.0` -> `vllm==0.18.0` — pin конкретной версии (API нестабильный между минорами)
 
-**Критичное: бюджет RAM** Celery worker 4 GB. При e5-small: ~1.9-2.3 GB, headroom ~1.7 GB. При upgrade на ru-en-RoSBERTa (400M): ~3.1-3.5 GB — на грани, допустимо.
+**Новые компоненты конфигурации (не pip):**
+- `StructuredOutputsConfig(backend="xgrammar")` — explicit выбор backend для batch (лучше throughput при фиксированной схеме)
+- `num_gpu_blocks_override=512` — обход Bug #37121 (KV cache overestimation Qwen3.5)
+- `compile_cache_volume` — Modal Volume для `~/.cache/vllm/` (эффект: -20-30s cold start)
+- `modal.exception.FunctionTimeoutError / RemoteError / InputCancellation` — раздельные catch вместо generic Exception
+
+**Что НЕ менять:**
+- Loguru (30+ файлов, `serialize=True` достаточно для JSON logging)
+- vLLM server mode (LLM class достаточен для offline batch)
+- Prometheus/Grafana (overkill, Loguru structured + return metadata достаточно)
+- FlashAttention backend (FA2 оптимален для L40S/Ada Lovelace SM 8.9)
 
 ### Ожидаемые фичи
 
-Пять целевых фич имеют чёткую иерархию зависимостей. GLiNER2 NER и Description Classifier работают независимо. pgvector embeddings зависят от Docker infrastructure. LLM batch synthesis использует pgvector как контекст для quality enhancement, но может работать и без него (fallback на полный текст).
+**Обязательно (table stakes — production сломан без них):**
+- Корректные статусы книг при partial failures — `descriptions_extracted=True` только при 0 failed chapters
+- `maxLength` constraints на все string fields в `modal/schemas.py` — предотвращает broken JSON
+- Классификация ошибок по типам — фундамент retry-стратегии и observability
+- `finish_reason` проверка в `llm_extractor.py` — defensive parsing до `json.loads()`
+- VPS-side timeout на Modal вызовы — `asyncio.wait_for(timeout=LLM_TIMEOUT+60)`
+- `reduce_entities` max_tokens 4096 -> 8192-16384 — fix для книг 100+ entities
 
-**Обязательные (P0-P1):**
-- GLiNER2 NER с chunking (512 token limit) и boundary deduplication — ядро экономии
-- NEREntity -> ExtractedEntity adapter — backward compatibility с ConsistencyManager
-- Feature flags: USE_HYBRID_NLP, USE_GLINER_NER, USE_DESCRIPTION_CLASSIFIER, USE_PGVECTOR_EMBEDDINGS
-- Docker infrastructure: pgvector image + Celery 4 GB / concurrency=1
-- Description classifier TF-IDF (519 labeled examples в БД — готовый training set)
-- LLM batch synthesis через DeepSeek V3.2 (1 вызов на книгу вместо per-chapter)
-- A/B тест на 5 книгах как обязательный Go/No-Go gate
+**Ускорение (differentiators):**
+- Sub-batch vLLM processing (4-8 глав за вызов) — 7-13x speedup, $3.48 -> $0.26-0.49/книга
+- Pre-validation длин глав — guard clause для batch (hard dependency)
+- Structured observability (per-chapter JSON метрики: duration, error_type, finish_reason)
+- OpenRouter auto-fallback при Modal failures (circuit breaker: 3 consecutive errors)
+- `num_gpu_blocks_override` — снижение timeout rate
+- LLM_TIMEOUT 600s -> 900s + Celery time budget check
 
-**Quality enhancement (P2):**
-- pgvector embeddings (chapter_embeddings table) — rich context для synthesis
-- Embedding-based alias detection — дополняет SequenceMatcher для entity dedup
-
-**Defer до валидации (P3):**
-- Active learning для classifier
-- ONNX conversion для GLiNER2
-- Co-occurrence графы
-- Cost monitoring dashboard
-- Incremental WebSocket progress
-
-**Anti-features (не реализовывать):**
-- Self-hosted LLM (2-5 tok/sec на CPU — неприемлемо)
-- BART-large-mnli zero-shot classifier (800M + 20+ мин/книга на CPU)
-- GigaEmbeddings 3B (6 GB — не влезает рядом с GLiNER2)
-- Fine-tuning GLiNER2 сейчас (только 8 книг — недостаточно)
-- LangChain/LlamaIndex (overhead без пользы при 3 LLM вызовах)
+**Отложить (v1.6+):**
+- GPU snapshot POC — alpha 8+ месяцев, нет примеров для vllm.LLM + 9B модели
+- xgrammar vs auto backend benchmark — имеет смысл только при стабильном batch
+- Compile cache volume — LOW priority, добавить в любой фазе
 
 ### Архитектурный подход
 
-Гибридный pipeline строится как drop-in замена: `HybridExtractor.analyze_chapter()` возвращает тот же `ChapterAnalysisResult`, что и `gemini_extractor.analyze_chapter()`. Весь downstream code (ConsistencyManager, entity events, descriptions) не меняется. Ключевой паттерн: `NLPModelManager` — singleton lifecycle manager для всех NLP-моделей в Celery worker.
+Текущий pipeline: `book_tasks.py` (1000+ строк mixed concerns) -> `modal_client.py` -> Modal `extract_chapter()` (sequential, Semaphore(1)) или `gemini_extractor.py` (OpenRouter legacy). Все ошибки в `except Exception`, все статусы в безусловных присвоениях.
 
-**Основные компоненты:**
-1. **NERService** (`services/ner_service.py`) — GLiNER2 extraction с sentence-level chunking, overlap 2 предложения, boundary deduplication по character offsets
-2. **DescriptionClassifier** (`services/description_classifier.py`) — TF-IDF + LogReg с leave-one-book-out cross-validation
-3. **EmbeddingService** (`services/embedding_service.py`) — batch encode чанков по 500 символов -> pgvector INSERT
-4. **NLPModelManager** (`services/nlp_model_manager.py`) — lazy singleton для всех трёх моделей; загрузка при первом использовании, persist до рестарта worker
-5. **HybridExtractor** (`services/hybrid_extractor.py`) — orchestrator, drop-in замена gemini_extractor, возвращает ChapterAnalysisResult
-6. **Adapter layer** — маппинг `NEREntity(text, label, start, end, score)` -> `ExtractedEntity(name, type, confidence, first_mention_offset)`. `visual_summary`, `aliases`, `chapter_event_*` заполняются позже в synthesis phase.
+Целевая архитектура добавляет три новых компонента поверх существующего, не ломая его:
 
-**Изменения схемы БД:** новые nullable поля `extraction_source` (DEFAULT 'llm') и `ner_confidence` в `entities`; аналогично в `descriptions`. Таблица `chapter_embeddings` (vector(384)). Колонка `pipeline_version` для rollback traceability.
+1. **`ChapterBatchRunner`** (`backend/app/services/chapter_batch_runner.py`) — оркестрация sub-batch обработки: chunking, pre-validation, time_budget, checkpoint после каждого sub-batch, retry failed chapters individually
+2. **`ModalFallbackController`** (`backend/app/services/modal_fallback_controller.py`) — решение Modal vs OpenRouter с circuit breaker (per-task lifecycle, не global singleton)
+3. **`ErrorClassifier`** (`backend/app/services/error_classifier.py`) — типизированная классификация: `timeout / json_error / modal_error / validation / cancelled / truncated / unknown`
 
-**Неизменяемые компоненты:** gemini_extractor.py (fallback), tsa_parser.py, весь frontend, openrouter_client.py, graph_service.py, entity_service.py API.
+На стороне Modal: `extract_chapters_batch()` метод в `llm_extractor.py` — `llm.chat([conv1, conv2, ..., convN], params)` (batch chat API, PR #8648 merged). Compile cache volume для torch.compile артефактов.
 
-### Критичные pitfalls
+**Ключевое ограничение архитектуры:** vLLM batch error isolation отсутствует (Issue #16732, closed not_planned). Pre-validation обязательна. При падении sub-batch — retry каждой главы individual'но. Reduce вызывается **один раз** после всех sub-batches, не внутри loop.
 
-1. **PostgreSQL Alpine -> Debian data incompatibility** — musl libc vs glibc collation несовместимость. Если просто заменить image с тем же volume — база может не стартовать или давать некорректные ORDER BY на русском тексте. **Решение:** pg_dump -> удалить volume -> запустить pgvector image -> pg_restore. Сначала всего остального.
+### Критические риски
 
-2. **Celery worker OOM с PyTorch prefork** — concurrency=2 при fork-based pool дублирует модели в памяти. `max-memory-per-child=512MB` убивает child после КАЖДОЙ задачи (GLiNER2 ~800 MB > 512 MB). **Решение:** `--concurrency=1 --max-tasks-per-child=0 --max-memory-per-child=0`, memory limit 4 GB, lazy singleton loading.
+1. **Семантическая коррупция данных** (`descriptions_extracted=True` при partial failure) — каждая минута без фикса создаёт inconsistent записи в БД. Нужен reconciliation script для существующих данных. Обнаружение: `SELECT count(*) FROM books WHERE descriptions_extracted=true AND EXISTS (SELECT 1 FROM chapters WHERE chapters.book_id=books.id AND parsing_error IS NOT NULL)`.
 
-3. **GLiNER2 false positives на нарицательных существительных** — "ведьмак" (нарицательное) -> PERSON. Boundary entities при chunking разрезаются. **Решение:** confidence threshold 0.5+, стоп-лист нарицательных, overlap chunking с dedup по character offset, обязательный A/B тест 5 книг до rollout.
+2. **Batch error isolation отсутствует** — vLLM Issue #16732 closed not_planned. Одна oversized глава убивает весь sub-batch. Pre-validation (`len(text)/3.5 ~ tokens`) — hard dependency для batch, не optional.
 
-4. **TF-IDF data leakage через стиль автора** — random split по предложениям из 8 книг даёт F1 0.85-0.90, при деплое на новую книгу падает до 0.50-0.60. **Решение:** leave-one-book-out cross-validation обязателен. Go/No-Go: F1 >= 0.70 на LOO CV, иначе переход на sentence-transformer head.
+3. **KV cache overestimation Qwen3.5** (Issue #37121 OPEN) — 7x завышение для hybrid GatedDeltaNet+Attention архитектуры. PR #37429 not merged. `num_gpu_blocks_override=512` — стартовая гипотеза, требует profiling sweep (256, 512, 1024, без override).
 
-5. **Feature flag pipeline inconsistency без pipeline_version** — старые LLM entities и новые hybrid entities смешиваются без маркера. **Решение:** `extraction_source` в schema (DEFAULT 'llm'), записывать 'gliner2'/'hybrid' при создании. Soft delete при reprocessing, не hard delete.
+4. **Celery time budget overflow** — при `LLM_TIMEOUT=900s` + 23 главы sequential = 5.75h > Celery hard limit 3h. Нужен per-task deadline check: `remaining_budget = soft_time_limit - elapsed`.
 
-6. **Docker image bloat с CUDA PyTorch** — `pip install torch` без index URL = ~2.5 GB CUDA wheels. **Решение:** отдельный `Dockerfile.celery` с `--index-url https://download.pytorch.org/whl/cpu`, CPU wheel ~250 MB. HuggingFace models в volume mount (не пересчитывать при каждом rebuild).
+5. **reduce_entities max_tokens=4096** — книги с 100+ entities (реальные: 80-150) ломаются при reduce. Независимый от batch баг, требует fix в Фазе 1.
 
----
+## Импликации для roadmap
 
-## Импликации для дорожной карты
+Структура из 4 фаз, логика которых исходит из dependency graph фич и критических рисков.
 
-Исследование показывает 5 естественных фаз. Первые 2 — инфраструктурные blockers, остальные — реализация компонентов. Фазы 3 и 4 могут разрабатываться параллельно (NER и classifier независимы).
+### Phase 1: Стабилизация production semantics и schemas
 
-### Фаза 0: Docker & DB Infrastructure
-**Обоснование:** Все блокеры первые. PostgreSQL migration должна пройти до любого NLP-кода. Celery limits надо установить до добавления PyTorch. pipeline_version в schema — до первой hybrid-записи в БД.
-**Delivers:** pgvector/pgvector:pg17 запущен, данные мигрированы, Celery worker 4 GB / concurrency=1, Alembic migration с vector extension + chapter_embeddings + extraction_source поля, 4 новых feature flags (все default: false), отдельный Dockerfile.celery.
-**Avoids:** Pitfall 1 (PG data loss), Pitfall 2 (Celery OOM), Pitfall 5 (pipeline inconsistency), Pitfall 6 (Docker bloat).
+**Rationale:** Все 6 фиксов независимы между собой, все LOW/TRIVIAL complexity, все устраняют текущие production дефекты. Выполняются параллельно или последовательно в одной фазе. Без этой фазы batch не имеет смысла — мы добавим 7-13x speedup поверх pipeline, который даёт неверные статусы.
 
-### Фаза 1: GLiNER2 NER Service
-**Обоснование:** Самая высокая экономия (~70% LLM вызовов). Независима от Description Classifier. Требует завершения Фазы 0.
-**Delivers:** NERService с chunking (<=2000 chars, 2-sentence overlap) и boundary dedup; NLPModelManager singleton; NEREntity -> ExtractedEntity adapter; HybridExtractor skeleton; USE_GLINER_NER flag on; **обязательный A/B тест на 5 книгах**: entity recall >= 80% vs LLM baseline.
-**Uses:** gliner2 1.2.4, torch CPU, NLPModelManager pattern.
-**Avoids:** Pitfall 3 (GLiNER2 false positives через threshold + stoplist + A/B gate).
+**Delivers:**
+- `descriptions_extracted=True` только при 0 failed chapters + `completed_with_errors` WebSocket status
+- Reconciliation script для существующих inconsistent books в БД
+- `maxLength` constraints на все string fields в `modal/schemas.py` (включая reduce schema)
+- `reduce_entities` max_tokens 4096 -> 16384
+- `num_gpu_blocks_override=512` в `modal/config.py` + `llm_extractor.py`
+- `LLM_TIMEOUT = 900` + Celery time budget check
+- `modal>=1.3.0` в requirements.txt + `vllm==0.18.0` pin
 
-### Фаза 2: Description Classifier
-**Обоснование:** Независима от NER — может разрабатываться параллельно с Фазой 1. 519 labeled examples уже в БД. TF-IDF baseline быстрее sentence-transformer upgrade. Завершается перед LLM synthesis optimization.
-**Delivers:** Export training data (519 positive + ~1500 negative с per-book split); TF-IDF + LogReg с leave-one-book-out CV; USE_DESCRIPTION_CLASSIFIER flag on; F1 >= 0.70 на LOO CV или upgrade на sentence-transformer.
-**Avoids:** Pitfall 4 (data leakage через per-book split и LOO CV как acceptance criteria).
+**Avoids:** Pitfall 1 (семантическая коррупция), Pitfall 4 (broken JSON), Pitfall 5 (Celery budget), Pitfall 7 (reduce max_tokens)
 
-### Фаза 3: LLM Synthesis Optimization
-**Обоснование:** После NER (Фаза 1) и Classifier (Фаза 2) — pipeline производит entities и descriptions. Synthesis optimization (batch vs per-chapter, DeepSeek vs Gemini) снижает LLM стоимость с ~$1.50 до ~$0.02.
-**Delivers:** Один batch LLM вызов на книгу; DeepSeek V3.2 как primary с fallback chain; ConsistencyManager + EntityDeduplicationService адаптированы под hybrid input; EntitySynthesisService обновлён для batch input.
-**Uses:** DeepSeek V3.2 ($0.26/$0.38), OpenRouter fallback chain.
+### Phase 2: Error classification и observability
 
-### Фаза 4: pgvector Embeddings
-**Обоснование:** Quality enhancement после валидации основного pipeline. Embeddings позволяют передавать релевантные чанки в synthesis вместо полного текста — снижает input tokens и повышает quality.
-**Delivers:** EmbeddingService с e5-small (118M); chapter_embeddings HNSW index; vector search для entity context в synthesis (top-5 chunks); upgrade path на ru-en-RoSBERTa задокументирован.
-**Uses:** sentence-transformers 5.3.0, pgvector HNSW index (vector_cosine_ops).
+**Rationale:** Error classification — фундамент для OpenRouter fallback и structured observability. Отдельная фаза потому что касается 3 новых файлов (`ErrorClassifier`, `ModalFallbackController` интерфейс, изменения `book_tasks.py`) и требует осторожного рефактора горячего кода.
 
-### Фаза 5: Optimization & Rollout
-**Обоснование:** После валидации всего pipeline — постепенный rollout с мониторингом cost/quality.
-**Delivers:** Canary rollout (10% -> 50% -> 100%); per-book cost tracking через llm_usage_log; active learning цикл для classifier; ONNX conversion если inference bottleneck подтвержден.
+**Delivers:**
+- `ErrorClassifier` модуль: раздельный catch `FunctionTimeoutError / RemoteError / InputCancellation / JSONDecodeError`
+- `Chapter.parsing_error` содержит структурированный `[ERROR_TYPE] detail`
+- `finish_reason` проверка в `llm_extractor.py` до `json.loads()`
+- VPS-side timeout: `asyncio.wait_for(asyncio.to_thread(...), timeout=LLM_TIMEOUT+60)`
+- Per-chapter structured JSON log: `chapter_id`, `duration_ms`, `result_type`, `error_type`, `finish_reason`
+- Modal response: `{"results": [...], "metrics": {"cold_start_ms": ..., "inference_ms": ...}}`
 
-### Обоснование порядка фаз
+**Avoids:** Pitfall 6 (json.loads без защиты), Pitfall 3 generic Exception
 
-- **Фаза 0 сначала:** PostgreSQL migration — необратимый destructive operation. Нельзя начинать NLP-код при риске потери production data.
-- **NER перед Classifier:** NER — главная экономия, высокий приоритет. Независимость позволяет параллельную разработку, но A/B NER gate должен пройти до GA synthesis optimization.
-- **Synthesis после extraction:** batch synthesis требует заполненных entity/description данных от hybrid extraction.
-- **pgvector последним из "основных":** не блокирует savings — synthesis работает без vector context (fallback на полный текст), но качество ниже.
+### Phase 3: Sub-batch архитектура
+
+**Rationale:** Требует Фазы 1 (maxLength, num_gpu_blocks_override) и Фазы 2 (error classification для batch failure handling). Это самая сложная фаза. `ChapterBatchRunner` — новый класс с batch logic, checkpoint'ами, time budget, retry logic.
+
+**Delivers:**
+- `extract_chapters_batch()` метод в `modal/llm_extractor.py` (batch chat API)
+- `ChapterBatchRunner` (`backend/app/services/chapter_batch_runner.py`) с pre-validation + checkpoint + retry
+- `ModalFallbackController` (`backend/app/services/modal_fallback_controller.py`) с circuit breaker
+- Pre-validation: oversized chapters (>32K estimated tokens) -> sequential path
+- Compile cache volume в `modal/app.py` (`~/.cache/vllm/`)
+- `scaledown_window` снижен до 60s (batch быстрее -> меньше idle)
+- Начальный `SUB_BATCH_SIZE=4`, увеличивать по benchmark'ам
+
+**Avoids:** Pitfall 2 (batch error isolation через pre-validation + retry), Pitfall 5 (Celery budget через time_budget в BatchRunner)
+
+**Uses:** vLLM batch chat API (PR #8648), `StructuredOutputsConfig(backend="xgrammar")`, Modal compile cache volume
+
+### Phase 4: OpenRouter auto-fallback и production hardening
+
+**Rationale:** OpenRouter fallback requires error classification (Фаза 2) и enhances batch (Фаза 3 — если batch нестабилен, fallback обеспечивает safety net). Финальная фаза — добавляет reliability поверх готовой batch архитектуры.
+
+**Delivers:**
+- `ModalFallbackController` полная реализация: auto-fallback при 3 consecutive Modal failures
+- Push notification обновление: "Обработано N из M глав" при `completed_with_errors`
+- Entity Wiki: badge/warning "Обработано N/M глав" при partial success
+- WebSocket progress: "Запуск GPU...", "Загрузка модели..." во время cold start
+- Global Celery concurrency limit (Redis counter) для Modal GPU containers (не более 1-2 concurrent)
+
+### Порядок фаз: обоснование
+
+- **Фаза 1 первой** — устраняет активное загрязнение БД (каждая минута создаёт inconsistent данные) и готовит схемы для batch
+- **Фаза 2 второй** — error classification нужна batch runner'у для типизированных retry-решений; нельзя строить batch без понимания типов ошибок
+- **Фаза 3 третьей** — все hard dependencies выполнены (maxLength, finish_reason, error classification, pre-validation в составе фазы)
+- **Фаза 4 последней** — polish и reliability layer поверх работающего batch pipeline
 
 ### Research Flags
 
-Фазы, требующие дополнительного исследования при планировании:
-- **Фаза 1 (NER):** chunking стратегия для русской fiction, оптимальный chunk_size (100 vs 250 tokens), sentence boundary detection (razdel vs spaCy ru_core_news_sm)
-- **Фаза 3 (Synthesis):** ConsistencyManager compatibility с NEREntity input, batch synthesis prompt engineering для DeepSeek V3.2
+Требует Phase Research перед планированием:
+- **Phase 3** (Sub-batch) — `num_gpu_blocks_override` оптимальное значение неизвестно (требует profiling sweep), реальный speedup Qwen3.5 в batch неизвестен (DeltaNet hybrid architecture), оптимальный `SUB_BATCH_SIZE` неизвестен (1, 4, 8, 12?)
 
-Фазы со стандартными паттернами (research-phase необязателен):
-- **Фаза 0 (Infra):** pg_dump/restore — стандартная операция, Docker compose — хорошо задокументировано
-- **Фаза 2 (Classifier):** TF-IDF + LogReg — учебный паттерн, конкретные шаги известны
-
----
+Стандартные паттерны (без дополнительного research):
+- **Phase 1** — Pydantic `max_length`, Celery time budget, Modal config changes — всё задокументировано
+- **Phase 2** — Modal exception imports, Loguru structured logging — всё задокументировано
+- **Phase 4** — OpenRouter circuit breaker уже существует, WebSocket patterns уже реализованы
 
 ## Оценка уверенности
 
-| Область | Уверенность | Примечания |
-|---------|------------|------------|
-| Stack | HIGH | Все версии верифицированы по PyPI, Docker Hub, OpenRouter на 2026-03-24 |
-| Features | HIGH | Верифицировано по GLiNER2 EMNLP 2025, аудит кодовой базы SSH, 519 examples подсчитаны |
-| Architecture | HIGH | Основано на аудите реального кода (book_tasks.py, consistency_manager.py, feature_flag_manager.py) |
-| Pitfalls | HIGH | Подтверждено официальными Docker, Celery, PyTorch source + GitHub issues |
+| Область | Уровень | Обоснование |
+|---------|---------|-------------|
+| Stack | HIGH | vLLM v0.18.0 код проверен прямо. Modal exceptions в docs. Pydantic max_length documented. Единственное LOW: GPU snapshot (alpha) — исключён из milestone |
+| Features | HIGH | Все P0 фичи — прямой code review production-кода. Зависимости проверены через GitHub Issues. Speedup 7-13x — MEDIUM (расчётный из аудита, требует benchmark) |
+| Architecture | HIGH | Три новых компонента — чёткие границы ответственности, проверены против существующего кода. Batch API (PR #8648 merged) подтверждён |
+| Pitfalls | HIGH | Все critical pitfalls — direct production code review (commit `e5b430b`) + verified GitHub Issues. Единственное MEDIUM: конкретное значение num_gpu_blocks_override |
 
-**Общая уверенность:** HIGH
+**Overall confidence:** HIGH
 
-### Пробелы для проработки
+### Пробелы для уточнения
 
-- **GLiNER2 latency на production EPYC 9645** — оценка 100-200ms/chunk теоретическая, нужен бенчмарк в реальных условиях. Влияет на решение о batch size и concurrency.
-- **TF-IDF F1 на fancai данных** — диапазон 0.65-0.80 оценочный. Реальное значение определяется в Фазе 2 через LOO CV. Если F1 < 0.70 — автоматический переход на sentence-transformer head.
-- **PostgreSQL collation risk** — исследование утверждает несовместимость Alpine/Debian. Внутренняя документация Docker подтверждает риск, но конкретный PG 17 на production может вести себя иначе. **Mitigation:** pg_dump перед любыми изменениями, независимо от теории.
-- **DeepSeek V3.2 structured output quality** — маркетинговое утверждение "GPT-5 class". Реальное качество synthesis для русской fiction неизвестно. **Mitigation:** Pydantic validation + tenacity retries + Gemini fallback.
-
----
+- **`num_gpu_blocks_override` значение**: Bug #37121 repro на 4B-AWQ + DGX Spark + v0.17.1. Для 9B + L40S + v0.18.0 — гипотеза. Нужен profiling sweep в Фазе 3.
+- **Реальный speedup Qwen3.5 в batch**: DeltaNet (24/32 слоёв) имеет sequential dependency в recurrence. 7-13x — экстраполяция из аудита, не benchmark. Уточнить после первых batch тестов.
+- **GPU snapshot с vllm.LLM**: `enable_gpu_snapshot=True` уже включён в production, но `enable_sleep_mode` не добавлен в `LLM()`. Эффект неизвестен. POC требуется, но не в рамках v1.5.
+- **Sub-batch size оптимум**: Начало с 4. Может быть 8 или 12 после stabilization. Зависит от KV cache utilization и batch error rate.
 
 ## Источники
 
-### Первичные (HIGH confidence)
-- [GLiNER2 EMNLP 2025 paper](https://arxiv.org/html/2507.18546v1) — F1 benchmarks, Literature domain, architecture
-- [gliner2 v1.2.4 PyPI](https://pypi.org/project/gliner2/) — версия, Python requirements
-- [torch v2.11.0 PyPI](https://pypi.org/project/torch/) — версия, CPU wheel availability
-- [sentence-transformers v5.3.0 PyPI](https://pypi.org/project/sentence-transformers/) — Python/torch requirements
-- [pgvector 0.8.2 release](https://www.postgresql.org/about/news/pgvector-082-released-3245/) — CVE fix, PG17 support
-- [pgvector Docker Hub](https://hub.docker.com/r/pgvector/pgvector) — Debian-based images
-- [DeepSeek V3.2 OpenRouter](https://openrouter.ai/deepseek/deepseek-v3.2) — $0.26/$0.38, 164K context, проверено 2026-03-24
-- [docker-library/postgres Discussion #1192](https://github.com/docker-library/postgres/discussions/1192) — Alpine/Debian data incompatibility
-- [PyTorch multiprocessing docs](https://docs.pytorch.org/docs/stable/notes/multiprocessing.html) — fork safety
-- [celery/celery#6036](https://github.com/celery/celery/issues/6036), [#2927](https://github.com/celery/celery/issues/2927) — fork/memory issues
-- Кодовая база fancai: аудит через SSH (book_tasks.py, docker-compose.prod.yml, feature_flag_manager.py, entity.py)
+### Primary (HIGH confidence)
 
-### Вторичные (MEDIUM confidence)
-- [ru-en-RoSBERTa HuggingFace](https://huggingface.co/ai-forever/ru-en-RoSBERTa) — 400M params, 1024 dims
-- [ruMTEB NAACL 2025](https://aclanthology.org/2025.naacl-long.12/) — Russian embedding benchmarks
-- Существующее исследование: `docs/research/rag-nlp-optimization-research.md` (2026-03-23)
-- Аудит: `docs/research/rag-nlp-optimization-audit.md`
+- Производственный код commit `e5b430b` — прямой code review `book_tasks.py`, `llm_extractor.py`, `schemas.py`, `config.py`, `modal/app.py`
+- `docs/research/FINAL-consolidated-audit.md` — финальный аудит, перекрёстно верифицирован GPT 5.4 Codex
+- [vLLM PR #8648](https://github.com/vllm-project/vllm/pull/8648) — batch chat API, MERGED
+- [vLLM Structured Outputs docs](https://docs.vllm.ai/en/latest/features/structured_outputs/) — StructuredOutputsConfig API
+- [Modal exception reference](https://modal.com/docs/reference/modal.exception) — FunctionTimeoutError, RemoteError, InputCancellation
+- [Pydantic JSON Schema docs](https://docs.pydantic.dev/latest/concepts/json_schema/) — max_length -> maxLength
 
-### Третичные (LOW confidence — требует валидации)
-- DeepSeek V3.2 "GPT-5 class quality" — маркетинг, требует тестирования на fiction synthesis
-- GLiNER2 latency ~100-200ms на EPYC 9645 — теоретическая оценка
-- TF-IDF F1 0.65-0.80 на 519 examples — теоретическая оценка
+### Secondary (MEDIUM confidence)
+
+- [vLLM Issue #37121](https://github.com/vllm-project/vllm/issues/37121) — KV cache 7x overestimation (OPEN)
+- [vLLM Issue #16732](https://github.com/vllm-project/vllm/issues/16732) — batch error isolation (CLOSED, not_planned)
+- [vLLM Issue #35700](https://github.com/vllm-project/vllm/issues/35700) — Qwen3.5 structured output + thinking (OPEN)
+- [Modal GPU Snapshot blog](https://modal.com/blog/gpu-mem-snapshots) — alpha, benchmark до 3B
+- [Modal vLLM inference example](https://modal.com/docs/examples/vllm_inference) — compile cache volume pattern
+- [xgrammar maxLength support](https://deepwiki.com/mlc-ai/xgrammar/5.2-regular-expression-to-ebnf-conversion) — maxLength respected
+
+### Tertiary (LOW confidence)
+
+- GPU snapshot с vllm.LLM + snap=True — ноль официальных примеров. POC required.
+- Sub-batch speedup 7-13x для Qwen3.5 — расчётный, не измеренный. DeltaNet hybrid может снизить линейность.
 
 ---
-*Исследование завершено: 2026-03-24*
-*Готово для дорожной карты: да*
+*Research completed: 2026-03-27*
+*Ready for roadmap: yes*
