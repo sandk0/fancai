@@ -17,8 +17,12 @@ MAX_MODEL_LEN = 65536
 GPU_MEMORY_UTILIZATION = 0.90
 KV_CACHE_DTYPE = "fp8"
 
+# vLLM Bug #37121 (OPEN): 7x KV cache overestimation. Калибровать по production логам (D-14)
+NUM_GPU_BLOCKS_OVERRIDE = 512
+
 # Таймауты
-LLM_TIMEOUT = 600  # 10 мин
+LLM_TIMEOUT = 900  # 15 мин — длинные главы могут обрабатываться >10 мин
+VPS_TIMEOUT_BUFFER = 60  # секунд запаса для сетевого overhead
 IMAGE_TIMEOUT = 120  # 2 мин
 SCALEDOWN_WINDOW = 120  # 2 мин простоя до scale-to-zero
 

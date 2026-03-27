@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
-status: planning
-last_updated: "2026-03-27T22:11:33.486Z"
-last_activity: 2026-03-27
+status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
+last_updated: "2026-03-27T22:04:00Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
   completed_plans: 1
-  percent: 0
+  percent: 33
 ---
 
 # Состояние проекта
@@ -20,14 +20,14 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-27)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 35 — Стабилизация production semantics (корректные статусы, schema constraints, timeout защита)
+**Текущий фокус:** Phase 35 Plan 01 завершена — Modal constraints. Следующий: Plan 02 (семантика статусов книг).
 
 ## Текущая позиция
 
 Phase: 35 (1 of 4 в v1.5) — Стабилизация production semantics
-Plan: 03 of 03 в текущей фазе (Plan 03 завершён)
-Status: Phase 35 Plan 03 завершён — reconciliation endpoint + STAB-09 audit
-Last activity: 2026-03-27
+Plan: 02 of 03 (Plan 01 завершена)
+Status: Phase 35 Plan 01 завершена (max_length schemas, NUM_GPU_BLOCKS_OVERRIDE, LLM_TIMEOUT=900, STAB-08 fix)
+Last activity: 2026-03-28
 
 Progress: [███░░░░░░░] 33%
 
@@ -40,9 +40,7 @@ Progress: [███░░░░░░░] 33%
 | v1.0      | 9    | 23    | 9 дней | --           |
 | v1.1      | 6    | 13    | 92 min | 7 min        |
 | v1.2      | 8    | 21    | 4 дня  | --           |
-| v1.3      | 10   | 14    | 9 дней | --           |
-| v1.4      | 2/6  | 1/2   | 4 дня  | abandoned    |
-| v1.5      | 0/4  | 0/?   | --     | --           |
+| v1.3      | 5    | —     | —      | —            |
 
 ## Накопленный контекст
 
@@ -50,29 +48,68 @@ Progress: [███░░░░░░░] 33%
 
 Полная таблица решений: .planning/PROJECT.md
 
-- v1.4 -> v1.5: Стратегический разворот от self-hosted LLM к Modal batch + OpenRouter fallback
-- Эталонный документ: `docs/research/FINAL-consolidated-audit.md` (перекрёстно проверен GPT 5.4)
-- select(Book.id, Book.title) для scalar query без lazy raise; отдельный select(Book) для update (Phase 35 Plan 03)
-- logger.opt(exception=True) в файлах со stdlib logging заменён на exc_info=True -- предотвращает AttributeError в error handlers (Phase 35 Plan 03)
+- Корневая причина: iOS Safari НЕ доставляет touch events в iframe contentDocument (100% source:parent)
+- Стратегия фикса: полноэкранный iOS overlay с FSM для всех жестов (Phase 22)
+- Overlay left:10px для Safari back gesture, touch-action:none
+- FSM вынесена в shared utility gestureUtils.ts (Phase 23 Plan 01)
+- Shared touchRef между overlay и iframe handler (platform-exclusive)
+- Shared FSM через dependency injection (GestureFSMDeps interface)
+- Overlay top динамический: 0 в immersive, safe-area+64px с header
+- UAT на iPhone 15 Pro: все 8 проверок пройдены (Safari, Chrome, PWA) -- Phase 23 Plan 02
+- Строго последовательный pipeline: каждая фаза зависит от предыдущей
+- TQ useQuery refetchInterval заменяет ручной setInterval для Celery task polling (Phase 26 Plan 02)
+- Visibility пауза через встроенный focusManager вместо useVisibilityManager (Phase 26 Plan 02)
+- useImageForDescription TQ query как SSoT для изображений в DescriptionDrawer (Phase 26 Plan 01)
+- mutation.reset() при смене описания для предотвращения stale data (Phase 26 Plan 01)
+- imageKeys.byBook инвалидация в useGenerateImage для обновления images[] (Phase 26 Plan 01)
+- ValueError для HTTP 400 (non-retryable), RateLimitError для HTTP 429 (retryable) в generate_image (Phase 27 Plan 01)
+- RuntimeError для missing choices в OpenRouter ответе -- транзиентная ошибка (Phase 27 Plan 01)
+- Structured logging extra: model, duration, response_preview, prompt_preview (Phase 27 Plan 01)
+- RuntimeError добавлен в IMAGE_GENERATION_EXCEPTIONS для tenacity retry (Phase 27 Plan 02)
+- _generate_with_retry как отдельный метод -- cache check и prompt engineering НЕ повторяются при retry (Phase 27 Plan 02)
+- metadata хранится как JSON string в optional поле CachedImage -- schema version bump не нужен (Phase 28 Plan 01)
+- getWithMetadata() -- отдельный метод для backward compatibility с get() (Phase 28 Plan 01)
+- useDeleteImage принимает {imageId, descriptionId} -- нет внешних consumers, breaking change безопасен (Phase 28 Plan 01)
+- useRegenerateImage() вызывается напрямую внутри ImageModal (direct hook) -- безопасно т.к. conditional render = mount/unmount (Phase 28 Plan 02)
+- BookReader.tsx: useReaderImageModal заменён на inline state вместо удаления всего orphaned компонента (Phase 28 Plan 02)
+- imageCache.release() убран из closeModal -- blob URL shared с TQ cache (staleTime 30 мин), revoke ломает изображение (Phase 28.1 Plan 01)
+- DescriptionDrawer: прямой вызов imagesAPI.generateAsync вместо useGenerateImage -- polling pattern требует useState + useQuery (Phase 28.2 Plan 02)
+- Удалён generateMutation.data из image preview -- SSoT через TQ invalidation после polling completion (Phase 28.2 Plan 02)
+- 409 conflict обрабатывается через TQ cache invalidation без показа ошибки (Phase 28.2 Plan 02)
+- openrouter_image_breaker как отдельный CircuitBreaker -- LLM failures НЕ блокируют image generation (Phase 28.2 Plan 01)
+- pipeline_stage structured logging с timing на каждом этапе image pipeline для диагностики (Phase 28.2 Plan 01)
+
+- NERService lazy singleton: get_ner_service() с threading.Lock, паттерн как get_gemini_extractor() (Phase 30 Plan 01)
+- TextChunker: razdel.sentenize() + DeBERTa tokenizer, 384 max_tokens, 2 sentence overlap (Phase 30 Plan 01)
+- LABEL_MAP: person->character, location->location, artifact->object, organization->object (Phase 30 Plan 01)
+- SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
+- Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
+
+- max_length constraints на всех string полях Modal schemas: Pydantic maxLength -> xgrammar enforcement (Phase 35 Plan 01)
+- NUM_GPU_BLOCKS_OVERRIDE=512 как стартовое значение — калибровать по production логам (Phase 35 Plan 01)
+- STAB-08: max_tokens в reduce_entities было 4096, исправлено на 16384 (Phase 35 Plan 01)
+- Standard logging (не loguru) для Modal контейнера (Phase 35 Plan 01)
+
+### Ожидающие задачи
+
+Нет.
+
+### Эволюция Roadmap
+
+- Phase 26 добавлена: fix(images): исправить баги генерации и отображения изображений в читалке
+- Phase 27 добавлена: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
+- Phase 28 добавлена: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
+- Phase 28.1 inserted after Phase 28: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (URGENT)
+- Phase 28.2 inserted after Phase 28: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (URGENT)
 
 ### Блокеры/Опасения
 
-- Production semantic corruption: `descriptions_extracted=True` при failed chapters (Phase 35 fix)
-- vLLM Issue #37121 (OPEN): 7x KV cache overestimation для Qwen3.5 (Phase 35 workaround)
-- vLLM Issue #16732 (closed, not fixed): batch error isolation отсутствует (Phase 37 pre-validation)
-- Phase 37 требует phase research перед планированием (sub-batch size, KV cache profiling)
-
-### Текущее состояние production (baseline)
-
-- Modal pipeline: `USE_MODAL_PIPELINE = true`, Qwen3.5-9B на L40S ($1.95/hr)
-- Sequential mode (Semaphore=1), LLM_TIMEOUT=600s
-- 10/23 глав падают (timeout + broken JSON)
-- `descriptions_extracted=True` безусловно (semantic corruption)
-- `maxLength` в schemas отсутствует, `num_gpu_blocks_override` отсутствует
+- Противоречие `touch-action: pan-x pan-y` vs `manipulation` на iOS -- разрешить в Phase 21
+- Тестирование только на физическом iPhone 15 Pro (iOS 26.3.1)
+- PWA standalone mode имеет недокументированные отличия от Safari tab
 
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Остановка: Phase 35 Plan 03 завершён (reconciliation endpoint + STAB-09 audit)
-Файл возобновления: `.planning/phases/35-production-semantics/35-03-SUMMARY.md`
-Следующий шаг: Ожидание завершения Plans 01-02 (параллельное выполнение)
+Phase 35 Plan 01 завершена. max_length schemas (502c66d, 7bdf0cd) + config/llm_extractor (3b18d39). 10 тестов проходят.
+Resume file: .planning/phases/35-production-semantics/35-01-SUMMARY.md

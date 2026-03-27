@@ -11,14 +11,14 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 ### Стабилизация
 
 - [ ] **STAB-01**: Пользователь видит корректный статус книги — `descriptions_extracted=True` только при 0 failed chapters, WebSocket публикует `completed_with_errors` при partial failures
-- [x] **STAB-02**: Существующие книги с inconsistent статусами обнаружены и помечены для переобработки (reconciliation script)
-- [ ] **STAB-03**: Все string поля в Pydantic-схемах Modal имеют `max_length` constraints, предотвращающие broken JSON от неограниченной генерации
+- [ ] **STAB-02**: Существующие книги с inconsistent статусами обнаружены и помечены для переобработки (reconciliation script)
+- [x] **STAB-03**: Все string поля в Pydantic-схемах Modal имеют `max_length` constraints, предотвращающие broken JSON от неограниченной генерации
 - [ ] **STAB-04**: llm_extractor проверяет `finish_reason` перед `json.loads()` — при `finish_reason="length"` помечает результат как incomplete
 - [ ] **STAB-05**: Modal вызовы защищены VPS-side timeout (`asyncio.wait_for(..., timeout=LLM_TIMEOUT+60)`) — Celery поток не блокируется при зависании Modal
 - [ ] **STAB-06**: `LLM_TIMEOUT=900s` + per-task Celery time budget check предотвращает превышение hard limit
-- [ ] **STAB-07**: `num_gpu_blocks_override` настроен в Modal config — обход KV cache overestimation для Qwen3.5 (Bug #37121)
-- [ ] **STAB-08**: `reduce_entities` max_tokens увеличен до 16384 — корректная обработка книг со 100+ entities
-- [x] **STAB-09**: Все файлы с `logger.opt()` проверены — Loguru import гарантирован; файлы в Modal контейнере используют стандартный logging API
+- [x] **STAB-07**: `num_gpu_blocks_override` настроен в Modal config — обход KV cache overestimation для Qwen3.5 (Bug #37121)
+- [x] **STAB-08**: `reduce_entities` max_tokens увеличен до 16384 — корректная обработка книг со 100+ entities
+- [ ] **STAB-09**: Все файлы с `logger.opt()` проверены — Loguru import гарантирован; файлы в Modal контейнере используют стандартный logging API
 
 ### Error & Observability
 
@@ -72,14 +72,14 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | STAB-01 | Phase 35 | Pending |
-| STAB-02 | Phase 35 | Complete |
-| STAB-03 | Phase 35 | Pending |
+| STAB-02 | Phase 35 | Pending |
+| STAB-03 | Phase 35 | Complete (35-01) |
 | STAB-04 | Phase 36 | Pending |
 | STAB-05 | Phase 35 | Pending |
 | STAB-06 | Phase 35 | Pending |
-| STAB-07 | Phase 35 | Pending |
-| STAB-08 | Phase 35 | Pending |
-| STAB-09 | Phase 35 | Complete |
+| STAB-07 | Phase 35 | Complete (35-01) |
+| STAB-08 | Phase 35 | Complete (35-01) |
+| STAB-09 | Phase 35 | Pending |
 | OBS-01 | Phase 36 | Pending |
 | OBS-02 | Phase 36 | Pending |
 | BATCH-01 | Phase 37 | Pending |

@@ -1,6 +1,7 @@
 """LLM Extractor — Qwen3.5-9B на vLLM для извлечения сущностей и описаний."""
 
 import json
+import logging
 
 import modal
 
@@ -13,6 +14,7 @@ from config import (
     MAX_MODEL_LEN,
     GPU_MEMORY_UTILIZATION,
     KV_CACHE_DTYPE,
+    NUM_GPU_BLOCKS_OVERRIDE,
 )
 
 
@@ -35,6 +37,11 @@ class LLMExtractor:
             kv_cache_dtype=KV_CACHE_DTYPE,
             dtype="bfloat16",
             enable_prefix_caching=True,
+            num_gpu_blocks_override=NUM_GPU_BLOCKS_OVERRIDE,
+        )
+        logging.info(
+            f"vLLM initialized: num_gpu_blocks_override={NUM_GPU_BLOCKS_OVERRIDE}, "
+            f"max_model_len={MAX_MODEL_LEN}, gpu_memory_utilization={GPU_MEMORY_UTILIZATION}"
         )
 
     @modal.method()
@@ -66,7 +73,7 @@ class LLMExtractor:
         from vllm.sampling_params import StructuredOutputsParams
 
         params = SamplingParams(
-            max_tokens=4096,
+            max_tokens=16384,  # STAB-08: увеличено для книг со 100+ entities
             temperature=0.0,
             structured_outputs=StructuredOutputsParams(json=schema_json),
         )
