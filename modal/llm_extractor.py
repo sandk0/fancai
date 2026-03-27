@@ -46,7 +46,7 @@ class LLMExtractor:
         from vllm.sampling_params import StructuredOutputsParams
 
         params = SamplingParams(
-            max_tokens=8192,
+            max_tokens=32768,
             temperature=0.1,
             structured_outputs=StructuredOutputsParams(json=schema_json),
         )
