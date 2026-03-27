@@ -270,6 +270,90 @@ async def _atomic_cleanup_book_state(book_id: UUID, error_msg: str):
         )
 
 
+async def _finalize_book_status(db, book, *, total_chapters: int) -> tuple:
+    """Finalize book status after chapter processing.
+
+    Checks for failed chapters BEFORE setting descriptions_extracted (STAB-01, D-01).
+    Publishes correct WebSocket status (D-02). Guards push notification (D-04).
+
+    Returns:
+        (has_failures: bool, failed_chapters: list of (chapter_number, error_preview) tuples)
+    """
+    # 1. Count failed chapters BEFORE setting statuses (D-01)
+    failed_chapters_result = await db.execute(
+        select(Chapter.chapter_number, Chapter.parsing_error)
+        .where(Chapter.book_id == book.id)
+        .where(Chapter.parsing_error.isnot(None))
+    )
+    failed_chapters = [(r[0], r[1][:100]) for r in failed_chapters_result.fetchall()]
+    has_failures = len(failed_chapters) > 0
+
+    if has_failures:
+        logger.warning(
+            f"Book {book.id} has {len(failed_chapters)} failed chapters: "
+            f"{[c[0] for c in failed_chapters]}"
+        )
+
+    # 2. Set statuses based on result (D-01, D-03)
+    book.is_processing = False
+    book.is_parsed = True
+    book.parsing_progress = 100
+    book.descriptions_extracted = not has_failures  # D-01: True only when 0 failures
+    book.descriptions_processing_error = (
+        f"Ошибки в {len(failed_chapters)} главах: {[c[0] for c in failed_chapters]}"
+        if has_failures
+        else None
+    )  # D-03: preserve failure message
+    await db.commit()
+
+    # 3. WebSocket with correct status (D-02)
+    try:
+        ws_status = "completed_with_errors" if has_failures else "completed"
+        ws_message = (
+            f"Обработка завершена с ошибками ({len(failed_chapters)} глав)"
+            if has_failures
+            else "Обработка завершена успешно!"
+        )
+        await publish_book_progress(
+            book_id=str(book.id),
+            progress=100,
+            chapter=total_chapters,
+            total_chapters=total_chapters,
+            status=ws_status,
+            message=ws_message,
+            **(
+                {
+                    "chapters_failed": len(failed_chapters),
+                    "failed_chapter_numbers": [c[0] for c in failed_chapters],
+                }
+                if has_failures
+                else {}
+            ),
+        )
+    except Exception as ws_err:
+        logger.warning("Failed to publish WebSocket completion", error=str(ws_err))
+
+    # 4. Push notification ONLY on full success (D-04)
+    if not has_failures:
+        try:
+            await push_notification_service.send_book_ready_notification(
+                db=db,
+                user_id=book.user_id,
+                book_id=book.id,
+                book_title=book.title,
+            )
+            logger.debug("Push notification sent for book ready", book_id=str(book.id))
+        except Exception as e:
+            logger.warning("Failed to send book ready push notification", error=str(e))
+    else:
+        logger.info(
+            f"Push notification skipped: {len(failed_chapters)} failed chapters",
+            book_id=str(book.id),
+        )
+
+    return has_failures, failed_chapters
+
+
 async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     """
     Асинхронная функция обработки книги.
@@ -911,26 +995,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         except Exception as e:
             logger.error("Failed to generate master references", error=str(e))
 
-        # Помечаем книгу как готовую с извлечёнными описаниями
-        book.is_processing = False
-        book.is_parsed = True
-        book.parsing_progress = 100
-        book.descriptions_extracted = True  # НОВОЕ: флаг успешного извлечения
-        book.descriptions_processing_error = None  # Сбрасываем ошибку
-        await db.commit()
-
-        # Публикуем завершение через WebSocket
-        try:
-            await publish_book_progress(
-                book_id=str(book_id),
-                progress=100,
-                chapter=total_chapters,
-                total_chapters=total_chapters,
-                status="completed",
-                message="Обработка завершена успешно!",
-            )
-        except Exception as ws_err:
-            logger.warning("Failed to publish WebSocket completion", error=str(ws_err))
+        # Финализация: статусы, WebSocket, cache, push notification
+        has_failures, failed_chapters = await _finalize_book_status(
+            db,
+            book,
+            total_chapters=total_chapters,
+        )
 
         # Инвалидируем кэш
         try:
@@ -949,24 +1019,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         except Exception as e:
             logger.warning("Failed to invalidate cache", error=str(e))
 
-        failed_chapters_result = await db.execute(
-            select(Chapter.chapter_number, Chapter.parsing_error)
-            .where(Chapter.book_id == book_id)
-            .where(Chapter.parsing_error.isnot(None))
-        )
-        failed_chapters = [
-            (r[0], r[1][:100]) for r in failed_chapters_result.fetchall()
-        ]
-
-        if failed_chapters:
-            logger.warning(
-                f"Book {book_id} has {len(failed_chapters)} failed chapters: "
-                f"{[c[0] for c in failed_chapters]}"
-            )
-
         result = {
             "book_id": str(book_id),
-            "status": "completed" if not failed_chapters else "completed_with_errors",
+            "status": "completed_with_errors" if has_failures else "completed",
             "chapters_count": len(chapters),
             "chapters_processed": chapters_processed,
             "chapters_failed": len(failed_chapters),
@@ -984,18 +1039,5 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             chapters_processed=chapters_processed,
             descriptions_extracted=total_descriptions,
         )
-
-        # Send push notification to user (non-blocking)
-        try:
-            await push_notification_service.send_book_ready_notification(
-                db=db,
-                user_id=book.user_id,
-                book_id=book.id,
-                book_title=book.title,
-            )
-            logger.debug("Push notification sent for book ready", book_id=str(book_id))
-        except Exception as e:
-            # Don't fail the task if push notification fails
-            logger.warning("Failed to send book ready push notification", error=str(e))
 
         return result

@@ -12,6 +12,7 @@ async def publish_book_progress(
     total_chapters: int = 0,
     status: str = "processing",
     message: str = "",
+    **kwargs,
 ):
     """
     Publish book processing progress to Redis PubSub.
@@ -25,8 +26,9 @@ async def publish_book_progress(
         progress: 0-100 percent
         chapter: Current chapter number
         total_chapters: Total chapters in book
-        status: "processing", "completed", "failed", "cancelled"
+        status: "processing", "completed", "completed_with_errors", "failed", "cancelled"
         message: Optional status message
+        **kwargs: Extra fields forwarded to WebSocket data (e.g. chapters_failed, failed_chapter_numbers)
     """
     try:
         import redis.asyncio as aioredis
@@ -42,6 +44,7 @@ async def publish_book_progress(
             "status": status,
             "message": message,
         }
+        data.update(kwargs)
 
         channel = f"book_progress:{book_id}"
 

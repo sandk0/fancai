@@ -185,37 +185,33 @@ class TestPubsubKwargs:
     @pytest.mark.asyncio
     async def test_pubsub_passes_extra_kwargs(self):
         """publish_book_progress should include extra kwargs in published data."""
+        import json
         from app.core.pubsub import publish_book_progress
 
-        with patch("app.core.pubsub.aioredis") as mock_aioredis_module:
-            # Need to patch the import inside the function
-            import app.core.pubsub as pubsub_module
+        mock_redis = AsyncMock()
+        mock_redis.publish = AsyncMock(return_value=1)
+        mock_redis.aclose = AsyncMock()
 
-            mock_redis = AsyncMock()
-            mock_redis.publish = AsyncMock(return_value=1)
-            mock_redis.aclose = AsyncMock()
+        with patch(
+            "redis.asyncio.from_url",
+            new_callable=AsyncMock,
+            return_value=mock_redis,
+        ):
+            await publish_book_progress(
+                book_id="test-id",
+                progress=100,
+                chapter=10,
+                total_chapters=10,
+                status="completed_with_errors",
+                message="Test",
+                chapters_failed=2,
+                failed_chapter_numbers=[3, 7],
+            )
 
-            with patch(
-                "redis.asyncio.from_url",
-                new_callable=AsyncMock,
-                return_value=mock_redis,
-            ):
-                await publish_book_progress(
-                    book_id="test-id",
-                    progress=100,
-                    chapter=10,
-                    total_chapters=10,
-                    status="completed_with_errors",
-                    message="Test",
-                    chapters_failed=2,
-                    failed_chapter_numbers=[3, 7],
-                )
-
-            # Verify published JSON includes extra kwargs
-            import json
-
-            call_args = mock_redis.publish.call_args
-            if call_args:
-                published_data = json.loads(call_args[0][1])
-                assert published_data.get("chapters_failed") == 2
-                assert published_data.get("failed_chapter_numbers") == [3, 7]
+        # Verify published JSON includes extra kwargs
+        call_args = mock_redis.publish.call_args
+        assert call_args is not None, "redis.publish was not called"
+        published_data = json.loads(call_args[0][1])
+        assert published_data["chapters_failed"] == 2
+        assert published_data["failed_chapter_numbers"] == [3, 7]
+        assert published_data["status"] == "completed_with_errors"
