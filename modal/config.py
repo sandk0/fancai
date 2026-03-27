@@ -7,7 +7,9 @@ VOLUME_PATH = "/models"
 VOLUME_NAME = "fancai-models"
 
 # GPU
-LLM_GPU = "L4"
+# L40S (48GB) для LLM — Qwen3.5-9B (17.7 GiB) + KV cache для 65K контекста
+# L4 (24GB) для ImageGen — FLUX.2 Klein (~8 GiB), хватает с запасом
+LLM_GPU = "L40S"
 IMAGE_GPU = "L4"
 
 # vLLM
