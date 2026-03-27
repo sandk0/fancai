@@ -107,7 +107,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 **Milestone Goal:** Стабилизация сломанного Modal pipeline (10/23 глав падают) и переход от sequential per-chapter к chunked sub-batch обработке. Ожидаемый эффект: корректные статусы книг, 7-13x ускорение, $3.48 -> $0.26-0.49 за книгу.
 
-- [ ] **Phase 35: Стабилизация production semantics** - Корректные статусы книг, schema constraints, timeout/budget защита
+- [x] **Phase 35: Стабилизация production semantics** - Корректные статусы книг, schema constraints, timeout/budget защита (completed 2026-03-27)
 - [ ] **Phase 36: Error classification и observability** - Типизированная классификация ошибок, structured logging, finish_reason проверка
 - [ ] **Phase 37: Sub-batch архитектура** - Chunked batch обработка 4-8 глав за вызов, pre-validation, compile cache
 - [ ] **Phase 38: Auto-fallback и production hardening** - Circuit breaker Modal->OpenRouter, xgrammar backend для batch
@@ -125,7 +125,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   4. Celery task не блокируется при зависании Modal — VPS-side timeout + time budget check предотвращают превышение hard limit
   5. `num_gpu_blocks_override` настроен — снижение timeout rate из-за KV cache overestimation Qwen3.5
   6. Push notification `send_book_ready_notification` НЕ отправляется при `completed_with_errors`
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 35-01-PLAN.md — Modal constraints: max_length schemas, num_gpu_blocks_override, LLM_TIMEOUT=900
@@ -185,7 +185,7 @@ Plans:
 | 16-20 | v1.2 | 21/21 | Complete | 2026-03-13 |
 | 21-28.2 | v1.3 | 14/14 | Complete | 2026-03-23 |
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
-| 35. Стабилизация production semantics | v1.5 | 1/3 | In progress | - |
+| 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
 | 36. Error classification и observability | v1.5 | 0/? | Not started | - |
 | 37. Sub-batch архитектура | v1.5 | 0/? | Not started | - |
 | 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
