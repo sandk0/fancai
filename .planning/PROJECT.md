@@ -43,19 +43,30 @@
 
 - ✓ Docker и DB инфраструктура для NLP: pgvector, Dockerfile.celery, 4GB Celery, schema migration, feature flags (INFRA-01..05) — v1.4
 
+- ✓ Production semantics: корректные статусы книг, maxLength constraints, VPS timeout, reconciliation endpoint (STAB-01..03, STAB-05..09) — v1.5
+
 ### Active
 
-## Current Milestone: v1.4 Оптимизация обработки книг
+## Current Milestone: v1.5 Modal Batch Processing & Production Stability
 
-**Goal:** Миграция с all-LLM pipeline на гибридную архитектуру (GLiNER2 + classifier + pgvector + LLM synthesis), снижение стоимости обработки книги с ~$1.50 до ~$0.02-0.05 (97-99%).
+**Goal:** Стабилизация и ускорение текущего Modal pipeline (vLLM Qwen3.5-9B на L40S). Переход от sequential per-chapter обработки к chunked sub-batch. OpenRouter (Gemini 3.0 Flash) как fallback.
+
+**Входной документ:** `docs/research/FINAL-consolidated-audit.md` (финальный аудит, перекрёстно проверен GPT 5.4 Codex)
 
 **Target features:**
-- GLiNER2 NER: локальная entity extraction с точными позициями (бесплатно, 205M params)
-- Description classifier: rule-based + TF-IDF/sentence-transformer вместо LLM для описаний
-- pgvector embeddings: контекстный поиск для entity synthesis
-- LLM synthesis: один batch-вызов на книгу (DeepSeek V3.2 / Gemini 3.1 Flash Lite)
-- Feature flags: поэтапный rollout с rollback на текущий pipeline
-- Docker: pgvector/pgvector:pg17, Celery worker 4GB RAM, concurrency=1
+- Стабилизация production semantics: корректные статусы книг при partial failures
+- Schema constraints: maxLength на все string fields для предотвращения broken JSON
+- Sub-batch vLLM processing: chunked batch (4-8 глав) вместо sequential per-chapter
+- Error classification: раздельная обработка timeout/JSON error/Modal error
+- Observability: structured logging per chapter с метриками latency/cost
+- Cold start optimization: compile cache volume, потенциально GPU snapshots
+- OpenRouter fallback: автоматический переход на Gemini при недоступности Modal
+
+**Текущий production стек (baseline):**
+- GPU: Modal L40S (48GB, $1.95/hr), vLLM v0.18.0, Qwen3.5-9B
+- Mode: sequential (Semaphore=1), LLM_TIMEOUT=600s
+- Проблемы: 10/23 глав падают (timeout + broken JSON), semantic corruption статусов
+- Fallback: OpenRouter Gemini 3.0 Flash (существующий pipeline)
 
 ### Out of Scope
 
@@ -77,6 +88,7 @@ Shipped v1.0 за 9 дней (2026-03-01 → 2026-03-09). 9 фаз, 23 план�
 Shipped v1.1 за 1 день (2026-03-09). 6 фаз, 13 планов, 21 требование. +9674/-2680 строк, 74 файла.
 Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 13 требований. +64354/-5565 строк, 350 файлов.
 Shipped v1.3 за 9 дней (2026-03-14 → 2026-03-23). 10 фаз, 14 планов, 20 требований. 88 коммитов.
+Abandoned v1.4 (2026-03-23 → 2026-03-27). Strategic pivot: self-hosted LLM → Modal batch + OpenRouter. Phase 29 done, Phase 30 partial.
 
 **Текущее состояние кодовой базы:**
 - Frontend: ~130K LOC TypeScript/React 19 + Vite 7
@@ -155,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-24 after v1.4 milestone start*
+*Last updated: 2026-03-27 after v1.5 milestone start*
