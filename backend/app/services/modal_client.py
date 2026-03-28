@@ -136,3 +136,43 @@ def modal_response_to_chapter_result(
         entities=entities,
         relationships=relationships,
     )
+
+
+def process_batch_results(
+    batch_results: list[dict],
+    batch_chapters: list,
+) -> tuple[list[tuple], list]:
+    """Process batch extraction results, separating successful from failed (D-18).
+
+    Args:
+        batch_results: [{result, metrics, chapter_idx, truncated_text?}] from extract_chapters_batch
+        batch_chapters: original Chapter objects in same order
+
+    Returns:
+        (successful: [(chapter, result_dict)], failed: [chapter])
+        result_dict contains: analysis (ChapterAnalysisResult), metrics, raw_result
+    """
+    successful: list[tuple] = []
+    failed: list = []
+
+    for item in batch_results:
+        ch = batch_chapters[item["chapter_idx"]]
+        if item["result"] is None:
+            # Truncated or failed -> retry individual
+            failed.append(ch)
+        else:
+            chapter_result = modal_response_to_chapter_result(
+                {"result": item["result"], "metrics": item["metrics"]}
+            )
+            successful.append(
+                (
+                    ch,
+                    {
+                        "analysis": chapter_result,
+                        "metrics": item["metrics"],
+                        "raw_result": item["result"],
+                    },
+                )
+            )
+
+    return successful, failed

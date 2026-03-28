@@ -28,7 +28,9 @@ from app.services.modal_client import (
     modal_response_to_chapter_result,
     extract_modal_metrics,
     extract_modal_result,
+    process_batch_results,
 )
+from app.services.batch_grouping import group_chapters_into_batches, estimate_tokens
 from app.core.error_classifier import classify_error, ERROR_TYPE_TRUNCATED
 from app.prompts.modal_extraction import (
     EXTRACTION_SYSTEM_PROMPT,
@@ -43,24 +45,30 @@ import time
 CELERY_HARD_LIMIT = 10800  # 3 hours, from celery_app.py task-level override
 SAFETY_MARGIN = 300  # 5 minutes buffer for cleanup/commit
 VPS_TIMEOUT = 960  # LLM_TIMEOUT(900) + 60s buffer (D-10). Local constant — not imported from modal/config.py (different services)
+VPS_BATCH_TIMEOUT = (
+    1410  # D-15: LLM_TIMEOUT(900) * 1.5 + 60. Batch faster than N*single
+)
 
 
-def check_time_budget(task_start_time: float, *, chapter_idx: int) -> None:
+def check_time_budget(
+    task_start_time: float, *, chapter_idx: int, timeout_needed: int = VPS_TIMEOUT
+) -> None:
     """Check if enough time remains before Celery hard limit.
 
-    Raises TimeoutError if remaining time < VPS_TIMEOUT (STAB-06, D-12).
+    Raises TimeoutError if remaining time < timeout_needed (STAB-06, D-12, D-22).
     Call before each Modal/LLM chapter extraction.
 
     Args:
         task_start_time: time.monotonic() value from task start
         chapter_idx: chapter index for error message
+        timeout_needed: minimum seconds required (default VPS_TIMEOUT for backward compat)
     """
     elapsed = time.monotonic() - task_start_time
     remaining = CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN
-    if remaining < VPS_TIMEOUT:
+    if remaining < timeout_needed:
         raise TimeoutError(
             f"Time budget exhausted: remaining={remaining:.0f}s, "
-            f"needed={VPS_TIMEOUT}s. Skipping chapter {chapter_idx}."
+            f"needed={timeout_needed}s. Skipping chapter/batch {chapter_idx}."
         )
 
 
@@ -86,6 +94,340 @@ def _log_chapter_result(
         inference_ms=m.get("inference_ms", 0),
         is_cold_start=m.get("is_cold_start", False),
     ).info("chapter_processed")
+
+
+async def _save_chapter_extraction_result(
+    session,
+    chapter,
+    analysis_result,
+    *,
+    book_id,
+    idx,
+    metrics=None,
+    modal_raw_descriptions=None,
+) -> int:
+    """Save extraction result to DB. Returns: count of descriptions.
+
+    Extracted logic from process_chapter_safe -- ConsistencyManager,
+    descriptions, entity events, description-entity links, chapter status update.
+    Reused in batch mode and in individual retry.
+    """
+    from app.models.description import Description as DescriptionModel, DescriptionType
+    from app.models.description_entity import DescriptionEntity
+    from app.models.entity_event import EntityEvent
+
+    # Consistency & Logic (Map Phase)
+    local_mgr = ConsistencyManager(session)
+    entity_map = await local_mgr.process_chapter_analysis(
+        str(book_id),
+        analysis_result,
+        chapter_id=str(chapter.id),
+        chapter_index=idx,
+    )
+
+    # Create EntityEvents from extraction
+    for raw_entity in analysis_result.entities:
+        if raw_entity.chapter_event_action:
+            resolved = entity_map.get(raw_entity.name.casefold()[:255])
+            if resolved:
+                event = EntityEvent(
+                    entity_id=resolved.id,
+                    chapter_id=chapter.id,
+                    chapter_number=idx,
+                    event_action=raw_entity.chapter_event_action,
+                    event_inner_state=raw_entity.chapter_event_inner,
+                )
+                session.add(event)
+
+    # Save Descriptions and create DescriptionEntity links
+    descriptions_data = analysis_result.descriptions or []
+
+    for i, d in enumerate(descriptions_data):
+        d_dict = cast(
+            Dict[str, Any],
+            (
+                d.to_dict()
+                if hasattr(d, "to_dict")
+                else (dict(d) if isinstance(d, dict) else {"content": str(d)})
+            ),
+        )
+        try:
+            d_type = DescriptionType(d_dict.get("type", "location"))
+        except ValueError:
+            logger.warning(
+                f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
+            )
+            d_type = DescriptionType.LOCATION
+
+        new_desc = DescriptionModel(
+            chapter_id=chapter.id,
+            type=d_type,
+            content=d_dict.get("content", ""),
+            confidence_score=d_dict.get("confidence_score", 0.8),
+            priority_score=d_dict.get("priority_score", 0.5),
+            position_in_chapter=i,
+            word_count=d_dict.get("word_count", 0),
+        )
+        # Проброс image_prompt_en из Modal extraction
+        if modal_raw_descriptions:
+            content_key = d_dict.get("content", "")
+            if content_key in modal_raw_descriptions:
+                new_desc.image_prompt_en = modal_raw_descriptions[content_key]
+        session.add(new_desc)
+        await session.flush()  # Get new_desc.id
+
+        # Create DescriptionEntity links for spoiler protection
+        entities_mentioned = d_dict.get("entities_mentioned", [])
+        entities_linked = 0
+        entities_not_found = []
+
+        for entity_name in entities_mentioned:
+            if not entity_name:
+                continue
+            entity = find_entity_fuzzy(entity_name, entity_map)
+            if entity:
+                desc_entity = DescriptionEntity(
+                    description_id=new_desc.id,
+                    entity_id=entity.id,
+                    confidence=d_dict.get("confidence_score", 0.8),
+                    mention_text=entity_name,
+                )
+                session.add(desc_entity)
+                entities_linked += 1
+            else:
+                entities_not_found.append(entity_name)
+
+        if entities_mentioned:
+            logger.debug(
+                f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
+                f"linked={entities_linked}, not_found={entities_not_found}, "
+                f"entity_map_keys={list(entity_map.keys())[:10]}..."
+            )
+            if entities_not_found:
+                logger.warning(
+                    f"Entity lookup miss in chapter {chapter.chapter_number}: "
+                    f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
+                )
+
+    chapter.descriptions_found = len(descriptions_data)
+    chapter.is_description_parsed = True
+    chapter.parsed_at = datetime.now(timezone.utc)
+    chapter.parsing_error = None
+    chapter.parse_attempts += 1
+
+    return len(descriptions_data)
+
+
+async def _process_chapters_batch_mode(
+    *,
+    chapters: list,
+    book_id,
+    db,
+    task_start_time: float,
+    total_chapters: int,
+) -> tuple[int, int]:
+    """Batch-mode chapter processing (Phase 37, D-17..D-23).
+
+    Groups chapters into sub-batches, processes each via extract_chapters_batch.remote(),
+    commits after each sub-batch (checkpoint), retries failed chapters individually.
+
+    Returns: (chapters_processed_count, total_descriptions_count)
+    """
+    chapters_processed = 0
+    total_descriptions = 0
+    failed_chapters: list = []
+
+    # Group chapters into batches + oversized
+    batches, oversized = group_chapters_into_batches(chapters)
+
+    logger.info(
+        f"Batch mode: {len(batches)} batches, "
+        f"{sum(len(b) for b in batches)} chapters, "
+        f"{len(oversized)} oversized",
+        book_id=str(book_id),
+    )
+
+    # Process each batch
+    for batch_idx, batch in enumerate(batches):
+        # Time budget check with batch timeout (D-22)
+        check_time_budget(
+            task_start_time, chapter_idx=batch_idx, timeout_needed=VPS_BATCH_TIMEOUT
+        )
+
+        try:
+            batch_start = time.monotonic()
+            extractor = get_llm_extractor()
+            batch_results = await asyncio.wait_for(
+                asyncio.to_thread(
+                    extractor.extract_chapters_batch.remote,
+                    chapters=[
+                        {
+                            "text": ch.content,
+                            "system_prompt": EXTRACTION_SYSTEM_PROMPT,
+                            "schema_json": EXTRACTION_SCHEMA_JSON,
+                        }
+                        for ch in batch
+                    ],
+                ),
+                timeout=VPS_BATCH_TIMEOUT,
+            )
+        except (TimeoutError, asyncio.TimeoutError, Exception) as e:
+            error_type = classify_error(e)
+            logger.error(
+                f"Batch {batch_idx} failed: {error_type} - {e}",
+                book_id=str(book_id),
+            )
+            # All chapters in this batch -> individual retry
+            failed_chapters.extend(batch)
+            continue
+
+        # Process batch results: separate successful/failed (D-18)
+        successful, failed = process_batch_results(batch_results, batch)
+
+        # Save successful results
+        for ch, data in successful:
+            duration_ms = int((time.monotonic() - batch_start) * 1000)
+            await _save_chapter_extraction_result(
+                db,
+                ch,
+                data["analysis"],
+                book_id=book_id,
+                idx=ch.chapter_number,
+                metrics=data["metrics"],
+                modal_raw_descriptions=None,
+            )
+            _log_chapter_result(
+                chapter_id=str(ch.id),
+                book_id=str(book_id),
+                duration_ms=duration_ms,
+                result_type="success",
+                metrics=data["metrics"],
+            )
+            chapters_processed += 1
+            total_descriptions += len(data["analysis"].descriptions)
+
+        # Failed -> individual retry
+        failed_chapters.extend(failed)
+
+        # Checkpoint: commit after each batch (D-19)
+        await db.commit()
+
+        # WebSocket progress (D-23)
+        progress = (
+            int((chapters_processed / total_chapters) * 80) if total_chapters else 0
+        )
+        await publish_book_progress(
+            book_id=str(book_id),
+            progress=progress,
+            status="processing",
+            message=f"Обработка batch {batch_idx + 1}/{len(batches)}",
+        )
+
+    # Process oversized chapters sequentially (D-06, D-12)
+    for ov_idx, ov_ch in enumerate(oversized):
+        check_time_budget(
+            task_start_time, chapter_idx=ov_idx, timeout_needed=VPS_TIMEOUT
+        )
+        try:
+            ov_start = time.monotonic()
+            extractor = get_llm_extractor()
+            modal_json = await asyncio.wait_for(
+                asyncio.to_thread(
+                    extractor.extract_chapter.remote,
+                    chapter_text=ov_ch.content,
+                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                    schema_json=EXTRACTION_SCHEMA_JSON,
+                ),
+                timeout=VPS_TIMEOUT,
+            )
+            result = modal_response_to_chapter_result(modal_json)
+            metrics = modal_json.get("metrics", {})
+            # Extract raw descriptions for image_prompt_en
+            result_data = extract_modal_result(modal_json)
+            modal_raw_descriptions = {
+                d.get("content", ""): d.get("image_prompt_en", "")
+                for d in result_data.get("descriptions", [])
+                if d.get("image_prompt_en")
+            }
+            desc_count = await _save_chapter_extraction_result(
+                db,
+                ov_ch,
+                result,
+                book_id=book_id,
+                idx=ov_ch.chapter_number,
+                metrics=metrics,
+                modal_raw_descriptions=modal_raw_descriptions,
+            )
+            duration_ms = int((time.monotonic() - ov_start) * 1000)
+            _log_chapter_result(
+                chapter_id=str(ov_ch.id),
+                book_id=str(book_id),
+                duration_ms=duration_ms,
+                result_type="success",
+                metrics=metrics,
+            )
+            chapters_processed += 1
+            total_descriptions += desc_count
+            await db.commit()
+        except Exception as e:
+            error_type = classify_error(e)
+            logger.error(f"Oversized chapter {ov_idx} failed: {error_type} - {e}")
+            failed_chapters.append(ov_ch)
+
+    # Individual retry for failed chapters (D-20)
+    for retry_ch in failed_chapters:
+        try:
+            retry_start = time.monotonic()
+            check_time_budget(
+                task_start_time,
+                chapter_idx=retry_ch.chapter_number,
+                timeout_needed=VPS_TIMEOUT,
+            )
+            extractor = get_llm_extractor()
+            modal_json = await asyncio.wait_for(
+                asyncio.to_thread(
+                    extractor.extract_chapter.remote,
+                    chapter_text=retry_ch.content,
+                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
+                    schema_json=EXTRACTION_SCHEMA_JSON,
+                ),
+                timeout=VPS_TIMEOUT,
+            )
+            result = modal_response_to_chapter_result(modal_json)
+            metrics = modal_json.get("metrics", {})
+            result_data = extract_modal_result(modal_json)
+            modal_raw_descriptions = {
+                d.get("content", ""): d.get("image_prompt_en", "")
+                for d in result_data.get("descriptions", [])
+                if d.get("image_prompt_en")
+            }
+            desc_count = await _save_chapter_extraction_result(
+                db,
+                retry_ch,
+                result,
+                book_id=book_id,
+                idx=retry_ch.chapter_number,
+                metrics=metrics,
+                modal_raw_descriptions=modal_raw_descriptions,
+            )
+            duration_ms = int((time.monotonic() - retry_start) * 1000)
+            _log_chapter_result(
+                chapter_id=str(retry_ch.id),
+                book_id=str(book_id),
+                duration_ms=duration_ms,
+                result_type="success",
+                metrics=metrics,
+            )
+            chapters_processed += 1
+            total_descriptions += desc_count
+            await db.commit()
+        except Exception as e:
+            error_type = classify_error(e)
+            logger.error(
+                f"Individual retry failed for chapter {retry_ch.chapter_number}: {error_type} - {e}"
+            )
+
+    return chapters_processed, total_descriptions
 
 
 def find_entity_fuzzy(

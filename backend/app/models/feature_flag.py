@@ -173,4 +173,11 @@ DEFAULT_FEATURE_FLAGS = [
         "description": "Использовать Modal self-hosted LLM + image gen вместо OpenRouter",
         "default_value": False,
     },
+    {
+        "name": "USE_BATCH_MODE",
+        "enabled": False,  # D-24: выключен по умолчанию, safe rollout
+        "category": FeatureFlagCategory.SYSTEM.value,
+        "description": "Batch обработка глав через Modal vLLM batch API (Phase 37)",
+        "default_value": False,
+    },
 ]
