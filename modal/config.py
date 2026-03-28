@@ -21,10 +21,16 @@ KV_CACHE_DTYPE = "fp8"
 NUM_GPU_BLOCKS_OVERRIDE = 512
 
 # Таймауты
-LLM_TIMEOUT = 900  # 15 мин — длинные главы могут обрабатываться >10 мин
+LLM_TIMEOUT = 1800  # D-16: 30 мин — Modal safety net для batch processing
 VPS_TIMEOUT_BUFFER = 60  # секунд запаса для сетевого overhead
 IMAGE_TIMEOUT = 120  # 2 мин
 SCALEDOWN_WINDOW = 120  # 2 мин простоя до scale-to-zero
+
+# Sub-batch (Phase 37)
+OVERSIZED_THRESHOLD_TOKENS = 32000  # D-07: глава > 32K tokens -> sequential
+BATCH_TOKEN_BUDGET = 128000  # D-03: max_model_len / 2
+BATCH_MAX_CHAPTERS = 12  # D-04: максимум глав в batch
+BATCH_MIN_CHAPTERS = 2  # D-04: минимум для batch
 
 # Генерация изображений
 IMAGE_WIDTH = 768

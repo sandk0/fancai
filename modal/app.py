@@ -18,6 +18,11 @@ app = modal.App("fancai-pipeline")
 
 model_volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
+# Compile cache volumes (Phase 37, D-13, D-14) — faster cold start (20-30s savings)
+compile_cache = modal.Volume.from_name("fancai-compile-cache", create_if_missing=True)
+triton_cache = modal.Volume.from_name("fancai-triton-cache", create_if_missing=True)
+nv_cache = modal.Volume.from_name("fancai-nv-cache", create_if_missing=True)
+
 # Локальные .py файлы добавляются в образ через add_local_dir (Modal 1.0+ API)
 _modal_src = Path(__file__).parent
 
@@ -25,6 +30,12 @@ llm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .pip_install("vllm>=0.18.0", "pydantic>=2.0")
     .add_local_dir(_modal_src, remote_path="/root")
+    .env(
+        {
+            "TORCHINDUCTOR_CACHE_DIR": "/root/.inductor-cache",
+            "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
+        }
+    )
 )
 
 diffusers_image = (
@@ -37,7 +48,12 @@ diffusers_image = (
 
 # Общие параметры для обоих классов
 COMMON_CLS_KWARGS = dict(
-    volumes={VOLUME_PATH: model_volume},
+    volumes={
+        VOLUME_PATH: model_volume,
+        "/root/.inductor-cache": compile_cache,
+        "/root/.triton": triton_cache,
+        "/root/.nv": nv_cache,
+    },
     scaledown_window=SCALEDOWN_WINDOW,
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
