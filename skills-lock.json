@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "skills": {
+    "design-md": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "d3a4c7d2f2715a33662c8b06ffc16035d01965a8b4ed81c2958fb22ae94760f8"
+    },
+    "enhance-prompt": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "71cc23e9ec5fc6361e12453495fa8c683f6cf26f3efaf9b230b0f43e0a32cc96"
+    },
+    "react:components": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "01a94f035a1c3a1a405f611c0df212433d8973f18bf16e94540875ec58ee7b9b"
+    },
+    "remotion": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "73a794b428f2bb568859f0db83b66219c842a0a088db9818a45ac72c37b6aa66"
+    },
+    "shadcn-ui": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "dadbca54d35a33fe73e40018611af2179689305bf6da812ab2643987fefd9da3"
+    },
+    "stitch-design": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "6df709345652460b4d4fdf214476a20c75d76a2ae011a958a51de2c88e6d86d1"
+    },
+    "stitch-loop": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "e04912a9719b855afa733cc928d30dde0b8a5b91707ca27b98f0efcb8d9310a9"
+    }
+  }
+}
