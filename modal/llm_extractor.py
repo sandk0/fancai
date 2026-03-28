@@ -98,6 +98,93 @@ class LLMExtractor:
         }
 
     @modal.method()
+    def extract_chapters_batch(
+        self,
+        chapters: list[dict],  # [{text, system_prompt, schema_json}]
+    ) -> list[dict]:
+        """Batch extraction: несколько глав за один GPU pass (D-08, D-10).
+
+        vLLM continuous batching обрабатывает все главы параллельно.
+        Общие SamplingParams для всех глав в batch (D-09).
+        Per-item обработка результатов с finish_reason проверкой (D-11).
+
+        Args:
+            chapters: список dict с полями:
+                - text: str -- текст главы
+                - system_prompt: str -- system prompt (одинаковый для всех)
+                - schema_json: str -- JSON schema (одинаковый для всех)
+
+        Returns:
+            list[dict]: для каждой главы:
+                - chapter_idx: int -- индекс в исходном списке
+                - result: dict | None -- распарсенный JSON или None при truncation
+                - metrics: dict -- cold_start_ms, inference_ms, finish_reason, is_cold_start, batch_size
+                - truncated_text: str | None -- первые 500 символов при truncation
+        """
+        from vllm import SamplingParams
+        from vllm.sampling_params import StructuredOutputsParams
+
+        if not chapters:
+            return []
+
+        inference_start = time.monotonic()
+
+        # D-09: Общие params для всех глав
+        params = SamplingParams(
+            max_tokens=32768,
+            temperature=0.1,
+            structured_outputs=StructuredOutputsParams(json=chapters[0]["schema_json"]),
+        )
+
+        # D-08: Build messages list для vLLM batch chat
+        messages_list = [
+            [
+                {"role": "system", "content": ch["system_prompt"]},
+                {"role": "user", "content": f"<book_text>{ch['text']}</book_text>"},
+            ]
+            for ch in chapters
+        ]
+
+        # Один вызов -- continuous batching vLLM
+        request_outputs = self.llm.chat(messages_list, params)
+
+        inference_ms = int((time.monotonic() - inference_start) * 1000)
+        batch_results = []
+
+        # D-11: Per-item обработка
+        for idx, req_output in enumerate(request_outputs):
+            output = req_output.outputs[0]
+            item_metrics = {
+                "cold_start_ms": self._cold_start_ms if self._is_first_call else 0,
+                "inference_ms": inference_ms,
+                "finish_reason": output.finish_reason,
+                "is_cold_start": self._is_first_call,
+                "batch_size": len(chapters),
+            }
+
+            if output.finish_reason == "length":
+                batch_results.append(
+                    {
+                        "result": None,
+                        "truncated_text": output.text[:500],
+                        "metrics": item_metrics,
+                        "chapter_idx": idx,
+                    }
+                )
+            else:
+                parsed = json.loads(output.text)
+                batch_results.append(
+                    {
+                        "result": parsed,
+                        "metrics": item_metrics,
+                        "chapter_idx": idx,
+                    }
+                )
+
+        self._is_first_call = False
+        return batch_results
+
+    @modal.method()
     def reduce_entities(
         self, entities_json: str, system_prompt: str, schema_json: str
     ) -> dict:
