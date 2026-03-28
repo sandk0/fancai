@@ -27,9 +27,9 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 
 ### Batch Processing
 
-- [ ] **BATCH-01**: Pre-validation длины глав — oversized chapters (>32K estimated tokens) маршрутизируются в sequential path
-- [ ] **BATCH-02**: `extract_chapters_batch()` обрабатывает sub-batch из 4-8 глав (до 12 по результатам profiling) за один Modal вызов через batch chat API с checkpoint после каждого sub-batch
-- [ ] **BATCH-03**: Compile cache volume в Modal сохраняет `torch.compile` артефакты между cold starts (-20-30s)
+- [x] **BATCH-01**: Pre-validation длины глав — oversized chapters (>32K estimated tokens) маршрутизируются в sequential path
+- [x] **BATCH-02**: `extract_chapters_batch()` обрабатывает sub-batch из 4-8 глав (до 12 по результатам profiling) за один Modal вызов через batch chat API с checkpoint после каждого sub-batch
+- [x] **BATCH-03**: Compile cache volume в Modal сохраняет `torch.compile` артефакты между cold starts (-20-30s)
 
 ### Resilience
 
@@ -82,9 +82,9 @@ Modal Batch Processing & Production Stability. Стабилизация слом
 | STAB-09 | Phase 35 | Pending |
 | OBS-01 | Phase 36 | Complete |
 | OBS-02 | Phase 36 | Complete |
-| BATCH-01 | Phase 37 | Pending |
-| BATCH-02 | Phase 37 | Pending |
-| BATCH-03 | Phase 37 | Pending |
+| BATCH-01 | Phase 37 | Complete |
+| BATCH-02 | Phase 37 | Complete |
+| BATCH-03 | Phase 37 | Complete |
 | RESIL-01 | Phase 38 | Pending |
 | RESIL-02 | Phase 38 | Pending |
 

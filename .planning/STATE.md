@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
-status: Phase 36 завершена (error classification + structured logging + metrics transport)
-last_updated: "2026-03-27T23:30:57.708Z"
-last_activity: 2026-03-27
+status: Phase 37 Plan 01 завершён (batch infrastructure + VPS-side grouping)
+last_updated: "2026-03-28T01:17:40Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 7
+  completed_plans: 6
+  percent: 85
 ---
 
 # Состояние проекта
@@ -20,16 +20,16 @@ progress:
 См.: .planning/PROJECT.md (обновлен 2026-03-14)
 
 **Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 36 полностью завершена — error classification, structured logging, metrics transport. Phase 37 следующая (retry strategies).
+**Текущий фокус:** Phase 37 Plan 01 завершён — batch grouping, extract_chapters_batch, compile cache. Plan 02 (orchestration) следующий.
 
 ## Текущая позиция
 
 Phase: 37
-Plan: Not started
-Status: Phase 36 завершена (error classification + structured logging + metrics transport)
-Last activity: 2026-03-27
+Plan: 01 завершён, 02 следующий
+Status: Phase 37 Plan 01 завершён (batch infrastructure + VPS-side grouping)
+Last activity: 2026-03-28
 
-Progress: [██████████] 100%
+Progress: [████████░░] 85%
 
 ## Метрики производительности
 
@@ -99,6 +99,11 @@ Progress: [██████████] 100%
 - Best-effort error_type save через emergency_session в BaseException блоке (Phase 36 Plan 02)
 - extract_modal_result() проверяет result key первым, fallback на весь dict — backward compat (Phase 36 Plan 02)
 
+- process_batch_outputs() вынесен как чистая функция в batch_grouping.py — тестируется на VPS без vLLM (Phase 37 Plan 01)
+- LLM_TIMEOUT увеличен до 1800s (30 мин) — safety net для batch processing на Modal (Phase 37 Plan 01)
+- Compile cache mount в /root/.inductor-cache (не /root/.cache/torch) — точный путь из RESEARCH.md (Phase 37 Plan 01)
+- Остаток < BATCH_MIN_CHAPTERS -> oversized — консервативная стратегия, один chapter не стоит batch overhead (Phase 37 Plan 01)
+
 ### Ожидающие задачи
 
 Нет.
@@ -120,5 +125,5 @@ Progress: [██████████] 100%
 ## Непрерывность сессий
 
 Последняя сессия: 2026-03-28
-Phase 36 полностью завершена. Plan 01: Modal metrics transport (f59f940, 009c2e8). Plan 02: ErrorClassifier + structured logging (8e1e677, 7b62f96). 40 тестов проходят.
-Resume file: None
+Phase 37 Plan 01 завершён. batch_grouping.py + extract_chapters_batch() + compile cache volumes. Коммиты: 1676bdc, 625f98c, 54a2e0b. 26 тестов проходят.
+Resume file: .planning/phases/37-sub-batch/37-CONTEXT.md

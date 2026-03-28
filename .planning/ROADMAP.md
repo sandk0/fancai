@@ -158,10 +158,10 @@ Plans:
   5. Staging тестирование на 3-5 реальных книгах проведено перед production rollout
   6. E2E обработка 23 глав < 15 минут, cost < $0.50/book, success rate > 95% chapters
   7. `reduce_entities`/`ConsistencyManager` вызываются один раз после завершения всех sub-batches, не после каждого
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 37-01-PLAN.md — Modal batch-инфраструктура: extract_chapters_batch(), compile cache volumes, batch_grouping модуль
+- [x] 37-01-PLAN.md — Modal batch-инфраструктура: extract_chapters_batch(), compile cache volumes, batch_grouping модуль
 - [ ] 37-02-PLAN.md — VPS-side batch orchestration: feature flag routing, checkpoint/retry, book_tasks интеграция
 
 ### Phase 38: Auto-fallback и production hardening
@@ -187,5 +187,5 @@ Plans:
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
 | 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
 | 36. Error classification и observability | v1.5 | 2/2 | Complete    | 2026-03-27 |
-| 37. Sub-batch архитектура | v1.5 | 0/2 | Not started | - |
+| 37. Sub-batch архитектура | v1.5 | 1/2 | In Progress|  |
 | 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
