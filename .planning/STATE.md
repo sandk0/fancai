@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Modal Batch Processing & Production Stability
 status: Phase 37 Plan 01 завершён (batch infrastructure + VPS-side grouping)
-last_updated: "2026-03-28T01:17:40Z"
+last_updated: "2026-03-28T01:37:26.126Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 4
@@ -126,4 +126,4 @@ Progress: [████████░░] 85%
 
 Последняя сессия: 2026-03-28
 Phase 37 Plan 01 завершён. batch_grouping.py + extract_chapters_batch() + compile cache volumes. Коммиты: 1676bdc, 625f98c, 54a2e0b. 26 тестов проходят.
-Resume file: .planning/phases/37-sub-batch/37-CONTEXT.md
+Resume file: None
