@@ -84,7 +84,7 @@ DB `llm_usage_log` **теряет 52-66% данных** из-за бага в fi
 `llm_usage_log` теряет данные: за всё время DB записала $4.36, OpenRouter списал $12.81 (**$8.45 = 66% потеряно**).
 Причина: `asyncio.create_task(_log_usage_to_db(...))` в `openrouter_client.py:374,508,655` — fire-and-forget. При 10 параллельных главах (semaphore) DB connection pool исчерпывается и tasks молча падают.
 **Используй OpenRouter Management API (`GET /api/v1/activity`) как source of truth для стоимости.**
-Management API key: `REDACTED-OPENROUTER-KEY`
+Management API key: `<REDACTED — rotated after exposure>`
 
 ### Предыдущая архитектура (до OpenRouter)
 
