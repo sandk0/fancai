@@ -29,13 +29,13 @@ _modal_src = Path(__file__).parent
 llm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .pip_install("vllm>=0.18.0", "pydantic>=2.0")
-    .add_local_dir(_modal_src, remote_path="/root")
     .env(
         {
             "TORCHINDUCTOR_CACHE_DIR": "/root/.inductor-cache",
             "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
         }
     )
+    .add_local_dir(_modal_src, remote_path="/root")
 )
 
 diffusers_image = (
