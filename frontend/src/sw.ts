@@ -340,19 +340,15 @@ registerRoute(
   ({ request }) => request.mode === 'navigate' && !request.url.includes('/api/'),
   async ({ event, request }) => {
     try {
-      // Try to use the preloaded response first (Navigation Preload)
-      // This is the key optimization - the preload request runs in parallel
-      // with service worker startup, potentially saving ~50-100ms
       const preloadResponse = await (event as FetchEvent).preloadResponse;
-      if (preloadResponse) {
+      if (preloadResponse && preloadResponse.ok) {
         console.log('[SW] Using preloaded navigation response');
-        // Cache the preloaded response for offline use
         const cache = await caches.open('navigation-cache');
         cache.put(request, preloadResponse.clone());
         return preloadResponse;
       }
-    } catch (error) {
-      console.log('[SW] Navigation preload failed, falling back to NetworkFirst:', error);
+    } catch {
+      // Preload cancelled or failed — fall through to NetworkFirst
     }
 
     // Fall back to standard NetworkFirst strategy
