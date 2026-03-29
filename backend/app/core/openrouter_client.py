@@ -55,8 +55,8 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # Триггер переключения: httpx.HTTPStatusError (5xx) и httpx.TimeoutException.
 # json.JSONDecodeError и ValidationError НЕ вызывают fallback (ошибка парсинга ответа).
 FALLBACK_MODELS = [
-    "google/gemini-3-flash-preview",  # основная — самая быстрая
-    "anthropic/claude-haiku-4.5",  # первый fallback
+    "google/gemini-3.1-flash-lite-preview",  # основная — дешевле gemini-3-flash, достаточно для extraction
+    "google/gemini-3-flash-preview",  # первый fallback
     "google/gemini-2.5-flash-lite",  # последний fallback
 ]
 
