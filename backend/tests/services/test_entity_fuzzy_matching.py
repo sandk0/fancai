@@ -22,7 +22,6 @@ from app.services.gemini_extractor import (
     ExtractedEntity,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -33,7 +32,7 @@ def config():
     """Create a GeminiConfig for testing (no API key needed for unit tests)."""
     return GeminiConfig(
         api_key="test_key",
-        model_id="gemini-3-flash-preview",
+        model_id="gemini-3.1-flash-lite-preview",
     )
 
 
@@ -76,7 +75,9 @@ class TestExactMatch:
     def test_exact_match_deduplicates(self, extractor):
         """Two entities with the same name should be deduplicated."""
         entities = [
-            _make_extracted_entity("Геральт", visual_summary="Белые волосы, жёлтые глаза"),
+            _make_extracted_entity(
+                "Геральт", visual_summary="Белые волосы, жёлтые глаза"
+            ),
             _make_extracted_entity("Геральт", visual_summary="Ведьмак"),
         ]
 
@@ -136,9 +137,7 @@ class TestSimilarityThreshold:
     def test_short_vs_full_name_not_deduplicated(self, extractor):
         """'Гарри' vs 'Гарри Поттер' — similarity ~0.50, should NOT merge via similarity."""
         # Verify the actual similarity is below threshold
-        similarity = SequenceMatcher(
-            None, "гарри", "гарри поттер"
-        ).ratio()
+        similarity = SequenceMatcher(None, "гарри", "гарри поттер").ratio()
         assert similarity < 0.85, f"Expected similarity < 0.85, got {similarity}"
 
         entities = [
@@ -183,9 +182,7 @@ class TestSimilarityThreshold:
     def test_high_similarity_names_deduplicated(self, extractor):
         """Names with very high similarity (>0.85) should be deduplicated."""
         # "Волдеморт" vs "Волдеморт!" — extremely similar
-        similarity = SequenceMatcher(
-            None, "волдеморт", "волдеморт!"
-        ).ratio()
+        similarity = SequenceMatcher(None, "волдеморт", "волдеморт!").ratio()
         assert similarity > 0.85
 
         entities = [
@@ -209,7 +206,9 @@ class TestCaseSensitivity:
     def test_case_only_difference_deduplicates(self, extractor):
         """'Белый Волк' vs 'Белый волк' (case only) should deduplicate."""
         entities = [
-            _make_extracted_entity("Белый Волк", visual_summary="Ведьмак с белыми волосами"),
+            _make_extracted_entity(
+                "Белый Волк", visual_summary="Ведьмак с белыми волосами"
+            ),
             _make_extracted_entity("Белый волк", visual_summary="Мутант"),
         ]
 
