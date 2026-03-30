@@ -55,8 +55,8 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # Триггер переключения: httpx.HTTPStatusError (5xx) и httpx.TimeoutException.
 # json.JSONDecodeError и ValidationError НЕ вызывают fallback (ошибка парсинга ответа).
 FALLBACK_MODELS = [
-    "google/gemini-3.1-flash-lite-preview",  # основная — $0.25/1M input, $1.50/1M output
-    "google/gemini-2.5-flash-lite",  # fallback — бесплатная или очень дешёвая
+    "qwen/qwen3.5-397b-a17b",  # A/B тест: Qwen3.5 — лучший русский (119 языков), $0.39/$2.34
+    "google/gemini-2.5-flash",  # fallback — надёжный, $0.30/$2.50
 ]
 
 # Image модели — FLUX.2 семейство.

@@ -46,7 +46,7 @@ def mock_openrouter_client():
 def sample_config():
     """Sample Gemini configuration."""
     return GeminiConfig(
-        model_id="gemini-3.1-flash-lite-preview",
+        model_id="qwen3.5-397b-a17b",
         api_key="test_openrouter_key_12345",
         max_chunk_chars=4000,
         min_chunk_chars=200,
@@ -184,7 +184,7 @@ class TestGeminiDirectExtractor:
             extractor = GeminiDirectExtractor(sample_config)
 
         assert extractor.is_available() is True
-        assert extractor.config.model_id == "gemini-3.1-flash-lite-preview"
+        assert extractor.config.model_id == "qwen3.5-397b-a17b"
 
     def test_initialization_failure(self, sample_config):
         """Инициализация с ошибкой должна оставить extractor недоступным."""

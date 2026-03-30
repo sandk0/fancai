@@ -123,17 +123,15 @@ from app.schemas.extraction import (
 class GeminiConfig:
     """Конфигурация Gemini экстрактора."""
 
-    model_id: str = (
-        "gemini-3.1-flash-lite-preview"  # Mar 2026: cheaper than gemini-3-flash
-    )
+    model_id: str = "qwen3.5-397b-a17b"  # A/B test: Qwen3.5 — best Russian, $0.39/$2.34
     api_key: Optional[str] = None
 
-    # Model Tiering: different models for different tasks (cost optimization)
-    model_extraction: str = (
-        "gemini-3.1-flash-lite-preview"  # Primary: entity extraction, TSA
+    # Model Tiering: all tasks use Qwen3.5 for A/B testing
+    model_extraction: str = "qwen/qwen3.5-397b-a17b"  # A/B test: entity extraction, TSA
+    model_translation: str = (
+        "qwen/qwen3.5-397b-a17b"  # A/B test: translation to English
     )
-    model_translation: str = "gemini-2.0-flash-lite"  # Simple: translation to English
-    model_reduce: str = "gemini-3.1-flash-lite-preview"  # Deduplication, merge
+    model_reduce: str = "qwen/qwen3.5-397b-a17b"  # A/B test: deduplication, merge
 
     # Чанкинг
     max_chunk_chars: int = 100000  # v16: 100k chars for Massive Context
