@@ -32,7 +32,7 @@ def config():
     """Create a GeminiConfig for testing (no API key needed for unit tests)."""
     return GeminiConfig(
         api_key="test_key",
-        model_id="qwen3.5-397b-a17b",
+        model_id="gemini-2.5-flash",
     )
 
 
