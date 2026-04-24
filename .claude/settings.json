@@ -94,6 +94,36 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-read-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gsd-validate-commit.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gsd-workflow-guard.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -115,6 +145,26 @@
           }
         ],
         "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task"
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gsd-phase-boundary.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gsd-read-injection-scanner.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -132,6 +182,14 @@
           {
             "type": "command",
             "command": "node .claude/hooks/gsd-check-update.js"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gsd-session-state.sh"
           }
         ]
       }
