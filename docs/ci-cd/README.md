@@ -1,21 +1,29 @@
-# CI/CD - Continuous Integration/Deployment
+# CI/CD
 
-CI/CD workflows, troubleshooting, and error reports.
+GitHub Actions pipeline, branch protection и deployment guides.
 
-## Workflows
-- [Overview](workflows/overview.md) - CI/CD workflows overview
-- [Troubleshooting](workflows/troubleshooting.md) - Workflow troubleshooting
+## Содержание
 
-## Action Plans
-- [Phase 2A](action-plans/phase-2a.md) - Phase 2A action plan
+| Файл                                                                 | Описание                    |
+| -------------------------------------------------------------------- | --------------------------- |
+| [`CI_CD_SETUP.md`](CI_CD_SETUP.md)                                   | Первичная настройка CI/CD   |
+| [`CI_CD_IMPLEMENTATION_SUMMARY.md`](CI_CD_IMPLEMENTATION_SUMMARY.md) | Сводка реализации           |
+| [`GITHUB_ACTIONS_GUIDE.md`](GITHUB_ACTIONS_GUIDE.md)                 | GitHub Actions workflows    |
+| [`BRANCH_PROTECTION_RULES.md`](BRANCH_PROTECTION_RULES.md)           | Branch protection (main)    |
+| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)                         | Deployment через CI/CD      |
+| [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md)                           | Быстрая шпаргалка           |
+| [`error-index.md`](error-index.md)                                   | Типовые CI-ошибки и решения |
 
-## Error Index
-- [Error Index](error-index.md) - Common errors and solutions
+## Связанное
 
-## Error Reports
-- [Comprehensive v1](error-reports/comprehensive-v1.md) - Comprehensive error report v1
-- [Comprehensive v2](error-reports/comprehensive-v2.md) - Comprehensive error report v2
+- Workflows на диске: `.github/workflows/*.yml`
+- Production deploy: [`../deployment/`](../deployment/)
+- Runbook'и: [`../operations/`](../operations/)
+
+> Файлы в этой директории могут содержать устаревшие упоминания CI-стека
+> от 2025 года; принципы остаются валидными, но сверяйте имена workflow и
+> shell-команд с актуальным `.github/workflows/`.
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._

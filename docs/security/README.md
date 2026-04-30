@@ -1,19 +1,28 @@
-# Security - Security Documentation
+# Security (placeholder)
 
-Security policies, audits, and reports.
+Эта директория зарезервирована под дополнительные security-отчёты, аудиты
+и подспецификации. На текущий момент (2026-04-30) она пуста.
 
-## Overview
-See main security documentation: [backend/SECURITY.md](../../backend/SECURITY.md)
+## Куда идти
 
-## Reports
-- [Audit](reports/audit.md) - Security audit report
-- [Fixes](reports/fixes.md) - Security fix report
-- [Updates 2025-11-14](reports/updates-2025-11-14.md) - Recent security updates
+| Что нужно                               | Где это                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Security policy + how-to-report**     | [`../SECURITY.md`](../SECURITY.md)                                                                     |
+| Backend-specific security notes         | [`../../backend/SECURITY.md`](../../backend/SECURITY.md)                                               |
+| Архивный отчёт о P0-фиксах (2025-10-30) | [`../reports/2025-10-30-p0-security-fixes.md`](../reports/2025-10-30-p0-security-fixes.md)             |
+| Реализация security headers             | [`../../backend/app/middleware/security_headers.py`](../../backend/app/middleware/security_headers.py) |
+| CSRF                                    | [`../../backend/app/core/csrf.py`](../../backend/app/core/csrf.py)                                     |
+| Rate limiting                           | [`../../backend/app/middleware/rate_limit.py`](../../backend/app/middleware/rate_limit.py)             |
+| Password / input validation             | [`../../backend/app/core/validation.py`](../../backend/app/core/validation.py)                         |
 
-## Quick Guides
-- [Quick Fixes](quick-fixes.md) - Quick security fixes
-- [Executive Summary](executive-summary.md) - Security executive summary
+## Конвенция
+
+При появлении новых security-отчётов:
+
+- **Snapshot отчёт** (постфактум о конкретном фиксе/аудите) → в `../reports/`
+  с datestamp
+- **Live policy / threat model / control matrix** → может появиться здесь
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._

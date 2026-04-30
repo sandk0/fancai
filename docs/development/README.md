@@ -1,34 +1,34 @@
-# Development - Development Process
+# Development
 
-Development planning, progress tracking, and process documentation.
+Эта директория после модернизации документации (2026-04-30) практически
+пуста — основная информация для разработчиков теперь живёт ближе к коду.
 
-## Planning
-- [Development Plan](planning/development-plan.md) - Overall development roadmap
-- [PWA Development Plan](planning/pwa-development-plan.md) - Progressive Web App implementation plan
-- [Development Calendar](planning/development-calendar.md) - Timeline and milestones
-- [Gap Analysis](planning/gap-analysis.md) - Feature gap analysis
+## Куда идти
 
-## Changelog
-- [2025](changelog/2025.md) - 2025 changes
-- [2024](changelog/2024.md) - 2024 changes (if exists)
-- [Archive](changelog/archive/) - Older changelog entries
+| Что нужно                              | Где это                                                              |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| Setup, conventions, PR-процесс         | [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md)                     |
+| Backend Python/FastAPI rules           | [`../../backend/CLAUDE.md`](../../backend/CLAUDE.md)                 |
+| Frontend React/Vite rules              | [`../../frontend/CLAUDE.md`](../../frontend/CLAUDE.md)               |
+| Reader/EPUB-специфичные правила        | [`../../.claude/rules/reader.md`](../../.claude/rules/reader.md)     |
+| iOS/theme/Reader frontend rules        | [`../../.claude/rules/frontend.md`](../../.claude/rules/frontend.md) |
+| GSD planning artifacts                 | [`../../.planning/`](../../.planning/)                               |
+| Текущий phase / state                  | [`../../.planning/STATE.md`](../../.planning/STATE.md)               |
+| Roadmap                                | [`../../.planning/ROADMAP.md`](../../.planning/ROADMAP.md)           |
+| Milestone history                      | [`../../.planning/MILESTONES.md`](../../.planning/MILESTONES.md)     |
+| Changelog                              | [`../../CHANGELOG.md`](../../CHANGELOG.md)                           |
+| Исторические dev-отчёты (Oct–Nov 2025) | [`../_archive/development/`](../_archive/development/)               |
 
-## Status
-- [Current Status](status/current-status.md) - Current project status
-- [Progress](status/progress.md) - Development progress tracking
+## Когда писать что-то сюда
 
-## Testing
-- [Strategy](testing/strategy.md) - Testing strategy
-- [Coverage](testing/coverage.md) - Test coverage reports
-- [Refactoring Analysis](testing/refactoring-analysis.md) - Testing refactoring
+Live development документ (например, post-mortem паттерн отладки конкретной
+системы, который останется полезным надолго) — добавляйте сюда с осмысленным
+именем, без даты в названии.
 
-## Performance
-- [Optimization Plan](performance/optimization-plan.md) - Performance optimization plan
-- [Refactoring Analysis](performance/refactoring-analysis.md) - Performance refactoring
-
-## Parser
-- [Optimizations](parser/optimizations.md) - Parser optimization techniques
+Snapshot отчёта или анализа (актуален в момент написания, через год
+устареет) — кладите в [`../reports/`](../reports/) с datestamp:
+`YYYY-MM-DD-<topic>.md`.
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._
