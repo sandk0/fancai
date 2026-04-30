@@ -35,7 +35,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 # Backend
 cd backend
-uv sync
+uv pip install -r requirements.txt    # либо `pip install -r requirements.txt`
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload  # http://localhost:8000
 
