@@ -1,33 +1,32 @@
-# Explanations - Concepts & Architecture
+# Explanations (placeholder)
 
-Understanding-oriented documentation about system design and concepts.
+Эта директория задумывалась как Diataxis-секция «Explanation»
+(архитектура, концепции, design decisions), но не была заполнена. Содержимое
+из `architecture/`, `concepts/`, `design-decisions/`, `agents-system/`
+(на которые ссылался прежний README) — никогда не было создано.
 
-## Architecture
-- [Overview](architecture/overview.md) - System architecture overview
-- [System Architecture](architecture/system-architecture.md) - Detailed system design
-- [Deployment](architecture/deployment.md) - Deployment architecture
-- [Infrastructure](architecture/infrastructure.md) - Infrastructure diagram
-- [Caching](architecture/caching.md) - Caching architecture
-- **NLP:**
-  - [Architecture](architecture/nlp/architecture.md) - Multi-NLP architecture
-  - [Deep Dive](architecture/nlp/deep-dive.md) - Technical deep dive
-- **Refactoring:**
-  - [Phase 3 Architecture](architecture/refactoring/phase3-architecture.md) - Refactoring architecture
+NLP-секция и Multi-NLP-архитектура, упоминавшиеся в старом README,
+неактуальны — система была удалена в декабре 2025.
 
-## Concepts
-- [CFI System](concepts/cfi-system.md) - Canonical Fragment Identifier system
-- [EPUB Integration](concepts/epub-integration.md) - epub.js integration concepts
-- [Subscription Model](concepts/subscription-model.md) - Monetization model
+## Куда идти
 
-## Design Decisions
-- [Why Multi-NLP](design-decisions/why-multi-nlp.md) - Multi-NLP system rationale
-- [Why epub.js](design-decisions/why-epub-js.md) - epub.js choice rationale
-- [Technology Choices](design-decisions/technology-choices.md) - Overall tech stack
+| Что нужно                                     | Где это                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **High-level архитектура**                    | [`../../README.md`](../../README.md) → раздел «Архитектура (high-level)»                                                 |
+| Vision / scope / out-of-scope                 | [`../../.planning/PROJECT.md`](../../.planning/PROJECT.md)                                                               |
+| Key Decisions (почему именно так)             | [`../../.planning/PROJECT.md`](../../.planning/PROJECT.md) → таблица «Key Decisions»                                     |
+| Constraints (на чём построено)                | [`../../.planning/PROJECT.md`](../../.planning/PROJECT.md) → раздел «Constraints»                                        |
+| Milestone-история «как мы сюда пришли»        | [`../../.planning/MILESTONES.md`](../../.planning/MILESTONES.md)                                                         |
+| Reader/EPUB концепции (CFI, iframe, gestures) | [`../../.claude/rules/reader.md`](../../.claude/rules/reader.md), [`../../frontend/CLAUDE.md`](../../frontend/CLAUDE.md) |
+| Subscription model                            | Out of scope (см. `.planning/PROJECT.md`)                                                                                |
 
-## Agents System
-- [Overview](agents-system/overview.md) - Claude Code agents system
-- [Architecture](agents-system/architecture.md) - Agents architecture
+В будущем сюда могут переехать:
+
+- Why we chose X over Y (решения по AI-провайдерам, выбор Caddy, выбор epub.js)
+- CFI deep-dive (как именно работают позиции в EPUB)
+- Spoiler-protection алгоритм (точная семантика token overlap, fuzzy matching)
+- Annotation rendering deep-dive (DOM span wrapping vs SVG overlay)
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._

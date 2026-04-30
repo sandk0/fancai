@@ -1,29 +1,25 @@
-# Guides - Tutorials & How-To Guides
+# Guides (placeholder)
 
-Learning-oriented tutorials and problem-oriented how-to guides.
+Эта директория задумывалась как часть Diataxis-структуры
+(tutorials + how-to guides), но не была заполнена. Содержимое
+из `getting-started/`, `development/`, `deployment/`, `agents/`,
+`testing/` (на которые ссылался прежний README) — никогда не было создано.
 
-## Getting Started
-- [Installation Guide](getting-started/installation.md) - Install BookReader AI
-- [Quick Start](getting-started/quick-start.md) - Get up and running quickly
-- [First Book](getting-started/first-book.md) - Upload and read your first book
+## Куда идти
 
-## Development
-- [Development Workflow](development/workflow.md) - Complete development process
-- [Serena MCP Setup](development/serena-mcp-setup.md) - Оптимизация токенов с помощью Serena MCP
-- [PWA Implementation Prompt](development/pwa-implementation-prompt.md) - Progressive Web App implementation guide
+| Что нужно                                                      | Где это                                                                   |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Quick start (установка, запуск)                                | [`../../README.md`](../../README.md) → раздел «Быстрый старт»             |
+| Setup для разработки                                           | [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md)                          |
+| Production deploy                                              | [`../deployment/`](../deployment/)                                        |
+| Тестирование (как запускать, что писать)                       | [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) → раздел «Тестирование»  |
+| Backup / restore / runbooks                                    | [`../operations/`](../operations/)                                        |
+| CI/CD                                                          | [`../ci-cd/`](../ci-cd/)                                                  |
+| Internal Claude Code agents (`/gsd:*`, `/deploy`, `/incident`) | [`../../.claude/`](../../.claude/) и [`../../CLAUDE.md`](../../CLAUDE.md) |
 
-## Deployment
-- [Production Deployment](deployment/production-deployment.md) - Deploy to production
-
-## Agents
-- [Quickstart](agents/quickstart.md) - Get started with Claude Code agents
-- [Orchestrator Usage](agents/orchestrator-usage.md) - Use the orchestrator agent
-
-## Testing
-- [Testing Guide](testing/testing-guide.md) - Comprehensive testing guide (unit, integration, E2E)
-- [Quick Reference](testing/quick-reference.md) - Quick test commands
-- [QA Playbook](testing/qa-playbook.md) - Quality assurance procedures
+Если в будущем появятся пошаговые туториалы (например, «как добавить новую
+сущность в Entity Wiki»), их место — здесь.
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._

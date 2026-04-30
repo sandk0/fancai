@@ -1,35 +1,33 @@
-# Refactoring - Code Refactoring Documentation
+# Refactoring
 
-Documentation of refactoring efforts and code quality improvements.
+Архив рефакторинговых отчётов и матриц. Большинство файлов — снапшот
+ноябрьского рефакторинга 2025 (master-отчёт + дорожная карта + анализы).
 
-## Index
-- [Refactoring Index](INDEX.md) - Complete refactoring index
+> Это исторический архив. Текущий статус кодовой базы — `.planning/STATE.md`,
+> а не эти документы.
 
-## Plans
-- [Master Plan](plans/master-plan.md) - Overall refactoring strategy
+## Содержание
 
-## Reports
-- [Phase 1](reports/phase-1.md) - Phase 1 refactoring report
-- [Phase 2](reports/phase-2.md) - Phase 2 refactoring report
-- [Phase 3](reports/phase-3.md) - Phase 3 refactoring report
-- [Phase 4-5](reports/phase-4-5.md) - Phase 4-5 refactoring report
-- [God Components](reports/god-components.md) - God components refactoring
-- [Summary](reports/summary.md) - Refactoring summary
+| Файл                                                                                                     | Описание                                              |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [`INDEX.md`](INDEX.md)                                                                                   | Указатель по серии 2025-11-03                         |
+| [`2025-11-03-МАСТЕР-ОТЧЕТ-ГЛОБАЛЬНЫЙ-РЕФАКТОРИНГ.md`](2025-11-03-МАСТЕР-ОТЧЕТ-ГЛОБАЛЬНЫЙ-РЕФАКТОРИНГ.md) | Главный отчёт глобального рефакторинга (ноябрь 2025)  |
+| [`2025-11-03-ДОРОЖНАЯ-КАРТА-РЕФАКТОРИНГА.md`](2025-11-03-ДОРОЖНАЯ-КАРТА-РЕФАКТОРИНГА.md)                 | Дорожная карта                                        |
+| [`2025-11-03-АРХИТЕКТУРНЫЕ-РЕКОМЕНДАЦИИ.md`](2025-11-03-АРХИТЕКТУРНЫЕ-РЕКОМЕНДАЦИИ.md)                   | Архитектурные рекомендации                            |
+| [`2025-11-03-ДЕТАЛЬНЫЕ-НАХОДКИ.md`](2025-11-03-ДЕТАЛЬНЫЕ-НАХОДКИ.md)                                     | Детальные находки                                     |
+| [`2025-11-03-МАТРИЦА-НЕСООТВЕТСТВИЙ.md`](2025-11-03-МАТРИЦА-НЕСООТВЕТСТВИЙ.md)                           | Матрица несоответствий код↔документация на тот момент |
+| [`remaining-tasks.md`](remaining-tasks.md)                                                               | Задачи, оставшиеся открытыми                          |
 
-## Database
-- [Analysis](database/analysis.md) - Database refactoring analysis
+## Контекст
 
-## NLP
-- [Analysis](nlp/analysis.md) - NLP refactoring analysis
-- [Report](nlp/report.md) - NLP refactoring report
+Серия 2025-11-03 — большой системный аудит, многие выводы которого
+впоследствии были реализованы (рефакторинг EpubReader на 25+ хуков,
+extraction openrouter_client, Notes унификация, dead code cleanup в v1.0/v1.2).
+Часть рекомендаций потеряла актуальность из-за стратегических разворотов
+(NLP removal в декабре 2025, OpenRouter-only AI pipeline, отказ от Modal в марте 2026).
 
-## Code Quality
-- [Refactoring](code-quality/refactoring.md) - Code quality refactoring
-- [Report](code-quality/report.md) - Code quality report
-
-## Remaining Tasks
-- [Remaining Tasks](remaining-tasks.md) - Outstanding refactoring tasks
+Сверяйте советы из этих документов с актуальным `.planning/STATE.md` и кодом.
 
 ---
 
-[Back to Documentation Index](../README.md)
+_Last updated: 2026-04-30._
