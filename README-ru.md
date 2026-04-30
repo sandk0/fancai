@@ -2,385 +2,264 @@
 
 # fancai
 
-**Читай с визуализацией: ИИ генерирует иллюстрации к твоим книгам**
+**AI-ридер художественной литературы с интерактивной Entity Wiki и иллюстрациями**
 
-[![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.125-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Redis](https://img.shields.io/badge/Redis-7.4-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![License](https://img.shields.io/badge/Лицензия-Проприетарная-red)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI 0.135](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-336791?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Redis 7.4](https://img.shields.io/badge/Redis-7.4-DC382D?logo=redis&logoColor=white)](https://redis.io)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript 5.7](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![License: Proprietary](https://img.shields.io/badge/Лицензия-Проприетарная-red)](LICENSE)
 
-[Демо](https://fancai.ru) · [Документация](docs/README.md) · [Сообщить об ошибке](https://github.com/sandk0/fancai/issues) · [Предложить функцию](https://github.com/sandk0/fancai/issues)
+[Продакшен](https://fancai.ru) · [Документация](docs/README.md) · [Дорожная карта](.planning/ROADMAP.md) · [Сообщить о баге](https://github.com/sandk0/fancai/issues)
 
----
-
-**[English](README.md)** | Русский
+[English](README.md) · **Русский**
 
 </div>
 
 ---
 
-## О проекте
+## Что это
 
-fancai — современное веб-приложение для чтения художественной литературы с **автоматической генерацией ИИ-изображений** по описаниям сцен. Приложение извлекает визуальные описания из текста и создаёт потрясающие иллюстрации с помощью передовых моделей ИИ.
+fancai — веб-приложение для чтения художественной литературы (EPUB/FB2)
+с **двумя AI-функциями**:
 
-### Как это работает
+1. **🧬 Entity Wiki — главная фича.** AI собирает интерактивный глоссарий
+   персонажей, локаций и объектов прямо из текста книги. Защита от спойлеров:
+   карточки сущностей показывают только то, что уже встречалось в прочитанных
+   главах. Кликаешь по имени в тексте — видишь карточку без раскрытия будущего сюжета.
 
-```
-📖 Загрузка книги → 🔍 ИИ извлекает описания → 🎨 Генерация изображений → ✨ Чтение с иллюстрациями
-```
+2. **🎨 AI-иллюстрации.** Параллельно с чтением AI находит описания сцен и
+   генерирует к ним иллюстрации одним кликом.
 
-1. **Загрузите** книгу в формате EPUB или FB2
-2. **Читайте** в красивом, настраиваемом ридере
-3. **Открывайте** подсвеченные описания по мере чтения
-4. **Генерируйте** ИИ-иллюстрации для любой сцены одним кликом
-5. **Сохраняйте** прогресс и позицию чтения автоматически
-
-### Ключевые возможности
-
-| Функция | Описание |
-|---------|----------|
-| 📚 **Мульти-формат** | Поддержка EPUB и FB2 с полным извлечением метаданных |
-| 🤖 **LLM-извлечение** | Google Gemini распознаёт персонажей, сцены и обстановку |
-| 🎨 **ИИ-генерация** | Google Imagen 4 создаёт качественные иллюстрации |
-| 📍 **Умное отслеживание** | CFI-позиционирование с точным восстановлением |
-| 🌙 **Тёмная тема** | Комфортное чтение днём и ночью |
-| 📱 **PWA** | Установка как приложение, работа офлайн |
-| 🔐 **Подписки** | Тарифы FREE / PREMIUM / ULTIMATE |
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+Под капотом — mobile-first PWA с offline-чтением, follow-finger свайпами и
+полноценной поддержкой iOS Safari/PWA. Продакшен: <https://fancai.ru>.
 
 ---
 
-## Технологии
+## Технологический стек
 
-### Frontend
-[![React](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-[![TanStack Query](https://img.shields.io/badge/TanStack_Query-5.90-FF4154?style=for-the-badge&logo=reactquery&logoColor=white)](https://tanstack.com/query)
+### Frontend (`frontend/`)
 
-### Backend
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.125-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15.7-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Redis](https://img.shields.io/badge/Redis-7.4-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
-[![Celery](https://img.shields.io/badge/Celery-5.4-37814A?style=for-the-badge&logo=celery&logoColor=white)](https://docs.celeryq.dev)
+- **React 19** + **TypeScript 5.7** + **Vite 8**
+- **Tailwind CSS 4** + примитивы Radix UI + Vaul (bottom-sheets)
+- **TanStack Query 5** для серверного состояния, **Zustand 5** для клиентского
+- **epub.js 0.3.93** для рендеринга EPUB через CFI
+- **Dexie 4** (IndexedDB) для офлайн-кэша глав
+- **Vitest 4** + **Playwright 1.58** для тестов
+- **i18next** (русский + английский, 1000+ ключей)
 
-### ИИ-сервисы
-[![Google Gemini](https://img.shields.io/badge/Gemini-3.0_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Google Imagen](https://img.shields.io/badge/Imagen-4.0-EA4335?style=for-the-badge&logo=google&logoColor=white)](https://cloud.google.com/vertex-ai/docs/generative-ai/image/overview)
+### Backend (`backend/`)
 
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+- **Python 3.12** + **FastAPI 0.135.1** (Pydantic v2, type hints обязательны)
+- **PostgreSQL 17** (с pgvector) + **SQLAlchemy 2** (`lazy="raise"` везде)
+- **Redis 7.4** + **Celery 5.6** для фоновых задач
+- Миграции через **Alembic**, пакет-менеджер — **uv**
+- **tenacity** + **circuitbreaker** для отказоустойчивости внешних API
+- **pytest 9** + **hypothesis** (property-based тесты для spoiler-фильтрации)
+
+### AI-сервисы (через OpenRouter)
+
+| Назначение         | Модель                              |
+| ------------------ | ----------------------------------- |
+| LLM (primary)      | `google/gemini-2.5-flash`           |
+| LLM (fallback)     | `google/gemini-2.5-flash-lite`      |
+| Генерация картинок | `black-forest-labs/flux.2-klein-4b` |
+
+Все AI-вызовы идут через единый клиент `backend/app/core/openrouter_client.py`
+с client-side fallback chain и circuit breaker. Никаких прямых вызовов
+Google/Anthropic SDK — только OpenRouter.
+
+### Production-инфраструктура
+
+- **Caddy 2.11** (reverse proxy, auto-HTTPS, HTTP/3)
+- **Docker Compose** (профили dev / prod / monitoring)
+- **pgvector/pgvector:0.8.2-pg17** (БД)
+- **Netdata + Uptime Kuma + Dozzle + Flower** для мониторинга
+- **Hawk** для error tracking
 
 ---
 
 ## Быстрый старт
 
-Запустите Fancai локально за 5 минут.
-
 ### Требования
 
-- [Docker](https://docs.docker.com/get-docker/) и Docker Compose
-- [Git](https://git-scm.com/)
-- API-ключ Google Cloud (для Gemini + Imagen) — [Получить здесь](https://ai.google.dev/)
+- [Docker](https://docs.docker.com/get-docker/) с Compose v2 (`docker compose`, через пробел)
+- [Node.js 20+](https://nodejs.org/) (для Vite 8)
+- [uv](https://docs.astral.sh/uv/) для backend (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- API-ключ [OpenRouter](https://openrouter.ai/) (для AI-функций)
 
-### Установка
+### Запуск разработки
 
 ```bash
-# Клонирование репозитория
 git clone https://github.com/sandk0/fancai.git
-cd bookreader-ai
+cd fancai
 
-# Копирование шаблона окружения
-cp .env.example .env
+# 1. Конфигурация
+cp .env.production.example .env.development
+# Откройте .env.development и заполните минимум:
+#   - OPENROUTER_API_KEY=sk-or-v1-...
+#   - DB_PASSWORD=<любой пароль>
+#   - REDIS_PASSWORD=<любой пароль>
+#   - SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(64))")
 
-# Редактирование .env и добавление API-ключей
-nano .env  # или другой редактор
+# 2. Инфраструктура (Postgres + Redis + Caddy)
+docker compose -f docker-compose.dev.yml up -d
 
-# Запуск всех сервисов
-docker-compose up -d
+# 3. Backend (отдельный терминал)
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 
-# Открыть в браузере
-open http://localhost:5173
+# 4. Frontend (отдельный терминал)
+cd frontend
+npm install
+npm run dev
 ```
 
-### Переменные окружения
+Откройте <http://localhost:5173>. Backend API — на <http://localhost:8000>,
+Swagger UI — на <http://localhost:8000/docs>.
 
-Создайте файл `.env` с обязательными переменными:
+### Production
 
-```env
-# Обязательные
-DB_PASSWORD=your_secure_password
-REDIS_PASSWORD=your_redis_password
-SECRET_KEY=your_jwt_secret_key
-
-# ИИ-сервисы (для генерации изображений)
-GOOGLE_API_KEY=your_google_api_key
-
-# Опциональные
-DEBUG=true
-CORS_ORIGINS=http://localhost:5173
-```
-
-> **Примечание:** Полный список опций в [.env.example](.env.example).
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+См. [`docs/deployment/`](docs/deployment/) для подробных production-процедур.
+Краткая команда деплоя — `/deploy` skill в Claude Code (привязан к VPS).
 
 ---
 
-## Архитектура
+## Архитектура (high-level)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           Клиент (Браузер)                          │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────────┐  │
-│  │ React 19    │  │ epub.js      │  │ TanStack Query + IndexedDB │  │
-│  │ + TypeScript│  │ EPUB-рендер  │  │ Слой кэширования           │  │
-│  └─────────────┘  └──────────────┘  └────────────────────────────┘  │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │ REST API
-┌────────────────────────────────┴────────────────────────────────────┐
-│                        FastAPI Backend                              │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐  │
-│  │ Auth (JWT)   │  │ Парсер книг   │  │ Экстрактор описаний      │  │
-│  │              │  │ EPUB/FB2      │  │ (Google Gemini 3.0 Flash)│  │
-│  └──────────────┘  └───────────────┘  └──────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │           Генератор изображений (Google Imagen 4)            │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└──────────────┬──────────────────────────────┬───────────────────────┘
-               │                              │
-    ┌──────────┴──────────┐        ┌─────────┴─────────┐
-    │   PostgreSQL 15     │        │     Redis 7.4     │
-    │   (Хранение данных) │        │ (Кэш + очередь)   │
-    └─────────────────────┘        └───────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                Браузер (PWA, mobile-first)                      │
+│  React 19 + TypeScript  │  epub.js (CFI)  │  TanStack Query +   │
+│  Tailwind 4 + Radix     │  iframe ридер   │  IndexedDB (Dexie)  │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ REST + WebSocket
+┌──────────────────────────────┴──────────────────────────────────┐
+│                       Caddy 2.11 (TLS, HTTP/3)                  │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────┴──────────────────────────────────┐
+│                  FastAPI 0.135 (Python 3.12)                    │
+│  Auth (JWT)  │  Books CRUD  │  Reading sessions  │  Entity API  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Celery 5.6 workers: book_tasks, image_tasks              │  │
+│  │  ↓                                                        │  │
+│  │  OpenRouter unified client (LLM + Image, fallback chain)  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└──────┬─────────────────────────────────────────┬────────────────┘
+       │                                         │
+┌──────┴──────────────┐               ┌──────────┴───────────┐
+│  PostgreSQL 17      │               │  Redis 7.4           │
+│  + pgvector         │               │  кэш / pubsub /      │
+│  (книги, сущности,  │               │  Celery broker /     │
+│   главы, заметки)   │               │  JWT blacklist       │
+└─────────────────────┘               └──────────────────────┘
 ```
 
-### Основные сервисы
-
-| Сервис | Назначение | Строк кода |
-|--------|------------|------------|
-| `book_parser.py` | Парсинг EPUB/FB2, извлечение глав, генерация CFI | 925 |
-| `gemini_extractor.py` | LLM-извлечение описаний через Gemini API | 661 |
-| `imagen_generator.py` | Генерация ИИ-изображений через Imagen 4 | 644 |
-| `reading_session_cache.py` | Redis-кэширование сессий | 454 |
-| `auth_service.py` | JWT-аутентификация и авторизация | 373 |
-
-> **Всего backend:** 15+ сервисов, 7 757 строк кода
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+Подробнее — [`docs/`](docs/README.md) (development, deployment, operations,
+ci-cd, security).
 
 ---
 
-## Справочник API
+## Структура репозитория
 
-### Аутентификация
-```http
-POST /api/v1/auth/register    # Регистрация
-POST /api/v1/auth/login       # Получение JWT-токена
-POST /api/v1/auth/refresh     # Обновление токена
 ```
-
-### Книги
-```http
-GET    /api/v1/books          # Список книг пользователя
-POST   /api/v1/books/upload   # Загрузка EPUB/FB2
-GET    /api/v1/books/{id}     # Детали книги
-DELETE /api/v1/books/{id}     # Удаление книги
+fancai/
+├── backend/                 # FastAPI + Celery
+│   ├── app/
+│   │   ├── core/            # config, openrouter_client, retry, circuit breaker
+│   │   ├── routers/         # 25 файлов, 97 routes + 1 websocket
+│   │   ├── services/        # 28 сервисов (gemini_extractor, book_parser, entity_service)
+│   │   ├── models/          # 18 SQLAlchemy-моделей
+│   │   ├── tasks/           # 10 Celery-задач (book: 3h soft limit, image: 300s)
+│   │   └── prompts/         # шаблоны для LLM
+│   ├── alembic/versions/    # 47 миграций
+│   └── tests/               # pytest, ~46 test-файлов
+├── frontend/                # React 19 + Vite 8
+│   └── src/
+│       ├── components/      # Reader/, Entities/, Library/, Settings/, UI/
+│       ├── hooks/           # epub/ (26), api/ (8 TanStack Query), reader/, …
+│       ├── services/        # IndexedDB-кэш (Dexie)
+│       ├── stores/          # 3 Zustand-стора (auth, reader, ui)
+│       └── pages/           # роутинг
+├── docs/                    # документация (см. docs/README.md)
+├── .planning/               # GSD: PROJECT.md, STATE.md, ROADMAP.md, MILESTONES.md
+├── docker-compose.dev.yml   # локальная разработка
+├── docker-compose.prod.yml  # production (Caddy + всё остальное)
+└── docker-compose.monitoring.yml
 ```
-
-### Чтение
-```http
-GET  /api/v1/chapters/{id}              # Содержимое главы
-PUT  /api/v1/books/{id}/progress        # Обновление позиции
-GET  /api/v1/descriptions/{chapter_id}  # Извлечённые описания
-```
-
-### Изображения
-```http
-POST /api/v1/images/generate/{description_id}  # Генерация изображения
-GET  /api/v1/images/{id}                       # Получение изображения
-```
-
-> **Полная документация API:** Доступна по адресу `/docs` (Swagger UI) при локальном запуске.
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
 
 ---
 
-## Производительность
+## Команды разработки
 
-### Бенчмарки
+```bash
+# Backend
+cd backend
+uv run uvicorn app.main:app --reload    # dev-сервер
+uv run pytest -v                         # тесты
+uv run ruff check .                      # lint
+uv run mypy app/                         # проверка типов
+uv run alembic revision --autogenerate -m "<msg>"
+uv run alembic upgrade head
 
-| Метрика | Значение | Улучшение |
-|---------|----------|-----------|
-| Время запроса к БД | <5мс | 100x быстрее (было 500мс) |
-| Ответ API (кэш) | <50мс | 83% быстрее |
-| TTI фронтенда | 1.2с | 66% быстрее |
-| Размер бандла | 386KB gzipped | 29% меньше |
-| Использование RAM | 2-3 GB | 75% снижение |
-| Docker-образ | 800 MB | 68% меньше |
+# Frontend
+cd frontend
+npm run dev                              # Vite dev-сервер
+npm test                                 # vitest
+npm run test:e2e                         # Playwright
+npm run lint                             # ESLint
+npm run type-check                       # tsc --noEmit
+npm run build                            # production-сборка
+```
 
-### Применённые оптимизации
-
-- **База данных:** JSONB + GIN-индексы для 100x ускорения
-- **Кэширование:** Redis с 85% попаданий в кэш
-- **Frontend:** TanStack Query со стратегией stale-while-revalidate
-- **Офлайн:** IndexedDB-кэширование глав и изображений
-- **Алгоритмы:** O(n) подсветка текста (было O(n²))
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+Подробнее — [`docs/development/`](docs/development/) и [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
-## Дорожная карта
+## Дорожная карта и история
 
-- [x] Парсинг EPUB/FB2 книг
-- [x] LLM-извлечение описаний (Gemini)
-- [x] ИИ-генерация изображений (Imagen 4)
-- [x] Отслеживание прогресса (CFI)
-- [x] Офлайн-поддержка (PWA + IndexedDB)
-- [x] Система подписок
-- [x] Устойчивые API-вызовы (exponential backoff)
-- [x] JWT token blacklist (безопасный logout)
-- [x] Офлайн-очередь синхронизации
-- [x] Интеграционные тесты
-- [x] Система тем (Light/Dark/Sepia)
-- [x] iOS Mobile-оптимизации (scroll/zoom fixes, safe-area)
-- [ ] Мобильные приложения (React Native)
-- [ ] Социальные функции (шеринг, комментарии)
-- [ ] Поддержка нескольких ИИ-моделей
-- [ ] Рекомендации книг
+- **Текущее состояние:** [`.planning/STATE.md`](.planning/STATE.md)
+- **Дорожная карта:** [`.planning/ROADMAP.md`](.planning/ROADMAP.md)
+- **Milestones (v1.0 → v1.5):** [`.planning/MILESTONES.md`](.planning/MILESTONES.md)
+- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 
-Смотрите [открытые issues](https://github.com/sandk0/fancai/issues) для планируемых функций и известных проблем.
+Кратко: v1.0–v1.3 отгружены в продакшн (март 2026, ~80 phases, mobile/PWA/iOS).
+v1.4 (self-hosted NLP) abandoned после стратегического разворота. v1.5 (Modal
+batch processing) closed-partial — Phases 35–36 в продакшне (status semantics
 
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+- observability), Phase 37 abandoned после провала staging. Текущий курс —
+  оптимизация OpenRouter pipeline.
+
+Out of scope (явно не делаем): подписки/монетизация, социальные функции,
+встроенный магазин книг, нативное мобильное приложение, форматы помимо EPUB/FB2.
+Полный список — в `.planning/PROJECT.md`.
 
 ---
 
 ## Участие в разработке
 
-Вклад в проект делает open-source сообщество удивительным. Любой вклад **высоко ценится**.
+См. [`CONTRIBUTING.md`](CONTRIBUTING.md) для процесса работы, конвенций
+коммитов (conventional commits), стиля кода и PR-процесса.
 
-1. Сделайте Fork проекта
-2. Создайте ветку для функции (`git checkout -b feature/AmazingFeature`)
-3. Закоммитьте изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Запушьте ветку (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-Подробнее в [CONTRIBUTING.md](CONTRIBUTING.md).
-
-### Настройка окружения разработчика
-
-```bash
-# Backend-разработка
-cd backend
-pip install -r requirements.txt
-pytest -v --cov=app           # Запуск тестов
-mypy app/                     # Проверка типов
-
-# Frontend-разработка
-cd frontend
-npm install
-npm test                      # Запуск тестов
-npm run type-check            # Проверка TypeScript
-```
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
-
----
-
-## Структура проекта
-
-```
-fancai/
-├── frontend/                 # React + TypeScript фронтенд
-│   ├── src/
-│   │   ├── components/       # UI-компоненты (86 всего)
-│   │   │   ├── Reader/       # EPUB-ридер (15 компонентов)
-│   │   │   ├── Settings/     # Настройки (8 компонентов)
-│   │   │   ├── Library/      # Библиотека книг (6 компонентов)
-│   │   │   ├── Admin/        # Админ-панель (5 компонентов)
-│   │   │   └── UI/           # Общие UI (20+ компонентов)
-│   │   ├── hooks/            # React-хуки (56 всего)
-│   │   │   ├── api/          # TanStack Query хуки (5 файлов)
-│   │   │   ├── epub/         # Хуки EPUB-ридера (22 файла)
-│   │   │   ├── reader/       # Логика ридера (9 файлов)
-│   │   │   └── [15 top-level хуков]
-│   │   ├── services/         # Сервисы кэширования (9 файлов)
-│   │   ├── stores/           # Zustand stores (6 файлов)
-│   │   └── pages/            # Страницы (13 страниц)
-│   └── tests/                # Тесты Vitest
-├── backend/                  # FastAPI + Python бэкенд
-│   ├── app/
-│   │   ├── routers/          # API-эндпоинты (70+ эндпоинтов)
-│   │   ├── services/         # Бизнес-логика (17+ сервисов)
-│   │   ├── models/           # SQLAlchemy-модели (9 моделей)
-│   │   └── core/             # Конфиг, БД, исключения, retry
-│   └── tests/
-│       ├── services/         # Unit-тесты (35+ файлов)
-│       └── integration/      # Интеграционные тесты (8 файлов)
-├── docs/                     # Документация (Diataxis)
-├── docker-compose.lite.yml   # Production-стек
-└── scripts/                  # Скрипты деплоя
-```
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
-
----
-
-## Документация
-
-Документация следует фреймворку [Diataxis](https://diataxis.fr/):
-
-| Категория | Описание | Ссылка |
-|-----------|----------|--------|
-| **Руководства** | Пошаговые туториалы и how-to | [docs/guides/](docs/guides/) |
-| **Справочник** | API, БД, спецификации компонентов | [docs/reference/](docs/reference/) |
-| **Пояснения** | Архитектура и проектные решения | [docs/explanations/](docs/explanations/) |
-| **Операции** | Деплой и обслуживание | [docs/operations/](docs/operations/) |
-
-**Быстрые ссылки:**
-- [Быстрый старт](docs/guides/getting-started/quick-start.md)
-- [Документация API](docs/reference/api/overview.md)
-- [Руководство по деплою](docs/guides/deployment/production-deployment.md)
-- [Обзор архитектуры](docs/explanations/architecture/system-architecture.md)
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
-
----
+Внутренний workflow проекта построен на [GSD](https://github.com/anthropics/gsd)
+(Get Shit Done) — phase/plan-based execution с атомарными коммитами; внешним
+контрибьюторам он не обязателен.
 
 ## Лицензия
 
-Проприетарное ПО. Все права защищены.
+Проприетарная. См. [`LICENSE`](LICENSE).
 
-Подробнее в [LICENSE](LICENSE).
+## Контакт
 
-<p align="right">(<a href="#fancai">наверх</a>)</p>
-
----
-
-## Благодарности
-
-- [epub.js](https://github.com/futurepress/epub.js) — рендеринг EPUB
-- [TanStack Query](https://tanstack.com/query) — управление серверным состоянием
-- [FastAPI](https://fastapi.tiangolo.com/) — Python веб-фреймворк
-- [Google AI](https://ai.google.dev/) — Gemini и Imagen API
-- [Best-README-Template](https://github.com/othneildrew/Best-README-Template) — вдохновение для README
-
-<p align="right">(<a href="#fancai">наверх</a>)</p>
+- **Issues / баги:** <https://github.com/sandk0/fancai/issues>
+- **Безопасность:** см. [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ---
 
-<div align="center">
-
-**[Сайт](https://fancai.ru)** · **[Документация](docs/README.md)** · **[Сообщить об ошибке](https://github.com/sandk0/fancai/issues)**
-
-Создано с любовью к читателям
-
-</div>
+_Последнее обновление: 2026-04-30. Сверено с `package.json`, `requirements.txt`, `docker-compose.prod.yml`, `backend/app/core/openrouter_client.py`._
