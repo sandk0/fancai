@@ -2,18 +2,18 @@
 
 Two core AI features:
 
-1. **Image generation** — Gemini extracts visual descriptions, Imagen generates illustrations
-2. **Entity glossary/wiki (main feature)** — AI builds interactive encyclopedia: characters, locations, objects with spoiler-free chapter tracking
+1. **Entity glossary/wiki (main feature)** — AI builds interactive encyclopedia: characters, locations, objects with spoiler-free chapter tracking
+2. **Image generation** — LLM extracts visual descriptions, FLUX.2 generates illustrations
 
-Stack: React 19 + TypeScript 5.7 + Vite 7 | FastAPI + Python 3.12 + PostgreSQL 17 + Redis 7.4 + Celery
-AI: OpenRouter (LLM: Gemini 3.0 Flash) | OpenRouter (Images: FLUX.2 Klein)
+Stack: React 19 + TypeScript 5.7 + Vite 8 | FastAPI 0.135 + Python 3.12 + PostgreSQL 17 + Redis 7.4 + Celery 5.6
+AI: OpenRouter (LLM: google/gemini-2.5-flash primary, gemini-2.5-flash-lite fallback) | OpenRouter (Images: black-forest-labs/flux.2-klein-4b)
 Production: https://fancai.ru | Deploy: `/deploy` skill
 
 ## Commands
 
 ```bash
 cd frontend && npm run dev          # Frontend dev server
-cd frontend && npm test             # Jest tests (prefer single files)
+cd frontend && npm test             # Vitest tests (prefer single files)
 cd frontend && npm run build        # Production build
 cd backend && uv run python -m pytest -v  # Backend tests
 cd backend && alembic upgrade head  # Run migrations
