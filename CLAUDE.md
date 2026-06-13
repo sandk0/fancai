@@ -60,7 +60,6 @@ IMPORTANT: При /compact всегда сохраняй:
 
 For iOS/theme/Reader rules: `.claude/rules/frontend.md`
 For Reader/EPUB rules: `.claude/rules/reader.md`
-For skill routing: `.claude/rules/auto-routing.md`
 Планирование (архив `.planning/`): ROADMAP.md, STATE.md
 
 ## Профиль разработчика
