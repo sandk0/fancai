@@ -13,16 +13,16 @@
 - `routers/` — 97 routes + 1 websocket across 25 files
 - `routers/books/` — subpackage: crud.py (792), entities.py, processing.py, validation.py
 - `services/` — 28 services, largest: gemini_extractor.py (1221), book_parser.py (1199)
-- `models/` — 18 SQLAlchemy models, 47 alembic migrations
+- `models/` — 18 SQLAlchemy models, 54 alembic migrations
 - `tasks/` — 10 Celery tasks (image: 300s soft limit, book: 3h soft limit)
 
 ## AI Models (via OpenRouter)
 
-- LLM: google/gemini-3-flash-preview (fallbacks: claude-haiku-4.5, gemini-2.5-flash-lite)
+- LLM: google/gemini-2.5-flash (primary) → google/gemini-2.5-flash-lite (fallback) [openrouter_client.py:58-59]
 - Images: black-forest-labs/flux.2-klein-4b
 - Extraction: 100K char chunks with 15% overlap (entity loss at boundaries)
 
 ## Testing
 
 - pytest -v --tb=short
-- 46 test files across services/, routers/, integration/, performance/
+- 76 test files across services/, routers/, integration/, performance/

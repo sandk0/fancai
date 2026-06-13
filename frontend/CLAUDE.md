@@ -1,4 +1,4 @@
-# Frontend — React 19 + TypeScript 5.7 + Vite 7
+# Frontend — React 19 + TypeScript 5.7 + Vite 8
 
 ## Key Conventions
 
@@ -11,10 +11,10 @@
 
 ## Architecture
 
-- `components/Reader/` — 22 files, EpubReader.tsx (286 lines) well-decomposed into 25+ hooks
-- `components/Entities/` — 12 files (NOT in Reader/)
-- `hooks/epub/` — 26 hooks for EPUB functionality
-- `hooks/api/` — 8 TanStack Query hook files
+- `components/Reader/` — 34 files, EpubReader.tsx (~910 lines) well-decomposed into 25+ hooks
+- `components/Entities/` — 10 files (NOT in Reader/); EntityDrawer + EntityBottomSheet (no EntityPopup)
+- `hooks/epub/` — 31 files (25+ hooks) for EPUB functionality
+- `hooks/api/` — 12 TanStack Query hook files
 - `services/` — IndexedDB caching (Dexie), offline-first
 
 ## iOS Safari
@@ -25,6 +25,6 @@
 
 ## Testing
 
-- Vitest + @testing-library/react
-- `npm test -- --watchAll=false` for CI
-- `npm run build` to verify TypeScript
+- Vitest + @testing-library/react — 38 unit test files
+- Playwright e2e — 8 specs in `frontend/tests/` (`npm run test:e2e`)
+- `npm test` (vitest run) for CI; `npm run build` to verify TypeScript
