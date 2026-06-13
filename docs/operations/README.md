@@ -7,13 +7,13 @@ Day-2 операции: бэкапы, восстановление, прокси
 
 ## Содержание
 
-| Файл                                                                       | Описание                                                                                       |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [`BACKUP_AND_RESTORE.md`](BACKUP_AND_RESTORE.md)                           | Процедуры backup и restore PostgreSQL                                                          |
-| [`BACKUP_AND_RESTORE.ru.md`](BACKUP_AND_RESTORE.ru.md)                     | То же на русском                                                                               |
-| [`VLESS_QUICK_REFERENCE.md`](VLESS_QUICK_REFERENCE.md)                     | Быстрые команды для VLESS proxy                                                                |
-| [`VLESS_PROXY_RESEARCH_2025-11-30.md`](VLESS_PROXY_RESEARCH_2025-11-30.md) | Research-документ по VLESS (snapshot 2025-11-30)                                               |
-| [`nlp-canary-deployment-runbook.md`](nlp-canary-deployment-runbook.md)     | **Исторический runbook** — NLP-система удалена в декабре 2025, документ оставлен для контекста |
+| Файл                                                                       | Описание                                                                                                                                    |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`BACKUP_AND_RESTORE.md`](BACKUP_AND_RESTORE.md)                           | Процедуры backup и restore PostgreSQL                                                                                                       |
+| [`BACKUP_AND_RESTORE.ru.md`](BACKUP_AND_RESTORE.ru.md)                     | То же на русском                                                                                                                            |
+| [`VLESS_QUICK_REFERENCE.md`](VLESS_QUICK_REFERENCE.md)                     | Быстрые команды для VLESS proxy                                                                                                             |
+| [`VLESS_PROXY_RESEARCH_2025-11-30.md`](VLESS_PROXY_RESEARCH_2025-11-30.md) | Research-документ по VLESS (snapshot 2025-11-30)                                                                                            |
+| [`migration/`](migration/)                                                 | Пакет аварийной готовности / миграции сервера (recon, plan, inventory, runbook; 2026-05-10) — RTO ≤ 4ч. Страховка, не исполненное действие. |
 
 ## Конвенции
 
@@ -22,4 +22,4 @@ Day-2 операции: бэкапы, восстановление, прокси
 
 ---
 
-_Last updated: 2026-04-30._
+_Последнее обновление: 2026-06-13. Сверено с: `docs/operations/migration/`, `scripts/`._
