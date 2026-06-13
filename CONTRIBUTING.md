@@ -4,7 +4,7 @@
 кодовой базой: окружение, конвенции, процесс PR.
 
 > Если вы внешний контрибьютор: достаточно прочитать разделы 1–6.
-> Раздел 7 («Внутренний workflow на GSD») — для maintainers.
+> Раздел 7 — историческая справка о планировании (архив `.planning/`).
 
 ---
 
@@ -82,7 +82,7 @@ curl http://localhost:8000/health     # должен вернуть {"status": "
 ### Scope (примеры из истории)
 
 `reader`, `epub`, `entities`, `images`, `auth`, `sync`, `ai`, `sw` (service worker),
-`csp`, `modal`, `35-01` (phase plan id), `gsd`, `readme`, `contributing`.
+`csp`, `modal`, `readme`, `contributing`.
 
 ### Примеры
 
@@ -241,47 +241,21 @@ Closes #<issue-id> (если применимо)
 
 ---
 
-## 7. Внутренний workflow на GSD (для maintainers)
+## 7. Планирование (архив `.planning/`)
 
-Проект использует [GSD](https://github.com/anthropics/gsd) — phase-based
-execution с атомарными коммитами. Если вы внешний контрибьютор — игнорируйте
-этот раздел.
-
-### Артефакты
+Исторически проект вёлся через phase-based планировщик (GSD), который
+удалён из репозитория. Его артефакты сохранены в `.planning/` как
+**read-only историческая справка** — vision, состояние и хронология фаз:
 
 - `.planning/PROJECT.md` — vision, scope, what's-in/out
-- `.planning/STATE.md` — текущее оперативное состояние
+- `.planning/STATE.md` — оперативное состояние на момент последней фазы
 - `.planning/ROADMAP.md` — phases / plans / milestones
 - `.planning/MILESTONES.md` — история отгруженных milestones
 - `.planning/phases/<NN>/PLAN.md` — детальные планы фаз
 
-### Команды
-
-| Команда              | Назначение                              |
-| -------------------- | --------------------------------------- |
-| `/gsd:progress`      | где мы и что дальше                     |
-| `/gsd:discuss-phase` | gather context перед planning           |
-| `/gsd:plan-phase`    | создать `PLAN.md` для фазы              |
-| `/gsd:execute-phase` | исполнить план волнами                  |
-| `/gsd:verify-work`   | UAT-валидация после execute             |
-| `/gsd:autonomous`    | прогнать discuss→plan→execute автономно |
-
-Не редактируйте `.planning/` руками вне GSD-команд — это автоматизированная
-территория.
-
-### Стиль коммитов в GSD
-
-Дополнительные scope-форматы:
-
-```
-feat(36-01): integrate ErrorClassifier into book_tasks
-docs(36-02): complete ErrorClassifier + structured logging plan
-test(36-01): add failing tests for Modal metrics transport
-docs(state): record phase 35 context session
-docs(phase-36): evolve PROJECT.md after phase completion
-```
-
-`<phase-num>-<plan-num>` — стандартный scope в активной фазе.
+Специальных команд или инструментов для работы с проектом больше не
+требуется — обычный git-флоу из разделов 1–6. Файлы в `.planning/` можно
+читать для контекста; активного workflow за ними больше нет.
 
 ---
 
