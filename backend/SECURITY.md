@@ -1,8 +1,8 @@
 # Security Implementation Guide
 
-**BookReader AI - Application Security Documentation**
+**fancai - Application Security Documentation**
 
-This document describes the security features implemented in BookReader AI and provides guidance for secure deployment and operations.
+This document describes the security features implemented in fancai and provides guidance for secure deployment and operations.
 
 ---
 
@@ -23,7 +23,7 @@ This document describes the security features implemented in BookReader AI and p
 
 ## Security Overview
 
-BookReader AI implements multiple layers of security (defense-in-depth):
+fancai implements multiple layers of security (defense-in-depth):
 
 | Layer | Protection | Status |
 |-------|------------|--------|

@@ -210,7 +210,7 @@ A: Сгенерировать новый, перешифровать сущес�
 | Owner               | sandkme@gmail.com                                                             |
 | Production URL      | https://fancai.ru                                                             |
 | GitHub              | https://github.com/sandk0/fancai                                              |
-| Existing DR plan    | [docs/deployment/DISASTER_RECOVERY.md](../../deployment/DISASTER_RECOVERY.md) |
+| Existing DR plan    | [docs/deployment/DISASTER_RECOVERY.md](../../_archive/2026-06-13-stale-infra/deployment/DISASTER_RECOVERY.md) |
 | Existing backup doc | [docs/operations/BACKUP_AND_RESTORE.md](../BACKUP_AND_RESTORE.md)             |
 
 ---

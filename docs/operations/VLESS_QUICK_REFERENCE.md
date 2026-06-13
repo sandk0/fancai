@@ -202,7 +202,7 @@ rate(xray_traffic_downlink_bytes_total[5m]) / 1024 / 1024
 
 ```
 ┌────────────────────────────────────────────┐
-│  BookReader AI Production Stack           │
+│  fancai Production Stack           │
 ├────────────────────────────────────────────┤
 │                                            │
 │  ┌──────────┐        ┌──────────────┐     │

@@ -11,7 +11,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![TypeScript 5.7](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red)](LICENSE)
+![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red)
 
 [Production](https://fancai.ru) · [Documentation](docs/README.md) · [Roadmap](.planning/ROADMAP.md) · [Report Bug](https://github.com/sandk0/fancai/issues)
 
@@ -247,7 +247,7 @@ Out of scope (явно не делаем): подписки/монетизаци
 
 ## License
 
-Proprietary. См. [`LICENSE`](LICENSE).
+Proprietary.
 
 ## Контакт
 

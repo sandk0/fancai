@@ -1,9 +1,9 @@
 # Backup and Restore Documentation
 
-**Project:** BookReader AI
+**Project:** fancai
 **Document Version:** 1.0
 **Last Updated:** 2025-10-24
-**Purpose:** Complete guide for backing up and restoring the BookReader AI system
+**Purpose:** Complete guide for backing up and restoring the fancai system
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## Backup System Overview
 
-The BookReader AI backup system is designed to ensure complete data recovery capability in case of system failures, data corruption, or disaster scenarios. The backup strategy follows the **3-2-1 rule**:
+The fancai backup system is designed to ensure complete data recovery capability in case of system failures, data corruption, or disaster scenarios. The backup strategy follows the **3-2-1 rule**:
 
 - **3** copies of your data
 - **2** different storage media types
@@ -35,7 +35,7 @@ The BookReader AI backup system is designed to ensure complete data recovery cap
 ### Architecture
 
 ```
-BookReader AI Backup Architecture
+fancai Backup Architecture
 ├── Primary Data (Production)
 │   ├── PostgreSQL Database
 │   ├── Redis Cache
@@ -63,7 +63,7 @@ BookReader AI Backup Architecture
 
 ## Full Backup Components
 
-A complete backup of BookReader AI includes:
+A complete backup of fancai includes:
 
 ### 1. PostgreSQL Database
 
@@ -159,9 +159,9 @@ Create file: `scripts/backup.sh`
 ```bash
 #!/bin/bash
 
-# BookReader AI Automated Backup Script
+# fancai Automated Backup Script
 # Version: 1.0
-# Author: BookReader AI Team
+# Author: fancai Team
 
 set -e  # Exit on any error
 
@@ -293,7 +293,7 @@ create_manifest() {
     log_message "Creating backup manifest..."
 
     cat > "$BACKUP_DIR/backup_manifest_${DATE}.txt" <<EOF
-BookReader AI Backup Manifest
+fancai Backup Manifest
 =============================
 Date: $DATE
 Hostname: $(hostname)
@@ -350,7 +350,7 @@ upload_to_cloud() {
 
 # Main execution
 main() {
-    log_message "========== Starting BookReader AI Backup =========="
+    log_message "========== Starting fancai Backup =========="
 
     create_directories
     backup_postgresql

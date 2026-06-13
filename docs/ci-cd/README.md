@@ -1,29 +1,38 @@
 # CI/CD
 
-GitHub Actions pipeline, branch protection и deployment guides.
+GitHub Actions. **Источник истины** — `.github/workflows/*.yml`; этот документ — обзор.
 
-## Содержание
+> Подробные ci-cd-доки октября 2025 (старое имя, аспирационные staging-стратегии)
+> заархивированы в [`../_archive/2026-06-13-stale-infra/ci-cd/`](../_archive/2026-06-13-stale-infra/ci-cd/).
 
-| Файл                                                                 | Описание                    |
-| -------------------------------------------------------------------- | --------------------------- |
-| [`CI_CD_SETUP.md`](CI_CD_SETUP.md)                                   | Первичная настройка CI/CD   |
-| [`CI_CD_IMPLEMENTATION_SUMMARY.md`](CI_CD_IMPLEMENTATION_SUMMARY.md) | Сводка реализации           |
-| [`GITHUB_ACTIONS_GUIDE.md`](GITHUB_ACTIONS_GUIDE.md)                 | GitHub Actions workflows    |
-| [`BRANCH_PROTECTION_RULES.md`](BRANCH_PROTECTION_RULES.md)           | Branch protection (main)    |
-| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)                         | Deployment через CI/CD      |
-| [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md)                           | Быстрая шпаргалка           |
-| [`error-index.md`](error-index.md)                                   | Типовые CI-ошибки и решения |
+## Workflows
+
+### `ci.yml` — push в `main`/`develop`, PR в `main`
+
+8 джобов: **backend-lint** (ruff / black --check / mypy) · **backend-tests** (pytest + coverage,
+service-контейнеры PostgreSQL 17 + Redis 7) · **frontend-lint** (ESLint + `tsc --noEmit`) ·
+**frontend-tests** (vitest + `npm run build` + артефакт dist) · **e2e-tests** (Playwright chromium) ·
+**security-scan** (Trivy fs + TruffleHog) · **docker-build** (на PR) · **all-checks-passed** (gate).
+
+### `security.yml` — push/PR + еженедельно (понедельник)
+
+pip-audit / safety (Python), npm audit (JS), Bandit, CodeQL (Python + JavaScript), Trivy image scan,
+TruffleHog / Gitleaks (secrets), license-check. Результаты → GitHub Security tab (SARIF).
+
+### `modal-deploy.yml` — legacy
+
+Триггер на `modal/**`. Modal-путь отключён (см. [`../architecture/ai-pipeline.md`](../architecture/ai-pipeline.md)) —
+workflow оставлен как наследие.
+
+## Окружение CI
+
+Python 3.12, Node 22. Тестовые БД/Redis — service-контейнеры (не прод).
 
 ## Связанное
 
-- Workflows на диске: `.github/workflows/*.yml`
-- Production deploy: [`../deployment/`](../deployment/)
-- Runbook'и: [`../operations/`](../operations/)
-
-> Файлы в этой директории могут содержать устаревшие упоминания CI-стека
-> от 2025 года; принципы остаются валидными, но сверяйте имена workflow и
-> shell-команд с актуальным `.github/workflows/`.
+- Production deploy: [`../deployment/README.md`](../deployment/README.md)
+- Day-2 runbook'и: [`../operations/`](../operations/)
 
 ---
 
-_Last updated: 2026-04-30._
+_Последнее обновление: 2026-06-13. Сверено с `.github/workflows/{ci,security,modal-deploy}.yml`._
