@@ -160,7 +160,7 @@ Swagger UI на <http://localhost:8000/docs>.
 └─────────────────────┘               └──────────────────────┘
 ```
 
-Подробнее — [`docs/`](docs/README.md) (development, deployment, operations,
+Подробнее — [`docs/`](docs/README.md) (architecture, deployment, operations,
 ci-cd, security).
 
 ---
@@ -177,17 +177,17 @@ fancai/
 │   │   ├── models/          # 18 SQLAlchemy моделей
 │   │   ├── tasks/           # 10 Celery задач (book: 3h soft limit, image: 300s)
 │   │   └── prompts/         # шаблоны для LLM
-│   ├── alembic/versions/    # 47 миграций
-│   └── tests/               # pytest, ~46 test-файлов
+│   ├── alembic/versions/    # 54 миграции
+│   └── tests/               # pytest, 76 test-файлов
 ├── frontend/                # React 19 + Vite 8
 │   └── src/
 │       ├── components/      # Reader/, Entities/, Library/, Settings/, UI/
-│       ├── hooks/           # epub/ (26), api/ (8 TanStack Query), reader/, …
+│       ├── hooks/           # epub/ (31), api/ (12 TanStack Query), reader/, …
 │       ├── services/        # IndexedDB caching (Dexie)
 │       ├── stores/          # 3 Zustand stores (auth, reader, ui)
 │       └── pages/           # routing
 ├── docs/                    # документация (см. docs/README.md)
-├── .planning/               # GSD: PROJECT.md, STATE.md, ROADMAP.md, MILESTONES.md
+├── .planning/               # Планирование (историч.): PROJECT.md, STATE.md, ROADMAP.md, MILESTONES.md
 ├── docker-compose.dev.yml   # локальная разработка
 ├── docker-compose.prod.yml  # production (Caddy + всё остальное)
 └── docker-compose.monitoring.yml
@@ -217,7 +217,7 @@ npm run type-check                       # tsc --noEmit
 npm run build                            # production build
 ```
 
-Подробнее — [`docs/development/`](docs/development/) и [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Подробнее — [`docs/architecture/`](docs/architecture/) и [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
@@ -230,10 +230,9 @@ npm run build                            # production build
 
 Кратко: v1.0–v1.3 отгружены в продакшн (март 2026, ~80 phases, mobile/PWA/iOS).
 v1.4 (self-hosted NLP) abandoned после стратегического разворота. v1.5 (Modal
-batch processing) closed-partial — Phases 35–36 в продакшне (status semantics
-
-- observability), Phase 37 abandoned после провала staging. Текущий курс —
-  оптимизация OpenRouter pipeline.
+batch) closed-partial — Phases 35–36 в продакшне, Phase 37 abandoned после провала
+staging. Текущий курс — оптимизация OpenRouter pipeline (см.
+[`docs/architecture/ai-pipeline.md`](docs/architecture/ai-pipeline.md)).
 
 Out of scope (явно не делаем): подписки/монетизация, социальные функции,
 встроенный магазин книг, native mobile app, форматы помимо EPUB/FB2.
@@ -246,10 +245,6 @@ Out of scope (явно не делаем): подписки/монетизаци
 См. [`CONTRIBUTING.md`](CONTRIBUTING.md) для процесса работы, конвенций
 коммитов (conventional commits), стиля кода и PR-процесса.
 
-Внутренний workflow проекта построен на [GSD](https://github.com/anthropics/gsd)
-(Get Shit Done) — phase/plan-based execution с атомарными коммитами; внешним
-контрибьюторам он не обязателен.
-
 ## License
 
 Proprietary. См. [`LICENSE`](LICENSE).
@@ -261,4 +256,4 @@ Proprietary. См. [`LICENSE`](LICENSE).
 
 ---
 
-_Last updated: 2026-04-30. Verified against `package.json`, `requirements.txt`, `docker-compose.prod.yml`, `backend/app/core/openrouter_client.py`._
+_Последнее обновление: 2026-06-13. Сверено с `frontend/package.json`, `backend/requirements.txt`, `docker-compose.prod.yml`, `backend/app/core/openrouter_client.py`, `backend/alembic/versions/`, `backend/tests/`._
