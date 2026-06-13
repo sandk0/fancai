@@ -84,46 +84,6 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docker-safety.sh"
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-prompt-guard.js",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-read-guard.js",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gsd-validate-commit.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gsd-workflow-guard.js",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "PostToolUse": [
@@ -135,36 +95,6 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format/format_hook.sh"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-context-monitor.js",
-            "timeout": 10
-          }
-        ],
-        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task"
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gsd-phase-boundary.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gsd-read-injection-scanner.js",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "SessionStart": [
@@ -174,22 +104,6 @@
           {
             "type": "command",
             "command": "echo '## Post-Compact Reminder\n- Project: fancai (React 19 + FastAPI + Gemini AI)\n- Entity glossary = main selling feature\n- cd frontend && npm run dev | cd backend && pytest -v\n- Commits: <type>(<scope>): <subject>\n- Always run tests before completing'"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-check-update.js"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gsd-session-state.sh"
           }
         ]
       }
@@ -216,9 +130,5 @@
         ]
       }
     ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "node .claude/hooks/gsd-statusline.js"
   }
 }

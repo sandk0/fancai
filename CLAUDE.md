@@ -61,13 +61,9 @@ IMPORTANT: При /compact всегда сохраняй:
 For iOS/theme/Reader rules: `.claude/rules/frontend.md`
 For Reader/EPUB rules: `.claude/rules/reader.md`
 For skill routing: `.claude/rules/auto-routing.md`
-GSD planning: `.planning/` (ROADMAP.md, STATE.md)
-
-<!-- GSD:profile-start -->
+Планирование (архив `.planning/`): ROADMAP.md, STATE.md
 
 ## Профиль разработчика
-
-> Сгенерировано GSD из session_analysis. Обновить: `/gsd:profile-user --refresh`
 
 | Dimension      | Rating              | Confidence |
 | -------------- | ------------------- | ---------- |
@@ -90,4 +86,3 @@ GSD planning: `.planning/` (ROADMAP.md, STATE.md)
 - **Инструменты:** Уважай выбор инструментов. Не предлагай замену библиотек, если текущий выбор не сломан.
 - **Границы:** Перед коммитом фикса убедись, что не ломает соседнее поведение. Не модифицируй за пределами scope без предупреждения.
 - **Обучение:** Разработчик уже прочитал логи, коммиты и код. Структурируй исследования для самостоятельного чтения.
-<!-- GSD:profile-end -->
