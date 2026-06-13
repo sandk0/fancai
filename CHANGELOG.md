@@ -8,24 +8,42 @@
 
 ## [Unreleased]
 
-### Changed
-
-- Документация репозитория обновлена под актуальный стек и AI-провайдеров
-  (Python 3.12, FastAPI 0.135.1, PostgreSQL 17, Vite 8, Tailwind 4,
-  OpenRouter — gemini-2.5-flash + flux.2-klein-4b)
-- README, README-ru, CONTRIBUTING переписаны; Entity Wiki поднят как первая фича
-
 ### Removed
 
-- Упоминания `GOOGLE_API_KEY`, Imagen 4, Gemini 3.0 Flash, Subscription tiers,
-  NLP-системы и React Native в публичной документации (out of scope или
-  устарело)
+- **GSD toolchain полностью удалён из репозитория** (2026-06-13) — команды `/gsd:*`,
+  субагенты, движок `get-shit-done/`, хуки и statusline вырезаны из `.claude/`,
+  `.opencode/`, `.codex/` и user-level. `.planning/` сохранён как read-only архив.
+- (v1, 2026-04-30) Упоминания `GOOGLE_API_KEY`, Imagen 4, Gemini 3.0 Flash, Subscription
+  tiers, NLP-системы и React Native в публичной документации.
+
+### Changed
+
+- **Модернизация документации, проход v2** (2026-06-13): AI-пайплайн зафиксирован «как есть»
+  (OpenRouter — единственный активный путь; `google-genai` в requirements = мёртвый код
+  незавершённого Gemini-Direct плана); test-счётчики выровнены (76 backend / 38 frontend
+  unit / 8 e2e); мониторинг-стек актуализирован (Netdata/VictoriaMetrics/Uptime-Kuma, не
+  Prometheus/Grafana/Loki); навигатор `docs/README.md` перестроен.
+- (v1, 2026-04-30) Документация под актуальный стек (Python 3.12, FastAPI 0.135.1, PG17,
+  Vite 8, Tailwind 4, OpenRouter — gemini-2.5-flash + flux.2-klein-4b); README/-ru/CONTRIBUTING
+  переписаны, Entity Wiki поднят как первая фича.
+
+### Added
+
+- **Пакет аварийной готовности / миграции сервера** (`docs/operations/migration/`, 2026-05-10):
+  recon-отчёт, план, inventory, runbook (RTO ≤ 4ч). Страховка; миграция не исполнялась.
+- `docs/architecture/` — `ai-pipeline.md` (каноническое описание AI) + `overview.md` (обзор системы).
+
+### Deferred
+
+- Прямая интеграция Gemini API (Gemini Direct, план `docs/plans/2026-05-03-…`) — оценена и
+  **отложена**; пайплайн остаётся на OpenRouter.
 
 ### Archived
 
-- 21 устаревший дизайн/анализ-документ из `docs/development/` и `docs/`
-  перемещён в `docs/_archive/` (документы октябрь–ноябрь 2025 + три аудита
-  марта 2026)
+- **Проход v2** (2026-06-13): ~133 исторических документа 2025 года из nested Diataxis-секций
+  (`guides/`, `reference/`, `explanations/`, `development/`, `ru/`) + 11 аспирационных
+  infra-доков октября 2025 → `docs/_archive/`.
+- (v1, 2026-04-30) 21 документ октябрь–ноябрь 2025 + три аудита марта 2026.
 
 ---
 
