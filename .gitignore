@@ -257,3 +257,8 @@ coverage/
 .gemini/
 .understand-anything/
 .opencode/
+
+# ── Regenerable tool caches ──
+.artifacts/
+.ropeproject/
+.ruff_cache/
