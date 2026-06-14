@@ -249,3 +249,11 @@ coverage/
 
 # ── GSD baseline (auto-generated) ──
 .gsd
+.omx/
+.codex/
+
+# ── Removed tool scaffolding (recreate as needed) ──
+.agents/
+.gemini/
+.understand-anything/
+.opencode/
