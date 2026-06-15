@@ -118,12 +118,10 @@ class TestNoGoogleGenaiImport:
         ), "Найден атрибут types — google.genai.types не убран"
 
     def test_uses_openrouter_client(self):
-        """gemini_extractor должен использовать get_openrouter_client."""
+        """gemini_extractor должен использовать get_ai_provider (AIProvider factory)."""
         import app.services.gemini_extractor as mod
 
-        assert hasattr(
-            mod, "get_openrouter_client"
-        ), "get_openrouter_client не импортирован"
+        assert hasattr(mod, "get_ai_provider"), "get_ai_provider не импортирован"
 
     def test_no_asyncio_to_thread_usage(self):
         """_call_gemini_with_retry и _call_gemini_tsa не должны вызывать asyncio.to_thread."""
@@ -163,10 +161,10 @@ class TestGeminiDirectExtractor:
     """Tests for GeminiDirectExtractor main class."""
 
     def test_initialization_uses_openrouter(self, sample_config):
-        """Инициализация должна использовать get_openrouter_client, а не genai.Client."""
+        """Инициализация должна использовать get_ai_provider, а не genai.Client."""
         mock_client = MagicMock()
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -178,7 +176,7 @@ class TestGeminiDirectExtractor:
         """Extractor должен быть доступен после инициализации."""
         mock_client = MagicMock()
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -189,7 +187,7 @@ class TestGeminiDirectExtractor:
     def test_initialization_failure(self, sample_config):
         """Инициализация с ошибкой должна оставить extractor недоступным."""
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             side_effect=RuntimeError("Connection failed"),
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -201,7 +199,7 @@ class TestGeminiDirectExtractor:
         """Extraction скипает текст который слишком короткий."""
         mock_client = MagicMock()
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -213,7 +211,7 @@ class TestGeminiDirectExtractor:
     async def test_extract_not_available(self, sample_config):
         """Extraction возвращает пустой список когда extractor недоступен."""
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             side_effect=RuntimeError("No API key"),
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -241,7 +239,7 @@ class TestCallGeminiWithRetry:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -263,7 +261,7 @@ class TestCallGeminiWithRetry:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -282,7 +280,7 @@ class TestCallGeminiWithRetry:
         mock_client.generate_structured = AsyncMock(return_value=wrapped)
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -301,7 +299,7 @@ class TestCallGeminiWithRetry:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -320,7 +318,7 @@ class TestCallGeminiWithRetry:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -346,7 +344,7 @@ class TestCallGeminiTSA:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -369,7 +367,7 @@ class TestCallGeminiTSA:
         )
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -387,7 +385,7 @@ class TestCallGeminiTSA:
         mock_client.generate_structured = AsyncMock(return_value=wrapped)
 
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -511,7 +509,7 @@ class TestDeduplication:
         """_deduplicate removes duplicate descriptions."""
         mock_client = MagicMock()
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             extractor = GeminiDirectExtractor(sample_config)
@@ -556,7 +554,7 @@ class TestSingleton:
         """get_gemini_extractor returns singleton."""
         mock_client = MagicMock()
         with patch(
-            "app.services.gemini_extractor.get_openrouter_client",
+            "app.services.gemini_extractor.get_ai_provider",
             return_value=mock_client,
         ):
             import app.services.gemini_extractor as gem_module

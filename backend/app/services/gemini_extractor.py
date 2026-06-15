@@ -42,7 +42,7 @@ from app.monitoring.metrics import (
     record_llm_cache_miss,
 )
 from app.services.llm_cache_service import llm_cache, ChapterCacheKey
-from app.core.openrouter_client import get_openrouter_client
+from app.core.ai_provider_factory import get_ai_provider
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -127,11 +127,9 @@ class GeminiConfig:
     api_key: Optional[str] = None
 
     # Model Tiering: different models for different tasks (cost optimization)
-    model_extraction: str = (
-        "google/gemini-2.5-flash"  # Primary: extraction, TSA — $0.30/$2.50
-    )
-    model_translation: str = "google/gemini-2.5-flash-lite"  # RU→EN — $0.10/$0.40
-    model_reduce: str = "google/gemini-2.5-flash-lite"  # Dedup, merge — $0.10/$0.40
+    model_extraction: str = "gemini-3.5-flash"  # Primary: extraction, TSA
+    model_translation: str = "gemini-3.5-flash"  # RU→EN
+    model_reduce: str = "gemini-3.5-flash"  # Dedup, merge
 
     # Чанкинг
     max_chunk_chars: int = 100000  # v16: 100k chars for Massive Context
@@ -429,16 +427,16 @@ class GeminiDirectExtractor:
         self._initialize()
 
     def _initialize(self):
-        """Инициализация OpenRouter клиента (Plan 03-02: миграция с google-genai на OpenRouter)."""
+        """Инициализация AI-провайдера (AIProvider factory, supports Gemini Direct + OpenRouter)."""
         try:
-            self._client = get_openrouter_client()
+            self._client = get_ai_provider()
             self._model = self.config.model_extraction
             self._available = True
             logger.info(
-                f"Gemini extractor initialized (model: {self.config.model_extraction}, client: OpenRouter)"
+                f"Gemini extractor initialized (model: {self.config.model_extraction}, client: AIProvider)"
             )
         except Exception as e:
-            logger.error(f"Failed to initialize OpenRouter client: {e}")
+            logger.error(f"Failed to initialize AI provider: {e}")
 
     def is_available(self) -> bool:
         """Проверить доступность экстрактора."""
