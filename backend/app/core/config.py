@@ -61,6 +61,17 @@ class Settings(BaseSettings):
         "black-forest-labs/flux.2-klein-4b"  # FLUX.2 Klein 4B — быстрая/дешёвая ($0.014/MP, <1 сек), подтверждена доступной 2026-03-01
     )
 
+    # AI сервисы - Gemini Direct (Stage A migration, 2026-06)
+    GEMINI_API_KEY: str = ""  # Google Gemini Developer API key (paid tier)
+    AI_PROVIDER: str = "openrouter"  # gemini | openrouter — рубильник миграции
+    GEMINI_EXTRACTION_MODEL: str = "gemini-3.5-flash"
+    GEMINI_LITE_MODEL: str = (
+        "gemini-3.1-flash-lite"  # зарезервировано для tiering Этапа B
+    )
+    GEMINI_IMAGE_MODEL: str = (
+        "gemini-3.1-flash-image"  # Nano Banana 2; ID подтвердить smoke-тестом A3.1
+    )
+
     # Legacy: kept for secrets validation compatibility, not used at runtime
     OPENAI_API_KEY: Optional[str] = None
     MIDJOURNEY_API_KEY: Optional[str] = None
