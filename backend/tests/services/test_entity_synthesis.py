@@ -150,7 +150,7 @@ class TestEntitySynthesisOpenRouterMigration:
         )
 
         with patch(
-            "app.services.entity_synthesis_service.get_openrouter_client",
+            "app.services.entity_synthesis_service.get_ai_provider",
             return_value=mock_client,
         ):
             service = EntitySynthesisService()
@@ -174,7 +174,7 @@ class TestEntitySynthesisOpenRouterMigration:
         mock_client.generate_text = AsyncMock(return_value=json.dumps(expected))
 
         with patch(
-            "app.services.entity_synthesis_service.get_openrouter_client",
+            "app.services.entity_synthesis_service.get_ai_provider",
             return_value=mock_client,
         ):
             service = EntitySynthesisService()
@@ -189,7 +189,7 @@ class TestEntitySynthesisOpenRouterMigration:
         mock_client.generate_text = AsyncMock(return_value="not json at all {{{")
 
         with patch(
-            "app.services.entity_synthesis_service.get_openrouter_client",
+            "app.services.entity_synthesis_service.get_ai_provider",
             return_value=mock_client,
         ):
             service = EntitySynthesisService()

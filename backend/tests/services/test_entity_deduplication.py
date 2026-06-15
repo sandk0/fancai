@@ -43,13 +43,11 @@ class TestOpenRouterMigration:
             "from google import genai" not in source
         ), "Найден from google import genai"
 
-    def test_uses_get_openrouter_client(self):
-        """entity_deduplication_service должен импортировать get_openrouter_client."""
+    def test_uses_get_ai_provider(self):
+        """entity_deduplication_service должен импортировать get_ai_provider."""
         import app.services.entity_deduplication_service as mod
 
-        assert hasattr(
-            mod, "get_openrouter_client"
-        ), "get_openrouter_client не импортирован"
+        assert hasattr(mod, "get_ai_provider"), "get_ai_provider не импортирован"
 
     def test_optional_fields_in_deduplication_response(self):
         """DeduplicationResponse с Optional полями корректно работает через JSON Schema."""
@@ -84,7 +82,7 @@ class TestOpenRouterMigration:
         ]
 
         with patch(
-            "app.services.entity_deduplication_service.get_openrouter_client",
+            "app.services.entity_deduplication_service.get_ai_provider",
             return_value=mock_client,
         ):
             db = AsyncMock()

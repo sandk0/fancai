@@ -11,7 +11,7 @@ import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.json_utils import parse_json_safe
-from app.core.openrouter_client import get_openrouter_client
+from app.core.ai_provider_factory import get_ai_provider
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class EntitySynthesisService:
         Заменяет прямой вызов google.genai SDK.
         Использует generate_text() — JSON mode через response_format.
         """
-        client = get_openrouter_client()
+        client = get_ai_provider()
         raw_text = await client.generate_text(
             prompt=prompt,
             system_prompt="Respond ONLY with valid JSON, no markdown.",
