@@ -1,12 +1,12 @@
 """
-Тесты для ImagenGenerator после миграции на OpenRouter FLUX.2 Klein 4B.
+Тесты для ImagenService после миграции на Gemini Nano Banana 2 (gemini-3.1-flash-image).
 
 Покрывает:
-1. PromptTranslator использует openrouter_client.generate_text() (не google-genai)
-2. ImagenService.generate_image() вызывает openrouter_client.generate_image()
-3. generate_image вызывается с model из settings.OPENROUTER_IMAGE_MODEL
+1. PromptTranslator использует get_ai_provider().generate_text() (не google-genai/OpenRouter)
+2. ImagenService.generate_image() вызывает NanoBananaGenerator.generate()
+3. model_used = settings.GEMINI_IMAGE_MODEL
 4. NSFW-защита: переведённый промпт содержит "SFW, safe for work"
-5. google-genai нет в импортах
+5. google-genai нет в импортах imagen_generator
 """
 
 import pytest
@@ -235,6 +235,7 @@ class TestImagenServiceOpenRouter:
                             sample_russian_text, description_type="location"
                         )
 
+        assert mock_nano.generate.called
         assert result.model_used == "gemini-3.1-flash-image"
 
     @pytest.mark.asyncio
