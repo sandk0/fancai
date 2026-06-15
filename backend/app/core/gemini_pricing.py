@@ -20,14 +20,22 @@ IMAGE_PRICING: dict[str, dict[str, float]] = {
 }
 
 
-def compute_cost(model: str, in_tokens: int, out_tokens: int, cached: int = 0) -> float:
-    """Стоимость текстового вызова в USD. Неизвестная модель → 0.0 (без падения)."""
+def compute_cost(
+    model: str, in_tokens: int, out_tokens: int, cached: int = 0, thoughts: int = 0
+) -> float:
+    """Стоимость текстового вызова в USD. Неизвестная модель → 0.0 (без падения).
+
+    thoughts: thinking-токены (thoughts_token_count) — Gemini выставляет их отдельно
+    и тарифицирует по ставке output.
+    """
     p = PRICING.get(model)
     if p is None:
         return 0.0
     billable_in = max(in_tokens - cached, 0)
     return (
-        billable_in * p["in"] + cached * p["cached_in"] + out_tokens * p["out"]
+        billable_in * p["in"]
+        + cached * p["cached_in"]
+        + (out_tokens + thoughts) * p["out"]
     ) / 1_000_000
 
 

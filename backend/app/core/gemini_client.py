@@ -85,6 +85,7 @@ class GeminiClient:
             getattr(um, "prompt_token_count", 0) or 0,
             getattr(um, "candidates_token_count", 0) or 0,
             cached=getattr(um, "cached_content_token_count", 0) or 0,
+            thoughts=getattr(um, "thoughts_token_count", 0) or 0,
         )
         self._log(model, um, cost)
         return resp.text or ""
@@ -114,8 +115,13 @@ class GeminiClient:
             getattr(um, "prompt_token_count", 0) or 0,
             getattr(um, "candidates_token_count", 0) or 0,
             cached=getattr(um, "cached_content_token_count", 0) or 0,
+            thoughts=getattr(um, "thoughts_token_count", 0) or 0,
         )
         self._log(model, um, cost)
+        if not resp.text:
+            raise RuntimeError(
+                f"Gemini ({model}) returned empty/blocked structured response"
+            )
         return json.loads(resp.text)
 
     async def generate_image(
@@ -130,6 +136,10 @@ class GeminiClient:
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
+        if not resp.candidates:
+            raise RuntimeError(
+                f"Gemini image model {model} returned no candidates (likely safety-blocked)"
+            )
         for part in resp.candidates[0].content.parts:
             inline = getattr(part, "inline_data", None)
             if inline and inline.data:

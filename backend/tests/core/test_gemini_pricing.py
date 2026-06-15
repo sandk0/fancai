@@ -25,3 +25,9 @@ def test_unknown_model_returns_zero():
 
 def test_image_price_nb2_1k():
     assert IMAGE_PRICING["gemini-3.1-flash-image"]["1K"] == 0.067
+
+
+# Fix 3 — thinking tokens are billed at output rate
+def test_thinking_tokens_billed_at_output_rate():
+    # 1M thinking tokens on gemini-3.5-flash = $9.00 (output rate)
+    assert compute_cost("gemini-3.5-flash", 0, 0, thoughts=1_000_000) == 9.00

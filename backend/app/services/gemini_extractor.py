@@ -123,7 +123,7 @@ from app.schemas.extraction import (
 class GeminiConfig:
     """Конфигурация Gemini экстрактора."""
 
-    model_id: str = "gemini-2.5-flash"  # Mar 2026: best price/quality, $0.30/$2.50
+    model_id: str = "gemini-3.5-flash"  # Jun 2026: primary extraction model
     api_key: Optional[str] = None
 
     # Model Tiering: different models for different tasks (cost optimization)

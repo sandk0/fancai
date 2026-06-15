@@ -182,7 +182,7 @@ class TestGeminiDirectExtractor:
             extractor = GeminiDirectExtractor(sample_config)
 
         assert extractor.is_available() is True
-        assert extractor.config.model_id == "gemini-2.5-flash"
+        assert extractor.config.model_id == sample_config.model_id
 
     def test_initialization_failure(self, sample_config):
         """Инициализация с ошибкой должна оставить extractor недоступным."""
