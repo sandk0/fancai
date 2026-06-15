@@ -1,6 +1,6 @@
 import pytest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from pydantic import BaseModel
 from app.core.gemini_client import GeminiClient
 
@@ -19,18 +19,13 @@ def _fake_response(text: str):
     return SimpleNamespace(text=text, usage_metadata=usage)
 
 
-async def _async_return(value):
-    return value
-
-
 @pytest.mark.asyncio
 async def test_generate_structured_parses_and_maps_usage():
     client = GeminiClient(api_key="x")
     with patch.object(
-        client._client.aio.models,
-        "generate_content",
-        return_value=_async_return(_fake_response('{"name": "Геральт"}')),
-    ), patch("app.core.gemini_client.asyncio.create_task"):
+        client._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as gc, patch.object(GeminiClient, "_log"):
+        gc.return_value = _fake_response('{"name": "Геральт"}')
         result = await client.generate_structured(
             "prompt", schema_class=_Schema, model="gemini-3.5-flash"
         )
@@ -41,9 +36,8 @@ async def test_generate_structured_parses_and_maps_usage():
 async def test_generate_text_returns_plain_string():
     client = GeminiClient(api_key="x")
     with patch.object(
-        client._client.aio.models,
-        "generate_content",
-        return_value=_async_return(_fake_response("Geralt of Rivia")),
-    ), patch("app.core.gemini_client.asyncio.create_task"):
+        client._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as gc, patch.object(GeminiClient, "_log"):
+        gc.return_value = _fake_response("Geralt of Rivia")
         out = await client.generate_text("Геральт из Ривии", model="gemini-3.5-flash")
     assert out == "Geralt of Rivia"

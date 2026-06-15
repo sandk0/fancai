@@ -5,7 +5,6 @@ generate_image→bytes. usage пишется в llm_usage_log (как в openrou
 """
 
 import asyncio
-import inspect
 import json
 import logging
 from typing import Optional, Type
@@ -80,8 +79,6 @@ class GeminiClient:
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
-        if inspect.isawaitable(resp):
-            resp = await resp
         um = resp.usage_metadata
         cost = compute_cost(
             model,
@@ -111,8 +108,6 @@ class GeminiClient:
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
-        if inspect.isawaitable(resp):
-            resp = await resp
         um = resp.usage_metadata
         cost = compute_cost(
             model,
@@ -135,8 +130,6 @@ class GeminiClient:
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
-        if inspect.isawaitable(resp):
-            resp = await resp
         for part in resp.candidates[0].content.parts:
             inline = getattr(part, "inline_data", None)
             if inline and inline.data:
