@@ -29,7 +29,8 @@ import logging
 from app.core.retry import (
     retry_image_generation,
 )
-from app.core.openrouter_client import get_openrouter_client
+from app.core.ai_provider_factory import get_ai_provider
+from app.services.nano_banana_generator import NanoBananaGenerator
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class PromptTranslator:
     )
 
     def __init__(self):
-        self._client = get_openrouter_client()
+        self._client = get_ai_provider()
         self._redis = None
 
     async def _get_redis(self):
@@ -344,27 +345,27 @@ class ImagenService:
     """
 
     def __init__(self):
-        self._client = None
+        self._nano: Optional[NanoBananaGenerator] = None
         self._translator: Optional[PromptTranslator] = None
         self._prompt_engineer: Optional[ImagenPromptEngineer] = None
         self._available = False
-        self._model = settings.OPENROUTER_IMAGE_MODEL
+        self._model = settings.GEMINI_IMAGE_MODEL
 
         self._initialize()
 
     def _initialize(self):
         """Инициализирует компоненты сервиса."""
-        if not settings.OPENROUTER_API_KEY:
-            logger.warning("No OPENROUTER_API_KEY — ImagenService disabled")
+        if not settings.GEMINI_API_KEY:
+            logger.warning("No GEMINI_API_KEY — ImagenService disabled")
             return
 
         try:
-            self._client = get_openrouter_client()
+            self._nano = NanoBananaGenerator()
             self._translator = PromptTranslator()
             self._prompt_engineer = ImagenPromptEngineer(self._translator)
             self._available = True
             logger.info(
-                f"ImagenService initialized (OpenRouter FLUX.2, model: {self._model})"
+                f"ImagenService initialized (Gemini Nano Banana 2, model: {self._model})"
             )
         except Exception as e:
             logger.error(f"Failed to initialize ImagenService: {e}")
@@ -376,18 +377,15 @@ class ImagenService:
     @retry_image_generation
     async def _generate_with_retry(self, prompt: str, aspect_ratio: str) -> bytes:
         """
-        OpenRouter FLUX.2 вызов с retry.
+        Gemini Nano Banana 2 вызов с retry.
 
         Retry только HTTP-вызов генерации — cache check и prompt engineering
         НЕ повторяются. Retryable: RuntimeError (missing choices),
         ConnectionError, RateLimitError, TimeoutError.
         Non-retryable: ValueError (400 Bad Request).
         """
-        return await self._client.generate_image(
-            prompt=prompt,
-            model=settings.OPENROUTER_IMAGE_MODEL,
-            aspect_ratio=aspect_ratio,
-            image_size="1K",
+        return await self._nano.generate(
+            prompt=prompt, aspect_ratio=aspect_ratio, image_size="1K"
         )
 
     async def generate_image(
@@ -418,7 +416,7 @@ class ImagenService:
         if not self._available:
             return ImageGenerationResult(
                 success=False,
-                error_message="ImagenService не доступен. Проверьте OPENROUTER_API_KEY.",
+                error_message="ImagenService не доступен. Проверьте GEMINI_API_KEY.",
             )
 
         start_time = time.time()
@@ -540,7 +538,7 @@ class ImagenService:
                 image_data=image_bytes,
                 local_path=local_path,
                 generation_time_seconds=total_duration,
-                model_used=settings.OPENROUTER_IMAGE_MODEL,
+                model_used=settings.GEMINI_IMAGE_MODEL,
                 prompt_used=prompt,
             )
 
@@ -657,8 +655,8 @@ class ImagenService:
         """Возвращает статус сервиса."""
         return {
             "available": self._available,
-            "has_api_key": bool(settings.OPENROUTER_API_KEY),
-            "model": settings.OPENROUTER_IMAGE_MODEL,
+            "has_api_key": bool(settings.GEMINI_API_KEY),
+            "model": settings.GEMINI_IMAGE_MODEL,
             "aspect_ratio": "4:3",
         }
 
