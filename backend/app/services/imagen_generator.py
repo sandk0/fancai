@@ -36,6 +36,13 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _gemini_credentials_present() -> bool:
+    """Vertex аутентифицируется через ADC (нужен GCP_PROJECT), Developer — через ключ."""
+    if settings.GEMINI_BACKEND == "vertex":
+        return bool(settings.GCP_PROJECT)
+    return bool(settings.GEMINI_API_KEY)
+
+
 # ---------------------------------------------------------------------------
 # Датаклассы
 # ---------------------------------------------------------------------------
@@ -355,8 +362,8 @@ class ImagenService:
 
     def _initialize(self):
         """Инициализирует компоненты сервиса."""
-        if not settings.GEMINI_API_KEY:
-            logger.warning("No GEMINI_API_KEY — ImagenService disabled")
+        if not _gemini_credentials_present():
+            logger.warning("No Gemini credentials — ImagenService disabled")
             return
 
         try:
@@ -416,7 +423,7 @@ class ImagenService:
         if not self._available:
             return ImageGenerationResult(
                 success=False,
-                error_message="ImagenService не доступен. Проверьте GEMINI_API_KEY.",
+                error_message="ImagenService не доступен. Проверьте Gemini credentials (GEMINI_API_KEY или GCP_PROJECT).",
             )
 
         start_time = time.time()
@@ -655,7 +662,7 @@ class ImagenService:
         """Возвращает статус сервиса."""
         return {
             "available": self._available,
-            "has_api_key": bool(settings.GEMINI_API_KEY),
+            "has_api_key": _gemini_credentials_present(),
             "model": settings.GEMINI_IMAGE_MODEL,
             "aspect_ratio": "4:3",
         }
