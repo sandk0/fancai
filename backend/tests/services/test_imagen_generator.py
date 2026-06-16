@@ -1,12 +1,12 @@
 """
-Тесты для ImagenGenerator после миграции на OpenRouter FLUX.2 Klein 4B.
+Тесты для ImagenService после миграции на Gemini Nano Banana 2 (gemini-3.1-flash-image).
 
 Покрывает:
-1. PromptTranslator использует openrouter_client.generate_text() (не google-genai)
-2. ImagenService.generate_image() вызывает openrouter_client.generate_image()
-3. generate_image вызывается с model из settings.OPENROUTER_IMAGE_MODEL
+1. PromptTranslator использует get_ai_provider().generate_text() (не google-genai/OpenRouter)
+2. ImagenService.generate_image() вызывает NanoBananaGenerator.generate()
+3. model_used = settings.GEMINI_IMAGE_MODEL
 4. NSFW-защита: переведённый промпт содержит "SFW, safe for work"
-5. google-genai нет в импортах
+5. google-genai нет в импортах imagen_generator
 """
 
 import pytest
@@ -102,7 +102,7 @@ class TestPromptTranslatorOpenRouter:
         )
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
             translator = PromptTranslator()
@@ -121,7 +121,7 @@ class TestPromptTranslatorOpenRouter:
         )
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
             translator = PromptTranslator()
@@ -142,7 +142,7 @@ class TestPromptTranslatorOpenRouter:
         )
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
             translator = PromptTranslator()
@@ -171,62 +171,72 @@ class TestImagenServiceOpenRouter:
             return_value=sample_image_bytes
         )
 
+        mock_nano = MagicMock()
+        mock_nano.generate = AsyncMock(return_value=sample_image_bytes)
+
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
-            with patch.object(
-                ImagenService,
-                "_save_image",
-                new=AsyncMock(return_value="/tmp/test.png"),
+            with patch(
+                "app.services.imagen_generator.NanoBananaGenerator",
+                return_value=mock_nano,
             ):
-                service = ImagenService()
-                result = await service.generate_image(
-                    sample_russian_text, description_type="location"
-                )
+                with patch("app.services.imagen_generator.settings") as mock_settings:
+                    mock_settings.GEMINI_API_KEY = "test-key"
+                    mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+                    mock_settings.REDIS_URL = "redis://localhost:6379"
+                    with patch.object(
+                        ImagenService,
+                        "_save_image",
+                        new=AsyncMock(return_value="/tmp/test.png"),
+                    ):
+                        service = ImagenService()
+                        result = await service.generate_image(
+                            sample_russian_text, description_type="location"
+                        )
 
-        assert mock_openrouter_client.generate_image.called
+        assert mock_nano.generate.called
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_generate_image_uses_flux_model(
+    async def test_generate_image_uses_gemini_model(
         self, sample_russian_text, sample_image_bytes, mock_openrouter_client
     ):
-        """generate_image() должен вызываться с model из settings.OPENROUTER_IMAGE_MODEL."""
+        """generate_image() должен использовать model из settings.GEMINI_IMAGE_MODEL."""
         mock_openrouter_client.generate_text = AsyncMock(
             return_value="An old castle on a hill"
         )
-        mock_openrouter_client.generate_image = AsyncMock(
-            return_value=sample_image_bytes
-        )
+        mock_nano = MagicMock()
+        mock_nano.generate = AsyncMock(return_value=sample_image_bytes)
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
-            with patch.object(
-                ImagenService,
-                "_save_image",
-                new=AsyncMock(return_value="/tmp/test.png"),
+            with patch(
+                "app.services.imagen_generator.NanoBananaGenerator",
+                return_value=mock_nano,
             ):
-                with patch("app.services.imagen_generator.settings") as mock_settings:
-                    mock_settings.OPENROUTER_API_KEY = "test-key"
-                    mock_settings.OPENROUTER_IMAGE_MODEL = (
-                        "black-forest-labs/flux.2-klein-4b"
-                    )
-                    mock_settings.REDIS_URL = "redis://localhost:6379"
+                with patch.object(
+                    ImagenService,
+                    "_save_image",
+                    new=AsyncMock(return_value="/tmp/test.png"),
+                ):
+                    with patch(
+                        "app.services.imagen_generator.settings"
+                    ) as mock_settings:
+                        mock_settings.GEMINI_API_KEY = "test-key"
+                        mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+                        mock_settings.REDIS_URL = "redis://localhost:6379"
 
-                    service = ImagenService()
-                    await service.generate_image(
-                        sample_russian_text, description_type="location"
-                    )
+                        service = ImagenService()
+                        result = await service.generate_image(
+                            sample_russian_text, description_type="location"
+                        )
 
-        call_kwargs = mock_openrouter_client.generate_image.call_args
-        assert call_kwargs is not None
-        model_used = call_kwargs.kwargs.get("model") or (
-            call_kwargs.args[1] if len(call_kwargs.args) > 1 else None
-        )
-        assert model_used == "black-forest-labs/flux.2-klein-4b"
+        assert mock_nano.generate.called
+        assert result.model_used == "gemini-3.1-flash-image"
 
     @pytest.mark.asyncio
     async def test_generate_image_result_contains_data_url(
@@ -236,21 +246,28 @@ class TestImagenServiceOpenRouter:
         mock_openrouter_client.generate_text = AsyncMock(
             return_value="An old castle on a hill"
         )
-        mock_openrouter_client.generate_image = AsyncMock(
-            return_value=sample_image_bytes
-        )
+        mock_nano = MagicMock()
+        mock_nano.generate = AsyncMock(return_value=sample_image_bytes)
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
-            with patch.object(
-                ImagenService,
-                "_save_image",
-                new=AsyncMock(return_value="/tmp/test.png"),
+            with patch(
+                "app.services.imagen_generator.NanoBananaGenerator",
+                return_value=mock_nano,
             ):
-                service = ImagenService()
-                result = await service.generate_image(sample_russian_text)
+                with patch("app.services.imagen_generator.settings") as mock_settings:
+                    mock_settings.GEMINI_API_KEY = "test-key"
+                    mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+                    mock_settings.REDIS_URL = "redis://localhost:6379"
+                    with patch.object(
+                        ImagenService,
+                        "_save_image",
+                        new=AsyncMock(return_value="/tmp/test.png"),
+                    ):
+                        service = ImagenService()
+                        result = await service.generate_image(sample_russian_text)
 
         assert result.success is True
         assert result.image_url is not None
@@ -261,8 +278,8 @@ class TestImagenServiceOpenRouter:
     async def test_generate_image_not_available_without_key(self):
         """Без API ключа сервис должен возвращать success=False."""
         with patch("app.services.imagen_generator.settings") as mock_settings:
-            mock_settings.OPENROUTER_API_KEY = ""
-            mock_settings.OPENROUTER_IMAGE_MODEL = "black-forest-labs/flux.2-klein-4b"
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
 
             service = ImagenService()
             result = await service.generate_image("Test description")
@@ -283,28 +300,35 @@ class TestNSFWProtection:
     async def test_final_prompt_contains_sfw_suffix(
         self, sample_russian_text, sample_image_bytes, mock_openrouter_client
     ):
-        """Промпт, передаваемый в generate_image(), должен содержать SFW суффикс."""
+        """Промпт, передаваемый в generate(), должен содержать SFW суффикс."""
         translation = "An old castle on a hill, surrounded by forest"
         mock_openrouter_client.generate_text = AsyncMock(return_value=translation)
-        mock_openrouter_client.generate_image = AsyncMock(
-            return_value=sample_image_bytes
-        )
+        mock_nano = MagicMock()
+        mock_nano.generate = AsyncMock(return_value=sample_image_bytes)
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
-            with patch.object(
-                ImagenService,
-                "_save_image",
-                new=AsyncMock(return_value="/tmp/test.png"),
+            with patch(
+                "app.services.imagen_generator.NanoBananaGenerator",
+                return_value=mock_nano,
             ):
-                service = ImagenService()
-                await service.generate_image(
-                    sample_russian_text, description_type="location"
-                )
+                with patch("app.services.imagen_generator.settings") as mock_settings:
+                    mock_settings.GEMINI_API_KEY = "test-key"
+                    mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+                    mock_settings.REDIS_URL = "redis://localhost:6379"
+                    with patch.object(
+                        ImagenService,
+                        "_save_image",
+                        new=AsyncMock(return_value="/tmp/test.png"),
+                    ):
+                        service = ImagenService()
+                        await service.generate_image(
+                            sample_russian_text, description_type="location"
+                        )
 
-        call_kwargs = mock_openrouter_client.generate_image.call_args
+        call_kwargs = mock_nano.generate.call_args
         assert call_kwargs is not None
         prompt_used = (
             call_kwargs.args[0]
@@ -365,7 +389,7 @@ class TestSingleton:
         img_module._imagen_service = None
 
         with patch(
-            "app.services.imagen_generator.get_openrouter_client",
+            "app.services.imagen_generator.get_ai_provider",
             return_value=mock_openrouter_client,
         ):
             service1 = get_imagen_service()
@@ -405,12 +429,22 @@ def no_retry_wait(monkeypatch):
 
 
 @pytest.fixture
-def imagen_service(mock_openrouter_client):
-    """ImagenService с mock клиентом и prompt engineer."""
+def mock_nano():
+    """Mock NanoBananaGenerator."""
+    nano = MagicMock()
+    nano.generate = AsyncMock(
+        return_value=b"\x89PNG\r\n\x1a\n" + b"fake_image_data" * 100
+    )
+    return nano
+
+
+@pytest.fixture
+def imagen_service(mock_nano):
+    """ImagenService с mock nano generator и prompt engineer."""
     service = ImagenService.__new__(ImagenService)
-    service._client = mock_openrouter_client
+    service._nano = mock_nano
     service._available = True
-    service._model = "black-forest-labs/flux.2-klein-4b"
+    service._model = "gemini-3.1-flash-image"
     # Mock prompt engineer
     prompt_eng = MagicMock()
     prompt_eng.create_prompt = AsyncMock(
@@ -429,7 +463,7 @@ class TestImagenServiceRetry:
     ):
         """Transient ошибка (RuntimeError) retry-ится, второй вызов успешен."""
         # RuntimeError на первый вызов, bytes на второй
-        imagen_service._client.generate_image = AsyncMock(
+        imagen_service._nano.generate = AsyncMock(
             side_effect=[RuntimeError("no choices in response"), sample_image_bytes]
         )
 
@@ -452,10 +486,8 @@ class TestImagenServiceRetry:
                     with patch(
                         "app.services.imagen_generator.settings"
                     ) as mock_settings:
-                        mock_settings.OPENROUTER_API_KEY = "test-key"
-                        mock_settings.OPENROUTER_IMAGE_MODEL = (
-                            "black-forest-labs/flux.2-klein-4b"
-                        )
+                        mock_settings.GEMINI_API_KEY = "test-key"
+                        mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                         mock_settings.REDIS_URL = "redis://localhost:6379"
 
                         result = await imagen_service.generate_image(
@@ -464,8 +496,8 @@ class TestImagenServiceRetry:
 
         # Retry-ился: success=True
         assert result.success is True
-        # generate_image вызван 2 раза (1 fail + 1 success)
-        assert imagen_service._client.generate_image.call_count == 2
+        # generate вызван 2 раза (1 fail + 1 success)
+        assert imagen_service._nano.generate.call_count == 2
         # prompt engineer НЕ повторялся
         assert imagen_service._prompt_engineer.create_prompt.call_count == 1
 
@@ -474,7 +506,7 @@ class TestImagenServiceRetry:
         self, imagen_service, no_retry_wait
     ):
         """ValueError (400 Bad Request) НЕ retry-ится, сразу success=False."""
-        imagen_service._client.generate_image = AsyncMock(
+        imagen_service._nano.generate = AsyncMock(
             side_effect=ValueError(
                 "OpenRouter rejected prompt (400): content moderation"
             )
@@ -486,10 +518,8 @@ class TestImagenServiceRetry:
 
         with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
             with patch("app.services.imagen_generator.settings") as mock_settings:
-                mock_settings.OPENROUTER_API_KEY = "test-key"
-                mock_settings.OPENROUTER_IMAGE_MODEL = (
-                    "black-forest-labs/flux.2-klein-4b"
-                )
+                mock_settings.GEMINI_API_KEY = "test-key"
+                mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                 mock_settings.REDIS_URL = "redis://localhost:6379"
 
                 result = await imagen_service.generate_image(
@@ -499,14 +529,14 @@ class TestImagenServiceRetry:
         # Нет retry — сразу fail
         assert result.success is False
         assert "rejected prompt" in result.error_message
-        # generate_image вызван ровно 1 раз (без retry)
-        assert imagen_service._client.generate_image.call_count == 1
+        # generate вызван ровно 1 раз (без retry)
+        assert imagen_service._nano.generate.call_count == 1
 
     @pytest.mark.asyncio
     async def test_generate_image_retry_exhausted(self, imagen_service, no_retry_wait):
         """При retry exhaustion (5 попыток) возвращает success=False."""
         # RuntimeError каждый раз — retry 5 раз и fail
-        imagen_service._client.generate_image = AsyncMock(
+        imagen_service._nano.generate = AsyncMock(
             side_effect=RuntimeError("no choices in response")
         )
 
@@ -516,10 +546,8 @@ class TestImagenServiceRetry:
 
         with patch("redis.asyncio.from_url", new=AsyncMock(return_value=mock_redis)):
             with patch("app.services.imagen_generator.settings") as mock_settings:
-                mock_settings.OPENROUTER_API_KEY = "test-key"
-                mock_settings.OPENROUTER_IMAGE_MODEL = (
-                    "black-forest-labs/flux.2-klein-4b"
-                )
+                mock_settings.GEMINI_API_KEY = "test-key"
+                mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                 mock_settings.REDIS_URL = "redis://localhost:6379"
 
                 result = await imagen_service.generate_image(
@@ -529,7 +557,7 @@ class TestImagenServiceRetry:
         # Retry exhausted — fail
         assert result.success is False
         # 1 initial + 4 retries = 5 вызовов
-        assert imagen_service._client.generate_image.call_count == 5
+        assert imagen_service._nano.generate.call_count == 5
 
     @pytest.mark.asyncio
     async def test_generate_image_retry_on_connection_error(
@@ -537,7 +565,7 @@ class TestImagenServiceRetry:
     ):
         """ConnectionError (retryable) retry-ится через tenacity."""
         # ConnectionError на первый, success на второй
-        imagen_service._client.generate_image = AsyncMock(
+        imagen_service._nano.generate = AsyncMock(
             side_effect=[ConnectionError("Connection refused"), sample_image_bytes]
         )
 
@@ -559,10 +587,8 @@ class TestImagenServiceRetry:
                     with patch(
                         "app.services.imagen_generator.settings"
                     ) as mock_settings:
-                        mock_settings.OPENROUTER_API_KEY = "test-key"
-                        mock_settings.OPENROUTER_IMAGE_MODEL = (
-                            "black-forest-labs/flux.2-klein-4b"
-                        )
+                        mock_settings.GEMINI_API_KEY = "test-key"
+                        mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                         mock_settings.REDIS_URL = "redis://localhost:6379"
 
                         result = await imagen_service.generate_image(
@@ -572,4 +598,4 @@ class TestImagenServiceRetry:
         # ConnectionError retry-ился -> success
         assert result.success is True
         # Вызван больше 1 раза (retry)
-        assert imagen_service._client.generate_image.call_count > 1
+        assert imagen_service._nano.generate.call_count > 1

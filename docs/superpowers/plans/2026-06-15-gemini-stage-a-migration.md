@@ -12,6 +12,16 @@
 
 > **Модель на Этапе A:** все LLM-задачи (extraction, translation, dedup, synthesis) идут на `GEMINI_EXTRACTION_MODEL` (`gemini-3.5-flash`) — cost moot при ~0 трафика, качество в приоритете. `GEMINI_LITE_MODEL` определён, но зарезервирован для tiering'а Этапа B.
 
+## 🟢 СТАТУС ИСПОЛНЕНИЯ — RESUME POINT (обновлено 2026-06-16)
+
+**Ветка:** `feat/gemini-stage-a-migration` (pushed to origin, 13 коммитов). **Всё за флагом `AI_PROVIDER` (default `openrouter`) → продакшн не тронут.** ~138 тестов зелёные.
+
+- **✅ СДЕЛАНО (код+тесты+коммиты):** A0.1, A0.2, A1.1–A1.4, A2.1, A2.2, A3.1, A3.2 (код). Финальное opus-ревью → 5 фиксов (коммит `986aaa04`: guard `resp.text`=None, guard пустых `candidates`, `thoughts_token_count` в cost, `model_id`→3.5, protocol-тест).
+- **▶️ RESUME HERE → Task A2.3**, затем A5, A7. **Всё оставшееся требует живого paid `GEMINI_API_KEY`** (Google AI Studio billing) — без него не исполнять.
+- **Верифицировать на ключе (live):** callable-ID NB2 (A3.1 Step 1); casing `thinking_level` (`medium` vs `MEDIUM`); JSON-mode synthesis (Gemini без `response_mime_type` может вернуть прозу → `parse_json_safe` → `{}`); image retry-маппинг (429/503 Gemini не в `IMAGE_GENERATION_EXCEPTIONS`); wiring `aspect_ratio`/`image_size` (сейчас НЕ передаются в API → теряется 4:3); refusal-rate Gemini на «тёмных» сценах (A3.2 Step 5).
+- **Решения перед merge/cutover:** (1) image-путь Gemini-only **НЕ за флагом** → картинкам нужен ключ даже при `flag=openrouter`; (2) `consistency_manager.reduce` (активный, 500+ сущностей) **НЕ мигрирован** — мигрировать или сознательно оставить на OpenRouter.
+- **Контекст:** дизайн `docs/superpowers/specs/2026-06-15-gemini-stage-a-migration-design.md` · аудит `docs/reports/2026-06-14-gemini-migration-plan-v3-audit.md` · память `project_gemini_migration_v3`.
+
 ---
 
 ## File Structure
@@ -42,14 +52,14 @@
 
 ## Phase A0: Подготовка инфраструктуры
 
-### Task A0.1: Gemini-настройки в config
+### Task A0.1 [DONE]: Gemini-настройки в config
 
 **Files:**
 
 - Modify: `backend/app/core/config.py` (после строки 62, ниже `OPENROUTER_IMAGE_MODEL`)
 - Test: `backend/tests/core/test_config_gemini.py`
 
-- [ ] **Step 1: Написать падающий тест**
+- [x] **Step 1: Написать падающий тест**
 
 ```python
 # backend/tests/core/test_config_gemini.py
@@ -64,12 +74,12 @@ def test_gemini_settings_exist_with_defaults():
     assert hasattr(settings, "GEMINI_LITE_MODEL")
 ```
 
-- [ ] **Step 2: Запустить — убедиться, что падает**
+- [x] **Step 2: Запустить — убедиться, что падает**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_config_gemini.py -v`
 Expected: FAIL (`AttributeError: ... GEMINI_EXTRACTION_MODEL`)
 
-- [ ] **Step 3: Добавить настройки** в `config.py` сразу после строки 62 (после `OPENROUTER_IMAGE_MODEL`-блока):
+- [x] **Step 3: Добавить настройки** в `config.py` сразу после строки 62 (после `OPENROUTER_IMAGE_MODEL`-блока):
 
 ```python
     # AI сервисы - Gemini Direct (Stage A migration, 2026-06)
@@ -80,30 +90,30 @@ Expected: FAIL (`AttributeError: ... GEMINI_EXTRACTION_MODEL`)
     GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"  # Nano Banana 2; ID подтвердить smoke-тестом A3.1
 ```
 
-- [ ] **Step 4: Запустить — убедиться, что проходит**
+- [x] **Step 4: Запустить — убедиться, что проходит**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_config_gemini.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/core/config.py backend/tests/core/test_config_gemini.py
 git commit -m "feat(ai): add Gemini config and AI_PROVIDER flag"
 ```
 
-### Task A0.2: Зависимости
+### Task A0.2 [DONE]: Зависимости
 
 **Files:** Modify: `backend/requirements.txt` (строка 30 — `google-genai`; строка 33 — `httpx[socks]`)
 
-- [ ] **Step 1:** Строка 30 → `google-genai==2.8.0` (было `google-genai>=1.69.0`).
-- [ ] **Step 2:** Строка 33 → `httpx==0.28.1` (убрать суффикс `[socks]`).
-- [ ] **Step 3:** Установить и проверить версию.
+- [x] **Step 1:** Строка 30 → `google-genai==2.8.0` (было `google-genai>=1.69.0`).
+- [x] **Step 2:** Строка 33 → `httpx==0.28.1` (убрать суффикс `[socks]`).
+- [x] **Step 3:** Установить и проверить версию.
 
 Run: `cd backend && uv pip install -r requirements.txt && uv run python -c "import google.genai; print(google.genai.__version__)"`
 Expected: `2.8.0`, установка без конфликтов.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/requirements.txt
@@ -114,14 +124,14 @@ git commit -m "chore(deps): pin google-genai 2.8.0, drop socks proxy"
 
 ## Phase A1: GeminiClient core
 
-### Task A1.1: gemini_pricing — таблица цен + compute_cost
+### Task A1.1 [DONE]: gemini_pricing — таблица цен + compute_cost
 
 **Files:**
 
 - Create: `backend/app/core/gemini_pricing.py`
 - Test: `backend/tests/core/test_gemini_pricing.py`
 
-- [ ] **Step 1: Написать падающий тест** (цены verified по ai.google.dev/gemini-api/docs/pricing, июнь 2026):
+- [x] **Step 1: Написать падающий тест** (цены verified по ai.google.dev/gemini-api/docs/pricing, июнь 2026):
 
 ```python
 # backend/tests/core/test_gemini_pricing.py
@@ -146,11 +156,11 @@ def test_image_price_nb2_1k():
     assert IMAGE_PRICING["gemini-3.1-flash-image"]["1K"] == 0.067
 ```
 
-- [ ] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
+- [x] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
 
 Run: `cd backend && uv run python -m pytest tests/core/test_gemini_pricing.py -v`
 
-- [ ] **Step 3: Реализовать**
+- [x] **Step 3: Реализовать**
 
 ```python
 # backend/app/core/gemini_pricing.py
@@ -194,25 +204,25 @@ def compute_image_cost(model: str, resolution: str = "1K") -> float:
     return IMAGE_PRICING.get(model, {}).get(resolution, 0.0)
 ```
 
-- [ ] **Step 4: Запустить — PASS.**
+- [x] **Step 4: Запустить — PASS.**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_gemini_pricing.py -v`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/core/gemini_pricing.py backend/tests/core/test_gemini_pricing.py
 git commit -m "feat(ai): gemini pricing table and cost calc"
 ```
 
-### Task A1.2: AIProvider Protocol
+### Task A1.2 [DONE]: AIProvider Protocol
 
 **Files:**
 
 - Create: `backend/app/core/ai_provider.py`
 - Test: `backend/tests/core/test_ai_provider.py`
 
-- [ ] **Step 1: Написать падающий тест** (Protocol — структурная типизация; проверяем, что OpenRouterClient ему соответствует):
+- [x] **Step 1: Написать падающий тест** (Protocol — структурная типизация; проверяем, что OpenRouterClient ему соответствует):
 
 ```python
 # backend/tests/core/test_ai_provider.py
@@ -224,11 +234,11 @@ def test_openrouter_client_satisfies_protocol():
     assert isinstance(client, AIProvider)  # runtime_checkable Protocol
 ```
 
-- [ ] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
+- [x] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
 
 Run: `cd backend && uv run python -m pytest tests/core/test_ai_provider.py -v`
 
-- [ ] **Step 3: Реализовать**
+- [x] **Step 3: Реализовать**
 
 ```python
 # backend/app/core/ai_provider.py
@@ -271,25 +281,25 @@ class AIProvider(Protocol):
     ) -> bytes: ...
 ```
 
-- [ ] **Step 4: Запустить — PASS.**
+- [x] **Step 4: Запустить — PASS.**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_ai_provider.py -v`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/core/ai_provider.py backend/tests/core/test_ai_provider.py
 git commit -m "feat(ai): add AIProvider protocol matching client signatures"
 ```
 
-### Task A1.3: GeminiClient — generate_text + generate_structured
+### Task A1.3 [DONE]: GeminiClient — generate_text + generate_structured
 
 **Files:**
 
 - Create: `backend/app/core/gemini_client.py`
 - Test: `backend/tests/core/test_gemini_client.py`
 
-- [ ] **Step 1: Написать падающий тест** (мокаем `genai.Client`; проверяем парсинг structured, маппинг usage, расчёт cost):
+- [x] **Step 1: Написать падающий тест** (мокаем `genai.Client`; проверяем парсинг structured, маппинг usage, расчёт cost):
 
 ```python
 # backend/tests/core/test_gemini_client.py
@@ -344,11 +354,11 @@ async def test_generate_text_returns_plain_string():
     assert out == "Geralt of Rivia"
 ```
 
-- [ ] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
+- [x] **Step 2: Запустить — FAIL** (`ModuleNotFoundError`).
 
 Run: `cd backend && uv run python -m pytest tests/core/test_gemini_client.py -v`
 
-- [ ] **Step 3: Реализовать**
+- [x] **Step 3: Реализовать**
 
 ```python
 # backend/app/core/gemini_client.py
@@ -515,11 +525,11 @@ def get_gemini_client() -> GeminiClient:
     return _client
 ```
 
-- [ ] **Step 4: Запустить — PASS.**
+- [x] **Step 4: Запустить — PASS.**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_gemini_client.py -v`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/core/gemini_client.py backend/tests/core/test_gemini_client.py
@@ -528,14 +538,14 @@ git commit -m "feat(ai): implement GeminiClient (text/structured/image) via goog
 
 > **Примечание по ретраям:** на этом шаге GeminiClient без circuit breaker и без явного tenacity-обёртывания — вызовы экстрактора уже обёрнуты `@retry_llm_extraction` (`core/retry.py`) на уровне call-site. Если на A2.3 проявятся `429`/`ServerError` — добавить tenacity внутрь GeminiClient отдельной задачей. **Circuit breaker не нужен** (у Gemini нет нестабильности OpenRouter; жёсткий cap Google — не транзиентная ошибка, решается в B6).
 
-### Task A1.4: Фабрика провайдера
+### Task A1.4 [DONE]: Фабрика провайдера
 
 **Files:**
 
 - Create: `backend/app/core/ai_provider_factory.py`
 - Test: `backend/tests/core/test_ai_provider_factory.py`
 
-- [ ] **Step 1: Написать падающий тест**
+- [x] **Step 1: Написать падающий тест**
 
 ```python
 # backend/tests/core/test_ai_provider_factory.py
@@ -556,11 +566,11 @@ def test_factory_returns_openrouter_when_flag_openrouter(monkeypatch):
     assert isinstance(f.get_ai_provider(), OpenRouterClient)
 ```
 
-- [ ] **Step 2: Запустить — FAIL.**
+- [x] **Step 2: Запустить — FAIL.**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_ai_provider_factory.py -v`
 
-- [ ] **Step 3: Реализовать**
+- [x] **Step 3: Реализовать**
 
 ```python
 # backend/app/core/ai_provider_factory.py
@@ -593,11 +603,11 @@ def _reset() -> None:
     _provider = None
 ```
 
-- [ ] **Step 4: Запустить — PASS.**
+- [x] **Step 4: Запустить — PASS.**
 
 Run: `cd backend && uv run python -m pytest tests/core/test_ai_provider_factory.py -v`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/core/ai_provider_factory.py backend/tests/core/test_ai_provider_factory.py
@@ -608,19 +618,19 @@ git commit -m "feat(ai): provider factory with AI_PROVIDER feature flag"
 
 ## Phase A2: Миграция LLM-извлечения
 
-### Task A2.1: Extractor через провайдер, без `_inline_defs`
+### Task A2.1 [DONE]: Extractor через провайдер, без `_inline_defs`
 
 **Files:**
 
 - Modify: `backend/app/services/gemini_extractor.py` (`GeminiConfig` строка 123; вызовы `_call_gemini_with_retry` :628, `_call_gemini_tsa` :667; найти инициализацию `self._client`)
 - Test: `backend/tests/services/test_extractor_provider.py`
 
-- [ ] **Step 1: Найти, где устанавливается `self._client`** в `gemini_extractor.py`:
+- [x] **Step 1: Найти, где устанавливается `self._client`** в `gemini_extractor.py`:
 
 Run: `cd backend && grep -n "_client" app/services/gemini_extractor.py | head`
 Expected: строка вида `self._client = get_openrouter_client()` (запомнить номер для Step 3).
 
-- [ ] **Step 2: Написать падающий тест** — extractor извлекает через провайдер (мок), schema передаётся как класс:
+- [x] **Step 2: Написать падающий тест** — extractor извлекает через провайдер (мок), schema передаётся как класс:
 
 ```python
 # backend/tests/services/test_extractor_provider.py
@@ -643,11 +653,11 @@ async def test_extractor_calls_provider_generate_structured():
 
 > Если имя класса экстрактора отличается — поправить импорт по факту (`grep -n "class .*Extractor" app/services/gemini_extractor.py`).
 
-- [ ] **Step 3: Запустить — FAIL.**
+- [x] **Step 3: Запустить — FAIL.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_extractor_provider.py -v`
 
-- [ ] **Step 4: Заменить клиент на провайдер.** В `gemini_extractor.py`:
+- [x] **Step 4: Заменить клиент на провайдер.** В `gemini_extractor.py`:
   - Заменить импорт `from app.core.openrouter_client import get_openrouter_client` → `from app.core.ai_provider_factory import get_ai_provider`.
   - В месте инициализации (Step 1): `self._client = get_ai_provider()`.
   - В `_call_gemini_with_retry` (:628) и `_call_gemini_tsa` (:667) вызовы `generate_structured` уже передают `schema_class=` — оставить как есть (Pydantic-класс передаётся напрямую; Gemini Direct разворачивает `$ref` нативно, `_inline_defs` не нужен).
@@ -658,26 +668,26 @@ Run: `cd backend && uv run python -m pytest tests/services/test_extractor_provid
     model_reduce: str = "gemini-3.5-flash"
     ```
 
-- [ ] **Step 5: Запустить — PASS + весь extractor-набор.**
+- [x] **Step 5: Запустить — PASS + весь extractor-набор.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_extractor_provider.py -v && uv run python -m pytest tests/ -k extractor -v`
 Expected: PASS (кроме известных pre-existing).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/services/gemini_extractor.py backend/tests/services/test_extractor_provider.py
 git commit -m "refactor(extractor): route via AIProvider, drop _inline_defs (native \$ref)"
 ```
 
-### Task A2.2: dedup + synthesis через провайдер
+### Task A2.2 [DONE]: dedup + synthesis через провайдер
 
 **Files:**
 
 - Modify: `backend/app/services/entity_deduplication_service.py` (импорт :26)
 - Modify: `backend/app/services/entity_synthesis_service.py` (импорт + вызов :149)
 
-- [ ] **Step 1: Написать падающий тест** — synthesis вызывает провайдер:
+- [x] **Step 1: Написать падающий тест** — synthesis вызывает провайдер:
 
 ```python
 # backend/tests/services/test_entities_provider.py
@@ -696,26 +706,26 @@ async def test_synthesis_uses_ai_provider():
 
 > Имя класса сверить: `grep -n "class .*Service" app/services/entity_synthesis_service.py`.
 
-- [ ] **Step 2: Запустить — FAIL.**
+- [x] **Step 2: Запустить — FAIL.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_entities_provider.py -v`
 
-- [ ] **Step 3: Заменить импорты и вызовы** в обоих файлах:
+- [x] **Step 3: Заменить импорты и вызовы** в обоих файлах:
   - `entity_synthesis_service.py`: импорт `get_openrouter_client` → `from app.core.ai_provider_factory import get_ai_provider`; в `_call_gemini` (:149) `client = get_openrouter_client()` → `client = get_ai_provider()`. Сигнатура `generate_text(...)` не меняется.
   - `entity_deduplication_service.py`: импорт (:26) → `from app.core.ai_provider_factory import get_ai_provider`; найти `get_openrouter_client()` (`grep -n get_openrouter_client app/services/entity_deduplication_service.py`) и заменить на `get_ai_provider()`. Сигнатура `generate_structured(...)` не меняется.
 
-- [ ] **Step 4: Запустить — PASS + dedup/synthesis наборы.**
+- [x] **Step 4: Запустить — PASS + dedup/synthesis наборы.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_entities_provider.py tests/ -k "dedup or synthesis" -v`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/services/entity_deduplication_service.py backend/app/services/entity_synthesis_service.py backend/tests/services/test_entities_provider.py
 git commit -m "refactor(entities): route dedup/synthesis via AIProvider"
 ```
 
-### Task A2.3: Интеграционный прогон одной книги (часть eval-гейта)
+### Task A2.3 [>>> RESUME HERE - needs GEMINI_API_KEY]: Интеграционный прогон одной книги (часть eval-гейта)
 
 - [ ] **Step 1:** На staging выставить `AI_PROVIDER=gemini` и `GEMINI_API_KEY=<paid key>`. Обработать 1 русскую книгу (фрагмент «Мастер и Маргарита»).
 - [ ] **Step 2: Проверить корректность** (не сравнение с 2.5):
@@ -738,7 +748,7 @@ Expected: модели `gemini-3.5-flash`, ненулевой cost.
 
 ## Phase A3: Миграция генерации изображений
 
-### Task A3.1: NanoBananaGenerator + подтверждение callable-ID
+### Task A3.1 [CODE DONE; live step needs key]: NanoBananaGenerator + подтверждение callable-ID
 
 **Files:**
 
@@ -750,7 +760,7 @@ Expected: модели `gemini-3.5-flash`, ненулевой cost.
 Run: `cd backend && uv run python -c "from google import genai; from app.core.config import settings; c=genai.Client(api_key=settings.GEMINI_API_KEY); r=c.models.generate_content(model='gemini-3.1-flash-image', contents='a red apple on a table'); print(type(r), bool(r.candidates))"`
 Expected: ответ без ошибки `NOT_FOUND`/`model not found`. Если ID требует суффикс `-preview` — обновить `GEMINI_IMAGE_MODEL` в `config.py` и зафиксировать.
 
-- [ ] **Step 2: Написать падающий тест** (мок генерации, проверяем извлечение bytes):
+- [x] **Step 2: Написать падающий тест** (мок генерации, проверяем извлечение bytes):
 
 ```python
 # backend/tests/services/test_nano_banana.py
@@ -782,11 +792,11 @@ async def test_generate_returns_bytes():
     assert out == b"\x89PNG_fake"
 ```
 
-- [ ] **Step 3: Запустить — FAIL.**
+- [x] **Step 3: Запустить — FAIL.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_nano_banana.py -v`
 
-- [ ] **Step 4: Реализовать** (тонкая обёртка над `GeminiClient.generate_image`):
+- [x] **Step 4: Реализовать** (тонкая обёртка над `GeminiClient.generate_image`):
 
 ```python
 # backend/app/services/nano_banana_generator.py
@@ -823,24 +833,24 @@ class NanoBananaGenerator:
         )
 ```
 
-- [ ] **Step 5: Запустить — PASS.**
+- [x] **Step 5: Запустить — PASS.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_nano_banana.py -v`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/services/nano_banana_generator.py backend/tests/services/test_nano_banana.py
 git commit -m "feat(images): add NanoBananaGenerator (gemini-3.1-flash-image)"
 ```
 
-### Task A3.2: Переключить ImagenService backend на NB2 + переводчик через провайдер
+### Task A3.2 [CODE DONE; live step needs key]: Переключить ImagenService backend на NB2 + переводчик через провайдер
 
 **Files:**
 
 - Modify: `backend/app/services/imagen_generator.py` (`PromptTranslator.__init__` :80; `ImagenService._generate_with_retry` :376-391)
 
-- [ ] **Step 1: Написать падающий тест** — ImagenService генерит через NanoBananaGenerator:
+- [x] **Step 1: Написать падающий тест** — ImagenService генерит через NanoBananaGenerator:
 
 ```python
 # backend/tests/services/test_imagen_uses_nb2.py
@@ -860,11 +870,11 @@ async def test_imagen_generate_with_retry_uses_nano_banana():
     assert out == b"PNGDATA"
 ```
 
-- [ ] **Step 2: Запустить — FAIL.**
+- [x] **Step 2: Запустить — FAIL.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_imagen_uses_nb2.py -v`
 
-- [ ] **Step 3: Переключить backend** в `imagen_generator.py`:
+- [x] **Step 3: Переключить backend** в `imagen_generator.py`:
   - Импорт: добавить `from app.services.nano_banana_generator import NanoBananaGenerator`; заменить `from app.core.openrouter_client import get_openrouter_client` → `from app.core.ai_provider_factory import get_ai_provider`.
   - `PromptTranslator.__init__` (:80): `self._client = get_openrouter_client()` → `self._client = get_ai_provider()` (сигнатура `generate_text` не меняется).
   - `ImagenService._initialize` (:362): `self._client = get_openrouter_client()` → добавить `self._nano = NanoBananaGenerator()`.
@@ -879,13 +889,13 @@ Run: `cd backend && uv run python -m pytest tests/services/test_imagen_uses_nb2.
   - `_model`/`get_status` (:351, :661): заменить `settings.OPENROUTER_IMAGE_MODEL` → `settings.GEMINI_IMAGE_MODEL`; `model_used` в результате (:543) → `settings.GEMINI_IMAGE_MODEL`.
   - Доступность сервиса (:357): условие `if not settings.OPENROUTER_API_KEY` → `if not settings.GEMINI_API_KEY`.
 
-- [ ] **Step 4: Запустить — PASS + imagen-набор.**
+- [x] **Step 4: Запустить — PASS + imagen-набор.**
 
 Run: `cd backend && uv run python -m pytest tests/services/test_imagen_uses_nb2.py tests/ -k imagen -v`
 
 - [ ] **Step 5: Визуальная проверка + refusal-rate** (часть eval-гейта): сгенерировать ≥20 картинок по 5 типам сущностей на разножанровой выборке (вкл. «тёмные» сцены: бой, хоррор). Зафиксировать pass-rate и **refusal-rate** Gemini. Если refusal-rate высокий — это вход для решения вернуть FLUX (через git-историю), вне scope Этапа A.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/services/imagen_generator.py backend/tests/services/test_imagen_uses_nb2.py
@@ -896,7 +906,7 @@ git commit -m "feat(images): route ImagenService backend to Nano Banana 2"
 
 ## Phase A5: Eval-гейт (correctness)
 
-### Task A5.1: Spoiler-free CI-инвариант (non-negotiable)
+### Task A5.1 [PENDING - needs key]: Spoiler-free CI-инвариант (non-negotiable)
 
 **Files:**
 
@@ -926,7 +936,7 @@ Expected: PASS (100%). Если FAIL — это блокер cutover, чинит
 
 - [ ] **Step 3: Commit** — `git commit -am "test(eval): spoiler-free invariant under Gemini provider"`
 
-### Task A5.2: Schema-validity + sanity сводка
+### Task A5.2 [PENDING - needs key]: Schema-validity + sanity сводка
 
 - [ ] **Step 1:** Прогнать 3–5 реальных книг разных жанров (вкл. русскую классику — проверить транслитерацию имён: «Гарри» не должен стать «Garry»).
 - [ ] **Step 2:** Свести метрики гейта в `docs/reports/2026-XX-gemini-stage-a-eval.md`: schema validity (% без ошибок парсинга), наблюдения по sanity (сущности/описания/картинки), refusal-rate картинок, факт. себестоимость.
@@ -937,13 +947,13 @@ Expected: PASS (100%). Если FAIL — это блокер cutover, чинит
 
 ## Phase A7: Cutover + удаление OpenRouter
 
-### Task A7.1: Flag-cutover на проде
+### Task A7.1 [PENDING - needs key]: Flag-cutover на проде
 
 - [ ] **Step 1:** После прохождения гейта (A5) выставить на проде `AI_PROVIDER=gemini`, `GEMINI_API_KEY=<paid>`. Деплой по `/deploy`.
 - [ ] **Step 2:** Наблюдение на реальных прогонах (обработать 1–2 книги в проде). Метрики: ноль ошибок парсинга, spoiler-free, `llm_usage_log` пишет Gemini-модели. **Rollback:** при регрессии — вернуть `AI_PROVIDER=openrouter` (мгновенно, без передеплоя кода).
 - [ ] **Step 3: Commit** — `git commit -am "ops(ai): gemini provider at 100% in prod"`
 
-### Task A7.2: Удаление OpenRouter (LLM + FLUX)
+### Task A7.2 [PENDING - needs key]: Удаление OpenRouter (LLM + FLUX)
 
 **Files:**
 

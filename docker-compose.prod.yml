@@ -105,6 +105,13 @@ services:
       - ALLOWED_HOSTS=${DOMAIN_NAME:-localhost},localhost,127.0.0.1
       # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # AI — Gemini Direct / Vertex (Stage A, за флагом AI_PROVIDER; дефолты = прод не тронут)
+      - AI_PROVIDER=${AI_PROVIDER:-openrouter}
+      - GEMINI_BACKEND=${GEMINI_BACKEND:-developer}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GCP_PROJECT=${GCP_PROJECT:-}
+      - GCP_LOCATION=${GCP_LOCATION:-global}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
       # Modal — self-hosted AI pipeline
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:-}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:-}
@@ -121,6 +128,7 @@ services:
     volumes:
       - ./backend/storage:/app/storage
       - /dev/shm:/dev/shm
+      - ./secrets:/secrets:ro     # Vertex service-account JSON (см. GOOGLE_APPLICATION_CREDENTIALS)
     depends_on:
       postgres:
         condition: service_healthy
@@ -162,6 +170,13 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # AI — OpenRouter (all LLM + images)
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # AI — Gemini Direct / Vertex (Stage A, за флагом AI_PROVIDER; дефолты = прод не тронут)
+      - AI_PROVIDER=${AI_PROVIDER:-openrouter}
+      - GEMINI_BACKEND=${GEMINI_BACKEND:-developer}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GCP_PROJECT=${GCP_PROJECT:-}
+      - GCP_LOCATION=${GCP_LOCATION:-global}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
       # Modal — self-hosted AI pipeline
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:-}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:-}
@@ -179,6 +194,7 @@ services:
       - ./backend/storage:/app/storage
       - /dev/shm:/dev/shm
       - nlp_models:/models
+      - ./secrets:/secrets:ro     # Vertex service-account JSON (см. GOOGLE_APPLICATION_CREDENTIALS)
     depends_on:
       postgres:
         condition: service_healthy

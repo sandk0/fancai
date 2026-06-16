@@ -23,7 +23,7 @@ from app.models.entity_mention import EntityMention
 from app.models.chapter import Chapter
 from app.core.retry import retry_llm_extraction
 from app.monitoring.metrics import record_llm_request, record_llm_error
-from app.core.openrouter_client import get_openrouter_client
+from app.core.ai_provider_factory import get_ai_provider
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +193,7 @@ class EntityDeduplicationService:
         """
         import time
 
-        client = get_openrouter_client()
+        client = get_ai_provider()
 
         entities_json = "\n".join(
             [
