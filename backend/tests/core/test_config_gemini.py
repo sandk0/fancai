@@ -11,5 +11,5 @@ def test_gemini_settings_exist_with_defaults():
 
 def test_vertex_backend_settings_exist_with_defaults():
     assert settings.GEMINI_BACKEND in ("developer", "vertex")
-    assert settings.GCP_LOCATION == "europe-west4"
+    assert settings.GCP_LOCATION == "global"
     assert hasattr(settings, "GCP_PROJECT")

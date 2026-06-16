@@ -75,7 +75,9 @@ class Settings(BaseSettings):
     # Vertex AI backend (под-режим Gemini-провайдера) — задействует $300 GCP trial
     GEMINI_BACKEND: str = "developer"  # developer | vertex
     GCP_PROJECT: str = ""  # Vertex: ID проекта Google Cloud
-    GCP_LOCATION: str = "europe-west4"  # Vertex: регион (Нидерланды)
+    GCP_LOCATION: str = (
+        "global"  # Vertex global endpoint: gemini-3.5-flash есть только здесь (не в региональных)
+    )
 
     # Legacy: kept for secrets validation compatibility, not used at runtime
     OPENAI_API_KEY: Optional[str] = None
