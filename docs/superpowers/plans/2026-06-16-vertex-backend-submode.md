@@ -5,7 +5,7 @@
 > **Commit footer:** каждый коммит заканчивать строкой
 > `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
 
-**Goal:** Добавить Vertex AI как альтернативный backend существующего `GeminiClient` (под-флаг `GEMINI_BACKEND=developer|vertex`), чтобы задействовать $300 Google Cloud trial-кредиты — Developer API их не принимает, Vertex принимает. Регион `europe-west4`.
+**Goal:** Добавить Vertex AI как альтернативный backend существующего `GeminiClient` (под-флаг `GEMINI_BACKEND=developer|vertex`), чтобы задействовать $300 Google Cloud trial-кредиты — Developer API их не принимает, Vertex принимает. Регион `global`.
 
 **Architecture:** Vertex — **не** новый провайдер. `ai_provider_factory` по-прежнему разводит `gemini|openrouter`. Развилка `developer|vertex` живёт в одном месте — singleton `get_gemini_client()` и конструктор `GeminiClient.__init__`: для `vertex` → `genai.Client(vertexai=True, project=, location=)` с аутентификацией через ADC (service-account JSON, env `GOOGLE_APPLICATION_CREDENTIALS`); для `developer` → текущий `genai.Client(api_key=)`. Вызовы `generate_content` идентичны, поэтому `gemini_extractor`/`consistency_manager`/`entity_deduplication` не трогаются. Image-путь (`NanoBananaGenerator`, `PromptTranslator`) наследует singleton автоматически; правится только гард доступности `ImagenService._initialize`, завязанный на `GEMINI_API_KEY`.
 
@@ -69,7 +69,7 @@ Run:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=~/fancai-vertex.json
-cd backend && uv run python -c "from google import genai; genai.Client(vertexai=True, project='PROJECT_ID', location='europe-west4'); print('client ok')"
+cd backend && uv run python -c "from google import genai; genai.Client(vertexai=True, project='PROJECT_ID', location='global'); print('client ok')"
 ```
 
 Expected: `client ok` без ошибок аутентификации.
@@ -90,7 +90,7 @@ Expected: `client ok` без ошибок аутентификации.
 ```python
 def test_vertex_backend_settings_exist_with_defaults():
     assert settings.GEMINI_BACKEND in ("developer", "vertex")
-    assert settings.GCP_LOCATION == "europe-west4"
+    assert settings.GCP_LOCATION == "global"
     assert hasattr(settings, "GCP_PROJECT")
 ```
 
@@ -107,7 +107,7 @@ Expected: FAIL — `AttributeError: 'Settings' object has no attribute 'GEMINI_B
     # Vertex AI backend (sub-mode of Gemini provider) — задействует $300 GCP trial
     GEMINI_BACKEND: str = "developer"   # developer | vertex
     GCP_PROJECT: str = ""               # Vertex: ID проекта Google Cloud
-    GCP_LOCATION: str = "europe-west4"  # Vertex: регион (Нидерланды)
+    GCP_LOCATION: str = "global"  # Vertex: регион (Нидерланды)
 ```
 
 - [ ] **Step 4: Запустить — убедиться, что проходит**
@@ -150,21 +150,21 @@ def test_developer_backend_uses_api_key():
 
 def test_vertex_backend_uses_project_location():
     with patch("app.core.gemini_client.genai.Client") as C:
-        GeminiClient(vertexai=True, project="proj-123", location="europe-west4")
+        GeminiClient(vertexai=True, project="proj-123", location="global")
     C.assert_called_once_with(
-        vertexai=True, project="proj-123", location="europe-west4"
+        vertexai=True, project="proj-123", location="global"
     )
 
 
 def test_singleton_picks_vertex_when_backend_vertex(monkeypatch):
     monkeypatch.setattr(gc.settings, "GEMINI_BACKEND", "vertex")
     monkeypatch.setattr(gc.settings, "GCP_PROJECT", "proj-123")
-    monkeypatch.setattr(gc.settings, "GCP_LOCATION", "europe-west4")
+    monkeypatch.setattr(gc.settings, "GCP_LOCATION", "global")
     gc._client = None
     with patch("app.core.gemini_client.genai.Client") as C:
         gc.get_gemini_client()
     C.assert_called_once_with(
-        vertexai=True, project="proj-123", location="europe-west4"
+        vertexai=True, project="proj-123", location="global"
     )
     gc._client = None
 
@@ -347,7 +347,7 @@ Run:
 export GOOGLE_APPLICATION_CREDENTIALS=~/fancai-vertex.json
 cd backend && uv run python -c "
 from google import genai
-c = genai.Client(vertexai=True, project='PROJECT_ID', location='europe-west4')
+c = genai.Client(vertexai=True, project='PROJECT_ID', location='global')
 print(c.models.generate_content(model='gemini-3.5-flash', contents='Скажи одно слово').text)
 "
 ```
@@ -381,7 +381,7 @@ Run:
 cd backend && uv run python -c "
 from google import genai
 from google.genai import types
-c = genai.Client(vertexai=True, project='PROJECT_ID', location='europe-west4')
+c = genai.Client(vertexai=True, project='PROJECT_ID', location='global')
 for m in ('gemini-3.1-flash-image', 'gemini-2.5-flash-image'):
     try:
         r = c.models.generate_content(model=m, contents='a red apple on a table',
@@ -411,13 +411,13 @@ git commit -am "fix(images): set Vertex-callable image model id"
 - [ ] **Step 1:** В §1 (таблица возможностей, строка 53) заменить строку `Vertex AI` на:
 
 ```markdown
-| **Vertex AI** (backend-режим Gemini) | ✅ Да (под `GEMINI_BACKEND=vertex`) | A0/A1/A3 | Задействует $300 GCP trial (Developer API его не принимает). Регион `europe-west4`. ZDR — побочный бонус, не мотивация. План: `docs/superpowers/plans/2026-06-16-vertex-backend-submode.md` |
+| **Vertex AI** (backend-режим Gemini) | ✅ Да (под `GEMINI_BACKEND=vertex`) | A0/A1/A3 | Задействует $300 GCP trial (Developer API его не принимает). Регион `global`. ZDR — побочный бонус, не мотивация. План: `docs/superpowers/plans/2026-06-16-vertex-backend-submode.md` |
 ```
 
 - [ ] **Step 2:** В §2.4 (стр. 140) добавить строку:
 
 ```markdown
-- **Backend:** Vertex AI (`GEMINI_BACKEND=vertex`), регион `europe-west4`, аутентификация через service-account ADC (`GOOGLE_APPLICATION_CREDENTIALS`). $300 trial — 90 дней / см. cutover.
+- **Backend:** Vertex AI (`GEMINI_BACKEND=vertex`), регион `global`, аутентификация через service-account ADC (`GOOGLE_APPLICATION_CREDENTIALS`). $300 trial — 90 дней / см. cutover.
 ```
 
 - [ ] **Step 3:** В A0.1 добавить Step 3b — поля Vertex (ссылка на Task 2 этого плана), чтобы исполнитель v3 не пропустил.
@@ -440,7 +440,7 @@ git commit -m "docs(plan): adopt Vertex backend sub-mode, supersede 'Vertex: no'
 - [ ] **Step 1:** Положить `fancai-vertex.json` на прод-сервер в `secrets/vertex-sa.json` (НЕ в git). Добавить `secrets/` в `.gitignore`, если отсутствует.
 - [ ] **Step 2:** В сервисах **backend** и **celery** прод-compose добавить:
   - volume: `./secrets/vertex-sa.json:/secrets/vertex-sa.json:ro`
-  - env: `GOOGLE_APPLICATION_CREDENTIALS=/secrets/vertex-sa.json`, `GEMINI_BACKEND=vertex`, `GCP_PROJECT=<PROJECT_ID>`, `GCP_LOCATION=europe-west4`
+  - env: `GOOGLE_APPLICATION_CREDENTIALS=/secrets/vertex-sa.json`, `GEMINI_BACKEND=vertex`, `GCP_PROJECT=<PROJECT_ID>`, `GCP_LOCATION=global`
   - (cutover) `AI_PROVIDER=gemini` — переключать **последним**, после прогона книги за флагом.
 - [ ] **Step 3:** Деплой через `/deploy`. Smoke на проде: обработать одну книгу, проверить illustrations + glossary.
 - [ ] **Step 4:** Зафиксировать дату cutover-дедлайна на paid billing (**trial = 90 дней с старта**), чтобы сервис не встал по истечении кредита.
@@ -452,7 +452,7 @@ git commit -m "docs(plan): adopt Vertex backend sub-mode, supersede 'Vertex: no'
 **Spec coverage:**
 
 - $300 trial → Vertex: Task 1 (инфра) + Task 3 (backend-развилка). ✅
-- Регион `europe-west4`: Task 2 (дефолт `GCP_LOCATION`). ✅
+- Регион `global`: Task 2 (дефолт `GCP_LOCATION`). ✅
 - Image-путь не ломается: Task 4 (гард) + Task 5 Step 3 (callable id). ✅
 - Прод за флагом, без регресса: `GEMINI_BACKEND` default `developer`, `AI_PROVIDER` default `openrouter`; cutover — Task 7 Step 2. ✅
 - Переопределение решения v3: Task 6. ✅
