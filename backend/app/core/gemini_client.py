@@ -50,8 +50,20 @@ async def _log_usage_to_db(
 class GeminiClient:
     """Прямой клиент Gemini через google-genai (async via client.aio)."""
 
-    def __init__(self, api_key: str):
-        self._client = genai.Client(api_key=api_key)
+    def __init__(
+        self,
+        api_key: str = "",
+        *,
+        vertexai: bool = False,
+        project: str = "",
+        location: str = "",
+    ):
+        if vertexai:
+            self._client = genai.Client(
+                vertexai=True, project=project, location=location
+            )
+        else:
+            self._client = genai.Client(api_key=api_key)
 
     def _log(self, model: str, resp_usage, cost: float) -> None:
         asyncio.create_task(
@@ -164,8 +176,15 @@ _client: Optional[GeminiClient] = None
 
 
 def get_gemini_client() -> GeminiClient:
-    """Singleton GeminiClient из settings.GEMINI_API_KEY."""
+    """Singleton GeminiClient. Backend по settings.GEMINI_BACKEND (developer|vertex)."""
     global _client
     if _client is None:
-        _client = GeminiClient(api_key=settings.GEMINI_API_KEY)
+        if settings.GEMINI_BACKEND == "vertex":
+            _client = GeminiClient(
+                vertexai=True,
+                project=settings.GCP_PROJECT,
+                location=settings.GCP_LOCATION,
+            )
+        else:
+            _client = GeminiClient(api_key=settings.GEMINI_API_KEY)
     return _client
