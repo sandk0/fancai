@@ -7,3 +7,9 @@ def test_gemini_settings_exist_with_defaults():
     assert settings.GEMINI_IMAGE_MODEL == "gemini-3.1-flash-image"
     assert hasattr(settings, "GEMINI_API_KEY")
     assert hasattr(settings, "GEMINI_LITE_MODEL")
+
+
+def test_vertex_backend_settings_exist_with_defaults():
+    assert settings.GEMINI_BACKEND in ("developer", "vertex")
+    assert settings.GCP_LOCATION == "europe-west4"
+    assert hasattr(settings, "GCP_PROJECT")

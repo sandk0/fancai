@@ -72,6 +72,11 @@ class Settings(BaseSettings):
         "gemini-3.1-flash-image"  # Nano Banana 2; ID подтвердить smoke-тестом A3.1
     )
 
+    # Vertex AI backend (под-режим Gemini-провайдера) — задействует $300 GCP trial
+    GEMINI_BACKEND: str = "developer"  # developer | vertex
+    GCP_PROJECT: str = ""  # Vertex: ID проекта Google Cloud
+    GCP_LOCATION: str = "europe-west4"  # Vertex: регион (Нидерланды)
+
     # Legacy: kept for secrets validation compatibility, not used at runtime
     OPENAI_API_KEY: Optional[str] = None
     MIDJOURNEY_API_KEY: Optional[str] = None
