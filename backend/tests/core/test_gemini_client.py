@@ -67,7 +67,7 @@ async def test_generate_image_raises_on_empty_candidates():
     )
     with patch.object(
         client._client.aio.models, "generate_content", new_callable=AsyncMock
-    ) as gc, patch("app.core.gemini_client.asyncio.create_task"):
+    ) as gc, patch("app.core.gemini_client._log_usage_to_db", new_callable=AsyncMock):
         gc.return_value = fake_resp
         with pytest.raises(RuntimeError):
             await client.generate_image("a cat", model="gemini-3.1-flash-image")
@@ -90,7 +90,7 @@ async def test_generate_image_passes_aspect_ratio_and_size_to_sdk():
     )
     with patch.object(
         client._client.aio.models, "generate_content", new_callable=AsyncMock
-    ) as gc, patch("app.core.gemini_client.asyncio.create_task"):
+    ) as gc, patch("app.core.gemini_client._log_usage_to_db", new_callable=AsyncMock):
         gc.return_value = fake_resp
         out = await client.generate_image(
             "a cat", model="gemini-3.1-flash-image", aspect_ratio="4:3", image_size="2K"
@@ -102,6 +102,45 @@ async def test_generate_image_passes_aspect_ratio_and_size_to_sdk():
     assert config.image_config is not None
     assert config.image_config.aspect_ratio == "4:3"
     assert config.image_config.image_size == "2K"
+
+
+# Регрессия: Celery-таски идут через run_async -> asyncio.run, который на выходе
+# отменяет незавершённые задачи. Пока usage писался через create_task, запись
+# для картинок терялась целиком — короткий путь не успевал её выполнить.
+def test_usage_is_persisted_when_call_runs_under_asyncio_run():
+    import asyncio
+
+    recorded: list[str] = []
+
+    async def fake_log(**kwargs):
+        await asyncio.sleep(0.05)  # реальная запись в БД тоже не мгновенна
+        recorded.append(kwargs["model"])
+
+    inline = SimpleNamespace(data=b"PNGDATA")
+    fake_resp = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(parts=[SimpleNamespace(inline_data=inline)])
+            )
+        ],
+        usage_metadata=SimpleNamespace(),
+    )
+
+    async def scenario():
+        client = GeminiClient(api_key="x")
+        with patch.object(
+            client._client.aio.models, "generate_content", new_callable=AsyncMock
+        ) as gc:
+            gc.return_value = fake_resp
+            return await client.generate_image("a cat", model="gemini-3.1-flash-image")
+
+    with patch("app.core.gemini_client._log_usage_to_db", fake_log):
+        out = asyncio.run(scenario())
+
+    assert out == b"PNGDATA"
+    assert recorded == [
+        "gemini-3.1-flash-image"
+    ], "usage потерян: запись не пережила закрытие event loop в asyncio.run"
 
 
 # temperature в Gemini 3.x deprecated: в следующих поколениях даёт HTTP 400

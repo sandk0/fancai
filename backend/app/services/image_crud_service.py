@@ -7,6 +7,7 @@ Image CRUD Service — операции с GeneratedImage в БД.
 - Статистику изображений
 """
 
+import os
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -19,6 +20,16 @@ from app.models.image import GeneratedImage
 from app.models.description import Description
 from app.models.chapter import Chapter
 from app.models.book import Book
+
+
+def _unlink_quietly(path: Optional[str]) -> None:
+    """Удаляет файл, не роняя вызывающего: строка в БД уже согласована."""
+    if not path:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 class ImageNotFoundError(Exception):
@@ -266,16 +277,15 @@ class ImageCRUDService:
         if not image:
             return False
 
-        if image.local_path:
-            import os
-
-            try:
-                os.unlink(image.local_path)
-            except OSError:
-                pass
+        local_path = image.local_path
 
         await self.db.delete(image)
         await self.db.commit()
+
+        # Файл удаляем только после успешного коммита: иначе при провале записи
+        # строка останется в БД, а файла по её пути уже не будет.
+        _unlink_quietly(local_path)
+
         logger.debug(f"Deleted GeneratedImage {image_id} with file")
         return True
 
@@ -287,13 +297,7 @@ class ImageCRUDService:
         prompt_used: str,
         generation_time_seconds: Optional[float],
     ) -> GeneratedImage:
-        if image.local_path and image.local_path != local_path:
-            import os
-
-            try:
-                os.unlink(image.local_path)
-            except OSError:
-                pass
+        old_path = image.local_path
 
         image.image_url = image_url
         image.local_path = local_path
@@ -302,6 +306,14 @@ class ImageCRUDService:
 
         await self.db.commit()
         await self.db.refresh(image)
+
+        # Старый файл удаляем только после успешного коммита. Раньше unlink шёл
+        # первым, и на cache hit (ImagenService отдаёт data-URI и local_path=None)
+        # commit падал на VARCHAR(2000), rollback возвращал прежний путь в БД —
+        # а файла по нему уже не было. Тихая потеря изображения.
+        if old_path and old_path != local_path:
+            _unlink_quietly(old_path)
+
         return image
 
     async def get_admin_stats(self) -> Dict[str, object]:

@@ -188,21 +188,59 @@ Gemini; он переименован в `provider_error`. Историческ�
 
 ### Usage attribution
 
-`backend/app/models/llm_usage_log.py` хранит:
+`backend/app/models/llm_usage_log.py` хранит ровно восемь колонок:
 
-- `model`, `service`, `call_type`;
-- input/output tokens;
-- `cost_dollars`;
-- request/user/book attribution;
-- success/error и latency metadata.
+- `id`, `created_at`;
+- `model`, `service` (nullable — у текстовых вызовов не заполняется);
+- `prompt_tokens`, `completion_tokens`;
+- `cost_dollars` (`NUMERIC(12,8)`);
+- `request_id` (nullable, только OpenRouter).
+
+Ни `call_type`, ни привязки к пользователю и книге, ни success/error и latency
+в таблице нет: связать запись с конкретной книгой или главой сейчас нельзя.
 
 Gemini pricing table находится в `backend/app/core/gemini_pricing.py`. Для mixed route
 canary нужно сверять и Gemini, и OpenRouter записи; одного env snapshot недостаточно.
+
+**Запись usage ожидается, а не отпускается в фон.** До 2026-08-01 оба клиента писали
+через `asyncio.create_task()`, но Celery-таски выполняются через
+`run_async()` → `asyncio.run()`, который на выходе отменяет незавершённые задачи:
+на коротких путях (генерация изображения) запись терялась целиком. Теперь
+`_log_usage_to_db` вызывается через `await`; ошибки внутри по-прежнему
+проглатываются, поэтому учёт не может уронить основной вызов.
 
 ### Image storage
 
 Сгенерированные изображения сохраняются в `/app/storage/generated_images` и описываются в
 `generated_images` (`service_used`, status, path/url, prompt, duration, errors).
+
+**Кэш изображений (`imagen:cache:<md5>`, TTL 7 суток) — известный проблемный контракт,
+не исправлен:**
+
+1. В кэш кладётся `data:image/png;base64,…` целиком (мегабайты на запись), а не ссылка.
+2. На cache hit `ImagenService` возвращает этот data-URI в `image_url` и **не** отдаёт
+   `local_path`. Все шесть потребителей выводят сохраняемый URL только из `local_path`:
+   `image_tasks.py:167` и `:376`, `routers/images.py:396`, `:506` и `:716`,
+   `consistency_manager.py:527`. Итог на hit: четыре из них пишут строку
+   `generated_images` со `status='completed'` и `image_url=NULL`; regenerate
+   (`routers/images.py:716`) отдаёт **HTTP 500** — data-URI не влезает в
+   `VARCHAR(2000)`; master reference молча не выставляет `master_portrait_url`.
+   Наивная правка «писать `generation_result.image_url`» не подходит по той же
+   причине — длина колонки.
+3. Ключ считается как `md5(description + aspect_ratio)` и игнорирует
+   `description_type`, `genre`, `custom_style` и `GEMINI_IMAGE_MODEL`, хотя все они
+   меняют промпт или модель. Значит перегенерация с другим стилем и смена модели
+   могут вернуть чужую старую картинку.
+
+Ограничение для будущей правки пункта 2: `ImageCRUDService.delete_with_file()`
+удаляет файл по `local_path`, поэтому переиспользовать один путь в нескольких
+строках `generated_images` нельзя — удаление одной сломает остальные. Либо
+материализовать отдельный файл на каждую строку, либо сначала сделать удаление
+reference-aware.
+
+Что **уже** исправлено 2026-08-01: удаление файла перенесено за успешный коммит
+(`update_after_regeneration`, `delete_with_file`), поэтому падение на cache hit
+больше не уничтожает существующее изображение. Сам cache hit остаётся сломанным.
 
 ## Configuration contract
 

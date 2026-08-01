@@ -4,7 +4,6 @@
 generate_image→bytes. usage пишется в llm_usage_log (как в openrouter_client).
 """
 
-import asyncio
 import json
 import logging
 from typing import Optional, Type
@@ -26,7 +25,12 @@ async def _log_usage_to_db(
     completion_tokens: int,
     cost: float,
 ) -> None:
-    """Fire-and-forget запись usage в llm_usage_log (не блокирует и не роняет поток)."""
+    """Запись usage в llm_usage_log; вызывается через await, ошибки проглатывает.
+
+    Раньше отпускалась в asyncio.create_task, но Celery-таски выполняются через
+    run_async -> asyncio.run, который на выходе отменяет незавершённые задачи:
+    на коротких путях (генерация изображения) запись терялась целиком.
+    """
     try:
         from app.core.database import AsyncSessionLocal
         from app.models.llm_usage_log import LlmUsageLog
@@ -65,15 +69,18 @@ class GeminiClient:
         else:
             self._client = genai.Client(api_key=api_key)
 
-    def _log(self, model: str, resp_usage, cost: float) -> None:
-        asyncio.create_task(
-            _log_usage_to_db(
-                model=model,
-                service=None,
-                prompt_tokens=getattr(resp_usage, "prompt_token_count", 0) or 0,
-                completion_tokens=getattr(resp_usage, "candidates_token_count", 0) or 0,
-                cost=cost,
-            )
+    async def _log(self, model: str, resp_usage, cost: float) -> None:
+        # Запись ждём, а не отпускаем в create_task: Celery-таски выполняются
+        # через run_async -> asyncio.run, который на выходе отменяет все
+        # незавершённые задачи. Fire-and-forget терял usage целиком на коротких
+        # путях вроде генерации изображения. Ошибки внутри проглатываются, так
+        # что учёт не может уронить основной вызов.
+        await _log_usage_to_db(
+            model=model,
+            service=None,
+            prompt_tokens=getattr(resp_usage, "prompt_token_count", 0) or 0,
+            completion_tokens=getattr(resp_usage, "candidates_token_count", 0) or 0,
+            cost=cost,
         )
 
     async def generate_text(
@@ -97,7 +104,7 @@ class GeminiClient:
             cached=getattr(um, "cached_content_token_count", 0) or 0,
             thoughts=getattr(um, "thoughts_token_count", 0) or 0,
         )
-        self._log(model, um, cost)
+        await self._log(model, um, cost)
         return resp.text or ""
 
     async def generate_structured(
@@ -125,7 +132,7 @@ class GeminiClient:
             cached=getattr(um, "cached_content_token_count", 0) or 0,
             thoughts=getattr(um, "thoughts_token_count", 0) or 0,
         )
-        self._log(model, um, cost)
+        await self._log(model, um, cost)
         if not resp.text:
             raise RuntimeError(
                 f"Gemini ({model}) returned empty/blocked structured response"
@@ -159,14 +166,12 @@ class GeminiClient:
         for part in resp.candidates[0].content.parts:
             inline = getattr(part, "inline_data", None)
             if inline and inline.data:
-                asyncio.create_task(
-                    _log_usage_to_db(
-                        model=model,
-                        service="image",
-                        prompt_tokens=0,
-                        completion_tokens=0,
-                        cost=compute_image_cost(model, image_size),
-                    )
+                await _log_usage_to_db(
+                    model=model,
+                    service="image",
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    cost=compute_image_cost(model, image_size),
                 )
                 return inline.data
         raise RuntimeError(f"Gemini image model {model} вернул ответ без image-данных")

@@ -20,7 +20,7 @@ async def test_generate_returns_bytes():
     ), patch.object(
         fake_client._client.aio.models, "generate_content", new_callable=AsyncMock
     ) as gc, patch(
-        "app.core.gemini_client.asyncio.create_task"
+        "app.core.gemini_client._log_usage_to_db", new_callable=AsyncMock
     ):
         gc.return_value = _img_response(b"\x89PNG_fake")
         gen = NanoBananaGenerator()

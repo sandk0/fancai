@@ -21,7 +21,6 @@ Circuit breaker: размыкается после 5 последователь�
 - $defs/$ref issue: https://github.com/pydantic/pydantic-ai/issues/3617
 """
 
-import asyncio
 import base64
 import json
 import logging
@@ -165,7 +164,10 @@ async def _log_usage_to_db(
     """
     Записывает использование LLM API в таблицу llm_usage_log.
 
-    Вызывается через asyncio.create_task() — не блокирует основной поток.
+    Вызывается через await, а не через asyncio.create_task(): Celery-таски идут
+    через run_async -> asyncio.run, который на выходе отменяет незавершённые
+    задачи, и fire-and-forget терял записи. Ошибки проглатываются, поэтому
+    ожидание записи не может уронить основной вызов.
     Использует прямой SQL INSERT через core.database (не зависит от DI).
 
     Args:
@@ -372,16 +374,16 @@ class OpenRouterClient:
                 if cost:
                     llm_cost_dollars_total.labels(model=current_model).inc(cost)
 
-                # Fire-and-forget: записываем в DB без блокировки
-                asyncio.create_task(
-                    _log_usage_to_db(
-                        model=current_model,
-                        service=None,
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        cost=cost,
-                        request_id=request_id,
-                    )
+                # Запись ждём: Celery-таски идут через run_async -> asyncio.run,
+                # который отменяет незавершённые задачи на выходе, и
+                # fire-and-forget терял usage. Ошибки внутри проглатываются.
+                await _log_usage_to_db(
+                    model=current_model,
+                    service=None,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cost=cost,
+                    request_id=request_id,
                 )
 
                 if i > 0:
@@ -506,15 +508,13 @@ class OpenRouterClient:
                 if cost:
                     llm_cost_dollars_total.labels(model=current_model).inc(cost)
 
-                asyncio.create_task(
-                    _log_usage_to_db(
-                        model=current_model,
-                        service=None,
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        cost=cost,
-                        request_id=request_id,
-                    )
+                await _log_usage_to_db(
+                    model=current_model,
+                    service=None,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cost=cost,
+                    request_id=request_id,
                 )
 
                 if i > 0:
@@ -653,15 +653,13 @@ class OpenRouterClient:
             if cost:
                 llm_cost_dollars_total.labels(model=model).inc(cost)
 
-            asyncio.create_task(
-                _log_usage_to_db(
-                    model=model,
-                    service=None,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    cost=cost,
-                    request_id=request_id,
-                )
+            await _log_usage_to_db(
+                model=model,
+                service=None,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cost=cost,
+                request_id=request_id,
             )
 
             return base64.b64decode(b64_data)
