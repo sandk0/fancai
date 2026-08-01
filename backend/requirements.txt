@@ -2,8 +2,8 @@
 fastapi==0.141.1  # Jul 2026: атомарно с prometheus-fastapi-instrumentator 8.1.0
 uvicorn[standard]==0.42.0
 gunicorn==25.1.0
-python-multipart==0.0.22
-PyJWT[crypto]==2.12.1
+python-multipart==0.0.32
+PyJWT[crypto]==2.13.0
 bcrypt==5.0.0
 
 # База данных
@@ -24,20 +24,20 @@ beautifulsoup4==4.14.3
 
 # Парсинг книг
 ebooklib==0.20
-lxml==6.0.2
+lxml==6.1.1
 
 # Google Gemini direct API (context caching, batch, thinking control)
 google-genai==2.8.0
 
 # HTTP клиенты и запросы
 httpx==0.28.1
-requests==2.32.5
+requests==2.34.2
 aiofiles==25.1.0
-aiohttp==3.13.3
+aiohttp==3.14.3
 
 # Валидация и настройки
 pydantic[email]==2.12.5  # Nov 2025: Rust core improvements
-pydantic-settings==2.13.1  # Mar 2026: updated from 2.12.0
+pydantic-settings==2.14.2
 
 # Логирование и мониторинг
 loguru==0.7.3
@@ -46,7 +46,7 @@ prometheus-client==0.24.1
 prometheus-fastapi-instrumentator==8.1.0  # 7.1.0 пинил starlette<1.0.0 и держал 5 CVE
 
 # Безопасность
-cryptography==46.0.5  # Feb 2026: CAST5/SEED/Blowfish removed
+cryptography==50.0.0
 
 # Тестирование
 pytest==9.0.2
