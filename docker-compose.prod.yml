@@ -22,7 +22,7 @@
 services:
   # Caddy Reverse Proxy with Auto-HTTPS and HTTP/3
   caddy:
-    image: caddy:2.11.1-alpine
+    image: caddy:2.11.4-alpine
     container_name: fancai_caddy
     environment:
       - MONITOR_PASSWORD_HASH=${MONITOR_PASSWORD_HASH}
@@ -266,7 +266,7 @@ services:
 
   # PostgreSQL Database (optimized for 32GB server, 12 vCPU)
   postgres:
-    image: pgvector/pgvector:0.8.2-pg17
+    image: pgvector/pgvector:0.8.6-pg17
     container_name: fancai_postgres
     shm_size: 10g
     environment:
@@ -319,7 +319,7 @@ services:
 
   # Redis Cache & Queue (optimized for 32GB server, 12 vCPU)
   redis:
-    image: redis:7.4.8-alpine
+    image: redis:7.4.10-alpine
     container_name: fancai_redis
     command: >
       redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 640mb --maxmemory-policy volatile-lru --save 900 1 300 10 60 10000

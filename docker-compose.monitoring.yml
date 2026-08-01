@@ -7,7 +7,7 @@
 services:
   # ─── Netdata — системные метрики хоста + бизнес-метрики fancai ───────────────
   netdata:
-    image: netdata/netdata:v2.9.0
+    image: netdata/netdata:v2.10.4
     container_name: fancai_netdata
     hostname: fancai-prod
     pid: host
@@ -40,7 +40,7 @@ services:
 
   # ─── VictoriaMetrics — долгосрочное хранение метрик от Netdata ───────────────
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.137.0
+    image: victoriametrics/victoria-metrics:v1.148.0
     container_name: fancai_victoriametrics
     restart: unless-stopped
     ports:
@@ -61,7 +61,7 @@ services:
 
   # ─── Uptime Kuma — мониторинг доступности сервисов ───────────────────────────
   uptime-kuma:
-    image: louislam/uptime-kuma:2.2.1
+    image: louislam/uptime-kuma:2.4.0
     container_name: fancai_uptime_kuma
     restart: unless-stopped
     ports:
@@ -71,7 +71,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          # Было 128M при фактическом потреблении ~96 % — контейнер жил
+          # на грани OOM. Приведено к уровню netdata и victoria-metrics.
+          memory: 256M
     networks:
       - monitoring_net
       - fancai_network  # Доступ к PostgreSQL и Redis для health checks
@@ -79,7 +81,7 @@ services:
   # ─── Dozzle — просмотр логов Docker-контейнеров в реальном времени ──────────
   # Auth: порт на 127.0.0.1 — доступ только через Caddy basic_auth
   dozzle:
-    image: amir20/dozzle:v10.1.1
+    image: amir20/dozzle:v10.6.14
     container_name: fancai_dozzle
     restart: unless-stopped
     ports:

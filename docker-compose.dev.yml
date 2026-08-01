@@ -22,7 +22,7 @@
 services:
   # Caddy Reverse Proxy (localhost with internal CA — auto-HTTPS)
   caddy:
-    image: caddy:2.11.1-alpine
+    image: caddy:2.11.4-alpine
     container_name: fancai_caddy_dev
     ports:
       - "80:80"
@@ -212,7 +212,10 @@ services:
 
   # PostgreSQL
   postgres:
-    image: postgres:17.9-alpine
+    # Не postgres:17-alpine: миграции проекта делают CREATE EXTENSION vector,
+    # и на голом образе `alembic upgrade head` падает — dev не мог поднять
+    # схему вообще. Тот же образ, что на проде, версия PostgreSQL та же 17.10.
+    image: pgvector/pgvector:0.8.6-pg17
     container_name: fancai_postgres_dev
     environment:
       POSTGRES_DB: ${DB_NAME:-fancai_dev}
@@ -250,7 +253,7 @@ services:
 
   # Redis
   redis:
-    image: redis:7.4.8-alpine
+    image: redis:7.4.10-alpine
     container_name: fancai_redis_dev
     command: >
       redis-server
