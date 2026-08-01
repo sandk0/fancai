@@ -22,14 +22,20 @@ import logging
 import asyncio
 import hashlib
 from difflib import SequenceMatcher
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
 from app.models.description import DescriptionType
 
 from app.core.retry import (
     retry_llm_extraction,
     LLMExtractionError,
     RateLimitError,
+)
+from app.schemas.extraction import (
+    ChapterAnalysisResult,
+    ExtractedDescription,
+    ExtractedEntity,
+    ExtractedRelationship,
 )
 from app.core.cache import cache_manager
 from app.services.tsa_parser import TSAParser, get_tsa_parser
@@ -109,14 +115,6 @@ class GeminiTSAResponseSchema(BaseModel):
     )
     entities: List[GeminiEntitySchema]
     relationships: List[GeminiRelationshipSchema]
-
-
-from app.schemas.extraction import (
-    ChapterAnalysisResult,
-    ExtractedDescription,
-    ExtractedEntity,
-    ExtractedRelationship,
-)
 
 
 @dataclass

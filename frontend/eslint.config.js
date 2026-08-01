@@ -76,4 +76,19 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    // Статические браузерные скрипты из public/ копируются в сборку как есть:
+    // это классические <script>, а не ES-модули. Без отдельного блока они
+    // попадают только под js.configs.recommended без глобалов и дают
+    // ложные no-undef на document/window/localStorage.
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        ...globals.es2020,
+      },
+    },
+  },
 );
