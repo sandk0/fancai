@@ -10,6 +10,19 @@
 
 ### Removed
 
+- **Modal-пайплайн удалён целиком** (2026-08-01): SDK, env, ветки в `book_tasks.py`,
+  `image_tasks.py` и `ConsistencyManager`, feature-флаги `USE_MODAL_PIPELINE` и
+  `USE_BATCH_MODE`. Миграция `c7d8e9f0a1b2` удаляет флаги из развёрнутых БД
+  (`FeatureFlagManager.initialize()` умеет только добавлять) и переписывает
+  `chapters.error_type='modal_error'` → `'provider_error'`.
+- **Неиспользуемые зависимости** (2026-08-01): бэкенд — `pillow` (−26 advisory), `ecdsa`
+  (−2), `python-decouple`, `python-dateutil`, `sentence-transformers`, `scikit-learn`,
+  дубль `pgvector` в `Dockerfile.celery`; фронтенд — `dompurify`, `@types/dompurify`,
+  `i18next-http-backend`; корневой блок `devDependencies` вместе с корневым
+  `package-lock.json`. Celery-образ 2.36 GB → 2.06 GB.
+- **Вредный `overrides.brace-expansion`** (2026-08-01): ломал API `glob@11`, из-за чего
+  Workbox писал 2 пустых precache-entry вместо 45 реальных (2255 KiB).
+
 - **GSD toolchain полностью удалён из репозитория** (2026-06-13) — команды `/gsd:*`,
   субагенты, движок `get-shit-done/`, хуки и statusline вырезаны из `.claude/`,
   `.opencode/`, `.codex/` и user-level. `.planning/` сохранён как read-only архив.
@@ -17,6 +30,18 @@
   tiers, NLP-системы и React Native в публичной документации.
 
 ### Changed
+
+- **Обновление стека, Волны 1–5** (2026-08-01). Backend: fastapi 0.141.1 +
+  prometheus-fastapi-instrumentator 8.1.0 (атомарная группа), пакеты безопасности, сервер,
+  ORM, наблюдаемость, стабы; ruff 0.16 расширил набор правил по умолчанию — прежний набор
+  E4/E7/E9/F зафиксирован явно в `backend/ruff.toml`. Frontend: миноры плюс мажоры
+  eslint 10.8.0, i18next 26.3.6 + react-i18next 17.0.11, jsdom 30.0.1, jest-dom 7.0.0,
+  `@types/node` 26.1.2, lucide-react 1.28.0. Образы: caddy 2.11.4, redis 7.4.10,
+  pgvector 0.8.6-pg17, netdata v2.10.4, victoria-metrics v1.148.0, uptime-kuma 2.4.0,
+  dozzle v10.6.14, Node 24 и alpine 3.23 во фронт-образах, OCI-метки во всех пяти
+  Dockerfile и build-args во всех восьми build-блоках compose.
+- `docs/architecture/ai-pipeline.md` приведён к коду после удаления Modal: развилки по
+  feature-флагам, legacy image route и раздел «Modal» заменены фактическим маршрутом.
 
 - **Production/code/documentation audit** (2026-07-18): progress state reconciled with
   deployed commit `a1f89900`; Gemini/Vertex architecture documented; CI disabled state,
@@ -31,6 +56,28 @@
 - (v1, 2026-04-30) Документация под актуальный стек (Python 3.12, FastAPI 0.135.1, PG17,
   Vite 8, Tailwind 4, OpenRouter — gemini-2.5-flash + flux.2-klein-4b); README/-ru/CONTRIBUTING
   переписаны, Entity Wiki поднят как первая фича.
+
+### Fixed
+
+- **Метрики Prometheus исчезали молча** (2026-08-01): starlette ≥ 1.0 запрещает
+  `add_middleware` после старта, а `Instrumentator().instrument(app)` жил в lifespan и падал
+  с `RuntimeError` внутри `try/except`. Вызов перенесён на уровень модуля, глушитель убран.
+- **`NameError` на продовом пути push-уведомлений** (2026-08-01): в `image_tasks.py`
+  `Chapter` и `push_notification_service` импортировались только внутри Modal-ветки, а
+  использовались вне её; ошибку проглатывал `except Exception` — push молча не отправлялся.
+- **dev-Postgres не мог принять миграции** (2026-08-01): `CREATE EXTENSION vector` падал на
+  голом образе, dev переведён на `pgvector/pgvector:0.8.6-pg17` (та же версия СУБД 17.10).
+- **Healthcheck celery в dev был копией бэкендового** (`curl localhost:8000`) — HTTP-сервера
+  в этих контейнерах нет, оба всегда висели unhealthy.
+
+### Security
+
+- **Обновление стека, Волна 0 и следствия Волн 1–2** (2026-08-01): `pip-audit` бэкенда
+  80 advisory в 11 пакетах из 134 → **0 в 0 из 116**; `npm audit` фронтенда 24 (17 high) → 6
+  (5 high); корневое дерево зависимостей удалено вместе с его 4 high. Группа
+  fastapi + instrumentator подняла starlette 0.52.1 → 1.3.1 и закрыла 5 CVE. Плавающие ссылки
+  экшенов `trivy-action@master` и `trufflehog@main` запинены на `v0.36.0` и `v3.96.0`,
+  рантаймы `security.yml` выровнены с CI (Python 3.12, Node 22).
 
 ### Added
 
