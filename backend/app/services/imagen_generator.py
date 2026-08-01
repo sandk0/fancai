@@ -24,8 +24,11 @@ Updated: 2026-08-02 - docstring приведён к коду: путь Gemini/Ve
 """
 
 import hashlib
+import json
+import os
+import shutil
 import time
-import base64
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -41,6 +44,118 @@ from app.services.nano_banana_generator import NanoBananaGenerator
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Единственный размер, который просит читалка. Держится константой, потому что
+# входит и в вызов генератора, и в ключ кэша: разъехавшись, они начнут
+# отдавать на hit картинку не того разрешения.
+IMAGE_SIZE = "1K"
+
+IMAGES_DIR = Path("/app/storage/generated_images")
+
+# Публичный маршрут раздачи файлов (`routers/images.py`, GET /images/file/{name}).
+IMAGE_URL_PREFIX = "/api/v1/images/file"
+
+# v2: в v1 значением ключа был сам data-URI на мегабайты, и он же уезжал
+# в `image_url` → колонка VARCHAR(2000) отвергала запись. Пространство имён
+# сменено, чтобы ни одна старая запись не была прочитана как имя файла.
+CACHE_KEY_PREFIX = "imagen:cache:v2"
+CACHE_TTL_SECONDS = 604800  # 7 суток
+
+# Версия формата значения. Меняется вместе с формой полезной нагрузки;
+# запись с чужой версией трактуется как промах, а не разбирается «как получится».
+CACHE_VALUE_VERSION = 2
+
+
+@dataclass(frozen=True)
+class CachedImage:
+    """
+    Значение ключа кэша: ссылка на файл и промпт, которым он получен.
+
+    Промпт кэшируется не для красоты: `generated_images.prompt_used` означает
+    «что ушло в модель», и строка, созданная по cache hit, обязана нести то же
+    самое, что строка по промаху. Иначе половина записей содержит инженерный
+    английский промпт, а половина — исходное русское описание.
+    """
+
+    path: str
+    prompt: str
+
+    def encode(self) -> str:
+        return json.dumps(
+            {"v": CACHE_VALUE_VERSION, "path": self.path, "prompt": self.prompt},
+            ensure_ascii=False,
+        )
+
+    @classmethod
+    def decode(cls, raw: bytes | str) -> Optional["CachedImage"]:
+        """None — если запись не читается или сделана другой версией формата."""
+        try:
+            payload = json.loads(raw)
+            if payload.get("v") != CACHE_VALUE_VERSION:
+                return None
+            return cls(path=payload["path"], prompt=payload["prompt"])
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return None
+
+
+def public_image_url(local_path: Optional[str]) -> Optional[str]:
+    """HTTP-URL файла изображения. Всегда короткий — колонка `image_url` это VARCHAR(2000)."""
+    if not local_path:
+        return None
+    return f"{IMAGE_URL_PREFIX}/{os.path.basename(local_path)}"
+
+
+def _build_cache_key(
+    *,
+    description: str,
+    description_type: DescriptionType,
+    genre: Optional[str],
+    custom_style: Optional[str],
+    aspect_ratio: str,
+) -> str:
+    """
+    Ключ по всем входам, меняющим картинку.
+
+    v1 ключевался только `description + aspect`, поэтому «перегенерировать
+    с другим стилем» гарантированно попадало в кэш и возвращало прежнее
+    изображение; смена модели изображений тоже не сбрасывала кэш.
+    Разделитель U+001F не встречается в текстах и не даёт склеить
+    соседние поля в одну и ту же строку.
+    """
+    material = "\x1f".join(
+        (
+            description,
+            description_type.value,
+            genre or "",
+            custom_style or "",
+            aspect_ratio,
+            IMAGE_SIZE,
+            settings.GEMINI_IMAGE_MODEL,
+        )
+    )
+    digest = hashlib.md5(material.encode(), usedforsecurity=False).hexdigest()
+    return f"{CACHE_KEY_PREFIX}:{digest}"
+
+
+def _materialize_cached_file(cached_path: str) -> str:
+    """
+    Отдаёт новый файл с тем же содержимым, что и закэшированный.
+
+    Сначала жёсткая ссылка — она не копирует байты и при этом даёт каждой
+    строке `generated_images` собственное имя, которое можно удалить
+    независимо. `os.link` падает на файловых системах без хардлинков и через
+    границу устройств; там остаётся честное копирование.
+    """
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_path = IMAGES_DIR / f"flux_{timestamp}_{uuid.uuid4().hex[:12]}.png"
+
+    try:
+        os.link(cached_path, new_path)
+    except OSError:
+        shutil.copyfile(cached_path, new_path)
+
+    return str(new_path)
 
 
 def _gemini_credentials_present() -> bool:
@@ -400,7 +515,7 @@ class ImagenService:
         Non-retryable: ValueError (400 Bad Request).
         """
         return await self._nano.generate(
-            prompt=prompt, aspect_ratio=aspect_ratio, image_size="1K"
+            prompt=prompt, aspect_ratio=aspect_ratio, image_size=IMAGE_SIZE
         )
 
     async def generate_image(
@@ -446,46 +561,39 @@ class ImagenService:
             # Stage 1: Redis cache check
             stage_start = time.time()
             effective_aspect = aspect_ratio or "4:3"
-            cache_key = f"imagen:cache:{hashlib.md5((description + effective_aspect).encode()).hexdigest()}"
+            cache_key = _build_cache_key(
+                description=description,
+                description_type=desc_type,
+                genre=genre,
+                custom_style=custom_style,
+                aspect_ratio=effective_aspect,
+            )
 
-            redis_client = None
-            try:
-                import redis.asyncio as aioredis
-
-                redis_client = await aioredis.from_url(settings.REDIS_URL)
-                cached_url = await redis_client.get(cache_key)
-
-                if cached_url:
-                    cached_url_str = cached_url.decode("utf-8")
-                    logger.info(
-                        "Image pipeline: cache HIT",
-                        extra={
-                            "pipeline_stage": "cache_check",
-                            "duration": f"{time.time() - stage_start:.2f}s",
-                            "result": "hit",
-                        },
-                    )
-                    return ImageGenerationResult(
-                        success=True,
-                        image_url=cached_url_str,
-                        generation_time_seconds=0.0,
-                        model_used="cache",
-                        prompt_used=description,
-                    )
-            except Exception as cache_e:
-                logger.warning(
-                    f"Image pipeline: cache check failed: {cache_e}",
+            cached = await self._lookup_cache(cache_key)
+            if cached is not None:
+                logger.info(
+                    "Image pipeline: cache HIT",
                     extra={
                         "pipeline_stage": "cache_check",
                         "duration": f"{time.time() - stage_start:.2f}s",
+                        "result": "hit",
                     },
                 )
-            finally:
-                if redis_client is not None:
-                    try:
-                        await redis_client.close()
-                    except Exception:
-                        pass
+                # Каждая строка `generated_images` обязана владеть собственным
+                # файлом: `delete_with_file()` удаляет по `local_path`, и общий
+                # путь у двух строк означал бы битую картинку у второй.
+                local_path = _materialize_cached_file(cached.path)
+                return ImageGenerationResult(
+                    success=True,
+                    image_url=public_image_url(local_path),
+                    local_path=local_path,
+                    generation_time_seconds=0.0,
+                    model_used="cache",
+                    # Именно инженерный промпт, а не исходное описание:
+                    # `generated_images.prompt_used` означает «что ушло в модель»,
+                    # и строки от hit обязаны нести то же, что строки от miss.
+                    prompt_used=cached.prompt,
+                )
 
             logger.info(
                 "Image pipeline: cache MISS",
@@ -527,12 +635,12 @@ class ImagenService:
                 },
             )
 
-            # Stage 4: Post-processing (base64 + save + cache)
+            # Stage 4: Post-processing (save + cache)
             stage_start = time.time()
-            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-            image_url = f"data:image/png;base64,{image_base64}"
-            local_path = await self._save_image(image_bytes, prompt)
-            await self._cache_result(cache_key, image_url)
+            local_path = await self._save_image(image_bytes)
+            # В Redis уходит ссылка на файл и промпт, а не сами байты:
+            # значением v1 был data-URI на мегабайты в каждом ключе.
+            await self._cache_result(cache_key, CachedImage(local_path, prompt))
             post_duration = time.time() - stage_start
 
             total_duration = time.time() - start_time
@@ -549,7 +657,7 @@ class ImagenService:
 
             return ImageGenerationResult(
                 success=True,
-                image_url=image_url,
+                image_url=public_image_url(local_path),
                 image_data=image_bytes,
                 local_path=local_path,
                 generation_time_seconds=total_duration,
@@ -590,41 +698,80 @@ class ImagenService:
                 generation_time_seconds=total_duration,
             )
 
-    async def _cache_result(self, cache_key: str, url: str) -> None:
-        """Кэширует результат генерации в Redis."""
+    async def _lookup_cache(self, cache_key: str) -> Optional["CachedImage"]:
+        """
+        Возвращает запись кэша или None.
+
+        Промахом считается не только отсутствие ключа: запись, чей файл уже
+        удалён (ротация хранилища, `delete_with_file()`) или чей формат
+        не разбирается, вычищается — иначе hit отдал бы путь в никуда.
+        """
+        redis_client = None
+        try:
+            import redis.asyncio as aioredis
+
+            redis_client = await aioredis.from_url(settings.REDIS_URL)
+            raw = await redis_client.get(cache_key)
+            if not raw:
+                return None
+
+            entry = CachedImage.decode(raw)
+            if entry is None:
+                logger.warning(
+                    "Image cache: unreadable entry, dropping",
+                    extra={"pipeline_stage": "cache_check"},
+                )
+                await redis_client.delete(cache_key)
+                return None
+
+            if not os.path.isfile(entry.path):
+                logger.info(
+                    "Image cache: stale entry, file is gone",
+                    extra={"pipeline_stage": "cache_check", "path": entry.path},
+                )
+                await redis_client.delete(cache_key)
+                return None
+
+            return entry
+        except Exception as cache_e:
+            logger.warning(f"Image pipeline: cache check failed: {cache_e}")
+            return None
+        finally:
+            if redis_client is not None:
+                try:
+                    await redis_client.close()
+                except Exception:
+                    pass
+
+    async def _cache_result(self, cache_key: str, entry: "CachedImage") -> None:
+        """Кэширует ссылку на файл и промпт, которым он был получен."""
         try:
             import redis.asyncio as aioredis
 
             redis_client = await aioredis.from_url(settings.REDIS_URL)
             try:
-                await redis_client.setex(cache_key, 604800, url)  # 7 дней
-                logger.debug(f"Cached image result: {cache_key[:32]}...")
+                await redis_client.setex(cache_key, CACHE_TTL_SECONDS, entry.encode())
+                logger.debug(f"Cached image result: {cache_key[:40]}...")
             finally:
                 await redis_client.close()
         except Exception as e:
             logger.warning(f"Cache write failed: {e}")
 
-    async def _save_image(self, image_data: bytes, prompt: str) -> str:
+    async def _save_image(self, image_data: bytes) -> str:
         """
-        Сохраняет изображение в локальное хранилище.
+        Сохраняет изображение в локальное хранилище под уникальным именем.
 
-        Args:
-            image_data: Байты изображения
-            prompt: Промпт (для имени файла)
-
-        Returns:
-            Путь к сохранённому файлу
+        Имя обязано быть уникальным: `delete_with_file()` удаляет файл по
+        `local_path`, поэтому два совпавших имени означают, что удаление одной
+        строки ломает картинку у другой. Прежняя схема
+        `flux_<секунда>_<md5(prompt)[:8]>.png` совпадала у параллельных
+        одинаковых запросов внутри одной секунды.
         """
-        images_dir = Path("/app/storage/generated_images")
-        images_dir.mkdir(parents=True, exist_ok=True)
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-        prompt_hash = hashlib.md5(prompt.encode(), usedforsecurity=False).hexdigest()[
-            :8
-        ]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"flux_{timestamp}_{prompt_hash}.png"
-
-        file_path = images_dir / filename
+        filename = f"flux_{timestamp}_{uuid.uuid4().hex[:12]}.png"
+        file_path = IMAGES_DIR / filename
 
         import aiofiles
 

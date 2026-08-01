@@ -20,7 +20,6 @@ from uuid import UUID
 from pydantic import BaseModel
 from dataclasses import dataclass
 from pathlib import Path
-import os
 import calendar
 from loguru import logger
 
@@ -390,8 +389,9 @@ async def generate_image_for_description(
                 detail=f"Generation failed: {result.error_message}",
             )
 
-        filename = os.path.basename(result.local_path) if result.local_path else None
-        http_url = f"/api/v1/images/file/{filename}" if filename else None
+        # `image_url` уже короткий HTTP-URL: сервис гарантирует это
+        # и на промахе, и на попадании в кэш.
+        http_url = result.image_url
 
         image = await service.create(
             description_id=description.id,
@@ -498,10 +498,9 @@ async def generate_images_for_chapter(
         for i, result in enumerate(results):
             if result.success and i < len(descriptions_to_process):
                 desc = descriptions_to_process[i]
-                filename = (
-                    os.path.basename(result.local_path) if result.local_path else None
-                )
-                http_url = f"/api/v1/images/file/{filename}" if filename else None
+                # `image_url` уже короткий HTTP-URL: сервис гарантирует это
+                # и на промахе, и на попадании в кэш.
+                http_url = result.image_url
 
                 await service.create(
                     description_id=desc.id,

@@ -516,18 +516,13 @@ class ConsistencyManager:
                     description=full_prompt, description_type=entity.type, seed=seed
                 )
 
-                if gen_result.success:
-                    import os
-
-                    filename = (
-                        os.path.basename(gen_result.local_path)
-                        if gen_result.local_path
-                        else None
-                    )
-                    if filename:
-                        entity.master_portrait_url = f"/api/v1/images/file/{filename}"
-                        self.db.add(entity)
-                        logger.info(f"Master Reference set for {entity.name}")
+                if gen_result.success and gen_result.image_url:
+                    # `image_url` уже короткий HTTP-URL. Раньше здесь брался
+                    # basename(local_path), которого на cache hit не было —
+                    # master_portrait_url молча оставался пустым.
+                    entity.master_portrait_url = gen_result.image_url
+                    self.db.add(entity)
+                    logger.info(f"Master Reference set for {entity.name}")
             except Exception as e:
                 logger.error(f"Failed to generate master ref for {entity.name}: {e}")
 

@@ -123,7 +123,6 @@ async def _generate_image_async(
     Handles the actual image generation and database persistence.
     """
     from app.models.image import GeneratedImage
-    import os
 
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async image generation", task_id=task_id)
@@ -157,12 +156,9 @@ async def _generate_image_async(
                 local_path=generation_result.local_path,
             )
 
-            filename = (
-                os.path.basename(generation_result.local_path)
-                if generation_result.local_path
-                else None
-            )
-            http_url = f"/api/v1/images/file/{filename}" if filename else None
+            # `image_url` уже короткий HTTP-URL: сервис гарантирует это
+            # и на промахе, и на попадании в кэш.
+            http_url = generation_result.image_url
 
             generated_image = GeneratedImage(
                 description_id=description_id,
@@ -333,7 +329,6 @@ async def _generate_batch_async(
     """
     from app.services.imagen_generator import get_imagen_service
     from app.models.image import GeneratedImage
-    import os
 
     async with AsyncSessionLocal() as db:
         user_id = UUID(user_id_str)
@@ -366,12 +361,9 @@ async def _generate_batch_async(
                 )
 
                 if generation_result.success:
-                    filename = (
-                        os.path.basename(generation_result.local_path)
-                        if generation_result.local_path
-                        else None
-                    )
-                    http_url = f"/api/v1/images/file/{filename}" if filename else None
+                    # `image_url` уже короткий HTTP-URL: сервис гарантирует это
+                    # и на промахе, и на попадании в кэш.
+                    http_url = generation_result.image_url
 
                     generated_image = GeneratedImage(
                         description_id=description_id,

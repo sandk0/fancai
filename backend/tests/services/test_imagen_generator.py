@@ -239,10 +239,15 @@ class TestImagenServiceOpenRouter:
         assert result.model_used == "gemini-3.1-flash-image"
 
     @pytest.mark.asyncio
-    async def test_generate_image_result_contains_data_url(
+    async def test_generate_image_result_carries_bounded_http_url(
         self, sample_russian_text, sample_image_bytes, mock_openrouter_client
     ):
-        """Результат генерации должен содержать data URL с base64."""
+        """
+        `image_url` — короткий HTTP-URL файла, а не data-URI.
+
+        Раньше сюда уезжал `data:image/png;base64,…` на мегабайты, и
+        `regenerate` писал его в `generated_images.image_url VARCHAR(2000)`.
+        """
         mock_openrouter_client.generate_text = AsyncMock(
             return_value="An old castle on a hill"
         )
@@ -270,9 +275,11 @@ class TestImagenServiceOpenRouter:
                         result = await service.generate_image(sample_russian_text)
 
         assert result.success is True
-        assert result.image_url is not None
-        assert result.image_url.startswith("data:image/")
-        assert "base64" in result.image_url
+        assert result.image_url == "/api/v1/images/file/test.png"
+        assert not result.image_url.startswith("data:")
+        assert len(result.image_url) < 2000
+        # байты по-прежнему доступны вызывающему, просто не через image_url
+        assert result.image_data == sample_image_bytes
 
     @pytest.mark.asyncio
     async def test_generate_image_not_available_without_key(self):
