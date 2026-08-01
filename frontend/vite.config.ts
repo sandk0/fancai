@@ -104,7 +104,7 @@ export default defineConfig({
           if (id.includes('node_modules/motion/') || id.includes('node_modules/lucide-react/')) return 'vendor-ui';
           if (id.includes('node_modules/react-hook-form/') || id.includes('node_modules/@hookform/') || id.includes('node_modules/zod/')) return 'vendor-forms';
           if (id.includes('node_modules/@radix-ui/')) return 'vendor-radix';
-          if (id.includes('node_modules/clsx/') || id.includes('node_modules/tailwind-merge/') || id.includes('node_modules/class-variance-authority/') || id.includes('node_modules/dompurify/') || id.includes('node_modules/sonner/')) return 'vendor-utils';
+          if (id.includes('node_modules/clsx/') || id.includes('node_modules/tailwind-merge/') || id.includes('node_modules/class-variance-authority/') || id.includes('node_modules/sonner/')) return 'vendor-utils';
         },
 
         // Asset file names (organized by type)
