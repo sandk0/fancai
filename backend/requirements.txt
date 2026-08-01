@@ -49,20 +49,20 @@ prometheus-fastapi-instrumentator==8.1.0  # 7.1.0 пинил starlette<1.0.0 и 
 cryptography==50.0.0
 
 # Тестирование
-pytest==9.0.2
-pytest-asyncio==1.3.0
-pytest-cov==7.0.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
 aiosqlite==0.22.1
 hypothesis==6.164.0
 
 # Форматирование и линтинг
-black==26.3.1
-ruff==0.15.6
+black==26.5.1
+ruff==0.16.1
 mypy==1.19.1
 
 # Type stubs для mypy
-types-requests==2.32.4.20260107
-types-aiofiles==25.1.0.20251011
+types-requests==2.33.0.20260712
+types-aiofiles==25.1.0.20260518
 sqlalchemy[mypy]==2.0.51
 
 # Утилиты
