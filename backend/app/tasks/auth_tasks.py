@@ -33,9 +33,7 @@ async def _cleanup_expired_tokens_async() -> Dict[str, Any]:
         # Удалить токены, которые просрочены более 24 часов назад
         cutoff = datetime.now(timezone.utc) - timedelta(days=1)
         result = await db.execute(
-            delete(PasswordResetToken).where(
-                PasswordResetToken.expires_at < cutoff
-            )
+            delete(PasswordResetToken).where(PasswordResetToken.expires_at < cutoff)
         )
         await db.commit()
 

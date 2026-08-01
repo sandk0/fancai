@@ -7,8 +7,6 @@ Uses type(exc).__name__ for Modal SDK exceptions (not isinstance) because
 Modal SDK is an optional dependency -- import may not exist in tests or VPS.
 """
 
-from typing import Optional
-
 # Error type constants -- single source of truth for Phase 36-38 (D-02)
 ERROR_TYPE_TIMEOUT = "timeout"
 ERROR_TYPE_JSON_ERROR = "json_error"

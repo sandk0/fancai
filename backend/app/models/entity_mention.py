@@ -68,8 +68,12 @@ class EntityMention(Base):
     )
 
     # Relationships
-    chapter: Mapped["Chapter"] = relationship("Chapter", back_populates="mentions", lazy="raise")
-    entity: Mapped["Entity"] = relationship("Entity", back_populates="mentions", lazy="raise")
+    chapter: Mapped["Chapter"] = relationship(
+        "Chapter", back_populates="mentions", lazy="raise"
+    )
+    entity: Mapped["Entity"] = relationship(
+        "Entity", back_populates="mentions", lazy="raise"
+    )
 
     def __repr__(self) -> str:
         return f"<EntityMention(chapter={self.chapter_id}, entity={self.entity_id}, text='{self.mention_text}')>"

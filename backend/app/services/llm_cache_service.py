@@ -80,7 +80,9 @@ class LLMCacheService:
             logger.warning(f"Redis cache read error: {e}")
             return None
 
-    async def set(self, key: ChapterCacheKey, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(
+        self, key: ChapterCacheKey, value: Any, ttl: Optional[int] = None
+    ) -> bool:
         """
         Cache LLM response.
 

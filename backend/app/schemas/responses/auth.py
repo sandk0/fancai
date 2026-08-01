@@ -94,7 +94,8 @@ class AccountDeactivationResponse(BaseModel):
         default="Account deactivated successfully", description="Success message"
     )
     deactivated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Deactivation timestamp"
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Deactivation timestamp",
     )
 
 

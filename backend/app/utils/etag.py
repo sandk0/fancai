@@ -30,7 +30,9 @@ def compute_file_etag(file_path: Path) -> str:
     """
     stat = file_path.stat()
     content = f"{file_path.name}-{stat.st_size}-{stat.st_mtime}"
-    hash_value = hashlib.md5(content.encode()).hexdigest()  # nosec B324 - not for security
+    hash_value = hashlib.md5(
+        content.encode()
+    ).hexdigest()  # nosec B324 - not for security
     return f'"{hash_value}"'
 
 

@@ -30,7 +30,7 @@ from app.services.modal_client import (
     extract_modal_result,
     process_batch_results,
 )
-from app.services.batch_grouping import group_chapters_into_batches, estimate_tokens
+from app.services.batch_grouping import group_chapters_into_batches
 from app.core.error_classifier import classify_error, ERROR_TYPE_TRUNCATED
 from app.prompts.modal_extraction import (
     EXTRACTION_SYSTEM_PROMPT,
@@ -876,7 +876,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 chapter_start = time.monotonic()
                                 metrics: dict | None = None
                                 try:
-                                    stmt = select(Chapter).where(Chapter.id == chapter_id)
+                                    stmt = select(Chapter).where(
+                                        Chapter.id == chapter_id
+                                    )
                                     res = await session.execute(stmt)
                                     local_chapter = res.scalar_one_or_none()
 
@@ -942,13 +944,17 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     if is_service:
                                         local_chapter.is_service_page = True
                                         local_chapter.is_description_parsed = True
-                                        local_chapter.parsed_at = datetime.now(timezone.utc)
+                                        local_chapter.parsed_at = datetime.now(
+                                            timezone.utc
+                                        )
                                         await session.commit()
                                         return
 
                                     # Per-book time budget check (D-12, STAB-06)
                                     if use_modal:
-                                        check_time_budget(task_start_time, chapter_idx=idx)
+                                        check_time_budget(
+                                            task_start_time, chapter_idx=idx
+                                        )
 
                                     # 3. Analyze chapter — Modal / NER (GLiNER2) / LLM (Gemini)
                                     modal_raw_descriptions = (
@@ -1073,11 +1079,13 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     # 4. Consistency & Logic (Map Phase)
                                     # Use a local ConsistencyManager with this session
                                     local_mgr = ConsistencyManager(session)
-                                    entity_map = await local_mgr.process_chapter_analysis(
-                                        str(book_id),
-                                        result,
-                                        chapter_id=str(local_chapter.id),
-                                        chapter_index=idx,
+                                    entity_map = (
+                                        await local_mgr.process_chapter_analysis(
+                                            str(book_id),
+                                            result,
+                                            chapter_id=str(local_chapter.id),
+                                            chapter_index=idx,
+                                        )
                                     )
 
                                     # 4b. Create EntityEvents from extraction
@@ -1253,7 +1261,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                             # Use chapter_id (function arg) instead of local_chapter.id
                                             # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
                                             if local_chapter:
-                                                local_chapter.parsing_error = str(e)[:1000]
+                                                local_chapter.parsing_error = str(e)[
+                                                    :1000
+                                                ]
                                                 local_chapter.error_type = (
                                                     error_type  # OBS-01
                                                 )
