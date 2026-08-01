@@ -156,8 +156,9 @@ jobs:
           DEBUG: false
           PYTHONPATH: ${{ github.workspace }}/backend
         run: |
-          cd backend
-          pytest -v --cov=app --cov-report=xml --cov-report=term --ignore=tests/test_integration.py
+          # Порог покрытия и состав прогона определены в backend/check-coverage.sh —
+          # один источник истины для CI и локального запуска.
+          ./backend/check-coverage.sh --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

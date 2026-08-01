@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
   "include": ["app", "tests"],
   "exclude": ["**/__pycache__", "alembic/versions"],
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
   "pythonPlatform": "Linux",
   "typeCheckingMode": "basic",
 

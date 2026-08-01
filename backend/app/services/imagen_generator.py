@@ -1,19 +1,26 @@
 """
-OpenRouter FLUX.2 Klein 4B Image Generator.
+Генерация иллюстраций через Gemini (Nano Banana 2).
 
-Использует OpenRouter FLUX.2 Klein 4B (мигрирован в Plan 03-03).
-Использует единый openrouter_client.py для всех AI-вызовов.
+Изображение генерирует `NanoBananaGenerator` → `GeminiClient.generate_image()`
+(модель `settings.GEMINI_IMAGE_MODEL`). Перевод RU→EN идёт через провайдера
+из `get_ai_provider()`, то есть тем же флагом `AI_PROVIDER`, что и остальные
+текстовые вызовы.
+
+Имена `ImagenService`, `ImagenPromptEngineer`, префикс ключа кэша `imagen:cache:`
+и префикс имени файла `flux_` остались от предыдущих провайдеров (Google Imagen,
+затем OpenRouter FLUX.2 Klein). Переименование — отдельная задача: 71 упоминание
+в 12 файлах плюс совместимость по уже сохранённым `local_path`.
 
 Features:
-- Автоматический перевод RU -> EN через OpenRouter generate_text()
+- Автоматический перевод RU -> EN через generate_text() активного провайдера
 - NSFW-защита через суффикс "SFW, safe for work" в промпте
 - Type-specific style templates (location, character, atmosphere)
 - Genre-aware styling
 - Кэширование переводов в Redis
-- Tenacity-based retry через обёртку openrouter_client
+- Tenacity-based retry через `app.core.retry.retry_image_generation`
 
 Created: 2025-12-13
-Updated: 2026-03-01 - Мигрирован на OpenRouter FLUX.2 Klein 4B (Plan 03-03)
+Updated: 2026-08-02 - docstring приведён к коду: путь Gemini/Vertex, не OpenRouter
 """
 
 import hashlib
@@ -69,9 +76,9 @@ class ImageGenerationResult:
 
 class PromptTranslator:
     """
-    Переводит русские описания на английский для FLUX.2.
+    Переводит русские описания на английский для промпта генератора изображений.
 
-    Использует OpenRouter generate_text() (вместо google-genai SDK).
+    Ходит в провайдера из `get_ai_provider()` (по флагу `AI_PROVIDER`; сейчас Gemini).
     Системный промпт содержит инструкцию SFW — обеспечивает NSFW-защиту на уровне перевода.
     """
 
@@ -173,7 +180,7 @@ class PromptTranslator:
 
 class ImagenPromptEngineer:
     """
-    Создаёт оптимизированные английские промпты для FLUX.2.
+    Создаёт оптимизированные английские промпты для генератора изображений.
 
     Включает type-specific templates и genre-aware styling.
     """
@@ -285,7 +292,7 @@ class ImagenPromptEngineer:
         custom_style: Optional[str] = None,
     ) -> str:
         """
-        Создаёт оптимизированный английский промпт для FLUX.2.
+        Создаёт оптимизированный английский промпт для генератора изображений.
 
         Args:
             description: Оригинальное русское описание
@@ -299,8 +306,8 @@ class ImagenPromptEngineer:
         # Переводим RU -> EN
         translated = await self.translator.translate(description)
 
-        # Добавляем SFW суффикс для NSFW-защиты
-        # FLUX.2 не имеет встроенного safety filter (в отличие от Imagen 4)
+        # Добавляем SFW суффикс для NSFW-защиты: полагаться только на safety
+        # filter провайдера нельзя, состав фильтров у моделей различается
         safe_translated = f"{translated}. SFW, safe for work, appropriate content"
 
         # Берём base template по типу
@@ -345,9 +352,11 @@ class ImagenPromptEngineer:
 
 class ImagenService:
     """
-    Основной сервис генерации изображений через OpenRouter FLUX.2 Klein 4B.
+    Основной сервис генерации изображений: перевод промпта → генерация → сохранение.
 
-    Мигрирован с Google Imagen на OpenRouter FLUX.2 Klein (Plan 03-03).
+    Генерирует через `NanoBananaGenerator` (Gemini Nano Banana 2, backend
+    `GEMINI_BACKEND`), модель — `settings.GEMINI_IMAGE_MODEL`. Ни OpenRouter,
+    ни Google Imagen на этом пути нет; имя класса историческое, см. docstring модуля.
     """
 
     def __init__(self):
@@ -505,7 +514,7 @@ class ImagenService:
                 },
             )
 
-            # Stage 3: Image generation via OpenRouter FLUX.2 (with retry)
+            # Stage 3: Image generation via Gemini Nano Banana 2 (with retry)
             stage_start = time.time()
             image_bytes = await self._generate_with_retry(prompt, effective_aspect)
             generation_duration = time.time() - stage_start
