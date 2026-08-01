@@ -45,14 +45,6 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      # ВНИМАНИЕ: в репозитории 549 отслеживаемых файлов с хвостовыми пробелами,
-      # унаследованных до внедрения хуков. При обычном коммите хуки видят только
-      # staged-файлы и ведут себя корректно; `pre-commit run --all-files`
-      # перепишет все 549 разом. Сплошную зачистку выполнять отдельной задачей.
-      - id: trailing-whitespace
-        exclude: \.(md|txt)$
-      - id: end-of-file-fixer
-        exclude: \.(md|txt)$
       - id: check-yaml
         args: [--unsafe]  # для docker-compose.yml
       - id: check-added-large-files
@@ -62,6 +54,22 @@ repos:
         # docs/_archive/.../CI_CD_SETUP.md содержит только PEM-заголовки
         # в инструкции («... key content ...»), самого ключа там нет.
         exclude: ^docs/_archive/
+
+  # Хвостовые пробелы — гейт на staged-диффе, а не переписывание файлов.
+  # Штатные trailing-whitespace / end-of-file-fixer здесь неприменимы:
+  # в репозитории 92 отслеживаемых файла с унаследованным whitespace-долгом,
+  # и любой `pre-commit run --all-files` переписывал бы их скопом, включая
+  # чужие незакоммиченные правки. `git diff --cached --check` проверяет
+  # только добавляемые строки текущего коммита: новый долг не пройдёт,
+  # существующий не трогается. При пустом индексе гейт тривиально зелёный —
+  # это ожидаемо, его контракт «в этом коммите нет новых пробельных ошибок».
+  - repo: local
+    hooks:
+      - id: staged-whitespace
+        name: no new trailing whitespace in staged diff
+        entry: git diff --cached --check
+        language: system
+        pass_filenames: false
 
   # TypeScript/JavaScript - ESLint
   # Локальный хук вместо mirrors-eslint: flat config фронтенда тянет
