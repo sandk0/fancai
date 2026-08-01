@@ -53,6 +53,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
+        # Значения подставляет вызывающий:
+        #   VCS_REF=$(git rev-parse HEAD) BUILD_DATE=$(date -u +%FT%TZ) docker compose build
+        - VCS_REF=${VCS_REF:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
+        - IMAGE_VERSION=${IMAGE_VERSION:-unknown}
         - VITE_API_BASE_URL=/api/v1
         - VITE_WS_URL=/ws
         - VITE_APP_NAME=fancai
@@ -74,6 +79,9 @@ services:
       dockerfile: Dockerfile.dev
       args:
         BUILDKIT_INLINE_CACHE: 1
+        VCS_REF: ${VCS_REF:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        IMAGE_VERSION: ${IMAGE_VERSION:-unknown}
     container_name: fancai_backend_dev
     environment:
       # Database
@@ -128,6 +136,9 @@ services:
       dockerfile: Dockerfile.dev
       args:
         BUILDKIT_INLINE_CACHE: 1
+        VCS_REF: ${VCS_REF:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        IMAGE_VERSION: ${IMAGE_VERSION:-unknown}
     container_name: fancai_celery_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}

@@ -20,13 +20,24 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONPATH=/app
 
-# Install system dependencies (minimal set)
+# Install system dependencies (minimal set).
+# libmagic1 удалён: ни python-magic в requirements.txt, ни импортов magic
+# в backend/ нет — пакет тянулся впустую.
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     libpq-dev \
-    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
+
+# OCI-метки: без них связь «образ ↔ коммит» недоказуема.
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+ARG IMAGE_VERSION=unknown
+LABEL org.opencontainers.image.title="fancai-backend-dev" \
+      org.opencontainers.image.source="https://github.com/sandk/fancai" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.version="${IMAGE_VERSION}"
 
 # Create working directory
 WORKDIR /app

@@ -66,6 +66,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
+        # Значения подставляет деплой-скрипт:
+        #   VCS_REF=$(git rev-parse HEAD) BUILD_DATE=$(date -u +%FT%TZ) docker compose build
+        - VCS_REF=${VCS_REF:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
+        - IMAGE_VERSION=${IMAGE_VERSION:-unknown}
         - VITE_API_BASE_URL=/api/v1
         - VITE_WS_URL=${DOMAIN_URL:-http://localhost}/ws
         - VITE_APP_NAME=fancai
@@ -83,6 +88,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+      args:
+        - VCS_REF=${VCS_REF:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
+        - IMAGE_VERSION=${IMAGE_VERSION:-unknown}
     container_name: fancai_backend
     init: true
     environment:
@@ -164,6 +173,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.celery
+      args:
+        - VCS_REF=${VCS_REF:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
+        - IMAGE_VERSION=${IMAGE_VERSION:-unknown}
     container_name: fancai_celery
     init: true
     environment:
