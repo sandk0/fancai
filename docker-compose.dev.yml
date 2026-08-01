@@ -157,6 +157,17 @@ services:
         limits:
           memory: 1G
     restart: unless-stopped
+    # Оба celery-сервиса собираются из Dockerfile.dev (бэкендовый образ ради
+    # горячей перезагрузки кода) и наследуют его HEALTHCHECK
+    # `curl localhost:8000/health` — а HTTP-сервера внутри них нет, поэтому
+    # контейнеры вечно висели unhealthy. Правильный ping есть только
+    # в Dockerfile.celery, который в dev не используется.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping --timeout 10 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
     command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
 
   # Celery Beat Scheduler
@@ -184,6 +195,19 @@ services:
         limits:
           memory: 256M
     restart: unless-stopped
+    # beat не воркер и на inspect ping не отвечает: признак живости —
+    # свежесть файла расписания, который он периодически переписывает.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import os,sys,time;
+          p='/tmp/celerybeat-schedule';
+          sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p) < 600 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     command: celery -A app.core.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
 
   # PostgreSQL
