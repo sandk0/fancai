@@ -16,7 +16,6 @@ class AIProvider(Protocol):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
         model: Optional[str] = None,
     ) -> str: ...
 
@@ -25,7 +24,6 @@ class AIProvider(Protocol):
         prompt: str,
         schema_class: Type[BaseModel],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.1,
         model: Optional[str] = None,
     ) -> dict: ...
 

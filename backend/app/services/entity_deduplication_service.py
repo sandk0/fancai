@@ -211,7 +211,6 @@ class EntityDeduplicationService:
         raw_dict = await client.generate_structured(
             prompt=prompt,
             schema_class=DeduplicationResponse,
-            temperature=0.1,
         )
         duration = time.time() - start_time
         record_llm_request("openrouter-dedup", "success", duration)

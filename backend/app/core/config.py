@@ -55,25 +55,22 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 52428800  # 50MB
     ALLOWED_EXTENSIONS: list = [".epub", ".fb2"]
 
-    # AI сервисы - OpenRouter (Phase 3: migration from google-genai)
-    OPENROUTER_API_KEY: str = ""  # OpenRouter API key — все AI-сервисы (LLM + images)
+    # AI сервисы - OpenRouter (fallback-провайдер и путь consistency reduce)
+    OPENROUTER_API_KEY: str = ""  # OpenRouter API key — fallback LLM + reduce
     OPENROUTER_IMAGE_MODEL: str = (
-        "black-forest-labs/flux.2-klein-4b"  # FLUX.2 Klein 4B — быстрая/дешёвая ($0.014/MP, <1 сек), подтверждена доступной 2026-03-01
+        "google/gemini-3.1-flash-image"  # FLUX.2 Klein в каталоге OpenRouter отсутствует целиком; путь отката для картинок должен указывать на реально доступную модель
     )
 
-    # AI сервисы - Gemini Direct (Stage A migration, 2026-06)
+    # AI сервисы - Gemini Direct (основной путь с 2026-06)
     GEMINI_API_KEY: str = ""  # Google Gemini Developer API key (paid tier)
-    AI_PROVIDER: str = "openrouter"  # gemini | openrouter — рубильник миграции
-    GEMINI_EXTRACTION_MODEL: str = "gemini-3.5-flash"
-    GEMINI_LITE_MODEL: str = (
-        "gemini-3.1-flash-lite"  # зарезервировано для tiering Этапа B
+    AI_PROVIDER: str = "gemini"  # gemini | openrouter — рубильник миграции
+    GEMINI_EXTRACTION_MODEL: str = (
+        "gemini-3.6-flash"  # 2026-07-21 GA: тот же вход $1.50, выход $7.50 вместо $9.00
     )
-    GEMINI_IMAGE_MODEL: str = (
-        "gemini-3.1-flash-image"  # Nano Banana 2; ID подтвердить smoke-тестом A3.1
-    )
+    GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"  # Nano Banana 2
 
     # Vertex AI backend (под-режим Gemini-провайдера) — задействует $300 GCP trial
-    GEMINI_BACKEND: str = "developer"  # developer | vertex
+    GEMINI_BACKEND: str = "vertex"  # developer | vertex
     GCP_PROJECT: str = ""  # Vertex: ID проекта Google Cloud
     GCP_LOCATION: str = (
         "global"  # Vertex global endpoint: gemini-3.5-flash есть только здесь (не в региональных)

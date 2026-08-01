@@ -1,12 +1,14 @@
 """Таблица цен Gemini API + расчёт стоимости из usage_metadata.
 
-Цены $/1M токенов (Standard tier), verified по ai.google.dev/gemini-api/docs/pricing (июнь 2026).
+Цены $/1M токенов (Standard tier), verified по ai.google.dev/gemini-api/docs/pricing (2026-08-01).
 Изображения — $/картинку по разрешению.
 """
 
 # $/1M токенов: in / out / cached_in
 PRICING: dict[str, dict[str, float]] = {
+    "gemini-3.6-flash": {"in": 1.50, "out": 7.50, "cached_in": 0.15},
     "gemini-3.5-flash": {"in": 1.50, "out": 9.00, "cached_in": 0.15},
+    "gemini-3.5-flash-lite": {"in": 0.30, "out": 2.50, "cached_in": 0.03},
     "gemini-3.1-flash-lite": {"in": 0.25, "out": 1.50, "cached_in": 0.025},
     "gemini-2.5-flash": {"in": 0.30, "out": 2.50, "cached_in": 0.03},
     "gemini-2.5-flash-lite": {"in": 0.10, "out": 0.40, "cached_in": 0.01},

@@ -23,8 +23,9 @@ import asyncio
 import hashlib
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from app.models.description import DescriptionType
+from app.core.config import settings
 
 from app.core.retry import (
     retry_llm_extraction,
@@ -121,13 +122,21 @@ class GeminiTSAResponseSchema(BaseModel):
 class GeminiConfig:
     """Конфигурация Gemini экстрактора."""
 
-    model_id: str = "gemini-3.5-flash"  # Jun 2026: primary extraction model
+    # Модели берутся из settings: хардкод разъезжался с GEMINI_EXTRACTION_MODEL
+    # и оставлял старое имя в ключе LLM-кэша и в метках метрик.
+    model_id: str = field(default_factory=lambda: settings.GEMINI_EXTRACTION_MODEL)
     api_key: Optional[str] = None
 
     # Model Tiering: different models for different tasks (cost optimization)
-    model_extraction: str = "gemini-3.5-flash"  # Primary: extraction, TSA
-    model_translation: str = "gemini-3.5-flash"  # RU→EN
-    model_reduce: str = "gemini-3.5-flash"  # Dedup, merge
+    model_extraction: str = field(
+        default_factory=lambda: settings.GEMINI_EXTRACTION_MODEL
+    )  # Primary: extraction, TSA
+    model_translation: str = field(
+        default_factory=lambda: settings.GEMINI_EXTRACTION_MODEL
+    )  # RU→EN
+    model_reduce: str = field(
+        default_factory=lambda: settings.GEMINI_EXTRACTION_MODEL
+    )  # Dedup, merge
 
     # Чанкинг
     max_chunk_chars: int = 100000  # v16: 100k chars for Massive Context
@@ -624,7 +633,6 @@ class GeminiDirectExtractor:
             raw_dict = await self._client.generate_structured(
                 prompt=prompt,
                 schema_class=GeminiResponseSchema,
-                temperature=0.3,
             )
 
             # Обработка data-обёртки (legacy Gemini ответы)
@@ -663,7 +671,6 @@ class GeminiDirectExtractor:
             raw_dict = await self._client.generate_structured(
                 prompt=prompt,
                 schema_class=GeminiTSAResponseSchema,
-                temperature=0.3,
             )
 
             # Обработка data-обёртки (legacy Gemini ответы)

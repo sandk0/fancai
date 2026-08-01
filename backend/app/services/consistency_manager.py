@@ -616,7 +616,6 @@ CRITICAL RULES:
         raw_text = await openrouter.generate_text(
             prompt=REDUCE_PROMPT,
             system_prompt="Respond ONLY with valid JSON, no markdown.",
-            temperature=0.1,
         )
 
         raw_plan = parse_json_safe(raw_text)

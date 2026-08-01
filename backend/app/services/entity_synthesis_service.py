@@ -150,7 +150,6 @@ class EntitySynthesisService:
         raw_text = await client.generate_text(
             prompt=prompt,
             system_prompt="Respond ONLY with valid JSON, no markdown.",
-            temperature=0.3,
         )
         raw = parse_json_safe(raw_text)
         return raw if isinstance(raw, dict) else {}

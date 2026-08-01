@@ -22,6 +22,12 @@
   `package-lock.json`. Celery-образ 2.36 GB → 2.06 GB.
 - **Вредный `overrides.brace-expansion`** (2026-08-01): ломал API `glob@11`, из-за чего
   Workbox писал 2 пустых precache-entry вместо 45 реальных (2255 KiB).
+- **Ключ `GEMINI_LITE_MODEL`** (2026-08-01): за всё время не получил ни одного
+  потребителя в коде; удалён до отдельного решения по tiering'у.
+- **Deprecated `temperature`** (2026-08-01): убран из протокола `AIProvider`, из
+  `GeminiClient` и из всех вызовов. В Gemini 3.x параметр игнорируется, в следующих
+  поколениях даёт HTTP 400. В `OpenRouterClient` знак остался опциональным
+  (`None` — не передавать), поскольку клиент общий для произвольных моделей.
 
 - **GSD toolchain полностью удалён из репозитория** (2026-06-13) — команды `/gsd:*`,
   субагенты, движок `get-shit-done/`, хуки и statusline вырезаны из `.claude/`,
@@ -42,6 +48,21 @@
   Dockerfile и build-args во всех восьми build-блоках compose.
 - `docs/architecture/ai-pipeline.md` приведён к коду после удаления Modal: развилки по
   feature-флагам, legacy image route и раздел «Modal» заменены фактическим маршрутом.
+- **Волна 6 — переключение AI-моделей** (2026-08-01). Извлечение, synthesis,
+  дедупликация и перевод переведены с `gemini-3.5-flash` на **`gemini-3.6-flash`**
+  (2026-07-21 GA): тот же вход $1.50, выход $7.50 вместо $9.00 — около −15 % на книгу.
+  `PRICING` в `gemini_pricing.py` дополнен `gemini-3.6-flash` и `gemini-3.5-flash-lite`
+  тем же коммитом: без этого `compute_cost` вернул бы `0.0` и учёт расходов молча
+  обнулился бы. `GeminiConfig` больше не хардкодит модель, а читает
+  `settings.GEMINI_EXTRACTION_MODEL` — иначе имя старой модели осталось бы в ключе
+  LLM-кэша и в метках метрик. Дефолты кода приведены к боевой конфигурации:
+  `AI_PROVIDER="gemini"`, `GEMINI_BACKEND="vertex"`. `FALLBACK_MODELS` OpenRouter
+  переведены с 2.5-семейства (выключается **2026-10-16**) на
+  `google/gemini-3.6-flash` + `google/gemini-3.5-flash-lite`, а `OPENROUTER_IMAGE_MODEL`
+  — с несуществующего в каталоге OpenRouter `black-forest-labs/flux.2-klein-4b` на
+  `google/gemini-3.1-flash-image`. Проверено вживую на локальном стеке через Vertex
+  (`GCP_LOCATION=global`): извлечение по реальной главе, генерация изображения
+  1408×768 и записи в `llm_usage_log` с ненулевым `cost_dollars`.
 
 - **Production/code/documentation audit** (2026-07-18): progress state reconciled with
   deployed commit `a1f89900`; Gemini/Vertex architecture documented; CI disabled state,

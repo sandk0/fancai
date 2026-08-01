@@ -133,7 +133,6 @@ class PromptTranslator:
             translation = await self._client.generate_text(
                 prompt=russian_text,
                 system_prompt=self.TRANSLATION_SYSTEM_PROMPT,
-                temperature=0.1,
             )
 
             logger.info(

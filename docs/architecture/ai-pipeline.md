@@ -13,7 +13,7 @@ Production env настроен на Gemini Direct через Vertex AI:
 AI_PROVIDER=gemini
 GEMINI_BACKEND=vertex
 GCP_LOCATION=global
-GEMINI_EXTRACTION_MODEL=gemini-3.5-flash
+GEMINI_EXTRACTION_MODEL=gemini-3.6-flash
 GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
 ```
 
@@ -22,7 +22,7 @@ GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
 
 | Операция | Активный route | Модель/provider |
 | --- | --- | --- |
-| Chapter description/entity extraction | `GeminiDescriptionExtractor` → `get_ai_provider()` | Gemini 3.5 Flash / Vertex |
+| Chapter description/entity extraction | `GeminiDescriptionExtractor` → `get_ai_provider()` | Gemini 3.6 Flash / Vertex |
 | Entity synthesis, когда вызывается | `EntitySynthesisService` → `get_ai_provider()` | Gemini / Vertex |
 | Entity deduplication | `EntityDeduplicationService` → `get_ai_provider()` | Gemini / Vertex |
 | Перевод описаний RU→EN | `PromptTranslator` → `get_ai_provider()` | Gemini / Vertex |
@@ -95,9 +95,10 @@ flowchart TD
 5. Structured response валидируется Pydantic schemas и преобразуется в descriptions,
    entities и relationships.
 
-`GeminiConfig` и production settings используют `gemini-3.5-flash`. Старые названия
-методов `_call_gemini_*` сохранены; OpenRouter-specific docstrings внутри них устарели и
-должны быть очищены.
+`GeminiConfig` берёт `model_id`, `model_extraction`, `model_translation` и `model_reduce`
+из `settings.GEMINI_EXTRACTION_MODEL` — хардкод разъезжался с настройкой и оставлял старое
+имя модели в ключе LLM-кэша и в метках метрик. Старые названия методов `_call_gemini_*`
+сохранены; OpenRouter-specific docstrings внутри них устарели и должны быть очищены.
 
 ### Consistency reduce
 
@@ -153,10 +154,15 @@ Legacy Modal image route удалён из `image_tasks.py` вместе с Moda
 
 `OpenRouterClient` имеет внутренний text fallback chain:
 
-1. `google/gemini-2.5-flash`
-2. `google/gemini-2.5-flash-lite`
+1. `google/gemini-3.6-flash`
+2. `google/gemini-3.5-flash-lite`
 
-Это fallback моделей внутри OpenRouter, а не fallback всего fancai pipeline.
+Это fallback моделей внутри OpenRouter, а не fallback всего fancai pipeline. Прежняя пара
+моделей 2.5-семейства выключается Google **2026-10-16**.
+
+`temperature` в вызовах не передаётся: в Gemini 3.x параметр deprecated и игнорируется,
+а в следующих поколениях даёт HTTP 400. Обе модели цепочки — Gemini, поэтому OpenRouter-путь
+тоже шлёт запрос без него.
 
 ### Классификация ошибок
 
@@ -201,7 +207,7 @@ canary нужно сверять и Gemini, и OpenRouter записи; одно
 | `GCP_PROJECT` | set | Vertex project |
 | `GCP_LOCATION` | `global` | Vertex location |
 | `GOOGLE_APPLICATION_CREDENTIALS` | set | ADC JSON inside containers |
-| `GEMINI_EXTRACTION_MODEL` | `gemini-3.5-flash` | Structured extraction |
+| `GEMINI_EXTRACTION_MODEL` | `gemini-3.6-flash` | Structured extraction |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image` | Gemini image branch |
 | `OPENROUTER_API_KEY` | set | Consistency reduce + manual factory rollback |
 

@@ -80,14 +80,12 @@ class GeminiClient:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
         model: Optional[str] = None,
     ) -> str:
         model = model or settings.GEMINI_EXTRACTION_MODEL
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=temperature,
-        )
+        # temperature в поколении 3.x deprecated и игнорируется; в следующих —
+        # HTTP 400, поэтому параметр не передаётся вовсе.
+        config = types.GenerateContentConfig(system_instruction=system_prompt)
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
@@ -107,7 +105,6 @@ class GeminiClient:
         prompt: str,
         schema_class: Type[BaseModel],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.1,
         model: Optional[str] = None,
     ) -> dict:
         model = model or settings.GEMINI_EXTRACTION_MODEL
@@ -115,7 +112,6 @@ class GeminiClient:
             response_mime_type="application/json",
             response_schema=schema_class,
             system_instruction=system_prompt,
-            temperature=temperature,
             thinking_config=types.ThinkingConfig(thinking_level="medium"),
         )
         resp = await self._client.aio.models.generate_content(

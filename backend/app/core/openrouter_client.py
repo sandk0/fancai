@@ -42,6 +42,7 @@ from app.monitoring.metrics import (
     circuit_breaker_failure_count,
 )
 from app.core.retry import RateLimitError
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +56,15 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # Триггер переключения: httpx.HTTPStatusError (5xx) и httpx.TimeoutException.
 # json.JSONDecodeError и ValidationError НЕ вызывают fallback (ошибка парсинга ответа).
 FALLBACK_MODELS = [
-    "google/gemini-2.5-flash",  # primary — $0.30/$2.50, reasoning, JSON Schema
-    "google/gemini-2.5-flash-lite",  # fallback — $0.10/$0.40
+    "google/gemini-3.6-flash",  # primary — $1.50/$7.50, reasoning, JSON Schema
+    "google/gemini-3.5-flash-lite",  # fallback — $0.30/$2.50
 ]
 
-# Image модели — FLUX.2 семейство.
+# Image модель пути отката.
 # ВАЖНО: используется /chat/completions с modalities=["image"], НЕ /images/generations.
 # Ответ: choices[0].message.images[0].image_url.url (base64 data URL).
-DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-klein-4b"
+# FLUX.2 в каталоге OpenRouter отсутствует целиком — прежний ID указывал в никуда.
+DEFAULT_IMAGE_MODEL = settings.OPENROUTER_IMAGE_MODEL
 
 # ---------------------------------------------------------------------------
 # Circuit Breaker
@@ -306,7 +308,7 @@ class OpenRouterClient:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         model: Optional[str] = None,
     ) -> str:
         """
@@ -321,7 +323,8 @@ class OpenRouterClient:
         Args:
             prompt: Текст запроса
             system_prompt: Системный промпт (опционально)
-            temperature: Температура генерации (0.0 - 1.0)
+            temperature: Температура генерации (0.0 - 1.0). None — не передавать:
+                в Gemini 3.x параметр deprecated, а FALLBACK_MODELS — модели Gemini
             model: Конкретная модель (если None -- используется FALLBACK_MODELS)
 
         Returns:
@@ -341,12 +344,13 @@ class OpenRouterClient:
             is_last = i == len(models) - 1
             start_time = time.time()
             try:
-                body = {
+                body: dict[str, Any] = {
                     "model": current_model,
                     "messages": messages,
-                    "temperature": temperature,
                     "response_format": {"type": "json_object"},
                 }
+                if temperature is not None:
+                    body["temperature"] = temperature
 
                 resp = await self._post_with_breaker("/chat/completions", body)
                 data = resp.json()
@@ -424,7 +428,7 @@ class OpenRouterClient:
         prompt: str,
         schema_class: Type[BaseModel],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.1,
+        temperature: Optional[float] = None,
         model: Optional[str] = None,
     ) -> dict:
         """
@@ -440,7 +444,7 @@ class OpenRouterClient:
             prompt: Текст запроса
             schema_class: Pydantic модель (класс) для структуры ответа
             system_prompt: Системный промпт (опционально)
-            temperature: Температура генерации
+            temperature: Температура генерации; None — не передавать (Gemini 3.x)
             model: Конкретная модель (если None -- используется FALLBACK_MODELS)
 
         Returns:
@@ -464,10 +468,9 @@ class OpenRouterClient:
             is_last = i == len(models) - 1
             start_time = time.time()
             try:
-                body = {
+                body: dict[str, Any] = {
                     "model": current_model,
                     "messages": messages,
-                    "temperature": temperature,
                     "response_format": {
                         "type": "json_schema",
                         "json_schema": {
@@ -477,6 +480,8 @@ class OpenRouterClient:
                         },
                     },
                 }
+                if temperature is not None:
+                    body["temperature"] = temperature
 
                 resp = await self._post_with_breaker("/chat/completions", body)
                 data = resp.json()
@@ -730,7 +735,5 @@ def get_openrouter_client() -> OpenRouterClient:
     """
     global _client
     if _client is None:
-        from app.core.config import settings
-
         _client = OpenRouterClient(api_key=settings.OPENROUTER_API_KEY)
     return _client
