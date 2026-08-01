@@ -80,6 +80,3 @@ networkx==3.6.1
 
 # NER — GLiNER2 entity extraction (Phase 30)
 razdel==0.5.0
-
-# Modal — self-hosted AI pipeline (пин до удаления кода в Волне 2)
-modal==1.5.3

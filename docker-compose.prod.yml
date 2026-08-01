@@ -112,9 +112,6 @@ services:
       - GCP_PROJECT=${GCP_PROJECT:-}
       - GCP_LOCATION=${GCP_LOCATION:-global}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
-      # Modal — self-hosted AI pipeline
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:-}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:-}
       # Web Push (VAPID) - required for PWA notifications
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
@@ -186,9 +183,6 @@ services:
       - GCP_PROJECT=${GCP_PROJECT:-}
       - GCP_LOCATION=${GCP_LOCATION:-global}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
-      # Modal — self-hosted AI pipeline
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:-}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:-}
       # NLP — HuggingFace model cache
       - HF_HOME=/models
       # Monitoring

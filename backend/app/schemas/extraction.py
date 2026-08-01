@@ -1,10 +1,8 @@
 # backend/app/schemas/extraction.py
-"""Общие dataclass'ы для Gemini, Modal и NER пайплайнов."""
+"""Общие dataclass'ы для Gemini и NER пайплайнов."""
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
-
-from pydantic import BaseModel, Field
 
 from app.models.description import DescriptionType
 
@@ -104,48 +102,3 @@ class ChapterAnalysisResult:
     descriptions: List[ExtractedDescription]
     entities: List[ExtractedEntity]
     relationships: List[ExtractedRelationship]
-
-
-# --- Pydantic-схемы для Modal structured output ---
-
-
-class ModalEntitySchema(BaseModel):
-    name: str
-    type: str = Field(default="character")
-    visual_summary: str = Field(default="")
-    aliases: List[str] = Field(default_factory=list)
-    confidence: float = Field(default=1.0)
-    importance: int = Field(default=5)
-    first_mention_offset: Optional[int] = None
-    chapter_event_action: Optional[str] = None
-    chapter_event_inner: Optional[str] = None
-
-
-class ModalDescriptionSchema(BaseModel):
-    content: str
-    type: str = Field(default="location")
-    confidence: float = Field(default=1.0)
-    entities: List[str] = Field(default_factory=list)
-    text_offset: Optional[int] = None
-    image_prompt_en: str = Field(
-        default="", description="English image prompt, 30-60 words, SFW"
-    )
-
-
-class ModalRelationshipSchema(BaseModel):
-    source: str
-    target: str
-    type: str
-    weight: float = Field(default=0.5)
-    context: str = Field(default="")
-
-
-class ModalExtractionResponse(BaseModel):
-    descriptions: List[ModalDescriptionSchema]
-    entities: List[ModalEntitySchema]
-    relationships: List[ModalRelationshipSchema]
-
-
-class ModalReduceResponse(BaseModel):
-    merge_operations: List[dict] = Field(default_factory=list)
-    delete_operations: List[dict] = Field(default_factory=list)

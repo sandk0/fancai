@@ -1,17 +1,13 @@
-"""Tests for structured chapter logging and modal_client updates (OBS-02, D-08).
+"""Tests for structured chapter logging (OBS-02).
 
 Tests:
 1. _log_chapter_result success with 9 fields
 2. _log_chapter_result error with error_type
-3. modal_response_to_chapter_result new format
-4. modal_response_to_chapter_result old format (backward compat)
-5. extract_modal_metrics present
-6. extract_modal_metrics absent (backward compat)
+
+Тесты конвертеров Modal удалены вместе с самим Modal-пайплайном (Волна 2).
 """
 
 from unittest.mock import patch, MagicMock
-
-import pytest
 
 
 class TestLogChapterResult:
@@ -82,105 +78,3 @@ class TestLogChapterResult:
         assert call_kwargs["cold_start_ms"] == 0
         assert call_kwargs["inference_ms"] == 0
         assert call_kwargs["is_cold_start"] is False
-
-
-class TestExtractModalResult:
-    """Tests for extract_modal_result and extract_modal_metrics."""
-
-    def test_extract_modal_result_new_format(self):
-        """Test 3: {"result": {...}} extracts result."""
-        from app.services.modal_client import extract_modal_result
-
-        modal_json = {
-            "result": {
-                "entities": [{"name": "Alice"}],
-                "descriptions": [],
-                "relationships": [],
-            },
-            "metrics": {"cold_start_ms": 0, "inference_ms": 5000},
-        }
-        result = extract_modal_result(modal_json)
-        assert result == modal_json["result"]
-        assert result["entities"][0]["name"] == "Alice"
-
-    def test_extract_modal_result_old_format(self):
-        """Test 4: {"entities": [...]} returns entire dict (backward compat)."""
-        from app.services.modal_client import extract_modal_result
-
-        modal_json = {
-            "entities": [{"name": "Bob"}],
-            "descriptions": [{"content": "A room"}],
-            "relationships": [],
-        }
-        result = extract_modal_result(modal_json)
-        assert result is modal_json
-        assert result["entities"][0]["name"] == "Bob"
-
-    def test_extract_modal_metrics_present(self):
-        """Test 5: {"metrics": {...}} extracts metrics."""
-        from app.services.modal_client import extract_modal_metrics
-
-        modal_json = {
-            "result": {"entities": []},
-            "metrics": {
-                "cold_start_ms": 12000,
-                "inference_ms": 8500,
-                "finish_reason": "stop",
-                "is_cold_start": True,
-            },
-        }
-        metrics = extract_modal_metrics(modal_json)
-        assert metrics["cold_start_ms"] == 12000
-        assert metrics["inference_ms"] == 8500
-        assert metrics["finish_reason"] == "stop"
-        assert metrics["is_cold_start"] is True
-
-    def test_extract_modal_metrics_absent(self):
-        """Test 6: {} when no metrics (backward compat)."""
-        from app.services.modal_client import extract_modal_metrics
-
-        modal_json = {"entities": [{"name": "Charlie"}]}
-        metrics = extract_modal_metrics(modal_json)
-        assert metrics == {}
-
-
-class TestModalResponseConversion:
-    """Tests for modal_response_to_chapter_result with new format."""
-
-    def test_new_format_with_result_wrapper(self):
-        """modal_response_to_chapter_result reads from result wrapper."""
-        from app.services.modal_client import modal_response_to_chapter_result
-
-        modal_json = {
-            "result": {
-                "entities": [{"name": "Alice", "type": "character", "confidence": 0.9}],
-                "descriptions": [
-                    {
-                        "content": "A dark room",
-                        "type": "location",
-                        "confidence": 0.8,
-                        "entities": ["Alice"],
-                    }
-                ],
-                "relationships": [],
-            },
-            "metrics": {"finish_reason": "stop"},
-        }
-        result = modal_response_to_chapter_result(modal_json)
-        assert len(result.entities) == 1
-        assert result.entities[0].name == "Alice"
-        assert len(result.descriptions) == 1
-        assert result.descriptions[0].content == "A dark room"
-
-    def test_old_format_still_works(self):
-        """modal_response_to_chapter_result works with old format."""
-        from app.services.modal_client import modal_response_to_chapter_result
-
-        modal_json = {
-            "entities": [{"name": "Bob", "type": "character", "confidence": 0.85}],
-            "descriptions": [],
-            "relationships": [],
-        }
-        result = modal_response_to_chapter_result(modal_json)
-        assert len(result.entities) == 1
-        assert result.entities[0].name == "Bob"
