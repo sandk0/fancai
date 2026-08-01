@@ -1,11 +1,21 @@
 # Development Dockerfile for Frontend
-FROM node:22-alpine
+FROM node:24-alpine
 
-# Install system dependencies (including wget for health checks)
+# Install system dependencies. wget используется в HEALTHCHECK ниже;
+# curl удалён как дублирующий его инструмент.
 RUN apk add --no-cache \
     libc6-compat \
-    wget \
-    curl
+    wget
+
+# OCI-метки: без них связь «образ ↔ коммит» недоказуема.
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+ARG IMAGE_VERSION=unknown
+LABEL org.opencontainers.image.title="fancai-frontend-dev" \
+      org.opencontainers.image.source="https://github.com/sandk/fancai" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.version="${IMAGE_VERSION}"
 
 # Set working directory
 WORKDIR /app
