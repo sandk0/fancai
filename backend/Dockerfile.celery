@@ -33,11 +33,10 @@ WORKDIR /tmp
 RUN pip install --no-cache-dir torch==2.11.0+cpu --index-url https://download.pytorch.org/whl/cpu
 
 # Layer 2 (NLP dependencies, changes rarely)
+# sentence-transformers, scikit-learn удалены: ноль импортов в backend/.
+# pgvector не дублируется — он закреплён в requirements.txt.
 RUN pip install --no-cache-dir \
-    gliner2==1.2.4 \
-    sentence-transformers==5.3.0 \
-    scikit-learn==1.8.0 \
-    pgvector==0.4.2
+    gliner2==1.2.4
 
 # Layer 3 (project requirements)
 COPY requirements.txt .
