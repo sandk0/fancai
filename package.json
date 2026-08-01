@@ -2,17 +2,5 @@
   "scripts": {
     "build": "npm run build --prefix frontend",
     "test": "cd frontend && npx vitest run --reporter=verbose"
-  },
-  "devDependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@vitejs/plugin-react": "^6.0.1",
-    "jsdom": "^29.0.1",
-    "playwright": "^1.57.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "vitest": "^4.1.0"
   }
 }
