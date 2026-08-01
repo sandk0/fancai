@@ -2,6 +2,15 @@
 
 Верхняя запись самодостаточна: её достаточно, чтобы продолжить работу без истории чата.
 
+> **Девять документов сессии аудита в git не закоммичены.** Они существуют только
+> в рабочем дереве: `docs/prompts/2026-08-01-stack-modernization-{audit,execution}.md`,
+> `docs/plans/2026-08-01-stack-modernization-plan.md`,
+> `docs/research/2026-08-01-{stack-modernization-audit,llm-model-selection}.md`,
+> `docs/_drafts/2026-08-01-{stack-version-matrix,docs-impact-list,tech-debt-backlog,prod-vs-repo-drift}.md`.
+> В чистом checkout этих путей нет — ссылки на них ниже указывают на локальные
+> файлы, а не на документы репозитория. Коммит этих девяти файлов промптом не
+> поручался и остаётся решением владельца.
+
 ---
 
 ## 2026-08-01 — Волны 0–5 обновления стека исполнены
@@ -9,6 +18,7 @@
 ### Статус
 
 Выполнена **Фаза 5** промпта `docs/prompts/2026-08-01-stack-modernization-execution.md`
+(локальный, см. врезку выше)
 в объёме, согласованном на стоп-точке: **Волны 0–5**. Всё смержено в `main`,
 каждая волна отдельной веткой через `--no-ff` — откатывается независимо.
 
@@ -75,7 +85,7 @@
 | --- | --- |
 | `backend/.env.development` отслеживается в git | хеши находок внесены в `.secrets.baseline` |
 | 92 файла с хвостовыми пробелами / без EOF-перевода | сплошная зачистка исключена §3 |
-| `conftest.py` делит один async-engine между event-loop'ами | `another operation is in progress` при живой БД |
+| `backend/tests/conftest.py` делит один async-engine между event-loop'ами | `another operation is in progress` при живой БД |
 | SQLAlchemy тянет `greenlet` для `aarch64`/`x86_64`, но не для `arm64` (macOS) | 389 из 407 errors до-среза — артефакт хоста, на проде пакет есть |
 | `EnvironmentTeardownError` в vitest ~2 прогона из 8 | предсуществующий, та же частота в базовом коммите |
 | AuthGuard редиректит при прямом переходе на защищённый маршрут | сессия не успевает регидратироваться, deep link теряет вход |
