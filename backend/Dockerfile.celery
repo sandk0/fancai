@@ -13,11 +13,14 @@
 # Multi-stage build for minimal production image
 FROM python:3.12-slim as builder
 
-# Set environment variables
+# Окружение — отдельный venv в /opt/venv: копируется между стадиями одним
+# путём и не перемешивается с системным префиксом, где живут pip и uv.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_NO_CACHE=1
 
 # build-essential уже приносит gcc, g++, make и libc6-dev —
 # отдельные gcc и g++ были избыточны.
@@ -26,21 +29,16 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /tmp
+WORKDIR /tmp/build
 
-# Layer 1 (heavy, cached separately): PyTorch CPU-only (~250MB wheel)
-RUN pip install --no-cache-dir torch==2.11.0+cpu --index-url https://download.pytorch.org/whl/cpu
-
-# Layer 2 (NLP dependencies, changes rarely)
-# sentence-transformers, scikit-learn удалены: ноль импортов в backend/.
-# pgvector не дублируется — он закреплён в requirements.txt.
-RUN pip install --no-cache-dir \
-    gliner2==1.2.4
-
-# Layer 3 (project requirements)
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Всё одним разрешением из uv.lock, включая torch: индекс PyTorch объявлен
+# в pyproject.toml как explicit, поэтому оттуда берётся только torch,
+# а остальные пакеты по-прежнему идут с PyPI. Прежде torch и gliner2
+# ставились тремя отдельными `pip install` мимо какого-либо lock-файла.
+# --extra nlp — единственное отличие от API-образа.
+COPY pyproject.toml uv.lock ./
+RUN pip install --no-cache-dir uv==0.11.25 && \
+    uv sync --frozen --no-dev --extra nlp
 
 # =============================================================================
 # Production stage
@@ -51,7 +49,8 @@ FROM python:3.12-slim as production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    HF_HOME=/models
+    HF_HOME=/models \
+    PATH=/opt/venv/bin:$PATH
 
 # Install runtime dependencies only (minimal)
 RUN apt-get update && apt-get install -y \
@@ -73,9 +72,9 @@ LABEL org.opencontainers.image.title="fancai-celery" \
 # Create app user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy Python environment from builder stage
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Готовое окружение целиком: один каталог вместо копирования системного
+# site-packages и /usr/local/bin, куда попадали и pip, и uv.
+COPY --from=builder /opt/venv /opt/venv
 
 # Set work directory
 WORKDIR /app

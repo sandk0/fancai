@@ -9,11 +9,14 @@
 # Multi-stage build for minimal production image
 FROM python:3.12-slim as builder
 
-# Set environment variables
+# Окружение — отдельный venv в /opt/venv: копируется между стадиями одним
+# путём и не перемешивается с системным префиксом, где живут pip и uv.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_NO_CACHE=1
 
 # Install build dependencies
 # build-essential уже приносит gcc, g++, make и libc6-dev —
@@ -23,11 +26,13 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-WORKDIR /tmp
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Зависимости из uv.lock: точное разрешение с хешами, одинаковое в любой
+# пересборке. --no-dev выкидывает pytest/black/ruff/mypy, которым в боевом
+# образе делать нечего (при pip они туда попадали).
+WORKDIR /tmp/build
+COPY pyproject.toml uv.lock ./
+RUN pip install --no-cache-dir uv==0.11.25 && \
+    uv sync --frozen --no-dev
 
 # =============================================================================
 # Production stage
@@ -37,7 +42,8 @@ FROM python:3.12-slim as production
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    PATH=/opt/venv/bin:$PATH
 
 # Install runtime dependencies only (minimal)
 RUN apt-get update && apt-get install -y \
@@ -59,9 +65,9 @@ LABEL org.opencontainers.image.title="fancai-backend" \
 # Create app user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy Python environment from builder stage
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Готовое окружение целиком: один каталог вместо копирования системного
+# site-packages и /usr/local/bin, куда попадали и pip, и uv.
+COPY --from=builder /opt/venv /opt/venv
 
 # Set work directory
 WORKDIR /app

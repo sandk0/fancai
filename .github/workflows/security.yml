@@ -34,27 +34,55 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.25"
+          enable-cache: true
+
+      # requirements.txt в репозитории больше нет — единственный источник
+      # истины это uv.lock. Сканерам, которые умеют читать только формат
+      # requirements, файлы генерируются здесь же, двумя наборами.
+      - name: Export the locked dependency sets
         run: |
           cd backend
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          # Гейт: рантайм плюс инструменты разработки — тот же охват, что был
+          # у прежнего requirements.txt, только ещё и с транзитивными.
+          uv export --frozen --no-emit-project --no-hashes \
+            -o requirements-gate.txt
+          # Отчёт: дополнительно nlp-ветка (torch/gliner2) из celery-образа.
+          uv export --frozen --all-extras --all-groups --no-emit-project \
+            --no-hashes -o requirements-full.txt
 
-      - name: Run pip-audit (dependency vulnerability scanner)
+      # Гейт падает на находке. nlp-ветка сюда не входит намеренно:
+      # torch==2.11.0+cpu пинит setuptools<82 и тем самым удерживает
+      # PYSEC-2026-3447, закрыть который без смены torch нельзя. Путь GLiNER
+      # выключен флагом USE_GLINER_NER и подлежит удалению (решение S4).
+      - name: Run pip-audit on the gated set
         run: |
-          pip install pip-audit
           cd backend
-          pip-audit --requirement requirements.txt --format json --output pip-audit-report.json || true
-          pip-audit --requirement requirements.txt
+          uvx pip-audit --disable-pip --no-deps -r requirements-gate.txt \
+            --format json --output pip-audit-gate.json || true
+          uvx pip-audit --disable-pip --no-deps -r requirements-gate.txt
+
+      - name: Run pip-audit on the full set (report only)
+        continue-on-error: true
+        run: |
+          cd backend
+          uvx pip-audit --disable-pip --no-deps -r requirements-full.txt \
+            --format json --output pip-audit-full.json || true
+          uvx pip-audit --disable-pip --no-deps -r requirements-full.txt
 
       - name: Run Safety (Python dependency checker)
         run: |
           pip install safety
           cd backend
-          safety check --json --output safety-report.json || true
-          safety check --continue-on-error
+          # Только -r: зависимости живут в backend/.venv, а не в системном
+          # python, поэтому безаргументный `safety check` сканировал бы пустоту.
+          safety check -r requirements-gate.txt --json \
+            --output safety-report.json || true
+          safety check -r requirements-gate.txt --continue-on-error
 
       - name: Upload dependency scan results
         if: always()
@@ -62,7 +90,8 @@ jobs:
         with:
           name: backend-dependency-scan
           path: |
-            backend/pip-audit-report.json
+            backend/pip-audit-gate.json
+            backend/pip-audit-full.json
             backend/safety-report.json
           retention-days: 30
 
@@ -357,13 +386,21 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.25"
+          enable-cache: true
+
       - name: Check Python licenses
         run: |
-          pip install pip-licenses
           cd backend
-          pip install -r requirements.txt
-          pip-licenses --format=json --output-file=licenses-report.json
-          pip-licenses --format=markdown --output-file=licenses-report.md
+          # pip-licenses читает установленное окружение, поэтому ставим его
+          # из uv.lock и запускаем инструмент внутри того же venv.
+          uv sync --frozen --all-extras
+          uv pip install pip-licenses
+          .venv/bin/pip-licenses --format=json --output-file=licenses-report.json
+          .venv/bin/pip-licenses --format=markdown --output-file=licenses-report.md
           echo "## Backend Licenses" >> $GITHUB_STEP_SUMMARY
           cat licenses-report.md >> $GITHUB_STEP_SUMMARY
 

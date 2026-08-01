@@ -26,13 +26,20 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.25"
+          enable-cache: true
+
+      # Версии линтеров берутся из uv.lock, а не «последние с PyPI»:
+      # иначе CI и локальный pre-commit расходятся при каждом релизе ruff.
       - name: Install dependencies
-        run: |
-          cd backend
-          pip install --upgrade pip
-          pip install ruff black mypy
+        run: cd backend && uv sync --frozen --only-group dev
+
+      - name: Activate environment
+        run: echo "$GITHUB_WORKSPACE/backend/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run Ruff
         run: cd backend && ruff check app/ --output-format=github
@@ -78,19 +85,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client libpq-dev
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.25"
+          enable-cache: true
+
+      # Ровно то разрешение, что и в образах. httpx уже в зависимостях,
+      # отдельная доустановка pytest* больше не нужна — они в группе dev.
       - name: Install dependencies
-        run: |
-          cd backend
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov pytest-asyncio httpx
+        run: cd backend && uv sync --frozen
+
+      - name: Activate environment
+        run: echo "$GITHUB_WORKSPACE/backend/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Wait for PostgreSQL
         run: |

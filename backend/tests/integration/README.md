@@ -295,7 +295,7 @@ async def test_async_operation(db_session):
 
 ## Зависимости
 
-Все зависимости уже в `requirements.txt`:
+Все зависимости уже в `pyproject.toml` (`uv sync` ставит их из `uv.lock`):
 - `pytest` - тестовый фреймворк
 - `pytest-asyncio` - поддержка async тестов
 - `pytest-cov` - coverage reporting

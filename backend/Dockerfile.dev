@@ -13,15 +13,20 @@
 # syntax=docker/dockerfile:1.4
 FROM python:3.12-slim
 
-# Set environment variables
+# Окружение живёт в /opt/venv, а не в /app/.venv и не в системном префиксе:
+# compose монтирует ./backend в /app и скрыл бы venv из образа, а установка
+# в /usr/local заставила бы `uv sync` считать лишними pip и сам uv.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_NO_CACHE=1 \
+    PATH=/opt/venv/bin:$PATH
 
 # Install system dependencies (minimal set).
-# libmagic1 удалён: ни python-magic в requirements.txt, ни импортов magic
+# libmagic1 удалён: ни python-magic в зависимостях, ни импортов magic
 # в backend/ нет — пакет тянулся впустую.
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -42,14 +47,15 @@ LABEL org.opencontainers.image.title="fancai-backend-dev" \
 # Create working directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt .
+# Зависимости ставятся из uv.lock: точное разрешение с хешами, одинаковое
+# в любой пересборке. Отдельный слой до COPY исходников — правки кода
+# не инвалидируют установку.
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies
-# Note: --no-cache-dir forces fresh download, ensuring latest versions
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    echo "✅ Dependencies installed"
+# Без --no-dev: dev-образ должен уметь гонять pytest и линтеры.
+RUN pip install --no-cache-dir uv==0.11.25 && \
+    uv sync --frozen && \
+    echo "✅ Dependencies installed from uv.lock"
 
 # Copy source code
 COPY . .

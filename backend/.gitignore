@@ -26,3 +26,10 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# Экспорты из uv.lock для сканеров, умеющих только формат requirements.
+# Генерируются в CI (`uv export`), в репозитории им места нет:
+# единственный источник истины — uv.lock.
+requirements-gate.txt
+requirements-full.txt
+requirements.txt

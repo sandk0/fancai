@@ -1,8 +1,9 @@
 # Pre-commit hooks для fancai
 # Установка: pip install pre-commit && pre-commit install
 #
-# Версии Python-инструментов синхронизированы с backend/requirements.txt.
-# При обновлении requirements.txt обновлять и rev здесь — иначе локальный хук
+# Версии Python-инструментов синхронизированы с группой `dev`
+# в backend/pyproject.toml (разрешение зафиксировано в backend/uv.lock).
+# При их обновлении обновлять и `rev` здесь — иначе локальный хук
 # и CI начнут расходиться в правилах форматирования.
 
 repos:
