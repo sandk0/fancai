@@ -62,7 +62,7 @@
   — с несуществующего в каталоге OpenRouter `black-forest-labs/flux.2-klein-4b` на
   `google/gemini-3.1-flash-image`. Проверено вживую на локальном стеке через Vertex
   (`GCP_LOCATION=global`): извлечение по реальной главе, генерация изображения
-  1408×768 и записи в `llm_usage_log` с ненулевым `cost_dollars`.
+  и записи в `llm_usage_log` с ненулевым `cost_dollars`.
 
 - **Production/code/documentation audit** (2026-07-18): progress state reconciled with
   deployed commit `a1f89900`; Gemini/Vertex architecture documented; CI disabled state,
@@ -79,6 +79,15 @@
   переписаны, Entity Wiki поднят как первая фича.
 
 ### Fixed
+
+- **Все иллюстрации генерировались не в том соотношении сторон** (2026-08-01):
+  `GeminiClient.generate_image()` принимал `aspect_ratio` и `image_size`, но собирал
+  `GenerateContentConfig` только с `response_modalities`, а `types.ImageConfig`
+  не передавал. Продовый путь (`ImagenService` → `NanoBananaGenerator`) запрашивает
+  `4:3`/`1K` — модель молча отдавала дефолтные 16:9. Дополнительно ломался учёт:
+  `compute_image_cost(model, image_size)` берёт **запрошенный** размер, поэтому при
+  любом не-дефолтном `image_size` в `llm_usage_log` попадала цена не того разрешения.
+  Проверено вживую: `4:3` → 1200×896, `16:9` → 1376×768, `1:1` + `2K` → 2048×2048.
 
 - **Метрики Prometheus исчезали молча** (2026-08-01): starlette ≥ 1.0 запрещает
   `add_middleware` после старта, а `Instrumentator().instrument(app)` жил в lifespan и падал

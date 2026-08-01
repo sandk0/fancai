@@ -73,6 +73,55 @@ async def test_generate_image_raises_on_empty_candidates():
             await client.generate_image("a cat", model="gemini-3.1-flash-image")
 
 
+# aspect_ratio/image_size обязаны доезжать до SDK: без image_config модель
+# генерирует в дефолтном соотношении, а compute_image_cost считает цену по
+# запрошенному image_size — расхождение молчаливое.
+@pytest.mark.asyncio
+async def test_generate_image_passes_aspect_ratio_and_size_to_sdk():
+    client = GeminiClient(api_key="x")
+    inline = SimpleNamespace(data=b"PNGDATA")
+    fake_resp = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(parts=[SimpleNamespace(inline_data=inline)])
+            )
+        ],
+        usage_metadata=SimpleNamespace(),
+    )
+    with patch.object(
+        client._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as gc, patch("app.core.gemini_client.asyncio.create_task"):
+        gc.return_value = fake_resp
+        out = await client.generate_image(
+            "a cat", model="gemini-3.1-flash-image", aspect_ratio="4:3", image_size="2K"
+        )
+
+    assert out == b"PNGDATA"
+    config = gc.await_args.kwargs["config"]
+    assert config.response_modalities == ["IMAGE"]
+    assert config.image_config is not None
+    assert config.image_config.aspect_ratio == "4:3"
+    assert config.image_config.image_size == "2K"
+
+
+# temperature в Gemini 3.x deprecated: в следующих поколениях даёт HTTP 400
+@pytest.mark.asyncio
+async def test_text_calls_do_not_send_temperature():
+    client = GeminiClient(api_key="x")
+    with patch.object(
+        client._client.aio.models, "generate_content", new_callable=AsyncMock
+    ) as gc, patch.object(GeminiClient, "_log"):
+        gc.return_value = _fake_response("ok")
+        await client.generate_text("prompt", model="gemini-3.6-flash")
+        assert gc.await_args.kwargs["config"].temperature is None
+
+        gc.return_value = _fake_response('{"name": "Геральт"}')
+        await client.generate_structured(
+            "prompt", schema_class=_Schema, model="gemini-3.6-flash"
+        )
+        assert gc.await_args.kwargs["config"].temperature is None
+
+
 # Fix 5 — GeminiClient satisfies AIProvider protocol (tested here for proximity)
 def test_gemini_client_satisfies_protocol():
     from app.core.ai_provider import AIProvider

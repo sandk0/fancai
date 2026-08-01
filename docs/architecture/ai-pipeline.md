@@ -142,6 +142,12 @@ Legacy Modal image route удалён из `image_tasks.py` вместе с Moda
 Единственная ветка генерации — `ImagenService`. Значение `service_used=modal_flux` больше
 не создаётся; в исторических строках `generated_images` оно сохраняется как есть.
 
+`aspect_ratio` и `image_size` уходят в `types.ImageConfig` внутри
+`GenerateContentConfig`. До 2026-08-01 они принимались `GeminiClient.generate_image()`,
+но в SDK не передавались: продовый путь запрашивал `4:3`, а получал дефолтные 16:9,
+и `compute_image_cost(model, image_size)` считал цену по запрошенному размеру, а не по
+фактическому. Проверено вживую: `4:3` → 1200×896, `16:9` → 1376×768, `1:1`+`2K` → 2048×2048.
+
 ## Retry, timeout and fallback semantics
 
 ### Gemini

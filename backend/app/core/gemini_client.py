@@ -140,7 +140,15 @@ class GeminiClient:
         image_size: str = "1K",
     ) -> bytes:
         model = model or settings.GEMINI_IMAGE_MODEL
-        config = types.GenerateContentConfig(response_modalities=["IMAGE"])
+        # aspect_ratio и image_size обязаны уходить в image_config: без него SDK
+        # генерирует в дефолтном соотношении (16:9), а compute_image_cost ниже
+        # считает цену по ЗАПРОШЕННОМУ размеру — расхождение было бы молчаливым.
+        config = types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio=aspect_ratio, image_size=image_size
+            ),
+        )
         resp = await self._client.aio.models.generate_content(
             model=model, contents=prompt, config=config
         )
