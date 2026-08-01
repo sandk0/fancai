@@ -8,7 +8,7 @@
 repos:
   # Python форматирование - Black
   - repo: https://github.com/psf/black
-    rev: 26.3.1
+    rev: 26.5.1
     hooks:
       - id: black
         language_version: python3.12
@@ -18,7 +18,7 @@ repos:
 
   # Python линтинг - Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.6
+    rev: v0.16.1
     hooks:
       - id: ruff-check
         # Та же область, что у `ruff check app/` в ci.yml.
@@ -35,11 +35,11 @@ repos:
         pass_filenames: false
         entry: bash -c 'cd backend && mypy app/ --config-file=mypy.ini'
         additional_dependencies:
-          - sqlalchemy[mypy]==2.0.48
-          - types-requests==2.32.4.20260107
-          - types-aiofiles==25.1.0.20251011
-          - fastapi==0.135.1
-          - pydantic==2.12.5
+          - sqlalchemy[mypy]==2.0.51
+          - types-requests==2.33.0.20260712
+          - types-aiofiles==25.1.0.20260518
+          - fastapi==0.141.1
+          - pydantic==2.13.4
 
   # Общие проверки файлов
   - repo: https://github.com/pre-commit/pre-commit-hooks

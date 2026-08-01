@@ -11,7 +11,6 @@ import asyncio
 
 from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
-from app.services.modal_client import is_modal_enabled, get_image_generator
 from app.tasks.common import run_async
 
 
@@ -129,121 +128,7 @@ async def _generate_image_async(
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async image generation", task_id=task_id)
 
-        # Проверяем флаг USE_MODAL_PIPELINE — если включён, используем Modal
-        use_modal = await is_modal_enabled(db)
-
-        if use_modal:
-            # Modal ImageGenerator — приоритет: предвычисленный image_prompt_en из БД
-            from app.models.description import Description as DescriptionModel
-
-            prompt_en = None
-            desc_result = await db.execute(
-                select(DescriptionModel).where(DescriptionModel.id == description_id)
-            )
-            desc_obj = desc_result.scalar_one_or_none()
-            if desc_obj and desc_obj.image_prompt_en:
-                prompt_en = desc_obj.image_prompt_en
-
-            if not prompt_en:
-                # Фолбэк: строим промпт через существующий PromptTranslator
-                from app.services.imagen_generator import get_imagen_service
-
-                _fallback_service = get_imagen_service()
-                prompt_en = await _fallback_service._prompt_engineer.create_prompt(
-                    description=description_content,
-                    description_type=description_type,
-                    genre=book_genre,
-                    custom_style=custom_style,
-                )
-
-            generator = get_image_generator()
-            import time as time_mod
-
-            gen_start = time_mod.monotonic()
-            image_bytes = await asyncio.to_thread(
-                generator.generate.remote, prompt=prompt_en
-            )
-            gen_seconds = round(time_mod.monotonic() - gen_start, 2)
-
-            # Сохраняем файл на диск
-            import hashlib
-            from pathlib import Path
-
-            filename = (
-                f"flux_{int(time_mod.time())}"
-                f"_{hashlib.md5(prompt_en.encode()).hexdigest()[:8]}.png"
-            )
-            storage_dir = Path("/app/storage/generated_images")
-            storage_dir.mkdir(parents=True, exist_ok=True)
-            local_path = storage_dir / filename
-            local_path.write_bytes(image_bytes)
-
-            # Записываем результат в БД
-            generated_image = GeneratedImage(
-                description_id=description_id,
-                user_id=user_id,
-                service_used="modal_flux",
-                status="completed",
-                image_url=f"/api/v1/images/file/{filename}",
-                local_path=str(local_path),
-                prompt_used=prompt_en,
-                generation_time_seconds=gen_seconds,
-            )
-            db.add(generated_image)
-            await db.commit()
-            await db.refresh(generated_image)
-
-            # Помечаем описание как сгенерированное
-            if desc_obj:
-                desc_obj.image_generated = True
-                desc_obj.generation_requested = False
-                await db.commit()
-
-            logger.info(
-                "Modal image generated and saved",
-                task_id=task_id,
-                filename=filename,
-            )
-
-            # Push notification (аналогично OpenRouter path)
-            try:
-                from app.models.chapter import Chapter
-                from app.services.push_notification_service import (
-                    push_notification_service,
-                )
-
-                if desc_obj:
-                    chapter_result = await db.execute(
-                        select(Chapter).where(Chapter.id == desc_obj.chapter_id)
-                    )
-                    chapter_obj = chapter_result.scalar_one_or_none()
-                    if chapter_obj:
-                        await push_notification_service.send_image_ready_notification(
-                            db=db,
-                            user_id=user_id,
-                            book_id=chapter_obj.book_id,
-                            description_id=description_id,
-                            image_count=1,
-                        )
-            except Exception as e:
-                logger.warning(
-                    "Failed to send image ready push notification",
-                    error=str(e),
-                )
-
-            return {
-                "task_id": task_id,
-                "image_id": str(generated_image.id),
-                "description_id": str(description_id),
-                "success": True,
-                "image_url": f"/api/v1/images/file/{filename}",
-                "local_path": str(local_path),
-                "prompt_used": prompt_en,
-                "service": "modal_flux",
-                "status": "completed",
-            }
-
-        # --- Существующий путь через OpenRouter (без изменений) ---
+        # Генерация через OpenRouter/Imagen
         from app.services.imagen_generator import get_imagen_service
 
         imagen_service = get_imagen_service()
@@ -301,7 +186,11 @@ async def _generate_image_async(
             )
 
             try:
+                from app.models.chapter import Chapter
                 from app.models.description import Description
+                from app.services.push_notification_service import (
+                    push_notification_service,
+                )
 
                 desc_result = await db.execute(
                     select(Description).where(Description.id == description_id)
@@ -445,7 +334,6 @@ async def _generate_batch_async(
     from app.services.imagen_generator import get_imagen_service
     from app.models.image import GeneratedImage
     import os
-    import asyncio
 
     async with AsyncSessionLocal() as db:
         user_id = UUID(user_id_str)

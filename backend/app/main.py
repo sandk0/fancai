@@ -121,14 +121,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Failed to initialize settings", error=str(e))
 
-    # Prometheus: подключить prometheus-fastapi-instrumentator
-    # ТОЛЬКО instrument() — expose() НЕ вызываем, /metrics endpoint уже есть в health.py
-    try:
-        Instrumentator().instrument(app)
-        logger.info("Prometheus FastAPI Instrumentator initialized")
-    except Exception as e:
-        logger.warning("Failed to initialize Prometheus Instrumentator", error=str(e))
-
     # Prometheus: запустить фоновую задачу обновления reading sessions gauges
     try:
         asyncio.create_task(
@@ -182,6 +174,15 @@ app = FastAPI(
 
 # Middleware добавляются в обратном порядке выполнения!
 # Последний добавленный = первый выполняется
+
+# Prometheus FastAPI Instrumentator.
+# Добавляется здесь, а не в lifespan: instrument() внутри вызывает
+# app.add_middleware, а Starlette >= 1.0 запрещает добавлять middleware
+# после старта приложения (RuntimeError: Cannot add middleware after an
+# application has started). Вызов первым в цепочке => выполняется последним,
+# то есть CORS и остальные middleware остаются снаружи, как и раньше.
+# ТОЛЬКО instrument() — expose() НЕ вызываем, /metrics endpoint уже есть в health.py
+Instrumentator().instrument(app)
 
 # 0. Reading Sessions Metrics Middleware (добавляется самым первым, выполняется последним в цепочке)
 # Собирает API latency для /reading-sessions/* endpoints автоматически

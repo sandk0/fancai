@@ -22,54 +22,15 @@ from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
 from app.services.ner_service import get_ner_service
 from app.services.feature_flag_manager import FeatureFlagManager
-from app.services.modal_client import (
-    is_modal_enabled,
-    get_llm_extractor,
-    modal_response_to_chapter_result,
-    extract_modal_metrics,
-    extract_modal_result,
-    process_batch_results,
-)
-from app.services.batch_grouping import group_chapters_into_batches
-from app.core.error_classifier import classify_error, ERROR_TYPE_TRUNCATED
-from app.prompts.modal_extraction import (
-    EXTRACTION_SYSTEM_PROMPT,
-    EXTRACTION_SCHEMA_JSON,
-)
+from app.core.error_classifier import classify_error
 from app.core.pubsub import publish_book_progress, publish_entities_updated
 from app.services.push_notification_service import push_notification_service
 
 import time
 
-# STAB-05/06: Timeout and time budget constants
-CELERY_HARD_LIMIT = 10800  # 3 hours, from celery_app.py task-level override
-SAFETY_MARGIN = 300  # 5 minutes buffer for cleanup/commit
-VPS_TIMEOUT = 960  # LLM_TIMEOUT(900) + 60s buffer (D-10). Local constant — not imported from modal/config.py (different services)
-VPS_BATCH_TIMEOUT = (
-    1410  # D-15: LLM_TIMEOUT(900) * 1.5 + 60. Batch faster than N*single
-)
-
-
-def check_time_budget(
-    task_start_time: float, *, chapter_idx: int, timeout_needed: int = VPS_TIMEOUT
-) -> None:
-    """Check if enough time remains before Celery hard limit.
-
-    Raises TimeoutError if remaining time < timeout_needed (STAB-06, D-12, D-22).
-    Call before each Modal/LLM chapter extraction.
-
-    Args:
-        task_start_time: time.monotonic() value from task start
-        chapter_idx: chapter index for error message
-        timeout_needed: minimum seconds required (default VPS_TIMEOUT for backward compat)
-    """
-    elapsed = time.monotonic() - task_start_time
-    remaining = CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN
-    if remaining < timeout_needed:
-        raise TimeoutError(
-            f"Time budget exhausted: remaining={remaining:.0f}s, "
-            f"needed={timeout_needed}s. Skipping chapter/batch {chapter_idx}."
-        )
+# Прим.: константы бюджета времени (CELERY_HARD_LIMIT, SAFETY_MARGIN,
+# VPS_TIMEOUT, VPS_BATCH_TIMEOUT) и check_time_budget удалены вместе с Modal:
+# они выводились из LLM_TIMEOUT Modal-стороны и вызывались только в его ветках.
 
 
 def _log_chapter_result(
@@ -104,7 +65,6 @@ async def _save_chapter_extraction_result(
     book_id,
     idx,
     metrics=None,
-    modal_raw_descriptions=None,
 ) -> int:
     """Save extraction result to DB. Returns: count of descriptions.
 
@@ -168,11 +128,6 @@ async def _save_chapter_extraction_result(
             position_in_chapter=i,
             word_count=d_dict.get("word_count", 0),
         )
-        # Проброс image_prompt_en из Modal extraction
-        if modal_raw_descriptions:
-            content_key = d_dict.get("content", "")
-            if content_key in modal_raw_descriptions:
-                new_desc.image_prompt_en = modal_raw_descriptions[content_key]
         session.add(new_desc)
         await session.flush()  # Get new_desc.id
 
@@ -216,218 +171,6 @@ async def _save_chapter_extraction_result(
     chapter.parse_attempts += 1
 
     return len(descriptions_data)
-
-
-async def _process_chapters_batch_mode(
-    *,
-    chapters: list,
-    book_id,
-    db,
-    task_start_time: float,
-    total_chapters: int,
-) -> tuple[int, int]:
-    """Batch-mode chapter processing (Phase 37, D-17..D-23).
-
-    Groups chapters into sub-batches, processes each via extract_chapters_batch.remote(),
-    commits after each sub-batch (checkpoint), retries failed chapters individually.
-
-    Returns: (chapters_processed_count, total_descriptions_count)
-    """
-    chapters_processed = 0
-    total_descriptions = 0
-    failed_chapters: list = []
-
-    # Group chapters into batches + oversized
-    batches, oversized = group_chapters_into_batches(chapters)
-
-    logger.info(
-        f"Batch mode: {len(batches)} batches, "
-        f"{sum(len(b) for b in batches)} chapters, "
-        f"{len(oversized)} oversized",
-        book_id=str(book_id),
-    )
-
-    # Process each batch
-    for batch_idx, batch in enumerate(batches):
-        # Time budget check with batch timeout (D-22)
-        check_time_budget(
-            task_start_time, chapter_idx=batch_idx, timeout_needed=VPS_BATCH_TIMEOUT
-        )
-
-        try:
-            batch_start = time.monotonic()
-            extractor = get_llm_extractor()
-            batch_results = await asyncio.wait_for(
-                asyncio.to_thread(
-                    extractor.extract_chapters_batch.remote,
-                    chapters=[
-                        {
-                            "text": ch.content,
-                            "system_prompt": EXTRACTION_SYSTEM_PROMPT,
-                            "schema_json": EXTRACTION_SCHEMA_JSON,
-                        }
-                        for ch in batch
-                    ],
-                ),
-                timeout=VPS_BATCH_TIMEOUT,
-            )
-        except (TimeoutError, asyncio.TimeoutError, Exception) as e:
-            error_type = classify_error(e)
-            logger.error(
-                f"Batch {batch_idx} failed: {error_type} - {e}",
-                book_id=str(book_id),
-            )
-            # All chapters in this batch -> individual retry
-            failed_chapters.extend(batch)
-            continue
-
-        # Process batch results: separate successful/failed (D-18)
-        successful, failed = process_batch_results(batch_results, batch)
-
-        # Save successful results
-        for ch, data in successful:
-            duration_ms = int((time.monotonic() - batch_start) * 1000)
-            await _save_chapter_extraction_result(
-                db,
-                ch,
-                data["analysis"],
-                book_id=book_id,
-                idx=ch.chapter_number,
-                metrics=data["metrics"],
-                modal_raw_descriptions=None,
-            )
-            _log_chapter_result(
-                chapter_id=str(ch.id),
-                book_id=str(book_id),
-                duration_ms=duration_ms,
-                result_type="success",
-                metrics=data["metrics"],
-            )
-            chapters_processed += 1
-            total_descriptions += len(data["analysis"].descriptions)
-
-        # Failed -> individual retry
-        failed_chapters.extend(failed)
-
-        # Checkpoint: commit after each batch (D-19)
-        await db.commit()
-
-        # WebSocket progress (D-23)
-        progress = (
-            int((chapters_processed / total_chapters) * 80) if total_chapters else 0
-        )
-        await publish_book_progress(
-            book_id=str(book_id),
-            progress=progress,
-            status="processing",
-            message=f"Обработка batch {batch_idx + 1}/{len(batches)}",
-        )
-
-    # Process oversized chapters sequentially (D-06, D-12)
-    for ov_idx, ov_ch in enumerate(oversized):
-        check_time_budget(
-            task_start_time, chapter_idx=ov_idx, timeout_needed=VPS_TIMEOUT
-        )
-        try:
-            ov_start = time.monotonic()
-            extractor = get_llm_extractor()
-            modal_json = await asyncio.wait_for(
-                asyncio.to_thread(
-                    extractor.extract_chapter.remote,
-                    chapter_text=ov_ch.content,
-                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
-                    schema_json=EXTRACTION_SCHEMA_JSON,
-                ),
-                timeout=VPS_TIMEOUT,
-            )
-            result = modal_response_to_chapter_result(modal_json)
-            metrics = modal_json.get("metrics", {})
-            # Extract raw descriptions for image_prompt_en
-            result_data = extract_modal_result(modal_json)
-            modal_raw_descriptions = {
-                d.get("content", ""): d.get("image_prompt_en", "")
-                for d in result_data.get("descriptions", [])
-                if d.get("image_prompt_en")
-            }
-            desc_count = await _save_chapter_extraction_result(
-                db,
-                ov_ch,
-                result,
-                book_id=book_id,
-                idx=ov_ch.chapter_number,
-                metrics=metrics,
-                modal_raw_descriptions=modal_raw_descriptions,
-            )
-            duration_ms = int((time.monotonic() - ov_start) * 1000)
-            _log_chapter_result(
-                chapter_id=str(ov_ch.id),
-                book_id=str(book_id),
-                duration_ms=duration_ms,
-                result_type="success",
-                metrics=metrics,
-            )
-            chapters_processed += 1
-            total_descriptions += desc_count
-            await db.commit()
-        except Exception as e:
-            error_type = classify_error(e)
-            logger.error(f"Oversized chapter {ov_idx} failed: {error_type} - {e}")
-            failed_chapters.append(ov_ch)
-
-    # Individual retry for failed chapters (D-20)
-    for retry_ch in failed_chapters:
-        try:
-            retry_start = time.monotonic()
-            check_time_budget(
-                task_start_time,
-                chapter_idx=retry_ch.chapter_number,
-                timeout_needed=VPS_TIMEOUT,
-            )
-            extractor = get_llm_extractor()
-            modal_json = await asyncio.wait_for(
-                asyncio.to_thread(
-                    extractor.extract_chapter.remote,
-                    chapter_text=retry_ch.content,
-                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
-                    schema_json=EXTRACTION_SCHEMA_JSON,
-                ),
-                timeout=VPS_TIMEOUT,
-            )
-            result = modal_response_to_chapter_result(modal_json)
-            metrics = modal_json.get("metrics", {})
-            result_data = extract_modal_result(modal_json)
-            modal_raw_descriptions = {
-                d.get("content", ""): d.get("image_prompt_en", "")
-                for d in result_data.get("descriptions", [])
-                if d.get("image_prompt_en")
-            }
-            desc_count = await _save_chapter_extraction_result(
-                db,
-                retry_ch,
-                result,
-                book_id=book_id,
-                idx=retry_ch.chapter_number,
-                metrics=metrics,
-                modal_raw_descriptions=modal_raw_descriptions,
-            )
-            duration_ms = int((time.monotonic() - retry_start) * 1000)
-            _log_chapter_result(
-                chapter_id=str(retry_ch.id),
-                book_id=str(book_id),
-                duration_ms=duration_ms,
-                result_type="success",
-                metrics=metrics,
-            )
-            chapters_processed += 1
-            total_descriptions += desc_count
-            await db.commit()
-        except Exception as e:
-            error_type = classify_error(e)
-            logger.error(
-                f"Individual retry failed for chapter {retry_ch.chapter_number}: {error_type} - {e}"
-            )
-
-    return chapters_processed, total_descriptions
 
 
 def find_entity_fuzzy(
@@ -761,9 +504,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async processing", book_id=str(book_id))
 
-        # STAB-06: Record task start time for per-book time budget check
-        task_start_time = time.monotonic()
-
         # Initialize services
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
@@ -771,16 +511,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # Phase 30: Feature flag for NER pipeline
         flag_manager = FeatureFlagManager(db)
         use_gliner = await flag_manager.is_enabled("USE_GLINER_NER", default=False)
-        use_modal = await is_modal_enabled(db)
-
-        # Phase 37: Batch mode flag (only when Modal is enabled)
-        use_batch = False
-        if use_modal:
-            use_batch = await flag_manager.is_enabled("USE_BATCH_MODE", default=False)
-            if use_batch:
-                logger.info(
-                    "Batch mode enabled (USE_BATCH_MODE=True)", book_id=str(book_id)
-                )
 
         # Snapshot NER service if enabled (lazy singleton, model loads on first call)
         ner_service = get_ner_service() if use_gliner else None
@@ -834,525 +564,385 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_chapters = len(chapters)
 
         if llm_available and chapters:
-            # Phase 37: Batch mode routing (D-24, D-27)
-            if use_batch:
-                logger.info(
-                    "Starting batch chapter processing (Phase 37)",
-                    book_id=str(book_id),
-                    total_chapters=total_chapters,
-                )
-                chapters_processed, total_descriptions = (
-                    await _process_chapters_batch_mode(
-                        chapters=chapters,
-                        book_id=book_id,
-                        db=db,
-                        task_start_time=task_start_time,
-                        total_chapters=total_chapters,
-                    )
-                )
-                book.parsing_progress = 100
-            else:
-                # Existing sequential path (unchanged, instant rollback via feature flag)
-                logger.info(
-                    "Starting parallel chapter processing (v16 Async Architecture)",
-                    book_id=str(book_id),
-                )
+            logger.info(
+                "Starting parallel chapter processing (v16 Async Architecture)",
+                book_id=str(book_id),
+            )
 
-                # Semaphore to limit concurrency
-                # Modal: 1 GPU контейнер обрабатывает последовательно (не плодить 50 GPU)
-                # OpenRouter/GLiNER: 10 параллельных запросов
-                chapter_semaphore = asyncio.Semaphore(1 if use_modal else 10)
+            # Semaphore to limit concurrency: 10 параллельных запросов
+            chapter_semaphore = asyncio.Semaphore(10)
 
-                # Progress tracking
-                chapters_done_count = 0
-                progress_lock = asyncio.Lock()
+            # Progress tracking
+            chapters_done_count = 0
+            progress_lock = asyncio.Lock()
 
-                async def process_chapter_safe(idx: int, chapter_id: UUID):
-                    """Process a single chapter. Catches ALL exceptions to prevent sibling task cancellation."""
-                    try:
-                        async with AsyncSessionLocal() as session:
-                            async with chapter_semaphore:
-                                local_chapter = None
-                                chapter_start = time.monotonic()
-                                metrics: dict | None = None
-                                try:
-                                    stmt = select(Chapter).where(
-                                        Chapter.id == chapter_id
-                                    )
-                                    res = await session.execute(stmt)
-                                    local_chapter = res.scalar_one_or_none()
+            async def process_chapter_safe(idx: int, chapter_id: UUID):
+                """Process a single chapter. Catches ALL exceptions to prevent sibling task cancellation."""
+                try:
+                    async with AsyncSessionLocal() as session:
+                        async with chapter_semaphore:
+                            local_chapter = None
+                            chapter_start = time.monotonic()
+                            metrics: dict | None = None
+                            try:
+                                stmt = select(Chapter).where(Chapter.id == chapter_id)
+                                res = await session.execute(stmt)
+                                local_chapter = res.scalar_one_or_none()
 
-                                    if not local_chapter:
-                                        return
+                                if not local_chapter:
+                                    return
 
-                                    # Skip if already parsed
-                                    if local_chapter.is_description_parsed:
-                                        return
+                                # Skip if already parsed
+                                if local_chapter.is_description_parsed:
+                                    return
 
-                                    # 2. Check Service Page (Table of Contents, etc)
-                                    SERVICE_PAGE_KEYWORDS = [
-                                        "содержание",
-                                        "оглавление",
-                                        "table of contents",
-                                        "contents",
-                                        "от автора",
-                                        "слово автора",
-                                        "предисловие",
-                                        "послесловие",
-                                        "аннотация",
-                                        "annotation",
-                                        "synopsis",
-                                        "эпиграф",
-                                        "epigraph",
-                                        "цитата",
-                                        "посвящение",
-                                        "dedication",
-                                        "благодарности",
-                                        "acknowledgments",
-                                        "примечания",
-                                        "notes",
-                                        "сноски",
-                                        "библиография",
-                                        "bibliography",
-                                        "references",
-                                        "об авторе",
-                                        "about the author",
-                                        "биография",
-                                        "copyright",
-                                        "издательство",
-                                        "publisher",
-                                        "isbn",
-                                        "все права защищены",
-                                        "all rights reserved",
-                                    ]
+                                # 2. Check Service Page (Table of Contents, etc)
+                                SERVICE_PAGE_KEYWORDS = [
+                                    "содержание",
+                                    "оглавление",
+                                    "table of contents",
+                                    "contents",
+                                    "от автора",
+                                    "слово автора",
+                                    "предисловие",
+                                    "послесловие",
+                                    "аннотация",
+                                    "annotation",
+                                    "synopsis",
+                                    "эпиграф",
+                                    "epigraph",
+                                    "цитата",
+                                    "посвящение",
+                                    "dedication",
+                                    "благодарности",
+                                    "acknowledgments",
+                                    "примечания",
+                                    "notes",
+                                    "сноски",
+                                    "библиография",
+                                    "bibliography",
+                                    "references",
+                                    "об авторе",
+                                    "about the author",
+                                    "биография",
+                                    "copyright",
+                                    "издательство",
+                                    "publisher",
+                                    "isbn",
+                                    "все права защищены",
+                                    "all rights reserved",
+                                ]
 
-                                    content_lower = (local_chapter.content or "")[
-                                        :500
-                                    ].lower()
-                                    title_lower = (local_chapter.title or "").lower()
+                                content_lower = (local_chapter.content or "")[
+                                    :500
+                                ].lower()
+                                title_lower = (local_chapter.title or "").lower()
 
-                                    is_service = any(
-                                        k in title_lower or k in content_lower
-                                        for k in SERVICE_PAGE_KEYWORDS
-                                    )
-                                    if (
-                                        local_chapter.word_count
-                                        and local_chapter.word_count < 100
-                                    ):
-                                        is_service = True
+                                is_service = any(
+                                    k in title_lower or k in content_lower
+                                    for k in SERVICE_PAGE_KEYWORDS
+                                )
+                                if (
+                                    local_chapter.word_count
+                                    and local_chapter.word_count < 100
+                                ):
+                                    is_service = True
 
-                                    if is_service:
-                                        local_chapter.is_service_page = True
-                                        local_chapter.is_description_parsed = True
-                                        local_chapter.parsed_at = datetime.now(
-                                            timezone.utc
-                                        )
-                                        await session.commit()
-                                        return
-
-                                    # Per-book time budget check (D-12, STAB-06)
-                                    if use_modal:
-                                        check_time_budget(
-                                            task_start_time, chapter_idx=idx
-                                        )
-
-                                    # 3. Analyze chapter — Modal / NER (GLiNER2) / LLM (Gemini)
-                                    modal_raw_descriptions = (
-                                        None  # Для проброса image_prompt_en
-                                    )
-                                    if use_modal:
-                                        extractor = get_llm_extractor()
-                                        try:
-                                            modal_json = await asyncio.wait_for(
-                                                asyncio.to_thread(
-                                                    extractor.extract_chapter.remote,
-                                                    chapter_text=local_chapter.content,
-                                                    system_prompt=EXTRACTION_SYSTEM_PROMPT,
-                                                    schema_json=EXTRACTION_SCHEMA_JSON,
-                                                ),
-                                                timeout=VPS_TIMEOUT,
-                                            )
-                                        except asyncio.TimeoutError:
-                                            raise TimeoutError(
-                                                f"VPS-side timeout: Modal did not respond in {VPS_TIMEOUT}s "
-                                                f"(LLM_TIMEOUT=900s + buffer=60s)"
-                                            )
-
-                                        # Extract metrics (D-08 backward compat)
-                                        metrics = extract_modal_metrics(modal_json)
-
-                                        # STAB-04, D-03: Handle truncated response
-                                        if (
-                                            modal_json.get("result") is None
-                                            and "truncated_text" in modal_json
-                                        ):
-                                            logger.warning(
-                                                f"Truncated response for chapter {idx}, retrying",
-                                                chapter_id=str(chapter_id),
-                                                truncated_preview=modal_json[
-                                                    "truncated_text"
-                                                ][:100],
-                                            )
-                                            # D-04: 1 retry with same params (max_tokens fixed on Modal side)
-                                            try:
-                                                retry_json = await asyncio.wait_for(
-                                                    asyncio.to_thread(
-                                                        extractor.extract_chapter.remote,
-                                                        chapter_text=local_chapter.content,
-                                                        system_prompt=EXTRACTION_SYSTEM_PROMPT,
-                                                        schema_json=EXTRACTION_SCHEMA_JSON,
-                                                    ),
-                                                    timeout=VPS_TIMEOUT,
-                                                )
-                                            except asyncio.TimeoutError:
-                                                raise TimeoutError(
-                                                    f"VPS-side timeout on truncated retry: Modal did not respond in {VPS_TIMEOUT}s"
-                                                )
-                                            retry_metrics = extract_modal_metrics(
-                                                retry_json
-                                            )
-                                            metrics = retry_metrics
-
-                                            if (
-                                                retry_json.get("result") is None
-                                                and "truncated_text" in retry_json
-                                            ):
-                                                # D-04: Still truncated after retry -- mark and continue
-                                                local_chapter.error_type = (
-                                                    ERROR_TYPE_TRUNCATED
-                                                )
-                                                local_chapter.parsing_error = f"Truncated after retry: {retry_json['truncated_text'][:500]}"
-                                                local_chapter.parse_attempts += 1
-                                                await session.commit()
-                                                duration_ms = int(
-                                                    (time.monotonic() - chapter_start)
-                                                    * 1000
-                                                )
-                                                _log_chapter_result(
-                                                    chapter_id=str(chapter_id),
-                                                    book_id=str(book_id),
-                                                    duration_ms=duration_ms,
-                                                    result_type="error",
-                                                    error_type=ERROR_TYPE_TRUNCATED,
-                                                    metrics=metrics,
-                                                )
-                                                return  # Continue to next chapter
-                                            modal_json = retry_json  # Retry succeeded
-
-                                        result = modal_response_to_chapter_result(
-                                            modal_json
-                                        )
-                                        # Сохраняем raw descriptions для image_prompt_en
-                                        result_data = extract_modal_result(modal_json)
-                                        modal_raw_descriptions = {
-                                            d.get("content", ""): d.get(
-                                                "image_prompt_en", ""
-                                            )
-                                            for d in result_data.get("descriptions", [])
-                                            if d.get("image_prompt_en")
-                                        }
-                                        logger.info(
-                                            "Modal extraction complete",
-                                            chapter_id=str(local_chapter.id),
-                                            entities_count=len(result.entities),
-                                        )
-                                    elif use_gliner and ner_service:
-                                        # Phase 30: NER via GLiNER2 (synchronous PyTorch inference in thread pool)
-                                        ner_result = await asyncio.to_thread(
-                                            ner_service.extract_chapter,
-                                            local_chapter.content,
-                                            settings_mgr,
-                                        )
-                                        result = ner_result
-                                        logger.info(
-                                            "NER extraction complete",
-                                            chapter_id=str(local_chapter.id),
-                                            entities_count=len(result.entities),
-                                        )
-                                    else:
-                                        # Legacy: LLM extraction via Gemini
-                                        # Extractor has its own internal semaphore/rate-limiting too
-                                        result = await gemini_extractor.analyze_chapter(
-                                            local_chapter.content
-                                        )
-
-                                    # 4. Consistency & Logic (Map Phase)
-                                    # Use a local ConsistencyManager with this session
-                                    local_mgr = ConsistencyManager(session)
-                                    entity_map = (
-                                        await local_mgr.process_chapter_analysis(
-                                            str(book_id),
-                                            result,
-                                            chapter_id=str(local_chapter.id),
-                                            chapter_index=idx,
-                                        )
-                                    )
-
-                                    # 4b. Create EntityEvents from extraction
-                                    from app.models.entity_event import EntityEvent
-
-                                    for raw_entity in result.entities:
-                                        if raw_entity.chapter_event_action:
-                                            resolved = entity_map.get(
-                                                raw_entity.name.casefold()[:255]
-                                            )
-                                            if resolved:
-                                                event = EntityEvent(
-                                                    entity_id=resolved.id,
-                                                    chapter_id=local_chapter.id,
-                                                    chapter_number=idx,
-                                                    event_action=raw_entity.chapter_event_action,
-                                                    event_inner_state=raw_entity.chapter_event_inner,
-                                                )
-                                                session.add(event)
-
-                                    # 5. Save Descriptions and create DescriptionEntity links
-                                    descriptions_data = result.descriptions or []
-                                    from app.models.description import (
-                                        Description as DescriptionModel,
-                                    )
-                                    from app.models.description_entity import (
-                                        DescriptionEntity,
-                                    )
-
-                                    for i, d in enumerate(descriptions_data):
-                                        d_dict = cast(
-                                            Dict[str, Any],
-                                            (
-                                                d.to_dict()
-                                                if hasattr(d, "to_dict")
-                                                else (
-                                                    dict(d)
-                                                    if isinstance(d, dict)
-                                                    else {"content": str(d)}
-                                                )
-                                            ),
-                                        )
-                                        try:
-                                            d_type = DescriptionType(
-                                                d_dict.get("type", "location")
-                                            )
-                                        except ValueError:
-                                            logger.warning(
-                                                f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
-                                            )
-                                            d_type = DescriptionType.LOCATION
-
-                                        new_desc = DescriptionModel(
-                                            chapter_id=local_chapter.id,
-                                            type=d_type,
-                                            content=d_dict.get("content", ""),
-                                            confidence_score=d_dict.get(
-                                                "confidence_score", 0.8
-                                            ),
-                                            priority_score=d_dict.get(
-                                                "priority_score", 0.5
-                                            ),
-                                            position_in_chapter=i,
-                                            word_count=d_dict.get("word_count", 0),
-                                        )
-                                        # Проброс image_prompt_en из Modal extraction
-                                        if modal_raw_descriptions:
-                                            content_key = d_dict.get("content", "")
-                                            if content_key in modal_raw_descriptions:
-                                                new_desc.image_prompt_en = (
-                                                    modal_raw_descriptions[content_key]
-                                                )
-                                        session.add(new_desc)
-                                        await session.flush()  # Get new_desc.id
-
-                                        # Create DescriptionEntity links for spoiler protection
-                                        entities_mentioned = d_dict.get(
-                                            "entities_mentioned", []
-                                        )
-                                        entities_linked = 0
-                                        entities_not_found = []
-
-                                        for entity_name in entities_mentioned:
-                                            if not entity_name:
-                                                continue
-                                            entity = find_entity_fuzzy(
-                                                entity_name, entity_map
-                                            )
-                                            if entity:
-                                                desc_entity = DescriptionEntity(
-                                                    description_id=new_desc.id,
-                                                    entity_id=entity.id,
-                                                    confidence=d_dict.get(
-                                                        "confidence_score", 0.8
-                                                    ),
-                                                    mention_text=entity_name,
-                                                )
-                                                session.add(desc_entity)
-                                                entities_linked += 1
-                                            else:
-                                                entities_not_found.append(entity_name)
-
-                                        # Diagnostic logging for entity lookup
-                                        if entities_mentioned:
-                                            logger.debug(
-                                                f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
-                                                f"linked={entities_linked}, not_found={entities_not_found}, "
-                                                f"entity_map_keys={list(entity_map.keys())[:10]}..."
-                                            )
-                                            if entities_not_found:
-                                                logger.warning(
-                                                    f"Entity lookup miss in chapter {local_chapter.chapter_number}: "
-                                                    f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
-                                                )
-
-                                    local_chapter.descriptions_found = len(
-                                        descriptions_data
-                                    )
+                                if is_service:
+                                    local_chapter.is_service_page = True
                                     local_chapter.is_description_parsed = True
                                     local_chapter.parsed_at = datetime.now(timezone.utc)
-                                    local_chapter.parsing_error = None
-                                    local_chapter.parse_attempts += 1
-
                                     await session.commit()
+                                    return
 
-                                    # OBS-02: Structured success log
-                                    duration_ms = int(
-                                        (time.monotonic() - chapter_start) * 1000
+                                # 3. Analyze chapter — NER (GLiNER2) / LLM (Gemini)
+                                if use_gliner and ner_service:
+                                    # Phase 30: NER via GLiNER2 (synchronous PyTorch inference in thread pool)
+                                    ner_result = await asyncio.to_thread(
+                                        ner_service.extract_chapter,
+                                        local_chapter.content,
+                                        settings_mgr,
                                     )
-                                    _log_chapter_result(
-                                        chapter_id=str(chapter_id),
-                                        book_id=str(book_id),
-                                        duration_ms=duration_ms,
-                                        result_type="success",
-                                        error_type=None,
-                                        metrics=metrics,
-                                    )
-
-                                    num_descriptions = len(descriptions_data)
+                                    result = ner_result
                                     logger.info(
-                                        f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
+                                        "NER extraction complete",
+                                        chapter_id=str(local_chapter.id),
+                                        entities_count=len(result.entities),
+                                    )
+                                else:
+                                    # Legacy: LLM extraction via Gemini
+                                    # Extractor has its own internal semaphore/rate-limiting too
+                                    result = await gemini_extractor.analyze_chapter(
+                                        local_chapter.content
                                     )
 
-                                    # Update progress
-                                    nonlocal chapters_done_count, total_descriptions
-                                    async with progress_lock:
-                                        chapters_done_count += 1
-                                        total_descriptions += num_descriptions
-                                        current_progress = int(
-                                            (chapters_done_count / total_chapters) * 80
+                                # 4. Consistency & Logic (Map Phase)
+                                # Use a local ConsistencyManager with this session
+                                local_mgr = ConsistencyManager(session)
+                                entity_map = await local_mgr.process_chapter_analysis(
+                                    str(book_id),
+                                    result,
+                                    chapter_id=str(local_chapter.id),
+                                    chapter_index=idx,
+                                )
+
+                                # 4b. Create EntityEvents from extraction
+                                from app.models.entity_event import EntityEvent
+
+                                for raw_entity in result.entities:
+                                    if raw_entity.chapter_event_action:
+                                        resolved = entity_map.get(
+                                            raw_entity.name.casefold()[:255]
                                         )
+                                        if resolved:
+                                            event = EntityEvent(
+                                                entity_id=resolved.id,
+                                                chapter_id=local_chapter.id,
+                                                chapter_number=idx,
+                                                event_action=raw_entity.chapter_event_action,
+                                                event_inner_state=raw_entity.chapter_event_inner,
+                                            )
+                                            session.add(event)
 
-                                    await publish_book_progress(
-                                        book_id=str(book_id),
-                                        progress=current_progress,
-                                        chapter=local_chapter.chapter_number,
-                                        total_chapters=total_chapters,
-                                        status="processing",
-                                        message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}",
+                                # 5. Save Descriptions and create DescriptionEntity links
+                                descriptions_data = result.descriptions or []
+                                from app.models.description import (
+                                    Description as DescriptionModel,
+                                )
+                                from app.models.description_entity import (
+                                    DescriptionEntity,
+                                )
+
+                                for i, d in enumerate(descriptions_data):
+                                    d_dict = cast(
+                                        Dict[str, Any],
+                                        (
+                                            d.to_dict()
+                                            if hasattr(d, "to_dict")
+                                            else (
+                                                dict(d)
+                                                if isinstance(d, dict)
+                                                else {"content": str(d)}
+                                            )
+                                        ),
+                                    )
+                                    try:
+                                        d_type = DescriptionType(
+                                            d_dict.get("type", "location")
+                                        )
+                                    except ValueError:
+                                        logger.warning(
+                                            f"Invalid description type '{d_dict.get('type')}', defaulting to LOCATION"
+                                        )
+                                        d_type = DescriptionType.LOCATION
+
+                                    new_desc = DescriptionModel(
+                                        chapter_id=local_chapter.id,
+                                        type=d_type,
+                                        content=d_dict.get("content", ""),
+                                        confidence_score=d_dict.get(
+                                            "confidence_score", 0.8
+                                        ),
+                                        priority_score=d_dict.get(
+                                            "priority_score", 0.5
+                                        ),
+                                        position_in_chapter=i,
+                                        word_count=d_dict.get("word_count", 0),
                                     )
 
-                                except Exception as e:
-                                    error_type = classify_error(e)
+                                    session.add(new_desc)
+                                    await session.flush()  # Get new_desc.id
+
+                                    # Create DescriptionEntity links for spoiler protection
+                                    entities_mentioned = d_dict.get(
+                                        "entities_mentioned", []
+                                    )
+                                    entities_linked = 0
+                                    entities_not_found = []
+
+                                    for entity_name in entities_mentioned:
+                                        if not entity_name:
+                                            continue
+                                        entity = find_entity_fuzzy(
+                                            entity_name, entity_map
+                                        )
+                                        if entity:
+                                            desc_entity = DescriptionEntity(
+                                                description_id=new_desc.id,
+                                                entity_id=entity.id,
+                                                confidence=d_dict.get(
+                                                    "confidence_score", 0.8
+                                                ),
+                                                mention_text=entity_name,
+                                            )
+                                            session.add(desc_entity)
+                                            entities_linked += 1
+                                        else:
+                                            entities_not_found.append(entity_name)
+
+                                    # Diagnostic logging for entity lookup
+                                    if entities_mentioned:
+                                        logger.debug(
+                                            f"Description {i + 1}: entities_mentioned={entities_mentioned}, "
+                                            f"linked={entities_linked}, not_found={entities_not_found}, "
+                                            f"entity_map_keys={list(entity_map.keys())[:10]}..."
+                                        )
+                                        if entities_not_found:
+                                            logger.warning(
+                                                f"Entity lookup miss in chapter {local_chapter.chapter_number}: "
+                                                f"not_found={entities_not_found}, available_keys_sample={list(entity_map.keys())[:5]}"
+                                            )
+
+                                local_chapter.descriptions_found = len(
+                                    descriptions_data
+                                )
+                                local_chapter.is_description_parsed = True
+                                local_chapter.parsed_at = datetime.now(timezone.utc)
+                                local_chapter.parsing_error = None
+                                local_chapter.parse_attempts += 1
+
+                                await session.commit()
+
+                                # OBS-02: Structured success log
+                                duration_ms = int(
+                                    (time.monotonic() - chapter_start) * 1000
+                                )
+                                _log_chapter_result(
+                                    chapter_id=str(chapter_id),
+                                    book_id=str(book_id),
+                                    duration_ms=duration_ms,
+                                    result_type="success",
+                                    error_type=None,
+                                    metrics=metrics,
+                                )
+
+                                num_descriptions = len(descriptions_data)
+                                logger.info(
+                                    f"Chapter {local_chapter.chapter_number} parsed: {num_descriptions} descriptions"
+                                )
+
+                                # Update progress
+                                nonlocal chapters_done_count, total_descriptions
+                                async with progress_lock:
+                                    chapters_done_count += 1
+                                    total_descriptions += num_descriptions
+                                    current_progress = int(
+                                        (chapters_done_count / total_chapters) * 80
+                                    )
+
+                                await publish_book_progress(
+                                    book_id=str(book_id),
+                                    progress=current_progress,
+                                    chapter=local_chapter.chapter_number,
+                                    total_chapters=total_chapters,
+                                    status="processing",
+                                    message=f"Обработка главы {local_chapter.chapter_number} из {total_chapters}",
+                                )
+
+                            except Exception as e:
+                                error_type = classify_error(e)
+                                logger.opt(exception=True).error(
+                                    f"Error parsing chapter {idx + 1}: {e}"
+                                )
+                                try:
+                                    await session.rollback()
+                                    if local_chapter:
+                                        local_chapter = await session.get(
+                                            Chapter, chapter_id
+                                        )
+                                        # Use chapter_id (function arg) instead of local_chapter.id
+                                        # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
+                                        if local_chapter:
+                                            local_chapter.parsing_error = str(e)[:1000]
+                                            local_chapter.error_type = (
+                                                error_type  # OBS-01
+                                            )
+                                            local_chapter.parse_attempts += 1
+                                            await session.commit()
+                                except Exception as commit_err:
                                     logger.opt(exception=True).error(
-                                        f"Error parsing chapter {idx + 1}: {e}"
+                                        f"Failed to record chapter {idx + 1} error: {commit_err}"
                                     )
                                     try:
                                         await session.rollback()
-                                        if local_chapter:
-                                            local_chapter = await session.get(
-                                                Chapter, chapter_id
-                                            )
-                                            # Use chapter_id (function arg) instead of local_chapter.id
-                                            # because after rollback the ORM object is expired and .id access triggers MissingGreenlet
-                                            if local_chapter:
-                                                local_chapter.parsing_error = str(e)[
-                                                    :1000
-                                                ]
-                                                local_chapter.error_type = (
-                                                    error_type  # OBS-01
-                                                )
-                                                local_chapter.parse_attempts += 1
-                                                await session.commit()
-                                    except Exception as commit_err:
-                                        logger.opt(exception=True).error(
-                                            f"Failed to record chapter {idx + 1} error: {commit_err}"
-                                        )
-                                        try:
-                                            await session.rollback()
-                                        except Exception:
-                                            pass
-                                    # OBS-02: Structured error log
-                                    duration_ms = int(
-                                        (time.monotonic() - chapter_start) * 1000
-                                    )
-                                    _log_chapter_result(
-                                        chapter_id=str(chapter_id),
-                                        book_id=str(book_id),
-                                        duration_ms=duration_ms,
-                                        result_type="error",
-                                        error_type=error_type,
-                                        metrics=metrics,
-                                    )
-                    except BaseException as fatal_err:
-                        # Catch-all: CancelledError, session creation failures, context manager cleanup errors.
-                        # Prevents ANY exception from propagating and affecting sibling tasks.
-                        fatal_error_type = classify_error(fatal_err)
-                        logger.opt(exception=True).error(
-                            f"Fatal error in chapter {idx + 1} processing: "
-                            f"{type(fatal_err).__name__}: {fatal_err}"
-                        )
-                        # Best effort: save error_type to DB (session may be broken)
-                        try:
-                            async with AsyncSessionLocal() as emergency_session:
-                                ch = await emergency_session.get(Chapter, chapter_id)
-                                if ch:
-                                    ch.error_type = fatal_error_type
-                                    ch.parsing_error = f"{type(fatal_err).__name__}: {str(fatal_err)[:500]}"
-                                    ch.parse_attempts += 1
-                                    await emergency_session.commit()
-                        except Exception:
-                            pass  # Best effort
+                                    except Exception:
+                                        pass
+                                # OBS-02: Structured error log
+                                duration_ms = int(
+                                    (time.monotonic() - chapter_start) * 1000
+                                )
+                                _log_chapter_result(
+                                    chapter_id=str(chapter_id),
+                                    book_id=str(book_id),
+                                    duration_ms=duration_ms,
+                                    result_type="error",
+                                    error_type=error_type,
+                                    metrics=metrics,
+                                )
+                except BaseException as fatal_err:
+                    # Catch-all: CancelledError, session creation failures, context manager cleanup errors.
+                    # Prevents ANY exception from propagating and affecting sibling tasks.
+                    fatal_error_type = classify_error(fatal_err)
+                    logger.opt(exception=True).error(
+                        f"Fatal error in chapter {idx + 1} processing: "
+                        f"{type(fatal_err).__name__}: {fatal_err}"
+                    )
+                    # Best effort: save error_type to DB (session may be broken)
+                    try:
+                        async with AsyncSessionLocal() as emergency_session:
+                            ch = await emergency_session.get(Chapter, chapter_id)
+                            if ch:
+                                ch.error_type = fatal_error_type
+                                ch.parsing_error = f"{type(fatal_err).__name__}: {str(fatal_err)[:500]}"
+                                ch.parse_attempts += 1
+                                await emergency_session.commit()
+                    except Exception:
+                        pass  # Best effort
 
-                logger.info(f"Spawning {len(chapters)} parallel tasks...")
-                results = await asyncio.gather(
-                    *(
-                        process_chapter_safe(idx, chapter.id)
-                        for idx, chapter in enumerate(chapters, start=1)
-                    ),
-                    return_exceptions=True,
+            logger.info(f"Spawning {len(chapters)} parallel tasks...")
+            results = await asyncio.gather(
+                *(
+                    process_chapter_safe(idx, chapter.id)
+                    for idx, chapter in enumerate(chapters, start=1)
+                ),
+                return_exceptions=True,
+            )
+
+            # Log results and retry failed chapters sequentially
+            succeeded = sum(1 for r in results if not isinstance(r, BaseException))
+            failed_indices = [
+                i for i, r in enumerate(results) if isinstance(r, BaseException)
+            ]
+
+            for i in failed_indices:
+                logger.error(
+                    f"Chapter task {i + 1} returned exception: "
+                    f"{type(results[i]).__name__}: {results[i]}"
                 )
 
-                # Log results and retry failed chapters sequentially
-                succeeded = sum(1 for r in results if not isinstance(r, BaseException))
-                failed_indices = [
-                    i for i, r in enumerate(results) if isinstance(r, BaseException)
-                ]
-
+            # Retry failed chapters sequentially (once)
+            if failed_indices:
+                logger.warning(
+                    f"Retrying {len(failed_indices)} failed chapters sequentially..."
+                )
                 for i in failed_indices:
-                    logger.error(
-                        f"Chapter task {i + 1} returned exception: "
-                        f"{type(results[i]).__name__}: {results[i]}"
-                    )
+                    try:
+                        await process_chapter_safe(i, chapters[i].id)
+                        succeeded += 1
+                    except BaseException as retry_err:
+                        logger.opt(exception=True).error(
+                            f"Chapter {i + 1} retry also failed: {retry_err}"
+                        )
 
-                # Retry failed chapters sequentially (once)
-                if failed_indices:
-                    logger.warning(
-                        f"Retrying {len(failed_indices)} failed chapters sequentially..."
-                    )
-                    for i in failed_indices:
-                        try:
-                            await process_chapter_safe(i, chapters[i].id)
-                            succeeded += 1
-                        except BaseException as retry_err:
-                            logger.opt(exception=True).error(
-                                f"Chapter {i + 1} retry also failed: {retry_err}"
-                            )
+            logger.info(
+                f"Parallel processing complete. "
+                f"{chapters_done_count}/{total_chapters} chapters processed, "
+                f"{total_descriptions} descriptions extracted."
+            )
 
-                logger.info(
-                    f"Parallel processing complete. "
-                    f"{chapters_done_count}/{total_chapters} chapters processed, "
-                    f"{total_descriptions} descriptions extracted."
-                )
-
-                # Update book progress to 100% (approximate)
-                book.parsing_progress = 100
-                chapters_processed = chapters_done_count
+            # Update book progress to 100% (approximate)
+            book.parsing_progress = 100
+            chapters_processed = chapters_done_count
 
         # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
         # Executed once after all chapters are extracted.
