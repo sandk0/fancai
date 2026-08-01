@@ -156,7 +156,7 @@ export async function fetchWithTokenRefresh(
             window.location.href = '/login';
           }
 
-          throw new Error('Authentication failed');
+          throw new Error('Authentication failed', { cause: refreshError });
         }
       }
 

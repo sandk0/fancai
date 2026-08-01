@@ -354,7 +354,7 @@ export const imagesAPI = {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      throw new Error(`Failed to download image: ${error}`);
+      throw new Error(`Failed to download image: ${error}`, { cause: error });
     }
   },
 
