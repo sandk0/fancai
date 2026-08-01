@@ -2,11 +2,158 @@
 
 По записи на этап или волну. Новые записи — сверху.
 
-> Ссылки вида `docs/prompts/…`, `docs/plans/…`, `docs/research/…`, `docs/_drafts/…`
-> указывают на **незакоммиченные** документы сессии аудита: в чистом checkout
-> этих путей нет, они существуют только в рабочем дереве. Перечень — во врезке
-> `docs/handoff.md`. `ci.yml` и `security.yml` ниже — это
-> `.github/workflows/ci.yml` и `.github/workflows/security.yml`.
+> Документы сессии аудита (`docs/prompts/…`, `docs/plans/…`, `docs/research/…`,
+> `docs/_drafts/…`) **закоммичены** 2026-08-01 — ссылки ниже рабочие в чистом клоне.
+> `ci.yml` и `security.yml` — это `.github/workflows/ci.yml` и
+> `.github/workflows/security.yml`.
+
+---
+
+## 2026-08-01 · Хвосты Волн 3–5, Волна 6 и документация после Modal
+
+**Статус:** исполнен `docs/prompts/2026-08-01-stack-modernization-followup.md`
+целиком, кроме пунктов B2 и B3 — по ответу 5 они вынесены отдельными задачами.
+Волна 7 планом не исполняется. Прод не тронут, ничего из `scripts/` не запускалось.
+
+### Решения пользователя на входе
+
+| # | Вопрос | Решение |
+| --- | --- | --- |
+| 1 | Чужие правки в `ai-pipeline.md` и `CHANGELOG.md` | **Закоммитить, затем править поверх** |
+| 2 | Политика линта | **Чинить все 31 находку** |
+| 3 | Волна 6 | **Целиком, со smoke ≈ $0,90** |
+| 4 | Десять документов сессий | **Закоммитить** |
+| 5 | B2 (бюджет бандла) и B3 (e2e `data-testid`) | **Отдельными задачами** |
+
+### A. Документация после удаления Modal
+
+`docs/architecture/ai-pipeline.md` описывал развилки по `USE_MODAL_PIPELINE`
+и `USE_BATCH_MODE`, удалённым Волной 2. Убраны обе mermaid-диаграммы с флагами,
+legacy image route и раздел «Modal»; вместо последнего — «Классификация ошибок»
+(`modal_error` → `provider_error`, миграция `c7d8e9f0a1b2`).
+
+**Попутно исправлен дрейф документа относительно кода:** в таблицу маршрутов
+добавлены `EntityDeduplicationService` и `PromptTranslator`, уточнено, что
+`NanoBananaGenerator` берёт `GeminiClient` напрямую, а consistency reduce
+безусловно ходит в OpenRouter; TTL LLM-кэша исправлен с 24 часов на **30 суток**
+и описан состав ключа, включающий имя модели.
+
+`CHANGELOG.md`: запись в `[Unreleased]` по Волнам 0–5 (Removed / Changed / Fixed /
+Security) и отдельно по Волне 6. Раздел v1.6 не тронут.
+
+### B1. `npm run lint` — 31 находка закрыта, гейт зелёный
+
+Правила react-hooks 7 демоутнуты до `warn` «для постепенного внедрения», но
+`--max-warnings 0` это обесценивал. Находки починены, а не отключены.
+
+| Правило | Было | Стало |
+| --- | ---: | ---: |
+| `preserve-manual-memoization` | 1 error | 0 |
+| `set-state-in-effect` | 19 warn | 0 |
+| `refs` | 6 warn | 0 |
+| `exhaustive-deps` | 5 warn | 0 |
+
+Схема правки везде одна: состояние, которое эффект только «досчитывал», выводится
+при рендере, а эффекты остаются для настоящих побочных действий. Где нужен сброс
+по смене props — правка состояния во время рендера (документированный паттерн
+React), а не эффект. `useIsMobile` переписан на `useSyncExternalStore`.
+
+**Четыре реальных бага, найденных по ходу и исправленных:**
+
+1. **CORS ломал каждый GET в dev.** `api/client.ts` слал `Pragma` и `Expires`,
+   которых нет в `allow_headers` бэкенда, — preflight отклонялся и любой GET
+   с `localhost:5173` падал с `net::ERR_FAILED`. В проде не проявлялось: Caddy
+   отдаёт SPA и API с одного origin. Это же объясняет находку «библиотека не
+   рефетчит список книг» из прошлого долга — книги вообще не приходили.
+2. **`MobilePanel` сбрасывал снап-точку на каждом рендере**: эффект зависел от
+   `snapPoints`, а все три вызывающих передают литерал массива.
+3. **`DescriptionDrawer` повторял побочные эффекты завершения задачи** при
+   переоткрытии drawer — добавлен `staleTime: Infinity` на статус задачи.
+4. **`useReaderPosition` держал два источника истины** (`isRestoringPosition` +
+   ref) — флаг выведен из одного состояния, лишний эффект удалён.
+
+### C. Волна 6 — переключение AI-моделей
+
+Порядок соблюдён: 6.1 и 6.6 до 6.2, 6.11 после всех правок.
+
+| # | Что сделано |
+| --- | --- |
+| 6.1 | `PRICING` дополнен `gemini-3.6-flash` (1.50/7.50/0.15) и `gemini-3.5-flash-lite` (0.30/2.50/0.03) |
+| 6.2 | `GEMINI_EXTRACTION_MODEL` → `gemini-3.6-flash` |
+| 6.3 | по решению 7 ключ `GEMINI_LITE_MODEL` **удалён**, а не переключён |
+| 6.4 | `OPENROUTER_IMAGE_MODEL` → `google/gemini-3.1-flash-image`; `DEFAULT_IMAGE_MODEL` теперь берётся из settings |
+| 6.5 | `FALLBACK_MODELS` → `google/gemini-3.6-flash` + `google/gemini-3.5-flash-lite` |
+| 6.6 | `GeminiConfig.model_*` читают `settings.GEMINI_EXTRACTION_MODEL` |
+| 6.7 | `temperature` убран из протокола, `GeminiClient` и всех вызовов; в `OpenRouterClient` стал `Optional` и не попадает в тело запроса |
+| 6.8 | `AI_PROVIDER="gemini"`, `GEMINI_BACKEND="vertex"` |
+| 6.9 | снят комментарий «ID подтвердить smoke-тестом A3.1» |
+| 6.10 | `test_config_gemini.py` переписан, добавлены тесты цены и цепочки отката |
+| 6.11 | ключей LLM-кэша в локальном Redis не было |
+
+**Smoke вживую через Vertex, `GCP_LOCATION=global`, локальные ADC:**
+
+- `models.get` резолвит `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.1-flash-image`;
+- `generate_structured` по реальной главе (20 772 символа): 3.6 — 11 сущностей /
+  6 описаний, 3.5 — 11 сущностей / 10 описаний, длина `visual_summary` сопоставима
+  (90 против 91 в среднем), галлюцинированных имён нет;
+- `generate_image` → PNG 1408×768, 1,9 МБ;
+- `llm_usage_log`: `gemini-3.6-flash` in=3698 out=2212 **$0,03664950** и
+  `gemini-3.1-flash-image` service=image **$0,067**;
+- откат через OpenRouter на `google/gemini-3.6-flash` отвечает.
+
+**Потрачено около $0,26** при оценке $0,90.
+
+**Оказалось не так, как ожидалось:**
+
+1. **`llm_usage_log` молча не писался с хоста.** `_log_usage_to_db` глушит ошибки
+   `warning`-ом, а SQLAlchemy async падал на `No module named 'greenlet'`: маркер
+   пакета не ставит его на macOS `arm64`. Лечится установкой `greenlet` в локальный
+   venv; попутно ожили 7 ранее падавших тестов.
+2. **В dev брокер Celery живёт в Redis DB 0, а не в DB 1.** План предупреждал беречь
+   DB 1 — локально всё наоборот: в DB 0 лежат `_kombu.binding.*`, а DB 1 пуста.
+   `FLUSHDB` на DB 0 снёс бы очередь. Удаление сделано по шаблонам ключей.
+3. **`docker-compose.dev.yml` не передаёт в контейнеры ни одной `GEMINI_*`/`GCP_*`
+   переменной**, поэтому smoke выполнен из host-venv по тем же классам кода.
+   После смены дефолта `AI_PROVIDER` на `gemini` dev-стек без ключей отключает
+   `ImagenService` — ожидаемо и видно в логах.
+
+### D. Пункты 4.7 / 4.8 — по-прежнему заблокированы
+
+`GET /repos/sandk0/fancai/actions/permissions` → `{"enabled": false}`. Последние
+прогоны — 2025-11-14, все упали. План требует прогона workflow, проверить нечем.
+Текущие пины: `gitleaks/gitleaks-action@v2`, `actions/checkout@v4` (14 мест),
+`actions/setup-node@v4` (6), `actions/setup-python@v5` (4),
+`actions/upload-artifact@v4` (8).
+
+### Результаты проверок
+
+| Критерий | Порог | Факт |
+| --- | --- | --- |
+| `pytest`, множество падающих ID | не больше 459 | **452, новых нет**, 7 ожило |
+| `npm test` | 566 passed / 1 skipped | **566 / 1** |
+| `tsc` | ≤ 22, все в `__tests__` | **22, все в `__tests__`** |
+| `npm run lint` при `--max-warnings 0` | — | **зелёный** (было 1 error + 30 warn) |
+| `pre-commit run --all-files` на чистом worktree | ≥ 9 из 10, без переписывания файлов | **10 из 10, ноль переписанных** |
+| `pip-audit` | пусто | **пусто** и на прямых пинах, и на разрешённых 350 |
+| `npm audit` фронта | без новых high | **6 (5 high)**, тот же состав |
+| Волна 6 | запись `gemini-3.6-flash` с ненулевой ценой + изображение | **выполнено** |
+| 25 чужих файлов | побайтово целы | **`md5sum -c` зелёный** |
+
+`pre-commit` впервые зелёный целиком: eslint перестал падать после B1, а хук
+`detect-secrets` сошёлся после коммита baseline в том виде, в каком его пишет
+сам хук (сдвинулись `line_number` двух записей из-за правки `config.py`).
+
+### Долг, вынесенный из сессии
+
+| Находка | Пояснение |
+| --- | --- |
+| B2 — бандл 2,18 МБ / 669 КБ против бюджета 800 / 500 КБ | отдельная задача (ответ 5); чанк `ReaderPage` 554 КБ |
+| B3 — e2e ждут 305 `data-testid`, в `src` их 40 | отдельная задача (ответ 5); форма логина не содержит ни одного |
+| Ссылка из `ai-pipeline.md` на `docs/superpowers/plans/2026-07-18-…` битая | файл остаётся незакоммиченным у владельца |
+| `docker-compose.dev.yml` не пробрасывает `GEMINI_*`/`GCP_*` | локальный стек не может работать на Gemini без правки compose |
+| `backend/.env.development` отслеживается в git | предсуществующая утечка, хеши в `.secrets.baseline` |
+| `backend/tests/conftest.py` делит async-engine между event-loop'ами | `another operation is in progress` при живой БД |
+| 387 pytest-errors `socket.gaierror` | хост не резолвит имя `postgres`; в CI и контейнере их нет |
 
 ---
 
