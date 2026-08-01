@@ -274,11 +274,17 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    # pyproject.toml и uv.lock лежат в backend/, а workflow стартует
+    # из корня репозитория.
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
-      - run: pip install -r requirements.txt
-      - run: pytest tests/services/test_feature_flag*.py tests/routers/test_feature_flags*.py --cov
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pytest tests/services/test_feature_flag*.py tests/routers/test_feature_flags*.py --cov
 ```
 
 ---
