@@ -1,5 +1,5 @@
 # FastAPI и веб-фреймворк
-fastapi==0.135.1  # Mar 2026: updated from 0.128.0
+fastapi==0.141.1  # Jul 2026: атомарно с prometheus-fastapi-instrumentator 8.1.0
 uvicorn[standard]==0.42.0
 gunicorn==25.1.0
 python-multipart==0.0.22
@@ -43,7 +43,7 @@ pydantic-settings==2.13.1  # Mar 2026: updated from 2.12.0
 loguru==0.7.3
 hawk-python-sdk[fastapi]==3.5.2
 prometheus-client==0.24.1
-prometheus-fastapi-instrumentator==7.1.0
+prometheus-fastapi-instrumentator==8.1.0  # 7.1.0 пинил starlette<1.0.0 и держал 5 CVE
 
 # Безопасность
 cryptography==46.0.5  # Feb 2026: CAST5/SEED/Blowfish removed
