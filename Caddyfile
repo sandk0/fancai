@@ -4,7 +4,7 @@
 
 fancai.ru {
     # IP whitelist — handle @blocked MUST be the first handle block
-    @blocked not remote_ip 77.246.110.17
+    @blocked not remote_ip 77.246.110.17 159.195.46.185 176.120.214.188 81.163.40.118
     handle @blocked {
         respond 403
     }

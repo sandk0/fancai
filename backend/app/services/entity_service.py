@@ -29,7 +29,6 @@ from app.core.database import get_database_session
 logger = logging.getLogger(__name__)
 
 
-
 @lru_cache(maxsize=1000)
 def _normalize_name(name: str) -> str:
     if not name:
@@ -659,12 +658,16 @@ class EntityService:
                 description = ms.get("description", description)
 
         return NetworkEdgeSchema(
-            source=UUID(data["source"])
-            if isinstance(data["source"], str)
-            else data["source"],
-            target=UUID(data["target"])
-            if isinstance(data["target"], str)
-            else data["target"],
+            source=(
+                UUID(data["source"])
+                if isinstance(data["source"], str)
+                else data["source"]
+            ),
+            target=(
+                UUID(data["target"])
+                if isinstance(data["target"], str)
+                else data["target"]
+            ),
             type=data["type"],
             weight=data.get("weight", 0),
             description=description,

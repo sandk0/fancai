@@ -1,74 +1,101 @@
-# Pre-commit hooks для BookReader AI
+# Pre-commit hooks для fancai
 # Установка: pip install pre-commit && pre-commit install
+#
+# Версии Python-инструментов синхронизированы с backend/requirements.txt.
+# При обновлении requirements.txt обновлять и rev здесь — иначе локальный хук
+# и CI начнут расходиться в правилах форматирования.
 
 repos:
   # Python форматирование - Black
   - repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 26.3.1
     hooks:
       - id: black
-        language_version: python3.11
-        files: ^backend/
-        args: [--config=backend/pyproject.toml]
+        language_version: python3.12
+        # Область — та же, что гейтит CI (`black --check app/`), иначе хук и CI
+        # начнут расходиться: tests/, alembic/ и scripts/ никогда не форматировались.
+        files: ^backend/app/
 
   # Python линтинг - Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.15.6
     hooks:
-      - id: ruff
-        files: ^backend/
+      - id: ruff-check
+        # Та же область, что у `ruff check app/` в ci.yml.
+        files: ^backend/app/
         args: [--fix, --exit-non-zero-on-fix]
 
   # Python type checking - mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.1
+    rev: v1.19.1
     hooks:
       - id: mypy
         name: mypy type checking
         files: ^backend/app/
-        args: [--config-file=backend/mypy.ini]
-        additional_dependencies:
-          - sqlalchemy[mypy]==2.0.23
-          - types-redis==4.6.0.10
-          - types-requests==2.31.0.10
-          - types-aiofiles==23.2.0.0
-          - fastapi==0.104.1
-          - pydantic==2.5.0
         pass_filenames: false
         entry: bash -c 'cd backend && mypy app/ --config-file=mypy.ini'
+        additional_dependencies:
+          - sqlalchemy[mypy]==2.0.48
+          - types-requests==2.32.4.20260107
+          - types-aiofiles==25.1.0.20251011
+          - fastapi==0.135.1
+          - pydantic==2.12.5
 
-  # Trailing whitespace
+  # Общие проверки файлов
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-        exclude: \.(md|txt)$
-      - id: end-of-file-fixer
       - id: check-yaml
         args: [--unsafe]  # для docker-compose.yml
       - id: check-added-large-files
         args: [--maxkb=1000]
       - id: check-merge-conflict
       - id: detect-private-key
+        # docs/_archive/.../CI_CD_SETUP.md содержит только PEM-заголовки
+        # в инструкции («... key content ...»), самого ключа там нет.
+        exclude: ^docs/_archive/
 
-  # TypeScript/JavaScript - ESLint + Prettier
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.54.0
+  # Хвостовые пробелы — гейт на staged-диффе, а не переписывание файлов.
+  # Штатные trailing-whitespace / end-of-file-fixer здесь неприменимы:
+  # в репозитории 92 отслеживаемых файла с унаследованным whitespace-долгом,
+  # и любой `pre-commit run --all-files` переписывал бы их скопом, включая
+  # чужие незакоммиченные правки. `git diff --cached --check` проверяет
+  # только добавляемые строки текущего коммита: новый долг не пройдёт,
+  # существующий не трогается. При пустом индексе гейт тривиально зелёный —
+  # это ожидаемо, его контракт «в этом коммите нет новых пробельных ошибок».
+  - repo: local
+    hooks:
+      - id: staged-whitespace
+        name: no new trailing whitespace in staged diff
+        entry: git diff --cached --check
+        language: system
+        pass_filenames: false
+
+  # TypeScript/JavaScript - ESLint
+  # Локальный хук вместо mirrors-eslint: flat config фронтенда тянет
+  # typescript-eslint, @eslint/js, eslint-plugin-react-hooks,
+  # eslint-plugin-react-refresh и globals, а parserOptions.project рассчитан
+  # на cwd=frontend. Изолированное окружение mirrors-eslint из корня не найдёт
+  # ни модули, ни tsconfig, а его additional_dependencies гарантированно
+  # разойдутся с frontend/package.json. Здесь вызывается тот же скрипт, что и
+  # в CI, поэтому расхождение правил невозможно по построению.
+  - repo: local
     hooks:
       - id: eslint
-        files: ^frontend/src/.*\.[jt]sx?$
-        types: [file]
-        additional_dependencies:
-          - eslint@8.54.0
-          - typescript@5.3.0
-          - '@typescript-eslint/parser@6.13.0'
-          - '@typescript-eslint/eslint-plugin@6.13.0'
-        args: [--fix]
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npm run --silent lint'
+        language: system
+        files: ^frontend/(src/.*\.[jt]sx?|eslint\.config\.js|package\.json)$
+        pass_filenames: false
 
   # Проверка секретов
   - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0
+    rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
-        exclude: (package-lock.json|.*\.lock|.*\.sum)$
+        exclude: (package-lock\.json|\.secrets\.baseline|.*\.lock|.*\.sum)$
+        # Без require_serial pre-commit запускает хук параллельными батчами,
+        # каждый из которых переписывает generated_at в общем baseline —
+        # они гоняются между собой и прогон никогда не сходится.
+        require_serial: true

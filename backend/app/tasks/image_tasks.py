@@ -11,9 +11,7 @@ import asyncio
 
 from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
-from app.models.chapter import Chapter
 from app.services.modal_client import is_modal_enabled, get_image_generator
-from app.services.push_notification_service import push_notification_service
 from app.tasks.common import run_async
 
 

@@ -403,7 +403,7 @@ class NERService:
                     # We're in asyncio.to_thread — use new event loop
                     import concurrent.futures
 
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                    with concurrent.futures.ThreadPoolExecutor():
                         custom_labels = asyncio.run(
                             settings_manager.get_setting(
                                 "ner", "labels", default=labels

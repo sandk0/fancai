@@ -83,10 +83,16 @@ class EntityRelationship(Base):
 
     # Relationships
     source: Mapped["Entity"] = relationship(
-        "Entity", foreign_keys=[source_id], back_populates="outgoing_relations", lazy="raise"
+        "Entity",
+        foreign_keys=[source_id],
+        back_populates="outgoing_relations",
+        lazy="raise",
     )
     target: Mapped["Entity"] = relationship(
-        "Entity", foreign_keys=[target_id], back_populates="incoming_relations", lazy="raise"
+        "Entity",
+        foreign_keys=[target_id],
+        back_populates="incoming_relations",
+        lazy="raise",
     )
 
     # Composite Index for fast lookup of "All friends of X"

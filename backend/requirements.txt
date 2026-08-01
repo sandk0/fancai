@@ -55,7 +55,7 @@ pytest==9.0.2
 pytest-asyncio==1.3.0
 pytest-cov==7.0.0
 aiosqlite==0.22.1
-hypothesis
+hypothesis==6.164.0
 
 # Форматирование и линтинг
 black==26.3.1
@@ -85,5 +85,5 @@ networkx==3.6.1
 # NER — GLiNER2 entity extraction (Phase 30)
 razdel==0.5.0
 
-# Modal — self-hosted AI pipeline
-modal>=0.73
+# Modal — self-hosted AI pipeline (пин до удаления кода в Волне 2)
+modal==1.5.3

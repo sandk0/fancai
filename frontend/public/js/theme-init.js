@@ -19,7 +19,10 @@
 
     // Set color-scheme for native elements (scrollbars, inputs, etc.)
     document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
-  } catch (e) {}
+  } catch {
+    // localStorage или DOM недоступны (приватный режим, ранний вызов) —
+    // тема остаётся дефолтной, инициализация не должна ронять страницу.
+  }
 
   // Activate preloaded font stylesheet when ready
   var fontLink = document.getElementById('font-preload');

@@ -119,6 +119,15 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@fancai.ru}
+      # Email — Yandex Cloud Postbox
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@fancai.ru}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-fancai}
+      - PASSWORD_RESET_BASE_URL=${PASSWORD_RESET_BASE_URL:-https://fancai.ru/reset-password}
+      - YANDEX_POSTBOX_ACCESS_KEY=${YANDEX_POSTBOX_ACCESS_KEY:-}
+      - YANDEX_POSTBOX_SECRET_KEY=${YANDEX_POSTBOX_SECRET_KEY:-}
+      - YANDEX_POSTBOX_ENDPOINT=${YANDEX_POSTBOX_ENDPOINT:-https://postbox.cloud.yandex.net}
+      - YANDEX_POSTBOX_REGION=${YANDEX_POSTBOX_REGION:-ru-central1}
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
       - METRICS_PASSWORD=${METRICS_PASSWORD:-}

@@ -20,8 +20,8 @@ permissions:
   security-events: write
 
 env:
-  PYTHON_VERSION: '3.11'
-  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
 
 jobs:
   dependency-scan-backend:
@@ -217,7 +217,7 @@ jobs:
           df -h
 
       - name: Run Trivy vulnerability scanner (backend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fancai-backend:test
           format: 'sarif'
@@ -245,7 +245,7 @@ jobs:
           category: 'docker-backend'
 
       - name: Run Trivy in table format
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fancai-backend:test
           format: 'table'
@@ -279,7 +279,7 @@ jobs:
           df -h
 
       - name: Run Trivy vulnerability scanner (frontend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fancai-frontend:test
           format: 'sarif'
@@ -307,7 +307,7 @@ jobs:
           category: 'docker-frontend'
 
       - name: Run Trivy in table format
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fancai-frontend:test
           format: 'table'
@@ -324,7 +324,7 @@ jobs:
 
       - name: Run TruffleHog (PR only)
         if: github.event_name == 'pull_request'
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.96.0
         with:
           path: ./
           base: ${{ github.event.pull_request.base.sha }}
@@ -333,7 +333,7 @@ jobs:
 
       - name: Run TruffleHog (Push events)
         if: github.event_name == 'push'
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.96.0
         continue-on-error: true  # May fail if base/head are identical
         with:
           path: ./
