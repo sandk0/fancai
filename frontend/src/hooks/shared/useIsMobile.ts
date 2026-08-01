@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /**
  * useIsMobile - Reactive mobile device detection via matchMedia
@@ -8,6 +8,9 @@ import { useState, useEffect } from 'react';
  *
  * Breakpoint: 768px (md) -- matches Tailwind md breakpoint.
  *
+ * Реализован через useSyncExternalStore: matchMedia — внешний источник,
+ * подписка и снимок разделены, синхронный setState в эффекте не нужен.
+ *
  * @returns true if viewport is below 768px
  *
  * @module hooks/shared/useIsMobile
@@ -15,23 +18,16 @@ import { useState, useEffect } from 'react';
 
 const MOBILE_BREAKPOINT = '(max-width: 767px)';
 
-export const useIsMobile = (): boolean => {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia(MOBILE_BREAKPOINT).matches;
-  });
-
-  useEffect(() => {
-    const mql = window.matchMedia(MOBILE_BREAKPOINT);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-
-    // Modern API
-    mql.addEventListener('change', handler);
-    // Sync initial value
-    setIsMobile(mql.matches);
-
-    return () => mql.removeEventListener('change', handler);
-  }, []);
-
-  return isMobile;
+const subscribe = (onStoreChange: () => void): (() => void) => {
+  const mql = window.matchMedia(MOBILE_BREAKPOINT);
+  mql.addEventListener('change', onStoreChange);
+  return () => mql.removeEventListener('change', onStoreChange);
 };
+
+const getSnapshot = (): boolean => window.matchMedia(MOBILE_BREAKPOINT).matches;
+
+// SSR/pre-hydration: считаем десктопом, как и прежний ленивый инициализатор
+const getServerSnapshot = (): boolean => false;
+
+export const useIsMobile = (): boolean =>
+  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

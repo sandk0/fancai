@@ -41,9 +41,13 @@ export const useNavigationLock = (options?: NavigationLockOptions): NavigationLo
   const maxLockDurationRef = useRef(options?.maxLockDuration ?? 2000);
   const onAutoRecoveryRef = useRef(options?.onAutoRecovery);
 
-  // Update refs when options change
-  maxLockDurationRef.current = options?.maxLockDuration ?? 2000;
-  onAutoRecoveryRef.current = options?.onAutoRecovery;
+  // Обновление refs после коммита: правка ref во время рендера ломает
+  // допущения React Compiler. Колбэки читают их только из обработчиков
+  // событий и таймеров, то есть заведомо после коммита.
+  useEffect(() => {
+    maxLockDurationRef.current = options?.maxLockDuration ?? 2000;
+    onAutoRecoveryRef.current = options?.onAutoRecovery;
+  });
 
   const lockRef = useRef(false);
   const lockTimeRef = useRef(0);

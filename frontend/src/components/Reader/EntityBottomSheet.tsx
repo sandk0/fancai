@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Drawer } from 'vaul';
 import { User, MapPin, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -35,11 +35,13 @@ export const EntityBottomSheet: React.FC<EntityBottomSheetProps> = ({
 
   const [activeSnap, setActiveSnap] = useState<number | string | null>(SNAP_POINTS[0]);
 
-  useEffect(() => {
-    if (isOpen) {
-      setActiveSnap(SNAP_POINTS[0]);
-    }
-  }, [isOpen]);
+  // Сброс снап-точки при открытии. Правка состояния во время рендера по смене
+  // props дешевле эффекта: React перезапускает рендер до коммита, без каскада.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setActiveSnap(SNAP_POINTS[0]);
+  }
 
   const handleOpenDrawer = useCallback(() => {
     if (entity) {

@@ -191,7 +191,7 @@ export const ParsingOverlay: React.FC<ParsingOverlayProps> = ({
       isMounted = false;
       if (intervalId) clearTimeout(intervalId);
     };
-  }, [bookId, onParsingComplete, isComplete, usePollingFallback]);
+  }, [bookId, onParsingComplete, isComplete, usePollingFallback, t]);
 
   // Handle retry parsing after error
   const handleRetryParsing = useCallback(async () => {

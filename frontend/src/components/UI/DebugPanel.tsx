@@ -85,13 +85,16 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
     }
   }, [logs, isOpen, isPaused]);
 
-  // Refresh CSS info when switching to CSS tab
-  useEffect(() => {
-    if (activeTab === 'css') {
-      const info = onRequestCSSInfo ? onRequestCSSInfo() : readTouchActionFromDOM();
-      setCssInfo(info);
-    }
-  }, [activeTab, onRequestCSSInfo]);
+  // Снимок CSS читается из DOM в момент переключения на вкладку, а не эффектом
+  const selectTab = useCallback(
+    (tab: TabId) => {
+      setActiveTab(tab);
+      if (tab === 'css') {
+        setCssInfo(onRequestCSSInfo ? onRequestCSSInfo() : readTouchActionFromDOM());
+      }
+    },
+    [onRequestCSSInfo]
+  );
 
   // Filtered logs for Touch tab
   const touchLogs = useMemo(() => logs.filter((log) => log.includes('[touch-diag]')), [logs]);
@@ -216,13 +219,13 @@ export function DebugPanel({ onRequestCSSInfo }: DebugPanelProps = {}) {
           >
             {/* Tab buttons */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <button onClick={() => setActiveTab('logs')} style={tabButtonStyle('logs')}>
+              <button onClick={() => selectTab('logs')} style={tabButtonStyle('logs')}>
                 Logs ({logs.length})
               </button>
-              <button onClick={() => setActiveTab('touch')} style={tabButtonStyle('touch')}>
+              <button onClick={() => selectTab('touch')} style={tabButtonStyle('touch')}>
                 Touch ({touchLogs.length})
               </button>
-              <button onClick={() => setActiveTab('css')} style={tabButtonStyle('css')}>
+              <button onClick={() => selectTab('css')} style={tabButtonStyle('css')}>
                 CSS
               </button>
             </div>

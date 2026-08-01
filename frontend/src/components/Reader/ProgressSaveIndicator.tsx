@@ -8,20 +8,16 @@ interface Props {
 
 export function ProgressSaveIndicator({ lastSaved, isSaving }: Props) {
   const { t } = useTranslation();
-  const [visible, setVisible] = useState(false);
+  // Скрытый маркер: значение lastSaved, для которого индикатор уже отработал.
+  // Видимость выводится при рендере, поэтому setState в теле эффекта не нужен.
+  const [dismissedFor, setDismissedFor] = useState<number | null>(null);
+  const visible = !!lastSaved && dismissedFor !== lastSaved;
 
   useEffect(() => {
-    if (lastSaved) {
-      setVisible(true);
-    }
-  }, [lastSaved]);
-
-  useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(() => setVisible(false), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
+    if (!visible || !lastSaved) return;
+    const timer = setTimeout(() => setDismissedFor(lastSaved), 2000);
+    return () => clearTimeout(timer);
+  }, [visible, lastSaved]);
 
   if (!visible && !isSaving) return null;
 

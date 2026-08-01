@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Drawer } from 'vaul';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/shared/useIsMobile';
@@ -35,16 +35,17 @@ export const MobilePanel: React.FC<MobilePanelProps> = ({
 }) => {
   const isMobile = useIsMobile();
 
-  const [activeSnap, setActiveSnap] = useState<number | string | null>(
-    defaultSnap ?? snapPoints[snapPoints.length - 1]
-  );
+  const defaultActiveSnap = defaultSnap ?? snapPoints[snapPoints.length - 1];
+  const [activeSnap, setActiveSnap] = useState<number | string | null>(defaultActiveSnap);
 
-  // Sync activeSnap when opening or when defaultSnap/snapPoints change
-  useEffect(() => {
-    if (isOpen) {
-      setActiveSnap(defaultSnap ?? snapPoints[snapPoints.length - 1]);
-    }
-  }, [isOpen, defaultSnap, snapPoints]);
+  // Сброс снап-точки при открытии панели. Прежний эффект зависел от snapPoints,
+  // а все вызывающие передают литерал массива — идентичность менялась каждый
+  // рендер, и снап сбрасывался поверх пользовательского перетаскивания.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setActiveSnap(defaultActiveSnap);
+  }
 
   if (!isMobile) {
     return <>{children}</>;

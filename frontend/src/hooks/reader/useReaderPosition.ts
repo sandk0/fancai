@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Rendition, EpubLocations } from '@/types/epub';
 import { booksAPI } from '@/api/books';
 import { logger } from '@/lib/logger';
@@ -35,28 +35,23 @@ export const useReaderPosition = ({
   skipNextRelocated,
   setInitialProgress,
 }: UseReaderPositionProps) => {
-  const [isRestoringPosition, setIsRestoringPosition] = useState(true);
   const [positionConflict, setPositionConflict] = useState<PositionConflict | null>(null);
-  
-  // Track restoration state per book
-  const restorationState = useRef<{ bookId: string; restored: boolean } | null>(null);
+
+  // Книга, для которой позиция уже восстановлена. Флаг восстановления выводится
+  // при рендере, поэтому синхронный setState в теле эффекта не нужен, а смена
+  // книги сама возвращает состояние в «восстанавливаем» без отдельного эффекта.
+  const [restoredBookId, setRestoredBookId] = useState<string | null>(null);
+  const isRestoringPosition = restoredBookId !== bookId;
 
   // Helper to check restoration status
-  const hasRestoredForCurrentBook = useCallback(() => {
-    return restorationState.current?.bookId === bookId && restorationState.current?.restored;
-  }, [bookId]);
+  const hasRestoredForCurrentBook = useCallback(
+    () => restoredBookId === bookId,
+    [restoredBookId, bookId]
+  );
 
   // Mark position as restored
   const markPositionRestored = useCallback(() => {
-    restorationState.current = { bookId: bookId, restored: true };
-  }, [bookId]);
-
-  // Reset restoration state when book changes
-  useEffect(() => {
-    if (restorationState.current && restorationState.current.bookId !== bookId) {
-      restorationState.current = null;
-      setIsRestoringPosition(true);
-    }
+    setRestoredBookId(bookId);
   }, [bookId]);
 
   // Main restoration effect
@@ -65,7 +60,6 @@ export const useReaderPosition = ({
 
     if (hasRestoredForCurrentBook()) {
       logger.debug('[useReaderPosition] ⏭️ Skipping restoration - already restored for book:', bookId);
-      setIsRestoringPosition(false);
       return;
     }
 
@@ -73,8 +67,6 @@ export const useReaderPosition = ({
     logger.debug('[useReaderPosition] 🚀 Starting position restoration for book:', bookId);
 
     const initializePosition = async () => {
-      if (isMounted) setIsRestoringPosition(true);
-
       try {
         const { progress: savedProgress } = await booksAPI.getReadingProgress(bookId);
 
@@ -140,7 +132,6 @@ export const useReaderPosition = ({
       } finally {
         if (isMounted) {
           markPositionRestored();
-          setIsRestoringPosition(false);
           logger.debug('[useReaderPosition] 🏁 Position restoration complete');
         }
       }
@@ -197,11 +188,10 @@ export const useReaderPosition = ({
 
       markPositionRestored();
       setPositionConflict(null);
-      setIsRestoringPosition(false);
     } catch (err) {
       logger.error('[useReaderPosition] Error resolving conflict:', err);
       setPositionConflict(null);
-      setIsRestoringPosition(false);
+      markPositionRestored();
     }
   }, [rendition, positionConflict, goToCFI, skipNextRelocated, setInitialProgress, locations, bookId, markPositionRestored]);
 

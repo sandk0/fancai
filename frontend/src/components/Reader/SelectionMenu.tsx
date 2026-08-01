@@ -75,8 +75,13 @@ export const SelectionMenu = memo(function SelectionMenu({
   const [selectedStyle, setSelectedStyle] = useState<BookmarkStyle>('none');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset submenu state when selection changes or edit mode activates
-  useEffect(() => {
+  // Сброс состояния подменю при смене выделения или входе в режим правки.
+  // Правка состояния во время рендера вместо эффекта: снимает каскадный проход
+  // и не требует тащить весь объект editMode в зависимости.
+  const resetKey = `${selection?.cfiRange ?? ''}|${editMode?.bookmarkId ?? ''}`;
+  const [lastResetKey, setLastResetKey] = useState<string | null>(null);
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey);
     if (editMode) {
       // Edit mode: pre-populate from existing bookmark
       setSubmenu('note');
@@ -91,7 +96,7 @@ export const SelectionMenu = memo(function SelectionMenu({
       setSelectedTextColor(null);
       setSelectedStyle('none');
     }
-  }, [selection?.cfiRange, editMode?.bookmarkId]);
+  }
 
   // Note: no auto-focus on textarea — on mobile it forces the keyboard open,
   // which is disruptive when the user just wants to pick a color/style without typing

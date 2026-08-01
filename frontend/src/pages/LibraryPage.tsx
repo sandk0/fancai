@@ -58,11 +58,6 @@ const LibraryPage: React.FC = () => {
     };
   }, []);
 
-  // Close sort dropdown when filters panel opens
-  useEffect(() => {
-    if (showFilters) setShowSortDropdown(false);
-  }, [showFilters]);
-
   // Debounce search
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -352,7 +347,12 @@ const LibraryPage: React.FC = () => {
               </AnimatePresence>
             </div>
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => {
+                const next = !showFilters;
+                setShowFilters(next);
+                // Панель фильтров и дропдаун сортировки не открываются одновременно
+                if (next) setShowSortDropdown(false);
+              }}
               className={cn(
                 'flex items-center gap-2 px-4 rounded-xl border-2 transition-colors text-sm h-[44px]',
                 showFilters || activeFiltersCount > 0

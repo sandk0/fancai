@@ -58,7 +58,9 @@ export function useReadingSession({
 }: UseReadingSessionOptions): UseReadingSessionReturn {
   const queryClient = useQueryClient();
   const userId = getCurrentUserId();
-  const [session, setSession] = useState<ReadingSession | null>(null);
+  // Сессия, полученная собственными мутациями. Итоговая session выводится ниже:
+  // уже открытая сессия читается прямо из кэша запроса, без копирования в state.
+  const [ownSession, setOwnSession] = useState<ReadingSession | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const lastUpdateRef = useRef<number>(0);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -75,12 +77,17 @@ export function useReadingSession({
   }, [currentPosition]);
 
   // Query for active session (check if there's an existing session)
+  // Гейт по ownSession вместо чтения ref во время рендера
   const { data: activeSession, isLoading: isLoadingActive } = useQuery({
     queryKey: sessionKeys.active(userId),
     queryFn: readingSessionsAPI.getActiveSession,
-    enabled: enabled && !hasStartedRef.current,
+    enabled: enabled && !ownSession,
     staleTime: 0, // Always refetch to prevent reading closed session from cache
   });
+
+  const adoptedSession =
+    activeSession && activeSession.book_id === bookId ? activeSession : null;
+  const session = ownSession ?? adoptedSession;
 
   // Mutation to start session
   const startMutation = useMutation({
@@ -95,7 +102,7 @@ export function useReadingSession({
     }) => readingSessionsAPI.startSession(bookId, position, undefined, force),
     onSuccess: (newSession) => {
       logger.debug('✅ [useReadingSession] Session started:', newSession.id);
-      setSession(newSession);
+      setOwnSession(newSession);
       sessionIdRef.current = newSession.id;
       hasStartedRef.current = true;
       queryClient.setQueryData(sessionKeys.active(userId), newSession);
@@ -136,7 +143,10 @@ export function useReadingSession({
   });
 
   const startMutationRef = useRef(startMutation);
-  startMutationRef.current = startMutation;
+  // Синхронизация ref после коммита: запись ref во время рендера запрещена
+  useEffect(() => {
+    startMutationRef.current = startMutation;
+  });
 
   // Mutation to update session position
   const updateMutation = useMutation({
@@ -145,7 +155,7 @@ export function useReadingSession({
     ...QUERY_RETRY_PRESETS.api, // Retry on network errors
     onSuccess: (updatedSession) => {
       logger.debug('✅ [useReadingSession] Position updated:', updatedSession.end_position);
-      setSession(updatedSession);
+      setOwnSession(updatedSession);
       queryClient.setQueryData(sessionKeys.detail(userId, updatedSession.id), updatedSession);
       lastUpdateRef.current = Date.now();
     },
@@ -191,7 +201,7 @@ export function useReadingSession({
         duration: endedSession.duration_minutes,
         pages_read: endedSession.pages_read,
       });
-      setSession(endedSession);
+      setOwnSession(endedSession);
       queryClient.setQueryData(sessionKeys.detail(userId, endedSession.id), endedSession);
       queryClient.setQueryData(sessionKeys.active(userId), null);
       onSessionEnd?.(endedSession);
@@ -297,10 +307,9 @@ export function useReadingSession({
     logger.debug('🚀 [useReadingSession] Initializing session for book:', bookId);
 
     // Check if there's an active session
-    if (activeSession && activeSession.book_id === bookId) {
-      logger.debug('✅ [useReadingSession] Continuing existing session:', activeSession.id);
-      setSession(activeSession);
-      sessionIdRef.current = activeSession.id;
+    if (adoptedSession) {
+      logger.debug('✅ [useReadingSession] Continuing existing session:', adoptedSession.id);
+      sessionIdRef.current = adoptedSession.id;
       hasStartedRef.current = true;
     } else if (!isLoadingActive) {
       // Start new session only if:
@@ -312,7 +321,7 @@ export function useReadingSession({
         startMutationRef.current.mutate({ bookId, position: positionRef.current });
       }
     }
-  }, [enabled, bookId, activeSession, isLoadingActive]);
+  }, [enabled, bookId, adoptedSession, isLoadingActive]);
 
   /**
    * Effect 2: Periodic position updates

@@ -164,32 +164,35 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   });
 
   // Debounce isLoadingChapter — only show extraction indicator after 2s
-  // (fast cache/API fetches won't flash the "AI analyzing" UI)
-  const [showExtractionIndicator, setShowExtractionIndicator] = useState(false);
+  // (fast cache/API fetches won't flash the "AI analyzing" UI).
+  // Флаг «загрузка затянулась» держится отдельно, а сам индикатор выводится
+  // при рендере — иначе setState попадал бы в тело эффекта.
+  const [slowChapterLoad, setSlowChapterLoad] = useState(false);
+  const showExtractionIndicator = isLoadingChapter && slowChapterLoad;
   useEffect(() => {
-    if (!isLoadingChapter) {
-      setShowExtractionIndicator(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowExtractionIndicator(true), 2000);
-    return () => clearTimeout(timer);
+    if (!isLoadingChapter) return;
+    const timer = setTimeout(() => setSlowChapterLoad(true), 2000);
+    return () => {
+      clearTimeout(timer);
+      setSlowChapterLoad(false);
+    };
   }, [isLoadingChapter]);
 
-  // Extraction retry state
-  const [extractionRetryCount, setExtractionRetryCount] = useState(0);
+  // Extraction retry state. Счётчик хранится вместе с номером главы, поэтому
+  // сбрасывается сменой главы сам — без эффекта.
   const MAX_EXTRACTION_RETRIES = 3;
+  const [retryState, setRetryState] = useState<{ chapter: number; count: number }>({
+    chapter: currentChapter,
+    count: 0,
+  });
+  const extractionRetryCount = retryState.chapter === currentChapter ? retryState.count : 0;
 
   const handleExtractionRetry = useCallback(() => {
     if (extractionRetryCount < MAX_EXTRACTION_RETRIES) {
-      setExtractionRetryCount((prev) => prev + 1);
+      setRetryState({ chapter: currentChapter, count: extractionRetryCount + 1 });
       refetchDescriptions();
     }
-  }, [extractionRetryCount, refetchDescriptions]);
-
-  // Reset retry count on chapter change
-  useEffect(() => {
-    setExtractionRetryCount(0);
-  }, [currentChapter]);
+  }, [extractionRetryCount, currentChapter, refetchDescriptions]);
 
   // max_chapter_reached приходит с сервера (монотонно возрастающее значение)
   // Дополнительно берём max с currentChapter на случай задержки синхронизации
@@ -275,10 +278,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     setPopupEntity(entity);
   }, []);
 
-  const entityList = useMemo(() => {
-    if (!entityNetwork?.entities) return [];
-    return Object.values(entityNetwork.entities);
-  }, [entityNetwork?.entities]);
+  const entities = entityNetwork?.entities;
+  const entityList = useMemo(() => (entities ? Object.values(entities) : []), [entities]);
 
   const handleCenterTap = useCallback(
     async (x: number, y: number): Promise<boolean> => {
@@ -315,31 +316,27 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
 
   // Auto-hide UI: immersive mode (header hidden by default)
   const autoHide = useAutoHideUI({ initialVisible: false });
+  const { showStandaloneHint, dismissStandaloneHint, hideUI } = autoHide;
 
-  // Standalone hint: delayed show + auto-dismiss
-  const [hintVisible, setHintVisible] = useState(false);
+  // Standalone hint: delayed show + auto-dismiss.
+  // Видимость выводится при рендере, таймеры только поднимают флаг.
+  const hintEligible = showStandaloneHint && renditionReady && !isRestoringPosition;
+  const [hintShown, setHintShown] = useState(false);
+  const hintVisible = hintEligible && hintShown;
   useEffect(() => {
-    if (!autoHide.showStandaloneHint || !renditionReady || isRestoringPosition) {
-      setHintVisible(false);
-      return;
-    }
+    if (!hintEligible) return;
     // Fade in after 1.5s
-    const showTimer = setTimeout(() => setHintVisible(true), 1500);
+    const showTimer = setTimeout(() => setHintShown(true), 1500);
     // Auto-dismiss after 4s (total 5.5s from renditionReady)
     const hideTimer = setTimeout(() => {
-      autoHide.dismissStandaloneHint();
-      setHintVisible(false);
+      dismissStandaloneHint();
+      setHintShown(false);
     }, 5500);
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
     };
-  }, [
-    autoHide.showStandaloneHint,
-    renditionReady,
-    isRestoringPosition,
-    autoHide.dismissStandaloneHint,
-  ]);
+  }, [hintEligible, dismissStandaloneHint]);
 
   // Compute isPanelOpen for gesture blocking
   const isPanelOpen =
@@ -468,7 +465,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const handleNavigateToCfi = useCallback(
     async (cfi: string, bookmarkId?: string) => {
       if (!rendition) return;
-      autoHide.hideUI();
+      hideUI();
       try {
         // Convert range CFI to point CFI to avoid epub.js IndexSizeError
         // on same-section navigation (locationOf() throws on range CFIs)
@@ -485,7 +482,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         logger.error('[EpubReader] Failed to navigate to CFI:', err);
       }
     },
-    [rendition, flashAnnotation]
+    [rendition, flashAnnotation, hideUI]
   );
 
   const handleUpdateBookmarkNote = useCallback(
@@ -658,7 +655,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   const handleTocChapterClick = useCallback(
     async (href: string) => {
       if (!rendition) return;
-      autoHide.hideUI();
+      hideUI();
       try {
         await rendition.display(href);
         setCurrentHref(href);
@@ -666,7 +663,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         logger.error(err);
       }
     },
-    [rendition, setCurrentHref]
+    [rendition, setCurrentHref, hideUI]
   );
 
   const handleCopy = useCallback(async () => {
@@ -823,8 +820,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
             transition={{ duration: 0.3 }}
             className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center"
             onClick={() => {
-              autoHide.dismissStandaloneHint();
-              setHintVisible(false);
+              dismissStandaloneHint();
+              setHintShown(false);
             }}
           >
             <div className="rounded-xl bg-black/60 px-6 py-4 text-center text-white shadow-lg">

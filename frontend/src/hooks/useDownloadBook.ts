@@ -13,7 +13,7 @@
  * @module hooks/useDownloadBook
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   downloadManager,
@@ -69,27 +69,27 @@ export function useDownloadBook(bookId: string) {
 
   // Local state for download progress
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
-  const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(
+    () => !!userId && !!bookId && downloadManager.isDownloading(userId, bookId)
+  )
   const [error, setError] = useState<string | null>(null)
 
-  // Sync with DB status on mount and changes
-  useEffect(() => {
-    if (offlineBook?.status === 'downloading') {
-      setIsDownloading(true)
-    } else if (offlineBook?.status === 'error') {
+  // Пересинхронизация с внешними источниками — статусом в IndexedDB и менеджером
+  // загрузок — при смене книги, пользователя или статуса. Правка состояния во
+  // время рендера вместо эффекта: без каскадного прохода и без синхронного
+  // setState в теле useEffect. Флаг 'downloading' из БД уже учтён ниже через
+  // isDownloadingFromDB, поэтому здесь дублировать его не нужно.
+  const syncKey = `${userId}|${bookId}|${offlineBook?.status ?? ''}`
+  const [lastSyncKey, setLastSyncKey] = useState(syncKey)
+  if (syncKey !== lastSyncKey) {
+    setLastSyncKey(syncKey)
+    if (offlineBook?.status === 'error') {
       setError('Download failed. Please try again.')
     }
-  }, [offlineBook?.status])
-
-  // Check if download is in progress via manager
-  useEffect(() => {
-    if (userId && bookId) {
-      const isActive = downloadManager.isDownloading(userId, bookId)
-      if (isActive) {
-        setIsDownloading(true)
-      }
+    if (userId && bookId && downloadManager.isDownloading(userId, bookId)) {
+      setIsDownloading(true)
     }
-  }, [userId, bookId])
+  }
 
   /**
    * Start downloading the book.

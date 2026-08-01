@@ -20,11 +20,21 @@ export const useChapterData = ({
 }: UseChapterDataProps) => {
   const [descriptions, setDescriptions] = useState<Description[]>([]);
   const [images, setImages] = useState<GeneratedImage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [settled, setSettled] = useState<{ key: string; error: Error | null } | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
   const bgAbortControllerRef = useRef<AbortController | null>(null);
+
+  // Ключ запроса. Пока завершённый ключ не совпал с текущим, данные грузятся.
+  // isLoading и error выводятся при рендере, поэтому эффект не вызывает
+  // setState синхронно в своём теле.
+  const requestKey =
+    enabled && bookId && userId && chapter > 0
+      ? `${userId}|${bookId}|${chapter}|${reloadNonce}`
+      : null;
+  const isSettled = requestKey !== null && settled?.key === requestKey;
+  const isLoading = requestKey !== null && !isSettled;
+  const error = isSettled ? settled.error : null;
 
   const revalidateInBackground = useCallback(
     async (currentBookId: string, currentChapter: number, cachedDescriptions: Description[]) => {
@@ -89,75 +99,73 @@ export const useChapterData = ({
     [userId]
   );
 
-  const loadData = useCallback(async () => {
-    if (!bookId || !userId || chapter <= 0 || !enabled) return;
-
-    // Cancel previous request
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      logger.debug(`[useChapterData] Loading chapter ${chapter}`);
-
-      // 1. Check Cache
-      const cachedData = await chapterCache.get(userId, bookId, chapter);
-      if (signal.aborted) return;
-
-      if (cachedData && cachedData.descriptions.length > 0) {
-        logger.debug(`[useChapterData] Cache hit for chapter ${chapter}`);
-        setDescriptions(cachedData.descriptions);
-        setImages(cachedData.images);
-        setIsLoading(false);
-        // Stale-while-revalidate: serve cached, update in background
-        revalidateInBackground(bookId, chapter, cachedData.descriptions);
-        return;
-      }
-
-      // 2. Fetch from API
-      const descriptionsResponse = await booksAPI.getChapterDescriptions(
-        bookId,
-        chapter,
-        false,
-        signal
-      );
-      if (signal.aborted) return;
-
-      const loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
-
-      const imagesResponse = await imagesAPI.getBookImages(bookId, chapter, 0, 50, signal);
-      if (signal.aborted) return;
-
-      const loadedImages = imagesResponse.images;
-
-      // 3. Update Cache
-      await chapterCache.set(userId, bookId, chapter, loadedDescriptions, loadedImages);
-
-      setDescriptions(loadedDescriptions);
-      setImages(loadedImages);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      logger.error(`[useChapterData] Error loading chapter ${chapter}:`, err);
-      setDescriptions([]);
-      setImages([]);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      if (!signal.aborted) {
-        setIsLoading(false);
-      }
-    }
-  }, [bookId, chapter, userId, enabled, revalidateInBackground]);
-
   useEffect(() => {
-    loadData();
+    if (!requestKey) return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const load = async () => {
+      try {
+        logger.debug(`[useChapterData] Loading chapter ${chapter}`);
+
+        // 1. Check Cache
+        const cachedData = await chapterCache.get(userId, bookId, chapter);
+        if (signal.aborted) return;
+
+        if (cachedData && cachedData.descriptions.length > 0) {
+          logger.debug(`[useChapterData] Cache hit for chapter ${chapter}`);
+          setDescriptions(cachedData.descriptions);
+          setImages(cachedData.images);
+          setSettled({ key: requestKey, error: null });
+          // Stale-while-revalidate: serve cached, update in background
+          revalidateInBackground(bookId, chapter, cachedData.descriptions);
+          return;
+        }
+
+        // 2. Fetch from API
+        const descriptionsResponse = await booksAPI.getChapterDescriptions(
+          bookId,
+          chapter,
+          false,
+          signal
+        );
+        if (signal.aborted) return;
+
+        const loadedDescriptions = descriptionsResponse.nlp_analysis.descriptions || [];
+
+        const imagesResponse = await imagesAPI.getBookImages(bookId, chapter, 0, 50, signal);
+        if (signal.aborted) return;
+
+        const loadedImages = imagesResponse.images;
+
+        // 3. Update Cache
+        await chapterCache.set(userId, bookId, chapter, loadedDescriptions, loadedImages);
+
+        setDescriptions(loadedDescriptions);
+        setImages(loadedImages);
+        setSettled({ key: requestKey, error: null });
+      } catch (err: unknown) {
+        if (signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
+        logger.error(`[useChapterData] Error loading chapter ${chapter}:`, err);
+        setDescriptions([]);
+        setImages([]);
+        setSettled({
+          key: requestKey,
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      }
+    };
+
+    void load();
 
     return () => {
-      abortControllerRef.current?.abort();
+      controller.abort();
       bgAbortControllerRef.current?.abort();
     };
-  }, [loadData]);
+  }, [requestKey, bookId, chapter, userId, revalidateInBackground]);
 
-  return { descriptions, images, isLoading, error, refetch: loadData };
+  const refetch = useCallback(() => setReloadNonce((n) => n + 1), []);
+
+  return { descriptions, images, isLoading, error, refetch };
 };

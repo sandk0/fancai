@@ -39,8 +39,9 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
-  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
-  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  // Результат авторизованной загрузки: пара «исходный URL → blob-URL».
+  // Отображаемый URL и флаг загрузки выводятся при рендере, а не эффектом.
+  const [resolved, setResolved] = useState<{ source: string; url: string } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const blobUrlRef = useRef<string | null>(null);
   const { t } = useTranslation();
@@ -48,15 +49,15 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
   useFocusTrap(isOpen, modalRef);
 
+  const isInlineUrl =
+    !!imageUrl && (imageUrl.startsWith('blob:') || imageUrl.startsWith('data:'));
+  const isResolved = resolved?.source === imageUrl;
+  const currentImageUrl = isResolved ? resolved.url : imageUrl;
+  const isLoadingImage = !!imageUrl && isOpen && !isInlineUrl && !isResolved;
+
   useEffect(() => {
-    if (!imageUrl || !isOpen) return;
+    if (!imageUrl || !isOpen || isInlineUrl || isResolved) return;
 
-    if (imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
-      setCurrentImageUrl(imageUrl);
-      return;
-    }
-
-    setIsLoadingImage(true);
     let cancelled = false;
 
     fetchImageWithAuth(imageUrl).then((blobUrl) => {
@@ -72,17 +73,14 @@ export const ImageModal: React.FC<ImageModalProps> = ({
           URL.revokeObjectURL(blobUrlRef.current);
         }
         blobUrlRef.current = blobUrl;
-        setCurrentImageUrl(blobUrl);
-      } else {
-        setCurrentImageUrl(imageUrl);
       }
-      setIsLoadingImage(false);
+      setResolved({ source: imageUrl, url: blobUrl || imageUrl });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [imageUrl, isOpen]);
+  }, [imageUrl, isOpen, isInlineUrl, isResolved]);
 
   useEffect(() => {
     return () => {
@@ -132,7 +130,8 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         params: { style_prompt: customPrompt || undefined },
       });
 
-      setCurrentImageUrl(result.image_url);
+      // Оптимистичный показ нового URL до того, как родитель обновит проп
+      setResolved({ source: imageUrl, url: result.image_url });
       setShowRegenerateOptions(false);
       setCustomPrompt('');
 
@@ -151,10 +150,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({
       setIsRegenerating(false);
     }
   };
-
-  React.useEffect(() => {
-    setCurrentImageUrl(imageUrl);
-  }, [imageUrl]);
 
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

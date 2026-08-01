@@ -53,18 +53,27 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
   );
 
   // --- Async generation state ---
+  // taskId ставит обработчик клика; genStatus/genError выводятся при рендере из
+  // статуса задачи, поэтому синхронный setState в теле эффекта не нужен.
   const [taskId, setTaskId] = useState<string | null>(null);
-  const [genStatus, setGenStatus] = useState<'idle' | 'generating' | 'error'>('idle');
-  const [genError, setGenError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Reset generation state on description change
-  useEffect(() => {
+  const { reset: resetRegenerate } = regenerateMutation;
+
+  // Сброс состояния генерации при смене описания
+  const [lastDescriptionId, setLastDescriptionId] = useState(description?.id);
+  if (description?.id !== lastDescriptionId) {
+    setLastDescriptionId(description?.id);
     setTaskId(null);
-    setGenStatus('idle');
-    setGenError(null);
-    regenerateMutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [description?.id]);
+    setIsSubmitting(false);
+    setSubmitError(null);
+  }
+
+  // Мутация — внешняя система, её сброс остаётся эффектом
+  useEffect(() => {
+    resetRegenerate();
+  }, [description?.id, resetRegenerate]);
 
   // TQ polling query (pattern from useImageModal)
   const POLLING_INTERVAL = 3000;
@@ -79,16 +88,33 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
     },
     refetchOnWindowFocus: false,
     retry: 2,
+    // Терминальный статус не меняется: без этого повторное открытие drawer
+    // рефетчило бы задачу и повторяло побочные эффекты завершения.
+    staleTime: Infinity,
   });
 
-  // React to polling completion
+  // Производные состояния генерации — считаются при рендере, без каскада
+  const taskTerminal =
+    taskStatus?.status === 'SUCCESS' || taskStatus?.status === 'FAILURE';
+  const taskError =
+    !isSubmitting && taskStatus?.status === 'FAILURE'
+      ? taskStatus.result?.error_message ||
+        taskStatus.message ||
+        t('reader.description_drawer.generation_failed')
+      : null;
+  const genError = submitError ?? taskError;
+  const genStatus: 'idle' | 'generating' | 'error' = genError
+    ? 'error'
+    : isSubmitting || (!!taskId && !taskTerminal)
+      ? 'generating'
+      : 'idle';
+
+  // Побочные эффекты завершения задачи: инвалидация кэшей, запись в imageCache
+  // и уведомление об ошибке. Состояние здесь не трогается.
   useEffect(() => {
     if (!taskStatus || !taskId) return;
 
     if (taskStatus.status === 'SUCCESS' && taskStatus.result?.success) {
-      setGenStatus('idle');
-      setTaskId(null);
-      // Invalidate TQ cache so useImageForDescription refetches
       const userId = getCurrentUserId();
       queryClient.invalidateQueries({
         queryKey: imageKeys.byDescription(userId, description?.id ?? ''),
@@ -102,26 +128,28 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
         imageCache.set(userId, description.id, taskStatus.result.image_url, bookId).catch(() => {});
       }
     } else if (taskStatus.status === 'FAILURE') {
-      const errorMessage =
-        taskStatus.result?.error_message ||
-        taskStatus.message ||
-        t('reader.description_drawer.generation_failed');
-      setGenError(errorMessage);
-      setGenStatus('error');
-      setTaskId(null);
       notify.error(
         t('reader.description_drawer.generation_error_title', 'Generation error'),
-        errorMessage
+        taskStatus.result?.error_message ||
+          taskStatus.message ||
+          t('reader.description_drawer.generation_failed')
       );
     }
-  }, [taskStatus, taskId, description?.id, bookId, queryClient, t, description]);
+  }, [taskStatus, taskId, bookId, queryClient, t, description]);
 
   const [activeSnap, setActiveSnap] = useState<number | string | null>(SNAP_POINTS[0]);
 
+  // Сброс снап-точки при открытии
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setActiveSnap(SNAP_POINTS[0]);
+  }
+
   const handleGenerate = useCallback(async () => {
     if (!description) return;
-    setGenStatus('generating');
-    setGenError(null);
+    setSubmitError(null);
+    setIsSubmitting(true);
     try {
       const result = await imagesAPI.generateAsync(description.id, {});
       setTaskId(result.task_id);
@@ -141,25 +169,18 @@ export const DescriptionDrawer: React.FC<DescriptionDrawerProps> = ({
         queryClient.invalidateQueries({
           queryKey: imageKeys.byDescription(userId, description.id),
         });
-        setGenStatus('idle');
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        setGenError(errorMessage);
-        setGenStatus('error');
+        setSubmitError(errorMessage);
         notify.error(
           t('reader.description_drawer.generation_error_title', 'Generation error'),
           errorMessage
         );
       }
+    } finally {
+      setIsSubmitting(false);
     }
   }, [description, queryClient, t]);
-
-  // Reset snap point when opening
-  useEffect(() => {
-    if (isOpen) {
-      setActiveSnap(SNAP_POINTS[0]);
-    }
-  }, [isOpen]);
 
   if (!description) return null;
 
