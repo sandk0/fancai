@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // ES2022.Error добавлен точечно ради ErrorOptions: eslint 10 включил
+    // правило preserve-caught-error, требующее прокидывать { cause } при
+    // перевыбросе. Сам target остаётся ES2020 — поднимается только тип.
+    "lib": ["ES2020", "ES2022.Error", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 

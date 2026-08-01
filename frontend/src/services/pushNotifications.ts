@@ -260,7 +260,7 @@ class PushNotificationManager {
       return outputArray;
     } catch (e) {
       logger.error('[Push] Invalid VAPID key format:', e);
-      throw new Error('Invalid VAPID public key format');
+      throw new Error('Invalid VAPID public key format', { cause: e });
     }
   }
 
