@@ -18,11 +18,16 @@
 
 ### Changed
 
-- **Модернизация документации, проход v2** (2026-06-13): AI-пайплайн зафиксирован «как есть»
-  (OpenRouter — единственный активный путь; `google-genai` в requirements = мёртвый код
-  незавершённого Gemini-Direct плана); test-счётчики выровнены (76 backend / 38 frontend
-  unit / 8 e2e); мониторинг-стек актуализирован (Netdata/VictoriaMetrics/Uptime-Kuma, не
-  Prometheus/Grafana/Loki); навигатор `docs/README.md` перестроен.
+- **Production/code/documentation audit** (2026-07-18): progress state reconciled with
+  deployed commit `a1f89900`; Gemini/Vertex architecture documented; CI disabled state,
+  missing Celery `heavy`/`light` consumers with 7212-message backlog, mixed provider
+  routing, Workbox precache failure, Netdata data-path failure and dependency/test debt
+  recorded. Added executable Production Reliability Baseline plan.
+
+- **Модернизация документации, проход v2** (2026-06-13): зафиксировала фактический на тот
+  момент OpenRouter pipeline и monitoring topology. AI-раздел этого snapshot superseded
+  2026-07-18 после Gemini/Vertex cutover; архивная ценность документационного прохода
+  сохраняется.
 - (v1, 2026-04-30) Документация под актуальный стек (Python 3.12, FastAPI 0.135.1, PG17,
   Vite 8, Tailwind 4, OpenRouter — gemini-2.5-flash + flux.2-klein-4b); README/-ru/CONTRIBUTING
   переписаны, Entity Wiki поднят как первая фича.
@@ -33,17 +38,45 @@
   recon-отчёт, план, inventory, runbook (RTO ≤ 4ч). Страховка; миграция не исполнялась.
 - `docs/architecture/` — `ai-pipeline.md` (каноническое описание AI) + `overview.md` (обзор системы).
 
-### Deferred
-
-- Прямая интеграция Gemini API (Gemini Direct, план `docs/plans/2026-05-03-…`) — оценена и
-  **отложена**; пайплайн остаётся на OpenRouter.
-
 ### Archived
 
 - **Проход v2** (2026-06-13): ~133 исторических документа 2025 года из nested Diataxis-секций
   (`guides/`, `reference/`, `explanations/`, `development/`, `ru/`) + 11 аспирационных
   infra-доков октября 2025 → `docs/_archive/`.
 - (v1, 2026-04-30) 21 документ октябрь–ноябрь 2025 + три аудита марта 2026.
+
+---
+
+## [v1.6] Gemini Direct + Vertex AI — 2026-06-16
+
+Прямой `google-genai` provider добавлен и включён в production через Vertex AI global.
+Работа выполнена вне формальных GSD-фаз после документационного snapshot 2026-06-13.
+
+### Added
+
+- `AIProvider` protocol и factory `AI_PROVIDER=gemini|openrouter`
+- Async `GeminiClient` для text, structured output и image generation
+- Backend modes `GEMINI_BACKEND=developer|vertex`
+- Vertex ADC config: `GCP_PROJECT`, `GCP_LOCATION`, `GOOGLE_APPLICATION_CREDENTIALS`
+- Gemini pricing/cost attribution в `llm_usage_log`
+- Production models `gemini-3.5-flash` и `gemini-3.1-flash-image`
+
+### Changed
+
+- Production env переключён на `AI_PROVIDER=gemini`, `GEMINI_BACKEND=vertex`,
+  `GCP_LOCATION=global`
+- Extraction и factory-based synthesis переведены на Gemini Direct
+- Image branch через `NanoBananaGenerator` переведена на Gemini image model
+
+### Known gaps
+
+- `ConsistencyManager` при live `USE_MODAL_PIPELINE=false` напрямую использует OpenRouter
+  для reduce и обходит provider factory
+- Image generator напрямую получает Gemini client; `AI_PROVIDER=openrouter` не является
+  полным text+image rollback
+- Legacy Modal code/credentials сохранены, но production flags `USE_MODAL_PIPELINE` и
+  `USE_BATCH_MODE` выключены
+- После cutover не зафиксирован свежий full EPUB end-to-end canary
 
 ---
 
