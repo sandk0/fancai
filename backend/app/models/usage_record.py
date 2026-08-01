@@ -1,4 +1,4 @@
-"""Учёт затрат на GPU-инференс Modal."""
+"""Учёт затрат на инференс LLM и генерацию изображений."""
 
 from datetime import datetime
 from typing import Optional
@@ -19,7 +19,7 @@ class UsageRecord(Base):
     chapter_idx: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     provider: Mapped[str] = mapped_column(
         String(50), nullable=False
-    )  # modal_llm, modal_image, openrouter
+    )  # gemini, openrouter, imagen
     operation: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # extract, reduce, generate_image

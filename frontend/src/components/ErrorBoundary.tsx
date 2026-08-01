@@ -110,7 +110,9 @@ class ErrorBoundary extends Component<Props, State> {
     const hawkInstance = getHawk();
     if (hawkInstance) {
       hawkInstance.send(error, {
-        componentStack: errorInfo.componentStack ?? undefined,
+        // @hawk.so/javascript 3.3.5 сузил тип контекста до
+        // JsonNode = string | number | boolean | Json — ни null, ни undefined.
+        componentStack: errorInfo.componentStack ?? '',
         level,
         url: window.location.href,
       });
