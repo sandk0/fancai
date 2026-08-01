@@ -186,6 +186,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        VCS_REF: ${VCS_REF:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        IMAGE_VERSION: ${IMAGE_VERSION:-unknown}
     container_name: fancai_beat_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-fancai_dev}

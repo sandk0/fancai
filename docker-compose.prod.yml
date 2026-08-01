@@ -240,6 +240,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+      args:
+        - VCS_REF=${VCS_REF:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
+        - IMAGE_VERSION=${IMAGE_VERSION:-unknown}
     container_name: fancai_beat
     command: >
       celery -A app.core.celery_app beat --loglevel=${LOG_LEVEL:-info} --schedule=/tmp/celerybeat-schedule --pidfile=/tmp/celerybeat.pid
