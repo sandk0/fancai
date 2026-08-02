@@ -100,7 +100,10 @@
    (`stubbed`, `failing`, `merge_failure`); каждый проверен мутацией — откат
    соответствующей правки красит именно его. Общая проверка: ни одно
    предупреждение `book_tasks` не содержит `greenlet_spawn`,
-   `PendingRollbackError` или `current transaction is aborted`.
+   `PendingRollbackError` или `current transaction is aborted`. Подмены живут
+   в контекст-менеджере и снимаются на выходе из режима, иначе они текут
+   между режимами в одном процессе; сторож — строка `auto-merge tripped`,
+   обязанная быть `True` ровно в `merge_failure`.
 
    **Что осталось долгом.** Сам приём — «перечитать книгу» и «снять скаляры» —
    лечит симптом. Правильно убрать `rollback()` из проглатываемых фаз

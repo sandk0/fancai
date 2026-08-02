@@ -21,8 +21,10 @@ LLM-дедуп, synthesis, master references), заглушены. Провер�
 """
 
 import asyncio
+import contextlib
 import sys
 import uuid
+from unittest.mock import patch
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -116,8 +118,36 @@ class _NoMerges:
     merge_groups: list = []
 
 
-def _stub_paid_phases() -> None:
-    """Глушит четыре пост-фазы, которые ходят в AI за деньги."""
+class _FailingMergeGroup:
+    """Один авто-merge с достаточной уверенностью; id произвольные."""
+
+    confidence = 0.9
+    master_id = str(uuid.uuid4())
+    duplicate_ids = [str(uuid.uuid4())]
+
+
+class _OneGroup:
+    merge_groups = [_FailingMergeGroup()]
+
+
+@contextlib.contextmanager
+def _phase_patches(mode: str):
+    """Подмены на время одного режима — снимаются на выходе.
+
+    Восстановление обязательно: `run_modes()` гоняет режимы в одном процессе,
+    и без него `merge_failure` оставил бы инъекцию включённой, а следующий
+    `failing` проверял бы не то, что заявляет.
+
+    `stubbed` глушит четыре пост-фазы, которые ходят в AI за деньги.
+    `merge_failure` роняет auto-merge настоящей ошибкой БД: проверяется
+    обработчик в `book_tasks`, а не сам merge — реальный
+    `_merge_entities_internal` отката не делает (он есть только в HTTP-обёртке
+    `merge_entities`), поэтому без `rollback()` в обработчике сессия остаётся
+    сломанной и следующие фазы валятся `InFailedSQLTransactionError`.
+    """
+    from sqlalchemy import text
+
+    from app.routers.admin import entities as admin_entities
     from app.services.consistency_manager import ConsistencyManager
     from app.services.entity_deduplication_service import EntityDeduplicationService
     from app.services.entity_synthesis_service import EntitySynthesisService
@@ -131,37 +161,6 @@ def _stub_paid_phases() -> None:
     async def _empty_synthesis(*args, **kwargs):
         return {}
 
-    ConsistencyManager.optimize_book_entities = _noop
-    ConsistencyManager.generate_master_references = _noop
-    EntityDeduplicationService.suggest_merges = _no_merges
-    EntitySynthesisService.synthesize_book_entities = _empty_synthesis
-
-
-class _FailingMergeGroup:
-    """Один авто-merge с достаточной уверенностью; id произвольные."""
-
-    confidence = 0.9
-    master_id = str(uuid.uuid4())
-    duplicate_ids = [str(uuid.uuid4())]
-
-
-class _OneGroup:
-    merge_groups = [_FailingMergeGroup()]
-
-
-def _inject_merge_failure() -> None:
-    """Роняет auto-merge ошибкой БД, оставляющей транзакцию в failed-состоянии.
-
-    Проверяется обработчик в `book_tasks`, а не сам merge: реальный
-    `_merge_entities_internal` отката не делает (он есть только в HTTP-обёртке
-    `merge_entities`), поэтому без `rollback()` в обработчике сессия остаётся
-    сломанной и следующие фазы валятся `PendingRollbackError`.
-    """
-    from sqlalchemy import text
-
-    from app.routers.admin import entities as admin_entities
-    from app.services.entity_deduplication_service import EntityDeduplicationService
-
     async def _one_group(self, *args, **kwargs):
         return _OneGroup()
 
@@ -170,8 +169,23 @@ def _inject_merge_failure() -> None:
         # нарушение constraint внутри merge — транзакция уходит в failed.
         await db.execute(text("SELECT 1 / 0"))
 
-    EntityDeduplicationService.suggest_merges = _one_group
-    admin_entities._merge_entities_internal = _boom
+    with contextlib.ExitStack() as stack:
+        if mode == "stubbed":
+            for target, name, repl in (
+                (ConsistencyManager, "optimize_book_entities", _noop),
+                (ConsistencyManager, "generate_master_references", _noop),
+                (EntityDeduplicationService, "suggest_merges", _no_merges),
+                (EntitySynthesisService, "synthesize_book_entities", _empty_synthesis),
+            ):
+                stack.enter_context(patch.object(target, name, repl))
+        elif mode == "merge_failure":
+            stack.enter_context(
+                patch.object(EntityDeduplicationService, "suggest_merges", _one_group)
+            )
+            stack.enter_context(
+                patch.object(admin_entities, "_merge_entities_internal", _boom)
+            )
+        yield
 
 
 SESSION_DAMAGE = (
@@ -232,19 +246,15 @@ async def main(mode: str) -> int:
             )
         await db.commit()
 
-    if mode == "stubbed":
-        _stub_paid_phases()
-    if mode == "merge_failure":
-        _inject_merge_failure()
     fake = FakeExtractor()
-    original = book_tasks.get_gemini_extractor
-    book_tasks.get_gemini_extractor = lambda: fake
     warnings: list = []
     sink_id = _capture_task_logs(warnings)
     try:
-        result = await book_tasks._process_book_async(book_id)
+        with _phase_patches(mode), patch.object(
+            book_tasks, "get_gemini_extractor", lambda: fake
+        ):
+            result = await book_tasks._process_book_async(book_id)
     finally:
-        book_tasks.get_gemini_extractor = original
         from app.core.logging import logger as loguru_logger
 
         loguru_logger.remove(sink_id)
@@ -286,8 +296,8 @@ async def main(mode: str) -> int:
         damaged = [w for w in warnings if any(m in w for m in SESSION_DAMAGE)]
         print(f"session damage    : {damaged or 'none'}")
         merge_tripped = any("Auto-merge failed" in w for w in warnings)
-        if mode == "merge_failure":
-            print(f"auto-merge tripped: {merge_tripped}")
+        # Печатается во всех режимах: True в чужом режиме сразу видно глазами.
+        print(f"auto-merge tripped: {merge_tripped}")
 
         # Bulk-DELETE не каскадит: FK на chapters объявлен без ON DELETE CASCADE,
         # каскад живёт в ORM-relationship. Поэтому удаляем через объект.
@@ -316,9 +326,10 @@ async def main(mode: str) -> int:
         # Пост-фаза вправе упасть на пустых ключах, но не вправе оставить
         # сессию сломанной — иначе следующие фазы отваливаются не по своей вине.
         and not damaged
-        # Позитивный контроль: инъекция должна была сработать, иначе режим
-        # проверяет пустоту.
-        and (merge_tripped or mode != "merge_failure")
+        # Инъекция обязана срабатывать ровно в своём режиме: True в чужом
+        # означает, что подмена протекла между режимами, и `failing` проверял
+        # бы не незаглушенные пост-фазы, а чужую инъекцию.
+        and merge_tripped == (mode == "merge_failure")
     )
     print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
@@ -331,8 +342,8 @@ async def run_modes(modes: list) -> int:
     пул модульного engine держит соединения, привязанные к закрытому loop, —
     та же ловушка, из-за которой `process_book_task` зовёт `engine.dispose()`.
 
-    Порядок важен: `_stub_paid_phases()` патчит классы навсегда, поэтому
-    режимы без заглушек идут первыми.
+    Порядок режимов значения не имеет: подмены живут в `_phase_patches()`
+    и снимаются на выходе из режима.
     """
     code = 0
     for mode in modes:
