@@ -922,11 +922,10 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
         # A. Reduce Phase: Merge Duplicates & Filter Garbage
         try:
-            async with db.begin_nested():
-                logger.info(
-                    "Running Entity Optimization (Reduce Phase)...",
-                    book_id=str(book_id),
-                )
+            logger.info(
+                "Running Entity Optimization (Reduce Phase)...",
+                book_id=str(book_id),
+            )
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=85,
@@ -1088,8 +1087,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
         # B. Graph Phase: PageRank & Importance
         try:
-            async with db.begin_nested():
-                from app.services.graph_service import get_graph_service
+            from app.services.graph_service import get_graph_service
+
             graph_service = get_graph_service(db)
             logger.info("Calculating Graph Metrics (PageRank)...", book_id=str(book_id))
             await publish_book_progress(
@@ -1105,10 +1104,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         # 5. Generate Master References for optimized entities
         # This is done once after all chapters are processed to ensure global consistency
         try:
-            async with db.begin_nested():
-                logger.info(
-                    "Generating Master References for entities...", book_id=str(book_id)
-                )
+            logger.info(
+                "Generating Master References for entities...", book_id=str(book_id)
+            )
             await publish_book_progress(
                 book_id=str(book_id),
                 progress=95,

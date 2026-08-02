@@ -139,6 +139,20 @@ Celery падала. Исправлено перечитыванием книг�
 `rollback()` на `:246` живёт в HTTP-обёртке `merge_entities`, а таск зовёт
 internal напрямую (`book_tasks.py:970`). Добавлен `rollback()` в обработчик.
 
+**Три фиктивных savepoint.** `async with db.begin_nested()` в фазах reduce,
+graph и master references оборачивал только `logger.info` (две штуки) и один
+`import`; сами вызовы `optimize_book_entities`, `calculate_pagerank`
+и `generate_master_references` шли уже после выхода из контекста. Изоляции
+ноль, зато на каждую фазу лишние `SAVEPOINT`/`RELEASE` и ложная гарантия для
+читателя — прямо в том месте, где долг требует настоящей изоляции фаз. Блоки
+удалены, тела оставлены как есть. Не мои: `git blame` указывает
+на `f72a9146` (2026-01-29).
+
+Расширять их до настоящих savepoint нельзя: `optimize_book_entities()` сам
+делает `commit()`/`rollback()`, и внутри savepoint-контекста это сломало бы
+`RELEASE`. Сначала управление транзакцией должно уехать из сервисов —
+это и есть записанный долг.
+
 **Ничто из этого не регрессия S4:** тот же smoke в образе, собранном из HEAD
 до удаления GLiNER, падает идентично — только с `No module named 'scipy'`
 вместо `'numpy'`.

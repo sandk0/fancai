@@ -134,6 +134,14 @@
   `merge_failure`); каждый проверен мутацией — откат соответствующей правки
   красит именно его.
 
+- **Три фиктивных savepoint в `_process_book_async`** (2026-08-03):
+  `async with db.begin_nested()` в фазах reduce, graph и master references
+  оборачивал только два `logger.info` и один `import`, а сами вызовы фаз шли
+  после выхода из контекста. Изоляции они не давали никакой, зато добавляли
+  по паре `SAVEPOINT`/`RELEASE` на фазу и создавали ложную гарантию ровно там,
+  где её нет. Блоки удалены; расширять их до настоящих savepoint нельзя, пока
+  `optimize_book_entities()` сам делает `commit()`/`rollback()`.
+
 - **Все иллюстрации генерировались не в том соотношении сторон** (2026-08-01):
   `GeminiClient.generate_image()` принимал `aspect_ratio` и `image_size`, но собирал
   `GenerateContentConfig` только с `response_modalities`, а `types.ImageConfig`
