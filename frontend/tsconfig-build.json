@@ -10,32 +10,28 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    
-    "baseUrl": ".",
+
+    /* Path mapping. baseUrl объявлен deprecated в TypeScript 6 и перестанет
+       работать в 7; без него paths резолвятся относительно самого tsconfig,
+       поэтому пути записаны явно от текущего каталога. */
     "paths": {
-      "@/*": ["src/*"],
-      "@/components/*": ["src/components/*"],
-      "@/hooks/*": ["src/hooks/*"],
-      "@/stores/*": ["src/stores/*"],
-      "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"],
-      "@/api/*": ["src/api/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/stores/*": ["./src/stores/*"],
+      "@/types/*": ["./src/types/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/api/*": ["./src/api/*"]
     },
-    
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noImplicitReturns": false,
-    "noImplicitThis": false,
-    "noImplicitOverride": false,
-    "noUncheckedIndexedAccess": false,
-    "exactOptionalPropertyTypes": false,
-    "noPropertyAccessFromIndexSignature": false,
-    "allowUnusedLabels": true,
-    "allowUnreachableCode": true,
-    "noEmitOnError": false,
-    "noFallthroughCasesInSwitch": false
+
+    /* Строгость прод-сборки совпадает с tsconfig.json. Раньше здесь всё было
+       выключено, и `npm run build` пропускал ошибки, которые редакторский
+       конфиг показывал. Оставшиеся ошибки tsc живут в __tests__, а они
+       исключены ниже, поэтому строгая сборка проходит без правок кода. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
   "exclude": ["src/**/__tests__", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test", "src/sw.ts"]
