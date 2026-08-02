@@ -632,11 +632,11 @@ def mock_image_generator_service():
 
 
 @pytest.fixture
-def mock_imagen_service():
+def mock_illustration_service():
     """
-    Mock ImagenService for testing.
+    Mock IllustrationService for testing.
 
-    Lower-level Imagen API mock.
+    Lower-level illustration API mock.
     """
     mock = MagicMock()
     mock.is_available.return_value = True

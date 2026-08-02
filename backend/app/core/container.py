@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..services.book_parser import BookParser
-    from ..services.imagen_generator import ImagenService
+    from ..services.illustration_service import IllustrationService
     from ..services.gemini_extractor import GeminiDirectExtractor
     from ..services.auth_service import AuthService
     from ..services.book.book_service import BookService
@@ -235,19 +235,19 @@ def get_book_parser() -> "BookParser":
 
 
 @lru_cache()
-def get_imagen_service() -> "ImagenService":
+def get_illustration_service() -> "IllustrationService":
     """
-    Фабричная функция для получения ImagenService.
+    Фабричная функция для получения IllustrationService.
 
     Использует lru_cache для singleton-поведения.
-    ImagenService инициализирует API клиенты один раз.
+    IllustrationService инициализирует API клиенты один раз.
 
     Returns:
-        ImagenService: Экземпляр сервиса генерации изображений
+        IllustrationService: Экземпляр сервиса генерации изображений
     """
-    from ..services.imagen_generator import ImagenService
+    from ..services.illustration_service import IllustrationService
 
-    return ImagenService()
+    return IllustrationService()
 
 
 @lru_cache()
@@ -393,14 +393,14 @@ def get_book_parser_dep() -> "BookParser":
     return get_book_parser()
 
 
-def get_imagen_service_dep() -> "ImagenService":
+def get_illustration_service_dep() -> "IllustrationService":
     """
-    FastAPI Dependency для ImagenService.
+    FastAPI Dependency для IllustrationService.
 
     Returns:
-        ImagenService: Экземпляр сервиса Imagen
+        IllustrationService: Экземпляр сервиса генерации иллюстраций
     """
-    return get_imagen_service()
+    return get_illustration_service()
 
 
 def get_gemini_extractor_dep() -> "GeminiDirectExtractor":
@@ -546,7 +546,7 @@ class DependencyContainer:
         Полезно для тестов, когда нужно пересоздать singleton-ы.
         """
         get_book_parser.cache_clear()
-        get_imagen_service.cache_clear()
+        get_illustration_service.cache_clear()
         get_gemini_extractor.cache_clear()
         get_auth_service.cache_clear()
         get_book_service.cache_clear()
@@ -573,7 +573,9 @@ def create_test_overrides() -> Dict[Any, Any]:
     """
     return {
         get_book_parser_dep: lambda: DependencyContainer.get(get_book_parser),
-        get_imagen_service_dep: lambda: DependencyContainer.get(get_imagen_service),
+        get_illustration_service_dep: lambda: DependencyContainer.get(
+            get_illustration_service
+        ),
         get_gemini_extractor_dep: lambda: DependencyContainer.get(get_gemini_extractor),
         get_auth_service_dep: lambda: DependencyContainer.get(get_auth_service),
         get_book_service_dep: lambda: DependencyContainer.get(get_book_service),

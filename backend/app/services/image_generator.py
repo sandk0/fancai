@@ -12,7 +12,7 @@ Features:
 - Celery-based persistent queue (replaces in-memory queue)
 
 Architecture (December 2025):
-- Synchronous generation: Direct calls to Imagen service for immediate results
+- Synchronous generation: Direct calls to the illustration service for immediate results
 - Async queue: Celery tasks with Redis backend for persistent queue
 - Retry logic: Automatic retries with exponential backoff
 """
@@ -23,10 +23,10 @@ from dataclasses import dataclass
 import logging
 
 from ..models.description import Description, DescriptionType
-from .imagen_generator import (
-    get_imagen_service,
-    ImageGenerationResult as ImagenResult,
-    ImagenService,
+from .illustration_service import (
+    get_illustration_service,
+    ImageGenerationResult as GeneratorResult,
+    IllustrationService,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,9 @@ class ImageGenerationRequest:
     user_id: str
     book_genre: Optional[str] = None
     style_prompt: Optional[str] = None
-    negative_prompt: Optional[str] = None  # Not used by Imagen, kept for compatibility
+    negative_prompt: Optional[str] = (
+        None  # Not used by the generator, kept for compatibility
+    )
 
 
 @dataclass
@@ -58,8 +60,8 @@ class ImageGenerationResult:
     prompt_used: Optional[str] = None
 
     @classmethod
-    def from_imagen_result(cls, result: ImagenResult) -> "ImageGenerationResult":
-        """Convert from Imagen result."""
+    def from_generator_result(cls, result: GeneratorResult) -> "ImageGenerationResult":
+        """Convert from the illustration service result."""
         return cls(
             success=result.success,
             image_url=result.image_url,
@@ -85,17 +87,17 @@ class ImageGeneratorService:
     """
 
     def __init__(self):
-        self.imagen_service: ImagenService = get_imagen_service()
+        self.illustration_service: IllustrationService = get_illustration_service()
         # REMOVED: in-memory queue (was: self.generation_queue = [])
         # REMOVED: self.is_processing flag
         # Now using Celery tasks with Redis persistence
 
-        if self.imagen_service.is_available():
+        if self.illustration_service.is_available():
             logger.info(
-                "ImageGeneratorService initialized with Google Imagen + Celery queue"
+                "ImageGeneratorService initialized with the illustration service + Celery queue"
             )
         else:
-            logger.warning("ImageGeneratorService: Imagen not available")
+            logger.warning("ImageGeneratorService: illustration service not available")
 
     async def generate_image_for_description(
         self,
@@ -116,14 +118,14 @@ class ImageGeneratorService:
         Returns:
             ImageGenerationResult with image URL or error
         """
-        if not self.imagen_service.is_available():
+        if not self.illustration_service.is_available():
             return ImageGenerationResult(
                 success=False,
                 error_message="Image generation service not available. Check OPENROUTER_API_KEY.",
             )
 
-        # Generate using Imagen
-        result = await self.imagen_service.generate_image(
+        # Generate using the illustration service
+        result = await self.illustration_service.generate_image(
             description=description.content,
             description_type=(
                 description.type.value
@@ -138,7 +140,7 @@ class ImageGeneratorService:
             f"Image generation for description {description.id}: success={result.success}"
         )
 
-        return ImageGenerationResult.from_imagen_result(result)
+        return ImageGenerationResult.from_generator_result(result)
 
     async def generate_image_from_text(
         self,
@@ -159,19 +161,19 @@ class ImageGeneratorService:
         Returns:
             ImageGenerationResult
         """
-        if not self.imagen_service.is_available():
+        if not self.illustration_service.is_available():
             return ImageGenerationResult(
                 success=False, error_message="Image generation service not available"
             )
 
-        result = await self.imagen_service.generate_image(
+        result = await self.illustration_service.generate_image(
             description=text,
             description_type=description_type,
             genre=genre,
             custom_style=custom_style,
         )
 
-        return ImageGenerationResult.from_imagen_result(result)
+        return ImageGenerationResult.from_generator_result(result)
 
     async def batch_generate_for_chapter(
         self,
@@ -392,10 +394,10 @@ class ImageGeneratorService:
 
         Useful for debugging and testing.
         """
-        if not self.imagen_service.is_available():
+        if not self.illustration_service.is_available():
             return {"error": "Service not available"}
 
-        return await self.imagen_service.preview_prompt(
+        return await self.illustration_service.preview_prompt(
             description=description, description_type=description_type, genre=genre
         )
 
@@ -406,7 +408,9 @@ class ImageGeneratorService:
         Returns:
             Dictionary with service status and statistics
         """
-        status = self.imagen_service.get_status() if self.imagen_service else {}
+        status = (
+            self.illustration_service.get_status() if self.illustration_service else {}
+        )
 
         # Get Celery queue stats
         celery_stats = self._get_celery_queue_stats()
@@ -418,7 +422,9 @@ class ImageGeneratorService:
             "supported_types": [t.value for t in DescriptionType],
             "service_status": status,
             "api_status": (
-                "operational" if self.imagen_service.is_available() else "unavailable"
+                "operational"
+                if self.illustration_service.is_available()
+                else "unavailable"
             ),
             "queue_backend": "celery_redis",
         }

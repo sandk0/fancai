@@ -308,7 +308,7 @@ class ImageCRUDService:
         await self.db.refresh(image)
 
         # Старый файл удаляем только после успешного коммита. Раньше unlink шёл
-        # первым, и на cache hit (ImagenService отдаёт data-URI и local_path=None)
+        # первым, и на cache hit (IllustrationService отдаёт data-URI и local_path=None)
         # commit падал на VARCHAR(2000), rollback возвращал прежний путь в БД —
         # а файла по нему уже не было. Тихая потеря изображения.
         if old_path and old_path != local_path:

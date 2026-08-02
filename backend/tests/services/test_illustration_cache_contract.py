@@ -10,7 +10,7 @@
 - ключ считался как md5(description + aspect) и не учитывал `custom_style`,
   `description_type`, `genre` и модель — «перегенерировать другим стилем»
   гарантированно попадало в кэш и возвращало прежнюю картинку;
-- имя файла `flux_<секунда>_<md5(prompt)[:8]>.png` совпадало у параллельных
+- имя файла `illustration_<секунда>_<md5(prompt)[:8]>.png` совпадало у параллельных
   одинаковых запросов, а `delete_with_file()` удаляет файл по `local_path`.
 
 Здесь проверяется контракт после правки: в Redis лежит путь, hit материализует
@@ -25,8 +25,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.models.image import GeneratedImage
-from app.services import imagen_generator as ig
-from app.services.imagen_generator import ImagenService
+from app.services import illustration_service as ig
+from app.services.illustration_service import IllustrationService
 
 # Берётся из модели, а не константой: если колонку сузят, тест обязан упасть.
 MAX_IMAGE_URL = GeneratedImage.__table__.c.image_url.type.length
@@ -34,7 +34,7 @@ MAX_LOCAL_PATH = GeneratedImage.__table__.c.local_path.type.length
 
 
 class FakeRedis:
-    """Минимальный Redis: только то, что использует ImagenService."""
+    """Минимальный Redis: только то, что использует IllustrationService."""
 
     def __init__(self):
         self.store: dict[str, bytes] = {}
@@ -72,8 +72,8 @@ def png_bytes():
 
 @pytest.fixture
 def service(png_bytes):
-    """ImagenService с замоканными генератором и prompt engineer."""
-    svc = ImagenService.__new__(ImagenService)
+    """IllustrationService с замоканными генератором и prompt engineer."""
+    svc = IllustrationService.__new__(IllustrationService)
     svc._nano = MagicMock()
     svc._nano.generate = AsyncMock(return_value=png_bytes)
     svc._available = True
@@ -119,7 +119,7 @@ async def test_cache_stores_a_reference_not_the_bytes(service, fake_redis, image
 
     assert len(fake_redis.store) == 1
     key, value = next(iter(fake_redis.store.items()))
-    assert key.startswith("imagen:cache:v2:")
+    assert key.startswith("illustration:cache:v2:")
 
     payload = json.loads(value)
     assert payload["path"] == result.local_path

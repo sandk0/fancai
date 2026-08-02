@@ -127,13 +127,13 @@ async def _generate_image_async(
     async with AsyncSessionLocal() as db:
         logger.debug("Starting async image generation", task_id=task_id)
 
-        # Генерация через OpenRouter/Imagen
-        from app.services.imagen_generator import get_imagen_service
+        # Генерация иллюстрации
+        from app.services.illustration_service import get_illustration_service
 
-        imagen_service = get_imagen_service()
+        illustration_service = get_illustration_service()
 
-        if not imagen_service.is_available():
-            logger.warning("Imagen service not available", task_id=task_id)
+        if not illustration_service.is_available():
+            logger.warning("Illustration service not available", task_id=task_id)
             return {
                 "task_id": task_id,
                 "description_id": str(description_id),
@@ -142,7 +142,7 @@ async def _generate_image_async(
                 "status": "service_unavailable",
             }
 
-        generation_result = await imagen_service.generate_image(
+        generation_result = await illustration_service.generate_image(
             description=description_content,
             description_type=description_type,
             genre=book_genre,
@@ -327,15 +327,15 @@ async def _generate_batch_async(
     """
     Async function for batch image generation within Celery task.
     """
-    from app.services.imagen_generator import get_imagen_service
+    from app.services.illustration_service import get_illustration_service
     from app.models.image import GeneratedImage
 
     async with AsyncSessionLocal() as db:
         user_id = UUID(user_id_str)
 
-        imagen_service = get_imagen_service()
+        illustration_service = get_illustration_service()
 
-        if not imagen_service.is_available():
+        if not illustration_service.is_available():
             return {
                 "task_id": task_id,
                 "chapter_id": chapter_id_str,
@@ -354,7 +354,7 @@ async def _generate_batch_async(
                 description_content = desc_data["content"]
                 description_type = desc_data.get("type", "location")
 
-                generation_result = await imagen_service.generate_image(
+                generation_result = await illustration_service.generate_image(
                     description=description_content,
                     description_type=description_type,
                     genre=book_genre,

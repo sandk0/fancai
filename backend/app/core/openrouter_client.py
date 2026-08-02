@@ -4,7 +4,7 @@ OpenRouter API клиент для fancai.
 Единый клиент для всех AI-вызовов:
 - generate_text()      — JSON mode через response_format (для entity_synthesis, consistency_manager)
 - generate_structured() — JSON Schema mode с inlined schema (для gemini_extractor, entity_dedup)
-- generate_image()     — /chat/completions с modalities=["image"] (для imagen_generator)
+- generate_image()     — /chat/completions с modalities=["image"] (для illustration_service)
 
 Реализует client-side fallback chain: Gemini 3 Flash → Claude Haiku 4.5 → Gemini 2.5 Flash Lite.
 Fallback срабатывает ТОЛЬКО на httpx.HTTPStatusError и httpx.TimeoutException.
@@ -575,7 +575,7 @@ class OpenRouterClient:
         """
         Генерация изображений через OpenRouter FLUX.2.
 
-        Используется из imagen_generator.py для FLUX.2 Klein.
+        Используется из illustration_service.py для FLUX.2 Klein.
 
         КРИТИЧНО: Использует /chat/completions с modalities=["image"],
         НЕ /images/generations endpoint!

@@ -6,10 +6,14 @@
 из `get_ai_provider()`, то есть тем же флагом `AI_PROVIDER`, что и остальные
 текстовые вызовы.
 
-Имена `ImagenService`, `ImagenPromptEngineer`, префикс ключа кэша `imagen:cache:`
-и префикс имени файла `flux_` остались от предыдущих провайдеров (Google Imagen,
-затем OpenRouter FLUX.2 Klein). Переименование — отдельная задача: 71 упоминание
-в 12 файлах плюс совместимость по уже сохранённым `local_path`.
+Совместимость после переименования из `imagen_generator`/`ImagenService`
+(имена достались от Google Imagen, затем от OpenRouter FLUX.2 Klein):
+- ключи Redis сменили префикс `imagen:cache:v2` → `illustration:cache:v2`:
+  прежний кэш переводов и изображений недостижим и истечёт по TTL сам;
+- новые файлы называются `illustration_*.png`; уже сохранённые `local_path`
+  с префиксом `flux_` читаются по-прежнему — имя нигде не разбирается;
+- значение `service_used="imagen"` и `ImageService.IMAGEN` остаются как есть:
+  это данные в таблице `generated_images`, их смена требует миграции.
 
 Features:
 - Автоматический перевод RU -> EN через generate_text() активного провайдера
@@ -58,7 +62,7 @@ IMAGE_URL_PREFIX = "/api/v1/images/file"
 # v2: в v1 значением ключа был сам data-URI на мегабайты, и он же уезжал
 # в `image_url` → колонка VARCHAR(2000) отвергала запись. Пространство имён
 # сменено, чтобы ни одна старая запись не была прочитана как имя файла.
-CACHE_KEY_PREFIX = "imagen:cache:v2"
+CACHE_KEY_PREFIX = "illustration:cache:v2"
 CACHE_TTL_SECONDS = 604800  # 7 суток
 
 # Версия формата значения. Меняется вместе с формой полезной нагрузки;
@@ -148,7 +152,7 @@ def _materialize_cached_file(cached_path: str) -> str:
     """
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    new_path = IMAGES_DIR / f"flux_{timestamp}_{uuid.uuid4().hex[:12]}.png"
+    new_path = IMAGES_DIR / f"illustration_{timestamp}_{uuid.uuid4().hex[:12]}.png"
 
     try:
         os.link(cached_path, new_path)
@@ -289,11 +293,11 @@ class PromptTranslator:
 
 
 # ---------------------------------------------------------------------------
-# ImagenPromptEngineer
+# IllustrationPromptEngineer
 # ---------------------------------------------------------------------------
 
 
-class ImagenPromptEngineer:
+class IllustrationPromptEngineer:
     """
     Создаёт оптимизированные английские промпты для генератора изображений.
 
@@ -461,23 +465,23 @@ class ImagenPromptEngineer:
 
 
 # ---------------------------------------------------------------------------
-# ImagenService — основной сервис генерации изображений
+# IllustrationService — основной сервис генерации изображений
 # ---------------------------------------------------------------------------
 
 
-class ImagenService:
+class IllustrationService:
     """
     Основной сервис генерации изображений: перевод промпта → генерация → сохранение.
 
     Генерирует через `NanoBananaGenerator` (Gemini Nano Banana 2, backend
     `GEMINI_BACKEND`), модель — `settings.GEMINI_IMAGE_MODEL`. Ни OpenRouter,
-    ни Google Imagen на этом пути нет; имя класса историческое, см. docstring модуля.
+    ни Google Imagen на этом пути нет — см. docstring модуля о переименовании.
     """
 
     def __init__(self):
         self._nano: Optional[NanoBananaGenerator] = None
         self._translator: Optional[PromptTranslator] = None
-        self._prompt_engineer: Optional[ImagenPromptEngineer] = None
+        self._prompt_engineer: Optional[IllustrationPromptEngineer] = None
         self._available = False
         self._model = settings.GEMINI_IMAGE_MODEL
 
@@ -486,19 +490,19 @@ class ImagenService:
     def _initialize(self):
         """Инициализирует компоненты сервиса."""
         if not _gemini_credentials_present():
-            logger.warning("No Gemini credentials — ImagenService disabled")
+            logger.warning("No Gemini credentials — IllustrationService disabled")
             return
 
         try:
             self._nano = NanoBananaGenerator()
             self._translator = PromptTranslator()
-            self._prompt_engineer = ImagenPromptEngineer(self._translator)
+            self._prompt_engineer = IllustrationPromptEngineer(self._translator)
             self._available = True
             logger.info(
-                f"ImagenService initialized (Gemini Nano Banana 2, model: {self._model})"
+                f"IllustrationService initialized (Gemini Nano Banana 2, model: {self._model})"
             )
         except Exception as e:
-            logger.error(f"Failed to initialize ImagenService: {e}")
+            logger.error(f"Failed to initialize IllustrationService: {e}")
 
     def is_available(self) -> bool:
         """Проверяет доступность сервиса."""
@@ -515,7 +519,9 @@ class ImagenService:
         Non-retryable: ValueError (400 Bad Request).
         """
         if self._nano is None:
-            raise RuntimeError("ImagenService disabled: Gemini credentials missing")
+            raise RuntimeError(
+                "IllustrationService disabled: Gemini credentials missing"
+            )
         return await self._nano.generate(
             prompt=prompt, aspect_ratio=aspect_ratio, image_size=IMAGE_SIZE
         )
@@ -548,7 +554,7 @@ class ImagenService:
         if not self._available:
             return ImageGenerationResult(
                 success=False,
-                error_message="ImagenService не доступен. Проверьте Gemini credentials (GEMINI_API_KEY или GCP_PROJECT).",
+                error_message="IllustrationService не доступен. Проверьте Gemini credentials (GEMINI_API_KEY или GCP_PROJECT).",
             )
 
         start_time = time.time()
@@ -609,7 +615,9 @@ class ImagenService:
             # Stage 2: Prompt engineering (includes translation RU->EN)
             stage_start = time.time()
             if self._prompt_engineer is None:
-                raise RuntimeError("ImagenService disabled: Gemini credentials missing")
+                raise RuntimeError(
+                    "IllustrationService disabled: Gemini credentials missing"
+                )
             prompt = await self._prompt_engineer.create_prompt(
                 description=description,
                 description_type=desc_type,
@@ -633,7 +641,7 @@ class ImagenService:
             logger.info(
                 "Image pipeline: FLUX.2 generation complete",
                 extra={
-                    "pipeline_stage": "flux2_generation",
+                    "pipeline_stage": "image_generation",
                     "duration": f"{generation_duration:.2f}s",
                     "image_size_bytes": len(image_bytes),
                 },
@@ -768,13 +776,13 @@ class ImagenService:
         Имя обязано быть уникальным: `delete_with_file()` удаляет файл по
         `local_path`, поэтому два совпавших имени означают, что удаление одной
         строки ломает картинку у другой. Прежняя схема
-        `flux_<секунда>_<md5(prompt)[:8]>.png` совпадала у параллельных
+        `illustration_<секунда>_<md5(prompt)[:8]>.png` совпадала у параллельных
         одинаковых запросов внутри одной секунды.
         """
         IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"flux_{timestamp}_{uuid.uuid4().hex[:12]}.png"
+        filename = f"illustration_{timestamp}_{uuid.uuid4().hex[:12]}.png"
         file_path = IMAGES_DIR / filename
 
         import aiofiles
@@ -831,12 +839,12 @@ class ImagenService:
 # Singleton
 # ---------------------------------------------------------------------------
 
-_imagen_service: Optional[ImagenService] = None
+_illustration_service: Optional[IllustrationService] = None
 
 
-def get_imagen_service() -> ImagenService:
-    """Возвращает singleton экземпляр ImagenService."""
-    global _imagen_service
-    if _imagen_service is None:
-        _imagen_service = ImagenService()
-    return _imagen_service
+def get_illustration_service() -> IllustrationService:
+    """Возвращает singleton экземпляр IllustrationService."""
+    global _illustration_service
+    if _illustration_service is None:
+        _illustration_service = IllustrationService()
+    return _illustration_service

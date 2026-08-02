@@ -1,7 +1,7 @@
 """NanoBananaGenerator — генерация иллюстраций через Gemini (gemini-3.1-flash-image).
 
 Тонкий слой: готовый английский промпт → bytes. Prompt-инженерия (перевод RU→EN,
-genre-стили, SFW) остаётся в ImagenPromptEngineer/ImagenService.
+genre-стили, SFW) остаётся в IllustrationPromptEngineer/IllustrationService.
 """
 
 import logging

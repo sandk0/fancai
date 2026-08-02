@@ -23,7 +23,7 @@ from app.schemas.extraction import (
     ExtractedEntity,
     ExtractedRelationship,
 )
-from app.services.imagen_generator import get_imagen_service
+from app.services.illustration_service import get_illustration_service
 from app.core.json_utils import parse_json_safe
 from app.core.openrouter_client import get_openrouter_client
 import random
@@ -476,10 +476,10 @@ class ConsistencyManager:
         result = await self.db.execute(query)
         entities = result.scalars().all()
 
-        imagen = get_imagen_service()
-        if not imagen.is_available():
+        illustrations = get_illustration_service()
+        if not illustrations.is_available():
             logger.warning(
-                "Imagen service not available for Master Reference generation"
+                "Illustration service not available for Master Reference generation"
             )
             return
 
@@ -515,7 +515,7 @@ class ConsistencyManager:
 
                 full_prompt = f"{style_prompt}. {entity.visual_summary}"
 
-                gen_result = await imagen.generate_image(
+                gen_result = await illustrations.generate_image(
                     description=full_prompt, description_type=entity.type, seed=seed
                 )
 
