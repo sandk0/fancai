@@ -210,12 +210,16 @@ def _capture_task_logs(sink: list) -> int:
     )
 
 
-async def _drop_book(book_id) -> None:
+async def _drop_book(book_id) -> bool:
     """Удаляет книгу в собственной сессии; вызывается из `finally`.
 
+    Возвращает `True`, если книги в БД не осталось. Своё исключение наружу
+    не выпускает — из `finally` оно подменило бы исходное и спрятало настоящую
+    причину падения; вместо этого о неудаче сообщает возвращаемое значение,
+    и вызывающий делает прогон красным.
+
     Своя сессия обязательна: рабочая после отказа пост-фазы может быть
-    в failed-состоянии. Ошибку уборки только печатаем — исключение из `finally`
-    подменило бы исходное и спрятало настоящую причину падения.
+    в failed-состоянии.
 
     Bulk-DELETE не каскадит: FK на `chapters` объявлен без ON DELETE CASCADE,
     каскад живёт в ORM-relationship, поэтому удаляем через объект.
@@ -236,49 +240,53 @@ async def _drop_book(book_id) -> None:
                 await db.delete(book_obj)
                 await db.commit()
         print("cleanup           : book deleted")
-    except Exception as cleanup_err:  # noqa: BLE001 — уборка не должна маскировать
+        return True
+    except Exception as cleanup_err:  # noqa: BLE001 — уборка не маскирует исходное
         print(f"cleanup           : FAILED, book {book_id} остался: {cleanup_err}")
+        return False
 
 
 async def main(mode: str) -> int:
     from app.tasks import book_tasks
 
-    async with AsyncSessionLocal() as db:
-        user_id = (await db.execute(select(User.id).limit(1))).scalar_one_or_none()
-        if user_id is None:
-            print("FAIL: в dev-БД нет ни одного пользователя")
-            return 1
-
-        book = Book(
-            user_id=user_id,
-            title=f"S4 smoke {uuid.uuid4().hex[:8]}",
-            author="smoke",
-            genre="fantasy",
-            file_path="/dev/null",
-            file_format="epub",
-            file_size=1,
-            is_parsed=True,
-            is_processing=True,
-        )
-        db.add(book)
-        await db.flush()
-        book_id = book.id
-
-        for number in (1, 2):
-            db.add(
-                Chapter(
-                    book_id=book_id,
-                    chapter_number=number,
-                    title=f"Глава {number}",
-                    content=CHAPTER_TEXT,
-                    word_count=len(CHAPTER_TEXT.split()),
-                )
-            )
-        await db.commit()
-
-    # Всё, что ниже, обязано завершиться уборкой: любое исключение по пути
-    # раньше оставляло книгу с главами в dev-БД и требовало ручного удаления.
+    book_id = None
+    cleaned = False
+    # Создание книги тоже внутри try: commit может пройти на сервере
+    # и упасть уже на клиенте — строка останется, и уборке нужен её id.
     try:
+        async with AsyncSessionLocal() as db:
+            user_id = (await db.execute(select(User.id).limit(1))).scalar_one_or_none()
+            if user_id is None:
+                print("FAIL: в dev-БД нет ни одного пользователя")
+                return 1
+
+            book = Book(
+                user_id=user_id,
+                title=f"S4 smoke {uuid.uuid4().hex[:8]}",
+                author="smoke",
+                genre="fantasy",
+                file_path="/dev/null",
+                file_format="epub",
+                file_size=1,
+                is_parsed=True,
+                is_processing=True,
+            )
+            db.add(book)
+            await db.flush()
+            book_id = book.id
+
+            for number in (1, 2):
+                db.add(
+                    Chapter(
+                        book_id=book_id,
+                        chapter_number=number,
+                        title=f"Глава {number}",
+                        content=CHAPTER_TEXT,
+                        word_count=len(CHAPTER_TEXT.split()),
+                    )
+                )
+            await db.commit()
+
         fake = FakeExtractor()
         warnings: list = []
         sink_id = _capture_task_logs(warnings)
@@ -349,9 +357,18 @@ async def main(mode: str) -> int:
             and merge_tripped == (mode == "merge_failure")
         )
         print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
-        return 0 if ok else 1
+        code = 0 if ok else 1
     finally:
-        await _drop_book(book_id)
+        if book_id is not None:
+            cleaned = await _drop_book(book_id)
+
+    # Сюда попадаем только штатным путём: при исключении `finally` уже отработал
+    # и оно летит дальше нетронутым. Неудачная уборка красит прогон — иначе
+    # оставленная книга уехала бы в следующий режим и в следующую сессию.
+    if not cleaned:
+        print(f"SMOKE[{mode}]: FAIL — уборка не прошла, книга {book_id} осталась")
+        return 1
+    return code
 
 
 async def run_modes(modes: list) -> int:
