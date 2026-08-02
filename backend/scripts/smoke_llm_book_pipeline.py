@@ -17,7 +17,7 @@ LLM-дедуп, synthesis, master references), заглушены. Провер�
 Запускать только на dev-БД:
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
-        python scripts/smoke_llm_book_pipeline.py [stubbed|failing|both]
+        python scripts/smoke_llm_book_pipeline.py [stubbed|failing|merge_failure|all]
 """
 
 import asyncio
@@ -137,7 +137,52 @@ def _stub_paid_phases() -> None:
     EntitySynthesisService.synthesize_book_entities = _empty_synthesis
 
 
-SESSION_DAMAGE = ("greenlet_spawn", "MissingGreenlet", "PendingRollbackError")
+class _FailingMergeGroup:
+    """Один авто-merge с достаточной уверенностью; id произвольные."""
+
+    confidence = 0.9
+    master_id = str(uuid.uuid4())
+    duplicate_ids = [str(uuid.uuid4())]
+
+
+class _OneGroup:
+    merge_groups = [_FailingMergeGroup()]
+
+
+def _inject_merge_failure() -> None:
+    """Роняет auto-merge ошибкой БД, оставляющей транзакцию в failed-состоянии.
+
+    Проверяется обработчик в `book_tasks`, а не сам merge: реальный
+    `_merge_entities_internal` отката не делает (он есть только в HTTP-обёртке
+    `merge_entities`), поэтому без `rollback()` в обработчике сессия остаётся
+    сломанной и следующие фазы валятся `PendingRollbackError`.
+    """
+    from sqlalchemy import text
+
+    from app.routers.admin import entities as admin_entities
+    from app.services.entity_deduplication_service import EntityDeduplicationService
+
+    async def _one_group(self, *args, **kwargs):
+        return _OneGroup()
+
+    async def _boom(db, master_id, duplicate_ids):
+        # Деление на ноль на стороне Postgres: та же категория отказа, что
+        # нарушение constraint внутри merge — транзакция уходит в failed.
+        await db.execute(text("SELECT 1 / 0"))
+
+    EntityDeduplicationService.suggest_merges = _one_group
+    admin_entities._merge_entities_internal = _boom
+
+
+SESSION_DAMAGE = (
+    "greenlet_spawn",
+    "MissingGreenlet",
+    "PendingRollbackError",
+    # Реальный симптом непокрытой ошибки БД: asyncpg сообщает не
+    # PendingRollbackError, а «current transaction is aborted».
+    "InFailedSQLTransactionError",
+    "current transaction is aborted",
+)
 
 
 def _capture_task_logs(sink: list) -> int:
@@ -189,6 +234,8 @@ async def main(mode: str) -> int:
 
     if mode == "stubbed":
         _stub_paid_phases()
+    if mode == "merge_failure":
+        _inject_merge_failure()
     fake = FakeExtractor()
     original = book_tasks.get_gemini_extractor
     book_tasks.get_gemini_extractor = lambda: fake
@@ -238,6 +285,9 @@ async def main(mode: str) -> int:
 
         damaged = [w for w in warnings if any(m in w for m in SESSION_DAMAGE)]
         print(f"session damage    : {damaged or 'none'}")
+        merge_tripped = any("Auto-merge failed" in w for w in warnings)
+        if mode == "merge_failure":
+            print(f"auto-merge tripped: {merge_tripped}")
 
         # Bulk-DELETE не каскадит: FK на chapters объявлен без ON DELETE CASCADE,
         # каскад живёт в ORM-relationship. Поэтому удаляем через объект.
@@ -266,6 +316,9 @@ async def main(mode: str) -> int:
         # Пост-фаза вправе упасть на пустых ключах, но не вправе оставить
         # сессию сломанной — иначе следующие фазы отваливаются не по своей вине.
         and not damaged
+        # Позитивный контроль: инъекция должна была сработать, иначе режим
+        # проверяет пустоту.
+        and (merge_tripped or mode != "merge_failure")
     )
     print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
@@ -279,7 +332,7 @@ async def run_modes(modes: list) -> int:
     та же ловушка, из-за которой `process_book_task` зовёт `engine.dispose()`.
 
     Порядок важен: `_stub_paid_phases()` патчит классы навсегда, поэтому
-    `failing` идёт первым.
+    режимы без заглушек идут первыми.
     """
     code = 0
     for mode in modes:
@@ -289,5 +342,7 @@ async def run_modes(modes: list) -> int:
 
 if __name__ == "__main__":
     requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
-    selected = ["failing", "stubbed"] if requested == "both" else [requested]
+    selected = (
+        ["merge_failure", "failing", "stubbed"] if requested == "all" else [requested]
+    )
     sys.exit(asyncio.run(run_modes(selected)))

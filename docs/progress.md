@@ -117,13 +117,15 @@ Override в `frontend/package.json`; единственный путь — тр�
 
 `rollback()` экспайрит все ORM-объекты сессии, а пост-фазы `_process_book_async`
 объявлены non-critical: их отказ логируется и выполнение продолжается на той же
-`db`. Отсюда два отказа, оба воспроизведены на живом прогоне.
+`db`. Отсюда три отказа, каждый воспроизведён живым прогоном.
 
 **Финализация падала `MissingGreenlet`.** `graph_service.calculate_pagerank()`
-при исключении делает `await self.db.rollback()` — и делает это на каждой книге,
-потому что `nx.pagerank` требует отсутствующий `scipy`. Следующее обращение
-к `book.id` в `_finalize_book_status()` уходило в синхронный lazy-load уже после
-того, как все главы разобраны: книга оставалась с `is_processing=true`, задача
+при исключении делает `await self.db.rollback()` — и делает это на любой книге,
+у которой есть хоть одна сущность, потому что `nx.pagerank` требует
+отсутствующий `scipy` (на пустом графе фаза выходит раньше,
+`graph_service.py:73-74`). Следующее обращение к `book.id`
+в `_finalize_book_status()` уходило в синхронный lazy-load уже после того,
+как все главы разобраны: книга оставалась с `is_processing=true`, задача
 Celery падала. Исправлено перечитыванием книги через `db.get()`.
 
 **Synthesis молча пропускался.** Он читает `book.genre`/`book.language`
@@ -131,28 +133,31 @@ Celery падала. Исправлено перечитыванием книг�
 тем же `MissingGreenlet`, не доходя даже до AI-вызова. В логе при этом оставалось
 безобидное «synthesis phase failed (non-critical)», поэтому дефект и не замечали.
 Исправлено снятием скаляров `book_genre`/`book_language` один раз до пост-фаз.
-Прямое сравнение на одной репродукции:
 
-| | было | стало |
-| --- | --- | --- |
-| `smoke … failing` | `Entity synthesis phase failed: greenlet_spawn has not been called` | `Running Entity Synthesis…` → `Entity Synthesis complete`, отказ уже на AI-вызове |
-
-**Третий путь закрыт рассуждением, не прогоном.** `_merge_entities_internal`
-(`admin/entities.py:124-202`) своего отката не делает — `rollback()` на `:246`
-живёт в HTTP-обёртке `merge_entities`, а таск зовёт internal напрямую. Ошибка БД
-внутри auto-merge оставляла бы сессию в failed-состоянии, и все следующие фазы
-валились бы `PendingRollbackError`. Добавлен `rollback()` в обработчик; smoke
-до merge не доходит (`suggest_merges` падает раньше на отсутствии ключей),
-поэтому этому пути нужен свой тест.
+**Упавший auto-merge оставлял сессию в failed-состоянии.**
+`_merge_entities_internal` (`admin/entities.py:124-202`) своего отката не делает —
+`rollback()` на `:246` живёт в HTTP-обёртке `merge_entities`, а таск зовёт
+internal напрямую (`book_tasks.py:970`). Добавлен `rollback()` в обработчик.
 
 **Ничто из этого не регрессия S4:** тот же smoke в образе, собранном из HEAD
 до удаления GLiNER, падает идентично — только с `No module named 'scipy'`
 вместо `'numpy'`.
 
-Регрессию по всем трём теперь ловит режим `failing` в
-`scripts/smoke_llm_book_pipeline.py`: пост-фазам дают упасть по-настоящему
-и проверяют, что ни одно предупреждение `book_tasks` не содержит
-`greenlet_spawn` или `PendingRollbackError`.
+### Чем это доказано
+
+У `scripts/smoke_llm_book_pipeline.py` три режима; каждый проверен мутацией —
+откат соответствующей правки красит именно его.
+
+| Режим | Что делает | Без правки |
+| --- | --- | --- |
+| `stubbed` | четыре платные пост-фазы заглушены; проверяет саму ветку «глава → LLM → сущности и описания → финализация» | падал `MissingGreenlet` в `_finalize_book_status` |
+| `failing` | заглушек нет, ключи пустые — пост-фазы падают по-настоящему | `Entity synthesis phase failed: greenlet_spawn has not been called`; после правки — `Running Entity Synthesis…` → `Entity Synthesis complete`, отказ уже на AI-вызове |
+| `merge_failure` | `suggest_merges` отдаёт одну группу, `_merge_entities_internal` подменён на `SELECT 1 / 0` — реальная ошибка БД внутри auto-merge | прогон падает `InFailedSQLTransactionError: current transaction is aborted`, synthesis и graph отваливаются следом |
+
+Общая проверка во всех режимах: ни одно предупреждение `book_tasks` не содержит
+`greenlet_spawn`, `PendingRollbackError` или `current transaction is aborted`.
+В `merge_failure` добавлен позитивный контроль — инъекция обязана сработать
+(`Auto-merge failed` в логе), иначе режим проверял бы пустоту.
 
 ### Найдено вживую и НЕ исправлено (вне объёма)
 
