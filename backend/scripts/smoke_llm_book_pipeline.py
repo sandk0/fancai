@@ -2,7 +2,7 @@
 
 Экстрактор всегда подменяется фейком: он возвращает готовый
 `ChapterAnalysisResult`, поэтому LLM-провайдер по главам не вызывается.
-Режимов два, и оба обязательны — они проверяют разные вещи:
+Режимов четыре, и каждый проверяет своё:
 
 `stubbed` (по умолчанию) — четыре пост-фазы, ходящие в AI за деньги (reduce,
 LLM-дедуп, synthesis, master references), заглушены. Проверяет саму ветку
@@ -14,10 +14,20 @@ LLM-дедуп, synthesis, master references), заглушены. Провер�
 или `PendingRollbackError`. Именно так ловится регрессия, когда какая-нибудь
 пост-фаза снова начнёт откатывать транзакцию под живыми ORM-объектами.
 
+`merge_failure` — auto-merge роняется настоящей ошибкой БД; проверяется
+обработчик в `book_tasks`.
+
+`no_aliases` — фикстура отдаёт сущности **без единого алиаса**. Обе главы
+видят одни и те же имена, поэтому вторая идёт по ветке `ON CONFLICT`,
+где `jsonb_agg` агрегирует пустое объединение. Без `COALESCE` агрегат
+возвращает NULL, колонка `NOT NULL` его отвергает и глава теряется целиком.
+Пост-фазы здесь заглушены как в `stubbed`: режим про upsert, а не про них.
+
 Запускать только на dev-БД:
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
-        python scripts/smoke_llm_book_pipeline.py [stubbed|failing|merge_failure|all]
+        python scripts/smoke_llm_book_pipeline.py \\
+            [stubbed|failing|merge_failure|no_aliases|all]
 """
 
 import asyncio
@@ -50,7 +60,7 @@ CHAPTER_TEXT = (
 ) * 6
 
 
-def _fake_result() -> ChapterAnalysisResult:
+def _fake_result(with_aliases: bool = True) -> ChapterAnalysisResult:
     return ChapterAnalysisResult(
         descriptions=[
             ExtractedDescription(
@@ -76,11 +86,7 @@ def _fake_result() -> ChapterAnalysisResult:
                 name="Геральт",
                 type="character",
                 visual_summary="Седой ведьмак со шрамом, два меча на поясе.",
-                # Непустые алиасы обязательны: при повторной встрече сущности
-                # в следующей главе upsert считает aliases_with_reveal через
-                # jsonb_agg, и на пустом наборе тот вернул бы NULL при NOT NULL
-                # колонке. Это отдельный дефект, записанный в handoff.
-                aliases=["Белый Волк"],
+                aliases=["Белый Волк"] if with_aliases else [],
                 confidence=0.95,
                 # importance < 7 — второй предохранитель против генерации
                 # мастер-портрета, даже если ключ где-то всё же окажется.
@@ -91,7 +97,7 @@ def _fake_result() -> ChapterAnalysisResult:
                 name="Таверна «Под старым вязом»",
                 type="location",
                 visual_summary="Низкий зал с закопчёнными балками.",
-                aliases=["Старый вяз"],
+                aliases=["Старый вяз"] if with_aliases else [],
                 confidence=0.9,
                 importance=4,
             ),
@@ -103,15 +109,16 @@ def _fake_result() -> ChapterAnalysisResult:
 class FakeExtractor:
     """Совместим с `get_gemini_extractor()` по вызываемой поверхности."""
 
-    def __init__(self) -> None:
+    def __init__(self, with_aliases: bool = True) -> None:
         self.calls = 0
+        self._with_aliases = with_aliases
 
     def is_available(self) -> bool:
         return True
 
     async def analyze_chapter(self, content: str) -> ChapterAnalysisResult:
         self.calls += 1
-        return _fake_result()
+        return _fake_result(with_aliases=self._with_aliases)
 
 
 class _NoMerges:
@@ -138,7 +145,8 @@ def _phase_patches(mode: str):
     и без него `merge_failure` оставил бы инъекцию включённой, а следующий
     `failing` проверял бы не то, что заявляет.
 
-    `stubbed` глушит четыре пост-фазы, которые ходят в AI за деньги.
+    `stubbed` и `no_aliases` глушат четыре пост-фазы, которые ходят в AI
+    за деньги.
     `merge_failure` роняет auto-merge настоящей ошибкой БД: проверяется
     обработчик в `book_tasks`, а не сам merge — реальный
     `_merge_entities_internal` отката не делает (он есть только в HTTP-обёртке
@@ -170,7 +178,7 @@ def _phase_patches(mode: str):
         await db.execute(text("SELECT 1 / 0"))
 
     with contextlib.ExitStack() as stack:
-        if mode == "stubbed":
+        if mode in ("stubbed", "no_aliases"):
             for target, name, repl in (
                 (ConsistencyManager, "optimize_book_entities", _noop),
                 (ConsistencyManager, "generate_master_references", _noop),
@@ -287,7 +295,7 @@ async def main(mode: str) -> int:
                 )
             await db.commit()
 
-        fake = FakeExtractor()
+        fake = FakeExtractor(with_aliases=(mode != "no_aliases"))
         warnings: list = []
         sink_id = _capture_task_logs(warnings)
         try:
@@ -390,6 +398,8 @@ async def run_modes(modes: list) -> int:
 if __name__ == "__main__":
     requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
     selected = (
-        ["merge_failure", "failing", "stubbed"] if requested == "all" else [requested]
+        ["merge_failure", "failing", "no_aliases", "stubbed"]
+        if requested == "all"
+        else [requested]
     )
     sys.exit(asyncio.run(run_modes(selected)))

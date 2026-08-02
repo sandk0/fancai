@@ -462,7 +462,10 @@ def _build_production_upsert_stmt(entity_values):
     Включает:
     - LEAST(COALESCE(...)) для first_mention_chapter
     - COALESCE для visual_summary
-    - DISTINCT ON merge для aliases_with_reveal
+    - DISTINCT ON merge для aliases_with_reveal внутри COALESCE над агрегатом
+
+    Держать посимвольно синхронным с `consistency_manager._batch_resolve_entities`:
+    разошедшийся дубль проверяет не production-поведение, а сам себя.
     """
     from sqlalchemy import text as sa_text
 
@@ -485,7 +488,7 @@ def _build_production_upsert_stmt(entity_values):
             ),
             "entity_metadata": stmt.excluded.entity_metadata,
             "aliases_with_reveal": sa_text(
-                "(SELECT jsonb_agg(alias) "
+                "(SELECT COALESCE(jsonb_agg(alias), '[]'::jsonb) "
                 " FROM ("
                 "   SELECT DISTINCT ON (alias->>'name') alias"
                 "   FROM jsonb_array_elements("
@@ -652,6 +655,46 @@ class TestConflictAliasesMerge:
 
                 assert "Бродяжник" in alias_names
                 assert "Наследник Исильдура" in alias_names
+            finally:
+                await session.execute(delete(Entity).where(Entity.book_id == book_id))
+                await session.commit()
+
+    async def test_конфликт_без_псевдонимов_не_нарушает_NOT_NULL(self, test_db):
+        """Обе стороны без псевдонимов: агрегат по пустому набору даёт NULL.
+
+        Колонка `aliases_with_reveal` объявлена NOT NULL, поэтому без
+        `COALESCE` над `jsonb_agg` вторая глава падала бы
+        `NotNullViolationError` и терялась целиком.
+        """
+        from tests.conftest import TestSessionLocal
+
+        book_id = uuid_module.uuid4()
+
+        async with TestSessionLocal() as session:
+            try:
+                values1 = _make_entity_values(
+                    book_id, name="Безымянный", aliases_with_reveal=[]
+                )
+                await session.execute(_build_production_upsert_stmt(values1))
+                await session.commit()
+
+                values2 = _make_entity_values(
+                    book_id, name="Безымянный", aliases_with_reveal=[]
+                )
+                await session.execute(_build_production_upsert_stmt(values2))
+                await session.commit()
+
+                result = await session.execute(
+                    select(Entity).where(
+                        Entity.book_id == book_id,
+                        Entity.name_lower == "безымянный",
+                    )
+                )
+                entity = result.scalar_one()
+
+                assert entity.aliases_with_reveal == [], (
+                    "Пустое объединение обязано дать [], а не NULL"
+                )
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
