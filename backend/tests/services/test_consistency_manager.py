@@ -155,8 +155,8 @@ class TestConsistencyManagerOpenRouterMigration:
         assert "Гарри" in prompt_arg
 
     @pytest.mark.asyncio
-    async def test_optimize_book_entities_handles_llm_response(self):
-        """optimize_book_entities корректно обрабатывает ответ LLM с merge/delete операциями."""
+    async def test_optimize_book_entities_leaves_transaction_to_caller(self):
+        """optimize_book_entities отрабатывает план LLM и не трогает транзакцию."""
         mock_entity = MagicMock(spec=Entity)
         mock_entity.id = "uuid-keep"
         mock_entity.name = "Волдеморт"
@@ -191,7 +191,10 @@ class TestConsistencyManagerOpenRouterMigration:
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
-        mock_db.commit.assert_called_once()
+        # Транзакцией управляет caller: фаза идёт внутри его SAVEPOINT,
+        # и собственный commit()/rollback() сервиса снял бы этот savepoint.
+        mock_db.commit.assert_not_called()
+        mock_db.rollback.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

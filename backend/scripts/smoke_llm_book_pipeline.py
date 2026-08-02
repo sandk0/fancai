@@ -2,7 +2,7 @@
 
 Экстрактор всегда подменяется фейком: он возвращает готовый
 `ChapterAnalysisResult`, поэтому LLM-провайдер по главам не вызывается.
-Режимов четыре, и каждый проверяет своё:
+Режимов пять, и каждый проверяет своё:
 
 `stubbed` (по умолчанию) — четыре пост-фазы, ходящие в AI за деньги (reduce,
 LLM-дедуп, synthesis, master references), заглушены. Проверяет саму ветку
@@ -15,7 +15,12 @@ LLM-дедуп, synthesis, master references), заглушены. Провер�
 пост-фаза снова начнёт откатывать транзакцию под живыми ORM-объектами.
 
 `merge_failure` — auto-merge роняется настоящей ошибкой БД; проверяется
-обработчик в `book_tasks`.
+SAVEPOINT вокруг слияния в `book_tasks`.
+
+`reduce_failure` — фаза A падает ошибкой БД изнутри настоящего
+`optimize_book_entities`. Проверяет, что сервис ошибку не глотает и не
+откатывает транзакцию сам, а SAVEPOINT вызывающего ограничивает откат этой
+фазой: соседние фазы и финализация не страдают.
 
 `no_aliases` — фикстура отдаёт сущности **без единого алиаса**. Обе главы
 видят одни и те же имена, поэтому вторая идёт по ветке `ON CONFLICT`,
@@ -27,7 +32,7 @@ LLM-дедуп, synthesis, master references), заглушены. Провер�
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
         python scripts/smoke_llm_book_pipeline.py \\
-            [stubbed|failing|merge_failure|no_aliases|all]
+            [stubbed|failing|merge_failure|reduce_failure|no_aliases|all]
 """
 
 import asyncio
@@ -149,9 +154,14 @@ def _phase_patches(mode: str):
     за деньги.
     `merge_failure` роняет auto-merge настоящей ошибкой БД: проверяется
     обработчик в `book_tasks`, а не сам merge — реальный
-    `_merge_entities_internal` отката не делает (он есть только в HTTP-обёртке
-    `merge_entities`), поэтому без `rollback()` в обработчике сессия остаётся
-    сломанной и следующие фазы валятся `InFailedSQLTransactionError`.
+    `_merge_entities_internal` транзакцией не управляет, и без SAVEPOINT'а
+    вокруг вызова сессия осталась бы сломанной, а следующие фазы валились бы
+    `InFailedSQLTransactionError`.
+    `reduce_failure` роняет ошибкой БД фазу A изнутри настоящего
+    `optimize_book_entities`: подменён только `_single_reduce_pass`. Проверяет
+    обе половины контракта — сервис ошибку не глотает и не откатывает, а
+    SAVEPOINT вызывающего ограничивает откат этой фазой. Остальные AI-фазы
+    заглушены, чтобы сигнал был чистым.
     """
     from sqlalchemy import text
 
@@ -177,6 +187,11 @@ def _phase_patches(mode: str):
         # нарушение constraint внутри merge — транзакция уходит в failed.
         await db.execute(text("SELECT 1 / 0"))
 
+    async def _reduce_boom(self, entities):
+        # Та же ошибка БД, но внутри фазы A: сервис обязан выпустить её
+        # наружу, а не проглотить с откатом всей транзакции.
+        await self.db.execute(text("SELECT 1 / 0"))
+
     with contextlib.ExitStack() as stack:
         if mode in ("stubbed", "no_aliases"):
             for target, name, repl in (
@@ -193,6 +208,16 @@ def _phase_patches(mode: str):
             stack.enter_context(
                 patch.object(admin_entities, "_merge_entities_internal", _boom)
             )
+        elif mode == "reduce_failure":
+            stack.enter_context(
+                patch.object(ConsistencyManager, "_single_reduce_pass", _reduce_boom)
+            )
+            for target, name, repl in (
+                (ConsistencyManager, "generate_master_references", _noop),
+                (EntityDeduplicationService, "suggest_merges", _no_merges),
+                (EntitySynthesisService, "synthesize_book_entities", _empty_synthesis),
+            ):
+                stack.enter_context(patch.object(target, name, repl))
         yield
 
 
@@ -345,8 +370,14 @@ async def main(mode: str) -> int:
         damaged = [w for w in warnings if any(m in w for m in SESSION_DAMAGE)]
         print(f"session damage    : {damaged or 'none'}")
         merge_tripped = any("Auto-merge failed" in w for w in warnings)
-        # Печатается во всех режимах: True в чужом режиме сразу видно глазами.
+        # Именно инъекция, а не любой отказ фазы A: в `failing` она падает
+        # на пустых ключах и тоже пишет «Reduce phase failed».
+        reduce_tripped = any(
+            "Reduce phase failed" in w and "division by zero" in w for w in warnings
+        )
+        # Печатаются во всех режимах: True в чужом режиме сразу видно глазами.
         print(f"auto-merge tripped: {merge_tripped}")
+        print(f"reduce db failure : {reduce_tripped}")
 
         ok = (
             result["status"] == "completed"
@@ -363,6 +394,7 @@ async def main(mode: str) -> int:
             # означает, что подмена протекла между режимами, и `failing`
             # проверял бы не незаглушенные пост-фазы, а чужую инъекцию.
             and merge_tripped == (mode == "merge_failure")
+            and reduce_tripped == (mode == "reduce_failure")
         )
         print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
         code = 0 if ok else 1
@@ -398,7 +430,7 @@ async def run_modes(modes: list) -> int:
 if __name__ == "__main__":
     requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
     selected = (
-        ["merge_failure", "failing", "no_aliases", "stubbed"]
+        ["merge_failure", "reduce_failure", "failing", "no_aliases", "stubbed"]
         if requested == "all"
         else [requested]
     )

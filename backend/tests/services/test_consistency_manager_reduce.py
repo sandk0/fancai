@@ -14,7 +14,7 @@
 
 import pytest
 import json
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.services.consistency_manager import ConsistencyManager
@@ -169,15 +169,15 @@ class TestBatchedReduceMergeOps:
         # DB execute should have been called for: initial query + source update + target update + delete merged
         # At minimum 4 calls: SELECT + UPDATE source + UPDATE target + DELETE merged
         assert mock_db.execute.call_count >= 4
-        mock_db.commit.assert_called()
+        mock_db.commit.assert_not_called()
 
 
 class TestBatchedReduceInvalidJSON:
-    """Невалидный JSON — rollback."""
+    """Невалидный JSON гасится разбором, а не транзакцией."""
 
     @pytest.mark.asyncio
-    async def test_invalid_json_triggers_rollback(self):
-        """LLM возвращает невалидный JSON — ошибка обрабатывается, rollback."""
+    async def test_invalid_json_does_not_touch_transaction(self):
+        """LLM возвращает невалидный JSON — плана нет, исключения нет, транзакция цела."""
         entities = [_make_mock_entity("Test Entity")]
         mock_db = _make_db_returning_entities(entities)
 
@@ -189,13 +189,13 @@ class TestBatchedReduceInvalidJSON:
             return_value=mock_openrouter,
         ):
             manager = ConsistencyManager(db=mock_db)
-            # Should not raise — error is caught internally
             await manager.optimize_book_entities("test-book-id")
 
-        # When JSON is invalid, parse_json_safe returns None, plan becomes {}
-        # No merge/delete ops, commit is still called (empty ops)
-        # OR rollback is called on exception — either is acceptable
-        # The important thing: no exception propagates
+        # parse_json_safe возвращает None, план пустой — операций нет.
+        # Транзакцию сервис не трогает ни в каком исходе: он работает внутри
+        # SAVEPOINT'а вызывающего, и commit()/rollback() снял бы этот savepoint.
+        mock_db.commit.assert_not_called()
+        mock_db.rollback.assert_not_called()
 
 
 class TestBatchedReduceMaxDepth:
@@ -257,8 +257,8 @@ class TestBatchedReduceDeleteOps:
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
-        # Commit should be called after delete operation
-        mock_db.commit.assert_called()
+        # Транзакцией управляет caller — сервис её не трогает.
+        mock_db.commit.assert_not_called()
         # execute called for: initial query + delete garbage
         assert mock_db.execute.call_count >= 2
 
