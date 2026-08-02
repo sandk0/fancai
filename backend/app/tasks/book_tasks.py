@@ -1107,6 +1107,17 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         except Exception as e:
             logger.error("Failed to generate master references", error=str(e))
 
+        # Пост-фазы выше ловят собственные исключения, но часть из них при
+        # отказе делает db.rollback() — например graph_service.calculate_pagerank.
+        # Rollback экспайрит ORM-объекты сессии, и следующее же обращение к
+        # book.id уходит в синхронный lazy-load, а он в async-сессии падает
+        # MissingGreenlet и роняет всю задачу уже после успешной обработки глав.
+        # Перечитываем книгу явно, вместо того чтобы полагаться на живучесть
+        # объекта, загруженного сотней строк выше.
+        book = await db.get(Book, book_id)
+        if book is None:
+            raise ValueError(f"Book {book_id} disappeared during processing")
+
         # Финализация: статусы, WebSocket, cache, push notification
         has_failures, failed_chapters = await _finalize_book_status(
             db,
