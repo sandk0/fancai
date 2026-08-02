@@ -130,7 +130,7 @@
 > ⚠️ **На production используются ДВА compose-файла одновременно** с одним project name `app`:
 >
 > - `docker-compose.prod.yml` запускает 7 сервисов (caddy, frontend, backend, celery-worker, celery-beat, postgres, redis, pgbackup)
-> - `docker-compose.monitoring.yml` запускает 5 сервисов (netdata, victoriametrics, uptime-kuma, dozzle, flower)
+> - `docker-compose.monitoring.yml` запускает 4 сервиса (netdata, victoriametrics, uptime-kuma, dozzle); flower удалён — образ `mher/flower:2.0.1` не публикуется с 2023-08-13
 >
 > При restore **обязательно** использовать оба файла, иначе мониторинг не поднимется. `migration-restore.sh` делает это автоматически через `RESTORE_MONITORING=1` (default).
 
