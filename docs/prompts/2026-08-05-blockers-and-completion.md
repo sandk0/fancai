@@ -46,6 +46,7 @@ git stash push -u -m "wip-before-2026-08-05"   # и сразу git stash apply
 | 6 | **GitHub Actions** включать? От этого зависят 4.7/4.8 | по усмотрению |
 | 7 | **Слить `Dockerfile.celery` и `Dockerfile.prod`?** Разблокируется вместе с #1 | да, различий три: `CMD`, healthcheck, `EXPOSE` |
 | 8 | **Покрытие 47,61 % при гейте 70 %** — поднимать или оставить долгом? | оставить долгом, гейт не понижать |
+| 9 | **Dev расходится с прод-инвариантом Redis** (см. §2.7): кэш, брокер и результаты делят DB 0, поэтому `cache_manager.clear_all()` в dev сносит очередь Celery. Чинить? | да — дефект дешёвый, а цена ошибки высокая |
 
 **Ответы записать в `docs/handoff.md` таблицей «вопрос → решение» до начала
 работы.** Дальше исполнять по ней.
@@ -94,8 +95,25 @@ Flower из `README.md:81`, `README-ru.md:82`, `docs/deployment/README.md:42`,
 ### 2.4. Выкатка на прод — стоп-точка, по решению #2
 
 Бэкап → пересборка **backend, celery и frontend** → `alembic upgrade head`
-(`e5f6a7b8c9d0`) → `/health` → smoke на боевых данных → живая проверка SPA
-и читалки.
+(`e5f6a7b8c9d0`) → неразрушающая проверка.
+
+**`smoke_llm_book_pipeline.py` на проде не запускать.** Скрипт сам пишет
+«Запускать только на dev-БД» (строка 35) и это не формальность: он берёт
+`select(User.id).limit(1)` и заводит на найденного пользователя книгу с двумя
+главами (строки 315–340). На проде это чужая книга в чужой библиотеке —
+пусть даже удаляемая в `finally`.
+
+Проверка после выкатки — только чтение и health:
+
+- `/health` отдаёт 200, все компоненты `ok`;
+- `/api/v1/books` под реальной сессией возвращает прежний список;
+- открыть книгу в читалке: главы рендерятся, CFI восстанавливается;
+- логи `fancai_celery` без `greenlet_spawn`, `PendingRollbackError`
+  и `current transaction is aborted`;
+- очередь брокера не растёт: `celery … inspect active`.
+
+Шестирежимный pipeline smoke гонять на dev или staging **тем же собранным
+образом** — до выкатки, а не после.
 
 Frontend обязателен: накопленное включает React Router 8, замену xmldom
 и резку бандла. Сервис `frontend` в `docker-compose.prod.yml:63` — build-only,
@@ -116,6 +134,31 @@ Frontend обязателен: накопленное включает React Rou
 ротировать, а не allowlist'ить. После — проверить, что подложенный тестовый
 ключ хук по-прежнему отвергает.
 
+### 2.7. Привести dev к прод-инварианту Redis — по решению #9
+
+`AGENTS.md` объявляет раскладку load-bearing: **0 — кэш приложения,
+1 — брокер Celery (никогда не флашить), 2 — результаты**. Соблюдается только
+в проде: `docker-compose.prod.yml:102-103` задаёт `CELERY_BROKER_URL=…/1`
+и `CELERY_RESULT_BACKEND=…/2`, а в `docker-compose.dev.yml` этих переменных
+нет — Celery берёт `settings.REDIS_URL` без суффикса БД. Проверка:
+
+```bash
+docker exec fancai_celery_dev python -c \
+  "from app.core.celery_app import celery_app; print(celery_app.conf.broker_url)"
+# сейчас: redis://…@redis:6379   (то есть DB 0, вместе с кэшем)
+```
+
+Следствие: `cache_manager.clear_all()` (`app/core/cache.py:313`) в dev делает
+`flushdb` по той же БД, где лежит очередь Celery.
+
+Правка — добавить обе переменные в `docker-compose.dev.yml` для `backend`,
+`celery-worker` и `celery-beat`.
+
+**Приёмка:** `broker_url` заканчивается на `/1`, `result_backend` на `/2`;
+после `clear_all()` задача в очереди выживает — поставить задачу, сбросить
+кэш, убедиться, что `inspect reserved` её всё ещё видит; шесть режимов smoke
+зелёные.
+
 ## §3. Стоп-точки
 
 Пауза и явное «да» перед: деплоем и любыми записями на проде; боевым
@@ -126,22 +169,9 @@ dump/restore PostgreSQL; выкаткой изменённого монитор�
 
 Полный `pytest` внутри `fancai_backend_dev` небезопасен без подготовки:
 compose передаёт туда настоящий `OPENROUTER_API_KEY`, а `cache_manager.clear_all()`
-(`app/core/cache.py:313`) делает `flushdb`.
-
-Уточнение, которое стоит держать в голове: инвариант из `AGENTS.md`
-(0 = app cache, 1 = брокер, 2 = результаты) соблюдён **только в проде** —
-`docker-compose.prod.yml:102-103` задаёт `CELERY_BROKER_URL=…/1`
-и `CELERY_RESULT_BACKEND=…/2`. В `docker-compose.dev.yml` этих переменных нет,
-Celery падает на `settings.REDIS_URL` без суффикса БД, и кэш, брокер
-и результаты в dev делят **одну DB 0**. Проверяется так:
-
-```bash
-docker exec fancai_celery_dev python -c \
-  "from app.core.celery_app import celery_app; print(celery_app.conf.broker_url)"
-```
-
-То есть в dev `flushdb` сносит и брокер тоже. Расхождение dev с прод-инвариантом
-— кандидат в отдельную задачу.
+(`app/core/cache.py:313`) делает `flushdb` — и **пока не сделан §2.7, сносит
+вместе с кэшем очередь Celery**, потому что в dev они в одной DB 0.
+Ключи гасить через `docker exec -e`, `clear_all()` не звать.
 
 ## §4. Готовность
 
