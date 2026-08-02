@@ -542,8 +542,8 @@ class ConsistencyManager:
 
                 continue
 
-        # TD-P17-3 FIX: Single commit after loop instead of N commits inside loop
-        await self.db.commit()
+        # Транзакцией управляет caller: сервис вызывается внутри SAVEPOINT
+        # пост-фазы, и собственный commit() здесь снял бы этот savepoint.
 
     # --- Batched Reduce constants ---
     BATCH_SIZE = 50
@@ -713,55 +713,52 @@ CRITICAL RULES:
             f"BATCH_SIZE={self.BATCH_SIZE}, MAX_DEPTH={self.MAX_DEPTH}"
         )
 
-        try:
-            for depth in range(self.MAX_DEPTH):
-                old_count = len(entities)
+        for depth in range(self.MAX_DEPTH):
+            old_count = len(entities)
 
-                if len(entities) <= self.BATCH_SIZE:
-                    # Single pass for small lists
-                    plan = await self._single_reduce_pass(entities)
-                    await self._execute_reduce_operations(plan, book_id)
-                    break
-                else:
-                    # Batched reduce for large lists
-                    batches = [
-                        entities[i : i + self.BATCH_SIZE]
-                        for i in range(0, len(entities), self.BATCH_SIZE)
-                    ]
-                    all_ops: dict = {"merge_operations": [], "delete_operations": []}
+            if len(entities) <= self.BATCH_SIZE:
+                # Single pass for small lists
+                plan = await self._single_reduce_pass(entities)
+                await self._execute_reduce_operations(plan, book_id)
+                break
+            else:
+                # Batched reduce for large lists
+                batches = [
+                    entities[i : i + self.BATCH_SIZE]
+                    for i in range(0, len(entities), self.BATCH_SIZE)
+                ]
+                all_ops: dict = {"merge_operations": [], "delete_operations": []}
 
-                    for batch in batches:
-                        batch_plan = await self._single_reduce_pass(batch)
-                        all_ops["merge_operations"].extend(
-                            batch_plan.get("merge_operations", [])
-                        )
-                        all_ops["delete_operations"].extend(
-                            batch_plan.get("delete_operations", [])
-                        )
-
-                    await self._execute_reduce_operations(all_ops, book_id)
-
-                    # Reload entities for next round
-                    result = await self.db.execute(query)
-                    entities = list(result.scalars().all())
-
-                    if len(entities) >= old_count:
-                        logger.info(
-                            f"Entity count did not decrease ({old_count} -> {len(entities)}). "
-                            f"Stopping reduce at depth {depth + 1}."
-                        )
-                        break
-
-                    logger.info(
-                        f"Reduce depth {depth + 1}: {old_count} -> {len(entities)} entities"
+                for batch in batches:
+                    batch_plan = await self._single_reduce_pass(batch)
+                    all_ops["merge_operations"].extend(
+                        batch_plan.get("merge_operations", [])
+                    )
+                    all_ops["delete_operations"].extend(
+                        batch_plan.get("delete_operations", [])
                     )
 
-            await self.db.commit()
-            logger.info(
-                f"Optimization Complete for book {book_id}. "
-                f"Final entity count: {len(entities)}"
-            )
+                await self._execute_reduce_operations(all_ops, book_id)
 
-        except Exception as e:
-            await self.db.rollback()
-            logger.error(f"Entity Optimization Failed: {e}", exc_info=True)
+                # Reload entities for next round
+                result = await self.db.execute(query)
+                entities = list(result.scalars().all())
+
+                if len(entities) >= old_count:
+                    logger.info(
+                        f"Entity count did not decrease ({old_count} -> {len(entities)}). "
+                        f"Stopping reduce at depth {depth + 1}."
+                    )
+                    break
+
+                logger.info(
+                    f"Reduce depth {depth + 1}: {old_count} -> {len(entities)} entities"
+                )
+
+        # Ни commit(), ни rollback(): фаза идёт внутри SAVEPOINT'а вызывающего,
+        # и ошибка обязана выйти наружу. Проглоченная здесь, она оставила бы
+        # caller'у aborted-транзакцию, а его RELEASE SAVEPOINT упал бы следом.
+        logger.info(
+            f"Optimization Complete for book {book_id}. "
+            f"Final entity count: {len(entities)}"
+        )

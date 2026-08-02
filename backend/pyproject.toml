@@ -65,9 +65,6 @@ dependencies = [
 
     # Email (Yandex Cloud Postbox — совместим с AWS SES v2)
     "aioboto3==15.5.0",
-
-    # Graph analysis & map-reduce (Phase 6)
-    "networkx==3.6.1",
 ]
 
 [dependency-groups]

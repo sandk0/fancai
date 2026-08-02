@@ -129,6 +129,11 @@ async def _merge_entities_internal(
     """
     Internal merge function for use by both API endpoint and auto-merge in book processing.
     Returns count of merged entities.
+
+    Транзакцией не управляет и кэш не гасит: и HTTP-обёртка, и пост-фаза
+    таска вызывают её внутри своей транзакции (таск — внутри SAVEPOINT),
+    где чужой commit() снял бы savepoint, а инвалидация до коммита успела бы
+    подтянуть в кэш ещё не слитые данные.
     """
     master_result = await db.execute(select(Entity).where(Entity.id == master_id))
     master = master_result.scalar_one_or_none()
@@ -142,8 +147,6 @@ async def _merge_entities_internal(
 
     if not duplicates:
         return 0
-
-    book_id = master.book_id
 
     await db.execute(
         update(EntityMention)
@@ -194,10 +197,6 @@ async def _merge_entities_internal(
     master.importance = max_importance
 
     await db.execute(delete(Entity).where(Entity.id.in_(duplicate_ids)))
-    await db.commit()
-
-    cache_key = f"book:{book_id}:entity_network_raw_v5"
-    await cache_manager.delete(cache_key)
 
     return len(duplicates)
 
@@ -227,7 +226,15 @@ async def merge_entities(
     )
 
     try:
+        book_id = (
+            await db.execute(select(Entity.book_id).where(Entity.id == master_id))
+        ).scalar_one_or_none()
+
         merged_count = await _merge_entities_internal(db, master_id, duplicate_ids)
+        await db.commit()
+
+        if book_id is not None:
+            await cache_manager.delete(f"book:{book_id}:entity_network_raw_v5")
 
         logger.info(
             f"[AdminEntities] Successfully merged {merged_count} entities into {master_id}"

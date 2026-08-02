@@ -545,12 +545,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_descriptions = 0
         total_chapters = len(chapters)
 
-        # Скаляры снимаются здесь, а не читаются с ORM-объекта в пост-фазах:
-        # любой rollback в проглатываемой фазе экспайрит `book`, и обращение
-        # к его атрибуту уходит в синхронный lazy-load с MissingGreenlet.
-        book_genre = book.genre or ""
-        book_language = book.language or "ru"
-
         if llm_available and chapters:
             logger.info(
                 "Starting parallel chapter processing (v16 Async Architecture)",
@@ -913,12 +907,21 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 f"{total_descriptions} descriptions extracted."
             )
 
-            # Update book progress to 100% (approximate)
-            book.parsing_progress = 100
+            # book.parsing_progress здесь не трогаем: значение всё равно
+            # выставляет и коммитит _finalize_book_status(), а до неё любой
+            # откат пост-фазы это присваивание просто выбрасывал.
             chapters_processed = chapters_done_count
 
-        # 4. Phase 2: Map-Reduce Barrier & Graph Analysis
+        # 4. Phase 2: Map-Reduce Barrier
         # Executed once after all chapters are extracted.
+        #
+        # Каждая пост-фаза объявлена non-critical: её отказ логируется, книга
+        # всё равно финализируется. Чтобы это было правдой, а не намерением,
+        # фаза идёт в собственном SAVEPOINT — ошибка БД откатывает только его,
+        # общая транзакция и ORM-объекты соседних фаз остаются живыми.
+        # Сервисы внутри транзакцией не управляют и исключения не глотают:
+        # без этого выход из begin_nested() выполнял бы RELEASE SAVEPOINT
+        # на уже aborted-транзакции и падал сам.
 
         # A. Reduce Phase: Merge Duplicates & Filter Garbage
         try:
@@ -932,9 +935,9 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 status="processing",
                 message="Оптимизация сущностей...",
             )
-            await consistency_manager.optimize_book_entities(str(book_id))
-
-            from app.models.entity import Entity
+            async with db.begin_nested():
+                await consistency_manager.optimize_book_entities(str(book_id))
+            await db.commit()
 
             entities_count_result = await db.execute(
                 select(func.count(Entity.id)).where(Entity.book_id == book_id)
@@ -966,24 +969,25 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 for group in dedup_response.merge_groups:
                     if group.confidence >= 0.75:
                         try:
-                            await _merge_entities_internal(
-                                db=db,
-                                master_id=UUID(group.master_id),
-                                duplicate_ids=[
-                                    UUID(did) for did in group.duplicate_ids
-                                ],
-                            )
+                            # Свой SAVEPOINT на группу: неудачное слияние
+                            # не должно уносить с собой уже слитые группы.
+                            async with db.begin_nested():
+                                await _merge_entities_internal(
+                                    db=db,
+                                    master_id=UUID(group.master_id),
+                                    duplicate_ids=[
+                                        UUID(did) for did in group.duplicate_ids
+                                    ],
+                                )
+                            # Кэш `entity_network_raw_v5` этой книги гасится
+                            # один раз на финализации ниже — здесь он был бы
+                            # лишним раундтрипом на каждую группу.
+                            await db.commit()
                             auto_merged += len(group.duplicate_ids)
                             logger.info(
                                 f"Auto-merged {len(group.duplicate_ids)} entities (conf={group.confidence})"
                             )
                         except Exception as merge_err:
-                            # _merge_entities_internal своего отката не делает —
-                            # он есть только в HTTP-обёртке merge_entities, а сюда
-                            # мы приходим мимо неё. Без rollback сессия остаётся
-                            # в failed-состоянии и все следующие фазы падают
-                            # PendingRollbackError, хотя объявлены non-critical.
-                            await db.rollback()
                             logger.warning(f"Auto-merge failed: {merge_err}")
 
                 if auto_merged > 0:
@@ -1045,37 +1049,40 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 book_id=str(book_id),
                 entities=entities_data,
                 events=events_data,
-                genre=book_genre,
-                language=book_language,
+                genre=book.genre or "",
+                language=book.language or "ru",
             )
 
-            # Save synthesis results to DB
-            entity_name_map = {e.name_lower: e for e in all_entities}
-            for synth_entity in synthesis_result.get("entities", []):
-                name = synth_entity.get("name", "")
-                db_entity = entity_name_map.get(name.casefold()[:255])
-                if db_entity:
-                    db_entity.base_role = synth_entity.get("base_role")
-                    db_entity.biography_milestones = synth_entity.get("milestones", [])
-                    db.add(db_entity)
-
-            # Save relationship milestones
-            for rel_ms in synthesis_result.get("relationship_milestones", []):
-                source_name = rel_ms.get("source", "").casefold()[:255]
-                target_name = rel_ms.get("target", "").casefold()[:255]
-                source_entity = entity_name_map.get(source_name)
-                target_entity = entity_name_map.get(target_name)
-                if source_entity and target_entity:
-                    rel_q = await db.execute(
-                        select(EntityRelationship).where(
-                            EntityRelationship.source_id == source_entity.id,
-                            EntityRelationship.target_id == target_entity.id,
+            # Записи фазы — в собственном SAVEPOINT; чтения и сам AI-вызов
+            # выше держать под ним незачем.
+            async with db.begin_nested():
+                entity_name_map = {e.name_lower: e for e in all_entities}
+                for synth_entity in synthesis_result.get("entities", []):
+                    name = synth_entity.get("name", "")
+                    db_entity = entity_name_map.get(name.casefold()[:255])
+                    if db_entity:
+                        db_entity.base_role = synth_entity.get("base_role")
+                        db_entity.biography_milestones = synth_entity.get(
+                            "milestones", []
                         )
-                    )
-                    rel = rel_q.scalar_one_or_none()
-                    if rel:
-                        rel.relationship_milestones = rel_ms.get("milestones", [])
-                        db.add(rel)
+                        db.add(db_entity)
+
+                for rel_ms in synthesis_result.get("relationship_milestones", []):
+                    source_name = rel_ms.get("source", "").casefold()[:255]
+                    target_name = rel_ms.get("target", "").casefold()[:255]
+                    source_entity = entity_name_map.get(source_name)
+                    target_entity = entity_name_map.get(target_name)
+                    if source_entity and target_entity:
+                        rel_q = await db.execute(
+                            select(EntityRelationship).where(
+                                EntityRelationship.source_id == source_entity.id,
+                                EntityRelationship.target_id == target_entity.id,
+                            )
+                        )
+                        rel = rel_q.scalar_one_or_none()
+                        if rel:
+                            rel.relationship_milestones = rel_ms.get("milestones", [])
+                            db.add(rel)
 
             await db.commit()
             logger.info(
@@ -1085,23 +1092,7 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Entity synthesis phase failed (non-critical): {e}")
 
-        # B. Graph Phase: PageRank & Importance
-        try:
-            from app.services.graph_service import get_graph_service
-
-            graph_service = get_graph_service(db)
-            logger.info("Calculating Graph Metrics (PageRank)...", book_id=str(book_id))
-            await publish_book_progress(
-                book_id=str(book_id),
-                progress=90,
-                status="processing",
-                message="Анализ связей графа...",
-            )
-            await graph_service.calculate_pagerank(str(book_id))
-        except Exception as e:
-            logger.error(f"Graph analysis failed: {e}")
-
-        # 5. Generate Master References for optimized entities
+        # E. Generate Master References for optimized entities
         # This is done once after all chapters are processed to ensure global consistency
         try:
             logger.info(
@@ -1113,20 +1104,11 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 status="processing",
                 message="Финальная сборка...",
             )
-            await consistency_manager.generate_master_references(str(book_id))
+            async with db.begin_nested():
+                await consistency_manager.generate_master_references(str(book_id))
+            await db.commit()
         except Exception as e:
             logger.error("Failed to generate master references", error=str(e))
-
-        # Пост-фазы выше ловят собственные исключения, но часть из них при
-        # отказе делает db.rollback() — например graph_service.calculate_pagerank.
-        # Rollback экспайрит ORM-объекты сессии, и следующее же обращение к
-        # book.id уходит в синхронный lazy-load, а он в async-сессии падает
-        # MissingGreenlet и роняет всю задачу уже после успешной обработки глав.
-        # Перечитываем книгу явно, вместо того чтобы полагаться на живучесть
-        # объекта, загруженного сотней строк выше.
-        book = await db.get(Book, book_id)
-        if book is None:
-            raise ValueError(f"Book {book_id} disappeared during processing")
 
         # Финализация: статусы, WebSocket, cache, push notification
         has_failures, failed_chapters = await _finalize_book_status(
