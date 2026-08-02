@@ -545,6 +545,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         total_descriptions = 0
         total_chapters = len(chapters)
 
+        # Скаляры снимаются здесь, а не читаются с ORM-объекта в пост-фазах:
+        # любой rollback в проглатываемой фазе экспайрит `book`, и обращение
+        # к его атрибуту уходит в синхронный lazy-load с MissingGreenlet.
+        book_genre = book.genre or ""
+        book_language = book.language or "ru"
+
         if llm_available and chapters:
             logger.info(
                 "Starting parallel chapter processing (v16 Async Architecture)",
@@ -973,6 +979,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                 f"Auto-merged {len(group.duplicate_ids)} entities (conf={group.confidence})"
                             )
                         except Exception as merge_err:
+                            # _merge_entities_internal своего отката не делает —
+                            # он есть только в HTTP-обёртке merge_entities, а сюда
+                            # мы приходим мимо неё. Без rollback сессия остаётся
+                            # в failed-состоянии и все следующие фазы падают
+                            # PendingRollbackError, хотя объявлены non-critical.
+                            await db.rollback()
                             logger.warning(f"Auto-merge failed: {merge_err}")
 
                 if auto_merged > 0:
@@ -1034,8 +1046,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 book_id=str(book_id),
                 entities=entities_data,
                 events=events_data,
-                genre=getattr(book, "genre", "") or "",
-                language=getattr(book, "language", "ru") or "ru",
+                genre=book_genre,
+                language=book_language,
             )
 
             # Save synthesis results to DB

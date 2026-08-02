@@ -115,16 +115,44 @@ Override в `frontend/package.json`; единственный путь — тр�
 
 ### Найдено вживую и исправлено
 
-**Обработка книги падала на финализации.** `graph_service.calculate_pagerank()`
-при исключении делает `await self.db.rollback()`; rollback экспайрит ORM-объекты,
-и следующее обращение к `book.id` в `_finalize_book_status()` уходит в синхронный
-lazy-load → `MissingGreenlet` уже после того, как все главы разобраны. Книга
-оставалась с `is_processing=true`, задача Celery падала. Исправлено перечитыванием
-книги через `db.get()` перед финализацией.
+`rollback()` экспайрит все ORM-объекты сессии, а пост-фазы `_process_book_async`
+объявлены non-critical: их отказ логируется и выполнение продолжается на той же
+`db`. Отсюда два отказа, оба воспроизведены на живом прогоне.
 
-**Это не регрессия S4:** тот же smoke, запущенный в образе, собранном из HEAD
-до удаления GLiNER, падает идентично — только с `No module named 'scipy'` вместо
-`'numpy'`.
+**Финализация падала `MissingGreenlet`.** `graph_service.calculate_pagerank()`
+при исключении делает `await self.db.rollback()` — и делает это на каждой книге,
+потому что `nx.pagerank` требует отсутствующий `scipy`. Следующее обращение
+к `book.id` в `_finalize_book_status()` уходило в синхронный lazy-load уже после
+того, как все главы разобраны: книга оставалась с `is_processing=true`, задача
+Celery падала. Исправлено перечитыванием книги через `db.get()`.
+
+**Synthesis молча пропускался.** Он читает `book.genre`/`book.language`
+(`book_tasks.py:1043-1044`) — до перечитывания, и после отката reduce-фазы падал
+тем же `MissingGreenlet`, не доходя даже до AI-вызова. В логе при этом оставалось
+безобидное «synthesis phase failed (non-critical)», поэтому дефект и не замечали.
+Исправлено снятием скаляров `book_genre`/`book_language` один раз до пост-фаз.
+Прямое сравнение на одной репродукции:
+
+| | было | стало |
+| --- | --- | --- |
+| `smoke … failing` | `Entity synthesis phase failed: greenlet_spawn has not been called` | `Running Entity Synthesis…` → `Entity Synthesis complete`, отказ уже на AI-вызове |
+
+**Третий путь закрыт рассуждением, не прогоном.** `_merge_entities_internal`
+(`admin/entities.py:124-202`) своего отката не делает — `rollback()` на `:246`
+живёт в HTTP-обёртке `merge_entities`, а таск зовёт internal напрямую. Ошибка БД
+внутри auto-merge оставляла бы сессию в failed-состоянии, и все следующие фазы
+валились бы `PendingRollbackError`. Добавлен `rollback()` в обработчик; smoke
+до merge не доходит (`suggest_merges` падает раньше на отсутствии ключей),
+поэтому этому пути нужен свой тест.
+
+**Ничто из этого не регрессия S4:** тот же smoke в образе, собранном из HEAD
+до удаления GLiNER, падает идентично — только с `No module named 'scipy'`
+вместо `'numpy'`.
+
+Регрессию по всем трём теперь ловит режим `failing` в
+`scripts/smoke_llm_book_pipeline.py`: пост-фазам дают упасть по-настоящему
+и проверяют, что ни одно предупреждение `book_tasks` не содержит
+`greenlet_spawn` или `PendingRollbackError`.
 
 ### Найдено вживую и НЕ исправлено (вне объёма)
 

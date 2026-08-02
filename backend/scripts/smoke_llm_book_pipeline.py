@@ -1,19 +1,23 @@
 """Живой smoke LLM-ветки обработки книги — без единого платного вызова.
 
-Проверяет, что после удаления GLiNER2 (S4) `_process_book_async` по-прежнему
-доводит книгу до конца: главы разбираются, сущности и описания попадают в БД,
-книга помечается обработанной.
+Экстрактор всегда подменяется фейком: он возвращает готовый
+`ChapterAnalysisResult`, поэтому LLM-провайдер по главам не вызывается.
+Режимов два, и оба обязательны — они проверяют разные вещи:
 
-Экстрактор подменяется фейком: он возвращает готовый `ChapterAnalysisResult`,
-поэтому LLM-провайдер не вызывается. Заглушены и четыре пост-фазы, которые
-ходят в AI за деньги: reduce, LLM-дедуп, synthesis и master references. Без
-заглушек они падают на пустых ключах, откатывают транзакцию и роняют
-финализацию по `MissingGreenlet` — это отдельный дефект, не относящийся к S4.
-Проверяемая здесь ветка — «глава → LLM → сущности и описания → финализация».
+`stubbed` (по умолчанию) — четыре пост-фазы, ходящие в AI за деньги (reduce,
+LLM-дедуп, synthesis, master references), заглушены. Проверяет саму ветку
+«глава → LLM → сущности и описания → финализация».
+
+`failing` — заглушек нет, ключи пустые, поэтому пост-фазы падают по-настоящему.
+Проверяет, что их отказ не разрушает сессию: книга всё равно доходит
+до `completed`, а synthesis не отваливается по `MissingGreenlet`
+или `PendingRollbackError`. Именно так ловится регрессия, когда какая-нибудь
+пост-фаза снова начнёт откатывать транзакцию под живыми ORM-объектами.
+
 Запускать только на dev-БД:
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
-        python scripts/smoke_llm_book_pipeline.py
+        python scripts/smoke_llm_book_pipeline.py [stubbed|failing|both]
 """
 
 import asyncio
@@ -133,7 +137,21 @@ def _stub_paid_phases() -> None:
     EntitySynthesisService.synthesize_book_entities = _empty_synthesis
 
 
-async def main() -> int:
+SESSION_DAMAGE = ("greenlet_spawn", "MissingGreenlet", "PendingRollbackError")
+
+
+def _capture_task_logs(sink: list) -> int:
+    """Подписывается на loguru и складывает сообщения `book_tasks` в `sink`."""
+    from app.core.logging import logger as loguru_logger
+
+    return loguru_logger.add(
+        lambda message: sink.append(message.record["message"]),
+        level="WARNING",
+        filter=lambda record: record["name"] == "app.tasks.book_tasks",
+    )
+
+
+async def main(mode: str) -> int:
     from app.tasks import book_tasks
 
     async with AsyncSessionLocal() as db:
@@ -169,14 +187,20 @@ async def main() -> int:
             )
         await db.commit()
 
-    _stub_paid_phases()
+    if mode == "stubbed":
+        _stub_paid_phases()
     fake = FakeExtractor()
     original = book_tasks.get_gemini_extractor
     book_tasks.get_gemini_extractor = lambda: fake
+    warnings: list = []
+    sink_id = _capture_task_logs(warnings)
     try:
         result = await book_tasks._process_book_async(book_id)
     finally:
         book_tasks.get_gemini_extractor = original
+        from app.core.logging import logger as loguru_logger
+
+        loguru_logger.remove(sink_id)
 
     async with AsyncSessionLocal() as db:
         entities = (
@@ -212,6 +236,9 @@ async def main() -> int:
         print(f"entities in DB    : {entities}")
         print(f"descriptions in DB: {descriptions}")
 
+        damaged = [w for w in warnings if any(m in w for m in SESSION_DAMAGE)]
+        print(f"session damage    : {damaged or 'none'}")
+
         # Bulk-DELETE не каскадит: FK на chapters объявлен без ON DELETE CASCADE,
         # каскад живёт в ORM-relationship. Поэтому удаляем через объект.
         book_obj = await db.get(
@@ -236,10 +263,31 @@ async def main() -> int:
         and fake.calls == 2
         and entities == 2
         and descriptions == 4
+        # Пост-фаза вправе упасть на пустых ключах, но не вправе оставить
+        # сессию сломанной — иначе следующие фазы отваливаются не по своей вине.
+        and not damaged
     )
-    print("SMOKE:", "PASS" if ok else "FAIL")
+    print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
 
+async def run_modes(modes: list) -> int:
+    """Все режимы в одном loop.
+
+    Второй `asyncio.run()` в том же процессе упал бы «Event loop is closed»:
+    пул модульного engine держит соединения, привязанные к закрытому loop, —
+    та же ловушка, из-за которой `process_book_task` зовёт `engine.dispose()`.
+
+    Порядок важен: `_stub_paid_phases()` патчит классы навсегда, поэтому
+    `failing` идёт первым.
+    """
+    code = 0
+    for mode in modes:
+        code = max(code, await main(mode))
+    return code
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
+    selected = ["failing", "stubbed"] if requested == "both" else [requested]
+    sys.exit(asyncio.run(run_modes(selected)))
