@@ -24,19 +24,34 @@ Error: in 18+, these Docker images are configured to store database data in a
          /var/lib/postgresql/data (unused mount/volume)
 ```
 
-Значит в `docker-compose.prod.yml` одним движением меняются **три** вещи:
+Значит в `docker-compose.prod.yml` одним движением меняются **пять** строк:
 
 | Что | Было | Стало |
 | --- | --- | --- |
-| образ сервера (строка 283) | `pgvector/pgvector:0.8.6-pg17` | `pgvector/pgvector:0.8.6-pg18` |
+| образ сервера (`docker-compose.prod.yml:283`) | `pgvector/pgvector:0.8.6-pg17` | `pgvector/pgvector:0.8.6-pg18` |
+| `PGDATA` (строка 291) | `PGDATA=/var/lib/postgresql/data/pgdata` | **строку удалить** — образ 18 сам ставит `/var/lib/postgresql/18/docker` |
 | монтирование тома (строка 312) | `postgres_data:/var/lib/postgresql/data` | `postgres_data:/var/lib/postgresql` |
+| целевой том (`volumes:` строка 390) | `postgres_data:` без `name:` → `app_postgres_data` | добавить `name: app_postgres_data_pg18` |
 | образ sidecar'а бэкапа (строка 361) | `prodrigestivill/postgres-backup-local:17` | `…:18` |
 
-`PGDATA` внутри контейнера становится `/var/lib/postgresql/18/docker`.
 Оба образа существуют в реестре — проверено `docker manifest inspect`.
+
+Про `PGDATA` отдельно: если оставить явную переменную, образ 18 попытается
+писать в `/var/lib/postgresql/data/pgdata` — то есть ровно в путь, который
+он и отвергает. Строку надо именно удалить, а не поправить.
+
+Про том отдельно: логическое имя `postgres_data` без `name:` разворачивается
+в `app_postgres_data` — том из-под 17. Просто «создать новый том» рядом
+недостаточно: пока в compose нет `name:`, сервер 18 получит старый том.
+Явный `name: app_postgres_data_pg18` переключает ссылку и оставляет
+`app_postgres_data` нетронутым как точку отката.
 
 **Второе:** том из-под 17 к серверу 18 подключать нельзя ни при какой
 конфигурации. Восстанавливаемся в **новый** том, старый держим до сверки.
+
+**Третье:** сеть в `docker-compose.prod.yml` объявлена с явным
+`name: fancai_network` (строка 411), поэтому в `docker run --network`
+идёт `fancai_network` — без префикса проекта.
 
 ---
 
@@ -54,6 +69,19 @@ Error: in 18+, these Docker images are configured to store database data in a
 ---
 
 ## 2. Снять эталоны ДО дампа
+
+Подготовка окружения (все команды ниже полагаются на `$DB_USER`/`$DB_NAME`/
+`$DB_PASSWORD` и каталог `/tmp/pg18`):
+
+```bash
+cd /path/to/fancai
+set -a; . ./.env; set +a
+mkdir -p /tmp/pg18
+
+# Точка отката конфигурации: точная копия ДО правок, а не `git checkout`
+cp docker-compose.prod.yml /tmp/pg18/docker-compose.prod.yml.pre-pg18
+sha256sum docker-compose.prod.yml | tee /tmp/pg18/compose.sha256
+```
 
 Нужны для сверки после восстановления. `alembic check` **не будет пустым**:
 в проекте есть доисторический дрейф (`chapters.parse_attempts`, индексы
@@ -78,10 +106,56 @@ docker exec fancai_postgres psql -U "$DB_USER" -d "$DB_NAME" -tAc \
 
 ---
 
-## 3. Дамп клиентом 18
+## 3. Остановить писателей, потом снять дамп
+
+**Порядок обязателен.** Дамп — это снимок на момент запуска `pg_dump`; всё,
+что backend и Celery запишут после него, в новую базу не попадёт и потеряется
+молча. Сначала гасим писателей, только потом дампим.
 
 ```bash
-docker run --rm --network app_fancai_network \
+# 1. Перекрыть источник новых задач: HTTP-слой и планировщик.
+#    Внимание: маршрута обслуживания в Caddyfile нет — с остановленным
+#    backend'ом Caddy будет проксировать в мёртвый upstream и отдавать 502.
+#    Если нужна заглушка вместо 502, её надо добавить в Caddyfile заранее.
+docker compose -f docker-compose.prod.yml stop backend celery-beat
+
+# 2. Заморозить потребление очередей. Без этого ожидание бесконечно:
+#    prefetch=1 (celery_app.py:27), поэтому воркер добирает следующую задачу
+#    из брокера сразу после текущей, и `active` никогда не опустеет,
+#    пока в DB 1 что-то лежит.
+CEL="docker exec fancai_celery celery -A app.core.celery_app"
+
+$CEL inspect active_queues            # какие очереди реально потребляются
+for q in heavy normal light; do $CEL control cancel_consumer "$q"; done
+$CEL inspect active_queues            # ожидается "- empty -"
+
+# Зафиксировать, сколько работы осталось в брокере: она переживёт окно
+# и будет выполнена после возврата воркера.
+set -a; . ./.env; set +a
+for q in heavy normal light; do
+  echo -n "$q="
+  docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" fancai_redis redis-cli -n 1 llen "$q"
+done | tee /tmp/pg18/broker_queues_pre.txt
+
+# 3. Дать доработать тому, что уже выполняется. Потолок задачи — 30 минут
+#    (task_time_limit=1800, celery_app.py:36), soft shutdown воркера — 120 с
+#    (worker_soft_shutdown_timeout=120, :84), а stop_grace_period есть только
+#    у postgres (:316) — воркеру Docker по умолчанию даёт 10 с и убивает.
+$CEL inspect active     # повторять, пока не станет "- empty -"
+$CEL inspect reserved   # уже забранные, но не начатые — тоже должны уйти
+
+docker compose -f docker-compose.prod.yml stop -t 1900 celery-worker
+
+# 4. Убедиться, что к базе больше никто не пишет.
+docker exec fancai_postgres psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+  "select count(*) from pg_stat_activity
+    where datname = current_database()
+      and pid <> pg_backend_pid()
+      and state <> 'idle'"        # обязан быть 0
+
+# 5. Авторитетный дамп — клиентом 18, сеть называется fancai_network
+#    (в compose у неё явный name:, префикса проекта нет).
+docker run --rm --network fancai_network \
   -e PGPASSWORD="$DB_PASSWORD" -v /tmp/pg18:/dump \
   pgvector/pgvector:0.8.6-pg18 \
   pg_dump -h fancai_postgres -U "$DB_USER" -d "$DB_NAME" -Fc -f /dump/prod.pgc
@@ -90,7 +164,7 @@ docker run --rm --network app_fancai_network \
 `-Fc` обязателен: plain-SQL не читается `pg_restore` и не даёт выборочного
 восстановления.
 
-**Проверить пригодность дампа до остановки чего-либо:**
+**Проверить пригодность дампа до переключения тома:**
 
 ```bash
 docker run --rm -v /tmp/pg18:/dump pgvector/pgvector:0.8.6-pg18 \
@@ -101,19 +175,34 @@ ls -l /tmp/pg18/prod.pgc      # размер ненулевой
 Оглавление должно содержать строку `Dumped from database version: 17.x`
 и `Dumped by pg_dump version: 18.x`.
 
+Писатели остаются погашенными до конца §6. Открывать трафик раньше сверки
+нельзя: записи уйдут в базу, которую, возможно, придётся откатывать.
+
 ---
 
 ## 4. Переключение
 
-Одним движением, по таблице из §0:
+Все правки из таблицы §0 вносятся в `docker-compose.prod.yml` **до** старта:
+тег сервера, удаление `PGDATA`, путь монтирования, `name:` тома, тег sidecar'а.
 
 ```bash
-docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml down postgres pgbackup
-docker volume create app_postgres_data_pg18
-# правки в docker-compose.prod.yml: тег сервера, путь тома, тег sidecar'а
+docker compose -f docker-compose.prod.yml stop postgres pgbackup
+
+# правки в docker-compose.prod.yml — см. таблицу §0 (пять строк)
+
 docker compose -f docker-compose.prod.yml up -d postgres
-docker compose -f docker-compose.prod.yml exec postgres pg_isready -U "$DB_USER"
+
+# Доказать, что подключился НОВЫЙ том, а не app_postgres_data:
+docker inspect fancai_postgres \
+  --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{"\n"}}{{end}}'
+# ожидается: app_postgres_data_pg18 -> /var/lib/postgresql
+
+docker exec fancai_postgres sh -c 'echo $PGDATA'   # /var/lib/postgresql/18/docker
+docker exec fancai_postgres psql -U "$DB_USER" -tAc 'select version()'
 ```
+
+Если `docker inspect` показывает `app_postgres_data` — `name:` в блоке
+`volumes:` не добавлен; останавливаться и править, не восстанавливая.
 
 Старый том `app_postgres_data` **не удалять** — это точка отката.
 
@@ -130,7 +219,7 @@ docker exec fancai_postgres psql -U "$DB_USER" -d "$DB_NAME" -c \
    CREATE EXTENSION IF NOT EXISTS pg_trgm;
    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
 
-docker run --rm --network app_fancai_network \
+docker run --rm --network fancai_network \
   -e PGPASSWORD="$DB_PASSWORD" -v /tmp/pg18:/dump \
   pgvector/pgvector:0.8.6-pg18 \
   pg_restore -h fancai_postgres -U "$DB_USER" -d "$DB_NAME" \
@@ -148,10 +237,17 @@ docker run --rm --network app_fancai_network \
 
 ## 6. Сверка (критерий успеха)
 
+Backend остаётся выключенным: поднимать сервис ради проверок нельзя — Caddy
+живой, и `/api/*` откроется до окончания сверки. Проверки гоняются
+одноразовыми контейнерами того же образа (`--no-deps`, чтобы не поднять
+за собой зависимости):
+
 ```bash
-docker exec fancai_backend alembic heads      # ровно одна ревизия, без ветвлений
-docker exec fancai_backend alembic current    # совпадает с heads
-docker exec fancai_backend alembic check > /tmp/pg18/check_pg18.txt 2>&1
+RUN="docker compose -f docker-compose.prod.yml run --rm --no-deps backend"
+
+$RUN alembic heads      # ровно одна ревизия, без ветвлений
+$RUN alembic current    # совпадает с heads
+$RUN alembic check > /tmp/pg18/check_pg18.txt 2>&1
 
 # Сравнивать после нормализации: в вывод попадают адреса Python-объектов
 # (0x…) и порядок stdout/stderr, они различаются от запуска к запуску.
@@ -168,9 +264,21 @@ diff /tmp/pg18/check_pg17.norm /tmp/pg18/check_pg18.norm   # обязан быт
 - smoke пайплайна зелёный против 18:
 
   ```bash
-  docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_celery \
+  docker compose -f docker-compose.prod.yml run --rm --no-deps \
+    -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= backend \
     python scripts/smoke_llm_book_pipeline.py all
   ```
+
+Только когда вся сверка выше зелёная — возвращать сервисы:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d backend celery-worker celery-beat pgbackup
+
+# Потребление очередей восстанавливается вместе с воркером; если он
+# поднимался без перезапуска — вернуть подписки вручную:
+for q in heavy normal light; do \
+  docker exec fancai_celery celery -A app.core.celery_app control add_consumer "$q"; done
+```
 
 ---
 
@@ -186,20 +294,44 @@ diff /tmp/pg18/check_pg17.norm /tmp/pg18/check_pg18.norm   # обязан быт
 | `pg_restore` | < 1 с | единицы секунд |
 | smoke пайплайна (6 режимов) | 93 с | столько же, от размера БД не зависит |
 
-**Окно: 15 минут** с запасом на сверку и откат. Собственно недоступность —
-меньше минуты; остальное занимает проверка.
+**Окно: не меньше 45 минут.** Складывается так:
+
+| Слагаемое | Время |
+| --- | --- |
+| дренаж Celery: одна задача у самого лимита, очереди уже заморожены | до 30 мин |
+| дамп, переключение, восстановление | ~1 мин |
+| сверка, включая smoke | ~3 мин |
+| запас на откат | ~10 мин |
+
+Оценка «до 30 минут» верна **только после `cancel_consumer`**: пока
+потребление не заморожено, воркер с `prefetch=1` берёт из брокера следующую
+задачу за предыдущей, и дренаж не ограничен ничем, кроме длины очередей.
+Если на входе `active`/`reserved` пусты, дренажа нет и всё укладывается
+в 15 минут — но планировать окно надо по худшему случаю.
+
+Задачи, оставшиеся в DB 1 (`broker_queues_pre.txt`), никуда не деваются:
+брокерный том не трогается, и воркер разберёт их после возврата.
 
 ---
 
 ## 8. Откат
 
-Ничего не удаляется до конца сверки, поэтому откат — возврат трёх правок
-в `docker-compose.prod.yml` и старого тома:
+Ничего не удаляется до конца сверки, поэтому откат — возврат всех пяти
+правок из таблицы §0 и старого тома:
 
 ```bash
-docker compose -f docker-compose.prod.yml down postgres pgbackup
-git checkout docker-compose.prod.yml          # тег сервера, путь тома, тег sidecar'а
-docker compose -f docker-compose.prod.yml up -d postgres pgbackup
+docker compose -f docker-compose.prod.yml stop postgres pgbackup backend celery-worker celery-beat
+# Возврат ИМЕННО той конфигурации, что была до окна (git checkout здесь
+# опасен: он снесёт и посторонние правки, если они есть в рабочем дереве).
+cp /tmp/pg18/docker-compose.prod.yml.pre-pg18 docker-compose.prod.yml
+sha256sum -c /tmp/pg18/compose.sha256
+
+docker compose -f docker-compose.prod.yml up -d postgres
+docker inspect fancai_postgres \
+  --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{"\n"}}{{end}}'
+# ожидается снова: app_postgres_data -> /var/lib/postgresql/data
+
+docker compose -f docker-compose.prod.yml up -d backend celery-worker celery-beat pgbackup
 ```
 
 Том `app_postgres_data` (17) остаётся нетронутым всё время процедуры.
@@ -207,7 +339,28 @@ docker compose -f docker-compose.prod.yml up -d postgres pgbackup
 
 ---
 
-## 9. Что репетиция НЕ покрыла
+## 9. Что репетиция проверила отдельно
+
+Вторая прогонка — уже не «поднять 18», а именно те правки, которые предписаны
+таблицей §0: том с явным `name:`, отсутствие `PGDATA`, монтирование
+на `/var/lib/postgresql`. Результат:
+
+```
+rehearsal_postgres_data_pg18 -> /var/lib/postgresql
+PGDATA=/var/lib/postgresql/18/docker
+PostgreSQL 18.4
+```
+
+То есть `docker inspect` из §4 действительно доказывает подключение нового
+тома, а не старого.
+
+`cancel_consumer`/`add_consumer` из §3 и §6 проверены на dev-воркере:
+после отмены `inspect active_queues` отдаёт `- empty -`, после
+`add_consumer` подписка возвращается.
+
+---
+
+## 10. Что репетиция НЕ покрыла
 
 - Боевой объём данных: 88.71 MB против 11 MB. Порядок величин тот же,
   но время `pg_restore` на проде не измерялось.
