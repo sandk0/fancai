@@ -370,6 +370,7 @@ async def get_feature_flag_manager(
             manager = FeatureFlagManager(session)
             await manager.initialize()
             return manager
+        raise RuntimeError("get_database_session() не выдал ни одной сессии")
 
     # Use provided session
     if _feature_flag_manager_instance is None:

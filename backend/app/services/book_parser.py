@@ -36,6 +36,22 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _attr_text(value: object) -> str:
+    """Атрибут BeautifulSoup как строка.
+
+    Для multi-valued атрибутов (`class`, `epub:type`, `rel`) bs4 возвращает
+    список токенов, а не строку. Склеиваем пробелом: и `in`-проверки, и
+    `.split()[0]` дальше работают одинаково для обеих форм.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        return " ".join(str(v) for v in value)
+    return str(value)
+
+
 # ============================================================================
 # EPUB STRUCTURE CONSTANTS (Шаг 2.1)
 # ============================================================================
@@ -715,7 +731,7 @@ class EPUBParser:
 
         # Возвращаем жанр с максимальным score
         if genre_scores:
-            best_genre = max(genre_scores, key=genre_scores.get)
+            best_genre = max(genre_scores, key=lambda g: genre_scores[g])
             logger.info(
                 f"Detected genre '{best_genre}' from text analysis (score: {genre_scores[best_genre]})"
             )
@@ -876,7 +892,7 @@ class EPUBParser:
             soup = BeautifulSoup(item.get_content(), "html.parser")
             body = soup.find("body")
             if body:
-                val = body.get("epub:type", "")
+                val = _attr_text(body.get("epub:type"))
                 if val:
                     return val.strip().split()[0]
         except Exception:
@@ -981,10 +997,10 @@ class EPUBParser:
                 try:
                     soup = BeautifulSoup(nav_item.get_content(), "html.parser")
                     for nav_el in soup.find_all("nav"):
-                        if "landmarks" in nav_el.get("epub:type", ""):
+                        if "landmarks" in _attr_text(nav_el.get("epub:type")):
                             for a in nav_el.find_all("a"):
-                                if "bodymatter" in a.get("epub:type", ""):
-                                    href = a.get("href", "")
+                                if "bodymatter" in _attr_text(a.get("epub:type")):
+                                    href = _attr_text(a.get("href"))
                                     if href:
                                         logger.info(
                                             f"Bodymatter from landmarks: {href}"

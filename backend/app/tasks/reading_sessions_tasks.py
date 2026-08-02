@@ -125,7 +125,7 @@ async def _close_abandoned_sessions_impl(deadline: datetime) -> int:
             )
 
             result = await db.execute(query)
-            abandoned_sessions: List[ReadingSession] = result.scalars().all()
+            abandoned_sessions: List[ReadingSession] = list(result.scalars().all())
 
             if not abandoned_sessions:
                 logger.info("No abandoned sessions found")

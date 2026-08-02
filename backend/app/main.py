@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Union
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from .routers import (
@@ -299,7 +299,9 @@ async def general_exception_handler(request: Request, exc: Exception):
     return response
 
 
-app.add_exception_handler(ProblemDetail, problem_detail_exception_handler)
+# ProblemDetail — подкласс HTTPException, регистрация корректна в рантайме;
+# Starlette типизирует handler как принимающий голый Exception.
+app.add_exception_handler(ProblemDetail, problem_detail_exception_handler)  # type: ignore[arg-type]
 
 
 # Подключение роутеров
@@ -356,11 +358,14 @@ async def root() -> Dict[str, Any]:
     return response
 
 
-@app.get("/health")
+# response_model=None: возвращаемый тип — объединение dict и JSONResponse
+# (503 при отказе критичных зависимостей), и FastAPI не умеет вывести из него
+# pydantic-модель. Схему этот эндпоинт и так не публикует.
+@app.get("/health", response_model=None)
 @rate_limit(
     max_requests=60, window_seconds=60
 )  # Docker healthcheck вызывает каждые 30 сек
-async def health_check(request: Request) -> Dict[str, Any]:
+async def health_check(request: Request) -> Union[Dict[str, Any], JSONResponse]:
     """
     Health check endpoint для мониторинга.
 

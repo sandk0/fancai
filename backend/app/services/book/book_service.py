@@ -15,11 +15,12 @@ Single Responsibility Principle:
 """
 
 import os
-from typing import List, Optional
+from typing import Any, List, Optional
 from pathlib import Path
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
+from sqlalchemy.sql.elements import UnaryExpression
 from sqlalchemy.orm import selectinload, joinedload
 
 from ...models.book import Book, ReadingProgress, BookGenre
@@ -146,7 +147,10 @@ class BookService:
         Returns:
             Список книг пользователя
         """
-        # Определяем порядок сортировки
+        # Определяем порядок сортировки.
+        # Явная аннотация: ветки дают UnaryExpression по разным типам колонок,
+        # и вывод по первой ветке отверг бы остальные.
+        order_clause: UnaryExpression[Any]
         if sort_by == "created_asc":
             order_clause = Book.created_at.asc()
         elif sort_by == "title_asc":
@@ -172,7 +176,7 @@ class BookService:
             .offset(skip)
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_book_by_id(
         self, db: AsyncSession, book_id: UUID, user_id: Optional[UUID] = None
@@ -229,7 +233,7 @@ class BookService:
             .options(selectinload(Chapter.descriptions))
             .order_by(Chapter.chapter_number)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_chapter_by_number(
         self,

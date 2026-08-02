@@ -53,12 +53,12 @@ class ParsingManager:
         # Получаем активную подписку пользователя
         from ..models.user import Subscription, SubscriptionStatus
 
-        subscription = await db.execute(
+        result = await db.execute(
             select(Subscription)
             .where(Subscription.user_id == user.id)
             .where(Subscription.status == SubscriptionStatus.ACTIVE)
         )
-        subscription = subscription.scalar_one_or_none()
+        subscription = result.scalar_one_or_none()
 
         if not subscription:
             return 1  # FREE план по умолчанию

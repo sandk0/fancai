@@ -45,6 +45,7 @@ from tenacity import (
     before_sleep_log,
     after_log,
 )
+from tenacity.wait import wait_base
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +219,8 @@ def create_retry_decorator(
         retryable_exceptions = DEFAULT_RETRYABLE_EXCEPTIONS
 
     # Choose wait strategy based on jitter setting
+    # Аннотация обязательна: ветки дают разные классы tenacity, и вывод по первой отверг бы вторую.
+    wait_strategy: wait_base
     if jitter:
         wait_strategy = wait_exponential_jitter(
             initial=initial_delay,
@@ -340,6 +343,8 @@ class AsyncRetryContext:
         if retryable_exceptions is None:
             retryable_exceptions = DEFAULT_RETRYABLE_EXCEPTIONS
 
+        # Аннотация обязательна: ветки дают разные классы tenacity, и вывод по первой отверг бы вторую.
+        wait_strategy: wait_base
         if jitter:
             wait_strategy = wait_exponential_jitter(
                 initial=initial_delay,
@@ -412,6 +417,8 @@ async def retry_with_backoff_async(
     if retryable_exceptions is None:
         retryable_exceptions = DEFAULT_RETRYABLE_EXCEPTIONS
 
+    # Аннотация обязательна: ветки дают разные классы tenacity, и вывод по первой отверг бы вторую.
+    wait_strategy: wait_base
     if jitter:
         wait_strategy = wait_exponential_jitter(
             initial=initial_delay,

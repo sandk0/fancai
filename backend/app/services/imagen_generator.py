@@ -514,6 +514,8 @@ class ImagenService:
         ConnectionError, RateLimitError, TimeoutError.
         Non-retryable: ValueError (400 Bad Request).
         """
+        if self._nano is None:
+            raise RuntimeError("ImagenService disabled: Gemini credentials missing")
         return await self._nano.generate(
             prompt=prompt, aspect_ratio=aspect_ratio, image_size=IMAGE_SIZE
         )
@@ -606,6 +608,8 @@ class ImagenService:
 
             # Stage 2: Prompt engineering (includes translation RU->EN)
             stage_start = time.time()
+            if self._prompt_engineer is None:
+                raise RuntimeError("ImagenService disabled: Gemini credentials missing")
             prompt = await self._prompt_engineer.create_prompt(
                 description=description,
                 description_type=desc_type,

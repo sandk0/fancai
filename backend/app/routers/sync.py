@@ -223,16 +223,16 @@ async def process_bookmark_sync(
                     )
                 )
             )
-            bookmark = result.scalar_one_or_none()
-            if bookmark:
+            existing = result.scalar_one_or_none()
+            if existing:
                 if "color" in body:
-                    bookmark.color = body["color"]
+                    existing.color = body["color"]
                 if "text_color" in body:
-                    bookmark.text_color = body["text_color"]
+                    existing.text_color = body["text_color"]
                 if "style" in body:
-                    bookmark.style = body["style"]
+                    existing.style = body["style"]
                 if "note" in body:
-                    bookmark.note = body["note"]
+                    existing.note = body["note"]
             return True
 
         elif method == "DELETE":
@@ -248,9 +248,9 @@ async def process_bookmark_sync(
                     )
                 )
             )
-            bookmark = result.scalar_one_or_none()
-            if bookmark:
-                await db.delete(bookmark)
+            existing = result.scalar_one_or_none()
+            if existing:
+                await db.delete(existing)
             return True
 
         return False

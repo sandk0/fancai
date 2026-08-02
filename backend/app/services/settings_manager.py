@@ -8,12 +8,18 @@ Redis-backed persistent storage для настроек приложения.
 import logging
 import json
 from typing import Any, Dict, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from app.core.json_utils import dump_json
 
+# Клиент и модуль redis намеренно `Any`: библиотека опциональна на импорте,
+# а до `connect_redis()` поля пусты — точная аннотация свелась бы к Optional
+# и потребовала бы narrowing в каждом месте, где guard уже сделан по `_use_redis`.
+aioredis: Any
 try:
-    from redis import asyncio as aioredis
-except ImportError:
+    from redis import asyncio as _redis_asyncio
+
+    aioredis = _redis_asyncio
+except ImportError:  # pragma: no cover — redis есть в зависимостях
     aioredis = None
 
 logger = logging.getLogger(__name__)
@@ -29,14 +35,10 @@ class SettingsManager:
     """
 
     redis_url: Optional[str] = None
-    redis_client: Optional[any] = None
-    _settings: Dict[str, Dict[str, Any]] = None
+    redis_client: Any = None
+    _settings: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     _initialized: bool = False
     _use_redis: bool = False
-
-    def __post_init__(self):
-        if self._settings is None:
-            self._settings = {}
 
     async def connect_redis(self):
         """Connect to Redis if available."""
@@ -311,34 +313,8 @@ class SettingsManager:
         return await self.initialize_default_settings(force=True)
 
 
-# Global singleton instance - will be initialized with Redis URL from config
-def get_settings_manager(redis_url: Optional[str] = None) -> SettingsManager:
-    """
-    Get or create SettingsManager instance.
-
-    Args:
-        redis_url: Redis connection URL (optional, will use from config if not provided)
-
-    Returns:
-        SettingsManager instance
-    """
-    global _settings_manager_instance
-
-    if "_settings_manager_instance" not in globals():
-        # Import here to avoid circular dependency
-        try:
-            from ..core.config import get_settings
-
-            config = get_settings()
-            redis_url = redis_url or config.REDIS_URL
-        except Exception as e:
-            logger.warning(f"Failed to load Redis URL from config: {e}")
-            redis_url = None
-
-        _settings_manager_instance = SettingsManager(redis_url=redis_url)
-
-    return _settings_manager_instance
-
-
-# Backward compatibility - direct singleton instance
+# Единственный экземпляр на процесс. Фабрика `get_settings_manager()` удалена:
+# её никто не вызывал, а внутри она обращалась к несуществующему
+# `config.get_settings` и к необъявленному глобальному имени — оба отказа
+# гасились `except Exception` и оставались невидимыми.
 settings_manager = SettingsManager()

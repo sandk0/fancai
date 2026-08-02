@@ -900,7 +900,7 @@ async def get_reading_sessions_history(
 
             # Выполняем запрос
             result = await db.execute(query)
-            sessions = result.scalars().all()
+            sessions = list(result.scalars().all())
 
             # Преобразуем в response модели
             session_responses = [session_to_response(session) for session in sessions]

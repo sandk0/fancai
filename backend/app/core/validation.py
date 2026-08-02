@@ -386,7 +386,7 @@ def validate_password_match(
 
 
 def validate_url(
-    url: str, allowed_schemes: List[str] = None
+    url: str, allowed_schemes: Optional[List[str]] = None
 ) -> Tuple[bool, Optional[str]]:
     """
     Validates URL format and scheme.
@@ -443,7 +443,7 @@ def sanitize_url(url: str) -> str:
 
 
 def validate_positive_integer(
-    value: Any, min_value: int = 1, max_value: int = None
+    value: Any, min_value: int = 1, max_value: Optional[int] = None
 ) -> Tuple[bool, Optional[str]]:
     """
     Validates positive integer within range.

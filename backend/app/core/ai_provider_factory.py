@@ -10,16 +10,18 @@ _provider: Optional[AIProvider] = None
 
 def get_ai_provider() -> AIProvider:
     global _provider
-    if _provider is None:
+    provider = _provider
+    if provider is None:
         if settings.AI_PROVIDER == "gemini":
             from app.core.gemini_client import get_gemini_client
 
-            _provider = get_gemini_client()
+            provider = get_gemini_client()
         else:
             from app.core.openrouter_client import get_openrouter_client
 
-            _provider = get_openrouter_client()
-    return _provider
+            provider = get_openrouter_client()
+        _provider = provider
+    return provider
 
 
 def _reset() -> None:

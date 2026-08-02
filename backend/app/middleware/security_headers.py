@@ -12,7 +12,7 @@ Security Headers Middleware для fancai.
 """
 
 import logging
-from typing import Callable
+from typing import Callable, Optional
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -48,7 +48,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         enable_hsts: bool = True,
         hsts_max_age: int = 31536000,  # 1 year
         enable_csp: bool = True,
-        csp_directives: dict = None,
+        csp_directives: Optional[dict] = None,
     ):
         """
         Инициализация security headers middleware.
@@ -255,7 +255,7 @@ def create_security_headers_middleware(
     enable_hsts: bool = True,
     hsts_max_age: int = 31536000,
     enable_csp: bool = True,
-    custom_csp: dict = None,
+    custom_csp: Optional[dict] = None,
 ) -> type:
     """
     Factory function для создания security headers middleware с кастомными настройками.

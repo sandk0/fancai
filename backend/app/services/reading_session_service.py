@@ -176,7 +176,7 @@ class ReadingSessionService:
 
         # Выполняем запрос
         result = await db.execute(query)
-        sessions = result.unique().scalars().all()
+        sessions = list(result.unique().scalars().all())
 
         # Определяем next_cursor и has_next
         has_next = len(sessions) > limit

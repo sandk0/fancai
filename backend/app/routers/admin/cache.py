@@ -36,11 +36,16 @@ async def get_cache_stats(
     """
     stats = await cache_manager.get_stats()
 
-    return {
-        "cache_stats": stats,
-        "cache_patterns": CACHE_KEY_PATTERNS,
-        "cache_ttl_config": CACHE_TTL,
-    }
+    return CacheStatsResponse(
+        total_keys=stats.get("keys_count", 0),
+        memory_usage_mb=stats.get("memory_used_mb", 0.0),
+        hit_rate=stats.get("hit_rate_percent", 0.0),
+        total_hits=stats.get("hits", 0),
+        total_misses=stats.get("misses", 0),
+        uptime_seconds=stats.get("uptime_seconds"),
+        cache_patterns=CACHE_KEY_PATTERNS,
+        cache_ttl_config=CACHE_TTL,
+    )
 
 
 @router.delete("/clear", response_model=CacheClearResponse)
@@ -64,11 +69,12 @@ async def clear_all_cache(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to clear cache")
 
-    return {
-        "message": "Cache cleared successfully",
-        "cleared_all": True,
-        "admin": current_user.email,
-    }
+    return CacheClearResponse(
+        success=True,
+        keys_deleted=0,  # clear_all() не возвращает счётчик — FLUSHDB его не даёт
+        message="Cache cleared successfully",
+        admin_email=current_user.email,
+    )
 
 
 @router.delete("/clear/{pattern}", response_model=CacheClearResponse)
@@ -95,12 +101,13 @@ async def clear_cache_pattern(
 
     deleted_count = await cache_manager.delete_pattern(pattern)
 
-    return {
-        "message": f"Cache pattern '{pattern}' cleared",
-        "deleted_keys": deleted_count,
-        "pattern": pattern,
-        "admin": current_user.email,
-    }
+    return CacheClearResponse(
+        success=True,
+        keys_deleted=deleted_count,
+        message=f"Cache pattern '{pattern}' cleared",
+        pattern=pattern,
+        admin_email=current_user.email,
+    )
 
 
 @router.post("/warm", response_model=CacheWarmResponse)
@@ -121,7 +128,7 @@ async def warm_cache(
 
     # NOTE: Cache warming logic — intentionally deferred, endpoint returns "skipped"
 
-    return {
-        "message": "Cache warming not implemented yet",
-        "status": "skipped",
-    }
+    return CacheWarmResponse(
+        success=False,
+        message="Cache warming not implemented yet",
+    )

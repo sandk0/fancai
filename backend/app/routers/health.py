@@ -19,7 +19,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, Annotated
+from typing import Dict, Any, Optional, Annotated, cast
 from datetime import datetime, timezone, timedelta
 import asyncio
 import time
@@ -28,6 +28,7 @@ import redis.asyncio as redis
 
 from loguru import logger
 
+from ..core.types import RedisBool
 from ..core.database import get_database_session
 from ..core.config import settings
 from ..core.celery_app import celery_app
@@ -146,7 +147,7 @@ async def check_redis() -> ComponentHealthResponse:
         # Create a connection to Redis
         r = redis.from_url(settings.REDIS_URL, decode_responses=True)
         # Perform PING
-        is_connected = await r.ping()
+        is_connected = await cast(RedisBool, r.ping())
         latency = (time.time() - start_time) * 1000  # ms
 
         # Close connection

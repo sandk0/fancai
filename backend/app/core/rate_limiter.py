@@ -4,12 +4,14 @@ Prevents system overload by limiting simultaneous heavy operations
 """
 
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, cast
 from datetime import datetime, timezone
 import redis.asyncio as redis
 import logging
 import json
 import psutil
+
+from app.core.types import RedisInt
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,9 @@ class ParsingRateLimiter:
                 return False, f"Book in cooldown for {ttl} seconds"
 
             # Check global concurrent limit
-            active_count = await self.redis_client.scard(self.ACTIVE_TASKS_KEY)
+            active_count = await cast(
+                RedisInt, self.redis_client.scard(self.ACTIVE_TASKS_KEY)
+            )
             if active_count >= self.max_concurrent:
                 return (
                     False,
@@ -69,7 +73,7 @@ class ParsingRateLimiter:
 
             # Check per-user limit
             user_key = self.USER_TASKS_KEY.format(user_id=user_id)
-            user_count = await self.redis_client.scard(user_key)
+            user_count = await cast(RedisInt, self.redis_client.scard(user_key))
             if user_count >= self.max_per_user:
                 return (
                     False,
@@ -97,11 +101,11 @@ class ParsingRateLimiter:
 
         try:
             # Add to active tasks
-            await self.redis_client.sadd(self.ACTIVE_TASKS_KEY, task_id)
+            await cast(RedisInt, self.redis_client.sadd(self.ACTIVE_TASKS_KEY, task_id))
 
             # Add to user's active tasks
             user_key = self.USER_TASKS_KEY.format(user_id=user_id)
-            await self.redis_client.sadd(user_key, task_id)
+            await cast(RedisInt, self.redis_client.sadd(user_key, task_id))
             await self.redis_client.expire(user_key, 3600)  # Auto-cleanup after 1 hour
 
             # Set cooldown
@@ -127,11 +131,11 @@ class ParsingRateLimiter:
 
         try:
             # Remove from active tasks
-            await self.redis_client.srem(self.ACTIVE_TASKS_KEY, task_id)
+            await cast(RedisInt, self.redis_client.srem(self.ACTIVE_TASKS_KEY, task_id))
 
             # Remove from user's tasks
             user_key = self.USER_TASKS_KEY.format(user_id=user_id)
-            await self.redis_client.srem(user_key, task_id)
+            await cast(RedisInt, self.redis_client.srem(user_key, task_id))
 
             # Update stats
             await self._update_stats("completed")
@@ -205,7 +209,9 @@ class ParsingRateLimiter:
             return {}
 
         try:
-            active_count = await self.redis_client.scard(self.ACTIVE_TASKS_KEY)
+            active_count = await cast(
+                RedisInt, self.redis_client.scard(self.ACTIVE_TASKS_KEY)
+            )
             queue_length = await self.redis_client.zcard(self.QUEUE_KEY)
 
             # Get stats from Redis

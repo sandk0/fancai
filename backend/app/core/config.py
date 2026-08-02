@@ -30,18 +30,16 @@ class Settings(BaseSettings):
     )
 
     # Database Connection Pool Settings (October 2025 - Production Optimization)
-    DB_POOL_SIZE: int = Field(default=20, ge=5, le=50, env="DB_POOL_SIZE")
-    DB_MAX_OVERFLOW: int = Field(default=40, ge=10, le=100, env="DB_MAX_OVERFLOW")
-    DB_POOL_RECYCLE: int = Field(default=3600, ge=600, le=7200, env="DB_POOL_RECYCLE")
-    DB_POOL_TIMEOUT: int = Field(default=30, ge=10, le=60, env="DB_POOL_TIMEOUT")
+    DB_POOL_SIZE: int = Field(default=20, ge=5, le=50)
+    DB_MAX_OVERFLOW: int = Field(default=40, ge=10, le=100)
+    DB_POOL_RECYCLE: int = Field(default=3600, ge=600, le=7200)
+    DB_POOL_TIMEOUT: int = Field(default=30, ge=10, le=60)
 
     # Redis
     REDIS_URL: str = "redis://:redis123@redis:6379"
     REDIS_CACHE_ENABLED: bool = True  # Enable/disable Redis caching
     REDIS_CACHE_DEFAULT_TTL: int = 3600  # Default TTL in seconds (1 hour)
-    REDIS_MAX_CONNECTIONS: int = Field(
-        default=50, ge=10, le=200, env="REDIS_MAX_CONNECTIONS"
-    )
+    REDIS_MAX_CONNECTIONS: int = Field(default=50, ge=10, le=200)
 
     # Безопасность (Updated 29 Dec 2025: Extended for book reading app UX)
     # Users should stay logged in for at least 2 weeks without re-authentication
@@ -86,26 +84,20 @@ class Settings(BaseSettings):
     CLOUDPAYMENTS_PUBLIC_ID: Optional[str] = None
 
     # CFI Configuration (October 2025)
-    CFI_MAX_LENGTH: int = Field(default=500, ge=100, le=1000, env="CFI_MAX_LENGTH")
-    CFI_VALIDATION_ENABLED: bool = Field(default=True, env="CFI_VALIDATION_ENABLED")
+    CFI_MAX_LENGTH: int = Field(default=500, ge=100, le=1000)
+    CFI_VALIDATION_ENABLED: bool = Field(default=True)
 
     # Gunicorn/Uvicorn Workers Configuration (Production Optimization for 4GB RAM / 2 CPU cores)
-    WORKERS_COUNT: int = Field(default=4, ge=1, le=8, env="WORKERS_COUNT")
-    WORKER_TIMEOUT: int = Field(default=300, ge=60, le=600, env="WORKER_TIMEOUT")
-    WORKER_MAX_REQUESTS: int = Field(
-        default=1000, ge=100, le=5000, env="WORKER_MAX_REQUESTS"
-    )
-    WORKER_MAX_REQUESTS_JITTER: int = Field(
-        default=100, ge=0, le=500, env="WORKER_MAX_REQUESTS_JITTER"
-    )
+    WORKERS_COUNT: int = Field(default=4, ge=1, le=8)
+    WORKER_TIMEOUT: int = Field(default=300, ge=60, le=600)
+    WORKER_MAX_REQUESTS: int = Field(default=1000, ge=100, le=5000)
+    WORKER_MAX_REQUESTS_JITTER: int = Field(default=100, ge=0, le=500)
 
     # Celery Configuration (Limited Resources Optimization)
-    CELERY_CONCURRENCY: int = Field(default=1, ge=1, le=4, env="CELERY_CONCURRENCY")
-    CELERY_MAX_TASKS_PER_CHILD: int = Field(
-        default=100, ge=10, le=500, env="CELERY_MAX_TASKS_PER_CHILD"
-    )
+    CELERY_CONCURRENCY: int = Field(default=1, ge=1, le=4)
+    CELERY_MAX_TASKS_PER_CHILD: int = Field(default=100, ge=10, le=500)
     CELERY_MAX_MEMORY_PER_CHILD: int = Field(
-        default=1572864, ge=524288, le=3145728, env="CELERY_MAX_MEMORY_PER_CHILD"
+        default=1572864, ge=524288, le=3145728
     )  # KB (default: 1.5GB)
 
     # Лимиты подписок

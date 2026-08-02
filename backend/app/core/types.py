@@ -6,7 +6,7 @@ Provides reusable Annotated types for consistent column definitions across all m
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Awaitable
 from uuid import UUID
 
 from sqlalchemy import String, Text, Integer, func
@@ -65,3 +65,11 @@ jsonb_default_list = Annotated[
     list[Any], mapped_column(JSONB, default=[], nullable=True)
 ]
 jsonb_nullable = Annotated[dict[str, Any] | None, mapped_column(JSONB, nullable=True)]
+
+# redis-py типизирует async-команды как `Awaitable[T] | T`: `redis.asyncio.Redis`
+# наследует сигнатуры от синхронных mixin'ов, и `await` над таким объединением
+# отвергается. Async-клиент всегда возвращает awaitable, поэтому `cast` к этим
+# псевдонимам — no-op в рантайме и держит сужение в одном месте.
+RedisInt = Awaitable[int]
+RedisBool = Awaitable[bool]
+RedisList = Awaitable[list[Any]]

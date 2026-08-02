@@ -1,9 +1,9 @@
 """Auth-related Celery tasks."""
 
-from typing import Dict, Any
+from typing import Dict, Any, cast
 from datetime import datetime, timezone, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import CursorResult, delete
 
 from app.core.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
@@ -39,6 +39,6 @@ async def _cleanup_expired_tokens_async() -> Dict[str, Any]:
 
         return {
             "status": "completed",
-            "deleted": result.rowcount,
+            "deleted": cast(CursorResult, result).rowcount,
             "cutoff_date": cutoff.isoformat(),
         }

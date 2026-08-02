@@ -12,10 +12,12 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 import os
 import redis.asyncio as redis
+from typing import cast
 from loguru import logger
 
 from ...core.database import get_database_session
 from ...core.auth import get_current_admin_user
+from ...core.types import RedisInt
 from ...models.user import User
 from ...models.book import Book
 from ...models.image import GeneratedImage
@@ -43,16 +45,16 @@ async def get_system_stats(
 
     # Get counts from database
     users_result = await db.execute(select(func.count(User.id)))
-    total_users = users_result.scalar()
+    total_users = users_result.scalar() or 0
 
     books_result = await db.execute(select(func.count(Book.id)))
-    total_books = books_result.scalar()
+    total_books = books_result.scalar() or 0
 
     # NLP REMOVAL: Descriptions extracted on-demand, not stored
     total_descriptions = 0
 
     images_result = await db.execute(select(func.count(GeneratedImage.id)))
-    total_images = images_result.scalar()
+    total_images = images_result.scalar() or 0
 
     # Get parsing queue info from Redis
     try:
@@ -63,7 +65,7 @@ async def get_system_stats(
         active_parsing_tasks = 1 if parsing_lock else 0
 
         # Get queue size
-        queue_size = await redis_client.llen("parsing_queue")
+        queue_size = await cast(RedisInt, redis_client.llen("parsing_queue"))
 
         await redis_client.close()
     except Exception as e:

@@ -4,11 +4,12 @@ Admin API routes for parsing settings and queue management.
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, cast
 import os
 import redis.asyncio as redis
 from loguru import logger
 
+from ...core.types import RedisList
 from ...core.auth import get_current_admin_user
 from ...models.user import User
 from ...schemas.responses.admin import (
@@ -118,7 +119,7 @@ async def get_queue_status(
         lock_data = await redis_client.get("global_parsing_lock")
 
         # Get queue items
-        queue_items = await redis_client.lrange("parsing_queue", 0, -1)
+        queue_items = await cast(RedisList, redis_client.lrange("parsing_queue", 0, -1))
 
         await redis_client.close()
 

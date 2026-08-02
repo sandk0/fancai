@@ -163,6 +163,8 @@ def get_optional_current_user():
         try:
             # 1. Try Authorization header, 2. Try Cookie
             token = credentials.credentials if credentials else access_token_cookie
+            if not token:
+                return None
 
             # Check if token is blacklisted (revoked via logout)
             if await token_blacklist.is_blacklisted(token):

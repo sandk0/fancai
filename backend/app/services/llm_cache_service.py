@@ -47,10 +47,11 @@ class LLMCacheService:
         self._redis: Optional[Redis] = None
         self._ttl = 86400 * 30  # 30 days default TTL
 
-    async def connect(self):
-        """Lazy connection to Redis."""
-        if not self._redis:
+    async def connect(self) -> Redis:
+        """Lazy connection to Redis; возвращает клиент, а не только поле."""
+        if self._redis is None:
             self._redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        return self._redis
 
     async def get(self, key: ChapterCacheKey) -> Optional[Dict[str, Any]]:
         """
@@ -59,11 +60,11 @@ class LLMCacheService:
         Returns:
             Dict with parsed response or None if cache miss.
         """
-        await self.connect()
+        client = await self.connect()
         redis_key = key.to_redis_key()
 
         try:
-            data = await self._redis.get(redis_key)
+            data = await client.get(redis_key)
             if data:
                 logger.debug(f"LLM Cache HIT: {redis_key}")
                 parsed = parse_json_safe(data, log_error=True)
@@ -71,7 +72,9 @@ class LLMCacheService:
                 # added by set() so callers receive clean data.
                 if isinstance(parsed, dict) and "data" in parsed:
                     return parsed["data"]
-                return parsed
+                # parse_json_safe умеет вернуть список: кэш обещает dict,
+                # поэтому чужая форма трактуется как промах, а не отдаётся наверх.
+                return parsed if isinstance(parsed, dict) else None
 
             logger.debug(f"LLM Cache MISS: {redis_key}")
             return None
@@ -91,7 +94,7 @@ class LLMCacheService:
             value: Data to cache (will be JSON serialized)
             ttl: Optional TTL override
         """
-        await self.connect()
+        client = await self.connect()
         redis_key = key.to_redis_key()
 
         try:
@@ -105,7 +108,7 @@ class LLMCacheService:
             }
 
             serialized = dump_json(payload)
-            await self._redis.setex(redis_key, ttl or self._ttl, serialized)
+            await client.setex(redis_key, ttl or self._ttl, serialized)
             logger.debug(f"LLM Cache SET: {redis_key}")
             return True
 

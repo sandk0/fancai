@@ -163,7 +163,12 @@ class GeminiClient:
             raise RuntimeError(
                 f"Gemini image model {model} returned no candidates (likely safety-blocked)"
             )
-        for part in resp.candidates[0].content.parts:
+        content = resp.candidates[0].content
+        if content is None or not content.parts:
+            raise RuntimeError(
+                f"Gemini image model {model} returned a candidate without content parts"
+            )
+        for part in content.parts:
             inline = getattr(part, "inline_data", None)
             if inline and inline.data:
                 await _log_usage_to_db(

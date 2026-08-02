@@ -56,7 +56,7 @@ async def process_book_descriptions(
         from ...services.parsing_manager import parsing_manager
 
         # Проверяем текущий статус парсинга
-        parsing_status = await parsing_manager.get_parsing_status(book_id)
+        parsing_status = await parsing_manager.get_parsing_status(str(book_id))
         if parsing_status and parsing_status["status"] in ["queued", "processing"]:
             return BookProcessingResponse(
                 book_id=book_id,
@@ -76,12 +76,12 @@ async def process_book_descriptions(
         if can_parse:
             # Пытаемся получить блокировку и начать парсинг сразу
             if await parsing_manager.acquire_parsing_lock(
-                book_id, str(current_user.id)
+                str(book_id), str(current_user.id)
             ):
                 try:
                     # Обновляем статус
                     await parsing_manager.update_parsing_status(
-                        book_id,
+                        str(book_id),
                         status="processing",
                         progress=0,
                         message="Starting book parsing...",
@@ -120,12 +120,12 @@ async def process_book_descriptions(
                         "Failed to dispatch Celery task for book %s" % book_id
                     )
                     # Освобождаем блокировку при ошибке
-                    await parsing_manager.release_parsing_lock(book_id)
+                    await parsing_manager.release_parsing_lock(str(book_id))
                     raise
 
         # Если парсинг сейчас невозможен, добавляем в очередь
         queue_info = await parsing_manager.add_to_parsing_queue(
-            book_id, str(current_user.id), priority, db
+            str(book_id), str(current_user.id), priority, db
         )
 
         return BookProcessingResponse(

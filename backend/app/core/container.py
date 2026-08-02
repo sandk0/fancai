@@ -345,6 +345,9 @@ def get_email_service() -> "EmailService":
     """Фабричная функция для EmailService."""
     from ..services.email.email_service import EmailService
 
+    from ..services.email.provider import EmailProvider
+
+    provider: EmailProvider
     if settings.EMAIL_ENABLED:
         from ..services.email.yandex_postbox import YandexPostboxProvider
 
@@ -357,7 +360,7 @@ def get_email_service() -> "EmailService":
 
 
 @lru_cache()
-def get_feature_flag_manager_singleton() -> "FeatureFlagManager":
+def get_feature_flag_manager_singleton() -> "type[FeatureFlagManager]":
     """
     Фабричная функция для получения FeatureFlagManager.
 

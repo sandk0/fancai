@@ -37,7 +37,7 @@ class SecretCategory(str, Enum):
 # Secrets Configuration
 # ============================================================================
 
-SECRETS_CONFIG = {
+SECRETS_CONFIG: Dict[SecretCategory, List[Dict[str, Any]]] = {
     # Критически важные secrets (обязательны)
     SecretCategory.REQUIRED: [
         {
@@ -233,7 +233,7 @@ class SecretsValidator:
             - is_valid: True если все required secrets валидны
             - validation_report: Dict с детальными результатами
         """
-        report = {
+        report: Dict[str, Any] = {
             "valid": True,
             "errors": [],
             "warnings": [],
@@ -293,7 +293,7 @@ class SecretsValidator:
         Returns:
             Dict с результатами валидации
         """
-        result = {
+        result: Dict[str, Any] = {
             "valid": True,
             "exists": False,
             "errors": [],
@@ -330,7 +330,7 @@ class SecretsValidator:
                     result["warnings"].append(
                         f"{secret_name}: Using development default (not suitable for production)"
                     )
-                elif error_msg.startswith("WARNING"):
+                elif error_msg is not None and error_msg.startswith("WARNING"):
                     result["warnings"].append(f"{secret_name}: {error_msg}")
                 else:
                     result["valid"] = False
@@ -403,7 +403,7 @@ class SecretsValidator:
 # ============================================================================
 
 
-def startup_secrets_check(is_production: bool = None) -> None:
+def startup_secrets_check(is_production: Optional[bool] = None) -> None:
     """
     Выполняет полную проверку secrets при старте приложения.
 

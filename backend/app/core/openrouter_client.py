@@ -310,8 +310,8 @@ class OpenRouterClient:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        temperature: Optional[float] = None,
         model: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> str:
         """
         Простая генерация текста с JSON mode.
@@ -425,13 +425,17 @@ class OpenRouterClient:
                 if is_last:
                     raise
 
+        # Сюда попадаем только при пустом списке моделей: цикл не выполнился
+        # ни разу, и без явного raise функция вернула бы None вместо str.
+        raise RuntimeError("OpenRouter: список моделей для generate_text пуст")
+
     async def generate_structured(
         self,
         prompt: str,
         schema_class: Type[BaseModel],
         system_prompt: Optional[str] = None,
-        temperature: Optional[float] = None,
         model: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> dict:
         """
         Генерация со структурированным выводом (JSON Schema).
@@ -558,10 +562,13 @@ class OpenRouterClient:
             # json.JSONDecodeError и все остальные исключения — НЕ перехватываются здесь,
             # пробрасываются вверх без fallback
 
+        # Пустой список моделей: цикл не выполнился ни разу.
+        raise RuntimeError("OpenRouter: список моделей для generate_structured пуст")
+
     async def generate_image(
         self,
         prompt: str,
-        model: str = DEFAULT_IMAGE_MODEL,
+        model: Optional[str] = None,
         aspect_ratio: str = "4:3",  # landscape — хорошо для иллюстраций книг
         image_size: str = "1K",  # "1K" | "2K" | "4K" | "0.5K"
     ) -> bytes:
@@ -588,6 +595,7 @@ class OpenRouterClient:
         Raises:
             CircuitBreakerError: Если circuit breaker в open state
         """
+        model = model or DEFAULT_IMAGE_MODEL
         body = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],

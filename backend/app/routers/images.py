@@ -460,9 +460,13 @@ async def generate_images_for_chapter(
         )
 
     existing = await service.get_batch_existing([d.id for d in all_descriptions])
-    descriptions_to_process = [d for d in all_descriptions if d.id not in existing][
-        : body.max_images
-    ]
+    # Приоритизация здесь, а не в сервисе: результаты сопоставляются
+    # с этим списком по индексу, и вторая сортировка внутри всё бы сдвинула.
+    descriptions_to_process = sorted(
+        (d for d in all_descriptions if d.id not in existing),
+        key=lambda d: d.priority_score,
+        reverse=True,
+    )[: body.max_images]
 
     if not descriptions_to_process:
         return BatchImageGenerationResponse(
@@ -475,19 +479,9 @@ async def generate_images_for_chapter(
             message="All suitable descriptions already have images",
         )
 
-    descriptions_dicts = [
-        {
-            "id": str(d.id),
-            "content": d.content,
-            "type": d.type.value if hasattr(d.type, "value") else str(d.type),
-            "priority_score": d.priority_score,
-        }
-        for d in descriptions_to_process
-    ]
-
     try:
         results = await image_gen_svc.batch_generate_for_chapter(
-            descriptions=descriptions_dicts,
+            descriptions=descriptions_to_process,
             user_id=str(current_user.id),
             max_images=body.max_images,
         )
@@ -768,10 +762,12 @@ async def get_admin_image_stats(
     stats = await service.get_admin_stats()
     service_stats = await image_gen_svc.get_generation_stats()
 
-    # Type-safe extraction from service dicts
+    # Оба сервиса отдают `dict[str, object]` — форма зафиксирована только
+    # в их docstring'ах. Аннотация с ignore[assignment] переносит эту форму
+    # в код: значения тут же уходят в pydantic-модель, которая их и провалидирует.
     total_images: int = stats.get("total_images", 0)  # type: ignore[assignment]
     type_dist: Dict[str, int] = stats.get("type_distribution", {})  # type: ignore[assignment]
-    avg_time = stats.get("avg_generation_time")
+    avg_time: Optional[float] = stats.get("avg_generation_time")  # type: ignore[assignment]
     queue_size: int = service_stats.get("queue_size", 0)  # type: ignore[assignment]
     is_proc: bool = service_stats.get("is_processing", False)  # type: ignore[assignment]
     sup_types: List[str] = service_stats.get("supported_types", [])  # type: ignore[assignment]
@@ -784,7 +780,7 @@ async def get_admin_image_stats(
         performance=PerformanceStats(
             average_generation_time_seconds=(
                 float(avg_time) if avg_time is not None else None
-            ),  # type: ignore[arg-type]
+            ),
             current_queue_size=queue_size,
             is_processing=is_proc,
         ),

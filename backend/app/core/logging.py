@@ -15,9 +15,12 @@ Author: fancai Team
 """
 
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
 from loguru import logger
+
+if TYPE_CHECKING:  # loguru.Logger — только для аннотаций
+    from loguru import Logger
 
 
 def _serialize_extra(record: Dict[str, Any]) -> str:
@@ -83,7 +86,7 @@ def setup_logging(debug: bool = True, log_level: str = "INFO") -> None:
     )
 
 
-def get_logger(name: str = __name__) -> "logger":
+def get_logger(name: str = __name__) -> "Logger":
     """
     Get a logger instance bound with the module name.
 

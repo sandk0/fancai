@@ -12,12 +12,13 @@ Features:
 
 import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, cast
 from uuid import UUID
 import redis.asyncio as redis
 from pydantic import BaseModel
 
 from ..core.config import settings
+from ..core.types import RedisInt
 from ..models.reading_session import ReadingSession
 
 logger = logging.getLogger(__name__)
@@ -124,9 +125,12 @@ class ReadingSessionCache:
         self._redis: Optional[redis.Redis] = None
         self._default_ttl = 3600  # 1 hour
 
-    async def connect(self) -> None:
+    async def connect(self) -> redis.Redis:
         """
-        Устанавливает connection pool к Redis.
+        Устанавливает connection pool к Redis и возвращает клиент.
+
+        Клиент возвращается, а не только кладётся в поле: иначе каждый
+        вызывающий обращался бы к `Optional`-полю и обязан был бы его сужать.
 
         Connection pool settings:
         - max_connections: 50 (handle high concurrency)
@@ -141,6 +145,7 @@ class ReadingSessionCache:
             logger.info(
                 "✅ Redis connection pool established for reading sessions cache"
             )
+        return self._redis
 
     async def close(self) -> None:
         """Закрывает connection pool."""
@@ -186,12 +191,11 @@ class ReadingSessionCache:
             >>> if session:
             ...     print(f"Cached session at position {session.end_position}%")
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             cache_key = self._get_cache_key(user_id)
-            cached_data = await self._redis.get(cache_key)
+            cached_data = await client.get(cache_key)
 
             if cached_data:
                 # Deserialize JSON
@@ -223,8 +227,7 @@ class ReadingSessionCache:
         Example:
             >>> await cache.set_active_session(user.id, new_session)
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             cache_key = self._get_cache_key(user_id)
@@ -235,7 +238,7 @@ class ReadingSessionCache:
 
             # Set with TTL
             ttl_seconds = ttl or self._default_ttl
-            await self._redis.setex(cache_key, ttl_seconds, session_json)
+            await client.setex(cache_key, ttl_seconds, session_json)
 
             logger.debug(f"Cache SET: {cache_key} (TTL: {ttl_seconds}s)")
             return True
@@ -257,8 +260,7 @@ class ReadingSessionCache:
         Returns:
             True если успешно обновлено, False при ошибке или cache miss
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             cached_session = await self.get_active_session(user_id)
@@ -277,7 +279,7 @@ class ReadingSessionCache:
             session_json = json.dumps(cached_session.to_dict())
 
             # Preserve original TTL
-            await self._redis.setex(cache_key, self._default_ttl, session_json)
+            await client.setex(cache_key, self._default_ttl, session_json)
 
             logger.debug(
                 f"Position updated in cache: user={user_id}, position={new_position}%"
@@ -303,12 +305,11 @@ class ReadingSessionCache:
         Returns:
             True если успешно удалено, False при ошибке
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             cache_key = self._get_cache_key(user_id)
-            deleted = await self._redis.delete(cache_key)
+            deleted = await client.delete(cache_key)
 
             logger.debug(f"Cache INVALIDATE: {cache_key} (deleted: {deleted})")
             return deleted > 0
@@ -330,15 +331,14 @@ class ReadingSessionCache:
         Returns:
             True если успешно добавлено в очередь
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             batch_key = self._get_batch_update_key()
             update_json = json.dumps(update.model_dump())
 
             # Добавляем в Redis List (FIFO queue)
-            await self._redis.rpush(batch_key, update_json)
+            await cast(RedisInt, client.rpush(batch_key, update_json))
 
             logger.debug(f"Batch update queued: session={update.session_id}")
             return True
@@ -357,14 +357,13 @@ class ReadingSessionCache:
         Returns:
             Список SessionUpdate для batch processing
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             batch_key = self._get_batch_update_key()
 
             # Atomically get and remove updates from queue
-            pipeline = self._redis.pipeline()
+            pipeline = client.pipeline()
             pipeline.lrange(batch_key, 0, batch_size - 1)
             pipeline.ltrim(batch_key, batch_size, -1)
 
@@ -394,12 +393,11 @@ class ReadingSessionCache:
         Returns:
             Словарь с метриками: hit_rate, memory_usage, keys_count
         """
-        if not self._redis:
-            await self.connect()
+        client = await self.connect()
 
         try:
             # Redis INFO stats
-            info = await self._redis.info("stats")
+            info = await client.info("stats")
 
             # Count reading session keys
             pattern = "reading_session:active:*"
@@ -407,7 +405,7 @@ class ReadingSessionCache:
             keys_count = 0
 
             while True:
-                cursor, keys = await self._redis.scan(cursor, match=pattern, count=100)
+                cursor, keys = await client.scan(cursor, match=pattern, count=100)
                 keys_count += len(keys)
                 if cursor == 0:
                     break

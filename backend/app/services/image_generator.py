@@ -175,7 +175,7 @@ class ImageGeneratorService:
 
     async def batch_generate_for_chapter(
         self,
-        descriptions: List[Dict[str, Any]],
+        descriptions: List[Description],
         user_id: str,
         book_genre: Optional[str] = None,
         max_images: int = 5,
@@ -183,23 +183,25 @@ class ImageGeneratorService:
         """
         Generate images for a list of descriptions from a chapter.
 
+        Порядок результатов совпадает с порядком входа — caller сопоставляет
+        их по индексу. Приоритизацию делает caller: сортировка здесь
+        расходилась бы с его списком и склеивала бы картинку не с тем описанием.
+
         Args:
-            descriptions: List of description dicts to generate images for
+            descriptions: Description-объекты (не dict: ниже идёт доступ
+                к `.content`, `.type` и `.id`)
             user_id: ID of requesting user
             book_genre: Genre for style adaptation
             max_images: Maximum number of images to generate
 
         Returns:
-            List of ImageGenerationResult
+            List of ImageGenerationResult, по одному на вход
         """
-        # Sort by priority and take top N
-        sorted_descriptions = sorted(
-            descriptions, key=lambda d: d.get("priority_score", 0), reverse=True
-        )[:max_images]
+        selected = descriptions[:max_images]
 
         results = []
 
-        for desc in sorted_descriptions:
+        for desc in selected:
             try:
                 result = await self.generate_image_for_description(
                     desc, user_id, book_genre
@@ -207,7 +209,7 @@ class ImageGeneratorService:
                 results.append(result)
 
                 # Small delay between requests to avoid rate limiting
-                if len(results) < len(sorted_descriptions):
+                if len(results) < len(selected):
                     await asyncio.sleep(1)
 
             except Exception as e:

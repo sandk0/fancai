@@ -123,7 +123,7 @@ async def get_user_profile(
     books_count = await db.execute(
         select(func.count(Book.id)).where(Book.user_id == current_user.id)
     )
-    total_books = books_count.scalar()
+    total_books = books_count.scalar() or 0
 
     # NLP REMOVAL: Descriptions extracted on-demand, not stored
     total_descriptions = 0
@@ -256,7 +256,7 @@ async def list_all_users(
     """
     # Получаем общее количество пользователей
     total_count = await db.execute(select(func.count(User.id)))
-    total = total_count.scalar()
+    total = total_count.scalar() or 0
 
     from sqlalchemy.orm import selectinload
 
@@ -325,13 +325,13 @@ async def get_admin_statistics(
     """
     # Общее количество пользователей
     total_users = await db.execute(select(func.count(User.id)))
-    total_users_count = total_users.scalar()
+    total_users_count = total_users.scalar() or 0
 
     # Активные пользователи
     active_users = await db.execute(
         select(func.count(User.id)).where(User.is_active.is_(True))
     )
-    active_users_count = active_users.scalar()
+    active_users_count = active_users.scalar() or 0
 
     # Подписки по планам
     subscription_stats = await db.execute(
@@ -345,12 +345,12 @@ async def get_admin_statistics(
 
     # Общее количество книг
     total_books = await db.execute(select(func.count(Book.id)))
-    total_books_count = total_books.scalar()
+    total_books_count = total_books.scalar() or 0
 
     # NLP REMOVAL: Descriptions extracted on-demand, not stored
     # Count generated images instead
     total_images = await db.execute(select(func.count(GeneratedImage.id)))
-    total_images_count = total_images.scalar()
+    total_images_count = total_images.scalar() or 0
 
     return AdminStatisticsResponse(
         users={
