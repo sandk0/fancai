@@ -5,8 +5,22 @@ import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/** Прокси на локальный backend — общий для dev-сервера и `vite preview`. */
+const backendProxy = {
+  '/api': {
+    target: 'http://localhost:8000',
+    changeOrigin: true,
+    secure: false,
+  },
+  '/ws': {
+    target: 'ws://localhost:8000',
+    changeOrigin: true,
+    ws: true,
+  },
+};
+
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tailwindcss(),
     react(),
@@ -59,24 +73,27 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Только в сборке: epub.js тянет полноценный XML-парсер, который
+      // в браузере не исполняется ни на одной ветке (см. src/shims/xmldom.ts).
+      // В dev алиас не ставим — он заставляет оптимизатор зависимостей
+      // затягивать файл из `src/` в пре-бандл `epubjs` и перегенерировать
+      // его на каждое изменение исходников («Outdated Optimize Dep», 504).
+      ...(command === 'build'
+        ? { '@xmldom/xmldom': path.resolve(__dirname, './src/shims/xmldom.ts') }
+        : {}),
     },
   },
   server: {
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: ['localhost', '127.0.0.1', 'fancai.ru'],
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/ws': {
-        target: 'ws://localhost:8000',
-        changeOrigin: true,
-        ws: true,
-      },
-    },
+    proxy: backendProxy,
+  },
+  // Тот же прокси для `vite preview`: без него собранный SPA нечем проверить
+  // локально — статику он отдаёт, а /api уходит в никуда.
+  preview: {
+    port: 4173,
+    proxy: backendProxy,
   },
   build: {
     outDir: 'dist',
@@ -137,9 +154,11 @@ export default defineConfig({
       'zustand',
       // ✅ FIX: Include epubjs for proper CommonJS → ESM conversion
       'epubjs',
-      '@xmldom/xmldom', // Explicitly include CommonJS dependency
+      // В dev пакет реальный и пре-бандлится как обычно; в сборке его
+      // подменяет алиас выше, и до оптимизатора он не доходит.
+      ...(command === 'build' ? [] : ['@xmldom/xmldom']),
     ],
     // ✅ FIX: Removed exclude - allow Vite to pre-bundle all dependencies
     // This fixes the DOMParser import error from @xmldom/xmldom
   },
-});
+}));
