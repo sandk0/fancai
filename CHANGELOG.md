@@ -10,6 +10,18 @@
 
 ### Removed
 
+- **GLiNER2 / локальный NER удалён целиком** (2026-08-03, решение S4): `ner_service.py`
+  (497 строк), восемь точек в `book_tasks.py`, модель `ChapterEmbedding`,
+  `scripts/export_ner_ab_data.py`, метрики `ner_*`, 958 строк тестов и extra `nlp`
+  (`torch` + `gliner2`) из `pyproject.toml`/`uv.lock`. Миграция `d4a5b6c7e8f9`
+  удаляет пустую таблицу `chapter_embeddings` и флаг `USE_GLINER_NER`; расширение
+  `vector` и колонки `extraction_source`/`pipeline_version` остаются на месте.
+  Celery-образ **1,52 GB → 475 MB**; вместе с `torch` ушла незакрываемая находка
+  `setuptools 81.0.0` (PYSEC-2026-3447) — `pip-audit` теперь гейтит весь
+  заблокированный набор и чист.
+- **`aiohttp` из прямых зависимостей** (2026-08-03): ноль импортов в `app/`; пакет
+  по-прежнему приезжает транзитивно через `pywebpush` и `aiobotocore`.
+
 - **Modal-пайплайн удалён целиком** (2026-08-01): SDK, env, ветки в `book_tasks.py`,
   `image_tasks.py` и `ConsistencyManager`, feature-флаги `USE_MODAL_PIPELINE` и
   `USE_BATCH_MODE`. Миграция `c7d8e9f0a1b2` удаляет флаги из развёрнутых БД
@@ -37,6 +49,21 @@
 
 ### Changed
 
+- **TypeScript 5.9.3 → 6.0.3** (2026-08-03, решение S5): в диапазон
+  `typescript-eslint` (`>=4.8.4 <6.1.0`) шестёрка входит, семёрка — нет, поэтому
+  TS 7 остаётся HOLD. `baseUrl` объявлен deprecated в TS 6 и перестанет работать
+  в 7 — убран из обоих tsconfig'ов, `paths` записаны от каталога конфига.
+- **Прод-сборка фронта стала строгой** (2026-08-03, C2): в `tsconfig-build.json`
+  включены `strict`, `noUnusedLocals`, `noUnusedParameters`,
+  `noFallthroughCasesInSwitch`. Раньше всё было выключено, и `npm run build`
+  пропускал ошибки, которые редакторский конфиг показывал. Правок кода
+  не потребовалось: 22 ошибки `tsc` живут в `__tests__`, а те исключены из сборки.
+- **`@xmldom/xmldom` 0.7.13 → 0.9.10 через `overrides`** (2026-08-03, решение S5):
+  единственный путь — транзитивно через `epubjs`. `npm audit` 6 → 4 находки,
+  high 5 → 3 (ушли `@xmldom/xmldom` и `epubjs`; остались `lodash` через тот же
+  `epubjs` и пара `react-router`/`react-router-dom`). Чанк `ReaderPage` вырос
+  на 9,7 КБ: в браузере epub.js берёт нативные `DOMParser`/`XMLSerializer`,
+  и xmldom попадает в бандл, но не исполняется.
 - **Обновление стека, Волны 1–5** (2026-08-01). Backend: fastapi 0.141.1 +
   prometheus-fastapi-instrumentator 8.1.0 (атомарная группа), пакеты безопасности, сервер,
   ORM, наблюдаемость, стабы; ruff 0.16 расширил набор правил по умолчанию — прежний набор
@@ -79,6 +106,15 @@
   переписаны, Entity Wiki поднят как первая фича.
 
 ### Fixed
+
+- **Обработка книги падала на финализации после отказа любой пост-фазы**
+  (2026-08-03): `graph_service.calculate_pagerank()` при исключении делает
+  `await self.db.rollback()`, а rollback экспайрит ORM-объекты сессии. Следующее
+  обращение к `book.id` в `_finalize_book_status()` уходило в синхронный lazy-load
+  и падало `MissingGreenlet` — уже после того, как все главы разобраны. Книга
+  оставалась с `is_processing=true`, а celery-задача завершалась ошибкой.
+  `_process_book_async` перечитывает книгу через `db.get()` перед финализацией.
+  Дефект воспроизведён и на коде до удаления GLiNER, то есть существовал и раньше.
 
 - **Все иллюстрации генерировались не в том соотношении сторон** (2026-08-01):
   `GeminiClient.generate_image()` принимал `aspect_ratio` и `image_size`, но собирал

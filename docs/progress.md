@@ -9,6 +9,161 @@
 
 ---
 
+## 2026-08-03 · Удаление GLiNER2, TypeScript 6 и xmldom
+
+**Статус:** исполнен `docs/prompts/2026-08-03-remaining-accepted-tasks.md`, пункты
+1–3 из восьми плюс одна мелочь из пункта 8. Прод не тронут, ничего из `scripts/`
+не запускалось, платных вызовов AI не было ни одного. 25 чужих файлов побайтово целы.
+
+### Решения пользователя на входе
+
+| # | Вопрос | Решение |
+| --- | --- | --- |
+| 1 | `ChapterEmbedding` и таблица `chapter_embeddings` | **Удалить новой forward-миграцией** |
+| 2 | Порядок работы | **Непрерывно 1 → 2 → 3, приёмка в конце** |
+
+### 1. S4 — GLiNER2 удалён целиком
+
+Удалено: `app/services/ner_service.py` (497), `app/models/chapter_embedding.py` (71),
+`scripts/export_ner_ab_data.py` (257), четыре тестовых файла (958), устаревший
+`tests/services/TEST_GLINER_SUMMARY.md` (191) вместе с `tests/fixtures/ner_ab_data/`,
+блок NER-метрик в `monitoring/metrics.py` (49 строк + 7 имён из `__all__`),
+флаг `USE_GLINER_NER`, восемь точек в `book_tasks.py` и extra `nlp` из манифеста.
+Файл `test_chapter_embedding_model.py` не удалён, а переименован
+в `test_pipeline_columns.py`: две из трёх его групп проверяют колонки
+`extraction_source`/`pipeline_version`, которые остаются в работе.
+
+**Миграция `d4a5b6c7e8f9`** — forward, а не откат `c3f7a2b8d901`: `downgrade()`
+той миграции делает `DROP EXTENSION IF EXISTS vector` и снимает обе колонки.
+Новая удаляет ровно мёртвое: таблицу `chapter_embeddings`, строку
+`USE_GLINER_NER` из `feature_flags` (`FeatureFlagManager.initialize()` умеет только
+добавлять) и приводит комментарии колонок к коду — иначе `alembic revision
+--autogenerate` показывал бы вечный дифф.
+
+Проверено на dev-БД: upgrade → таблицы нет, расширение `vector` на месте,
+комментарии обновлены; downgrade → таблица, все четыре индекса/constraint, строка
+флага и старые комментарии вернулись; upgrade снова → head. `alembic check`
+не показывает ни одной операции по `chapter_embeddings`, `extraction_source`
+и `pipeline_version` (остальной дрейф — доисторический).
+
+| Метрика | Было | Стало |
+| --- | ---: | ---: |
+| celery-образ | **1,52 ГБ** | **475 МБ** |
+| строк в `uv.lock` | — | **−395** |
+| `pip-audit` на гейтовом наборе | чисто (nlp вне гейта) | **чисто на всём наборе** |
+
+1,52 ГБ — не цифра из прошлого отчёта, а пересборка `Dockerfile.celery`
+с HEAD в отдельном worktree на этой же машине. `setuptools 81.0.0`
+(PYSEC-2026-3447) ушёл вместе с `torch`, поэтому `security.yml` больше не делит
+аудит на «гейт» и «отчёт»: один экспорт `--all-groups`, один прогон, гейт падает
+на любой находке.
+
+Попутно из прямых зависимостей убран `aiohttp` (ноль импортов в `app/`); транзитивно
+он остаётся через `pywebpush` и `aiobotocore`, версия в lock та же.
+
+**Живой smoke LLM-ветки** — `backend/scripts/smoke_llm_book_pipeline.py`, запуск
+в `fancai_backend_dev` с погашенными ключами: 2 главы, 2 вызова экстрактора,
+2 сущности и 4 описания в БД, `status=completed`, книга удалена за собой. Платных
+вызовов ноль: экстрактор подменён фейком, четыре AI-фазы заглушены.
+
+### 2. TypeScript 6 + строгая прод-сборка (S5 + C2)
+
+`typescript` 5.9.3 → **6.0.3**. Семёрка (в npm уже `latest`) остаётся HOLD:
+peer-диапазон `typescript-eslint@8.65.0` — `>=4.8.4 <6.1.0`.
+
+TS 6 объявил `baseUrl` deprecated и превратил его в ошибку `TS5101`. Вместо
+`ignoreDeprecations` ключ убран из `tsconfig.json` и `tsconfig-build.json`,
+а `paths` записаны от каталога конфига (`./src/*`) — это же снимает будущий
+блокер TS 7.
+
+C2 закрыт: в `tsconfig-build.json` включены `strict`, `noUnusedLocals`,
+`noUnusedParameters`, `noFallthroughCasesInSwitch`. Ошибок **0** — правок кода
+не потребовалось, все 22 живут в `__tests__`, которые прод-конфиг исключает.
+
+### 3. `@xmldom/xmldom` 0.7.13 → 0.9.10 (S5)
+
+Override в `frontend/package.json`; единственный путь — транзитивно через `epubjs`.
+
+| `npm audit` | Было | Стало |
+| --- | ---: | ---: |
+| всего | 6 | **4** |
+| high | 5 | **3** |
+
+**Формулировка «минус 5 high» из промпта была неверной.** Пять high — это
+`@xmldom/xmldom`, `epubjs` (как зависящий от него), `lodash` (тоже через `epubjs`)
+и пара `react-router`/`react-router-dom` (прямая зависимость). Override снимает
+первые две; `lodash` и `react-router` — отдельные задачи.
+
+**Живая регрессия читалки** на реальном EPUB (23 главы, «Ведьмак. Перекресток
+воронов», dev-стек, headless Chromium 430×900):
+
+| Проверка | Результат |
+| --- | --- |
+| Оглавление | диалог, все 23 главы, переход по «Глава третья» |
+| Переходы | стр. 7 → 23 по TOC, дальше постранично; 2,0 % → 9,3 % → 10,2 % |
+| CFI | `POST /progress` несёт `epubcfi(/6/14!/4/2[id5]/12/1:148)` → `…/24/1:0` вместе со `scroll_offset_percent` |
+| Подсветка | `<span class="description-highlight desc-location no-image">` на посеянном описании, фон и dashed-подчёркивание из темы |
+| Консоль | ноль `pageerror`, ноль console.error |
+
+Данные для проверки посеяны в dev-БД и удалены после: 1 книга, 23 главы,
+0 сущностей, 0 описаний — как было. Временный пароль тестового пользователя
+возвращён к прежнему хешу.
+
+В браузере epub.js берёт нативные `DOMParser`/`XMLSerializer` — xmldom попадает
+в бандл, но не исполняется (`forceXMLDom` в коде проекта не используется).
+Отсюда +9,7 КБ в чанке `ReaderPage` и кандидат для B2: заменить пакет заглушкой.
+
+### Найдено вживую и исправлено
+
+**Обработка книги падала на финализации.** `graph_service.calculate_pagerank()`
+при исключении делает `await self.db.rollback()`; rollback экспайрит ORM-объекты,
+и следующее обращение к `book.id` в `_finalize_book_status()` уходит в синхронный
+lazy-load → `MissingGreenlet` уже после того, как все главы разобраны. Книга
+оставалась с `is_processing=true`, задача Celery падала. Исправлено перечитыванием
+книги через `db.get()` перед финализацией.
+
+**Это не регрессия S4:** тот же smoke, запущенный в образе, собранном из HEAD
+до удаления GLiNER, падает идентично — только с `No module named 'scipy'` вместо
+`'numpy'`.
+
+### Найдено вживую и НЕ исправлено (вне объёма)
+
+| Находка | Доказательство |
+| --- | --- |
+| **`nx.pagerank` не работает и не работал до S4.** networkx 3.6 требует `scipy`, а его нет ни в одном из проверенных образов. До S4 в celery-образ через `torch` приезжал `numpy`, но не `scipy`. Значит `Entity.importance` PageRank'ом не обновляется — как минимум на pre-S4 baseline и после; всю историю образов не проверяли | `docker run fancai-celery:s4base` → `pagerank FAIL: No module named 'scipy'`, `numpy present` |
+| **`detect_communities` мёртв** — `import community as community_louvain`, пакета `python-louvain` нет в зависимостях | `import community` → `MISSING` во всех трёх образах |
+| **Повторная сущность без алиасов роняет главу.** Upsert в `consistency_manager._batch_resolve_entities` считает `aliases_with_reveal` через `jsonb_agg` по объединению массивов; на двух пустых даёт NULL при `NOT NULL` колонке | первый прогон smoke: `NotNullViolationError: null value in column "aliases_with_reveal"` на второй главе |
+| **`frontend/.env.development` протух** — `VITE_API_BASE_URL=http://localhost:8000` без `/api/v1`, поэтому `npm run dev` бьётся в 404 на `/auth/login` | запросы `POST http://localhost:8000/auth/login → 404` |
+
+### Срез после сессии
+
+| Проверка | Порог | Факт |
+| --- | --- | --- |
+| `pytest`, множество падающих ID | не хуже baseline 458 | **458 = 458, множества совпадают побайтово** |
+| `npm test` | 566 / 1 | **566 / 1** |
+| `tsc` | ≤ 22, все в `__tests__` | **22, все в `__tests__`** |
+| `tsc -p tsconfig-build.json` (строгий) | — | **0** |
+| `npm run build` | проходит | **проходит** |
+| `npm run lint --max-warnings 0` | зелёный | **зелёный** |
+| `pre-commit run --all-files` (чистый worktree) | 10 из 10, без переписывания | **10 из 10, ноль переписанных** |
+| `pip-audit` | пусто | **пусто на всём заблокированном наборе** |
+| `npm audit` | без новых high | **6 → 4, high 5 → 3** |
+| 25 чужих файлов | побайтово целы | **`md5sum -c` зелёный** |
+
+`.secrets.baseline` дополнен записью по новой миграции: `detect-secrets` считает
+любой 12-символьный hex revision id находкой, и все 23 прежние миграции уже
+лежат в baseline тем же способом.
+
+### Не взято
+
+Пункты 4–7 промпта: S3 (mypy, 237 ошибок в 42 файлах), B2 (бюджет бандла),
+B3 (`data-testid`), `mher/flower` и PostgreSQL 18. Из пункта 8 сделано только
+удаление прямого `aiohttp`; переименование `ImagenService` (71 упоминание)
+не начато, а строка про `backend/check-coverage.sh` в `CONTRIBUTING.md`
+по-прежнему ждёт, пока владелец закоммитит свои 25 файлов.
+
+---
+
 ## 2026-08-02 · Мелкий техдолг и пять стратегических решений
 
 **Статус:** исполнен `docs/prompts/2026-08-02-tech-debt-and-strategy.md`. Четыре

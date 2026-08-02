@@ -90,8 +90,9 @@ flowchart TD
 1. Создаёт `GeminiDescriptionExtractor` безусловно — ветвления по feature flag больше нет.
 2. Экстрактор получает client через `get_ai_provider()`.
 3. В production factory возвращает `GeminiClient`.
-4. Флаг `USE_GLINER_NER` (default `false`) подключает локальный NER вместо LLM-извлечения
-   сущностей и на выбор AI-провайдера не влияет.
+4. Локальной NER-ветки больше нет: `NERService` (GLiNER2), флаг `USE_GLINER_NER`
+   и таблица `chapter_embeddings` удалены (решение S4, миграция `d4a5b6c7e8f9`).
+   Извлечение сущностей идёт только через LLM.
 5. Structured response валидируется Pydantic schemas и преобразуется в descriptions,
    entities и relationships.
 
@@ -113,9 +114,12 @@ June migration.
 ### Synthesis
 
 `EntitySynthesisService` использует `get_ai_provider()` и в production попадает в Gemini.
-Но основной production feature flag `USE_HYBRID_PIPELINE=false`; поэтому наличие исправного
-класса не доказывает, что synthesis выполняется в каждом book flow. Это должен подтвердить
-end-to-end canary.
+Он вызывается в `_process_book_async` безусловно; отказ ловится и логируется как
+non-critical, поэтому наличие исправного класса не доказывает, что synthesis
+отработал в каждом book flow. Это должен подтвердить end-to-end canary.
+Флаг `USE_HYBRID_PIPELINE` остался в `DEFAULT_FEATURE_FLAGS`, но кода, который его
+читает, в репозитории нет — как и у `USE_DESCRIPTION_CLASSIFIER`
+и `USE_PGVECTOR_EMBEDDINGS`.
 
 ## Image generation flow
 
