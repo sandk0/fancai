@@ -8,45 +8,6 @@
 
 ## [Unreleased]
 
-### Removed
-
-- **GLiNER2 / локальный NER удалён целиком** (2026-08-03, решение S4): `ner_service.py`
-  (497 строк), восемь точек в `book_tasks.py`, модель `ChapterEmbedding`,
-  `scripts/export_ner_ab_data.py`, метрики `ner_*`, 958 строк тестов и extra `nlp`
-  (`torch` + `gliner2`) из `pyproject.toml`/`uv.lock`. Миграция `d4a5b6c7e8f9`
-  удаляет пустую таблицу `chapter_embeddings` и флаг `USE_GLINER_NER`; расширение
-  `vector` и колонки `extraction_source`/`pipeline_version` остаются на месте.
-  Celery-образ **1,52 GB → 475 MB**; вместе с `torch` ушла незакрываемая находка
-  `setuptools 81.0.0` (PYSEC-2026-3447) — `pip-audit` теперь гейтит весь
-  заблокированный набор и чист.
-- **`aiohttp` из прямых зависимостей** (2026-08-03): ноль импортов в `app/`; пакет
-  по-прежнему приезжает транзитивно через `pywebpush` и `aiobotocore`.
-
-- **Modal-пайплайн удалён целиком** (2026-08-01): SDK, env, ветки в `book_tasks.py`,
-  `image_tasks.py` и `ConsistencyManager`, feature-флаги `USE_MODAL_PIPELINE` и
-  `USE_BATCH_MODE`. Миграция `c7d8e9f0a1b2` удаляет флаги из развёрнутых БД
-  (`FeatureFlagManager.initialize()` умеет только добавлять) и переписывает
-  `chapters.error_type='modal_error'` → `'provider_error'`.
-- **Неиспользуемые зависимости** (2026-08-01): бэкенд — `pillow` (−26 advisory), `ecdsa`
-  (−2), `python-decouple`, `python-dateutil`, `sentence-transformers`, `scikit-learn`,
-  дубль `pgvector` в `Dockerfile.celery`; фронтенд — `dompurify`, `@types/dompurify`,
-  `i18next-http-backend`; корневой блок `devDependencies` вместе с корневым
-  `package-lock.json`. Celery-образ 2.36 GB → 2.06 GB.
-- **Вредный `overrides.brace-expansion`** (2026-08-01): ломал API `glob@11`, из-за чего
-  Workbox писал 2 пустых precache-entry вместо 45 реальных (2255 KiB).
-- **Ключ `GEMINI_LITE_MODEL`** (2026-08-01): за всё время не получил ни одного
-  потребителя в коде; удалён до отдельного решения по tiering'у.
-- **Deprecated `temperature`** (2026-08-01): убран из протокола `AIProvider`, из
-  `GeminiClient` и из всех вызовов. В Gemini 3.x параметр игнорируется, в следующих
-  поколениях даёт HTTP 400. В `OpenRouterClient` знак остался опциональным
-  (`None` — не передавать), поскольку клиент общий для произвольных моделей.
-
-- **GSD toolchain полностью удалён из репозитория** (2026-06-13) — команды `/gsd:*`,
-  субагенты, движок `get-shit-done/`, хуки и statusline вырезаны из `.claude/`,
-  `.opencode/`, `.codex/` и user-level. `.planning/` сохранён как read-only архив.
-- (v1, 2026-04-30) Упоминания `GOOGLE_API_KEY`, Imagen 4, Gemini 3.0 Flash, Subscription
-  tiers, NLP-системы и React Native в публичной документации.
-
 ### Changed
 
 - **TypeScript 5.9.3 → 6.0.3** (2026-08-03, решение S5): в диапазон
@@ -104,6 +65,83 @@
 - (v1, 2026-04-30) Документация под актуальный стек (Python 3.12, FastAPI 0.135.1, PG17,
   Vite 8, Tailwind 4, OpenRouter — gemini-2.5-flash + flux.2-klein-4b); README/-ru/CONTRIBUTING
   переписаны, Entity Wiki поднят как первая фича.
+
+
+- **`mypy` включён по-настоящему** (2026-08-04): `ignore_errors = True` убран
+  из `mypy.ini`, `mypy app/` зелёный на 143 файлах без сплошного подавления.
+  Ключевые рычаги — плагин `pydantic.mypy` (без него PEP 681 не видит
+  позиционные дефолты в `Field(None, …)`, и каждое опциональное поле ответа
+  выглядело обязательным: 229 → 141 ошибка) и удаление pydantic-v1 kwarg `env=`
+  из `Settings`. Хук pre-commit получил `--ignore-missing-imports` (как в CI):
+  его изолированное окружение не содержит `loguru`, `redis` и прочих.
+- **`ImagenService` → `IllustrationService`** (2026-08-04): имена достались
+  от Google Imagen и OpenRouter FLUX.2 Klein, которых на этом пути давно нет.
+  Переименованы модуль, классы, фабрики, тесты, префикс ключа кэша
+  (`imagen:cache:v2` → `illustration:cache:v2`), префикс файла
+  (`flux_` → `illustration_`) и лог-поле `pipeline_stage`. Значение
+  `service_used="imagen"` в БД оставлено: оно под CHECK-constraint'ом.
+- **`react-router-dom` 7.18.2 → `react-router` 8.3.0** (2026-08-04) и `lodash`
+  зафиксирован на `^4.18.1` через `overrides`. `npm audit`: 4 находки / 3 high
+  → 1 находка / 0 high.
+- **Чанк `ReaderPage` 577,71 → 496,78 KiB** (2026-08-04) — под бюджетом
+  500 KiB, `npm run build:size` больше не предупреждает по чанкам.
+  Суммарные 2,12 МБ против цели 800 КБ остаются разрывом.
+
+### Removed
+
+- **Графовая фаза и `graph_service`** (2026-08-04, решение владельца):
+  `nx.pagerank` требует `scipy`, которого нет ни в одном образе, поэтому
+  `Entity.importance` PageRank'ом не обновлялся ни до S4, ни после;
+  `detect_communities` был мёртв из-за отсутствующего `python-louvain`,
+  а `get_visualization_data` не имел вызывающих. `networkx` ушёл
+  из зависимостей. `Entity.importance` остаётся в схеме со значением от LLM.
+- **Три мёртвых NLP-флага** (2026-08-04): `USE_DESCRIPTION_CLASSIFIER`,
+  `USE_HYBRID_PIPELINE`, `USE_PGVECTOR_EMBEDDINGS`. Миграция `e5f6a7b8c9d0`,
+  round-trip проверен на dev-БД.
+- **Flower из стека мониторинга** (2026-08-04, решение владельца): образ
+  `mher/flower:2.0.1` не публикуется с 2023-08-13. Удалены сервис,
+  маршрут Caddy `/flower/*` и строка инвентаря. Очереди брокера смотреть
+  через `celery … inspect`, собственную очередь парсинга — через админку.
+- **`@xmldom/xmldom` из браузерного бандла** (2026-08-04): epub.js обращается
+  к нему только в трёх недостижимых ветках; заменён алиасом сборки
+  на `src/shims/xmldom.ts` с нативными конструкторами.
+
+- **GLiNER2 / локальный NER удалён целиком** (2026-08-03, решение S4): `ner_service.py`
+  (497 строк), восемь точек в `book_tasks.py`, модель `ChapterEmbedding`,
+  `scripts/export_ner_ab_data.py`, метрики `ner_*`, 958 строк тестов и extra `nlp`
+  (`torch` + `gliner2`) из `pyproject.toml`/`uv.lock`. Миграция `d4a5b6c7e8f9`
+  удаляет пустую таблицу `chapter_embeddings` и флаг `USE_GLINER_NER`; расширение
+  `vector` и колонки `extraction_source`/`pipeline_version` остаются на месте.
+  Celery-образ **1,52 GB → 475 MB**; вместе с `torch` ушла незакрываемая находка
+  `setuptools 81.0.0` (PYSEC-2026-3447) — `pip-audit` теперь гейтит весь
+  заблокированный набор и чист.
+- **`aiohttp` из прямых зависимостей** (2026-08-03): ноль импортов в `app/`; пакет
+  по-прежнему приезжает транзитивно через `pywebpush` и `aiobotocore`.
+
+- **Modal-пайплайн удалён целиком** (2026-08-01): SDK, env, ветки в `book_tasks.py`,
+  `image_tasks.py` и `ConsistencyManager`, feature-флаги `USE_MODAL_PIPELINE` и
+  `USE_BATCH_MODE`. Миграция `c7d8e9f0a1b2` удаляет флаги из развёрнутых БД
+  (`FeatureFlagManager.initialize()` умеет только добавлять) и переписывает
+  `chapters.error_type='modal_error'` → `'provider_error'`.
+- **Неиспользуемые зависимости** (2026-08-01): бэкенд — `pillow` (−26 advisory), `ecdsa`
+  (−2), `python-decouple`, `python-dateutil`, `sentence-transformers`, `scikit-learn`,
+  дубль `pgvector` в `Dockerfile.celery`; фронтенд — `dompurify`, `@types/dompurify`,
+  `i18next-http-backend`; корневой блок `devDependencies` вместе с корневым
+  `package-lock.json`. Celery-образ 2.36 GB → 2.06 GB.
+- **Вредный `overrides.brace-expansion`** (2026-08-01): ломал API `glob@11`, из-за чего
+  Workbox писал 2 пустых precache-entry вместо 45 реальных (2255 KiB).
+- **Ключ `GEMINI_LITE_MODEL`** (2026-08-01): за всё время не получил ни одного
+  потребителя в коде; удалён до отдельного решения по tiering'у.
+- **Deprecated `temperature`** (2026-08-01): убран из протокола `AIProvider`, из
+  `GeminiClient` и из всех вызовов. В Gemini 3.x параметр игнорируется, в следующих
+  поколениях даёт HTTP 400. В `OpenRouterClient` знак остался опциональным
+  (`None` — не передавать), поскольку клиент общий для произвольных моделей.
+
+- **GSD toolchain полностью удалён из репозитория** (2026-06-13) — команды `/gsd:*`,
+  субагенты, движок `get-shit-done/`, хуки и statusline вырезаны из `.claude/`,
+  `.opencode/`, `.codex/` и user-level. `.planning/` сохранён как read-only архив.
+- (v1, 2026-04-30) Упоминания `GOOGLE_API_KEY`, Imagen 4, Gemini 3.0 Flash, Subscription
+  tiers, NLP-системы и React Native в публичной документации.
 
 ### Fixed
 
@@ -177,6 +215,38 @@
 - **Healthcheck celery в dev был копией бэкендового** (`curl localhost:8000`) — HTTP-сервера
   в этих контейнерах нет, оба всегда висели unhealthy.
 
+
+- **Сущность без алиасов больше не роняет главу** (2026-08-04): upsert
+  в `consistency_manager._batch_resolve_entities` считал `aliases_with_reveal`
+  через `jsonb_agg` по объединению старого и нового массивов; на двух пустых
+  агрегат возвращал `NULL`, а колонка `NOT NULL` отвергала вставку — вторая
+  глава с такой сущностью терялась целиком. Добавлен `COALESCE(..., '[]'::jsonb)`.
+- **Отказ пост-фазы больше не ломает соседние** (2026-08-04): каждая
+  пост-фаза `_process_book_async` и каждая группа auto-merge идут
+  в собственном `SAVEPOINT`, включая **чтения** — упавший `SELECT` abort'ит
+  транзакцию так же, как упавший `UPDATE`. Сервисы (`optimize_book_entities`,
+  `generate_master_references`, `_merge_entities_internal`) больше не
+  управляют транзакцией и не глотают ошибки: иначе выход из `begin_nested()`
+  выполнял бы `RELEASE SAVEPOINT` на aborted-транзакции. Сняты оба костыля —
+  перечитывание `Book` и снятие скаляров `book_genre`/`book_language`.
+- **`/images/generate/chapter` снова генерирует изображения** (2026-08-04):
+  роутер передавал в `batch_generate_for_chapter` словари, а сервис обращался
+  к `.content`/`.type`/`.id`, поэтому каждый элемент падал `AttributeError`
+  и глушился общим `except`. Передаются `Description`-объекты; приоритизация
+  переехала в роутер — сервис пересортировывал список, а роутер сопоставлял
+  результаты по индексу, из-за чего картинка могла привязаться не к тому описанию.
+- **`OpenRouterClient` теперь удовлетворяет протоколу `AIProvider`**
+  (2026-08-04): `temperature` стоял перед `model`, а `generate_image` объявлял
+  `model: str` там, где протокол передаёт `None`. Плюс `generate_text`
+  и `generate_structured` могли выйти из цикла и вернуть `None` вместо
+  объявленного типа.
+- **Ошибка логина и регистрации видна в форме** (2026-08-04), а не только
+  в тосте, который уезжает через несколько секунд и не доходит до скринридера.
+- **`frontend/.env.development`** (2026-08-04): `VITE_API_BASE_URL` без
+  префикса `/api/v1` — `npm run dev` из коробки бился в 404 на `/auth/login`.
+  Значение сделано относительным: same-origin через прокси Vite проносит
+  HttpOnly cookie без участия CORS.
+
 ### Security
 
 - **Обновление стека, Волна 0 и следствия Волн 1–2** (2026-08-01): `pip-audit` бэкенда
@@ -191,6 +261,17 @@
 - **Пакет аварийной готовности / миграции сервера** (`docs/operations/migration/`, 2026-05-10):
   recon-отчёт, план, inventory, runbook (RTO ≤ 4ч). Страховка; миграция не исполнялась.
 - `docs/architecture/` — `ai-pipeline.md` (каноническое описание AI) + `overview.md` (обзор системы).
+
+
+- **`docs/operations/migration/05-POSTGRES18_UPGRADE.md`** (2026-08-04) —
+  runbook апгрейда PostgreSQL 17 → 18 по результатам локальной репетиции.
+  Главная находка: образы 18+ сменили точку монтирования тома
+  (`/var/lib/postgresql` вместо `/var/lib/postgresql/data`) и отвергают
+  старый путь даже на пустом томе, поэтому в проде одним движением меняются
+  пять строк, а не одна.
+- **Три новых режима `smoke_llm_book_pipeline.py`** (2026-08-04):
+  `no_aliases`, `reduce_failure`, `dedup_read_failure`. Каждый проверен
+  мутацией — откат защищаемой правки красит именно его.
 
 ### Archived
 
