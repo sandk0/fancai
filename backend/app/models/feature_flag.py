@@ -139,13 +139,6 @@ DEFAULT_FEATURE_FLAGS = [
         "default_value": True,
     },
     {
-        "name": "USE_GLINER_NER",
-        "enabled": False,
-        "category": FeatureFlagCategory.NLP.value,
-        "description": "Использовать GLiNER2 для локальной entity extraction вместо LLM",
-        "default_value": False,
-    },
-    {
         "name": "USE_DESCRIPTION_CLASSIFIER",
         "enabled": False,
         "category": FeatureFlagCategory.NLP.value,

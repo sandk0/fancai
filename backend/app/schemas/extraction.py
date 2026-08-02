@@ -1,5 +1,5 @@
 # backend/app/schemas/extraction.py
-"""Общие dataclass'ы для Gemini и NER пайплайнов."""
+"""Общие dataclass'ы результата извлечения из главы."""
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple

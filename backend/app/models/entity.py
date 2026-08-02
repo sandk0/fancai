@@ -93,13 +93,13 @@ class Entity(Base):
         nullable=False,
         server_default="llm",
         index=True,
-        comment="Source: 'llm'=OpenRouter LLM, 'gliner'=local GLiNER2, 'hybrid'=combined",
+        comment="Extraction source; the current pipeline writes only 'llm'",
     )
     pipeline_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         index=True,
-        comment="Pipeline version: null=legacy LLM, 'hybrid_v1'=GLiNER2+classifier",
+        comment="Pipeline version tag; the current LLM pipeline leaves it null",
     )
 
     created_at: Mapped[datetime] = mapped_column(

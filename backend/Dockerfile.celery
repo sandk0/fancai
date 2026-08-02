@@ -1,11 +1,9 @@
 # =============================================================================
-# Production Dockerfile for fancai Celery Worker (NLP)
+# Production Dockerfile for fancai Celery Worker
 # =============================================================================
-# Celery worker with PyTorch CPU-only + NLP dependencies (GLiNER2,
-# sentence-transformers) for local entity extraction and embeddings.
-#
-# Separate from Dockerfile.prod to keep API image lean (~600MB).
-# This image is ~2.5GB due to PyTorch + NLP models.
+# Отличается от Dockerfile.prod только запуском: worker вместо gunicorn,
+# healthcheck через `celery inspect ping` и никакого EXPOSE. Набор
+# зависимостей после удаления GLiNER2 (решение S4) стал тем же самым.
 #
 # Image: fancai-celery:latest
 # =============================================================================
@@ -31,14 +29,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tmp/build
 
-# Всё одним разрешением из uv.lock, включая torch: индекс PyTorch объявлен
-# в pyproject.toml как explicit, поэтому оттуда берётся только torch,
-# а остальные пакеты по-прежнему идут с PyPI. Прежде torch и gliner2
-# ставились тремя отдельными `pip install` мимо какого-либо lock-файла.
-# --extra nlp — единственное отличие от API-образа.
+# Зависимости из uv.lock: точное разрешение с хешами, одинаковое в любой
+# пересборке. --no-dev выкидывает pytest/black/ruff/mypy.
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir uv==0.11.25 && \
-    uv sync --frozen --no-dev --extra nlp
+    uv sync --frozen --no-dev
 
 # =============================================================================
 # Production stage
@@ -49,7 +44,6 @@ FROM python:3.12-slim as production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    HF_HOME=/models \
     PATH=/opt/venv/bin:$PATH
 
 # Install runtime dependencies only (minimal)
@@ -83,23 +77,22 @@ WORKDIR /app
 COPY --chown=appuser:appuser . .
 
 # Create necessary directories with proper permissions and make entrypoint executable
-RUN mkdir -p /app/logs /app/storage /models && \
-    chown -R appuser:appuser /app /models && \
+RUN mkdir -p /app/logs /app/storage && \
+    chown -R appuser:appuser /app && \
     chmod -R 755 /app && \
-    chmod -R 775 /app/storage /app/logs /models && \
+    chmod -R 775 /app/storage /app/logs && \
     chmod +x /app/entrypoint.prod.sh
 
 # Switch to non-root user
 USER appuser
 
-# Health check (NLP models take longer to load — 120s start period)
-HEALTHCHECK --interval=60s --timeout=15s --start-period=120s --retries=3 \
+# Health check — брокер отвечает не мгновенно после старта контейнера.
+HEALTHCHECK --interval=60s --timeout=15s --start-period=30s --retries=3 \
   CMD celery -A app.core.celery_app inspect ping --timeout 10 || exit 1
 
 # Entrypoint handles env validation, then hands off to CMD via exec "$@"
 ENTRYPOINT ["/app/entrypoint.prod.sh"]
 
-# Celery worker: concurrency=1 (one NLP process), no max-tasks-per-child
-# (omitting = None = unlimited, models persist in memory, worker never restarts)
-# NOTE: Memory limit per child is NOT set — it would kill NLP workers that legitimately use 2-3GB
+# concurrency=1: обработка книги внутри одной задачи уже распараллелена по
+# главам через asyncio.gather, поэтому воркер берёт по одной книге за раз.
 CMD ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--prefetch-multiplier=1"]

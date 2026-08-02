@@ -20,8 +20,6 @@ from app.models.entity_relationship import EntityRelationship
 from app.models.chapter import Chapter
 from app.services.gemini_extractor import get_gemini_extractor
 from app.services.consistency_manager import ConsistencyManager
-from app.services.ner_service import get_ner_service
-from app.services.feature_flag_manager import FeatureFlagManager
 from app.core.error_classifier import classify_error
 from app.core.pubsub import publish_book_progress, publish_entities_updated
 from app.services.push_notification_service import push_notification_service
@@ -508,22 +506,6 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         gemini_extractor = get_gemini_extractor()
         consistency_manager = ConsistencyManager(db)
 
-        # Phase 30: Feature flag for NER pipeline
-        flag_manager = FeatureFlagManager(db)
-        use_gliner = await flag_manager.is_enabled("USE_GLINER_NER", default=False)
-
-        # Snapshot NER service if enabled (lazy singleton, model loads on first call)
-        ner_service = get_ner_service() if use_gliner else None
-
-        # Initialize SettingsManager once before chapter loop (not per-chapter)
-        settings_mgr = None
-        if use_gliner:
-            from app.services.settings_manager import SettingsManager
-            from app.core.config import settings as app_settings
-
-            settings_mgr = SettingsManager(redis_url=app_settings.REDIS_URL)
-            await settings_mgr.connect_redis()
-
         # Import DescriptionType for DB mapping
         from app.models.description import DescriptionType
 
@@ -655,26 +637,11 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     await session.commit()
                                     return
 
-                                # 3. Analyze chapter — NER (GLiNER2) / LLM (Gemini)
-                                if use_gliner and ner_service:
-                                    # Phase 30: NER via GLiNER2 (synchronous PyTorch inference in thread pool)
-                                    ner_result = await asyncio.to_thread(
-                                        ner_service.extract_chapter,
-                                        local_chapter.content,
-                                        settings_mgr,
-                                    )
-                                    result = ner_result
-                                    logger.info(
-                                        "NER extraction complete",
-                                        chapter_id=str(local_chapter.id),
-                                        entities_count=len(result.entities),
-                                    )
-                                else:
-                                    # Legacy: LLM extraction via Gemini
-                                    # Extractor has its own internal semaphore/rate-limiting too
-                                    result = await gemini_extractor.analyze_chapter(
-                                        local_chapter.content
-                                    )
+                                # 3. Analyze chapter — LLM extraction via Gemini.
+                                # Extractor has its own internal semaphore/rate-limiting too.
+                                result = await gemini_extractor.analyze_chapter(
+                                    local_chapter.content
+                                )
 
                                 # 4. Consistency & Logic (Map Phase)
                                 # Use a local ConsistencyManager with this session

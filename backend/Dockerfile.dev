@@ -1,14 +1,9 @@
 # =============================================================================
 # Development Dockerfile for fancai Backend
 # =============================================================================
-# Lightweight version without heavy NLP dependencies:
-# - No SpaCy models (~500MB)
-# - No Stanza models (~630MB)
-# - No GLiNER models (~500MB)
-# - No NLTK data (~100MB)
-#
-# Total image size: ~800MB (vs ~2.5GB for full version)
-# Build time: ~2-3 minutes (vs ~10-15 minutes for full version)
+# Тот же набор зависимостей, что и в боевом образе, плюс dev-группа
+# (pytest, black, ruff, mypy). Локальных NLP-моделей в проекте больше нет:
+# извлечение сущностей целиком идёт через LLM-провайдера.
 # =============================================================================
 # syntax=docker/dockerfile:1.4
 FROM python:3.12-slim

@@ -155,8 +155,8 @@ class TestFeatureFlagModel:
         assert flag_false.enabled is False
 
     def test_default_feature_flags_count(self):
-        """Тест что DEFAULT_FEATURE_FLAGS содержит 10 флагов."""
-        assert len(DEFAULT_FEATURE_FLAGS) == 10
+        """Тест что DEFAULT_FEATURE_FLAGS содержит 9 флагов."""
+        assert len(DEFAULT_FEATURE_FLAGS) == 9
 
     def test_default_feature_flags_required_fields(self):
         """Тест что каждый дефолтный флаг имеет требуемые поля."""
@@ -183,7 +183,6 @@ class TestFeatureFlagModel:
             "ENABLE_ENSEMBLE_VOTING",
             "ENABLE_PARALLEL_PROCESSING",
             "ENABLE_IMAGE_CACHING",
-            "USE_GLINER_NER",
             "USE_DESCRIPTION_CLASSIFIER",
             "USE_HYBRID_PIPELINE",
             "USE_PGVECTOR_EMBEDDINGS",
@@ -202,7 +201,6 @@ class TestFeatureFlagModel:
             "ENABLE_ENSEMBLE_VOTING": FeatureFlagCategory.NLP.value,
             "ENABLE_PARALLEL_PROCESSING": FeatureFlagCategory.NLP.value,
             "ENABLE_IMAGE_CACHING": FeatureFlagCategory.IMAGES.value,
-            "USE_GLINER_NER": FeatureFlagCategory.NLP.value,
             "USE_DESCRIPTION_CLASSIFIER": FeatureFlagCategory.NLP.value,
             "USE_HYBRID_PIPELINE": FeatureFlagCategory.NLP.value,
             "USE_PGVECTOR_EMBEDDINGS": FeatureFlagCategory.NLP.value,
@@ -239,13 +237,6 @@ class TestFeatureFlagModel:
 
         assert flag["enabled"] is False
         assert flag["default_value"] is False
-
-    def test_default_feature_flags_use_gliner_ner_disabled(self):
-        """Тест что USE_GLINER_NER отключен по умолчанию."""
-        flag = next(f for f in DEFAULT_FEATURE_FLAGS if f["name"] == "USE_GLINER_NER")
-        assert flag["enabled"] is False
-        assert flag["default_value"] is False
-        assert flag["category"] == FeatureFlagCategory.NLP.value
 
     def test_default_feature_flags_use_description_classifier_disabled(self):
         """Тест что USE_DESCRIPTION_CLASSIFIER отключен по умолчанию."""

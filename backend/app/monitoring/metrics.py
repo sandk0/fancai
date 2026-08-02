@@ -494,49 +494,6 @@ def record_rate_limit_triggered(endpoint: str, limit_type: str) -> None:
 
 
 # ============================================================================
-# NER Metrics — GLiNER2 entity extraction (Phase 30)
-# ============================================================================
-
-ner_extraction_duration_seconds = Histogram(
-    "ner_extraction_duration_seconds",
-    "Time spent extracting entities via GLiNER2",
-    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
-    labelnames=["phase"],  # "chunk" or "chapter"
-)
-
-ner_entities_extracted_total = Counter(
-    "ner_entities_extracted_total",
-    "Total entities extracted by NER",
-    ["entity_type"],
-)
-
-ner_chunks_processed_total = Counter(
-    "ner_chunks_processed_total",
-    "Total chunks processed by NER chunker",
-)
-
-
-def record_ner_chunk_duration(duration: float) -> None:
-    """Record NER extraction duration for a single chunk."""
-    ner_extraction_duration_seconds.labels(phase="chunk").observe(duration)
-
-
-def record_ner_chapter_duration(duration: float) -> None:
-    """Record NER extraction duration for an entire chapter."""
-    ner_extraction_duration_seconds.labels(phase="chapter").observe(duration)
-
-
-def record_ner_entities(entity_type: str, count: int) -> None:
-    """Record count of extracted NER entities by type."""
-    ner_entities_extracted_total.labels(entity_type=entity_type).inc(count)
-
-
-def record_ner_chunks(count: int) -> None:
-    """Record number of chunks processed by NER chunker."""
-    ner_chunks_processed_total.inc(count)
-
-
-# ============================================================================
 # Export all metrics for /metrics endpoint
 # ============================================================================
 
@@ -592,12 +549,4 @@ __all__ = [
     "record_auth_registration",
     "record_auth_login",
     "record_rate_limit_triggered",
-    # NER metrics (Phase 30)
-    "ner_extraction_duration_seconds",
-    "ner_entities_extracted_total",
-    "ner_chunks_processed_total",
-    "record_ner_chunk_duration",
-    "record_ner_chapter_duration",
-    "record_ner_entities",
-    "record_ner_chunks",
 ]

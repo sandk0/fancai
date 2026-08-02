@@ -43,36 +43,24 @@ jobs:
 
       # requirements.txt в репозитории больше нет — единственный источник
       # истины это uv.lock. Сканерам, которые умеют читать только формат
-      # requirements, файлы генерируются здесь же, двумя наборами.
-      - name: Export the locked dependency sets
+      # requirements, файл генерируется здесь же.
+      - name: Export the locked dependency set
         run: |
           cd backend
-          # Гейт: рантайм плюс инструменты разработки — тот же охват, что был
-          # у прежнего requirements.txt, только ещё и с транзитивными.
-          uv export --frozen --no-emit-project --no-hashes \
+          # Extras у проекта нет: рантайм плюс инструменты разработки —
+          # это весь заблокированный набор, с транзитивными.
+          uv export --frozen --all-groups --no-emit-project --no-hashes \
             -o requirements-gate.txt
-          # Отчёт: дополнительно nlp-ветка (torch/gliner2) из celery-образа.
-          uv export --frozen --all-extras --all-groups --no-emit-project \
-            --no-hashes -o requirements-full.txt
 
-      # Гейт падает на находке. nlp-ветка сюда не входит намеренно:
-      # torch==2.11.0+cpu пинит setuptools<82 и тем самым удерживает
-      # PYSEC-2026-3447, закрыть который без смены torch нельзя. Путь GLiNER
-      # выключен флагом USE_GLINER_NER и подлежит удалению (решение S4).
-      - name: Run pip-audit on the gated set
+      # Гейт падает на любой находке. Прежде из него исключалась ветка nlp
+      # (torch + gliner2) с незакрываемым setuptools 81.0.0 (PYSEC-2026-3447);
+      # вместе с удалением GLiNER ушли и ветка, и находка.
+      - name: Run pip-audit
         run: |
           cd backend
           uvx pip-audit --disable-pip --no-deps -r requirements-gate.txt \
             --format json --output pip-audit-gate.json || true
           uvx pip-audit --disable-pip --no-deps -r requirements-gate.txt
-
-      - name: Run pip-audit on the full set (report only)
-        continue-on-error: true
-        run: |
-          cd backend
-          uvx pip-audit --disable-pip --no-deps -r requirements-full.txt \
-            --format json --output pip-audit-full.json || true
-          uvx pip-audit --disable-pip --no-deps -r requirements-full.txt
 
       - name: Run Safety (Python dependency checker)
         run: |
@@ -91,7 +79,6 @@ jobs:
           name: backend-dependency-scan
           path: |
             backend/pip-audit-gate.json
-            backend/pip-audit-full.json
             backend/safety-report.json
           retention-days: 30
 
@@ -397,7 +384,7 @@ jobs:
           cd backend
           # pip-licenses читает установленное окружение, поэтому ставим его
           # из uv.lock и запускаем инструмент внутри того же venv.
-          uv sync --frozen --all-extras
+          uv sync --frozen
           uv pip install pip-licenses
           .venv/bin/pip-licenses --format=json --output-file=licenses-report.json
           .venv/bin/pip-licenses --format=markdown --output-file=licenses-report.md

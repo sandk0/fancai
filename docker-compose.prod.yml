@@ -7,7 +7,7 @@
 # - PostgreSQL: 12GB (with shared_buffers=4GB)
 # - Redis: 768MB (maxmemory=640mb)
 # - Backend: 2GB
-# - Celery Worker: 4GB (NLP: PyTorch + GLiNER2 + sentence-transformers)
+# - Celery Worker: 4GB
 # - Celery Beat: 256MB
 # - Caddy: 128MB
 # - Frontend: 256MB (build-only, exits after completing)
@@ -167,7 +167,7 @@ services:
           cpus: '0.5'
           memory: 768M
 
-  # Celery Worker (NLP: PyTorch + GLiNER2 + sentence-transformers)
+  # Celery Worker (book parsing, entity extraction, image generation)
   celery-worker:
     image: fancai-celery:latest
     build:
@@ -196,8 +196,6 @@ services:
       - GCP_PROJECT=${GCP_PROJECT:-}
       - GCP_LOCATION=${GCP_LOCATION:-global}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
-      # NLP — HuggingFace model cache
-      - HF_HOME=/models
       # Monitoring
       - HAWK_TOKEN=${HAWK_TOKEN:-}
       - METRICS_PASSWORD=${METRICS_PASSWORD:-}
@@ -209,7 +207,6 @@ services:
     volumes:
       - ./backend/storage:/app/storage
       - /dev/shm:/dev/shm
-      - nlp_models:/models
       - ./secrets:/secrets:ro     # Vertex service-account JSON (см. GOOGLE_APPLICATION_CREDENTIALS)
     depends_on:
       postgres:
@@ -222,7 +219,7 @@ services:
       interval: 60s
       timeout: 15s
       retries: 3
-      start_period: 120s
+      start_period: 30s
     networks:
       - fancai_network
     deploy:
@@ -401,8 +398,6 @@ volumes:
   caddy_config:       # Caddy конфигурационный кеш
     driver: local
   frontend_build:     # Build артефакты фронтенда (shared: frontend -> caddy)
-  nlp_models:            # HuggingFace model cache (GLiNER2, sentence-transformers)
-    driver: local
   # mkdir -p /backups/postgres && chown 999:999 /backups/postgres
   pgbackup_data:
     driver: local
