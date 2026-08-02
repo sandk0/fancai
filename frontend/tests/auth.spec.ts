@@ -67,10 +67,12 @@ test.describe('Authentication', () => {
       await registerPage.navigate();
 
       // Fill form with mismatched passwords
+      // Полей username/firstName/lastName в форме нет — есть одно fullName.
+      await page.fill('[data-testid="register-fullname"]', 'Test User');
       await page.fill('[data-testid="register-email"]', 'test@example.com');
-      await page.fill('[data-testid="register-username"]', 'testuser');
       await page.fill('[data-testid="register-password"]', 'Password123!');
       await page.fill('[data-testid="register-confirm-password"]', 'DifferentPass123!');
+      await page.locator('[data-testid="register-terms"]').check({ force: true });
       await page.click('[data-testid="register-submit"]');
 
       // Verify error

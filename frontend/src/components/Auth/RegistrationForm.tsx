@@ -66,9 +66,14 @@ function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => voi
 interface RegistrationFormProps {
   onSubmit: (data: { email: string; password: string; fullName: string }) => Promise<void>;
   isLoading: boolean;
+  /**
+   * Ошибка от сервера (занятый email и т.п.). Приходит сверху: сам запрос
+   * делает страница, а показывать отказ надо здесь, рядом с полями.
+   */
+  submitError?: string | null;
 }
 
-export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps) {
+export function RegistrationForm({ onSubmit, isLoading, submitError }: RegistrationFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { t } = useTranslation();
@@ -95,19 +100,33 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
 
   const password = watch('password');
 
+  // Один видимый блок на обе категории отказа: zod-валидация и ответ сервера.
+  // До этого валидация жила в sr-only, а серверная ошибка — только в тосте.
+  const formError =
+    errors.fullName?.message ??
+    errors.email?.message ??
+    errors.password?.message ??
+    errors.confirmPassword?.message ??
+    errors.acceptTerms?.message ??
+    submitError ??
+    null;
+
   const handleFormSubmit = async (data: RegisterFormData) => {
     await onSubmit({ email: data.email, password: data.password, fullName: data.fullName });
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      <div role="alert" aria-live="assertive" className="sr-only">
-        {errors.fullName && <span>{errors.fullName.message}</span>}
-        {errors.email && <span>{errors.email.message}</span>}
-        {errors.password && <span>{errors.password.message}</span>}
-        {errors.confirmPassword && <span>{errors.confirmPassword.message}</span>}
-        {errors.acceptTerms && <span>{errors.acceptTerms.message}</span>}
-      </div>
+      {formError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          data-testid="register-error"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </div>
+      )}
 
       <Input
         {...register('fullName')}
@@ -118,6 +137,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
         inputSize="md"
         autoComplete="name"
         required
+        data-testid="register-fullname"
       />
 
       <Input
@@ -130,6 +150,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
         inputSize="md"
         autoComplete="email"
         required
+        data-testid="register-email"
       />
 
       <div>
@@ -149,6 +170,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
           inputSize="md"
           autoComplete="new-password"
           required
+          data-testid="register-password"
         />
         <PasswordStrengthIndicator password={password || ''} />
       </div>
@@ -169,6 +191,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
         inputSize="md"
         autoComplete="new-password"
         required
+        data-testid="register-confirm-password"
       />
 
       <Controller
@@ -183,6 +206,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
             variant={errors.acceptTerms ? 'error' : 'default'}
             errorMessage={errors.acceptTerms?.message}
             required
+            data-testid="register-terms"
           />
         )}
       />
@@ -195,6 +219,7 @@ export function RegistrationForm({ onSubmit, isLoading }: RegistrationFormProps)
         loadingText={t('register.submitting')}
         className="w-full mt-6"
         disabled={isLoading}
+        data-testid="register-submit"
       >
         {t('register.submit')}
       </Button>

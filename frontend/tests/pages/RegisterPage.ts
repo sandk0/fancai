@@ -8,16 +8,16 @@ import type { TestUser } from '../fixtures';
 
 export class RegisterPage extends BasePage {
   // Selectors
+  // Форма приложения — fullName + email + пароль + подтверждение + согласие
+  // с условиями. Отдельных username/firstName/lastName в ней нет.
+  private readonly fullNameInput = '[data-testid="register-fullname"]';
   private readonly emailInput = '[data-testid="register-email"]';
-  private readonly usernameInput = '[data-testid="register-username"]';
   private readonly passwordInput = '[data-testid="register-password"]';
   private readonly confirmPasswordInput = '[data-testid="register-confirm-password"]';
-  private readonly firstNameInput = '[data-testid="register-firstname"]';
-  private readonly lastNameInput = '[data-testid="register-lastname"]';
+  private readonly termsCheckbox = '[data-testid="register-terms"]';
   private readonly submitButton = '[data-testid="register-submit"]';
   private readonly loginLink = '[data-testid="login-link"]';
   private readonly errorMessage = '[data-testid="register-error"]';
-  private readonly successMessage = '[data-testid="registration-success"]';
 
   constructor(page: Page) {
     super(page);
@@ -34,18 +34,15 @@ export class RegisterPage extends BasePage {
    * Perform registration
    */
   async register(user: TestUser): Promise<void> {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+    await this.fill(this.fullNameInput, fullName);
     await this.fill(this.emailInput, user.email);
-    await this.fill(this.usernameInput, user.username);
     await this.fill(this.passwordInput, user.password);
     await this.fill(this.confirmPasswordInput, user.password);
-
-    if (user.firstName) {
-      await this.fill(this.firstNameInput, user.firstName);
-    }
-    if (user.lastName) {
-      await this.fill(this.lastNameInput, user.lastName);
-    }
-
+    // Согласие с условиями обязательно — без него форма не отправится.
+    // `force`: сам input — sr-only (визуально его заменяет стилизованный
+    // peer-элемент), поэтому обычная проверка видимости не проходит.
+    await this.page.locator(this.termsCheckbox).check({ force: true });
     await this.click(this.submitButton);
   }
 
@@ -57,10 +54,14 @@ export class RegisterPage extends BasePage {
   }
 
   /**
-   * Get success message
+   * Текст подтверждения регистрации.
+   *
+   * Успех уводит на /library сразу же, поэтому элемент на самой странице
+   * регистрации не доживает до проверки. Читаем тост — он рендерится
+   * в корне приложения и переживает переход.
    */
   async getSuccessMessage(): Promise<string> {
-    return await this.getText(this.successMessage);
+    return await this.getText('[data-sonner-toast] [data-title]');
   }
 
   /**
@@ -71,9 +72,14 @@ export class RegisterPage extends BasePage {
   }
 
   /**
-   * Check if success message is visible
+   * Регистрация прошла, если приложение ушло в библиотеку.
    */
   async isSuccessVisible(): Promise<boolean> {
-    return await this.isVisible(this.successMessage);
+    try {
+      await this.page.waitForURL('**/library', { timeout: 10000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

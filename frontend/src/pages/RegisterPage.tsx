@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { BookOpen } from 'lucide-react';
@@ -12,14 +12,20 @@ const RegisterPage: React.FC = () => {
   const { register: registerUser, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleRegister = async (data: { email: string; password: string; fullName: string }) => {
+    setSubmitError(null);
     try {
       await registerUser(data.email, data.password, data.fullName);
       notify.success(t('register.success_title'), t('register.success_message'));
       navigate('/library', { replace: true });
     } catch (error) {
-      notify.error(t('register.error_title'), getErrorMessage(error, t('register.error_fallback')));
+      const message = getErrorMessage(error, t('register.error_fallback'));
+      // Форма показывает отказ рядом с полями: тост исчезает, а причина
+      // («email занят») нужна ровно там, где её будут исправлять.
+      setSubmitError(message);
+      notify.error(t('register.error_title'), message);
     }
   };
 
@@ -45,7 +51,7 @@ const RegisterPage: React.FC = () => {
           </p>
         </div>
 
-        <RegistrationForm onSubmit={handleRegister} isLoading={isLoading} />
+        <RegistrationForm onSubmit={handleRegister} isLoading={isLoading} submitError={submitError} />
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
@@ -53,6 +59,7 @@ const RegisterPage: React.FC = () => {
             <Link
               to="/login"
               className="font-semibold text-primary transition-colors hover:underline"
+              data-testid="login-link"
             >
               {t('register.login_link')}
             </Link>
