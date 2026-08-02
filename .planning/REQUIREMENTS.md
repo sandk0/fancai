@@ -3,6 +3,13 @@
 **Defined:** 2026-03-27
 **Core Value:** Пользователь загружает книгу, читает её, получает AI-сгенерированный глоссарий персонажей без спойлеров, видит иллюстрации, делает заметки и выделения — и всё это работает стабильно на любом устройстве.
 
+> **Historical snapshot.** Этот checklist описывает v1.5 на момент старта 2026-03-27 и
+> больше не является текущим backlog. Milestone закрыт частично 2026-03-29:
+> Phases 35–36 shipped, Phase 37 abandoned, Phase 38 cancelled. После этого production
+> мигрировал на Gemini Direct + Vertex AI (2026-06-16). Текущие задачи — в
+> [`.planning/STATE.md`](STATE.md) и
+> [`docs/superpowers/plans/2026-07-18-production-reliability-baseline.md`](../docs/superpowers/plans/2026-07-18-production-reliability-baseline.md).
+
 ## v1.5 Requirements
 
 Modal Batch Processing & Production Stability. Стабилизация сломанного pipeline и переход от sequential к batch-обработке глав.

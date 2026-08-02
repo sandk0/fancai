@@ -8,7 +8,7 @@ set -euo pipefail
 # Script configuration
 PROJECT_NAME="fancai"
 COMPOSE_FILE="docker-compose.prod.yml"
-ENV_FILE=".env.production"
+ENV_FILE=".env"
 BACKUP_DIR="/backups/$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="/var/log/fancai-deploy.log"
 

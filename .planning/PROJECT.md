@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Веб-приложение для чтения книг с двумя AI-функциями: интерактивная Entity Wiki (глоссарий персонажей, локаций, объектов со спойлер-защитой по главам) и генерация иллюстраций по найденным в тексте описаниям. Mobile-first PWA с плавными свайпами, follow-finger навигацией и offline-чтением. Приложение стабильно работает в продакшене на fancai.ru.
+Веб-приложение для чтения книг с двумя AI-функциями: интерактивная Entity Wiki (глоссарий персонажей, локаций, объектов со спойлер-защитой по главам) и генерация иллюстраций по найденным в тексте описаниям. Mobile-first PWA с follow-finger навигацией и offline-чтением. Production на fancai.ru операционен; текущий цикл посвящён восстановлению quality/security/monitoring baseline.
 
 ## Core Value
 
@@ -48,26 +48,32 @@
 
 ### Active
 
-## Current Milestone: v1.5 Modal Batch Processing & Production Stability
+Новый feature-milestone не открыт. Последняя поставка — Gemini Direct + Vertex AI cutover
+2026-06-16 (вне формальных GSD-фаз). Текущий приоритет — Production Reliability Baseline:
 
-**Goal:** Стабилизация и ускорение текущего Modal pipeline (vLLM Qwen3.5-9B на L40S). Переход от sequential per-chapter обработки к chunked sub-batch. OpenRouter (Gemini 3.0 Flash) как fallback.
+- включить и починить CI, получить воспроизводимый backend/frontend test baseline;
+- закрыть high dependency advisories;
+- исправить Workbox precache и Netdata → VictoriaMetrics/backend networking;
+- закрепить canonical `.env` deploy и VPS outage runbook;
+- подтвердить production AI pipeline контролируемым EPUB canary.
 
-**Входной документ:** `docs/research/FINAL-consolidated-audit.md` (финальный аудит, перекрёстно проверен GPT 5.4 Codex)
+Детали: `.planning/STATE.md` и
+`docs/superpowers/plans/2026-07-18-production-reliability-baseline.md`.
 
-**Target features:**
-- Стабилизация production semantics: корректные статусы книг при partial failures
-- Schema constraints: maxLength на все string fields для предотвращения broken JSON
-- Sub-batch vLLM processing: chunked batch (4-8 глав) вместо sequential per-chapter
-- Error classification: раздельная обработка timeout/JSON error/Modal error
-- Observability: structured logging per chapter с метриками latency/cost
-- Cold start optimization: compile cache volume, потенциально GPU snapshots
-- OpenRouter fallback: автоматический переход на Gemini при недоступности Modal
+**Текущий production AI:**
 
-**Текущий production стек (baseline):**
-- GPU: Modal L40S (48GB, $1.95/hr), vLLM v0.18.0, Qwen3.5-9B
-- Mode: sequential (Semaphore=1), LLM_TIMEOUT=600s
-- Проблемы: 10/23 глав падают (timeout + broken JSON), semantic corruption статусов
-- Fallback: OpenRouter Gemini 3.0 Flash (существующий pipeline)
+- Extraction/synthesis factory: `GeminiClient` через Vertex AI global,
+  `gemini-3.5-flash`.
+- Images: Modal flag выключен; `ImagenService`/`NanoBananaGenerator` использует
+  Gemini `gemini-3.1-flash-image`. Последний успешный image record —
+  `service_used=imagen` от 2026-06-22.
+- Consistency reduce: legacy direct OpenRouter call обходит `AI_PROVIDER`.
+- Modal: `USE_MODAL_PIPELINE=false` и `USE_BATCH_MODE=false` подтверждены live в Celery;
+  SDK/credentials остаются, но route не активен.
+- Автоматического cross-provider fallback и полного image rollback нет.
+
+Gemini admin panel остаётся продуктовым кандидатом, но не начинается до зелёного
+reliability baseline.
 
 ### Out of Scope
 
@@ -91,21 +97,29 @@ Shipped v1.2 за 4 дня (2026-03-10 → 2026-03-13). 8 фаз, 21 план, 1
 Shipped v1.3 за 9 дней (2026-03-14 → 2026-03-23). 10 фаз, 14 планов, 20 требований. 88 коммитов.
 Abandoned v1.4 (2026-03-23 → 2026-03-27). Strategic pivot: self-hosted LLM → Modal batch + OpenRouter. Phase 29 done, Phase 30 partial.
 
-**Текущее состояние кодовой базы:**
-- Frontend: ~130K LOC TypeScript/React 19 + Vite 7
-- Backend: ~37K LOC Python/FastAPI + PostgreSQL 17 + Redis 7.4 + Celery
-- AI: OpenRouter (Gemini 3 Flash + fallback) + FLUX.2 Klein для изображений
-- Деплой: Docker Compose + Caddy + auto-HTTPS на fancai.ru
+**Текущее состояние кодовой базы (audit 2026-07-18):**
 
-**Известный техдолг:**
-- EntityPopup.tsx — orphaned (заменён на EntityBottomSheet, оставлен для reference)
-- BookReader.tsx — orphaned dead export (не импортируется production-кодом)
-- security_headers.py:76 — TODO: implement nonce generation
-- metrics.py:273 — pass в update_active_sessions_gauge (placeholder)
-- unawaited onCenterTap на строках 549, 789 useGestureController.ts (cosmetic async inconsistency)
-- Pre-existing test failures: ErrorBoundary.test.tsx (7), auth.test.ts (1)
-- 18+ визуальных тестов требуют ручной проверки на реальных устройствах
-- 3 мобильных бага ожидают UAT на Pixel 9 (Touch to Search, edge taps, annotation timing)
+- Frontend: React 19 / TypeScript / Vite 8; 38 unit files, 564 passed + 1 skipped.
+- Backend: Python 3.12 target / FastAPI / PostgreSQL 17 / Redis 7.4 / Celery;
+  84 test files и 54 Alembic migrations.
+- AI production: Gemini Direct/Vertex для extraction/synthesis/images; legacy consistency
+  reduce напрямую использует OpenRouter; Modal route выключен.
+- Деплой: single Netcup VPS, Docker Compose + Caddy, SSH `deploy@fancai:2222`.
+
+**Подтверждённый техдолг:**
+
+- GitHub Actions выключены; последний main run в 2025 году failed.
+- Celery worker слушает только `normal`: `heavy` upload tasks и `light` housekeeping не имеют
+  consumer; в production `light` накопил 7212 периодических задач.
+- Backend full baseline не зелёный: stale tests, 3 Ruff errors, 71 Black-formatted files.
+- Workbox build warning ломает полноценный precache из-за global `brace-expansion` override.
+- Netdata exporter/collector используют `localhost` внутри bridge container и не достигают
+  VictoriaMetrics/backend.
+- Production dependency audits содержат high advisories.
+- Provider routing раздвоен между `AI_PROVIDER`, прямыми client calls и legacy
+  `USE_MODAL_PIPELINE`; сейчас Modal выключен, но consistency reduce обходит factory.
+- Legacy OpenRouter/FLUX/Pollinations strings остаются в docstrings, UI status и части tests.
+- Реальный end-to-end EPUB canary после June Vertex cutover ещё не зафиксирован.
 
 **v2 requirements (backlog):**
 - DSC-v2-01: Умный парсинг описаний с начала предложения (NLP sentence boundary, spaCy)
@@ -118,7 +132,7 @@ Abandoned v1.4 (2026-03-23 → 2026-03-27). Strategic pivot: self-hosted LLM →
 |---------|-------------|-----------|
 | Стабильность перед фичами | Пользователь не терпит баги — сначала всё должно работать | ✓ Good |
 | NLP код удалён полностью | Мёртвый код увеличивает когнитивную нагрузку | ✓ Good |
-| Все AI через OpenRouter | Единый провайдер с fallback chain, удаление google-genai | ✓ Good |
+| AI provider abstraction | Production text использует Gemini Direct/Vertex; OpenRouter сохранён для ручного rollback | ✓ Shipped; image rollback требует выравнивания |
 | Caddy вместо nginx | 748 строк → ~80, auto-HTTPS, HTTP/3 | ✓ Good |
 | DOM span wrapping вместо epub.js SVG | epub.js annotations не поддерживает background-color | ✓ Good |
 | Highlights merged в Bookmarks | Единая модель Notes вместо двух отдельных таблиц | ✓ Good |
@@ -145,9 +159,9 @@ Abandoned v1.4 (2026-03-23 → 2026-03-27). Strategic pivot: self-hosted LLM →
 ## Constraints
 
 - **Сервер**: 32GB RAM, 12 vCPU, NVMe SSD, PostgreSQL 17, Redis 7.4
-- **Стек**: React 19 + TypeScript 5.7+ + Vite 7 / FastAPI + Python 3.12 — менять нельзя
-- **AI**: OpenRouter (Gemini 3 Flash + fallback chain) + FLUX.2 Klein. Circuit breaker защищает от каскадных сбоев
-- **Домен**: fancai.ru, Москва (Europe/Moscow)
+- **Стек**: React 19 + TypeScript 5.7+ + Vite 8 / FastAPI + Python 3.12 — major migrations только отдельным проверенным изменением
+- **AI production**: Gemini Direct/Vertex для extraction+synthesis+images; consistency reduce напрямую использует OpenRouter; Modal route выключен
+- **Домен/инфра**: fancai.ru, Netcup single VPS, Europe/Moscow; SSH port 2222
 - **Язык контента**: приоритет — русские книги
 
 ## Evolution
@@ -168,4 +182,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after v1.5 milestone start*
+*Last updated: 2026-07-18 after code, production, quality and documentation audit*

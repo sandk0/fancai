@@ -2,6 +2,11 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical test-pattern snapshot.** Команды/паттерны ниже полезны, но версии и counts
+> устарели. Audit 2026-07-18: frontend 564 passed + 1 skipped; backend broad run —
+> 672 passed, 16 skipped, 72 failed, 387 test-DB errors. Действующий baseline и причины —
+> [`.planning/STATE.md`](../STATE.md).
+
 ## Фреймворк (Frontend)
 
 **Запускатель:**

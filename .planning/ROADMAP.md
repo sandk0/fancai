@@ -7,7 +7,9 @@
 - v1.2 Reader Stability & Polish (shipped 2026-03-13) -- archived
 - v1.3 iOS Reader Navigation Fixes (shipped 2026-03-23) -- archived
 - v1.4 Оптимизация обработки книг (abandoned 2026-03-27: strategic pivot to Modal)
-- v1.5 Modal Batch Processing & Production Stability (in progress)
+- v1.5 Modal Batch Processing & Production Stability (closed-partial 2026-03-29: Phases 35-36 shipped, Phase 37/38 abandoned — Modal staging failed)
+- v1.6 Gemini Direct + Vertex AI (shipped 2026-06-16 вне формальных GSD-фаз)
+- Next: Production Reliability Baseline (proposed 2026-07-18; версия не назначена)
 
 ## Phases
 
@@ -103,14 +105,52 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 </details>
 
-### v1.5 Modal Batch Processing & Production Stability
+### v1.5 Modal Batch Processing & Production Stability — CLOSED-PARTIAL 2026-03-29
 
 **Milestone Goal:** Стабилизация сломанного Modal pipeline (10/23 глав падают) и переход от sequential per-chapter к chunked sub-batch обработке. Ожидаемый эффект: корректные статусы книг, 7-13x ускорение, $3.48 -> $0.26-0.49 за книгу.
 
+**Фактический результат:** Phases 35-36 успешно в production (status semantics + observability дают честные статусы книг и типизированные ошибки). Phase 37 staging провалился — batch отрабатывал 40+ минут вместо ожидаемых 7-8 минут (Modal SDK 1.4.0 compat fix `d1eef1e0` не помог). Phase 38 (auto-fallback Modal → OpenRouter) cancelled вместе с pivot. Стратегический разворот: вместо стабилизации Modal — переход на OpenRouter оптимизацию (Gemini 2.5 Flash tiered + Gemini 3.1 Flash Lite, -75% input cost).
+
 - [x] **Phase 35: Стабилизация production semantics** - Корректные статусы книг, schema constraints, timeout/budget защита (completed 2026-03-27)
 - [x] **Phase 36: Error classification и observability** - Типизированная классификация ошибок, structured logging, finish_reason проверка (completed 2026-03-27)
-- [ ] **Phase 37: Sub-batch архитектура** - Chunked batch обработка 4-8 глав за вызов, pre-validation, compile cache
-- [ ] **Phase 38: Auto-fallback и production hardening** - Circuit breaker Modal->OpenRouter, xgrammar backend для batch
+- [~] **Phase 37: Sub-batch архитектура** - Plan 01 deployed but unused, Plan 02 abandoned 2026-03-29 (Modal staging failed)
+- [ ] ~~**Phase 38: Auto-fallback и production hardening**~~ — CANCELLED 2026-03-29 (Modal pivot abandoned)
+
+### v1.6 Gemini Direct + Vertex AI — SHIPPED 2026-06-16
+
+**Goal:** заменить OpenRouter-primary на прямой `google-genai` provider, сохранив
+операционный rollback path и добавив Vertex AI backend для GCP trial.
+
+**Фактический результат:** provider protocol/factory внедрены; основной extraction и
+synthesis path работает через `GeminiClient`; production env использует
+`AI_PROVIDER=gemini`, `GEMINI_BACKEND=vertex`, `GCP_LOCATION=global`. Extraction model —
+`gemini-3.5-flash`, Gemini image branch — `gemini-3.1-flash-image`. Production cutover и
+backend/celery smoke завершены на commit `a1f89900`.
+
+**Ограничение:** миграция не охватила весь pipeline. Production
+`USE_MODAL_PIPELINE=false`, поэтому extraction/synthesis/images идут по Gemini branches,
+но `ConsistencyManager` в этой ветке напрямую вызывает OpenRouter для reduce и обходит
+`AI_PROVIDER`. Полного text+image rollback contract нет.
+
+Admin panel из `docs/research/gemini-admin-panel-plan-2026-03-31.md` не входила в
+cutover и остаётся deferred до восстановления quality/operations baseline.
+
+### Next: Production Reliability Baseline — PROPOSED 2026-07-18
+
+**Goal:** восстановить обязательные CI/security gates и исправить подтверждённые
+production defects до начала нового feature-milestone.
+
+**Порядок:**
+
+1. P0: ротация Postbox credentials; восстановление Celery consumers и безопасная очистка
+   stale `light` backlog; устранение mixed provider routing; CI DB contract; включение
+   GitHub Actions; dependency security updates; зелёный baseline.
+2. P1: Netdata networking/export; Workbox precache; canonical `.env` deploy;
+   VPS outage runbook.
+3. P2: production EPUB canary после восстановления `heavy` queue и provider contract.
+
+Детальный executable plan:
+[`docs/superpowers/plans/2026-07-18-production-reliability-baseline.md`](../docs/superpowers/plans/2026-07-18-production-reliability-baseline.md).
 
 ## Phase Details
 
@@ -146,35 +186,60 @@ Plans:
 - [x] 36-01-PLAN.md — Modal metrics transport: finish_reason проверка до json.loads, cold_start_ms timing, metrics dict в return
 - [x] 36-02-PLAN.md — ErrorClassifier + Alembic migration + structured logging + truncated retry + modal_client backward compat
 
-### Phase 37: Sub-batch архитектура
+### Phase 37: Sub-batch архитектура — ABANDONED 2026-03-29
 **Goal**: Pipeline обрабатывает 4-8 глав за один Modal вызов вместо sequential per-chapter — ускорение 7-13x с checkpoint после каждого sub-batch
 **Depends on**: Phase 36
 **Requirements**: BATCH-01, BATCH-02, BATCH-03
+**Status:** Plan 01 deployed (batch_grouping, extract_chapters_batch, compile cache), но не использован в production. Plan 02 (VPS orchestration) abandoned 2026-03-29 после провала staging — реальный batch время 40+ мин против ожидаемых 7-8 мин. Modal pipeline отброшен из стратегии целиком.
 **Success Criteria** (what must be TRUE):
   1. Oversized главы (>32K estimated tokens) автоматически маршрутизируются в sequential path — batch не падает из-за одной большой главы
   2. `extract_chapters_batch()` обрабатывает sub-batch из 4-8 глав за один Modal вызов с checkpoint после каждого sub-batch
   3. Compile cache volume сохраняет `torch.compile` артефакты между cold starts — повторные запуски на 20-30 секунд быстрее
   4. При падении sub-batch каждая глава из него retry'ится individual'но — partial failure не теряет весь batch
-  5. Staging тестирование на 3-5 реальных книгах проведено перед production rollout
-  6. E2E обработка 23 глав < 15 минут, cost < $0.50/book, success rate > 95% chapters
+  5. Staging тестирование на 3-5 реальных книгах проведено перед production rollout — **FAILED**
+  6. E2E обработка 23 глав < 15 минут, cost < $0.50/book, success rate > 95% chapters — **FAILED**
   7. `reduce_entities`/`ConsistencyManager` вызываются один раз после завершения всех sub-batches, не после каждого
-**Plans:** 1/2 plans executed
+**Plans:** 1/2 plans executed (Plan 01 dead code, Plan 02 abandoned)
 
 Plans:
-- [x] 37-01-PLAN.md — Modal batch-инфраструктура: extract_chapters_batch(), compile cache volumes, batch_grouping модуль
-- [ ] 37-02-PLAN.md — VPS-side batch orchestration: feature flag routing, checkpoint/retry, book_tasks интеграция
+- [x] 37-01-PLAN.md — Modal batch-инфраструктура: extract_chapters_batch(), compile cache volumes, batch_grouping модуль (deployed but unused)
+- [~] 37-02-PLAN.md — ABANDONED: VPS-side batch orchestration не реализован, Modal staging failed
 
-### Phase 38: Auto-fallback и production hardening
+### Phase 38: Auto-fallback и production hardening — CANCELLED 2026-03-29
 **Goal**: При недоступности Modal pipeline автоматически переключается на OpenRouter (Gemini 3.0 Flash) — пользователь всегда получает результат
 **Depends on**: Phase 37
 **Requirements**: RESIL-01, RESIL-02
-**Success Criteria** (what must be TRUE):
-  1. После 3 consecutive Modal failures circuit breaker переключает pipeline на OpenRouter (Gemini 3.0 Flash) с автоматическим recovery
-  2. Batch path использует `StructuredOutputsConfig(backend=...)` — выбор backend определяется A/B-тестом на 3+ книгах
-**Plans**: TBD
+**Status:** Cancelled 2026-03-29. Auto-fallback Modal → OpenRouter не нужен после полного отказа от Modal pipeline. OpenRouter стал primary path (Gemini 3.1 Flash Lite primary с 2026-03-29).
+**Success Criteria** (what must be TRUE — N/A, cancelled):
+  1. ~~После 3 consecutive Modal failures circuit breaker переключает pipeline на OpenRouter~~
+  2. ~~Batch path использует `StructuredOutputsConfig(backend=...)` — выбор backend определяется A/B-тестом~~
+**Plans**: cancelled
 
 Plans:
-- [ ] 38-01: TBD
+- [ ] ~~38-01: TBD~~ — CANCELLED
+
+### Pivot к OpenRouter оптимизации (2026-03-29..30, вне фаз)
+
+После провала Modal staging работа продолжилась без формальных GSD-фаз. Зафиксировать здесь для исторической прозрачности:
+
+- `e8f6a2f0` 2026-03-30 — A/B Qwen3.5-397B на Russian extraction
+- `5f6f3093` 2026-03-30 — Победитель A/B: Gemini 2.5 Flash tiered strategy
+- `0b2b3a45` 2026-03-29 — Gemini 3.1 Flash Lite primary (-75% input cost vs Gemini 3.0 Flash)
+- `ab2ec5ca` 2026-03-29 — gemini-3-flash убран из fallback chain
+- `c0b5bdfb` 2026-03-29 — SW preloadResponse.ok check
+- `7a373d7f` 2026-03-29 — CSP font-src blob: и data: для epub.js
+- `d8e38aea` 2026-03-28 — security: redact OpenRouter API key из research
+- `cededd96` 2026-04-24 — GSD toolchain v1.32.0 → v1.38.3 (организационно)
+
+### Gemini Direct / Vertex delivery (2026-06-15..16, вне фаз)
+
+- `b13e57b9` — provider abstraction + `GeminiClient` Stage A.
+- `9181586d` — Gemini response hardening.
+- `faddcae0` — Vertex backend sub-mode.
+- `d27017dd` — default Vertex location `global`.
+- `326dd935` — Vertex global region finalization.
+- `34f2431c` — production compose consistency.
+- `a1f89900` — merge Stage A + Vertex backend; фактический deployed commit.
 
 ## Progress
 
@@ -187,5 +252,7 @@ Plans:
 | 29-34 | v1.4 | 1/2 | Abandoned | 2026-03-27 |
 | 35. Стабилизация production semantics | v1.5 | 1/3 | Complete    | 2026-03-27 |
 | 36. Error classification и observability | v1.5 | 2/2 | Complete    | 2026-03-27 |
-| 37. Sub-batch архитектура | v1.5 | 1/2 | In Progress|  |
-| 38. Auto-fallback и production hardening | v1.5 | 0/? | Not started | - |
+| 37. Sub-batch архитектура | v1.5 | 1/2 | Abandoned | 2026-03-29 |
+| 38. Auto-fallback и production hardening | v1.5 | 0/? | Cancelled | 2026-03-29 |
+| Gemini Direct + Vertex AI | v1.6 | delivered вне GSD plans | Complete | 2026-06-16 |
+| Production Reliability Baseline | next | 0/5 workstreams | Proposed | - |

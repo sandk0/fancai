@@ -8,7 +8,7 @@
 
 1. **Интерактивный глоссарий сущностей** (главная фича) — AI строит спойлер-безопасную
    энциклопедию персонажей/локаций/объектов, раскрывая информацию по мере чтения.
-2. **Генерация иллюстраций** — LLM извлекает визуальные описания, FLUX.2 рисует.
+2. **Генерация иллюстраций** — LLM извлекает визуальные описания, Gemini генерирует image.
 
 ## Стек
 
@@ -17,7 +17,7 @@
 | Frontend | React 19 · TypeScript 5.7 · Vite 8 · Tailwind 4 · TanStack Query · Zustand · epub.js 0.3.93 · PWA (vite-plugin-pwa) |
 | Backend  | FastAPI 0.135 · Python 3.12 · SQLAlchemy 2 · Pydantic 2 · Celery 5.6                                                |
 | Данные   | PostgreSQL 17 (+pgvector 0.8.2) · Redis 7.4                                                                         |
-| AI       | OpenRouter (см. [`ai-pipeline.md`](ai-pipeline.md))                                                                 |
+| AI       | Gemini Direct / Vertex + legacy OpenRouter reduce (см. [`ai-pipeline.md`](ai-pipeline.md))                                      |
 | Инфра    | Docker Compose · Caddy 2.11 · один VPS (см. [`../deployment/README.md`](../deployment/README.md))                   |
 
 ## Backend (карта)
@@ -31,7 +31,9 @@
   ReadingSession/Progress/Goal, ChapterEmbedding (pgvector 384-dim), FeatureFlag, PushSubscription.
 - **Сервисы** `backend/app/services/`: парсинг книг, извлечение/дедупликация/синтез сущностей,
   генерация изображений, кэш LLM, статистика, email, push.
-- **Celery**: очереди `heavy` (парсинг книги), `normal` (изображения), `light` (cleanup/beat).
+- **Celery**: логические очереди `heavy` (парсинг книги), `normal` (изображения), `light`
+  (cleanup/beat). Production audit 2026-07-18: единственный worker подписан только на
+  `normal`; `heavy`/`light` не имеют consumers, `light` накопил 7212 сообщений.
 - **Real-time**: WebSocket `/ws/book-progress/{book_id}` через Redis PubSub (`core/pubsub.py`).
 - **Auth**: JWT (HS256, header+cookie), Redis token-blacklist. CSRF-middleware присутствует, но
   отключён (Bearer-токены к CSRF не уязвимы).
@@ -50,18 +52,21 @@
 
 ## Поток обработки книги
 
-```
-upload EPUB → Celery process_book_task (heavy)
-  → парсинг глав → чанкинг → OpenRouter LLM extraction
+```text
+upload EPUB → Celery process_book_task (heavy; intended flow, production consumer currently missing)
+  → парсинг глав → чанкинг → Gemini 3.5 Flash / Vertex extraction
   → сущности + описания + связи (в БД)
+  → consistency reduce через legacy direct OpenRouter route
   → прогресс в WebSocket (Redis PubSub)
-  → [по запросу] generate_image_task (normal) → FLUX.2 via OpenRouter
+  → [по запросу] generate_image_task (normal) → Gemini 3.1 Flash Image
 ```
 
 ## Качество
 
-Тесты: **76** backend (pytest, cov ≥70%) · **38** frontend unit (vitest, cov ≥40%) · **8** e2e
-(Playwright, `frontend/tests/`). CI — `.github/workflows/ci.yml` (8 джобов: lint/test/security/build).
+Inventory: **84** backend test files · **38** frontend unit files · **8** e2e specs.
+Проверенный audit baseline и текущие failures — в [`.planning/STATE.md`](../../.planning/STATE.md).
+GitHub Actions workflow существует, но repository Actions сейчас выключены; CI нельзя
+считать действующим gate.
 
 ## Подписки
 
@@ -70,4 +75,4 @@ upload EPUB → Celery process_book_task (heavy)
 
 ---
 
-_Последнее обновление: 2026-06-13. Сверено с: `backend/app/routers/`, `models/`, `services/`, `frontend/src/`, `frontend/package.json`._
+_Последнее обновление: 2026-07-18. Сверено с production routing/feature flags, `backend/app/tasks/`, `services/`, `core/ai_provider*`, `frontend/src/` и test inventory._

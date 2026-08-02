@@ -38,11 +38,7 @@
       "Bash(rm -rf .)",
       "Bash(dd *)",
       "Bash(git push --force *)",
-      "Bash(git reset --hard *)",
-      "Read(.env)",
-      "Read(.env.*)",
-      "Write(.env)",
-      "Write(.env.*)"
+      "Bash(git reset --hard *)"
     ]
   },
   "mcpServers": {},

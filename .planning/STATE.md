@@ -1,129 +1,148 @@
 ---
-gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Modal Batch Processing & Production Stability
-status: Phase 37 Plan 01 завершён (batch infrastructure + VPS-side grouping)
-last_updated: "2026-03-28T01:37:26.126Z"
-last_activity: 2026-03-28
-progress:
-  total_phases: 4
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 6
-  percent: 85
+state_version: 2
+status: production-operational-needs-hardening
+last_updated: "2026-07-18T01:28:00Z"
+last_activity: 2026-07-18
+deployed_commit: a1f899001b8ff23efd89dd68248ffd9cd36080b8
+active_milestone: null
 ---
 
 # Состояние проекта
 
-## Ссылка на проект
+## Коротко
 
-См.: .planning/PROJECT.md (обновлен 2026-03-14)
+fancai работает в production на <https://fancai.ru>. Последняя продуктовая поставка —
+миграция AI с OpenRouter-primary на прямой Gemini API через Vertex AI, завершённая
+2026-06-16 вне формального GSD-milestone. Новые feature-milestone не открыты.
 
-**Ключевая ценность:** AI-ридер с интерактивной Entity Wiki -- загрузка книги, чтение, AI-глоссарий без спойлеров, иллюстрации, заметки
-**Текущий фокус:** Phase 37 Plan 01 завершён — batch grouping, extract_chapters_batch, compile cache. Plan 02 (orchestration) следующий.
+Текущий приоритет — не admin panel и не новый AI pivot, а восстановление инженерных
+гейтов: CI, зависимости, тестовый baseline, PWA-сборка и monitoring data path.
 
-## Текущая позиция
+## Production snapshot — 2026-07-18
 
-Phase: 37
-Plan: 01 завершён, 02 следующий
-Status: Phase 37 Plan 01 завершён (batch infrastructure + VPS-side grouping)
-Last activity: 2026-03-28
+| Область | Фактическое состояние |
+| --- | --- |
+| Доступность | `https://fancai.ru/` → HTTP 200; `/api/v1/health/deep` → `healthy` |
+| SSH | `deploy@fancai:2222` доступен; outage 2026-07-17 восстановлен soft reboot через Netcup console |
+| Приложение | backend, Caddy, Postgres, Redis и Celery worker/beat containers запущены; worker подписан только на `normal` |
+| Celery queues | `heavy=0`, `normal=0`, `light=7212`; `light` не имеет consumer, а `heavy` получит upload-задачи, но также не имеет consumer |
+| Данные | Alembic `a1e2f3b4c5d6 (head)` и production `alembic_version` совпадают |
+| Бэкапы | ежедневный custom-format PostgreSQL dump создаётся; dump за 2026-07-18 читается `pg_restore --list` |
+| Код | production critical-file hashes совпадают с `main` на `a1f89900`; локальный worktree содержит незакоммиченные operational/progress правки |
+| AI | `AI_PROVIDER=gemini`, Vertex global; live `USE_MODAL_PIPELINE=false`; extraction/synthesis/images идут через Gemini branches, consistency reduce всё ещё вызывает OpenRouter напрямую |
+| Email | Yandex Cloud Postbox включён; реальная отправка password-reset подтверждена 2026-07-18 |
 
-Progress: [████████░░] 85%
+### Важный drift AI routing
 
-## Метрики производительности
+June cutover мигрировал основной extraction/synthesis path на Gemini Direct, но provider
+abstraction пока охватывает не весь pipeline:
 
-**Общая статистика:**
+- `GeminiDescriptionExtractor` и `EntitySynthesisService` используют `get_ai_provider()`.
+- `ConsistencyManager._single_reduce_pass()` обходит factory: при выключенном Modal
+  напрямую вызывает `get_openrouter_client()`.
+- `image_tasks._generate_image_async()` при выключенном Modal доходит до
+  `ImagenService`/`NanoBananaGenerator`, который напрямую использует `GeminiClient`.
+- Live-проверка в Celery 2026-07-18 вернула `is_modal_enabled=False`; `USE_BATCH_MODE=false`.
+  Modal SDK/credentials присутствуют, но production routing ими сейчас не активирован.
 
-| Milestone | Фазы | Планы | Время  | Среднее/план |
-| --------- | ---- | ----- | ------ | ------------ |
-| v1.0      | 9    | 23    | 9 дней | --           |
-| v1.1      | 6    | 13    | 92 min | 7 min        |
-| v1.2      | 8    | 21    | 4 дня  | --           |
-| v1.3      | 5    | —     | —      | —            |
+Следовательно, фактический production pipeline смешанный: Gemini для extraction,
+synthesis и images, OpenRouter для consistency reduce. `AI_PROVIDER=openrouter` даёт
+ручной text switch, но не полный text+image rollback. Последний image record —
+`service_used=imagen`, 2026-06-22; свежего end-to-end canary нет.
 
-## Накопленный контекст
+## Проверенный quality baseline
 
-### Решения
+### Frontend
 
-Полная таблица решений: .planning/PROJECT.md
+- `npm run lint` — проходит.
+- Vitest — **564 passed, 1 skipped** в 38 файлах.
+- `npm run build` — завершается, но Workbox выдаёт
+  `(0, brace_expansion_1.expand) is not a function`; precache содержит только 2 entries.
+  Причина: глобальный npm override `brace-expansion@^2.0.2` несовместим с `glob@11`,
+  который использует Workbox.
+- `npm audit --omit=dev` — **10 production vulnerabilities: 7 high, 3 moderate**.
 
-- Корневая причина: iOS Safari НЕ доставляет touch events в iframe contentDocument (100% source:parent)
-- Стратегия фикса: полноэкранный iOS overlay с FSM для всех жестов (Phase 22)
-- Overlay left:10px для Safari back gesture, touch-action:none
-- FSM вынесена в shared utility gestureUtils.ts (Phase 23 Plan 01)
-- Shared touchRef между overlay и iframe handler (platform-exclusive)
-- Shared FSM через dependency injection (GestureFSMDeps interface)
-- Overlay top динамический: 0 в immersive, safe-area+64px с header
-- UAT на iPhone 15 Pro: все 8 проверок пройдены (Safari, Chrome, PWA) -- Phase 23 Plan 02
-- Строго последовательный pipeline: каждая фаза зависит от предыдущей
-- TQ useQuery refetchInterval заменяет ручной setInterval для Celery task polling (Phase 26 Plan 02)
-- Visibility пауза через встроенный focusManager вместо useVisibilityManager (Phase 26 Plan 02)
-- useImageForDescription TQ query как SSoT для изображений в DescriptionDrawer (Phase 26 Plan 01)
-- mutation.reset() при смене описания для предотвращения stale data (Phase 26 Plan 01)
-- imageKeys.byBook инвалидация в useGenerateImage для обновления images[] (Phase 26 Plan 01)
-- ValueError для HTTP 400 (non-retryable), RateLimitError для HTTP 429 (retryable) в generate_image (Phase 27 Plan 01)
-- RuntimeError для missing choices в OpenRouter ответе -- транзиентная ошибка (Phase 27 Plan 01)
-- Structured logging extra: model, duration, response_preview, prompt_preview (Phase 27 Plan 01)
-- RuntimeError добавлен в IMAGE_GENERATION_EXCEPTIONS для tenacity retry (Phase 27 Plan 02)
-- _generate_with_retry как отдельный метод -- cache check и prompt engineering НЕ повторяются при retry (Phase 27 Plan 02)
-- metadata хранится как JSON string в optional поле CachedImage -- schema version bump не нужен (Phase 28 Plan 01)
-- getWithMetadata() -- отдельный метод для backward compatibility с get() (Phase 28 Plan 01)
-- useDeleteImage принимает {imageId, descriptionId} -- нет внешних consumers, breaking change безопасен (Phase 28 Plan 01)
-- useRegenerateImage() вызывается напрямую внутри ImageModal (direct hook) -- безопасно т.к. conditional render = mount/unmount (Phase 28 Plan 02)
-- BookReader.tsx: useReaderImageModal заменён на inline state вместо удаления всего orphaned компонента (Phase 28 Plan 02)
-- imageCache.release() убран из closeModal -- blob URL shared с TQ cache (staleTime 30 мин), revoke ломает изображение (Phase 28.1 Plan 01)
-- DescriptionDrawer: прямой вызов imagesAPI.generateAsync вместо useGenerateImage -- polling pattern требует useState + useQuery (Phase 28.2 Plan 02)
-- Удалён generateMutation.data из image preview -- SSoT через TQ invalidation после polling completion (Phase 28.2 Plan 02)
-- 409 conflict обрабатывается через TQ cache invalidation без показа ошибки (Phase 28.2 Plan 02)
-- openrouter_image_breaker как отдельный CircuitBreaker -- LLM failures НЕ блокируют image generation (Phase 28.2 Plan 01)
-- pipeline_stage structured logging с timing на каждом этапе image pipeline для диагностики (Phase 28.2 Plan 01)
+### Backend
 
-- NERService lazy singleton: get_ner_service() с threading.Lock, паттерн как get_gemini_extractor() (Phase 30 Plan 01)
-- TextChunker: razdel.sentenize() + DeBERTa tokenizer, 384 max_tokens, 2 sentence overlap (Phase 30 Plan 01)
-- LABEL_MAP: person->character, location->location, artifact->object, organization->object (Phase 30 Plan 01)
-- SettingsManager API: get_setting (не get), инициализируется один раз перед циклом по главам (Phase 30 Plan 01)
-- Feature flag routing: snapshot use_gliner перед циклом, asyncio.to_thread для синхронного PyTorch inference (Phase 30 Plan 01)
+- Gemini migration suite — **71 passed**, 1 warning об unawaited usage-log coroutine.
+- Широкий локальный прогон — **672 passed, 16 skipped, 72 failed, 387 errors** из 1147.
+  Большинство 387 errors вызваны отсутствующей test DB (`postgres` не резолвится вне
+  Compose), но 72 failures и отдельный unit-прогон показывают реальный drift тестов.
+- Изолированный unit-прогон provider/schema/consistency — **118 passed, 8 failed**:
+  старые response expectations и OpenRouter mocks не соответствуют Gemini/Modal коду.
+- Ruff — 3 unused imports. Black — 71 файл требует форматирования.
+- `pip-audit` локального venv — 84 advisory matches в 20 пакетах; перед обновлением нужен
+  повторный аудит воспроизводимого Python 3.12 lock/requirements окружения.
 
-- _finalize_book_status() extracted helper: query failed chapters -> set status -> WebSocket -> push notification (Phase 35 Plan 02)
-- check_time_budget() standalone function: time.monotonic() + CELERY_HARD_LIMIT - elapsed - SAFETY_MARGIN (Phase 35 Plan 02)
-- VPS_TIMEOUT=960 как локальная константа (LLM_TIMEOUT=900 + 60s buffer), не импорт из modal (Phase 35 Plan 02)
-- pubsub **kwargs: обратная совместимость + расширяемость WebSocket message format (Phase 35 Plan 02)
+### CI
 
-- time.monotonic() для cold start и inference timing — монотонный таймер, не подвержен NTP drift (Phase 36 Plan 01)
-- Modal response wrapper {result, metrics}: единый контракт для extract_chapter и reduce_entities (Phase 36 Plan 01)
-- finish_reason check BEFORE json.loads() — предотвращает JSONDecodeError на truncated output (Phase 36 Plan 01)
-- type(exc).__name__ для Modal SDK exceptions вместо isinstance — Modal не установлен на VPS (Phase 36 Plan 02)
-- error_type String(20) nullable без default — PG17 metadata-only ADD COLUMN, instant (Phase 36 Plan 02)
-- Fallback modal_error для неизвестных exceptions — лучше неточная классификация чем null (Phase 36 Plan 02)
-- Best-effort error_type save через emergency_session в BaseException блоке (Phase 36 Plan 02)
-- extract_modal_result() проверяет result key первым, fallback на весь dict — backward compat (Phase 36 Plan 02)
+GitHub Actions для репозитория выключены (`actions/permissions.enabled=false`). Последний
+run на `main` — 2025-11-13 и failed. После включения текущий workflow также потребует
+исправления DB contract: CI создаёт `fancai_test`, а `tests/conftest.py` при пустом
+`TEST_DATABASE_URL` выводит имя из `DATABASE_URL` и для `fancai_test` получает
+`fancai_test_test`.
 
-- process_batch_outputs() вынесен как чистая функция в batch_grouping.py — тестируется на VPS без vLLM (Phase 37 Plan 01)
-- LLM_TIMEOUT увеличен до 1800s (30 мин) — safety net для batch processing на Modal (Phase 37 Plan 01)
-- Compile cache mount в /root/.inductor-cache (не /root/.cache/torch) — точный путь из RESEARCH.md (Phase 37 Plan 01)
-- Остаток < BATCH_MIN_CHAPTERS -> oversized — консервативная стратегия, один chapter не стоит batch overhead (Phase 37 Plan 01)
+## Production gaps
 
-### Ожидающие задачи
+1. **Celery queue orchestration сломан.** Единственный worker подписан только на `normal`,
+   хотя `process_book_task` маршрутизируется в `heavy`, а beat-задачи — в `light`.
+   На 2026-07-18 в `light` накопилось **7212** сообщений: 6532
+   `close_abandoned_sessions`, 544 `cleanup_stuck_books`, 136
+   `cleanup_expired_reset_tokens`. `heavy` сейчас пуст, но следующий upload зависнет.
+2. **AI routing не единообразен.** Production Modal flag выключен, но
+   `ConsistencyManager` всё равно обходит `AI_PROVIDER` и вызывает OpenRouter напрямую,
+   тогда как extraction/synthesis/images используют Gemini branches.
+3. **Monitoring data path сломан.** Netdata exporter пишет в `localhost:8428`, а
+   VictoriaMetrics работает в другом контейнере. Ошибка повторяется каждые 10 секунд.
+   Prometheus collector аналогично смотрит на `localhost:8000`, хотя Netdata не в host
+   network. VictoriaMetrics health сам по себе отвечает `OK`, но данные Netdata туда не
+   поступают.
+4. **Следующий deploy небезопасен без фикса скриптов.** Сервер использует `/opt/fancai/app/.env`,
+   а tracked scripts ожидали `.env.production`. Локальная правка на канонический `.env`
+   сделана, но ещё не закоммичена и не доставлена на сервер.
+5. **PWA precache нельзя выпускать в текущем виде.** Build не падает, поэтому дефект легко
+   пропустить без отдельной проверки generated manifest.
+6. **Security gate отсутствует.** Actions выключены, Dependabot/weekly scans фактически не
+   исполняются, а production dependency audit уже красный.
+7. **Документация отставала от June cutover.** Progress и AI architecture обновлены этим
+   аудитом; README и часть inline docstrings/UI всё ещё содержат OpenRouter/Modal legacy.
+8. **Инцидент VPS не имеет доказанной root cause.** Soft reboot восстановил сеть, но kernel
+   продолжает логировать `ICMPv6: RA: ndisc_router_discovery failed to add default route`.
+   Это отдельный infrastructure investigation, не причина, подтверждённая текущими данными.
 
-Нет.
+## Приоритеты следующего цикла
 
-### Эволюция Roadmap
+### P0 — вернуть защитные гейты
 
-- Phase 26 добавлена: fix(images): исправить баги генерации и отображения изображений в читалке
-- Phase 27 добавлена: Надёжность генерации изображений (OpenRouter FLUX.2 retry и error handling)
-- Phase 28 добавлена: Аудит Frontend генерации изображений по описаниям (соответствие Backend, UX недочёты, error handling)
-- Phase 28.1 inserted after Phase 28: fix: blob URL revoked при закрытии ImageModal ломает изображение в DescriptionDrawer (URGENT)
-- Phase 28.2 inserted after Phase 28: fix: генерация изображений не доходит до OpenRouter (2/3 случаев) + ошибка хранилища на iOS (URGENT)
+1. Ротировать опубликованные Postbox credentials.
+2. Восстановить Celery queue consumers: остановить beat, инвентаризировать и удалить только
+   подтверждённый stale `light` backlog, затем назначить workers на `heavy/normal/light`.
+3. Согласовать provider contract и убрать прямой OpenRouter reduce/legacy Modal selectors;
+   до миграции держать подтверждённый `USE_MODAL_PIPELINE=false`.
+4. Исправить CI DB contract и тестовый bootstrap; затем включить GitHub Actions.
+5. Обновить уязвимые frontend/backend зависимости без forced major-upgrade EPUB renderer.
+6. Получить воспроизводимый зелёный baseline: backend lint/format/tests + frontend lint/test/build.
 
-### Блокеры/Опасения
+### P1 — восстановить operational correctness
 
-- Противоречие `touch-action: pan-x pan-y` vs `manipulation` на iOS -- разрешить в Phase 21
-- Тестирование только на физическом iPhone 15 Pro (iOS 26.3.1)
-- PWA standalone mode имеет недокументированные отличия от Safari tab
+1. Исправить Netdata → VictoriaMetrics и Netdata → backend metrics networking/auth.
+2. Исправить Workbox/`brace-expansion` override; требовать ненулевой полноценный precache.
+3. Закоммитить и доставить canonical `.env` deploy-script fixes; выполнить dry-run/smoke.
+4. Добавить runbook повторного VPS outage: Netcup console, soft reboot, SSH 2222,
+   проверки route/DNS/firewall/Docker после восстановления.
 
-## Непрерывность сессий
+### P2 — подтвердить продуктовый pipeline
 
-Последняя сессия: 2026-03-28
-Phase 37 Plan 01 завершён. batch_grouping.py + extract_chapters_batch() + compile cache volumes. Коммиты: 1676bdc, 625f98c, 54a2e0b. 26 тестов проходят.
-Resume file: None
+1. После выравнивания routing прогнать один контролируемый EPUB end-to-end в production:
+   upload → extraction → Entity Wiki → image → WebSocket/status, с cost/latency из
+   `llm_usage_log`.
+2. Только после стабильного baseline решить, нужен ли Gemini admin panel как следующий
+   feature-milestone.
+
+## История и источники
+
+- Исторические milestones: [`.planning/MILESTONES.md`](MILESTONES.md)
+- Дорожная карта: [`.planning/ROADMAP.md`](ROADMAP.md)
+- AI architecture: [`docs/architecture/ai-pipeline.md`](../docs/architecture/ai-pipeline.md)
+- Deployment: [`docs/deployment/README.md`](../docs/deployment/README.md)
+- Детальный план baseline: [`docs/superpowers/plans/2026-07-18-production-reliability-baseline.md`](../docs/superpowers/plans/2026-07-18-production-reliability-baseline.md)

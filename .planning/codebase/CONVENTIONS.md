@@ -2,6 +2,10 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical codebase snapshot.** Большинство соглашений ниже остаются полезными, но
+> version/count assertions не обновлялись после 2026-03-04. Текущие обязательные правила
+> находятся в `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md` и `CONTRIBUTING.md`.
+
 ## Именование
 
 **Файлы (Frontend):**

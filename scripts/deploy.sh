@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 COMPOSE_FILE="docker-compose.prod.yml"
-ENV_FILE=".env.production"
+ENV_FILE=".env"
 BACKUP_DIR="./backups"
 LOG_DIR="./logs"
 
@@ -105,7 +105,7 @@ backup_data() {
     cp -r ./backend/storage $BACKUP_DIR/$BACKUP_NAME/
     
     # Config backup
-    cp .env.production $BACKUP_DIR/$BACKUP_NAME/
+    cp "$ENV_FILE" "$BACKUP_DIR/$BACKUP_NAME/"
     
     log_success "Backup created: $BACKUP_DIR/$BACKUP_NAME"
 }
