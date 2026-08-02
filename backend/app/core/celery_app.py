@@ -43,8 +43,12 @@ celery_app.conf.update(
         "visibility_timeout": 14400
     },  # DEPLOY-05: 4h > max task_time_limit (10800s)
     # Rate limiting (basic)
+    # Ключи — зарегистрированные имена задач (@celery_app.task(name=...)),
+    # а не пути модулей: несовпадение молча роняет задачу в очередь
+    # по умолчанию. Так "app.core.tasks.process_book_task" годами
+    # отправлял парсинг в "normal" вместо "heavy".
     task_routes={
-        "app.core.tasks.process_book_task": {"queue": "heavy"},
+        "process_book": {"queue": "heavy"},
         "generate_image_task": {"queue": "normal"},
         "generate_image_batch_task": {"queue": "normal"},
     },
@@ -62,7 +66,7 @@ celery_app.conf.update(
         },
         # NEW: Cleanup stuck books every 6 hours (Phase 1)
         "cleanup-stuck-processing-books": {
-            "task": "app.core.tasks.cleanup_stuck_books",
+            "task": "cleanup_stuck_books",
             "schedule": 21600.0,  # 6 hours (6 * 60 * 60)
             "options": {
                 "queue": "light",
