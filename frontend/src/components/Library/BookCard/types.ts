@@ -31,6 +31,8 @@ export interface ProcessingButtonsProps {
 }
 
 export interface DesktopHoverOverlayProps {
+  /** Нужен только для стабильного `data-testid` кнопки удаления. */
+  bookId: string;
   isClickable: boolean;
   isProcessing: boolean;
   processingState: ProcessingState;
@@ -45,6 +47,8 @@ export interface DesktopHoverOverlayProps {
 }
 
 export interface MobileMenuProps {
+  /** Нужен только для стабильных `data-testid` меню и удаления. */
+  bookId: string;
   isOpen: boolean;
   isClickable: boolean;
   isAvailableOffline: boolean;

@@ -230,6 +230,7 @@ export const SelectionMenu = memo(function SelectionMenu({
         className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg backdrop-blur-sm overflow-hidden"
         role="menu"
         aria-label={t('reader.menu.aria_label', 'Text selection menu')}
+        data-testid="selection-menu"
       >
         {submenu === 'main' && !editMode && (
           <div className="flex items-stretch divide-x divide-border">

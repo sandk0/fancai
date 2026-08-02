@@ -88,8 +88,9 @@ export async function searchBooks(page: Page, query: string): Promise<void> {
  * Filter books by genre
  */
 export async function filterBooksByGenre(page: Page, genre: string): Promise<void> {
-  await page.click('[data-testid="genre-filter"]');
-  await page.click(`[data-testid="genre-option-${genre}"]`);
+  // Нативный <select>: его <option> кликнуть нельзя — браузер открывает
+  // системный попап, недоступный Playwright.
+  await page.selectOption('[data-testid="genre-filter"]', genre);
 
   // Wait for filter to apply
   await page.waitForTimeout(500);

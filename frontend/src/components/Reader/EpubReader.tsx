@@ -700,6 +700,7 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         <div
           ref={viewerRef}
           id="epub-viewer"
+          data-testid="epub-reader"
           tabIndex={-1}
           className={`h-full w-full ${backgroundColor} outline-hidden`}
           style={{

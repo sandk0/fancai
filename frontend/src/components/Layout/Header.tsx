@@ -144,9 +144,13 @@ const Header: React.FC = () => {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 aria-expanded={showUserMenu}
                 aria-haspopup="true"
+                data-testid="user-menu-trigger"
               >
                 <span className="sr-only">{t('nav.openUserMenu')}</span>
-                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground">
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground"
+                  data-testid="user-avatar"
+                >
                   <span className="text-sm font-medium">
                     {user?.full_name
                       ? user.full_name.charAt(0).toUpperCase()
@@ -207,6 +211,7 @@ const Header: React.FC = () => {
                       onClick={handleLogout}
                       className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                       role="menuitem"
+                      data-testid="logout-button"
                     >
                       <LogOut className="w-4 h-4" />
                       {t('nav.signOut')}

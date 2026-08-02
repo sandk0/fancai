@@ -126,6 +126,8 @@ export const BookCard = memo(function BookCard({
   return (
     <m.div
       className="group relative"
+      data-testid="book-card"
+      data-book-id={book.id}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -141,6 +143,7 @@ export const BookCard = memo(function BookCard({
           !isClickable && !book.is_processing && 'pointer-events-none'
         )}
         onClick={handleClick}
+        data-testid={`book-card-${book.id}`}
       >
         <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg bg-muted">
           <BookCover
@@ -184,6 +187,7 @@ export const BookCard = memo(function BookCard({
           <AnimatePresence>
             {isHovered && (
               <DesktopHoverOverlay
+                bookId={book.id}
                 isClickable={isClickable}
                 isProcessing={book.is_processing ?? false}
                 processingState={processingState}
@@ -200,6 +204,7 @@ export const BookCard = memo(function BookCard({
           </AnimatePresence>
 
           <MobileMenu
+            bookId={book.id}
             isOpen={showMobileMenu}
             isClickable={isClickable}
             isAvailableOffline={isAvailableOffline}

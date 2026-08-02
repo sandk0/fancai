@@ -58,7 +58,10 @@ export const BookGrid = memo(function BookGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
+      <div
+        data-testid="library-loading"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5"
+      >
         {Array.from({ length: 12 }).map((_, i) => <BookCardSkeleton key={i} />)}
       </div>
     );
@@ -66,7 +69,7 @@ export const BookGrid = memo(function BookGrid({
 
   if (books.length === 0 && searchQuery) {
     return (
-      <div className="text-center py-16 px-4">
+      <div className="text-center py-16 px-4" data-testid="no-search-results">
         <h3 className="text-xl font-bold mb-2">{t('library.empty.search_title')}</h3>
         <p className="opacity-70 mb-6">{t('library.empty.search_desc', { query: searchQuery })}</p>
         {onClearSearch && <button onClick={onClearSearch} className="px-6 py-3 bg-primary text-white rounded-xl">{t('library.empty.clear_search')}</button>}
@@ -86,7 +89,7 @@ export const BookGrid = memo(function BookGrid({
 
   if (books.length === 0) {
     return (
-      <div className="text-center py-16 px-4">
+      <div className="text-center py-16 px-4" data-testid="library-empty-state">
         <h3 className="text-xl font-bold mb-2">{t('library.empty.title')}</h3>
         <p className="opacity-70 mb-6">{t('library.empty.description')}</p>
         {onUploadClick && <button onClick={onUploadClick} className="px-6 py-3 bg-primary text-white rounded-xl flex items-center gap-2 mx-auto"><Plus className="w-5 h-5" />{t('library.upload')}</button>}

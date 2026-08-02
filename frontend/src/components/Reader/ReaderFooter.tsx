@@ -62,6 +62,7 @@ export const ReaderFooter = memo(function ReaderFooter({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={t('reader.footer.progress_label', { percent: Math.round(progress) })}
+              data-testid="reader-progress-bar"
               className="flex-1 h-1.5 rounded-full overflow-hidden bg-muted"
             >
               <div
@@ -77,7 +78,7 @@ export const ReaderFooter = memo(function ReaderFooter({
           {/* Pages row */}
           {hasPageInfo && (
             <div className="flex items-center justify-between px-4 pb-3 pt-0">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground" data-testid="reader-page-indicator">
                 {t('reader.footer.page_of', { current: currentPage, total: totalPages })}
               </span>
               {pagesLeft !== null && pagesLeft >= 0 && (

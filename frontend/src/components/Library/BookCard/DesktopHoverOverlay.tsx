@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import type { DesktopHoverOverlayProps } from './types';
 
 export function DesktopHoverOverlay({
+  bookId,
   isClickable,
   isProcessing,
   processingState,
@@ -117,6 +118,7 @@ export function DesktopHoverOverlay({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onDeleteClick}
+          data-testid={`delete-book-${bookId}`}
         >
           <Trash2 className="w-4 h-4" />
           <span>{t('bookCard.delete')}</span>

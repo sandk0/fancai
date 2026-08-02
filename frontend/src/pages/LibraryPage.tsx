@@ -270,6 +270,7 @@ const LibraryPage: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleUploadClick}
+            data-testid="upload-book-button"
           >
             <Plus className="w-5 h-5" />
             <span>{t('library.upload')}</span>
@@ -284,6 +285,7 @@ const LibraryPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('library.search_placeholder')}
+              data-testid="book-search-input"
               className="w-full pl-12 pr-10 py-3 rounded-xl border-2 border-border bg-card text-foreground"
             />
             {searchQuery && (
@@ -300,6 +302,7 @@ const LibraryPage: React.FC = () => {
             <div className="relative">
               <button
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
+                data-testid="sort-dropdown-trigger"
                 className="flex items-center gap-2 px-4 rounded-xl border-2 border-border bg-card text-foreground text-sm h-[44px] min-w-[160px]"
               >
                 {currentSortOption && (
@@ -400,6 +403,7 @@ const LibraryPage: React.FC = () => {
                     <select
                       value={genreFilter}
                       onChange={(e) => setGenreFilter(e.target.value)}
+                      data-testid="genre-filter"
                       className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border-2 border-border bg-background bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[right_12px_center] bg-no-repeat"
                     >
                       {genreOptions.map((o) => (

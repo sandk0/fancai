@@ -51,11 +51,14 @@ export class LibraryPage extends BasePage {
   }
 
   /**
-   * Filter by genre
+   * Filter by genre.
+   *
+   * Жанр в приложении — нативный `<select>`: его `<option>` кликнуть нельзя
+   * (браузер открывает системный попап, недоступный Playwright), поэтому
+   * значение выбирается `selectOption`, а не двумя кликами.
    */
   async filterByGenre(genre: string): Promise<void> {
-    await this.click(this.genreFilter);
-    await this.click(`[data-testid="genre-option-${genre}"]`);
+    await this.page.selectOption(this.genreFilter, genre);
   }
 
   /**
@@ -76,7 +79,15 @@ export class LibraryPage extends BasePage {
    * Delete book
    */
   async deleteBook(bookId: string): Promise<void> {
-    await this.click(`[data-testid="book-menu-${bookId}"]`);
+    // На desktop карточка показывает кнопки по hover (DesktopHoverOverlay),
+    // на мобильных — через `book-menu-*` (сам триггер под `md:hidden`).
+    // Пробуем мобильный триггер, если он видим; иначе наводимся на карточку.
+    const menu = this.page.locator(`[data-testid="book-menu-${bookId}"]`);
+    if (await menu.isVisible()) {
+      await menu.click();
+    } else {
+      await this.page.locator(`[data-testid="book-card-${bookId}"]`).hover();
+    }
     await this.click(`[data-testid="delete-book-${bookId}"]`);
     await this.click('[data-testid="confirm-delete"]');
 

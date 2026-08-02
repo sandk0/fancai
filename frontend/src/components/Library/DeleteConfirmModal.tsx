@@ -139,6 +139,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               ref={cancelButtonRef}
               onClick={onCancel}
               disabled={isDeleting}
+              data-testid="cancel-delete"
               className="px-4 py-2 rounded-lg font-medium transition-colors hover:bg-muted disabled:opacity-50 text-muted-foreground"
             >
               {t('library.deleteModal.cancel')}
@@ -146,6 +147,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             <button
               onClick={onConfirm}
               disabled={isDeleting}
+              data-testid="confirm-delete"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isDeleting ? (

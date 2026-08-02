@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import type { MobileMenuProps } from './types';
 
 export function MobileMenu({
+  bookId,
   isOpen,
   isClickable,
   isAvailableOffline,
@@ -33,6 +34,7 @@ export function MobileMenu({
         className="absolute top-2 right-2 p-2 rounded-lg bg-black/50 text-white md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center backdrop-blur-sm"
         onClick={onToggle}
         aria-label={t('bookCard.menu')}
+        data-testid={`book-menu-${bookId}`}
       >
         <MoreVertical className="w-5 h-5" />
       </button>
@@ -96,6 +98,7 @@ export function MobileMenu({
                 <button
                   className="w-full flex items-center gap-3 px-4 py-3 text-destructive hover:bg-destructive/10 transition-colors min-h-[44px] whitespace-nowrap"
                   onClick={onDeleteClick}
+                  data-testid={`delete-book-${bookId}`}
                 >
                   <Trash2 className="w-5 h-5 flex-shrink-0" />
                   <span className="font-medium">{t('bookCard.delete')}</span>

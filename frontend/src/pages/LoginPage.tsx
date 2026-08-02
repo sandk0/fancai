@@ -35,6 +35,10 @@ type LoginFormData = z.infer<ReturnType<typeof createLoginSchema>>;
 
 const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
+  // Отказ логина держим и в разметке, а не только в тосте: тост уезжает
+  // через несколько секунд, и ни скринридер, ни вернувшийся к форме
+  // пользователь причины уже не увидят.
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,12 +57,15 @@ const LoginPage: React.FC = () => {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    setSubmitError(null);
     try {
       await login(data.email, data.password);
       notify.success(t('login.success_title'), t('login.success_message'));
       navigate(from, { replace: true });
     } catch (error) {
-      notify.error(t('login.error_title'), getErrorMessage(error, t('login.error_fallback')));
+      const message = getErrorMessage(error, t('login.error_fallback'));
+      setSubmitError(message);
+      notify.error(t('login.error_title'), message);
     }
   };
 
@@ -95,6 +102,16 @@ const LoginPage: React.FC = () => {
             {errors.password && <span>{errors.password.message}</span>}
           </div>
 
+          {submitError && (
+            <div
+              role="alert"
+              data-testid="login-error"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {submitError}
+            </div>
+          )}
+
           {/* Email Input */}
           <Input
             {...register('email')}
@@ -106,6 +123,7 @@ const LoginPage: React.FC = () => {
             autoComplete="email"
             inputSize="md"
             required
+            data-testid="login-email"
           />
 
           {/* Password Input */}
@@ -119,6 +137,7 @@ const LoginPage: React.FC = () => {
             autoComplete="current-password"
             inputSize="md"
             required
+            data-testid="login-password"
             rightIcon={
               <button
                 type="button"
@@ -136,6 +155,7 @@ const LoginPage: React.FC = () => {
             <Link
               to="/forgot-password"
               className="text-sm font-medium transition-colors hover:underline text-primary"
+              data-testid="forgot-password-link"
             >
               {t('login.forgot_password')}
             </Link>
@@ -149,6 +169,7 @@ const LoginPage: React.FC = () => {
             className="w-full"
             isLoading={isLoading}
             loadingText={t('login.submitting')}
+            data-testid="login-submit"
           >
             {t('login.submit')}
           </Button>
@@ -160,6 +181,7 @@ const LoginPage: React.FC = () => {
           <Link
             to="/register"
             className="font-semibold transition-colors hover:underline text-primary"
+            data-testid="register-link"
           >
             {t('login.register_link')}
           </Link>

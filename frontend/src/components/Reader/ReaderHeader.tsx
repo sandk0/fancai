@@ -59,6 +59,7 @@ export const ReaderHeader = memo(function ReaderHeader({
                 className="min-h-[44px] min-w-[44px] touch-target flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.back')}
                 aria-label={t('reader.header.back')}
+                data-testid="reader-close-button"
               >
                 <ArrowLeft className="w-5 h-5" aria-hidden="true" />
                 <span className="hidden sm:inline font-medium">{t('reader.header.back')}</span>
@@ -69,6 +70,7 @@ export const ReaderHeader = memo(function ReaderHeader({
                 className="hidden xs:flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.toc')}
                 aria-label={t('reader.header.toc')}
+                data-testid="reader-toc-button"
               >
                 <List className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -110,6 +112,7 @@ export const ReaderHeader = memo(function ReaderHeader({
                 className="flex items-center justify-center w-11 h-11 touch-target rounded-lg transition-colors bg-muted hover:bg-muted/80 text-foreground"
                 title={t('reader.header.settings')}
                 aria-label={t('reader.header.settings')}
+                data-testid="reader-settings-button"
               >
                 <Settings className="w-5 h-5" aria-hidden="true" />
               </button>
