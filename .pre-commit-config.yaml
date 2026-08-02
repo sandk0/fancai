@@ -27,6 +27,19 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
 
   # Python type checking - mypy
+  #
+  # `--ignore-missing-imports` здесь обязателен и совпадает с командой CI
+  # (.github/workflows/ci.yml:51). Хук живёт в изолированном окружении
+  # с пятью пакетами из additional_dependencies, а приложение импортирует
+  # loguru, redis, tenacity, prometheus-client, pywebpush и ещё десяток —
+  # без флага прогон падает на 70 `import-not-found`, ничего не проверив.
+  # Держать здесь полный список зависимостей нельзя: он разойдётся
+  # с pyproject.toml при первом же обновлении.
+  #
+  # Авторитетная проверка — та же команда без флага в окружении, где пакеты
+  # установлены: `docker exec fancai_backend_dev mypy app/`. Она строже
+  # (типы из реальных пакетов вместо Any) и обязана быть зелёной;
+  # `ignore_errors` из mypy.ini убран, так что это настоящий гейт.
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
     hooks:
@@ -34,7 +47,7 @@ repos:
         name: mypy type checking
         files: ^backend/app/
         pass_filenames: false
-        entry: bash -c 'cd backend && mypy app/ --config-file=mypy.ini'
+        entry: bash -c 'cd backend && mypy app/ --config-file=mypy.ini --ignore-missing-imports'
         additional_dependencies:
           - sqlalchemy[mypy]==2.0.51
           - types-requests==2.33.0.20260712
