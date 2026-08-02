@@ -154,10 +154,30 @@ docker exec fancai_celery_dev python -c \
 Правка — добавить обе переменные в `docker-compose.dev.yml` для `backend`,
 `celery-worker` и `celery-beat`.
 
-**Приёмка:** `broker_url` заканчивается на `/1`, `result_backend` на `/2`;
-после `clear_all()` задача в очереди выживает — поставить задачу, сбросить
-кэш, убедиться, что `inspect reserved` её всё ещё видит; шесть режимов smoke
-зелёные.
+**Приёмка — детерминированная, без гонок с воркером.** Проверять живой
+задачей нельзя: воркер заберёт её раньше проверки, а после `cancel_consumer`
+она не появится в `reserved`. Вместо этого — sentinel-ключи:
+
+```bash
+for db in 0 1 2; do
+  docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" fancai_redis_dev \
+    redis-cli -n $db set "sentinel:db$db" alive
+done
+
+docker exec fancai_backend_dev python -c \
+  "import asyncio; from app.core.cache import cache_manager; \
+   asyncio.run(cache_manager.clear_all())"
+
+for db in 0 1 2; do
+  echo -n "db$db="
+  docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" fancai_redis_dev \
+    redis-cli -n $db exists "sentinel:db$db"
+done
+# ожидается: db0=0 (кэш сброшен), db1=1 и db2=1 (брокер и результаты целы)
+```
+
+Плюс `broker_url` заканчивается на `/1`, `result_backend` на `/2`;
+шесть режимов smoke зелёные. Sentinel-ключи удалить после проверки.
 
 ## §3. Стоп-точки
 
