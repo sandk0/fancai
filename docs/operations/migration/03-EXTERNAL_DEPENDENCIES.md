@@ -155,8 +155,29 @@
 | Uptime Kuma (self-hosted) | https://uptime.fancai.ru           | external probes          |
 | Netdata                   | https://monitor.fancai.ru/netdata  | host + container metrics |
 | Victoria Metrics          | https://monitor.fancai.ru/victoria | metrics aggregation      |
-| Flower                    | https://monitor.fancai.ru/flower   | Celery tasks             |
 | Dozzle                    | https://monitor.fancai.ru/dozzle   | docker logs              |
+
+Flower из стека убран: образ `mher/flower:2.0.1` не публикуется с 2023-08-13.
+Чем закрывается наблюдение за Celery после удаления:
+
+- **Очереди брокера** (`heavy`/`normal`/`light`, Redis **DB 1**) UI больше
+  не имеют. Смотреть с хоста (прод-имена контейнеров — `fancai_celery`
+  и `fancai_redis`; в dev к ним добавлен суффикс `_dev`):
+
+  ```bash
+  docker exec fancai_celery celery -A app.core.celery_app inspect active
+  #                                                          reserved | stats
+
+  # Redis поднят с --requirepass, поэтому пароль обязателен:
+  set -a; . ./.env; set +a
+  docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" fancai_redis \
+      redis-cli -n 1 llen heavy
+  ```
+- **Собственная очередь парсинга** приложения — это не брокер: ключи
+  `parsing_queue` и `global_parsing_lock` лежат в **DB 0** (`REDIS_URL`) и
+  видны через админку: `GET /api/v1/admin/stats` (`queue_size`,
+  `active_parsing_tasks`) и `GET /api/v1/admin/parsing/queue`.
+- **Воркеры как процессы** — логи в Dozzle, контейнеры и ресурсы в Netdata.
 
 Все самохостятся. **Для внешнего alerting** (если сервер целиком недоступен) нужно подключить external monitoring:
 

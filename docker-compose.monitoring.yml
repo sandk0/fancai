@@ -1,5 +1,5 @@
 # Мониторинг-стек fancai v2
-# 5 сервисов: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle + Flower
+# 4 сервиса: Netdata + VictoriaMetrics + Uptime Kuma + Dozzle
 # Заменяет: Grafana + Prometheus + Loki + Promtail + Node Exporter + cAdvisor
 # Экономия RAM: ~1.5GB -> ~500MB
 # Note: version field removed (obsolete in Compose V2)
@@ -96,30 +96,6 @@ services:
           memory: 64M
     networks:
       - monitoring_net
-
-  # ─── Flower — мониторинг Celery задач и воркеров ─────────────────────────────
-  flower:
-    image: mher/flower:2.0.1
-    container_name: fancai_flower
-    restart: unless-stopped
-    command: >
-      celery
-      --broker=redis://:${REDIS_PASSWORD}@redis:6379/1
-      flower
-      --port=5555
-      --address=0.0.0.0
-      --basic-auth=${MONITOR_USER:-admin}:${MONITOR_PASSWORD}
-    ports:
-      - "127.0.0.1:5555:5555"
-    environment:
-      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    networks:
-      - monitoring_net
-      - fancai_network  # Flower нужен доступ к Redis в основной сети
 
 volumes:
   netdataconfig:

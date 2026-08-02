@@ -87,11 +87,6 @@ monitor.fancai.ru {
         reverse_proxy fancai_dozzle:8080
     }
 
-    handle /flower/* {
-        uri strip_prefix /flower
-        reverse_proxy fancai_flower:5555
-    }
-
     handle {
         redir * /netdata/ permanent
     }
