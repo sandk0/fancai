@@ -97,4 +97,4 @@ Types: feat, fix, docs, style, refactor, test, chore
 - Web server: Caddy 2.11.1-alpine
 - Deploy: `docker-compose.prod.yml`
 - Dev: `docker-compose.dev.yml`
-- Monitoring: Hawk Tracker (frontend + backend), Netdata, VictoriaMetrics, Uptime Kuma, Dozzle, Flower
+- Monitoring: Hawk Tracker (frontend + backend), Netdata, VictoriaMetrics, Uptime Kuma, Dozzle

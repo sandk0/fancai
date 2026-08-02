@@ -15,7 +15,7 @@
 > ```
 >
 > - `docker-compose.prod.yml` — caddy, backend, celery-worker, celery-beat, postgres, redis, pgbackup
-> - `docker-compose.monitoring.yml` — netdata, victoriametrics, uptime-kuma, dozzle, flower
+> - `docker-compose.monitoring.yml` — netdata, victoriametrics, uptime-kuma, dozzle
 > - **Project name `app`** — фиксирует префикс volumes (`app_postgres_data`, `app_caddy_data`, ...). Если запустить с другим project-name, volumes окажутся под другим префиксом и не найдут данные из бэкапа.
 >
 > `migration-restore.sh` экспортирует `COMPOSE_PROJECT_NAME=app` сам и подключает оба файла через переменную `RESTORE_MONITORING=1` (default). Если хочешь поднять только prod без мониторинга — `RESTORE_MONITORING=0`.
@@ -384,15 +384,19 @@ watch -n 5 'dig +short fancai.ru @1.1.1.1; dig +short fancai.ru @8.8.8.8'
 
 ### 8.5. AI
 
-- [ ] Генерация описания нового параграфа: открыть книгу → выбрать абзац → запросить description (через `/extract`-flow)
-  - Должен прийти ответ от Gemini 2.5 Flash через OpenRouter
-- [ ] Генерация изображения: запросить иллюстрацию → должен прийти PNG от FLUX.2
-- [ ] Существующая wiki-карточка персонажа: открывается, показывает spoiler-free инфу
+- [ ] Перед AI smoke: внутри Celery подтвердить `AI_PROVIDER=gemini`,
+  `GEMINI_BACKEND=vertex`, `USE_MODAL_PIPELINE=false`, не выводя secrets
+- [ ] Обработать canary chapter: extraction должна записать Gemini 3.5 Flash/Vertex usage
+- [ ] Дождаться consistency reduce: текущий legacy route должен записать OpenRouter usage
+- [ ] Запросить иллюстрацию: должен прийти PNG от Gemini 3.1 Flash Image;
+  `generated_images.service_used=imagen`
+- [ ] Существующая wiki-карточка персонажа открывается и показывает spoiler-free инфо
 
 ### 8.6. Celery
 
 - [ ] `docker compose -f docker-compose.prod.yml exec celery-worker celery -A app.core.celery_app inspect ping` — отвечает
-- [ ] Flower UI на `https://monitor.fancai.ru/flower` — задачи проходят
+- [ ] `... celery -A app.core.celery_app inspect active_queues` — воркер слушает `heavy,normal,light`
+- [ ] `redis-cli -n 1 llen light` не растёт между двумя замерами
 
 ### 8.7. Push notifications
 

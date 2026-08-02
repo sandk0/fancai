@@ -2,11 +2,16 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical concern snapshot.** Конкретные provider/line assertions ниже относятся к
+> OpenRouter-era коду и могут быть неверны после Gemini/Vertex cutover. Текущий
+> приоритизированный debt — [`.planning/STATE.md`](../STATE.md) и
+> [`Production Reliability Baseline`](../../docs/superpowers/plans/2026-07-18-production-reliability-baseline.md).
+
 > **Контекст актуализации:** За 1–4 марта 2026 внесены изменения:
 > безопасность (IP-whitelist, CSP-исправление), переименование колонки БД
 > (`relation_type → type` + добавлен `updated_at` в `entity_relationships`),
 > инфраструктурная миграция (nginx → Caddy, docker-compose-lite → prod).
-> Документ отражает **текущее состояние**.
+> Документ отражает состояние на **2026-03-04**, не текущий production.
 
 ---
 
@@ -238,11 +243,13 @@
 
 ## Зависимости с риском
 
-### `google-genai` SDK в requirements (не используется в runtime)
+### ~~`google-genai` SDK в requirements (не используется в runtime)~~ — снят 2026-08-05
 
-- **Риск:** Если SDK присутствует в зависимостях но не используется — это лишний вес образа и потенциальная поверхность уязвимостей.
-- **Проверка:** Убедиться, что `google-generativeai` / `google-genai` удалены из `requirements.txt` и `pyproject.toml` после миграции на OpenRouter.
-- **Влияние:** Зависит от наличия в `requirements.txt` (требует проверки).
+- **Проверено:** SDK используется в runtime — `backend/app/core/gemini_client.py:11-12`
+  импортирует `from google import genai`, это боевая ветка `AI_PROVIDER=gemini`.
+  Пин — `google-genai==2.16.0` в `backend/pyproject.toml:39`.
+- **Заодно:** `requirements.txt` в проекте больше нет, манифест —
+  `pyproject.toml` + `uv.lock`.
 
 ---
 

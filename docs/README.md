@@ -1,10 +1,10 @@
 # Документация fancai
 
-Навигатор по документации. Актуально на **2026-06-13**.
+Навигатор по документации. Актуально на **2026-07-18**.
 
 > **Project overview:** [`README.md`](../README.md) · [`README-ru.md`](../README-ru.md)
 > **Changelog:** [`CHANGELOG.md`](../CHANGELOG.md)
-> **Архив планирования:** [`.planning/`](../.planning/) (ROADMAP, STATE — историческое; GSD-тулинг удалён 2026-06-13)
+> **Текущее состояние:** [`.planning/STATE.md`](../.planning/STATE.md) · **Roadmap:** [`.planning/ROADMAP.md`](../.planning/ROADMAP.md)
 
 ---
 
@@ -13,7 +13,7 @@
 | Документ                                                     | О чём                                                                       |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------- |
 | [`architecture/overview.md`](architecture/overview.md)       | Обзор системы: стек, backend/frontend карта, поток обработки книги          |
-| [`architecture/ai-pipeline.md`](architecture/ai-pipeline.md) | AI-пайплайн: OpenRouter / Gemini 2.5 Flash / FLUX.2 Klein, отключённые пути |
+| [`architecture/ai-pipeline.md`](architecture/ai-pipeline.md) | Gemini Direct / Vertex, mixed OpenRouter reduce route, legacy Modal flags |
 
 ## Разработчикам
 
@@ -28,9 +28,9 @@
 
 | Раздел                       | О чём                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [`deployment/`](deployment/) | Реальная инфра: single VPS + Caddy + docker-compose + Netdata/VictoriaMetrics                          |
-| [`operations/`](operations/) | Day-2: backup/restore, VLESS-proxy, [`migration/`](operations/migration/) — пакет аварийной готовности |
-| [`ci-cd/`](ci-cd/)           | CI/CD pipeline (GitHub Actions)                                                                        |
+| [`deployment/`](deployment/) | Реальная инфра: single VPS + Caddy + Compose; current deploy/monitoring gaps |
+| [`operations/`](operations/) | Day-2: backup/restore, outage status, [`migration/`](operations/migration/) |
+| [`ci-cd/`](ci-cd/) | GitHub Actions workflow; repository Actions сейчас выключены |
 
 ## Безопасность
 
@@ -67,12 +67,13 @@
    - Snapshot отчёта/анализа → `reports/` с datestamp `YYYY-MM-DD-<topic>.md`
    - Research / гипотезы → `research/` с datestamp
 2. **Сверяй чувствительные ко времени утверждения с источником истины:**
-   - Версии — `backend/requirements.txt`, `frontend/package.json`, `docker-compose.prod.yml`
-   - AI-модели — `backend/app/core/openrouter_client.py`, `core/config.py`
-   - Инфра — `docker-compose.prod.yml`, `Caddyfile`, `scripts/`
-   - Vision / scope — `.planning/PROJECT.md` (историч.)
+   - Версии — `backend/pyproject.toml` + `backend/uv.lock`, `frontend/package.json`, `docker-compose.prod.yml`
+   - AI routing — `backend/app/core/ai_provider_factory.py`, `core/gemini_client.py`,
+     `services/consistency_manager.py`, `tasks/book_tasks.py`, `tasks/image_tasks.py`
+   - Инфра — `docker-compose.prod.yml`, `docker-compose.monitoring.yml`, `Caddyfile`, `scripts/`
+   - Vision / scope / gaps — `.planning/PROJECT.md`, `.planning/STATE.md`, `.planning/ROADMAP.md`
 3. **Футер** живого дока: `_Последнее обновление: YYYY-MM-DD. Сверено с: <файлы>._`
 
 ---
 
-_Последнее обновление: 2026-06-13. Прошлая модернизация — `reports/2026-04-30-documentation-modernization.md`; текущая — `reports/2026-06-13-documentation-modernization-v2.md`._
+_Последнее обновление: 2026-07-18. Текущий audit baseline — `.planning/STATE.md`; предыдущая документационная модернизация — `reports/2026-06-13-documentation-modernization-v2.md`._

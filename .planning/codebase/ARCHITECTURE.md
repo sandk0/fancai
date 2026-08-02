@@ -2,6 +2,12 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical codebase snapshot.** Не использовать как current source of truth: после
+> этого анализа shipped Gemini Direct/Vertex, Vite 8 и другие изменения. Актуальная
+> архитектура — [`docs/architecture/overview.md`](../../docs/architecture/overview.md),
+> AI routing — [`docs/architecture/ai-pipeline.md`](../../docs/architecture/ai-pipeline.md),
+> operational gaps — [`.planning/STATE.md`](../STATE.md).
+
 ## Обзор паттерна
 
 **Общий паттерн:** Fullstack SPA с асинхронным AI-конвейером
@@ -266,7 +272,6 @@ Caddy 2.11.1 (Auto-HTTPS, HTTP/3, zstd/gzip)
             ├── /victoria → VictoriaMetrics :8428
             ├── /uptime   → Uptime Kuma :3001
             ├── /dozzle   → Dozzle (логи) :8080
-            └── /flower   → Flower (Celery UI) :5555
 ```
 
 **Docker Compose:**

@@ -2,6 +2,10 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical codebase snapshot.** Версии и AI/infra assertions ниже не обновлялись после
+> 2026-03-04. Текущий стек — [`docs/architecture/overview.md`](../../docs/architecture/overview.md)
+> и dependency manifests; проверенный baseline — [`.planning/STATE.md`](../STATE.md).
+
 ## Языки
 
 **Основные:**
@@ -20,7 +24,7 @@
 
 **Менеджер пакетов:**
 - npm (фронтенд) — lockfile `frontend/package-lock.json` присутствует
-- pip (бэкенд) — `backend/requirements.txt` (без pyproject.toml)
+- uv 0.11.25 (бэкенд) — `backend/pyproject.toml` + `backend/uv.lock`, установка `uv sync --frozen`
 
 ## Фреймворки
 
@@ -150,7 +154,7 @@
 - Caddy 2.11.1-alpine — reverse proxy, auto-HTTPS, HTTP/3 (QUIC)
 - PostgreSQL 17.9-alpine — `shared_buffers=4GB`, `max_connections=150`
 - Redis 7.4.8-alpine — `maxmemory=640mb`, `volatile-lru`
-- Мониторинг: Netdata v2.5.0 + VictoriaMetrics v1.112.0 + Uptime Kuma 2.4.1 + Dozzle v10.0.3 + Flower 2.0.1
+- Мониторинг: Netdata v2.5.0 + VictoriaMetrics v1.112.0 + Uptime Kuma 2.4.1 + Dozzle v10.0.3
 
 ---
 

@@ -11,17 +11,24 @@ allowed-tools: Bash, Read, Grep, Glob
 ### 1. Check Worker Status
 
 ```bash
-ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml exec celery-worker celery -A app.celery_app inspect active"
+ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml exec celery-worker celery -A app.core.celery_app inspect active"
 ```
 
-### 2. Check Flower Dashboard
+### 2. Check Consumed Queues
 
-URL: https://fancai.ru (via Caddy reverse proxy to Flower)
+Flower был удалён из стека 2026-08-04 (образ `mher/flower:2.0.1` не публикуется
+с 2023-08-13). UI больше нет, вместо него:
+
+```bash
+ssh fancai "cd /opt/fancai/app && docker compose -f docker-compose.prod.yml exec celery-worker celery -A app.core.celery_app inspect active_queues"
+```
+
+Воркер обязан слушать все три: `heavy`, `normal`, `light`.
 
 ### 3. Check Redis Queues
 
 ```bash
-ssh fancai "docker exec fancai_redis redis-cli -n 1 LLEN celery"
+ssh fancai 'docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" fancai_redis redis-cli -n 1 llen heavy normal light'
 ssh fancai "docker exec fancai_redis redis-cli INFO memory"
 ```
 

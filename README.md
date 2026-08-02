@@ -59,24 +59,26 @@ fancai — веб-приложение для чтения художестве�
 - **tenacity** + **circuitbreaker** для resilience внешних API
 - **pytest 9** + **hypothesis** (property-based тесты для spoiler-фильтрации)
 
-### AI-сервисы (через OpenRouter)
+### AI-сервисы
 
-| Назначение       | Модель                              |
-| ---------------- | ----------------------------------- |
-| LLM (primary)    | `google/gemini-2.5-flash`           |
-| LLM (fallback)   | `google/gemini-2.5-flash-lite`      |
-| Image generation | `black-forest-labs/flux.2-klein-4b` |
+| Назначение | Production route |
+| --- | --- |
+| Extraction / synthesis | Gemini Direct через Vertex AI global, `gemini-3.5-flash` |
+| Consistency reduce | legacy direct OpenRouter call |
+| Image generation | Gemini Direct через Vertex AI, `gemini-3.1-flash-image` |
+| Modal batch / images | выключено feature flags |
 
-Все AI-вызовы идут через единый клиент `backend/app/core/openrouter_client.py`
-с client-side fallback chain и circuit breaker. Никаких прямых вызовов
-Google/Anthropic SDK — только OpenRouter.
+Provider migration пока неполная: `AI_PROVIDER=gemini` управляет factory-based text
+операциями, но consistency reduce и image generator имеют прямые client paths.
+Фактическая схема, fallback semantics и known gaps —
+[`docs/architecture/ai-pipeline.md`](docs/architecture/ai-pipeline.md).
 
 ### Production-инфраструктура
 
 - **Caddy 2.11** (reverse proxy, auto-HTTPS, HTTP/3)
 - **Docker Compose** (dev + prod + monitoring профили)
 - **pgvector/pgvector:0.8.2-pg17** (БД)
-- **Netdata + Uptime Kuma + Dozzle + Flower** для мониторинга
+- **Netdata + VictoriaMetrics + Uptime Kuma + Dozzle** для мониторинга
 - **Hawk** для error tracking
 
 ---
@@ -88,7 +90,7 @@ Google/Anthropic SDK — только OpenRouter.
 - [Docker](https://docs.docker.com/get-docker/) с Compose v2 (`docker compose`, через пробел)
 - [Node.js 20+](https://nodejs.org/) (для Vite 8)
 - [uv](https://docs.astral.sh/uv/) для backend (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- API-ключ [OpenRouter](https://openrouter.ai/) (для AI-функций)
+- Для AI: [Gemini API key](https://ai.google.dev/gemini-api/docs/api-key) в developer mode и OpenRouter key для текущего consistency reduce
 
 ### Запуск разработки
 
@@ -99,7 +101,10 @@ cd fancai
 # 1. Конфигурация
 cp .env.production.example .env.development
 # Откройте .env.development и заполните минимум:
-#   - OPENROUTER_API_KEY=sk-or-v1-...
+#   - AI_PROVIDER=gemini
+#   - GEMINI_BACKEND=developer
+#   - GEMINI_API_KEY=<Google AI Developer API key>
+#   - OPENROUTER_API_KEY=<нужен текущему consistency reduce>
 #   - DB_PASSWORD=<любой пароль>
 #   - REDIS_PASSWORD=<любой пароль>
 #   - SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(64))")
@@ -109,7 +114,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 # 3. Backend (отдельный терминал)
 cd backend
-uv pip install -r requirements.txt   # либо просто `pip install -r requirements.txt`
+uv sync                              # манифест — pyproject.toml + uv.lock
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 
@@ -148,7 +153,7 @@ Swagger UI на <http://localhost:8000/docs>.
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  Celery 5.6 workers: book_tasks, image_tasks              │  │
 │  │  ↓                                                        │  │
-│  │  OpenRouter unified client (LLM + Image, fallback chain)  │  │
+│  │  Gemini Direct/Vertex + legacy OpenRouter reduce path       │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └──────┬─────────────────────────────────────────┬────────────────┘
        │                                         │
@@ -225,14 +230,14 @@ npm run build                            # production build
 
 - **Текущее состояние:** [`.planning/STATE.md`](.planning/STATE.md)
 - **Дорожная карта:** [`.planning/ROADMAP.md`](.planning/ROADMAP.md)
-- **Milestones (v1.0 → v1.5):** [`.planning/MILESTONES.md`](.planning/MILESTONES.md)
+- **Milestones (v1.0 → v1.6):** [`.planning/MILESTONES.md`](.planning/MILESTONES.md)
 - **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 
-Кратко: v1.0–v1.3 отгружены в продакшн (март 2026, ~80 phases, mobile/PWA/iOS).
-v1.4 (self-hosted NLP) abandoned после стратегического разворота. v1.5 (Modal
-batch) closed-partial — Phases 35–36 в продакшне, Phase 37 abandoned после провала
-staging. Текущий курс — оптимизация OpenRouter pipeline (см.
-[`docs/architecture/ai-pipeline.md`](docs/architecture/ai-pipeline.md)).
+Кратко: v1.0–v1.3 отгружены в production в марте 2026. v1.4 self-hosted NLP abandoned;
+v1.5 Modal закрыт частично после неуспешного staging. v1.6 Gemini Direct + Vertex AI
+отгружен 2026-06-16 вне формальных GSD-фаз. Сейчас feature-milestone не открыт:
+приоритет — [Production Reliability Baseline](docs/superpowers/plans/2026-07-18-production-reliability-baseline.md)
+(CI, dependencies, PWA precache, monitoring, provider routing, deploy/runbook).
 
 Out of scope (явно не делаем): подписки/монетизация, социальные функции,
 встроенный магазин книг, native mobile app, форматы помимо EPUB/FB2.
@@ -256,4 +261,4 @@ Apache License 2.0 — см. [`LICENSE`](LICENSE).
 
 ---
 
-_Последнее обновление: 2026-06-13. Сверено с `frontend/package.json`, `backend/requirements.txt`, `docker-compose.prod.yml`, `backend/app/core/openrouter_client.py`, `backend/alembic/versions/`, `backend/tests/`._
+_Последнее обновление: 2026-07-18. Сверено с production env/feature flags, `frontend/package.json`, `backend/pyproject.toml`, `docker-compose.prod.yml`, AI provider/task code, Alembic и test inventory._

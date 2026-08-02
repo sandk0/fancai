@@ -2,6 +2,10 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical codebase snapshot.** Дерево/счётчики ниже сняты 2026-03-04 и не являются
+> текущим inventory. Актуальный high-level map —
+> [`docs/architecture/overview.md`](../../docs/architecture/overview.md).
+
 ## Общая компоновка директорий
 
 ```
@@ -306,7 +310,7 @@ backend/
 ├── sql/                    # Сырые SQL-запросы
 ├── Dockerfile.prod         # Production образ (uvicorn, 2 workers)
 ├── Dockerfile.dev          # Dev образ (hot reload, volume mount)
-├── requirements.txt        # Python зависимости
+├── pyproject.toml          # Python зависимости (+ uv.lock)
 └── pyproject.toml          # Конфигурация инструментов (ruff, mypy)
 ```
 

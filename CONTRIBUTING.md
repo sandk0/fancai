@@ -35,7 +35,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 # Backend
 cd backend
-uv pip install -r requirements.txt    # либо `pip install -r requirements.txt`
+uv sync                               # манифест — pyproject.toml + uv.lock
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload  # http://localhost:8000
 
@@ -114,16 +114,17 @@ chore(deps): bump fastapi to 0.135.1
 - **SQLAlchemy 2** с `lazy="raise"` — всегда указывайте `selectinload`/`joinedload` явно
 - **Кастомные исключения** из `app/core/exceptions.py` (RFC 9457 формат)
 - **tenacity retry** из `app/core/retry.py` для всех LLM/external вызовов
-- **Все AI-вызовы** через `app/core/openrouter_client.py` — никаких прямых
-  Google/Anthropic SDK
+- **Новые AI-вызовы** через `app/core/ai_provider_factory.py`; не добавляйте прямые
+  Gemini/OpenRouter/Modal client paths. Existing consistency/image drift отслеживается в
+  `docs/architecture/ai-pipeline.md`.
 - Размер файла: цельтесь в ≤500 строк, переразбивайте при превышении
 - Комментарии — только когда «почему» неочевидно. «Что» должно быть видно из кода
 
 ```bash
 cd backend
-uv run ruff check .              # lint
-uv run ruff format .             # format (заменяет black)
-uv run mypy app/                 # type check
+uv run ruff check app/            # lint (совпадает с CI)
+uv run black --check app/         # formatter gate (совпадает с CI)
+uv run mypy app/                  # type check
 ```
 
 ### 3.2. TypeScript (frontend)
@@ -268,4 +269,4 @@ Closes #<issue-id> (если применимо)
 
 ---
 
-_Последнее обновление: 2026-04-30. Сверено с `package.json`, `requirements.txt`, `.pre-commit-config.yaml`, `.planning/PROJECT.md`._
+_Последнее обновление: 2026-04-30. Сверено с `package.json`, `backend/pyproject.toml`, `.pre-commit-config.yaml`, `.planning/PROJECT.md`._

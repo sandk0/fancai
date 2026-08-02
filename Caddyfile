@@ -64,7 +64,7 @@ fancai.ru {
     }
 }
 
-# Мониторинг-дашборд — basicauth + reverse_proxy к 5 сервисам
+# Мониторинг-дашборд — basicauth + reverse_proxy к 3 сервисам (Uptime Kuma — отдельный поддомен)
 monitor.fancai.ru {
     encode zstd gzip
 

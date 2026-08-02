@@ -2,6 +2,11 @@
 
 **Дата анализа:** 2026-03-04
 
+> **Historical codebase snapshot.** OpenRouter-only описание ниже верно для 2026-03-04,
+> но superseded Gemini Direct/Vertex cutover 2026-06-16. Актуальные integration routes —
+> [`docs/architecture/ai-pipeline.md`](../../docs/architecture/ai-pipeline.md), production
+> evidence и gaps — [`.planning/STATE.md`](../STATE.md).
+
 ## AI-сервисы
 
 **OpenRouter (основной AI-провайдер):**
@@ -107,11 +112,6 @@
 **Dozzle v10.0.3:**
 - Просмотр логов Docker-контейнеров в реальном времени
 - Доступен через `monitor.fancai.ru/dozzle/`
-
-**Flower 2.0.1:**
-- Мониторинг Celery задач и воркеров
-- Подключается к Redis DB 1 (Celery broker)
-- Доступен через `monitor.fancai.ru/flower/`
 
 ## Email
 

@@ -16,7 +16,7 @@
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | Reverse-proxy / TLS | **Caddy 2.11.1** — `fancai.ru`, `www`→301, `monitor.fancai.ru`, `uptime.fancai.ru`; Let's Encrypt; `/api`+`/ws`→backend:8000, `/storage`→файлы, SPA-fallback | `Caddyfile`                                                 |
 | Backend             | FastAPI 0.135 (gunicorn+uvicorn), Python 3.12                                                                                                                | `docker-compose.prod.yml`, `backend/Dockerfile.prod`        |
-| Очереди             | Celery 5.6.2 worker + beat (очереди heavy/normal/light)                                                                                                      | `docker-compose.prod.yml`, `backend/app/core/celery_app.py` |
+| Очереди             | Celery 5.6.2 worker + beat; logical queues heavy/normal/light, но текущий worker обслуживает только normal                            | `docker-compose.prod.yml`, `backend/app/core/celery_app.py` |
 | БД                  | PostgreSQL 17 + pgvector 0.8.2 (`pgvector/pgvector:0.8.2-pg17`)                                                                                              | `docker-compose.prod.yml`                                   |
 | Кэш/брокер          | Redis 7.4.8                                                                                                                                                  | `docker-compose.prod.yml`                                   |
 | Бэкап БД            | контейнер `pgbackup` — ежедневный дамп, retention 7 дней, zstd                                                                                               | `docker-compose.prod.yml`                                   |
@@ -24,17 +24,30 @@
 
 ## AI и внешние сервисы
 
-Весь AI-пайплайн идёт через **OpenRouter** (LLM `google/gemini-2.5-flash`+`-lite`, изображения
-`black-forest-labs/flux.2-klein-4b`; ключ `OPENROUTER_API_KEY`). Подробно —
-[`../architecture/ai-pipeline.md`](../architecture/ai-pipeline.md). Ошибки — Hawk Tracker.
+Production env использует Gemini Direct через Vertex AI global (`gemini-3.5-flash` для
+extraction, `gemini-3.1-flash-image` для images). Consistency reduce пока напрямую вызывает
+OpenRouter; legacy Modal flags выключены. Это mixed route, а не автоматический fallback.
+Подробно — [`../architecture/ai-pipeline.md`](../architecture/ai-pipeline.md).
+Ошибки — Hawk Tracker; email/password reset — Yandex Cloud Postbox.
+
+> **Critical known issue 2026-07-18:** `inspect active_queues` показывает только `normal`.
+> `process_book_task` направляется в `heavy`, а beat housekeeping — в `light`; consumers
+> для них нет. В `light` накопилось 7212 stale periodic messages. Не запускать глобальный
+> purge: recovery должен остановить beat, проверить состав очереди, удалить только `light`
+> и поднять явных workers для `heavy/normal/light`.
 
 ## Мониторинг (отдельный стек)
 
 `docker-compose.monitoring.yml`: **Netdata** 2.9 + **VictoriaMetrics** 1.137 (retention 90д) +
-**Uptime-Kuma** 2.2 + **Dozzle** 10.1 + **Flower** 2.0. Backend отдаёт `/metrics`
+**Uptime-Kuma** 2.2 + **Dozzle** 10.1. Backend отдаёт `/metrics`
 (`prometheus-fastapi-instrumentator`), Netdata его скрапит. Доступ — через
 `monitor.fancai.ru` / `uptime.fancai.ru` (basicauth). _(Prometheus/Grafana/Loki из старых
 доков НЕ используются.)_
+
+> **Known issue 2026-07-18:** Netdata exporter и Prometheus collector настроены на
+> `localhost:8428`/`localhost:8000` внутри bridge-контейнера. VictoriaMetrics жив, но
+> Netdata data path не работает. До исправления monitoring dashboard нельзя считать
+> доказательством полноты метрик.
 
 ## Деплой
 
@@ -42,7 +55,14 @@
 bash scripts/deploy-production.sh   # alembic upgrade head → ordered up → healthchecks → rollback при сбое
 ```
 
-Порядок поднятия: postgres → redis → backend/celery → frontend/caddy. Лог: `/var/log/fancai-deploy.log`.
+Порядок поднятия: postgres → redis → backend/celery → frontend/caddy. Лог:
+`/var/log/fancai-deploy.log`. Канонический runtime env на сервере —
+`/opt/fancai/app/.env` (не `.env.production`). SSH: `deploy@fancai`, port `2222`.
+
+> Локальные fixes deploy scripts для canonical `.env` на 2026-07-18 ещё не закоммичены и
+> не доставлены на сервер. Следующий deploy выполнять только после `bash -n`,
+> `docker compose --env-file .env ... config --quiet` и backup checkpoint.
+
 См. также `/deploy` skill в репозитории.
 
 ## Бэкапы и аварийное восстановление
@@ -54,9 +74,11 @@ bash scripts/deploy-production.sh   # alembic upgrade head → ordered up → he
 
 ## Окружение
 
-Переменные — в `.env` (шаблон `.env.production.example`): `DB_*`, `REDIS_PASSWORD`, `SECRET_KEY`,
-`OPENROUTER_API_KEY`, `VAPID_*` (web-push), `HAWK_TOKEN`, `DOMAIN_*`, `CORS_ORIGINS`, `MONITOR_*`.
+Переменные — в `.env` (шаблон `.env.production.example`): `DB_*`, `REDIS_PASSWORD`,
+`SECRET_KEY`, `AI_PROVIDER`, `GEMINI_BACKEND`, `GEMINI_*`, `GCP_PROJECT`, `GCP_LOCATION`,
+`GOOGLE_APPLICATION_CREDENTIALS`, `OPENROUTER_API_KEY`, `YANDEX_POSTBOX_*`, `VAPID_*`,
+`HAWK_TOKEN`, `METRICS_*`, `DOMAIN_*`, `CORS_ORIGINS`, `MONITOR_*`.
 
 ---
 
-_Последнее обновление: 2026-06-13. Сверено с: `docker-compose.prod.yml`, `docker-compose.monitoring.yml`, `Caddyfile`, `scripts/deploy-production.sh`, `docs/operations/migration/00-RECON-REPORT.md`._
+_Последнее обновление: 2026-07-18. Сверено с live production, `docker-compose.prod.yml`, `docker-compose.monitoring.yml`, `Caddyfile`, deploy scripts и AI routing code._
