@@ -99,7 +99,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) return 'vendor-react';
-          if (id.includes('node_modules/react-router-dom/')) return 'vendor-router';
+          if (id.includes('node_modules/react-router/')) return 'vendor-router';
           if (id.includes('node_modules/@tanstack/react-query/') || id.includes('node_modules/axios/') || id.includes('node_modules/zustand/')) return 'vendor-data';
           if (id.includes('node_modules/motion/') || id.includes('node_modules/lucide-react/')) return 'vendor-ui';
           if (id.includes('node_modules/react-hook-form/') || id.includes('node_modules/@hookform/') || id.includes('node_modules/zod/')) return 'vendor-forms';
@@ -131,7 +131,7 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
-      'react-router-dom',
+      'react-router',
       '@tanstack/react-query',
       'axios',
       'zustand',

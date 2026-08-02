@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Home, Library, Upload, Search, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';

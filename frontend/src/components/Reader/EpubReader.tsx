@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { AnimatePresence, m } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { booksAPI } from '@/api/books';
 import { STORAGE_KEYS } from '@/types/state';

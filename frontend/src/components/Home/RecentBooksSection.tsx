@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { m } from 'motion/react';
 import { BookOpen, ArrowRight, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';

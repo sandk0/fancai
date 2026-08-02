@@ -1,7 +1,7 @@
 {
   "name": "fancai-frontend",
   "version": "0.1.0",
-  "description": "Frontend для fancai - приложение для чтения книг с ИИ-генерацией изображений",
+  "description": "Frontend \u0434\u043b\u044f fancai - \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0434\u043b\u044f \u0447\u0442\u0435\u043d\u0438\u044f \u043a\u043d\u0438\u0433 \u0441 \u0418\u0418-\u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0435\u0439 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0439",
   "private": true,
   "type": "module",
   "scripts": {
@@ -52,7 +52,7 @@
     "react-helmet-async": "^3.0.0",
     "react-hook-form": "^7.83.0",
     "react-i18next": "^17.0.11",
-    "react-router-dom": "^7.18.2",
+    "react-router": "^8.3.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "vaul": "^1.1.2",
@@ -97,6 +97,7 @@
   },
   "overrides": {
     "serialize-javascript": "^7.0.5",
-    "@xmldom/xmldom": "^0.9.10"
+    "@xmldom/xmldom": "^0.9.10",
+    "lodash": "^4.18.1"
   }
 }

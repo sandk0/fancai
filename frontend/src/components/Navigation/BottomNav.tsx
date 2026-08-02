@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Home, Library, Image, Settings, User } from 'lucide-react';
 import { isActiveRoute } from '@/utils/navigation';
