@@ -210,6 +210,36 @@ def _capture_task_logs(sink: list) -> int:
     )
 
 
+async def _drop_book(book_id) -> None:
+    """Удаляет книгу в собственной сессии; вызывается из `finally`.
+
+    Своя сессия обязательна: рабочая после отказа пост-фазы может быть
+    в failed-состоянии. Ошибку уборки только печатаем — исключение из `finally`
+    подменило бы исходное и спрятало настоящую причину падения.
+
+    Bulk-DELETE не каскадит: FK на `chapters` объявлен без ON DELETE CASCADE,
+    каскад живёт в ORM-relationship, поэтому удаляем через объект.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            book_obj = await db.get(
+                Book,
+                book_id,
+                options=[
+                    selectinload(Book.chapters),
+                    selectinload(Book.entities),
+                    selectinload(Book.reading_progress),
+                    selectinload(Book.reading_sessions),
+                ],
+            )
+            if book_obj is not None:
+                await db.delete(book_obj)
+                await db.commit()
+        print("cleanup           : book deleted")
+    except Exception as cleanup_err:  # noqa: BLE001 — уборка не должна маскировать
+        print(f"cleanup           : FAILED, book {book_id} остался: {cleanup_err}")
+
+
 async def main(mode: str) -> int:
     from app.tasks import book_tasks
 
@@ -246,45 +276,48 @@ async def main(mode: str) -> int:
             )
         await db.commit()
 
-    fake = FakeExtractor()
-    warnings: list = []
-    sink_id = _capture_task_logs(warnings)
+    # Всё, что ниже, обязано завершиться уборкой: любое исключение по пути
+    # раньше оставляло книгу с главами в dev-БД и требовало ручного удаления.
     try:
-        with _phase_patches(mode), patch.object(
-            book_tasks, "get_gemini_extractor", lambda: fake
-        ):
-            result = await book_tasks._process_book_async(book_id)
-    finally:
-        from app.core.logging import logger as loguru_logger
+        fake = FakeExtractor()
+        warnings: list = []
+        sink_id = _capture_task_logs(warnings)
+        try:
+            with _phase_patches(mode), patch.object(
+                book_tasks, "get_gemini_extractor", lambda: fake
+            ):
+                result = await book_tasks._process_book_async(book_id)
+        finally:
+            from app.core.logging import logger as loguru_logger
 
-        loguru_logger.remove(sink_id)
+            loguru_logger.remove(sink_id)
 
-    async with AsyncSessionLocal() as db:
-        entities = (
-            await db.execute(
-                select(func.count())
-                .select_from(Entity)
-                .where(Entity.book_id == book_id)
-            )
-        ).scalar_one()
-        descriptions = (
-            await db.execute(
-                select(func.count())
-                .select_from(Description)
-                .join(Chapter, Description.chapter_id == Chapter.id)
-                .where(Chapter.book_id == book_id)
-            )
-        ).scalar_one()
-        parsed_chapters = (
-            await db.execute(
-                select(func.count())
-                .select_from(Chapter)
-                .where(
-                    Chapter.book_id == book_id,
-                    Chapter.is_description_parsed.is_(True),
+        async with AsyncSessionLocal() as db:
+            entities = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(Entity)
+                    .where(Entity.book_id == book_id)
                 )
-            )
-        ).scalar_one()
+            ).scalar_one()
+            descriptions = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(Description)
+                    .join(Chapter, Description.chapter_id == Chapter.id)
+                    .where(Chapter.book_id == book_id)
+                )
+            ).scalar_one()
+            parsed_chapters = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(Chapter)
+                    .where(
+                        Chapter.book_id == book_id,
+                        Chapter.is_description_parsed.is_(True),
+                    )
+                )
+            ).scalar_one()
 
         print(f"task result       : {result['status']}")
         print(f"chapters processed: {result['chapters_processed']}")
@@ -299,40 +332,26 @@ async def main(mode: str) -> int:
         # Печатается во всех режимах: True в чужом режиме сразу видно глазами.
         print(f"auto-merge tripped: {merge_tripped}")
 
-        # Bulk-DELETE не каскадит: FK на chapters объявлен без ON DELETE CASCADE,
-        # каскад живёт в ORM-relationship. Поэтому удаляем через объект.
-        book_obj = await db.get(
-            Book,
-            book_id,
-            options=[
-                selectinload(Book.chapters),
-                selectinload(Book.entities),
-                selectinload(Book.reading_progress),
-                selectinload(Book.reading_sessions),
-            ],
+        ok = (
+            result["status"] == "completed"
+            and result["chapters_processed"] == 2
+            and parsed_chapters == 2
+            and fake.calls == 2
+            and entities == 2
+            and descriptions == 4
+            # Пост-фаза вправе упасть на пустых ключах, но не вправе оставить
+            # сессию сломанной — иначе следующие фазы отваливаются не по своей
+            # вине.
+            and not damaged
+            # Инъекция обязана срабатывать ровно в своём режиме: True в чужом
+            # означает, что подмена протекла между режимами, и `failing`
+            # проверял бы не незаглушенные пост-фазы, а чужую инъекцию.
+            and merge_tripped == (mode == "merge_failure")
         )
-        if book_obj is not None:
-            await db.delete(book_obj)
-            await db.commit()
-        print("cleanup           : book deleted")
-
-    ok = (
-        result["status"] == "completed"
-        and result["chapters_processed"] == 2
-        and parsed_chapters == 2
-        and fake.calls == 2
-        and entities == 2
-        and descriptions == 4
-        # Пост-фаза вправе упасть на пустых ключах, но не вправе оставить
-        # сессию сломанной — иначе следующие фазы отваливаются не по своей вине.
-        and not damaged
-        # Инъекция обязана срабатывать ровно в своём режиме: True в чужом
-        # означает, что подмена протекла между режимами, и `failing` проверял
-        # бы не незаглушенные пост-фазы, а чужую инъекцию.
-        and merge_tripped == (mode == "merge_failure")
-    )
-    print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
-    return 0 if ok else 1
+        print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
+        return 0 if ok else 1
+    finally:
+        await _drop_book(book_id)
 
 
 async def run_modes(modes: list) -> int:
