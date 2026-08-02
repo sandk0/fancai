@@ -2,7 +2,7 @@
 
 Экстрактор всегда подменяется фейком: он возвращает готовый
 `ChapterAnalysisResult`, поэтому LLM-провайдер по главам не вызывается.
-Режимов пять, и каждый проверяет своё:
+Режимов шесть, и каждый проверяет своё:
 
 `stubbed` (по умолчанию) — четыре пост-фазы, ходящие в AI за деньги (reduce,
 LLM-дедуп, synthesis, master references), заглушены. Проверяет саму ветку
@@ -22,6 +22,10 @@ SAVEPOINT вокруг слияния в `book_tasks`.
 откатывает транзакцию сам, а SAVEPOINT вызывающего ограничивает откат этой
 фазой: соседние фазы и финализация не страдают.
 
+`dedup_read_failure` — ошибка БД на **чтении** фазы C (`suggest_merges`).
+Записи фаз давно под savepoint'ами, а чтение легко оставить снаружи: упавший
+SELECT abort'ит транзакцию ровно так же, и соседи ложатся следом.
+
 `no_aliases` — фикстура отдаёт сущности **без единого алиаса**. Обе главы
 видят одни и те же имена, поэтому вторая идёт по ветке `ON CONFLICT`,
 где `jsonb_agg` агрегирует пустое объединение. Без `COALESCE` агрегат
@@ -32,7 +36,7 @@ SAVEPOINT вокруг слияния в `book_tasks`.
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
         python scripts/smoke_llm_book_pipeline.py \\
-            [stubbed|failing|merge_failure|reduce_failure|no_aliases|all]
+            [stubbed|failing|merge_failure|reduce_failure|dedup_read_failure|no_aliases|all]
 """
 
 import asyncio
@@ -162,6 +166,9 @@ def _phase_patches(mode: str):
     обе половины контракта — сервис ошибку не глотает и не откатывает, а
     SAVEPOINT вызывающего ограничивает откат этой фазой. Остальные AI-фазы
     заглушены, чтобы сигнал был чистым.
+    `dedup_read_failure` роняет ошибкой БД **чтение** фазы C: подменён
+    `suggest_merges`, который в норме только читает. Проверяет, что чтения
+    фаз тоже под savepoint'ом.
     """
     from sqlalchemy import text
 
@@ -192,6 +199,11 @@ def _phase_patches(mode: str):
         # наружу, а не проглотить с откатом всей транзакции.
         await self.db.execute(text("SELECT 1 / 0"))
 
+    async def _dedup_read_boom(self, book_id):
+        # Отказ на чтении: `suggest_merges` в норме ничего не пишет, но
+        # упавший SELECT abort'ит транзакцию так же, как упавший UPDATE.
+        await self.db.execute(text("SELECT 1 / 0"))
+
     with contextlib.ExitStack() as stack:
         if mode in ("stubbed", "no_aliases"):
             for target, name, repl in (
@@ -215,6 +227,18 @@ def _phase_patches(mode: str):
             for target, name, repl in (
                 (ConsistencyManager, "generate_master_references", _noop),
                 (EntityDeduplicationService, "suggest_merges", _no_merges),
+                (EntitySynthesisService, "synthesize_book_entities", _empty_synthesis),
+            ):
+                stack.enter_context(patch.object(target, name, repl))
+        elif mode == "dedup_read_failure":
+            stack.enter_context(
+                patch.object(
+                    EntityDeduplicationService, "suggest_merges", _dedup_read_boom
+                )
+            )
+            for target, name, repl in (
+                (ConsistencyManager, "optimize_book_entities", _noop),
+                (ConsistencyManager, "generate_master_references", _noop),
                 (EntitySynthesisService, "synthesize_book_entities", _empty_synthesis),
             ):
                 stack.enter_context(patch.object(target, name, repl))
@@ -375,9 +399,14 @@ async def main(mode: str) -> int:
         reduce_tripped = any(
             "Reduce phase failed" in w and "division by zero" in w for w in warnings
         )
+        dedup_read_tripped = any(
+            "LLM deduplication phase failed" in w and "division by zero" in w
+            for w in warnings
+        )
         # Печатаются во всех режимах: True в чужом режиме сразу видно глазами.
         print(f"auto-merge tripped: {merge_tripped}")
         print(f"reduce db failure : {reduce_tripped}")
+        print(f"dedup read failure: {dedup_read_tripped}")
 
         ok = (
             result["status"] == "completed"
@@ -395,6 +424,7 @@ async def main(mode: str) -> int:
             # проверял бы не незаглушенные пост-фазы, а чужую инъекцию.
             and merge_tripped == (mode == "merge_failure")
             and reduce_tripped == (mode == "reduce_failure")
+            and dedup_read_tripped == (mode == "dedup_read_failure")
         )
         print(f"SMOKE[{mode}]:", "PASS" if ok else "FAIL")
         code = 0 if ok else 1
@@ -430,7 +460,14 @@ async def run_modes(modes: list) -> int:
 if __name__ == "__main__":
     requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
     selected = (
-        ["merge_failure", "reduce_failure", "failing", "no_aliases", "stubbed"]
+        [
+            "merge_failure",
+            "reduce_failure",
+            "dedup_read_failure",
+            "failing",
+            "no_aliases",
+            "stubbed",
+        ]
         if requested == "all"
         else [requested]
     )

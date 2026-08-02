@@ -645,27 +645,31 @@ CRITICAL RULES:
             if not keep_id or not merge_ids:
                 continue
 
+            # Свой SAVEPOINT на операцию. Цикл обязан пережить неудачное
+            # слияние, но без savepoint проглоченная здесь ошибка БД оставила
+            # бы aborted-транзакцию: остаток цикла отвалился бы следом, а
+            # RELEASE savepoint'а вызывающего упал бы сам.
             try:
-                # Update source edges
-                stmt_source = (
-                    update(EntityRelationship)
-                    .where(EntityRelationship.source_id.in_(merge_ids))
-                    .values(source_id=keep_id)
-                )
-                await self.db.execute(stmt_source)
+                async with self.db.begin_nested():
+                    # Update source edges
+                    stmt_source = (
+                        update(EntityRelationship)
+                        .where(EntityRelationship.source_id.in_(merge_ids))
+                        .values(source_id=keep_id)
+                    )
+                    await self.db.execute(stmt_source)
 
-                # Update target edges
-                stmt_target = (
-                    update(EntityRelationship)
-                    .where(EntityRelationship.target_id.in_(merge_ids))
-                    .values(target_id=keep_id)
-                )
-                await self.db.execute(stmt_target)
+                    # Update target edges
+                    stmt_target = (
+                        update(EntityRelationship)
+                        .where(EntityRelationship.target_id.in_(merge_ids))
+                        .values(target_id=keep_id)
+                    )
+                    await self.db.execute(stmt_target)
 
-                # Delete merged entities
-                stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
-                await self.db.execute(stmt_del)
-
+                    # Delete merged entities
+                    stmt_del = delete(Entity).where(Entity.id.in_(merge_ids))
+                    await self.db.execute(stmt_del)
             except Exception as e:
                 logger.error(f"Failed merge op for {keep_id}: {e}")
 

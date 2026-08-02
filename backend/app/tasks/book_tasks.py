@@ -917,8 +917,11 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
         #
         # Каждая пост-фаза объявлена non-critical: её отказ логируется, книга
         # всё равно финализируется. Чтобы это было правдой, а не намерением,
-        # фаза идёт в собственном SAVEPOINT — ошибка БД откатывает только его,
-        # общая транзакция и ORM-объекты соседних фаз остаются живыми.
+        # КАЖДОЕ обращение фазы к БД — включая чтения — идёт в SAVEPOINT:
+        # ошибка откатывает только его, общая транзакция и ORM-объекты
+        # соседних фаз остаются живыми. Упавший SELECT abort'ит транзакцию
+        # ровно так же, как упавший UPDATE, поэтому «фаза только читает» —
+        # не основание оставить её снаружи.
         # Сервисы внутри транзакцией не управляют и исключения не глотают:
         # без этого выход из begin_nested() выполнял бы RELEASE SAVEPOINT
         # на уже aborted-транзакции и падал сам.
@@ -937,12 +940,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
             )
             async with db.begin_nested():
                 await consistency_manager.optimize_book_entities(str(book_id))
+                entities_count = (
+                    await db.execute(
+                        select(func.count(Entity.id)).where(Entity.book_id == book_id)
+                    )
+                ).scalar() or 0
             await db.commit()
-
-            entities_count_result = await db.execute(
-                select(func.count(Entity.id)).where(Entity.book_id == book_id)
-            )
-            entities_count = entities_count_result.scalar() or 0
 
             await publish_entities_updated(
                 book_id=str(book_id),
@@ -960,7 +963,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
 
             logger.info("Running LLM Entity Deduplication...", book_id=str(book_id))
             dedup_service = EntityDeduplicationService(db=db)
-            dedup_response = await dedup_service.suggest_merges(book_id)
+            async with db.begin_nested():
+                dedup_response = await dedup_service.suggest_merges(book_id)
 
             if dedup_response.merge_groups:
                 from app.routers.admin.entities import _merge_entities_internal
@@ -1011,18 +1015,20 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 message="Синтез энциклопедии...",
             )
 
-            # Load entities and events
-            entities_q = await db.execute(
-                select(Entity).where(Entity.book_id == book_id)
-            )
-            all_entities = entities_q.scalars().all()
-
-            events_q = await db.execute(
-                select(EntityEvent).where(
-                    EntityEvent.entity_id.in_([e.id for e in all_entities])
+            # Чтения фазы — тоже в SAVEPOINT: упавший SELECT abort'ит
+            # транзакцию так же, как упавший UPDATE.
+            async with db.begin_nested():
+                entities_q = await db.execute(
+                    select(Entity).where(Entity.book_id == book_id)
                 )
-            )
-            all_events = events_q.scalars().all()
+                all_entities = entities_q.scalars().all()
+
+                events_q = await db.execute(
+                    select(EntityEvent).where(
+                        EntityEvent.entity_id.in_([e.id for e in all_entities])
+                    )
+                )
+                all_events = events_q.scalars().all()
 
             entities_data = [
                 {
@@ -1053,8 +1059,8 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                 language=book.language or "ru",
             )
 
-            # Записи фазы — в собственном SAVEPOINT; чтения и сам AI-вызов
-            # выше держать под ним незачем.
+            # Записи фазы — в отдельном SAVEPOINT: сам AI-вызов выше держать
+            # под ним незачем.
             async with db.begin_nested():
                 entity_name_map = {e.name_lower: e for e in all_entities}
                 for synth_entity in synthesis_result.get("entities", []):
