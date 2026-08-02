@@ -415,8 +415,11 @@ class ConsistencyManager:
                         # replacing. For each alias name, keep the entry with the
                         # lowest reveal_chapter (NULL = always visible, treated as -1).
                         # DISTINCT ON deduplicates by name; ORDER BY picks the earliest.
+                        # COALESCE on the aggregate: when both sides are empty,
+                        # jsonb_agg over zero rows returns NULL and the NOT NULL
+                        # column rejects the whole chapter.
                         "aliases_with_reveal": sa_text(
-                            "(SELECT jsonb_agg(alias) "
+                            "(SELECT COALESCE(jsonb_agg(alias), '[]'::jsonb) "
                             " FROM ("
                             "   SELECT DISTINCT ON (alias->>'name') alias"
                             "   FROM jsonb_array_elements("
