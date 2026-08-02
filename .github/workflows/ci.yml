@@ -331,6 +331,8 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile.prod
+          # Без target BuildKit собрал бы последнюю стадию (celery).
+          target: backend
           push: false
           tags: fancai-backend:test
           cache-from: type=gha

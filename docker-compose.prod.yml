@@ -88,6 +88,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+      target: backend
       args:
         - VCS_REF=${VCS_REF:-unknown}
         - BUILD_DATE=${BUILD_DATE:-unknown}
@@ -172,7 +173,9 @@ services:
     image: fancai-celery:latest
     build:
       context: ./backend
-      dockerfile: Dockerfile.celery
+      # Тот же Dockerfile, что у backend: роль выбирается таргетом.
+      dockerfile: Dockerfile.prod
+      target: celery
       args:
         - VCS_REF=${VCS_REF:-unknown}
         - BUILD_DATE=${BUILD_DATE:-unknown}
@@ -236,7 +239,11 @@ services:
     image: fancai-backend:latest
     build:
       context: ./backend
+      # target обязателен: без него BuildKit собрал бы последнюю стадию
+      # (celery) и записал её под тегом fancai-backend:latest, подменив
+      # API-образ. Beat переключается на расписание через command ниже.
       dockerfile: Dockerfile.prod
+      target: backend
       args:
         - VCS_REF=${VCS_REF:-unknown}
         - BUILD_DATE=${BUILD_DATE:-unknown}

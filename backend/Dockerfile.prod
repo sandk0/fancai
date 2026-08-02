@@ -1,13 +1,23 @@
 # =============================================================================
-# Production Dockerfile for fancai Backend
+# Production Dockerfile for fancai Backend and Celery Worker
 # =============================================================================
-# Production image — all AI via OpenRouter.
+# Один файл на два образа. До 2026-08-05 рядом лежал Dockerfile.celery,
+# отличавшийся пятью строками (LABEL, mkdir, HEALTHCHECK, EXPOSE, CMD) —
+# и расходившийся с этим при каждой правке зависимостей. Набор пакетов стал
+# одинаковым после удаления GLiNER2 (решение S4), так что общими остаются
+# и стадия сборки, и рантайм.
+#
+# Собирать через target:
+#   docker build --target backend -t fancai-backend:latest ./backend
+#   docker build --target celery  -t fancai-celery:latest  ./backend
+# BuildKit собирает только предков запрошенного таргета, поэтому лишняя
+# финальная стадия ничего не стоит.
 #
 # Image size: ~600MB
 # =============================================================================
 
 # Multi-stage build for minimal production image
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 # Окружение — отдельный venv в /opt/venv: копируется между стадиями одним
 # путём и не перемешивается с системным префиксом, где живут pip и uv.
@@ -35,9 +45,9 @@ RUN pip install --no-cache-dir uv==0.11.25 && \
     uv sync --frozen --no-dev
 
 # =============================================================================
-# Production stage
+# Общий рантайм: код, окружение, пользователь, права
 # =============================================================================
-FROM python:3.12-slim as production
+FROM python:3.12-slim AS runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -56,8 +66,7 @@ RUN apt-get update && apt-get install -y \
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 ARG IMAGE_VERSION=unknown
-LABEL org.opencontainers.image.title="fancai-backend" \
-      org.opencontainers.image.source="https://github.com/sandk/fancai" \
+LABEL org.opencontainers.image.source="https://github.com/sandk/fancai" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.version="${IMAGE_VERSION}"
@@ -76,6 +85,8 @@ WORKDIR /app
 COPY --chown=appuser:appuser . .
 
 # Create necessary directories with proper permissions and make entrypoint executable
+# Подкаталоги storage нужны обоим: воркер пишет сгенерированные иллюстрации
+# в /app/storage/images, бэкенд — обложки и книги.
 RUN mkdir -p /app/logs /app/storage/books /app/storage/books/covers /app/storage/images && \
     chown -R appuser:appuser /app && \
     chmod -R 755 /app && \
@@ -85,6 +96,16 @@ RUN mkdir -p /app/logs /app/storage/books /app/storage/books/covers /app/storage
 # Switch to non-root user
 USER appuser
 
+# Entrypoint handles env validation, then hands off to CMD via exec "$@"
+ENTRYPOINT ["/app/entrypoint.prod.sh"]
+
+# =============================================================================
+# Backend API — gunicorn
+# =============================================================================
+FROM runtime AS backend
+
+LABEL org.opencontainers.image.title="fancai-backend"
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD python healthcheck.py || exit 1
@@ -92,8 +113,22 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Entrypoint handles env validation, then hands off to CMD via exec "$@"
-ENTRYPOINT ["/app/entrypoint.prod.sh"]
-
 # Default: gunicorn using config file (single source of truth)
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "app.main:app"]
+
+# =============================================================================
+# Celery Worker
+# =============================================================================
+FROM runtime AS celery
+
+LABEL org.opencontainers.image.title="fancai-celery"
+
+# Health check — брокер отвечает не мгновенно после старта контейнера.
+HEALTHCHECK --interval=60s --timeout=15s --start-period=30s --retries=3 \
+  CMD celery -A app.core.celery_app inspect ping --timeout 10 || exit 1
+
+# concurrency=1: обработка книги внутри одной задачи уже распараллелена по
+# главам через asyncio.gather, поэтому воркер берёт по одной книге за раз.
+# -Q перечисляет все три очереди: без него воркер слушает только
+# task_default_queue ("normal"), а beat шлёт периодические задачи в "light".
+CMD ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--prefetch-multiplier=1", "-Q", "heavy,normal,light"]

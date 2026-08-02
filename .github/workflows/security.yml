@@ -225,7 +225,7 @@ jobs:
       - name: Build backend image
         run: |
           cd backend
-          docker build -t fancai-backend:test -f Dockerfile.prod .
+          docker build -t fancai-backend:test -f Dockerfile.prod --target backend .
 
       - name: Check disk space after build
         run: |
