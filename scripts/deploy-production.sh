@@ -640,6 +640,10 @@ publish_frontend_artifact() {
     local volume
     volume=$(compose_volume frontend_build) || return 1
 
+    # Маркер СТАВИТСЯ ДО касания тома: если копирование прервётся
+    # на середине, откат обязан узнать, что том уже не прежний.
+    touch "$BACKUP_DIR/.spa-published"
+
     # Монтируем том в /target, чтобы содержимое образа в /var/www/html
     # осталось видимым, а не было закрыто монтированием.
     docker run --rm \
@@ -781,21 +785,28 @@ rollback() {
         return 1
     fi
 
-    # Откат образов SPA НЕ возвращает: фронт — build-only job, он только
-    # перезаписывает общий том, а прежний артефакт к этому моменту затёрт.
-    # Восстанавливаем его из архива, пока Caddy остановлен выше.
-    if [[ -f ".last_backup" ]]; then
-        local backup_path archive volume
-        backup_path=$(cat .last_backup)
-        archive="$backup_path/frontend_build.tar.gz"
-        if [[ -s "$archive" ]] && volume=$(compose_volume frontend_build); then
+    # SPA возвращается только если ЭТА выкатка успела его тронуть.
+    #
+    # Опираться на `.last_backup` нельзя: он пишется в самом конце
+    # `create_backup`, а trap вооружён раньше. Если упадёт сам бэкап,
+    # файл будет указывать на ПРОШЛУЮ выкатку, и откат «вернул» бы SPA
+    # на ещё более старую версию — хотя текущий том никто не менял.
+    #
+    # Маркер ставит `publish_frontend_artifact` перед тем, как коснуться
+    # тома, поэтому прерванная на середине публикация тоже покрыта.
+    local archive="$BACKUP_DIR/frontend_build.tar.gz"
+    if [[ ! -f "$BACKUP_DIR/.spa-published" ]]; then
+        info "SPA этой выкаткой не публиковалась — том не трогаем"
+    elif [[ ! -s "$archive" ]]; then
+        warning "Публикация была, но архива SPA нет — фронт останется на новой сборке"
+    else
+        local volume
+        if volume=$(compose_volume frontend_build); then
             info "Restoring the previous SPA from $archive"
             docker run --rm \
                 -v "$volume":/target \
-                -v "$backup_path":/backup:ro \
+                -v "$BACKUP_DIR":/backup:ro \
                 alpine sh -c 'rm -rf /target/* /target/.[!.]* 2>/dev/null; tar xzf /backup/frontend_build.tar.gz -C /target'
-        else
-            warning "Архива SPA нет — фронт останется на новой сборке"
         fi
     fi
 

@@ -243,11 +243,18 @@ test_frontend_publication() {
     compose_volume() { echo "app_frontend_build"; }
     docker() { echo "$*" >> "$WORK/docker.log"; return 0; }
     : > "$WORK/docker.log"
+    BACKUP_DIR="$WORK/backup5"
+    mkdir -p "$BACKUP_DIR"
+    rm -f "$BACKUP_DIR/.spa-published"
     publish_frontend_artifact > /dev/null 2>&1 || true
     check "том монтируется в /target" "1" \
         "$(grep -c "app_frontend_build:/target" "$WORK/docker.log")"
     check "содержимое образа копируется" "1" \
         "$(grep -c "cp -a /var/www/html/. /target/" "$WORK/docker.log")"
+    # Маркер нужен откату: без него он не отличит «том не трогали»
+    # от «публикация прервалась на середине».
+    check "публикация оставляет маркер" "1" \
+        "$([[ -f "$BACKUP_DIR/.spa-published" ]] && echo 1 || echo 0)"
 }
 
 test_frontend_artifact_verification() {
@@ -306,7 +313,9 @@ test_rollback_restores_images_only() {
     local bdir="$WORK/backup6"
     mkdir -p "$bdir"
     printf 'tar%.0s' {1..500} > "$bdir/frontend_build.tar.gz"
+    touch "$bdir/.spa-published"
     echo "$bdir" > .last_backup
+    BACKUP_DIR="$bdir"
 
     docker() {
         echo "$*" >> "$WORK/docker.log"
@@ -325,6 +334,22 @@ test_rollback_restores_images_only() {
     # SPA живёт в общем томе: откат образов её не вернёт, нужен архив
     check "SPA восстанавливается из архива" "1" \
         "$(grep -c "frontend_build.tar.gz" "$WORK/docker.log")"
+
+    # Сценарий «упал бэкап»: маркера публикации нет, `.last_backup` указывает
+    # на ПРОШЛУЮ выкатку. Том текущая выкатка не трогала — значит и откатывать
+    # его нельзя, иначе SPA уедет на ещё более старую версию.
+    : > "$WORK/docker.log"
+    rm -f "$BACKUP_DIR/.spa-published"
+    local stale="$WORK/backup-prev"
+    mkdir -p "$stale"
+    printf 'tar%.0s' {1..500} > "$stale/frontend_build.tar.gz"
+    echo "$stale" > .last_backup
+
+    rollback > /dev/null 2>&1 || true
+    check "без публикации SPA не откатывается" "0" \
+        "$(grep -c "frontend_build.tar.gz" "$WORK/docker.log")"
+    check "и старый бэкап не используется" "0" \
+        "$(grep -c "backup-prev" "$WORK/docker.log")"
 }
 
 # --- 7. Грязное дерево останавливает выкатку -----------------------------
