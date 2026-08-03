@@ -102,6 +102,12 @@ export const useCFITracking = ({
   const [chapterTotalPages, setChapterTotalPages] = useState<number | null>(null);
 
   const restoredCfiRef = useRef<string | null>(null);
+  // Текущий CFI дублируется в ref, чтобы `skipNextRelocated` был стабилен.
+  // Зависимость от состояния `currentCFI` делала колбэк новым после каждого
+  // события relocated, а `useReaderPosition` держит его в зависимостях
+  // эффекта восстановления — эффект пересоздавался посреди собственной
+  // работы и восстановление начиналось заново, не снимая флаг (2026-08-05).
+  const currentCFIRef = useRef<string>('');
 
   /**
    * Set initial progress manually (used during position restoration)
@@ -111,6 +117,7 @@ export const useCFITracking = ({
       cfi: cfi.substring(0, 50) + '...',
       progress: progressPercent + '%',
     });
+    currentCFIRef.current = cfi;
     setCurrentCFI(cfi);
     setProgress(progressPercent);
   }, []);
@@ -119,9 +126,9 @@ export const useCFITracking = ({
    * Skip the next relocated event (used during restoration)
    */
   const skipNextRelocated = useCallback(() => {
-    restoredCfiRef.current = currentCFI;
+    restoredCfiRef.current = currentCFIRef.current;
     devLog('Skip flag: Next relocated event will be skipped');
-  }, [currentCFI]);
+  }, []);
 
   /**
    * Navigate to a specific CFI with optional scroll offset
@@ -265,6 +272,7 @@ export const useCFITracking = ({
       }
 
       // Always update CFI
+      currentCFIRef.current = cfi;
       setCurrentCFI(cfi);
 
       // Calculate progress - try multiple methods in order of precision

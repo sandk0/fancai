@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Rendition, EpubLocations } from '@/types/epub';
 import { booksAPI } from '@/api/books';
 import { logger } from '@/lib/logger';
@@ -43,11 +43,23 @@ export const useReaderPosition = ({
   const [restoredBookId, setRestoredBookId] = useState<string | null>(null);
   const isRestoringPosition = restoredBookId !== bookId;
 
-  // Helper to check restoration status
-  const hasRestoredForCurrentBook = useCallback(
-    () => restoredBookId === bookId,
-    [restoredBookId, bookId]
-  );
+  // Колбэки читалки держатся в ref'ах, а не в зависимостях эффекта.
+  // `skipNextRelocated` менял идентичность после каждого события relocated,
+  // то есть после каждого шага самого восстановления: эффект пересоздавался
+  // посреди собственной работы, старый прогон уходил в `isMounted === false`,
+  // а новый начинал всё заново. Флаг не снимался никогда — «вечное
+  // восстановление позиции» инцидента 2026-08-05.
+  const goToCFIRef = useRef(goToCFI);
+  const skipNextRelocatedRef = useRef(skipNextRelocated);
+  const setInitialProgressRef = useRef(setInitialProgress);
+
+  // Синхронизация в эффекте: ref'ы читаются только внутри асинхронного
+  // восстановления, то есть заведомо после коммита.
+  useEffect(() => {
+    goToCFIRef.current = goToCFI;
+    skipNextRelocatedRef.current = skipNextRelocated;
+    setInitialProgressRef.current = setInitialProgress;
+  }, [goToCFI, skipNextRelocated, setInitialProgress]);
 
   // Mark position as restored
   const markPositionRestored = useCallback(() => {
@@ -58,7 +70,7 @@ export const useReaderPosition = ({
   useEffect(() => {
     if (!rendition || !renditionReady) return;
 
-    if (hasRestoredForCurrentBook()) {
+    if (restoredBookId === bookId) {
       logger.debug('[useReaderPosition] ⏭️ Skipping restoration - already restored for book:', bookId);
       return;
     }
@@ -111,11 +123,11 @@ export const useReaderPosition = ({
         if (savedProgress?.reading_location_cfi) {
           logger.debug('[useReaderPosition] 📖 Attempting CFI restoration:', savedProgress.reading_location_cfi.substring(0, 80));
           try {
-            skipNextRelocated();
-            await goToCFI(savedProgress.reading_location_cfi, savedProgress.scroll_offset_percent || 0);
+            skipNextRelocatedRef.current();
+            await goToCFIRef.current(savedProgress.reading_location_cfi, savedProgress.scroll_offset_percent || 0);
 
             if (!isMounted) return;
-            setInitialProgress(savedProgress.reading_location_cfi, savedProgress.current_position);
+            setInitialProgressRef.current(savedProgress.reading_location_cfi, savedProgress.current_position);
             logger.debug('[useReaderPosition] ✅ CFI restoration SUCCESS');
           } catch (cfiError) {
             logger.debug('[useReaderPosition] ❌ CFI restoration FAILED:', cfiError);
@@ -130,10 +142,14 @@ export const useReaderPosition = ({
         logger.error('❌ [useReaderPosition] Failed to restore:', error);
         if (isMounted) await rendition.display().catch((err: unknown) => logger.error(err));
       } finally {
-        if (isMounted) {
-          markPositionRestored();
-          logger.debug('[useReaderPosition] 🏁 Position restoration complete');
-        }
+        // Флаг снимается БЕЗУСЛОВНО. Прежняя проверка `isMounted` оставляла
+        // читалку в состоянии «восстанавливаем позицию» навсегда, стоило
+        // эффекту пересоздаться до конца собственной работы. Установка
+        // состояния размонтированного компонента в React 18 — безвредный
+        // no-op, а смена книги всё равно вернёт флаг: он выводится сравнением
+        // `restoredBookId !== bookId`.
+        markPositionRestored();
+        logger.debug('[useReaderPosition] 🏁 Position restoration complete');
       }
     };
 
@@ -142,7 +158,9 @@ export const useReaderPosition = ({
     return () => {
       isMounted = false;
     };
-  }, [rendition, renditionReady, bookId, hasRestoredForCurrentBook, markPositionRestored, goToCFI, skipNextRelocated, setInitialProgress]);
+    // Только настоящие условия перезапуска: другая книга или новый rendition.
+    // Колбэки читалки живут в ref'ах — см. комментарий у их объявления.
+  }, [rendition, renditionReady, bookId, restoredBookId, markPositionRestored]);
 
   // Conflict resolution handlers
   const resolveConflict = useCallback(async (choice: 'server' | 'local') => {
