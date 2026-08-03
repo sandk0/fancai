@@ -6,6 +6,7 @@ import { booksAPI } from '@/api/books';
 import { EpubReader } from '@/components/Reader/EpubReader';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useParsingStatus } from '@/hooks/api';
+import { bookKeys } from '@/hooks/api/queryKeys';
 import { usePWAResumeGuard } from '@/hooks/pwa';
 import { useAuthStore } from '@/stores/auth';
 import { resetBookData } from '@/utils/bookDataReset';
@@ -116,15 +117,20 @@ const ReaderPage = () => {
   // and TanStack Query refetch when app resumes from background
   const { isResuming, isReady } = usePWAResumeGuard();
 
+  const userId = useAuthStore((state) => state.user?.id) ?? '';
+
+  // Ключ ОБЯЗАН совпадать с `useParsingStatus` ниже: это один и тот же ресурс.
+  // Раздельные ключи `['book', id]` и `bookKeys.detail(...)` держали две копии
+  // деталей книги в кэше и давали два запроса на каждое открытие читалки.
   const {
     data: bookData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['book', bookId],
+    queryKey: bookKeys.detail(userId, bookId ?? ''),
     queryFn: () => booksAPI.getBook(bookId!),
     // Only enable query when not resuming from background and bookId is available
-    enabled: !!bookId && !isResuming,
+    enabled: !!bookId && !!userId && !isResuming,
     // Disable auto-refetch on window focus to prevent race conditions
     // with Zustand auth store initialization (100ms delay)
     refetchOnWindowFocus: false,

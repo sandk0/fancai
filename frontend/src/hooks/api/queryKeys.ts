@@ -115,6 +115,45 @@ export const bookKeys = {
 };
 
 /**
+ * Query keys для графа сущностей (глоссарий читалки)
+ *
+ * SECURITY: Все keys требуют userId для изоляции данных между пользователями
+ *
+ * ВАЖНО: ключ обязан начинаться с собственного префикса, а не с `['book', id]`.
+ * Прежний ключ `['book', bookId, 'entities', chapter]` был ПОДключом деталей
+ * книги, поэтому любая инвалидация деталей перезапрашивала и граф сущностей —
+ * самый дорогой запрос читалки. Инцидент 2026-08-05 («вечное восстановление
+ * позиции») держался именно на этом совпадении префиксов.
+ */
+export const entityKeys = {
+  /**
+   * Базовый ключ для всех сущностей пользователя
+   * @param userId - ID пользователя
+   */
+  all: (userId: string) => ['entities', userId] as const,
+
+  /**
+   * Все сущности конкретной книги
+   * @param userId - ID пользователя
+   * @param bookId - ID книги
+   */
+  byBook: (userId: string, bookId: string) => [...entityKeys.all(userId), bookId] as const,
+
+  /**
+   * Граф сущностей книги, отфильтрованный по прочитанной главе
+   *
+   * `currentChapter` входит в ключ: спойлер-фильтрация выполняется на сервере,
+   * и ответы для разных глав — разные данные, а не разные представления одних.
+   *
+   * @param userId - ID пользователя
+   * @param bookId - ID книги
+   * @param currentChapter - Глава для спойлер-фильтрации; без неё граф полный
+   */
+  network: (userId: string, bookId: string, currentChapter?: number) =>
+    [...entityKeys.byBook(userId, bookId), 'network', currentChapter ?? 'all'] as const,
+};
+
+/**
  * Query keys для работы с главами
  *
  * SECURITY: Все keys требуют userId для изоляции данных между пользователями

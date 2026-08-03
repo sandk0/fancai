@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 
 import { booksAPI } from '@/api/books';
+import { bookKeys } from '@/hooks/api/queryKeys';
+import { useAuthStore } from '@/stores/auth';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import { PageMeta } from '@/components/SEO/PageMeta';
 
@@ -35,11 +37,13 @@ const BookPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  const userId = useAuthStore((state) => state.user?.id) ?? '';
+
   // FIX: Always get fresh progress data, even after quick reader exit
   const { data: book, isLoading, error } = useQuery({
-    queryKey: ['book', bookId],
+    queryKey: bookKeys.detail(userId, bookId ?? ''),
     queryFn: () => booksAPI.getBook(bookId!),
-    enabled: !!bookId,
+    enabled: !!bookId && !!userId,
     refetchOnMount: 'always', // CRITICAL: Always refetch, even if data is fresh
     staleTime: 0, // Data becomes stale immediately to force refetch
     refetchOnWindowFocus: true, // Refetch when user returns to tab

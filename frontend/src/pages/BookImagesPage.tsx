@@ -16,6 +16,8 @@ import { useParams, Link } from 'react-router';
 import { ArrowLeft, BookOpen, Image as ImageIcon, Sparkles, TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
+import { bookKeys } from '@/hooks/api/queryKeys';
+import { useAuthStore } from '@/stores/auth';
 import { ImageGallery } from '@/components/Images/ImageGallery';
 import { AuthenticatedImage } from '@/components/UI/AuthenticatedImage';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
@@ -27,11 +29,13 @@ const BookImagesPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const { t } = useTranslation();
 
+  const userId = useAuthStore((state) => state.user?.id) ?? '';
+
   // Fetch book data for header information
   const { data: book, isLoading: bookLoading, error: bookError } = useQuery({
-    queryKey: ['book', bookId],
+    queryKey: bookKeys.detail(userId, bookId ?? ''),
     queryFn: () => booksAPI.getBook(bookId!),
-    enabled: !!bookId,
+    enabled: !!bookId && !!userId,
   });
 
   if (!bookId) {

@@ -19,8 +19,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { booksAPI } from '@/api/books';
-import { bookKeys, descriptionKeys } from './queryKeys';
-import { entityNetworkQueryKey } from '@/hooks/useEntityNetwork';
+import { bookKeys, descriptionKeys, entityKeys } from './queryKeys';
 import { chapterCache } from '@/services/chapterCache';
 import { notify } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
@@ -114,8 +113,10 @@ export function useParsingStatus({
       // Invalidate entity network cache — entities may have been added/updated
       // during book processing. Without this, the user would see stale entity
       // data (e.g. events only for the first 3 chapters) for up to 1 hour.
+      // byBook, а не network(): ключ главы входит в network, и точечная
+      // инвалидация промахнулась бы по всем уже загруженным главам.
       queryClient.invalidateQueries({
-        queryKey: entityNetworkQueryKey(bookId),
+        queryKey: entityKeys.byBook(userId, bookId),
       });
 
       // Clear IndexedDB cache for this book (force fresh data)
