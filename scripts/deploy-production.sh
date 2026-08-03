@@ -37,7 +37,7 @@ BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="${DEPLOY_LOG_FILE:-}"
 if [[ -z "$LOG_FILE" ]]; then
     for candidate in /var/log/fancai-deploy.log "$HOME/fancai-deploy.log"; do
-        if : >> "$candidate" 2>/dev/null; then
+        if : 2>/dev/null >> "$candidate"; then
             LOG_FILE="$candidate"
             break
         fi
@@ -325,9 +325,25 @@ create_backup() {
         return 1
     fi
 
-    local table_data
-    table_data=$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
-        pg_restore --list /dev/stdin < "$BACKUP_DIR/database.dump" 2>/dev/null \
+    # `pg_restore --list` требует seekable-вход: custom-формат читается
+    # с произвольным доступом. Через `docker compose exec -T ... < файл`
+    # он получает пайп и падает с «did not find magic string in file
+    # header» — на ВАЛИДНОМ дампе. Первый боевой прогон 2026-08-05
+    # отклонил именно так: 16 МБ, магия PGDMP на месте, а проверка
+    # объявила дамп пустым и откатила выкатку.
+    #
+    # Поэтому каталог монтируется в одноразовый контейнер того же образа,
+    # что и работающий Postgres: там дамп — обычный файл.
+    local pg_image table_data
+    pg_image=$(docker inspect "$(docker compose -f "$COMPOSE_FILE" ps -q postgres)" \
+        --format '{{.Config.Image}}' 2>/dev/null)
+    if [[ -z "$pg_image" ]]; then
+        error "Не удалось определить образ Postgres для проверки дампа"
+        return 1
+    fi
+
+    table_data=$(docker run --rm -v "$BACKUP_DIR":/b:ro "$pg_image" \
+        pg_restore --list /b/database.dump 2>/dev/null \
         | grep -c "TABLE DATA" || true)
     if [[ "${table_data:-0}" -lt 1 ]]; then
         error "Database dump contains no table data — aborting"

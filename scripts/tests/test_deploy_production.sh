@@ -103,6 +103,35 @@ test_backup_rejects_empty_dump() {
     create_backup > /dev/null 2>&1 || rc=$?
     check "пустой дамп останавливает выкатку" "1" "$rc"
     check "причина названа" "1" "$(grep -c 'suspiciously small' "$WORK/errors.log")"
+
+    # Годный дамп: проверка описи обязана идти через МОНТИРОВАНИЕ каталога,
+    # а не пайпом в контейнер. `pg_restore --list` требует seekable-вход,
+    # и на пайпе падает «did not find magic string» на валидном дампе —
+    # именно так первый боевой прогон отклонил корректный бэкап 16 МБ.
+    : > "$WORK/errors.log"
+    : > "$WORK/docker.log"
+    BACKUP_DIR="$WORK/backup1b"
+    mkdir -p "$BACKUP_DIR"
+    backup_redis() { :; }
+    backup_frontend_artifact() { :; }
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *"ps postgres"*)  echo "Up (healthy)" ;;
+            *pg_dump*)        head -c 20000 /dev/zero | tr '\0' 'D' ;;
+            *"ps -q postgres"*) echo "pgcid" ;;
+            *"Config.Image"*) echo "pgvector/pgvector:0.8.6-pg17" ;;
+            *pg_restore*)     echo "4005; 0 24592 TABLE DATA public books fancai" ;;
+        esac
+        return 0
+    }
+    rc=0
+    create_backup > /dev/null 2>&1 || rc=$?
+    check "годный дамп принимается" "0" "$rc"
+    check "опись читается монтированием каталога" "1" \
+        "$(grep -c -- "-v $BACKUP_DIR:/b:ro" "$WORK/docker.log")"
+    check "пайп в /dev/stdin не используется" "0" \
+        "$(grep -c "/dev/stdin" "$WORK/docker.log")"
 }
 
 # --- 2 и 3. Образы сохраняются до сборки, собираются все три -------------
@@ -577,9 +606,11 @@ test_redis_snapshot_before_purge() {
     backup_frontend_artifact() { echo backup_frontend_artifact >> "$WORK/calls.log"; }
     docker() {
         case "$*" in
-            *"ps postgres"*) echo "Up (healthy)" ;;
-            *pg_dump*)       head -c 20000 /dev/zero | tr '\0' 'D' ;;
-            *pg_restore*)    echo "4005; 0 24592 TABLE DATA public books fancai" ;;
+            *"ps postgres"*)    echo "Up (healthy)" ;;
+            *pg_dump*)          head -c 20000 /dev/zero | tr '\0' 'D' ;;
+            *"ps -q postgres"*) echo "pgcid" ;;
+            *"Config.Image"*)   echo "pgvector/pgvector:0.8.6-pg17" ;;
+            *pg_restore*)       echo "4005; 0 24592 TABLE DATA public books fancai" ;;
         esac
         return 0
     }
