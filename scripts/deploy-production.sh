@@ -207,7 +207,12 @@ backup_frontend_artifact() {
     local volume
     volume=$(compose_volume frontend_build) || return 1
 
+    # `--user`: без него tar внутри контейнера работает от root и создаёт
+    # в bind-mount файл, принадлежащий root. Дальше `chmod` от пользователя
+    # `deploy` по нему не проходит — именно на этом упал второй боевой
+    # прогон, уже ПОСЛЕ успешного бэкапа и с остановленными писателями.
     docker run --rm \
+        --user "$(id -u):$(id -g)" \
         -v "$volume":/source:ro \
         -v "$BACKUP_DIR":/backup \
         alpine tar czf /backup/frontend_build.tar.gz -C /source .
@@ -369,9 +374,10 @@ create_backup() {
     backup_frontend_artifact
 
     success "Backup created at $BACKUP_DIR"
-    # Дамп создаётся редиректом, RDB — через `docker cp`: у обоих режим
-    # зависит от umask и исходных прав. Снимаем доступ группе и остальным.
-    chmod -R go-rwx "$BACKUP_DIR"
+    # Каталог уже создан с правами 700, это дополнительный рубеж: внутри
+    # дамп БД и снимок Redis. Выполняется в контейнере от root, чтобы
+    # не зависеть от того, какой процесс какой файл записал.
+    docker run --rm -v "$BACKUP_DIR":/b alpine chmod -R go-rwx /b
 
     echo "$BACKUP_DIR" > .last_backup
 }
