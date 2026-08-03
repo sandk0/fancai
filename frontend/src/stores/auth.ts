@@ -194,7 +194,25 @@ export const useAuthStore = create<AuthState>()(
 
           // Update cached user data with TTL
           setUserDataWithTTL(response.user);
-        } catch {
+        } catch (error) {
+          // Временный отказ — не повод разлогинивать. Раньше сюда попадал
+          // любой сбой `/auth/me`, включая 429 от лимитера и обрыв сети:
+          // сессия обнулялась, и AuthGuard уводил на /login, хотя cookie
+          // были живы. Постоянным считается только явный отказ в доступе.
+          // Правило перевёрнуто намеренно: постоянным считается только
+          // ДОКАЗАННЫЙ отказ в доступе. Всё остальное — 429 от лимитера,
+          // 5xx, обрыв сети, неизвестная ошибка — временное, и сессия
+          // остаётся. Раньше было наоборот, и любой сбой `/auth/me`
+          // выкидывал пользователя на /login при живых cookie.
+          const status = (error as { status?: number })?.status;
+          const isPermanent = status === 401 || status === 403;
+
+          if (!isPermanent) {
+            logger.warn('⏳ Проверка сессии временно не удалась:', status ?? 'без статуса');
+            set({ isLoading: false });
+            return;
+          }
+
           logger.debug('❌ Session invalid or expired');
           set({
             user: null,

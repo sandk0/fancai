@@ -313,6 +313,15 @@ export interface ApiError {
   message: string;
   details?: Record<string, unknown>;
   timestamp?: string;
+  /**
+   * HTTP-статус ответа, если он был.
+   *
+   * Без него вызывающий не может отличить «доступ запрещён» от «сервер
+   * не ответил»: перехватчик оборачивает всё в `ApiError`, и обрыв сети
+   * выглядел так же, как 401. На этом хранилище авторизации разлогинивало
+   * пользователя при любом сбое проверки сессии.
+   */
+  status?: number;
 }
 
 export interface ValidationError {

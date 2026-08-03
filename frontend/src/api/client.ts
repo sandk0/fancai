@@ -152,8 +152,17 @@ class ApiClient {
       return this.refreshPromise;
     }
 
-    // Call refresh endpoint - cookie will be sent automatically
-    this.refreshPromise = this.client
+    // Обновление идёт МИМО `this.client` — на голом axios без перехватчиков.
+    // Иначе ошибка самого refresh проходит через `handleError` и приезжает
+    // наружу как `ApiError` без статуса; внешний catch не опознаёт в ней
+    // AxiosError, считает отказ постоянным и разлогинивает пользователя
+    // даже на временном 429, вопреки собственному комментарию.
+    this.refreshPromise = axios
+      .create({
+        baseURL: this.client.defaults.baseURL,
+        timeout: this.client.defaults.timeout,
+        withCredentials: true,
+      })
       .post('/auth/refresh')
       .then(() => {
         // Cookie updated successfully
@@ -207,6 +216,7 @@ class ApiClient {
             'An error occurred',
           details: responseData,
           timestamp: new Date().toISOString(),
+          status: error.response.status,
         };
       } else if (error.request) {
         // Network error
