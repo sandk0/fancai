@@ -22,6 +22,8 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 
+/** Пауза после одного центрального тапа: он переключатель, спешить нельзя. */
+const REVEAL_ATTEMPT_WAIT = 8000;
 /** Сколько нажатий даём индикатору, чтобы он сдвинулся. */
 const MAX_TURN_ATTEMPTS = 5;
 /** Вкладки боковой панели: «Оглавление», «Закладки», «Информация». */
@@ -67,55 +69,51 @@ export class ReaderPage extends BasePage {
   /**
    * Раскрыть панели центральным тапом.
    *
-   * Обработчик висит на документе **iframe** epub.js
-   * (`useGestureController`: `doc.addEventListener('click' | 'touchstart')`),
-   * поэтому способ доставки события важен и различается по проектам:
+   * Порядок принципиален: сначала дождаться готовности, потом ровно ОДИН
+   * ввод. `onToggleUI` — это переключатель, поэтому серия центральных
+   * событий подряд гасит собственный успех: панели раскрылись, следующий
+   * тап их закрыл. Отсюда и разное поведение движков — на медленном
+   * WebKit панели не успевали появиться до следующей попытки.
    *
-   * - `page.mouse.click` по координате внешнего контейнера доходит
-   *   не во всех движках — на WebKit панели так и не раскрывались,
-   *   и это выглядело как «rendition не готов», хотя обложка была
-   *   отрисована;
-   * - в touch-проектах (`hasTouch`) приложение слушает `touchstart`,
-   *   а мышиных событий не получает вовсе.
-   *
-   * Поэтому перебираем: клик внутрь документа iframe → тап пальцем →
-   * клик мышью по контейнеру.
+   * Готовность ловим по содержимому iframe: DOM-признака «rendition готов»
+   * снаружи нет, панели до тапа вообще не смонтированы. Обработчик тапа
+   * висит на документе iframe (`useGestureController`), поэтому на десктопе
+   * бьём кликом внутрь кадра, а в touch-проектах — пальцем: мышиных
+   * событий приложение там не получает.
    */
-  async showControls(timeout = 15000): Promise<void> {
+  async showControls(timeout = 60000): Promise<void> {
     if (await this.page.locator(this.pageIndicator).isVisible().catch(() => false)) {
       return;
     }
+
+    const hasTouch = await this.page.evaluate(() => navigator.maxTouchPoints > 0);
     const deadline = Date.now() + timeout;
+
     while (Date.now() < deadline) {
       const box = await this.page.locator(this.readerContainer).boundingBox();
       const centre = box
         ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
         : { x: 0, y: 0 };
 
-      // Без `position`: Playwright бьёт в центр элемента. Координата вроде
-      // {10,10} попала бы в левую зону листания (`getTapAction`, 15% ширины)
-      // и пролистнула бы книгу назад вместо раскрытия панелей.
-      await this.page
-        .frameLocator('iframe')
-        .locator('body')
-        .click({ timeout: 5000 })
-        .catch(() => undefined);
-      if (await this.controlsVisible(1500)) return;
+      // Клик по центру КОНТЕЙНЕРА, а не по body внутри кадра: на обложке
+      // body растянут по viewBox 1500×2387, его центр вне вьюпорта, и
+      // Playwright не может прокрутить документ iframe — клик отваливается
+      // по таймауту. Координата же попадает и в кадр, и в центральную зону.
+      if (hasTouch) {
+        await this.page.touchscreen.tap(centre.x, centre.y).catch(() => undefined);
+      } else {
+        await this.page.mouse.click(centre.x, centre.y).catch(() => undefined);
+      }
 
-      await this.page.touchscreen.tap(centre.x, centre.y).catch(() => undefined);
-      if (await this.controlsVisible(1500)) return;
-
-      await this.page.mouse.click(centre.x, centre.y).catch(() => undefined);
-      if (await this.controlsVisible(1500)) return;
-
-      // Проверено и НЕ помогает на WebKit: синтетический MouseEvent,
-      // отправленный внутри документа iframe в координатах центра, тоже
-      // не раскрывает панели. Книга там при этом отрисована, а ArrowRight
-      // листает — значит дело не в рендере. Причина не найдена; на WebKit
-      // и Mobile Safari спеки читалки красные, см. progress.md 2026-08-05.
+      // Пауза щедрая намеренно: `onToggleUI` — переключатель, и второй тап
+      // подряд гасит уже раскрытые панели. Пока `ReaderUI` не смонтирован
+      // (`renditionReady && bookMetadata`), тап просто проглатывается,
+      // поэтому попытки повторяются, но редко.
+      if (await this.controlsVisible(REVEAL_ATTEMPT_WAIT)) return;
     }
+
     throw new Error(
-      'Панели читалки не раскрылись ни кликом в iframe, ни тапом, ни мышью'
+      'Панели читалки не раскрылись центральным тапом за отведённое время'
     );
   }
 

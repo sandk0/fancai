@@ -147,14 +147,10 @@ test.describe('Reading Experience', () => {
       const readerPage = new ReaderPage(page);
 
       expect(await readerPage.selectText()).toBe(true);
-      await expect(page.locator('[data-testid="selection-menu"]')).toBeVisible();
-    });
-
-    test('should offer highlight colours in the selection menu', async ({ page }) => {
-      const readerPage = new ReaderPage(page);
-
-      expect(await readerPage.selectText()).toBe(true);
       const menu = page.locator('[data-testid="selection-menu"]');
+      await expect(menu).toBeVisible();
+      // Действия меню проверяются здесь же: отдельный тест на «в меню есть
+      // кнопки» повторял ту же селекцию и ничего не добавлял к покрытию.
       await expect(menu.locator('button')).not.toHaveCount(0);
     });
   });
