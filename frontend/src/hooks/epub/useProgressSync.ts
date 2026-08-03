@@ -31,6 +31,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { useVisibilityManager } from '@/hooks/shared/useVisibilityManager';
+import { bookKeys } from '@/hooks/api/queryKeys';
+import { useAuthStore } from '@/stores/auth';
 
 interface UseProgressSyncOptions {
   bookId: string;
@@ -144,13 +146,32 @@ export const useProgressSync = ({
   }, [enabled, currentCFI, progress, scrollOffset, currentChapter, bookId, onSave, isRestoringPosition]);
 
   const pendingSaveOnBackgroundRef = useRef(false);
+  // Последний `saveImmediate` и последнее `enabled` держатся в ref'ах, чтобы
+  // эффект выгрузки НЕ пересоздавался на каждый рендер. `saveImmediate`
+  // зависит от позиции и от `onSave`, а `onSave` в `EpubReader` — стрелка,
+  // создаваемая заново каждым рендером. Держать их в зависимостях означало
+  // выполнять «уборку при выгрузке» десятки раз за одно открытие книги:
+  // каждая уборка инвалидировала детали книги, инвалидация вызывала refetch,
+  // refetch — новый рендер, и цикл сам себя подкармливал (инцидент 2026-08-05).
+  const saveImmediateRef = useRef(saveImmediate);
+  const enabledRef = useRef(enabled);
+  // userId нужен только уборке, зато обязателен для ключа деталей книги.
+  const userId = useAuthStore((state) => state.user?.id) ?? '';
+  const userIdRef = useRef(userId);
+
+  // Синхронизация в эффекте, а не в теле — как у `latestPositionRef` выше.
+  // Все три ref'а читаются только после коммита: в обработчике `beforeunload`
+  // и в уборке эффекта, поэтому первый рендер их свежесть не требует.
+  useEffect(() => {
+    saveImmediateRef.current = saveImmediate;
+    enabledRef.current = enabled;
+    userIdRef.current = userId;
+  }, [saveImmediate, enabled, userId]);
 
   useEffect(() => {
     if (!enabled || !currentCFI || !bookId) return;
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    clearTimeout(timeoutRef.current);
 
     if (
       lastSavedRef.current.cfi === currentCFI &&
@@ -166,9 +187,7 @@ export const useProgressSync = ({
     }, debounceMs);
 
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      clearTimeout(timeoutRef.current);
     };
   }, [currentCFI, progress, scrollOffset, currentChapter, enabled, bookId, debounceMs, saveImmediate]);
 
@@ -219,9 +238,7 @@ export const useProgressSync = ({
     if (!bookId) return;
 
     const handleBeforeUnload = () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      clearTimeout(timeoutRef.current);
 
       // Read latest position from ref to avoid stale closure
       const { cfi, progress: currentProgress, scrollOffset: currentScrollOffset, chapter } = latestPositionRef.current;
@@ -241,7 +258,7 @@ export const useProgressSync = ({
         return;
       }
 
-      if (enabled) {
+      if (enabledRef.current) {
         const data = JSON.stringify({
           current_chapter: chapter,
           current_position_percent: currentProgress,
@@ -296,26 +313,28 @@ export const useProgressSync = ({
       window.removeEventListener('beforeunload', handleBeforeUnload);
 
       // Save on unmount
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      clearTimeout(timeoutRef.current);
 
       // FIX: Save progress asynchronously and invalidate cache AFTER save completes
       // This prevents race condition where BookPage fetches old data before save completes
-      saveImmediate().then(() => {
+      const invalidateBookDetail = () => {
+        const userId = userIdRef.current;
+        if (!userId) return;
         // Small delay to ensure backend has processed the save
         setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['book', bookId] });
+          queryClient.invalidateQueries({ queryKey: bookKeys.detail(userId, bookId) });
         }, 200);
-      }).catch(_err => {
+      };
+      saveImmediateRef
+        .current()
+        .then(invalidateBookDetail)
         // Still invalidate to prevent stale data
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['book', bookId] });
-        }, 200);
-      });
+        .catch(invalidateBookDetail);
     };
-  // Position values come from latestPositionRef, not closure - prevents stale closure bug
-  }, [enabled, bookId, saveImmediate, queryClient]);
+    // Позиция, `enabled` и `saveImmediate` читаются из ref'ов, а не из
+    // замыкания: эффект обязан прожить всё время чтения книги и отработать
+    // уборку РОВНО один раз — при выгрузке или смене книги.
+  }, [bookId, queryClient]);
 
   return { isSaving, lastSaved };
 };

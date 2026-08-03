@@ -7,6 +7,19 @@ import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useProgressSync } from '../useProgressSync';
+import { bookKeys } from '@/hooks/api/queryKeys';
+import { useAuthStore } from '@/stores/auth';
+import type { User } from '@/types/api';
+
+const USER_ID = 'user-1';
+const TEST_USER: User = {
+  id: USER_ID,
+  email: 'reader@example.com',
+  is_active: true,
+  is_verified: true,
+  is_admin: false,
+  created_at: '2026-01-01T00:00:00Z',
+};
 
 const mockLocalStorage = {
   getItem: vi.fn(),
@@ -43,6 +56,9 @@ describe('useProgressSync', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     mockLocalStorage.getItem.mockReturnValue('test-token');
+    // Ключ деталей книги привязан к пользователю, поэтому уборке нужен
+    // заполненный стор — иначе инвалидация молча ничего не делает.
+    useAuthStore.setState({ user: TEST_USER });
   });
 
   afterEach(() => {
@@ -396,7 +412,7 @@ describe('useProgressSync', () => {
       expect(onSave).toHaveBeenCalledWith('epubcfi(/6/4)', 25, 10, 1);
     });
 
-    it('should invalidate query cache after unmount save', async () => {
+    it('should invalidate the shared book detail key after unmount save', async () => {
       const onSave = vi.fn().mockResolvedValue(undefined);
       const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -420,7 +436,59 @@ describe('useProgressSync', () => {
         await vi.runAllTimersAsync();
       });
 
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['book', 'book-1'] });
+      // Ключ ОБЯЗАН быть тем же, что читают BookPage и useParsingStatus,
+      // иначе страница книги после выхода из читалки покажет старый прогресс.
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookKeys.detail(USER_ID, 'book-1'),
+      });
+
+      invalidateSpy.mockRestore();
+    });
+
+    it('should not invalidate while the reader is still mounted, however often it re-renders', async () => {
+      // Регрессия инцидента 2026-08-05. `EpubReader` передаёт `onSave` стрелкой,
+      // создаваемой заново каждым рендером, и рендерится десятки раз за одно
+      // открытие книги. Если уборка эффекта выгрузки цепляется за эту ссылку,
+      // каждый рендер инвалидирует детали книги: инвалидация → refetch →
+      // новый рендер → снова инвалидация. Цикл сам себя подкармливает и
+      // на книге с полным глоссарием не сходится вовсе.
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      const { rerender, unmount } = renderHook(
+        ({ cfi, chapter }: { cfi: string; chapter: number }) =>
+          useProgressSync({
+            bookId: 'book-1',
+            currentCFI: cfi,
+            progress: chapter,
+            scrollOffset: chapter,
+            currentChapter: chapter,
+            // Новая ссылка на каждый рендер — ровно как в EpubReader до правки.
+            onSave: vi.fn().mockResolvedValue(undefined),
+            enabled: true,
+          }),
+        { wrapper: createWrapper(), initialProps: { cfi: 'epubcfi(/6/4)', chapter: 1 } }
+      );
+
+      for (let i = 2; i <= 12; i++) {
+        rerender({ cfi: `epubcfi(/6/${i * 2})`, chapter: i });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(invalidateSpy).not.toHaveBeenCalled();
+
+      // Настоящая выгрузка обязана инвалидировать ровно один раз.
+      unmount();
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      const expectedKey = JSON.stringify(bookKeys.detail(USER_ID, 'book-1'));
+      const bookDetailCalls = invalidateSpy.mock.calls.filter(
+        (call) => JSON.stringify(call[0]?.queryKey) === expectedKey
+      );
+      expect(bookDetailCalls).toHaveLength(1);
 
       invalidateSpy.mockRestore();
     });

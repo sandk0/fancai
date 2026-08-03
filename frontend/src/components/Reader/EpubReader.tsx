@@ -36,7 +36,7 @@ import { useVisualViewportHandler } from '@/hooks/shared/useVisualViewportHandle
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { notify } from '@/stores/ui';
-import { useEntityNetwork, usePrefetchEntityNetwork } from '@/hooks/useEntityNetwork';
+import { useEntityNetwork } from '@/hooks/useEntityNetwork';
 import { getCurrentUserId } from '@/hooks/api/queryKeys';
 import { mapApiError } from '@/utils/errorMessages';
 
@@ -201,13 +201,11 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     return Math.max(currentChapter, serverMax);
   }, [currentChapter, book.reading_progress?.max_chapter_reached]);
 
-  const { isSaving, lastSaved } = useProgressSync({
-    bookId: book.id,
-    currentCFI,
-    progress,
-    scrollOffset: scrollOffsetPercent,
-    currentChapter,
-    onSave: async (cfi, prog, scroll, ch) => {
+  // Стабильный колбэк сохранения: `useProgressSync` пересобирает свой
+  // `saveImmediate` по этой ссылке, а от него зависят эффекты сохранения.
+  // Стрелка прямо в пропсах создавалась заново каждым рендером читалки.
+  const handleSaveProgress = useCallback(
+    async (cfi: string, prog: number, scroll: number, ch: number) => {
       await booksAPI.updateReadingProgress(book.id, {
         current_chapter: ch,
         current_position_percent: prog,
@@ -215,6 +213,16 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
         scroll_offset_percent: scroll,
       });
     },
+    [book.id]
+  );
+
+  const { isSaving, lastSaved } = useProgressSync({
+    bookId: book.id,
+    currentCFI,
+    progress,
+    scrollOffset: scrollOffsetPercent,
+    currentChapter,
+    onSave: handleSaveProgress,
     enabled: renditionReady,
     isRestoringPosition, // Prevent save during restoration
   });
@@ -269,10 +277,9 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     book.id,
     maxChapterReached
   );
-  const prefetchEntityNetwork = usePrefetchEntityNetwork();
-  useEffect(() => {
-    if (book.id) prefetchEntityNetwork(book.id);
-  }, [book.id, prefetchEntityNetwork]);
+  // Предзагрузка графа сущностей удалена намеренно: она запрашивала ключ БЕЗ
+  // главы, а компонент читает ключ С главой — то есть это был не прогрев кэша,
+  // а второй, всегда лишний запрос самого дорогого эндпоинта на открытие.
 
   const handleEntityClick = useCallback((entity: import('@/types/entity').EntityDetail) => {
     setPopupEntity(entity);

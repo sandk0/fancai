@@ -9,6 +9,19 @@ import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useProgressSync } from '../useProgressSync';
+import { bookKeys } from '@/hooks/api/queryKeys';
+import { useAuthStore } from '@/stores/auth';
+import type { User } from '@/types/api';
+
+const USER_ID = 'user-1';
+const TEST_USER: User = {
+  id: USER_ID,
+  email: 'reader@example.com',
+  is_active: true,
+  is_verified: true,
+  is_admin: false,
+  created_at: '2026-01-01T00:00:00Z',
+};
 
 describe('useProgressSync (simplified)', () => {
   let queryClient: QueryClient;
@@ -43,6 +56,10 @@ describe('useProgressSync (simplified)', () => {
       },
       writable: true,
     });
+
+    // Ключ деталей книги привязан к пользователю: без заполненного стора
+    // уборке эффекта нечего инвалидировать.
+    useAuthStore.setState({ user: TEST_USER });
   });
 
   afterEach(() => {
@@ -247,7 +264,9 @@ describe('useProgressSync (simplified)', () => {
         await new Promise((resolve) => setTimeout(resolve, 300));
       });
 
-      expect(invalidateSpy).toHaveBeenCalled();
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookKeys.detail(USER_ID, 'book-1'),
+      });
 
       invalidateSpy.mockRestore();
     });
