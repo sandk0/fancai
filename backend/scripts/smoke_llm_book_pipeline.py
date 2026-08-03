@@ -32,15 +32,20 @@ SELECT abort'ит транзакцию ровно так же, и соседи �
 возвращает NULL, колонка `NOT NULL` его отвергает и глава теряется целиком.
 Пост-фазы здесь заглушены как в `stubbed`: режим про upsert, а не про них.
 
-Запускать только на dev-БД:
+Запускать только на dev-БД и только с пустыми ключами:
 
     docker exec -e OPENROUTER_API_KEY= -e GEMINI_API_KEY= fancai_backend_dev \\
         python scripts/smoke_llm_book_pipeline.py \\
             [stubbed|failing|merge_failure|reduce_failure|dedup_read_failure|no_aliases|all]
+
+Пустые ключи — не пожелание, а условие: в `failing` пост-фазы не заглушены
+и с живым ключом ушли бы в платного провайдера. Скрипт проверяет это сам
+и отказывается стартовать, см. `_assert_no_live_ai_keys`.
 """
 
 import asyncio
 import contextlib
+import os
 import sys
 import uuid
 from unittest.mock import patch
@@ -457,7 +462,43 @@ async def run_modes(modes: list) -> int:
     return code
 
 
+# Ключи, любой из которых способен превратить smoke в платный прогон.
+# `OPENROUTER_API_KEY` — не «на всякий случай»: `ConsistencyManager`
+# зовёт `get_openrouter_client()` напрямую, минуя `AI_PROVIDER`, поэтому
+# в `failing` reduce уходит в OpenRouter даже когда провайдер — Gemini.
+PAID_AI_KEYS = (
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+)
+
+
+def _assert_no_live_ai_keys() -> None:
+    """Отказаться стартовать, если окружение способно оплатить вызов.
+
+    Docstring модуля годами обещал «ключи пустые», но обеспечивать это
+    приходилось руками в командной строке — и достаточно один раз забыть
+    `-e OPENROUTER_API_KEY=`, чтобы `failing` сходил к провайдеру за деньги.
+    Проверка дешёвая, а цена пропуска — реальные списания, поэтому
+    fail-closed: не предупреждение, а отказ.
+    """
+    live = [name for name in PAID_AI_KEYS if os.getenv(name)]
+    if not live:
+        return
+
+    joined = ", ".join(live)
+    blanks = " ".join(f"-e {name}=" for name in live)
+    raise SystemExit(
+        f"ОТКАЗ: в окружении задан платный ключ ({joined}).\n"
+        f"Режим `failing` не заглушает пост-фазы, и reduce уходит в OpenRouter "
+        f"напрямую — прогон стал бы платным.\n"
+        f"Запускайте так: docker exec {blanks} fancai_backend_dev "
+        f"python scripts/smoke_llm_book_pipeline.py all"
+    )
+
+
 if __name__ == "__main__":
+    _assert_no_live_ai_keys()
     requested = sys.argv[1] if len(sys.argv) > 1 else "stubbed"
     selected = (
         [
