@@ -319,41 +319,81 @@ verify_frontend_artifact() {
     success "Frontend artifact present, build job exited 0"
 }
 
-# Function to deploy application
-deploy_application() {
-    step "Deploying application..."
-    
-    # Stop existing containers gracefully
-    info "Stopping existing containers..."
-    docker compose -f "$COMPOSE_FILE" down --timeout 30 || true
-    
-    # Clean up orphaned containers and networks
-    docker container prune -f || true
-    docker image prune -f || true
-    # NOTE: --volumes intentionally removed to protect postgres_data and redis_data
-    
-    # Start infrastructure services first
-    info "Starting infrastructure services..."
-    docker compose -f "$COMPOSE_FILE" up -d postgres redis
-    
-    # Wait for infrastructure
-    sleep 20
-    
-    # Run database migrations
-    info "Running database migrations..."
+# Function to stop everything that writes to the database
+#
+# Порядок здесь важнее, чем кажется. Раньше дамп снимался ДО трёх
+# `--no-cache` сборок, а бэкенд и воркер продолжали писать всё это время —
+# минуты. Такая точка восстановления недействительна: ручной restore
+# потерял бы записи, сделанные за время сборки.
+#
+# Поэтому писатели останавливаются здесь, ПОСЛЕ сборки кандидатов
+# и ПЕРЕД дампом. Postgres и Redis намеренно остаются подняты: дамп
+# снимать неоткуда, а лишний перезапуск СУБД ничего не даёт.
+quiesce_writers() {
+    step "Stopping writers before the backup..."
+
+    docker compose -f "$COMPOSE_FILE" stop --timeout 30 \
+        backend celery-worker celery-beat
+
+    # Caddy оставляем: он отдаст 502 на API, но статика и понятный отказ
+    # лучше, чем оборванное соединение.
+    success "Writers stopped — database is quiet"
+}
+
+# Function to drop the stale periodic-task backlog
+#
+# В `light` на проде скопилось 8074 задачи `close_abandoned_sessions`
+# за ~5 месяцев: воркер запускался без `-Q` и эту очередь не слушал.
+# У сообщений нет ни `eta`, ни `expires`, поэтому новый воркер с корректными
+# очередями выполнил бы их все разом. Задача идемпотентная и давно
+# неактуальная — первая же по расписанию сделает ту же работу.
+#
+# Шаг выполняется при остановленном воркере, иначе он начнёт разгребать
+# очередь раньше, чем она будет очищена. Управляется PURGE_STALE_QUEUES.
+purge_stale_queues() {
+    if [[ "${PURGE_STALE_QUEUES:-false}" != "true" ]]; then
+        info "Skipping stale queue purge (set PURGE_STALE_QUEUES=true to enable)"
+        return 0
+    fi
+
+    step "Purging the stale periodic-task backlog..."
+
+    local before
+    before=$(docker compose -f "$COMPOSE_FILE" exec -T \
+        -e REDISCLI_AUTH="${REDIS_PASSWORD}" redis \
+        redis-cli -n 1 llen light 2>/dev/null | tr -d '\r' || echo 0)
+
+    docker compose -f "$COMPOSE_FILE" exec -T \
+        -e REDISCLI_AUTH="${REDIS_PASSWORD}" redis \
+        redis-cli -n 1 del light > /dev/null
+
+    success "Purged ${before} stale message(s) from the light queue"
+}
+
+# Function to run database migrations
+#
+# Вызывается при остановленных писателях и сразу после дампа: между
+# точкой восстановления и изменением схемы никто не пишет.
+run_migrations() {
+    step "Running database migrations..."
+
     docker compose -f "$COMPOSE_FILE" run --rm backend alembic upgrade head
-    
-    # Start application services
-    info "Starting application services..."
-    docker compose -f "$COMPOSE_FILE" up -d backend celery-worker celery-beat
-    
-    # Wait for backend to be ready
-    sleep 30
-    
-    # Start frontend and caddy
-    info "Starting frontend and caddy..."
-    docker compose -f "$COMPOSE_FILE" up -d frontend caddy
-    
+
+    success "Migrations applied"
+}
+
+# Function to (re)start the whole stack on the new images
+start_services() {
+    step "Starting services on the new images..."
+
+    # Пересоздаём контейнеры под новые образы. `down` вместо `up -d`
+    # с рекреацией — чтобы снялись и переименованные/удалённые сервисы.
+    docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+    # Фронт — build-only job: дожидаемся именно его завершения, иначе
+    # Caddy может успеть отдать пустой том.
+    docker compose -f "$COMPOSE_FILE" wait frontend > /dev/null 2>&1 || true
+
     success "Application deployed"
 }
 
@@ -578,15 +618,27 @@ main() {
     validate_environment
     update_code
 
-    # Бэкап и сохранение прежних образов — ДО вооружения trap: пока их нет,
-    # откатывать нечем, и автоматический откат только навредил бы.
-    create_backup
+    # Всё, что не трогает прод, — до простоя. Сборка трёх образов
+    # с `--no-cache` идёт минуты, и делать её при остановленном сервисе
+    # незачем. Провал сборки здесь просто завершает скрипт: прод работает
+    # на старом коде, откатывать нечего.
+    mkdir -p "$BACKUP_DIR"
     preserve_current_images
+    build_images
 
+    # Дальше начинается простой. Trap вооружаем здесь: с этого момента
+    # есть что откатывать.
     trap rollback ERR
 
-    build_images
-    deploy_application
+    # Порядок обязателен и обоснован: писатели останавливаются ДО дампа,
+    # иначе точка восстановления не соответствует состоянию, в котором
+    # будет исполнена миграция. Очистка очереди — при остановленном
+    # воркере, иначе он начнёт её разгребать раньше времени.
+    quiesce_writers
+    create_backup
+    purge_stale_queues
+    run_migrations
+    start_services
 
     # Perform health checks
     if health_check && verify_frontend_artifact && verify_deployment; then

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# BACKUP_DIR/COMPOSE_FILE/ENV_FILE выставляются тестами, а читают их
+# функции из подключаемого скрипта — этой связи shellcheck не видит.
+# shellcheck disable=SC2034
+#
 # Стенд для `deploy-production.sh`: проверяет логику выкатки без прода.
 #
 # Полный прогон против настоящего стека невозможен — скрипт делает
@@ -220,6 +225,61 @@ test_update_code_refuses_dirty_tree() {
     check "причина названа" "1" "$(grep -c 'local changes' "$WORK/errors.log")"
 }
 
+# --- 8. Порядок шагов выкатки --------------------------------------------
+#
+# Самое ценное утверждение файла. Дамп обязан сниматься при остановленных
+# писателях и непосредственно перед миграцией: раньше он снимался ДО трёх
+# `--no-cache` сборок, пока бэкенд и воркер продолжали писать, и ручной
+# restore потерял бы всё, что накопилось за минуты сборки.
+
+test_deploy_step_order() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    BACKUP_DIR="$WORK/backup8"
+    cd "$WORK" || return 1
+
+    : > "$WORK/order.log"
+    local step_name
+    for step_name in check_prerequisites validate_environment update_code \
+                     preserve_current_images build_images quiesce_writers \
+                     create_backup purge_stale_queues run_migrations \
+                     start_services health_check verify_frontend_artifact \
+                     verify_deployment save_deployment_info; do
+        eval "${step_name}() { echo ${step_name} >> '$WORK/order.log'; return 0; }"
+    done
+    docker() { return 0; }
+
+    main > /dev/null 2>&1 || true
+
+    local order
+    order=$(tr '\n' ' ' < "$WORK/order.log")
+
+    line_of() { grep -n "^$1$" "$WORK/order.log" | head -1 | cut -d: -f1; }
+
+    local build quiesce backup migrate start
+    build=$(line_of build_images)
+    quiesce=$(line_of quiesce_writers)
+    backup=$(line_of create_backup)
+    migrate=$(line_of run_migrations)
+    start=$(line_of start_services)
+
+    check "сборка идёт до остановки писателей" "1" \
+        "$([[ -n "$build" && -n "$quiesce" && "$build" -lt "$quiesce" ]] && echo 1 || echo 0)"
+    check "дамп снимается после остановки писателей" "1" \
+        "$([[ -n "$backup" && "$quiesce" -lt "$backup" ]] && echo 1 || echo 0)"
+    check "миграции идут после дампа" "1" \
+        "$([[ -n "$migrate" && "$backup" -lt "$migrate" ]] && echo 1 || echo 0)"
+    check "сервисы поднимаются после миграций" "1" \
+        "$([[ -n "$start" && "$migrate" -lt "$start" ]] && echo 1 || echo 0)"
+    check "очередь чистится между дампом и миграцией" "1" \
+        "$(p=$(line_of purge_stale_queues); [[ -n "$p" && "$backup" -lt "$p" && "$p" -lt "$migrate" ]] && echo 1 || echo 0)"
+
+    if [[ "$FAIL" -gt 0 ]]; then
+        printf '       фактический порядок: %s\n' "$order"
+    fi
+}
+
 main() {
     prepare_sourceable
     echo "Стенд deploy-production.sh"
@@ -229,6 +289,7 @@ main() {
     run_case "5. артефакт фронта"  test_frontend_artifact_verification
     run_case "6. откат"            test_rollback_restores_images_only
     run_case "7. доставка кода"    test_update_code_refuses_dirty_tree
+    run_case "8. порядок шагов"    test_deploy_step_order
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"
