@@ -853,6 +853,183 @@ test_update_code_reexecs_after_change() {
     unset -f exec
 }
 
+# --- 14. Провал шага действительно вызывает откат -------------------------
+#
+# `trap rollback ERR` вооружается ВНУТРИ `main()`, то есть внутри функции.
+# Без `set -E` (errtrace) ERR-trap функциями НЕ наследуется: провал любого
+# шага завершал скрипт по `set -e`, не вызвав откат ни разу. Именно так
+# третья попытка выкатки 2026-08-05 оборвалась без единой строки от
+# `rollback` и оставила писателей остановленными.
+#
+# Прогон обязан идти ОТДЕЛЬНЫМ процессом, и `main` в нём вызывается голым.
+# Bash подавляет ERR-trap для команды, чей код возврата проверяется:
+# `main || true`, `if main`, `! main` — все три глушат trap внутри `main`,
+# и тест прошёл бы даже без `-E`. Первая версия этого теста именно так
+# и обманулась.
+#
+# Форма падения тоже принципиальна, и это вторая ловушка. Проверено
+# экспериментом:
+#
+#   вызванная функция делает `return 1`     → trap срабатывает и БЕЗ `-E`
+#   команда ВНУТРИ вызванной функции падает → без `-E` НЕ срабатывает
+#
+# Настоящие шаги падают вторым способом: внутри них падает `docker`,
+# `pg_dump` или `alembic`. Поэтому заглушка обязана ронять команду внутри
+# себя (`false`), а не возвращать код: на `return 1` тест зеленел бы даже
+# со снятым `-E`.
+
+# Пишет самостоятельный прогон выкатки: подключает библиотеку (вместе с её
+# собственной строкой `set`), заглушает шаги, роняет названный и зовёт
+# `main` голым вызовом.
+write_deploy_runner() {
+    local runner="$1" failing_step="$2" log_file="$3"
+    cat > "$runner" <<RUNNER
+source "$WORK/lib.sh"
+log() { :; }; step() { :; }; info() { :; }
+success() { :; }; warning() { :; }; error() { :; }
+DB_USER="fancai"; DB_NAME="fancai"; REDIS_PASSWORD="stub"
+BACKUP_DIR="$WORK/backup14"
+for s in check_prerequisites validate_environment update_code \\
+         preserve_current_images build_images quiesce_writers \\
+         create_backup purge_stale_queues run_migrations start_services \\
+         health_check verify_frontend_artifact verify_deployment \\
+         save_deployment_info; do
+    eval "\${s}() { return 0; }"
+done
+docker() { return 0; }
+rollback() { echo rollback >> "$log_file"; }
+RUNNER
+    if [[ -n "$failing_step" ]]; then
+        # `false` внутри тела — как падение docker/alembic в бою.
+        echo "${failing_step}() { false; }" >> "$runner"
+    fi
+    # Голый вызов: никаких `||`, `if` и `!` вокруг него.
+    echo 'main' >> "$runner"
+}
+
+test_failed_step_triggers_rollback() {
+    local log="$WORK/rollback14.log"
+    local runner="$WORK/runner14.sh"
+    mkdir -p "$WORK/backup14"
+
+    # Падение посреди простоя — самый опасный момент: писатели остановлены,
+    # миграции могли примениться, откатывать есть что.
+    : > "$log"
+    write_deploy_runner "$runner" run_migrations "$log"
+    bash "$runner" > /dev/null 2>&1
+    check "провал миграций вызывает откат" "1" "$(grep -c '^rollback$' "$log")"
+
+    # Шаг до миграций — тот же путь через trap.
+    : > "$log"
+    write_deploy_runner "$runner" create_backup "$log"
+    bash "$runner" > /dev/null 2>&1
+    check "провал бэкапа вызывает откат" "1" "$(grep -c '^rollback$' "$log")"
+
+    : > "$log"
+    write_deploy_runner "$runner" quiesce_writers "$log"
+    bash "$runner" > /dev/null 2>&1
+    check "провал остановки писателей вызывает откат" "1" "$(grep -c '^rollback$' "$log")"
+
+    # Провал проверок обрабатывается ЯВНЫМ вызовом, а не trap'ом, и обязан
+    # дать РОВНО один откат: если trap не снять, получилось бы два.
+    : > "$log"
+    write_deploy_runner "$runner" health_check "$log"
+    bash "$runner" > /dev/null 2>&1
+    check "провал проверок даёт ровно один откат" "1" "$(grep -c '^rollback$' "$log")"
+
+    # Успешный прогон откат не зовёт.
+    : > "$log"
+    write_deploy_runner "$runner" "" "$log"
+    bash "$runner" > /dev/null 2>&1
+    check "успешная выкатка откат не зовёт" "0" "$(grep -c '^rollback$' "$log")"
+}
+
+# --- 15. Откат не вызывает сам себя --------------------------------------
+#
+# С `errtrace` trap действует и внутри функций, а в самом откате есть
+# падающие команды и два `return 1`. Не сняв trap первым действием,
+# откат ушёл бы в рекурсию. Проверка снова отдельным процессом и голым
+# вызовом — по той же причине, что в тесте 14.
+
+test_rollback_does_not_reenter() {
+    local log="$WORK/reentry.log"
+    local runner="$WORK/runner15.sh"
+    : > "$log"
+
+    cat > "$runner" <<RUNNER
+source "$WORK/lib.sh"
+log() { :; }; step() { :; }; info() { :; }
+success() { :; }; warning() { :; }; error() { :; }
+DB_USER="fancai"; DB_NAME="fancai"; REDIS_PASSWORD="stub"
+BACKUP_DIR="$WORK/backup15"
+COMPOSE_FILE="compose.yml"
+cd "$WORK"
+# Ни \`.last_image_tag\`, ни образов: откат уходит в \`return 1\` — ровно тот
+# путь, на котором вооружённый trap позвал бы его повторно.
+rm -f .last_image_tag
+outer() {
+    trap 'echo trap >> "$log"' ERR
+    rollback
+}
+outer
+RUNNER
+    bash "$runner" > /dev/null 2>&1
+
+    check "trap внутри отката не срабатывает" "0" "$(grep -c '^trap$' "$log")"
+}
+
+# --- 16. Caddy пересоздаётся безусловно ----------------------------------
+#
+# `Caddyfile` смонтирован одиночным файлом: после `git pull` на хосте новый
+# inode, а контейнер держит старый. `up -d` при неизменном образе ничего
+# не пересоздаёт, поэтому правки маршрутов и allowlist'а не применялись.
+
+test_start_services_recreates_caddy() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    cd "$WORK" || return 1
+
+    docker() { echo "$*" >> "$WORK/docker.log"; return 0; }
+    publish_frontend_artifact() { :; }
+
+    start_services > /dev/null 2>&1 || true
+
+    check "caddy пересоздаётся" "1" \
+        "$(grep -c -- "up -d --force-recreate caddy$" "$WORK/docker.log")"
+    # Адресно: безусловный recreate всего стека уронил бы Postgres и Redis,
+    # с которых снимать точку восстановления уже неоткуда.
+    check "остальные сервисы не пересоздаются насильно" "0" \
+        "$(grep -cE -- "up -d --force-recreate$" "$WORK/docker.log")"
+}
+
+# --- 17. Состояние выкатки не отслеживается git ---------------------------
+#
+# `create_backup` пишет `.last_backup`, `preserve_current_images` —
+# `.last_image_tag`. Пока эти файлы отслеживались, КАЖДАЯ выкатка оставляла
+# после себя грязное дерево, а `update_code` отказывается работать на
+# грязном дереве. То есть вторая выкатка на любом хосте не стартовала
+# из-за следов первой. Найдено на живом проде 2026-08-06: `M .last_backup`
+# при HEAD 8047e12c.
+
+test_deploy_state_is_untracked() {
+    # `command git`, а не `git`: предыдущие кейсы подменяют `git` функцией,
+    # и она переживает возврат из них. Стаб вернул бы пустую выдачу с кодом 0,
+    # то есть тест зеленел бы, ничего не проверив.
+    local root="$SCRIPT_DIR/.."
+    local tracked
+    tracked=$(cd "$root" && command git ls-files -- .last_backup .last_image_tag)
+
+    check "состояние выкатки не в индексе git" "" "$tracked"
+
+    # И его же обязан покрывать .gitignore — иначе `update_code` ругался бы
+    # на неотслеживаемые файлы при каждом прогоне.
+    local ignored
+    ignored=$(cd "$root" && command git check-ignore .last_backup .last_image_tag | tr '\n' ' ')
+    check "состояние выкатки в .gitignore" ".last_backup .last_image_tag " "$ignored"
+}
+
 main() {
     prepare_sourceable
     echo "Стенд deploy-production.sh"
@@ -869,6 +1046,10 @@ main() {
     run_case "11. снимок Redis"    test_redis_snapshot_before_purge
     run_case "12. env в сборке"    test_build_rejects_absorbed_local_env
     run_case "13. перезапуск"      test_update_code_reexecs_after_change
+    run_case "14. откат при провале" test_failed_step_triggers_rollback
+    run_case "15. откат без рекурсии" test_rollback_does_not_reenter
+    run_case "16. пересоздание Caddy" test_start_services_recreates_caddy
+    run_case "17. состояние вне git" test_deploy_state_is_untracked
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"

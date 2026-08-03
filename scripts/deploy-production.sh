@@ -3,7 +3,14 @@
 # fancai - Production Deployment Script
 # Comprehensive production deployment with safety checks and rollback
 
-set -euo pipefail
+# `-E` (errtrace) обязателен, а не косметика. Без него ERR-trap НЕ наследуется
+# функциями, а `trap rollback ERR` вооружается внутри `main()` — то есть уже
+# внутри функции. Провал любого шага (`quiesce_writers`, `create_backup`,
+# `run_migrations`, `start_services`) завершал скрипт по `set -e`, НЕ вызывая
+# `rollback`: журнал обрывался на ошибке без единой его строки. Ровно это
+# случилось в третьей попытке выкатки 2026-08-05 и оставило писателей
+# остановленными. Проверяется стендом: test_deploy_production.sh.
+set -Eeuo pipefail
 
 # Аргументы запуска сохраняются здесь: `update_code` перезапускает скрипт
 # через `exec`, а внутри функции `$@` — это её собственные аргументы.
@@ -743,6 +750,14 @@ start_services() {
     # по имени, а не флагом.
     docker compose -f "$COMPOSE_FILE" up -d
 
+    # Caddy пересоздаётся БЕЗУСЛОВНО. `Caddyfile` смонтирован одиночным файлом,
+    # а не каталогом: после `git pull` на хосте появляется НОВЫЙ inode, тогда
+    # как контейнер продолжает держать старый. `up -d` при неизменном образе
+    # и конфиге compose ничего не пересоздаёт, поэтому правки маршрутов
+    # и allowlist'а применялись молча-никогда. Дешевле безусловный recreate
+    # одного контейнера, чем сравнение inode'ов.
+    docker compose -f "$COMPOSE_FILE" up -d --force-recreate caddy
+
     # Фронт — build-only job: дожидаемся завершения, чтобы его сообщения
     # не смешивались с проверками. Публикацию он не делает, см. выше.
     docker compose -f "$COMPOSE_FILE" wait frontend > /dev/null 2>&1 || true
@@ -823,6 +838,11 @@ verify_deployment() {
 # явной командой, после подтверждённо неудачной миграции: см.
 # `restore_database_manually` ниже и docs/operations/BACKUP_AND_RESTORE.md.
 rollback() {
+    # Первое действие — снять trap. С `errtrace` он действует и внутри функций,
+    # а в самом откате есть команды, способные упасть (`docker tag`, `docker run`,
+    # `up -d`) и два `return 1`. Без разоружения откат вызвал бы сам себя.
+    trap - ERR
+
     error "Deployment failed, rolling back application images..."
 
     if [[ ! -f ".last_image_tag" ]]; then
