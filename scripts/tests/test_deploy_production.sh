@@ -115,18 +115,67 @@ test_images_preserved_before_build() {
     COMPOSE_FILE="compose.yml"
     cd "$WORK" || return 1
 
+    # Работающие контейнеры есть: сохраняем ИХ образ, а не подвижный тег
     docker() {
         echo "$*" >> "$WORK/docker.log"
         case "$*" in
-            "image inspect"*) return 0 ;;
+            *"ps -q"*)     echo "container-id-$RANDOM" ;;
+            *inspect*Image*) echo "sha256:deadbeefcafe" ;;
             *) return 0 ;;
         esac
     }
 
     preserve_current_images > /dev/null 2>&1 || true
     local tagged
-    tagged=$(grep -c "^tag fancai-.*:latest fancai-.*:rollback-" "$WORK/docker.log")
-    check "сохранены все три образа" "3" "$tagged"
+    # `|| true`: при нуле совпадений `grep -c` возвращает 1, и под `set -e`
+    # из подключённого скрипта присваивание уронило бы стенд целиком —
+    # регрессия выглядела бы поломкой инструмента, а не падением теста.
+    tagged=$(grep -c "^tag sha256:deadbeefcafe fancai-.*:rollback-" "$WORK/docker.log" || true)
+    check "сохранён образ работающего контейнера" "3" "$tagged"
+    check "подвижный тег :latest источником не берётся" "0" \
+        "$(grep -c "^tag fancai-.*:latest " "$WORK/docker.log")"
+
+    # Контейнера нет, но тег есть — запасной путь
+    : > "$WORK/docker.log"
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *"ps -q"*)        : ;;
+            *"image inspect"*) return 0 ;;
+            *) return 0 ;;
+        esac
+    }
+    preserve_current_images > /dev/null 2>&1 || true
+    check "без контейнера берётся тег" "3" \
+        "$(grep -c "^tag fancai-.*:latest fancai-.*:rollback-" "$WORK/docker.log")"
+
+    # Ни контейнера, ни тега — предупреждение, не падение
+    : > "$WORK/docker.log"
+    : > "$WORK/errors.log"
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *"ps -q"*)         : ;;
+            *"image inspect"*) return 1 ;;
+            *) return 0 ;;
+        esac
+    }
+    local rc=0
+    preserve_current_images > /dev/null 2>&1 || rc=$?
+    check "отсутствие источника не роняет выкатку" "0" "$rc"
+    check "и ничего не тегируется" "0" "$(grep -c "^tag " "$WORK/docker.log")"
+
+    # Возвращаем рабочий стаб для проверок ниже
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *"ps -q"*)       echo "cid" ;;
+            *inspect*Image*) echo "sha256:deadbeefcafe" ;;
+            *) return 0 ;;
+        esac
+    }
+    : > "$WORK/docker.log"
+    preserve_current_images > /dev/null 2>&1 || true
     check "список записан рядом с бэкапом" "3" "$(wc -l < "$BACKUP_DIR/images.txt" | tr -d ' ')"
 
     : > "$WORK/docker.log"

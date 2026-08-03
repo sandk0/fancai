@@ -339,13 +339,45 @@ preserve_current_images() {
     timestamp=$(date +%Y%m%d_%H%M%S)
     : > "$BACKUP_DIR/images.txt"
 
+    # Сохраняется образ РАБОТАЮЩЕГО контейнера, а не то, на что сейчас
+    # указывает тег `:latest`. Тег — подвижная ссылка: после `build`
+    # он станет новым образом, и откат «к latest» вернул бы ровно то,
+    # от чего откатываются. Сегодня на проде тег и контейнер совпадают
+    # (проверено), но полагаться на это незачем.
+    #
+    # Соответствие сервисов образам: `fancai-frontend:latest` на проде
+    # вообще отсутствует, и это нормально — SPA откатывается не образом,
+    # а архивом тома, см. `backup_frontend_artifact`.
+    local image service source_id
     for image in "${DEPLOY_IMAGES[@]}"; do
-        if docker image inspect "$image:latest" &> /dev/null; then
-            docker tag "$image:latest" "$image:rollback-$timestamp"
+        case "$image" in
+            fancai-backend)  service=backend ;;
+            fancai-celery)   service=celery-worker ;;
+            fancai-frontend) service=frontend ;;
+            *)               service="" ;;
+        esac
+
+        source_id=""
+        if [[ -n "$service" ]]; then
+            local cid
+            cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null | head -1)
+            if [[ -n "$cid" ]]; then
+                source_id=$(docker inspect "$cid" --format '{{.Image}}' 2>/dev/null || true)
+            fi
+        fi
+
+        # Запасной путь: контейнера нет (например, фронт уже завершился
+        # и удалён), но тег существует.
+        if [[ -z "$source_id" ]] && docker image inspect "$image:latest" &> /dev/null; then
+            source_id="$image:latest"
+        fi
+
+        if [[ -n "$source_id" ]]; then
+            docker tag "$source_id" "$image:rollback-$timestamp"
             echo "$image:rollback-$timestamp" >> "$BACKUP_DIR/images.txt"
             info "Preserved $image:rollback-$timestamp"
         else
-            warning "$image:latest not found — nothing to preserve"
+            warning "$image: ни контейнера, ни тега — откатывать нечего"
         fi
     done
 
