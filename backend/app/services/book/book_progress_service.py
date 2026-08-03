@@ -233,13 +233,22 @@ class BookProgressService:
             )
             .on_conflict_do_nothing(index_elements=["user_id", "book_id"])
         )
+        # FOR UPDATE обязателен, а не «на всякий случай». Дальше идёт
+        # read-modify-write по `max_chapter_reached`, а поле монотонное:
+        # на нём держится спойлерный гейт глоссария. Без блокировки два
+        # одновременных сохранения читают одно и то же старое значение,
+        # и тот, чей commit позже, ЗАНИЖАЕТ максимум. Блокировка заодно
+        # сериализует проигравшего гонку вставки: он ждёт коммита
+        # победителя, а не читает несуществующую строку.
         result = await db.execute(
-            select(ReadingProgress).where(
+            select(ReadingProgress)
+            .where(
                 and_(
                     ReadingProgress.user_id == user_id,
                     ReadingProgress.book_id == book_id,
                 )
             )
+            .with_for_update()
         )
         progress = result.scalar_one()
 
