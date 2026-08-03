@@ -285,6 +285,7 @@ const LibraryPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('library.search_placeholder')}
+              aria-label={t('library.search_placeholder')}
               data-testid="book-search-input"
               className="w-full pl-12 pr-10 py-3 rounded-xl border-2 border-border bg-card text-foreground"
             />
@@ -350,6 +351,7 @@ const LibraryPage: React.FC = () => {
               </AnimatePresence>
             </div>
             <button
+              data-testid="filters-toggle"
               onClick={() => {
                 const next = !showFilters;
                 setShowFilters(next);

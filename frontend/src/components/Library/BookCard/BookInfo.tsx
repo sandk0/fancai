@@ -9,10 +9,13 @@ export function BookInfo({ book, processingState }: BookInfoProps) {
     <div className="mt-3 px-1">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground mb-1">
+          <h3
+            className="font-semibold text-sm leading-tight line-clamp-2 text-foreground mb-1"
+            data-testid="book-title"
+          >
             {book.title}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground line-clamp-1" data-testid="book-author">
             {book.author}
           </p>
         </div>

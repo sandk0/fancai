@@ -23,8 +23,17 @@ export function PageMeta({
   return (
     <Helmet>
       <title>{fullTitle}</title>
+      {/*
+        Единственный владелец `<meta name="description">` — этот компонент.
+        Статический тег из index.html удалён намеренно: react-helmet-async 3
+        на React 19 отдаёт хостинг тегов самому React, а тот не схлопывает
+        свой тег со статическим — в head оказывались два разных описания
+        (e2e ловил это strict mode violation'ом). Оставлять только
+        статический нельзя: он один на все маршруты и убивает пер-страничное
+        описание. PageMeta подключён на всех 16 страницах.
+      */}
       {description && <meta name="description" content={description} />}
-      
+
       {/* Open Graph */}
       <meta property="og:title" content={fullTitle} />
       {description && <meta property="og:description" content={description} />}

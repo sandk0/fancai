@@ -5,8 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>fancai - Read with AI-Generated Illustrations</title>
-  <meta name="description"
-    content="Transform your reading experience with AI-powered image generation from book descriptions. Upload EPUB and FB2 files and watch your stories come to life." />
+  <!-- `<meta name="description">` рендерит PageMeta: он один на маршрут
+       и должен быть пер-страничным. Статического тега здесь нет намеренно —
+       React 19 не схлопывает его с тегом Helmet, и в head оказывались два. -->
 
   <!-- CSP is set via Caddy HTTP header (Caddyfile) — single source of truth -->
 

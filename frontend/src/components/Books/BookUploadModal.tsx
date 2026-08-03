@@ -264,6 +264,7 @@ export const BookUploadModal: React.FC<BookUploadModalProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="upload-modal-title"
+          data-testid="upload-modal"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}

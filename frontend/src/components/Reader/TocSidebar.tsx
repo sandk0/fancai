@@ -320,7 +320,10 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
 
   // Shared inner content: tabs, search, chapter list, bookmarks, info
   const sidebarContent = (
-    <>
+    // data-testid на общей обёртке: панель рендерится двумя путями —
+    // MobilePanel на мобиле и слайд-ин на десктопе, — и адресовать её
+    // из e2e надо одинаково в обоих.
+    <div className="contents" data-testid="toc-sidebar">
       {/* Tabs */}
       <div className="flex border-b flex-shrink-0">
         {tabs.map((tab) => (
@@ -425,7 +428,7 @@ export const TocSidebar: React.FC<TocSidebarProps> = React.memo(function TocSide
 
         {currentTab === 'info' && metadata && <BookInfoContent metadata={metadata} />}
       </div>
-    </>
+    </div>
   );
 
   // Mobile: vaul bottom-sheet via MobilePanel

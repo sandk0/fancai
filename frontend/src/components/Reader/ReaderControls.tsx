@@ -91,6 +91,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => onThemeChange('light')}
+            data-testid="theme-light"
             className={cn(
               'px-3 py-2 min-h-[44px] rounded-md flex items-center justify-center gap-1.5',
               theme === 'light' ? 'bg-primary text-primary-foreground' : 'bg-card border'
@@ -101,6 +102,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
           </button>
           <button
             onClick={() => onThemeChange('dark')}
+            data-testid="theme-dark"
             className={cn(
               'px-3 py-2 min-h-[44px] rounded-md flex items-center justify-center gap-1.5',
               theme === 'dark' ? 'bg-primary text-primary-foreground' : 'bg-card border'
@@ -111,6 +113,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
           </button>
           <button
             onClick={() => onThemeChange('sepia')}
+            data-testid="theme-sepia"
             className={cn(
               'px-3 py-2 min-h-[44px] rounded-md flex items-center justify-center gap-1.5',
               theme === 'sepia' ? 'bg-primary text-primary-foreground' : 'bg-card border'
@@ -128,6 +131,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
         <div className="flex items-center gap-3">
           <button
             onClick={onFontSizeDecrease}
+            data-testid="font-size-decrease"
             disabled={fontSize <= 75}
             className="h-11 w-11 border rounded-sm flex items-center justify-center"
             aria-label={t('reader.settings.decrease_font_size')}
@@ -137,6 +141,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = React.memo(function
           <span className="flex-1 text-center font-bold">{fontSize}%</span>
           <button
             onClick={onFontSizeIncrease}
+            data-testid="font-size-increase"
             disabled={fontSize >= 200}
             className="h-11 w-11 border rounded-sm flex items-center justify-center"
             aria-label={t('reader.settings.increase_font_size')}
