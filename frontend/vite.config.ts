@@ -78,8 +78,15 @@ export default defineConfig(({ command }) => ({
       // В dev алиас не ставим — он заставляет оптимизатор зависимостей
       // затягивать файл из `src/` в пре-бандл `epubjs` и перегенерировать
       // его на каждое изменение исходников («Outdated Optimize Dep», 504).
+      // То же для `localforage`: он приезжает только через
+      // `epubjs/src/store.js` ради офлайн-хранилища epub.js, которым
+      // приложение не пользуется — кэш глав сделан на Dexie
+      // (см. src/shims/localforage.ts).
       ...(command === 'build'
-        ? { '@xmldom/xmldom': path.resolve(__dirname, './src/shims/xmldom.ts') }
+        ? {
+            '@xmldom/xmldom': path.resolve(__dirname, './src/shims/xmldom.ts'),
+            localforage: path.resolve(__dirname, './src/shims/localforage.ts'),
+          }
         : {}),
     },
   },
