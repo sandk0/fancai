@@ -13,11 +13,21 @@ when one or none was required». Прогресс книги ломался бе
 Найдено живым прогоном e2e 2026-08-05.
 
 Upgrade схлопывает существующие дубли в одну строку и ставит ограничение.
-Победителем выбирается строка с максимальным `last_read_at`, при равенстве —
-с максимальным `current_position`: это самый свежий и самый дальний прогресс,
-терять его нельзя. `max_chapter_reached` берётся максимальным по всей группе —
-поле монотонное и держит спойлерный гейт, занижать его нельзя даже ради
-свежести.
+Победителем выбирается самый свежий по `last_read_at`, а при равной дате —
+самый дальний прогресс. «Дальше» считается по паре `(current_chapter,
+current_position)` именно в таком порядке: `current_position` — это процент
+внутри главы (`ReadingProgress.current_position`, «Позиция в главе»),
+а не глобальная позиция по книге. Сортировка по одной позиции отдала бы
+победу строке «глава 1, 90 %» против «глава 10, 20 %» и потеряла бы
+более дальний прогресс. `current_chapter` пишется в обеих ветках сервиса
+(`book_progress_service.py:227` и `:304`), поэтому годится как первый ключ.
+
+`max_chapter_reached` берётся максимальным по всей группе — поле монотонное
+и держит спойлерный гейт, занижать его нельзя даже ради свежести.
+
+`NULLS LAST` в сортировке и `COALESCE` в шаге 1 недостижимы по данным:
+`last_read_at` и `max_chapter_reached` объявлены NOT NULL с дефолтами.
+Оставлены защитой на случай, если ограничение однажды ослабят.
 
 Revision ID: g1h2i3j4k5l6
 Revises: e5f6a7b8c9d0
@@ -38,8 +48,7 @@ CONSTRAINT = "uq_reading_progress_user_book"
 def upgrade() -> None:
     # 1. Поднимаем max_chapter_reached победителя до максимума по группе:
     #    поле монотонное, от него зависит спойлерный гейт глоссария.
-    op.execute(
-        """
+    op.execute("""
         WITH ranked AS (
             SELECT
                 id,
@@ -51,6 +60,7 @@ def upgrade() -> None:
                 ROW_NUMBER() OVER (
                     PARTITION BY user_id, book_id
                     ORDER BY last_read_at DESC NULLS LAST,
+                             current_chapter DESC,
                              current_position DESC NULLS LAST,
                              id
                 ) AS rn
@@ -60,12 +70,10 @@ def upgrade() -> None:
         SET max_chapter_reached = ranked.group_max_chapter
         FROM ranked
         WHERE rp.id = ranked.id AND ranked.rn = 1
-        """
-    )
+        """)
 
     # 2. Удаляем проигравшие дубли.
-    op.execute(
-        """
+    op.execute("""
         DELETE FROM reading_progress
         WHERE id IN (
             SELECT id FROM (
@@ -74,6 +82,7 @@ def upgrade() -> None:
                     ROW_NUMBER() OVER (
                         PARTITION BY user_id, book_id
                         ORDER BY last_read_at DESC NULLS LAST,
+                                 current_chapter DESC,
                                  current_position DESC NULLS LAST,
                                  id
                     ) AS rn
@@ -81,13 +90,10 @@ def upgrade() -> None:
             ) dups
             WHERE rn > 1
         )
-        """
-    )
+        """)
 
     # 3. Ставим ограничение, ради которого всё затевалось.
-    op.create_unique_constraint(
-        CONSTRAINT, "reading_progress", ["user_id", "book_id"]
-    )
+    op.create_unique_constraint(CONSTRAINT, "reading_progress", ["user_id", "book_id"])
 
 
 def downgrade() -> None:
