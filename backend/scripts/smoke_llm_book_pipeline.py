@@ -463,9 +463,10 @@ async def run_modes(modes: list) -> int:
 
 
 # Ключи, любой из которых способен превратить smoke в платный прогон.
-# `OPENROUTER_API_KEY` — не «на всякий случай»: `ConsistencyManager`
-# зовёт `get_openrouter_client()` напрямую, минуя `AI_PROVIDER`, поэтому
-# в `failing` reduce уходит в OpenRouter даже когда провайдер — Gemini.
+# Перечислены все три: `failing` не заглушает пост-фазы, и любая из них
+# уйдёт к тому провайдеру, который выберет `AI_PROVIDER`. Раньше причина
+# была строже — `ConsistencyManager` ходил в OpenRouter мимо флага; это
+# исправлено 2026-08-05, но список ключей от этого не сузился.
 PAID_AI_KEYS = (
     "OPENROUTER_API_KEY",
     "GEMINI_API_KEY",
@@ -490,8 +491,7 @@ def _assert_no_live_ai_keys() -> None:
     blanks = " ".join(f"-e {name}=" for name in live)
     raise SystemExit(
         f"ОТКАЗ: в окружении задан платный ключ ({joined}).\n"
-        f"Режим `failing` не заглушает пост-фазы, и reduce уходит в OpenRouter "
-        f"напрямую — прогон стал бы платным.\n"
+        f"Режим `failing` не заглушает пост-фазы — прогон стал бы платным.\n"
         f"Запускайте так: docker exec {blanks} fancai_backend_dev "
         f"python scripts/smoke_llm_book_pipeline.py all"
     )

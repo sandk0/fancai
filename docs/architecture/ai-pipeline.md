@@ -26,7 +26,7 @@ GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
 | Entity synthesis, когда вызывается | `EntitySynthesisService` → `get_ai_provider()` | Gemini / Vertex |
 | Entity deduplication | `EntityDeduplicationService` → `get_ai_provider()` | Gemini / Vertex |
 | Перевод описаний RU→EN | `PromptTranslator` → `get_ai_provider()` | Gemini / Vertex |
-| Consistency reduce/dedup | `ConsistencyManager` → прямой `get_openrouter_client()` | OpenRouter fallback models |
+| Consistency reduce/dedup | `ConsistencyManager` → `get_ai_provider()` | активный провайдер из `AI_PROVIDER` |
 | Генерация изображения | `ImagenService` → `NanoBananaGenerator` → `get_gemini_client()` | Gemini 3.1 Flash Image / Vertex |
 
 Это не автоматический Gemini → OpenRouter fallback. Это разные маршруты для разных шагов.
@@ -103,7 +103,7 @@ flowchart TD
 
 ### Consistency reduce
 
-`ConsistencyManager._single_reduce_pass()` вызывает `get_openrouter_client().generate_text`
+`ConsistencyManager._single_reduce_pass()` вызывает `get_ai_provider().generate_text`
 напрямую, минуя factory. Развилка по `USE_MODAL_PIPELINE` удалена вместе с Modal; остался
 безусловный OpenRouter-путь.
 
