@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+# Аргументы запуска сохраняются здесь: `update_code` перезапускает скрипт
+# через `exec`, а внутри функции `$@` — это её собственные аргументы.
+ORIGINAL_ARGS=("$@")
+
 # Script configuration
 PROJECT_NAME="fancai"
 COMPOSE_FILE="docker-compose.prod.yml"
@@ -957,10 +961,31 @@ update_code() {
 
     if [[ "$before" == "$after" ]]; then
         info "Already at $after — nothing to update"
-    else
-        success "Updated $before -> $after"
-        git --no-pager log --oneline "$before..$after" | head -20
+        return 0
     fi
+
+    success "Updated $before -> $after"
+    git --no-pager log --oneline "$before..$after" | head -20
+
+    # Продолжать в текущем процессе НЕЛЬЗЯ: `git merge` только что заменил
+    # и этот файл тоже, а bash читает скрипт по мере исполнения, по байтовым
+    # смещениям. Проверено экспериментом: скрипт, переписавший себя на ходу,
+    # молча прекращает исполнение с кодом 0 — строки после перезаписи
+    # не выполняются вовсе. Для выкатки это означало бы «успешный» прогон,
+    # который ничего не сделал.
+    #
+    # Маркер одноразовый и переживает exec через окружение: после
+    # перезапуска HEAD уже совпадёт с origin, ветка `before == after`
+    # вернёт управление, и зацикливания не будет. Но маркер оставлен
+    # как явная страховка от гонки, если origin успеет уехать.
+    if [[ -n "${DEPLOY_REEXEC:-}" ]]; then
+        warning "Скрипт уже перезапускался — продолжаю в текущем процессе"
+        return 0
+    fi
+
+    info "Перезапускаю обновлённый скрипт..."
+    export DEPLOY_REEXEC=1
+    exec bash "$0" ${ORIGINAL_ARGS[@]+"${ORIGINAL_ARGS[@]}"}
 }
 
 # Main deployment function

@@ -720,6 +720,78 @@ test_build_rejects_absorbed_local_env() {
     check "пропавший относительный baseURL отвергается" "1" "$rc"
 }
 
+# --- 13. Обновившийся скрипт перезапускает сам себя ----------------------
+#
+# `git merge` заменяет и сам `deploy-production.sh`. Bash читает скрипт
+# по мере исполнения, по байтовым смещениям: проверено экспериментом —
+# переписавший себя скрипт МОЛЧА прекращает работу с кодом 0. Для выкатки
+# это «успешный» прогон, который ничего не сделал. Поэтому после сдвига
+# HEAD обязателен `exec`, и обязателен ДО первого изменения прода.
+
+test_update_code_reexecs_after_change() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    cd "$WORK" || return 1
+
+    # HEAD сдвинулся — обязан быть exec
+    : > "$WORK/exec.log"
+    # Счётчик файловый: `$(...)` — подоболочка, присваивание в ней теряется,
+    # и обе выдачи HEAD оказались бы одинаковыми.
+    echo 0 > "$WORK/head_seq"
+    git() {
+        case "$*" in
+            "rev-parse --git-dir") echo ".git" ;;
+            "status --porcelain --untracked-files=no") : ;;
+            "ls-files --others --exclude-standard -- backend frontend") : ;;
+            "ls-files --others --exclude-standard") : ;;
+            "rev-parse --short HEAD")
+                local n; n=$(cat "$WORK/head_seq")
+                echo $((n + 1)) > "$WORK/head_seq"
+                if [[ "$n" -eq 0 ]]; then echo "aaaaaaa"; else echo "bbbbbbb"; fi ;;
+            *) return 0 ;;
+        esac
+    }
+    exec() { echo "exec $*" >> "$WORK/exec.log"; }
+    unset DEPLOY_REEXEC
+    update_code > /dev/null 2>&1 || true
+    check "сдвиг HEAD вызывает перезапуск" "1" "$(grep -c '^exec bash' "$WORK/exec.log")"
+
+    # HEAD не менялся — перезапуска быть не должно
+    : > "$WORK/exec.log"
+    git() {
+        case "$*" in
+            "rev-parse --git-dir") echo ".git" ;;
+            "status --porcelain --untracked-files=no") : ;;
+            "ls-files --others --exclude-standard"*) : ;;
+            "rev-parse --short HEAD") echo "aaaaaaa" ;;
+            *) return 0 ;;
+        esac
+    }
+    update_code > /dev/null 2>&1 || true
+    check "без изменений перезапуска нет" "0" "$(grep -c '^exec' "$WORK/exec.log")"
+
+    # Повторный заход с маркером — не зацикливаемся
+    : > "$WORK/exec.log"
+    echo 0 > "$WORK/head_seq"
+    git() {
+        case "$*" in
+            "rev-parse --git-dir") echo ".git" ;;
+            "status --porcelain --untracked-files=no") : ;;
+            "ls-files --others --exclude-standard"*) : ;;
+            "rev-parse --short HEAD")
+                local n; n=$(cat "$WORK/head_seq")
+                echo $((n + 1)) > "$WORK/head_seq"
+                if [[ "$n" -eq 0 ]]; then echo "aaaaaaa"; else echo "bbbbbbb"; fi ;;
+            *) return 0 ;;
+        esac
+    }
+    DEPLOY_REEXEC=1 update_code > /dev/null 2>&1 || true
+    check "с маркером повторного exec нет" "0" "$(grep -c '^exec' "$WORK/exec.log")"
+
+    unset -f exec
+}
+
 main() {
     prepare_sourceable
     echo "Стенд deploy-production.sh"
@@ -735,6 +807,7 @@ main() {
     run_case "10. чужие контейнеры" test_no_step_touches_foreign_containers
     run_case "11. снимок Redis"    test_redis_snapshot_before_purge
     run_case "12. env в сборке"    test_build_rejects_absorbed_local_env
+    run_case "13. перезапуск"      test_update_code_reexecs_after_change
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"
