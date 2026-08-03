@@ -64,7 +64,7 @@ fancai.ru {
     }
 }
 
-# Мониторинг-дашборд — basicauth + reverse_proxy к 3 сервисам (Uptime Kuma — отдельный поддомен)
+# Мониторинг-дашборд — basicauth + reverse_proxy к 4 сервисам (Uptime Kuma — отдельный поддомен)
 monitor.fancai.ru {
     encode zstd gzip
 
@@ -85,6 +85,14 @@ monitor.fancai.ru {
     handle /dozzle/* {
         uri strip_prefix /dozzle
         reverse_proxy fancai_dozzle:8080
+    }
+
+    # Flower остаётся до отдельного решения владельца (2026-08-05).
+    # Контейнер живёт в docker-compose.monitoring.yml и работает на проде;
+    # маршрут убирать нельзя, иначе выкатка молча отрежет UI очередей.
+    handle /flower/* {
+        uri strip_prefix /flower
+        reverse_proxy fancai_flower:5555
     }
 
     handle {

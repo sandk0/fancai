@@ -65,19 +65,19 @@ class TestBatchedReduceSmallList:
         entities = [_make_mock_entity(f"Entity_{i}") for i in range(10)]
         mock_db = _make_db_returning_entities(entities)
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps({"merge_operations": [], "delete_operations": []})
         )
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
-        mock_openrouter.generate_text.assert_called_once()
+        mock_provider.generate_text.assert_called_once()
 
 
 class TestBatchedReduceLargeList:
@@ -89,20 +89,20 @@ class TestBatchedReduceLargeList:
         entities = [_make_mock_entity(f"Entity_{i}") for i in range(200)]
         mock_db = _make_db_returning_entities(entities)
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps({"merge_operations": [], "delete_operations": []})
         )
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
         # 200 entities / 50 batch size = 4 batches
-        assert mock_openrouter.generate_text.call_count >= 4
+        assert mock_provider.generate_text.call_count >= 4
 
 
 class TestBatchedReduceEmptyList:
@@ -113,17 +113,17 @@ class TestBatchedReduceEmptyList:
         """0 сущностей — generate_text не вызывается."""
         mock_db = _make_db_returning_entities([])
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock()
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock()
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
-        mock_openrouter.generate_text.assert_not_called()
+        mock_provider.generate_text.assert_not_called()
 
 
 class TestBatchedReduceMergeOps:
@@ -141,8 +141,8 @@ class TestBatchedReduceMergeOps:
         ]
         mock_db = _make_db_returning_entities(entities)
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps(
                 {
                     "merge_operations": [
@@ -160,8 +160,8 @@ class TestBatchedReduceMergeOps:
         )
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
@@ -181,12 +181,12 @@ class TestBatchedReduceInvalidJSON:
         entities = [_make_mock_entity("Test Entity")]
         mock_db = _make_db_returning_entities(entities)
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(return_value="NOT VALID JSON {{{}")
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(return_value="NOT VALID JSON {{{}")
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
@@ -208,14 +208,14 @@ class TestBatchedReduceMaxDepth:
         mock_db = _make_db_returning_entities(entities)
 
         # Return empty operations — list doesn't shrink
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps({"merge_operations": [], "delete_operations": []})
         )
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
@@ -224,7 +224,7 @@ class TestBatchedReduceMaxDepth:
         # max_depth=2 means at most 2 * 4 = 8 calls (if list doesn't shrink, loop breaks)
         # But with the no-shrink break, it should stop after the first round (4 calls)
         # because len(entities) >= old_count → break
-        assert mock_openrouter.generate_text.call_count <= 8
+        assert mock_provider.generate_text.call_count <= 8
 
 
 class TestBatchedReduceDeleteOps:
@@ -240,8 +240,8 @@ class TestBatchedReduceDeleteOps:
         ]
         mock_db = _make_db_returning_entities(entities)
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps(
                 {
                     "merge_operations": [],
@@ -251,8 +251,8 @@ class TestBatchedReduceDeleteOps:
         )
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")

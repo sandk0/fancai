@@ -61,8 +61,14 @@ class TestConsistencyManagerOpenRouterMigration:
             "from google.genai" not in content
         ), "consistency_manager.py не должен импортировать из google.genai"
 
-    def test_optimize_book_entities_uses_openrouter(self):
-        """consistency_manager.py использует openrouter_client для LLM-вызовов."""
+    def test_optimize_book_entities_uses_provider_factory(self):
+        """LLM-вызовы идут через фабрику, а не мимо неё в OpenRouter.
+
+        Раньше здесь утверждалось обратное — что в исходнике обязан быть
+        `get_openrouter_client`. Это и было закреплением дефекта: фаза
+        игнорировала `AI_PROVIDER`, и на проде с `AI_PROVIDER=gemini`
+        reduce всё равно уходил в OpenRouter.
+        """
         source = (
             pathlib.Path(__file__).parent.parent.parent
             / "app"
@@ -71,17 +77,17 @@ class TestConsistencyManagerOpenRouterMigration:
         )
         content = source.read_text()
         assert (
-            "get_openrouter_client" in content
-        ), "consistency_manager.py должен использовать get_openrouter_client()"
+            "get_openrouter_client" not in content
+        ), "consistency_manager.py не должен ходить в OpenRouter мимо фабрики"
         assert (
-            "generate_text" in content
-        ), "consistency_manager.py должен вызывать generate_text()"
+            "get_ai_provider" in content
+        ), "consistency_manager.py должен брать провайдера через get_ai_provider()"
 
     @pytest.mark.asyncio
     async def test_optimize_book_entities_calls_generate_text(self):
-        """optimize_book_entities вызывает openrouter_client.generate_text."""
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        """optimize_book_entities вызывает generate_text у провайдера из фабрики."""
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps(
                 {
                     "merge_operations": [],
@@ -102,8 +108,8 @@ class TestConsistencyManagerOpenRouterMigration:
         mock_db.rollback = AsyncMock()
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
@@ -120,8 +126,8 @@ class TestConsistencyManagerOpenRouterMigration:
         mock_entity.importance = 8
         mock_entity.visual_summary = "Мальчик в очках"
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps(
                 {
                     "merge_operations": [],
@@ -141,14 +147,14 @@ class TestConsistencyManagerOpenRouterMigration:
         mock_db.rollback = AsyncMock()
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")
 
-        mock_openrouter.generate_text.assert_called_once()
-        call_args = mock_openrouter.generate_text.call_args
+        mock_provider.generate_text.assert_called_once()
+        call_args = mock_provider.generate_text.call_args
         prompt_arg = call_args.kwargs.get("prompt") or (
             call_args.args[0] if call_args.args else ""
         )
@@ -164,8 +170,8 @@ class TestConsistencyManagerOpenRouterMigration:
         mock_entity.importance = 10
         mock_entity.visual_summary = "Тёмный маг без носа"
 
-        mock_openrouter = MagicMock()
-        mock_openrouter.generate_text = AsyncMock(
+        mock_provider = MagicMock()
+        mock_provider.generate_text = AsyncMock(
             return_value=json.dumps(
                 {
                     "merge_operations": [],
@@ -185,8 +191,8 @@ class TestConsistencyManagerOpenRouterMigration:
         mock_db.rollback = AsyncMock()
 
         with patch(
-            "app.services.consistency_manager.get_openrouter_client",
-            return_value=mock_openrouter,
+            "app.services.consistency_manager.get_ai_provider",
+            return_value=mock_provider,
         ):
             manager = ConsistencyManager(db=mock_db)
             await manager.optimize_book_entities("test-book-id")

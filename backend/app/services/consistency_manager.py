@@ -25,7 +25,7 @@ from app.schemas.extraction import (
 )
 from app.services.illustration_service import get_illustration_service
 from app.core.json_utils import parse_json_safe
-from app.core.openrouter_client import get_openrouter_client
+from app.core.ai_provider_factory import get_ai_provider
 import random
 
 logger = logging.getLogger(__name__)
@@ -610,8 +610,12 @@ CRITICAL RULES:
 - ALWAYS preserve chapter information for spoiler protection
 """
 
-        openrouter = get_openrouter_client()
-        raw_text = await openrouter.generate_text(
+        # Через фабрику, а не напрямую в OpenRouter: этот вызов годами
+        # игнорировал `AI_PROVIDER`, и на проде с `AI_PROVIDER=gemini`
+        # reduce-фаза всё равно уходила в OpenRouter — оплачивались оба
+        # провайдера сразу. Проверено на живом проде 2026-08-05.
+        provider = get_ai_provider()
+        raw_text = await provider.generate_text(
             prompt=REDUCE_PROMPT,
             system_prompt="Respond ONLY with valid JSON, no markdown.",
         )
