@@ -17,7 +17,7 @@ export const testUsers = {
   regular: {
     email: 'test.user@fancai.ru',
     username: 'testuser',
-    password: 'TestPassword123!',
+    password: 'E2eFixture!Pw7',
     firstName: 'Test',
     lastName: 'User',
   } as TestUser,
@@ -30,24 +30,38 @@ export const testUsers = {
     lastName: 'User',
   } as TestUser,
 
-  newUser: {
-    email: `test.${Date.now()}@fancai.ru`,
-    username: `testuser${Date.now()}`,
-    password: 'NewUserPass123!',
-    firstName: 'New',
-    lastName: 'User',
-  } as TestUser,
+  /**
+   * Аккаунт, который регистрируют сами тесты. Живёт в пространстве имён
+   * прогона, поэтому globalTeardown узнаёт его по имени и удаляет по ID.
+   */
+  get newUser(): TestUser {
+    return generateTestUser('new');
+  },
 };
 
 /**
- * Generate a unique test user
+ * Generate a unique test user inside the current run namespace.
+ *
+ * Пространство имён прогона — `e2e-run-<E2E_RUN_ID>.`; переменную выставляет
+ * globalSetup. Всё, что тесты регистрируют через UI, обязано попасть сюда:
+ * по этому префиксу `backend/scripts/e2e_fixture.py teardown` находит свои
+ * аккаунты и удаляет их по ID — вместо разности снимков БД, которая снесла
+ * бы и параллельную запись владельца.
  */
 export function generateTestUser(prefix = 'testuser'): TestUser {
+  const runId = process.env.E2E_RUN_ID;
+  if (!runId) {
+    throw new Error(
+      'E2E_RUN_ID не задан. Пользователей можно создавать только внутри ' +
+        'пространства имён прогона — иначе globalTeardown не сможет их убрать. ' +
+        'Проверьте, что globalSetup отработал.'
+    );
+  }
   const timestamp = Date.now();
   return {
-    email: `${prefix}.${timestamp}@fancai.ru`,
+    email: `e2e-run-${runId}.${prefix}-${timestamp}@fancai.ru`,
     username: `${prefix}${timestamp}`,
-    password: 'TestPassword123!',
+    password: 'E2eFixture!Pw7',
     firstName: 'Test',
     lastName: 'User',
   };

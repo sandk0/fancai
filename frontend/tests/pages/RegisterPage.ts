@@ -40,9 +40,15 @@ export class RegisterPage extends BasePage {
     await this.fill(this.passwordInput, user.password);
     await this.fill(this.confirmPasswordInput, user.password);
     // Согласие с условиями обязательно — без него форма не отправится.
-    // `force`: сам input — sr-only (визуально его заменяет стилизованный
-    // peer-элемент), поэтому обычная проверка видимости не проходит.
-    await this.page.locator(this.termsCheckbox).check({ force: true });
+    // Кликать нужно по обёртке-label, а не по самому input: он `sr-only`,
+    // нулевого размера, и `check({ force: true })` по нему состояние
+    // чекбокса не меняет («Clicking the checkbox did not change its state»).
+    await this.page.locator(this.termsCheckbox).locator('xpath=ancestor::label[1]').click();
+    if (!(await this.page.locator(this.termsCheckbox).isChecked())) {
+      throw new Error(
+        'register-terms не отметился кликом по обёртке-label — изменилась разметка Checkbox'
+      );
+    }
     await this.click(this.submitButton);
   }
 

@@ -8,6 +8,14 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
 
+  /**
+   * Обратимая фикстура среды: аккаунты и книга с разобранными главами.
+   * Провенанс сохраняется, удаляется только созданное этим прогоном
+   * (`backend/scripts/e2e_fixture.py`), провал уборки красит прогон.
+   */
+  globalSetup: './tests/global-setup.ts',
+  globalTeardown: './tests/global-teardown.ts',
+
   /* Run tests in files in parallel */
   fullyParallel: true,
 
@@ -17,8 +25,13 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
 
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /**
+   * Число слотов задано явно, а не оставлено на усмотрение Playwright:
+   * globalSetup создаёт по аккаунту и книге на слот, и число обязано быть
+   * воспроизводимым. Четыре — потолок, при котором один dev-бэкенд
+   * с concurrency=1 ещё не становится узким местом.
+   */
+  workers: process.env.CI ? 1 : 4,
 
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
@@ -86,8 +99,12 @@ export default defineConfig({
     },
   ],
 
-  /* Global timeout for each test */
-  timeout: 60000,
+  /**
+   * Таймаут теста. 60 секунд не хватало: Playwright относит установку
+   * worker-фикстуры (вход в приложение) на счёт первого же теста, а рендер
+   * реального EPUB в читалке занимает десятки секунд сам по себе.
+   */
+  timeout: 120000,
 
   /* Expect timeout */
   expect: {

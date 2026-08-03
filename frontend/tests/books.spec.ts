@@ -2,373 +2,230 @@
 /**
  * Book Management E2E Tests
  *
- * Tests cover:
- * 1. Upload EPUB file
- * 2. Upload FB2 file
- * 3. View books library
- * 4. Delete book
- * 5. Book parsing progress
- * 6. Book metadata display
- * 7. Book search/filter
- * 8. Book pagination
+ * Покрытие прежнее: загрузка EPUB и FB2, отказ на чужом формате, индикация
+ * загрузки, список библиотеки, удаление с подтверждением, разбор книги,
+ * поиск, фильтр по жанру, метаданные.
+ *
+ * Что изменилось после сверки с приложением:
+ *
+ * - **Спека больше не трогает книгу фикстуры.** Раньше «should successfully
+ *   delete a book» удаляла первую карточку — то есть ровно ту книгу, на
+ *   которой стоят спеки читалки и картинок, вместе с файлом на диске.
+ *   Каждый разрушающий тест теперь загружает свою книгу и удаляет её же.
+ * - `upload-success` / `upload-error` / `upload-progress` в приложении нет:
+ *   обратная связь по загрузке идёт тостами `sonner`. Проверяется наблюдаемый
+ *   результат — карточка появилась либо не появилась, и виден тост-ошибка.
+ * - Атрибута `data-parsing-status` тоже нет. Готовность книги видна
+ *   в `GET /api/v1/books/{id}`, по нему и проверяется.
  */
 
-import { test, expect } from '@playwright/test';
-import { LoginPage, LibraryPage } from './pages';
-import { testUsers } from './fixtures';
+import { test, expect } from './fixtures/worker-user';
+import { LibraryPage } from './pages';
 import path from 'path';
 
-// Setup: Login before each test
+const SAMPLE_EPUB = path.join(process.cwd(), 'tests/fixtures/files/sample.epub');
+const SAMPLE_FB2 = path.join(process.cwd(), 'tests/fixtures/files/sample.fb2');
+const INVALID_FILE = path.join(process.cwd(), 'tests/fixtures/files/invalid.txt');
+
 test.beforeEach(async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  await loginPage.navigate();
-  await loginPage.login(testUsers.regular.email, testUsers.regular.password);
-  await page.waitForURL('/library', { timeout: 10000 });
+  // Сессия слота уже в контексте (worker-фикстура storageState): вход
+  // в каждом тесте упирался бы в лимит 10 логинов в минуту на IP.
+  await page.goto('/library');
 });
 
 test.describe('Book Management', () => {
   test.describe('Book Upload', () => {
     test('should successfully upload EPUB file', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
-      // Get initial book count
       await libraryPage.waitForBooksToLoad();
       const initialCount = await libraryPage.getBookCount();
 
-      // Upload EPUB file
-      const epubPath = path.join(process.cwd(), 'tests/fixtures/files/sample.epub');
-      await libraryPage.uploadBook(epubPath);
+      const uploaded = await libraryPage.uploadBook(SAMPLE_EPUB);
 
-      // Verify book was added
-      const newCount = await libraryPage.getBookCount();
-      expect(newCount).toBe(initialCount + 1);
+      expect(await libraryPage.getBookCount()).toBe(initialCount + 1);
+      await expect(libraryPage.getBookCard(uploaded)).toBeVisible();
 
-      // Verify upload success message or indicator
-      const hasSuccessIndicator = await page.isVisible('[data-testid="upload-success"]');
-      expect(hasSuccessIndicator).toBe(true);
+      // Убираем за собой: книга принадлежит этому тесту, а не фикстуре.
+      await libraryPage.deleteBook(uploaded);
     });
 
     test('should successfully upload FB2 file', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
       const initialCount = await libraryPage.getBookCount();
 
-      // Upload FB2 file
-      const fb2Path = path.join(process.cwd(), 'tests/fixtures/files/sample.fb2');
-      await libraryPage.uploadBook(fb2Path);
+      const uploaded = await libraryPage.uploadBook(SAMPLE_FB2);
 
-      // Verify book was added
-      const newCount = await libraryPage.getBookCount();
-      expect(newCount).toBe(initialCount + 1);
+      expect(await libraryPage.getBookCount()).toBe(initialCount + 1);
+      await libraryPage.deleteBook(uploaded);
     });
 
     test('should show error for invalid file type', async ({ page }) => {
-      // Try to upload invalid file (e.g., .txt)
-      await page.click('[data-testid="upload-book-button"]');
+      const libraryPage = new LibraryPage(page);
+      await libraryPage.waitForBooksToLoad();
+      const initialCount = await libraryPage.getBookCount();
 
-      const fileInput = await page.locator('input[type="file"]');
-      const invalidFilePath = path.join(process.cwd(), 'tests/fixtures/files/invalid.txt');
+      await libraryPage.openUploadModal();
+      await page.locator('input[type="file"]').setInputFiles(INVALID_FILE);
 
-      await fileInput.setInputFiles(invalidFilePath);
-
-      // Verify error message
-      const errorMessage = await page.waitForSelector('[data-testid="upload-error"]', {
-        timeout: 5000
+      // Валидация формата отвечает тостом; отдельного `upload-error` нет.
+      await expect(page.locator('[data-sonner-toast][data-type="error"]')).toBeVisible({
+        timeout: 10000,
       });
-      expect(errorMessage).toBeTruthy();
 
-      const errorText = await errorMessage.textContent();
-      expect(errorText).toContain('формат' || 'format');
+      await page.keyboard.press('Escape');
+      expect(await libraryPage.getBookCount()).toBe(initialCount);
     });
 
-    test('should show progress indicator during upload', async ({ page }) => {
-      const _libraryPage = new LibraryPage(page);
+    test('should show upload modal while uploading', async ({ page }) => {
+      const libraryPage = new LibraryPage(page);
+      await libraryPage.waitForBooksToLoad();
 
-      await page.click('[data-testid="upload-book-button"]');
+      // Снимок ДО загрузки: свою книгу тест обязан опознать по разности
+      // множеств. Библиотека сортируется created_desc, поэтому «последняя
+      // карточка» — самая старая, то есть книга фикстуры.
+      const before = new Set(await libraryPage.getBookIds());
 
-      const fileInput = await page.locator('input[type="file"]');
-      const epubPath = path.join(process.cwd(), 'tests/fixtures/files/sample.epub');
+      await libraryPage.openUploadModal();
+      await expect(page.locator('[data-testid="upload-modal"]')).toBeVisible();
 
-      // Start upload
-      await fileInput.setInputFiles(epubPath);
-
-      // Verify progress indicator appears
-      const progressVisible = await page.isVisible('[data-testid="upload-progress"]');
-      expect(progressVisible).toBe(true);
-
-      // Wait for upload to complete
-      await page.waitForSelector('[data-testid="upload-progress"]', {
-        state: 'hidden',
-        timeout: 30000
-      });
+      const uploaded = await libraryPage.submitUpload(SAMPLE_EPUB, before);
+      await libraryPage.deleteBook(uploaded);
     });
   });
 
   test.describe('Library View', () => {
-    test('should display all user books in library', async ({ page }) => {
+    test('should display all user books in library', async ({ page, fixtureBookId }) => {
       const libraryPage = new LibraryPage(page);
-
-      await libraryPage.navigate();
       await libraryPage.waitForBooksToLoad();
 
-      // Check if books are displayed
-      const bookCount = await libraryPage.getBookCount();
-      expect(bookCount).toBeGreaterThanOrEqual(0);
-
-      // If there are books, verify they have required elements
-      if (bookCount > 0) {
-        const firstBook = page.locator('[data-testid^="book-card-"]').first();
-        await expect(firstBook).toBeVisible();
-
-        // Verify book card has title, author, cover
-        const hasTitle = await firstBook.locator('[data-testid="book-title"]').isVisible();
-        const hasAuthor = await firstBook.locator('[data-testid="book-author"]').isVisible();
-
-        expect(hasTitle).toBe(true);
-        expect(hasAuthor).toBe(true);
-      }
+      const card = libraryPage.getBookCard(fixtureBookId);
+      await expect(card).toBeVisible();
+      await expect(card.locator('[data-testid="book-title"]')).toBeVisible();
+      await expect(card.locator('[data-testid="book-author"]')).toBeVisible();
     });
 
-    test('should show empty state when library is empty', async ({ page }) => {
+    test('should show empty state when a search matches nothing', async ({ page }) => {
+      // Полностью пустой библиотеки у слота не бывает — у него есть книга
+      // фикстуры. Наблюдаемый аналог пустого состояния — пустая выдача поиска.
       const libraryPage = new LibraryPage(page);
-
-      // This test assumes a fresh user or cleared library
-      await libraryPage.navigate();
       await libraryPage.waitForBooksToLoad();
 
-      const bookCount = await libraryPage.getBookCount();
-
-      if (bookCount === 0) {
-        const isEmpty = await libraryPage.isEmpty();
-        expect(isEmpty).toBe(true);
-
-        // Verify empty state message
-        const emptyMessage = await page.textContent('[data-testid="library-empty-state"]');
-        expect(emptyMessage).toContain('книг' || 'пусто' || 'empty');
-      }
+      await libraryPage.search('несуществующая книга zzzqqq');
+      await expect(page.locator('[data-testid="no-search-results"]')).toBeVisible({
+        timeout: 10000,
+      });
     });
   });
 
   test.describe('Book Deletion', () => {
     test('should successfully delete a book', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const initialCount = await libraryPage.getBookCount();
 
-      // Skip if no books
-      if (initialCount === 0) {
-        test.skip();
-      }
+      // Удаляем свою книгу, а не книгу фикстуры: удаление сносит файл с диска.
+      const uploaded = await libraryPage.uploadBook(SAMPLE_EPUB);
+      const countWithUpload = await libraryPage.getBookCount();
 
-      // Get first book ID
-      const firstBookCard = page.locator('[data-testid^="book-card-"]').first();
-      const bookId = await firstBookCard.getAttribute('data-testid');
-      const extractedId = bookId?.replace('book-card-', '') || '';
+      await libraryPage.deleteBook(uploaded);
 
-      // Delete the book
-      await libraryPage.deleteBook(extractedId);
-
-      // Verify book was deleted
-      const newCount = await libraryPage.getBookCount();
-      expect(newCount).toBe(initialCount - 1);
+      expect(await libraryPage.getBookCount()).toBe(countWithUpload - 1);
+      await expect(libraryPage.getBookCard(uploaded)).toHaveCount(0);
     });
 
     test('should show confirmation dialog before deleting', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const bookCount = await libraryPage.getBookCount();
 
-      if (bookCount === 0) {
-        test.skip();
-      }
+      const uploaded = await libraryPage.uploadBook(SAMPLE_EPUB);
 
-      // Get first book ID
-      const firstBookCard = page.locator('[data-testid^="book-card-"]').first();
-      const bookId = await firstBookCard.getAttribute('data-testid');
-      const extractedId = bookId?.replace('book-card-', '') || '';
+      await libraryPage.openDeleteDialog(uploaded);
+      await expect(page.locator('[data-testid="confirm-delete"]')).toBeVisible();
 
-      // Open book menu
-      await page.click(`[data-testid="book-menu-${extractedId}"]`);
-      await page.click(`[data-testid="delete-book-${extractedId}"]`);
-
-      // Verify confirmation dialog
-      const confirmDialog = await page.isVisible('[data-testid="confirm-delete"]');
-      expect(confirmDialog).toBe(true);
-
-      // Cancel deletion
       await page.click('[data-testid="cancel-delete"]');
+      expect(await libraryPage.bookExists(uploaded)).toBe(true);
 
-      // Verify book still exists
-      const bookExists = await libraryPage.bookExists(extractedId);
-      expect(bookExists).toBe(true);
+      await libraryPage.deleteBook(uploaded);
     });
   });
 
   test.describe('Book Parsing', () => {
-    test('should display parsing progress for uploaded book', async ({ page }) => {
+    test('should parse an uploaded book into chapters', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
-      // Upload a book
-      const epubPath = path.join(process.cwd(), 'tests/fixtures/files/sample.epub');
-      await libraryPage.uploadBook(epubPath);
-
-      // Get the newly uploaded book
-      const books = await page.locator('[data-testid^="book-card-"]');
-      const lastBook = books.last();
-      const bookId = await lastBook.getAttribute('data-testid');
-      const extractedId = bookId?.replace('book-card-', '') || '';
-
-      // Check for parsing indicator
-      const parsingIndicator = await page.isVisible(
-        `[data-testid="parsing-progress-${extractedId}"]`
-      );
-
-      // Either parsing is in progress or already completed
-      if (parsingIndicator) {
-        const progress = await libraryPage.getParsingProgress(extractedId);
-        expect(progress).toBeGreaterThanOrEqual(0);
-        expect(progress).toBeLessThanOrEqual(100);
-      }
-    });
-
-    test('should mark book as parsed when parsing completes', async ({ page }) => {
-      const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const bookCount = await libraryPage.getBookCount();
 
-      if (bookCount === 0) {
-        test.skip();
-      }
+      const uploaded = await libraryPage.uploadBook(SAMPLE_EPUB);
 
-      // Get a book
-      const firstBookCard = page.locator('[data-testid^="book-card-"]').first();
-      const bookId = await firstBookCard.getAttribute('data-testid');
-      const extractedId = bookId?.replace('book-card-', '') || '';
+      // Разбор идёт в Celery; готовность видна в API, а не в атрибуте карточки.
+      await expect
+        .poll(
+          async () => {
+            const res = await page.request.get(`/api/v1/books/${uploaded}`);
+            if (!res.ok()) return null;
+            const body = await res.json();
+            return (body.book ?? body).is_parsed ?? null;
+          },
+          { timeout: 120000, intervals: [2000] }
+        )
+        .toBe(true);
 
-      // Wait for parsing to complete (with timeout)
-      const parsingStatus = await page.waitForSelector(
-        `[data-testid="book-${extractedId}"][data-parsing-status="completed"]`,
-        { timeout: 60000 }
-      );
-
-      expect(parsingStatus).toBeTruthy();
+      await page.reload();
+      await libraryPage.waitForBooksToLoad();
+      await libraryPage.deleteBook(uploaded);
     });
   });
 
   test.describe('Book Search and Filter', () => {
-    test('should search books by title', async ({ page }) => {
+    test('should search books by title', async ({ page, fixtureBookId }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const initialCount = await libraryPage.getBookCount();
 
-      if (initialCount === 0) {
-        test.skip();
-      }
+      const title = await libraryPage
+        .getBookCard(fixtureBookId)
+        .locator('[data-testid="book-title"]')
+        .textContent();
+      const term = (title ?? '').trim().split(/\s+/)[0];
+      expect(term.length).toBeGreaterThan(2);
 
-      // Get first book title
-      const firstBook = page.locator('[data-testid^="book-card-"]').first();
-      const titleElement = firstBook.locator('[data-testid="book-title"]');
-      const title = await titleElement.textContent();
-
-      if (!title) {
-        test.skip();
-        return;
-      }
-
-      // Search for the title
-      await libraryPage.search(title);
-
-      // Verify search results
-      const resultsCount = await libraryPage.getBookCount();
-      expect(resultsCount).toBeGreaterThanOrEqual(1);
-
-      // Verify first result matches search
-      const firstResult = page.locator('[data-testid^="book-card-"]').first();
-      const resultTitle = await firstResult.locator('[data-testid="book-title"]').textContent();
-      expect(resultTitle).toContain(title);
+      await libraryPage.search(term);
+      await expect(libraryPage.getBookCard(fixtureBookId)).toBeVisible();
     });
 
-    test('should filter books by genre', async ({ page }) => {
+    test('should filter books by genre', async ({ page, fixtureBookId }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const initialCount = await libraryPage.getBookCount();
 
-      if (initialCount === 0) {
-        test.skip();
-      }
+      const res = await page.request.get(`/api/v1/books/${fixtureBookId}`);
+      const genre = ((await res.json()).book ?? (await res.json())).genre;
 
-      // Filter by a genre (e.g., fiction)
-      await libraryPage.filterByGenre('fiction');
-
-      // Wait for filter to apply
-      await page.waitForTimeout(500);
-
-      // Verify filtered results
-      const _filteredCount = await libraryPage.getBookCount();
-
-      // All visible books should match the filter
-      const books = await page.locator('[data-testid^="book-card-"]');
-      const count = await books.count();
-
-      expect(count).toBeLessThanOrEqual(initialCount);
+      await libraryPage.filterByGenre(genre);
+      await expect(libraryPage.getBookCard(fixtureBookId)).toBeVisible();
     });
 
     test('should show no results for non-existent search', async ({ page }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
 
-      // Search for non-existent title
-      await libraryPage.search('NonExistentBookTitle12345');
-
-      // Verify no results
-      await page.waitForTimeout(500);
-      const resultsCount = await libraryPage.getBookCount();
-      expect(resultsCount).toBe(0);
-
-      // Verify empty state or no results message
-      const noResults = await page.isVisible('[data-testid="no-search-results"]');
-      expect(noResults).toBe(true);
+      await libraryPage.search('zzzqqq-нет-такой-книги');
+      expect(await libraryPage.getBookCount()).toBe(0);
     });
   });
 
   test.describe('Book Metadata', () => {
-    test('should display book metadata correctly', async ({ page }) => {
+    test('should display book metadata correctly', async ({ page, fixtureBookId }) => {
       const libraryPage = new LibraryPage(page);
-
       await libraryPage.waitForBooksToLoad();
-      const bookCount = await libraryPage.getBookCount();
 
-      if (bookCount === 0) {
-        test.skip();
-      }
+      const card = libraryPage.getBookCard(fixtureBookId);
+      const title = await card.locator('[data-testid="book-title"]').textContent();
+      const author = await card.locator('[data-testid="book-author"]').textContent();
 
-      // Click on first book to view details
-      const firstBook = page.locator('[data-testid^="book-card-"]').first();
-      const bookId = await firstBook.getAttribute('data-testid');
-      const extractedId = bookId?.replace('book-card-', '') || '';
+      const res = await page.request.get(`/api/v1/books/${fixtureBookId}`);
+      expect(res.ok()).toBe(true);
+      const book = (await res.json()).book ?? (await res.json());
 
-      // Open book details or info modal
-      await page.click(`[data-testid="book-info-${extractedId}"]`);
-
-      // Verify metadata is displayed
-      const metadataModal = await page.isVisible('[data-testid="book-metadata-modal"]');
-      expect(metadataModal).toBe(true);
-
-      // Verify required metadata fields
-      const hasTitle = await page.isVisible('[data-testid="metadata-title"]');
-      const hasAuthor = await page.isVisible('[data-testid="metadata-author"]');
-      const hasGenre = await page.isVisible('[data-testid="metadata-genre"]');
-
-      expect(hasTitle).toBe(true);
-      expect(hasAuthor).toBe(true);
-      expect(hasGenre).toBe(true);
+      expect((title ?? '').trim()).toBe(book.title);
+      expect((author ?? '').trim()).toContain(book.author);
     });
   });
 });

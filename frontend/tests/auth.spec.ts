@@ -10,11 +10,21 @@
  * 5. Protected route access
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/worker-user';
 import { LoginPage, RegisterPage, LibraryPage } from './pages';
-import { generateTestUser, testUsers } from './fixtures';
+import { generateTestUser } from './fixtures';
+
+// Спеки этого файла проверяют сам вход, поэтому готовая сессия слота им
+// мешает: контекст должен стартовать чистым.
+test.use({ storageState: undefined });
 
 test.describe('Authentication', () => {
+  // Регистрация ограничена пресетом `registration` — 2 запроса в минуту
+  // на IP (`rate_limit.py:296`), а ключ у лимитера общий на все воркеры.
+  // Три параллельные регистрации гарантированно ловят 429, поэтому блок
+  // идёт последовательно и с выдержкой между попытками.
+  test.describe.configure({ mode: 'serial' });
+
   test.describe('User Registration', () => {
     test('should successfully register a new user', async ({ page }) => {
       const registerPage = new RegisterPage(page);
@@ -27,25 +37,26 @@ test.describe('Authentication', () => {
       // Fill registration form
       await registerPage.register(newUser);
 
-      // Verify success message
-      const isSuccess = await registerPage.isSuccessVisible();
-      expect(isSuccess).toBe(true);
-
-      const successMessage = await registerPage.getSuccessMessage();
-      expect(successMessage).toContain('успешно');
+      // Успех регистрации — это вход в приложение под новым аккаунтом.
+      // Тост «Регистрация успешна!» самоуничтожается и к моменту проверки
+      // его уже нет; проверять текст перевода вместо поведения — пусто.
+      expect(await registerPage.isSuccessVisible()).toBe(true);
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 15000,
+      });
     });
 
-    test('should show error for duplicate email', async ({ page }) => {
+    test('should show error for duplicate email', async ({ page, testUser }) => {
       const registerPage = new RegisterPage(page);
 
       // Try to register with existing user email
       await registerPage.navigate();
-      await registerPage.register(testUsers.regular);
+      await registerPage.register(testUser);
 
-      // Verify error message
-      await page.waitForSelector('[data-testid="register-error"]', { timeout: 5000 });
+      // Verify error
+      await page.waitForSelector('[data-testid="register-error"]', { timeout: 10000 });
       const errorMessage = await registerPage.getErrorMessage();
-      expect(errorMessage).toContain('уже существует' || 'already exists');
+      expect(errorMessage).toMatch(/уже существует|already exists|already registered/i);
     });
 
     test('should show validation error for weak password', async ({ page }) => {
@@ -69,10 +80,14 @@ test.describe('Authentication', () => {
       // Fill form with mismatched passwords
       // Полей username/firstName/lastName в форме нет — есть одно fullName.
       await page.fill('[data-testid="register-fullname"]', 'Test User');
-      await page.fill('[data-testid="register-email"]', 'test@example.com');
-      await page.fill('[data-testid="register-password"]', 'Password123!');
-      await page.fill('[data-testid="register-confirm-password"]', 'DifferentPass123!');
-      await page.locator('[data-testid="register-terms"]').check({ force: true });
+      await page.fill('[data-testid="register-email"]', 'mismatch@example.com');
+      await page.fill('[data-testid="register-password"]', 'MismatchPass!x9');
+      await page.fill('[data-testid="register-confirm-password"]', 'OtherPass!x9zz');
+      // input — sr-only, клик по нему состояние не меняет; кликаем обёртку-label.
+      await page
+        .locator('[data-testid="register-terms"]')
+        .locator('xpath=ancestor::label[1]')
+        .click();
       await page.click('[data-testid="register-submit"]');
 
       // Verify error
@@ -82,7 +97,7 @@ test.describe('Authentication', () => {
   });
 
   test.describe('User Login', () => {
-    test('should successfully login with valid credentials', async ({ page }) => {
+    test('should successfully login with valid credentials', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
       const _libraryPage = new LibraryPage(page);
 
@@ -91,15 +106,16 @@ test.describe('Authentication', () => {
       expect(page.url()).toContain('/login');
 
       // Login with valid credentials
-      await loginPage.login(testUsers.regular.email, testUsers.regular.password);
+      await loginPage.login(testUser.email, testUser.password);
 
       // Verify redirect to library
-      await page.waitForURL('/library', { timeout: 10000 });
+      await page.waitForURL('/library');
       expect(page.url()).toContain('/library');
 
-      // Verify user is logged in (user menu visible)
-      const isUserMenuVisible = await page.isVisible('[data-testid="user-menu-trigger"]');
-      expect(isUserMenuVisible).toBe(true);
+      // isVisible() не ждёт: сразу после смены URL меню ещё не смонтировано.
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 15000,
+      });
     });
 
     test('should show error for invalid credentials', async ({ page }) => {
@@ -130,40 +146,36 @@ test.describe('Authentication', () => {
   });
 
   test.describe('Token Refresh', () => {
-    test('should refresh token on page reload', async ({ page }) => {
+    test('should refresh token on page reload', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
 
       // Login first
       await loginPage.navigate();
-      await loginPage.login(testUsers.regular.email, testUsers.regular.password);
-      await page.waitForURL('/library', { timeout: 10000 });
+      await loginPage.login(testUser.email, testUser.password);
+      await page.waitForURL('/library');
 
-      // Get initial token
-      const initialToken = await page.evaluate(() => localStorage.getItem('auth_token'));
-      expect(initialToken).toBeTruthy();
+      // Токены живут в HttpOnly-cookie: из JS их не видно, и это гарантия
+      // против XSS. Единственная наблюдаемая проверка — что после
+      // перезагрузки сессия жива.
+      const cookiesBefore = await page.context().cookies();
+      expect(cookiesBefore.some((c) => /token/i.test(c.name) && c.httpOnly)).toBe(true);
 
-      // Reload page
       await page.reload();
-      await page.waitForTimeout(1000);
+      await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 15000 });
 
-      // Verify still authenticated
       const isStillLoggedIn = await page.isVisible('[data-testid="user-menu-trigger"]');
       expect(isStillLoggedIn).toBe(true);
-
-      // Token should still exist (may be same or refreshed)
-      const currentToken = await page.evaluate(() => localStorage.getItem('auth_token'));
-      expect(currentToken).toBeTruthy();
     });
   });
 
   test.describe('Logout', () => {
-    test('should successfully logout', async ({ page }) => {
+    test('should successfully logout', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
 
       // Login first
       await loginPage.navigate();
-      await loginPage.login(testUsers.regular.email, testUsers.regular.password);
-      await page.waitForURL('/library', { timeout: 10000 });
+      await loginPage.login(testUser.email, testUser.password);
+      await page.waitForURL('/library');
 
       // Open user menu and logout
       await page.click('[data-testid="user-menu-trigger"]');
@@ -178,13 +190,13 @@ test.describe('Authentication', () => {
       expect(token).toBeFalsy();
     });
 
-    test('should not access protected routes after logout', async ({ page }) => {
+    test('should not access protected routes after logout', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
 
       // Login and logout
       await loginPage.navigate();
-      await loginPage.login(testUsers.regular.email, testUsers.regular.password);
-      await page.waitForURL('/library', { timeout: 10000 });
+      await loginPage.login(testUser.email, testUser.password);
+      await page.waitForURL('/library');
 
       await page.click('[data-testid="user-menu-trigger"]');
       await page.click('[data-testid="logout-button"]');
@@ -213,20 +225,38 @@ test.describe('Authentication', () => {
       const bookId = '123e4567-e89b-12d3-a456-426614174000';
 
       // Try to access reader without login
-      await page.goto(`/reader/${bookId}`);
+      await page.goto(`/book/${bookId}/read`);
 
       // Should redirect to login
       await page.waitForURL('/login', { timeout: 5000 });
       expect(page.url()).toContain('/login');
     });
 
-    test('should allow access to protected routes when authenticated', async ({ page }) => {
+    // Перенесено из удалённой auth-journey.spec.ts — единственный её случай,
+    // которого не было здесь. Остальные одиннадцать дублировали этот файл.
+    test('should redirect to login when the session expires', async ({ page, context, testUser }) => {
+      const loginPage = new LoginPage(page);
+
+      await loginPage.navigate();
+      await loginPage.login(testUser.email, testUser.password);
+      await page.waitForURL('/library');
+
+      // Токены живут в HttpOnly-cookie, поэтому «истечение сессии» — это
+      // сброс cookie, а не очистка localStorage.
+      await context.clearCookies();
+
+      await page.goto('/library');
+      await page.waitForURL('/login', { timeout: 10000 });
+      expect(page.url()).toContain('/login');
+    });
+
+    test('should allow access to protected routes when authenticated', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
 
       // Login
       await loginPage.navigate();
-      await loginPage.login(testUsers.regular.email, testUsers.regular.password);
-      await page.waitForURL('/library', { timeout: 10000 });
+      await loginPage.login(testUser.email, testUser.password);
+      await page.waitForURL('/library');
 
       // Access library - should stay on library
       await page.goto('/library');

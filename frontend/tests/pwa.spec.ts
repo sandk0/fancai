@@ -118,6 +118,17 @@ test.describe('PWA Features', () => {
       // Подождать активации Service Worker
       await page.waitForTimeout(2000);
 
+      // Precache app shell существует только в собранном SW: vite-plugin-pwa
+      // в dev отдаёт `dev-sw.js` без манифеста `injectManifest`, поэтому
+      // навигация из кеша здесь невозможна в принципе — это ограничение
+      // среды, а не дефект приложения.
+      const isDevSw = await page.evaluate(async () =>
+        (await navigator.serviceWorker.getRegistrations()).some((r) =>
+          (r.active?.scriptURL ?? '').includes('dev-sw')
+        )
+      );
+      test.skip(isDevSw, 'dev-сервер отдаёт SW без precache app shell');
+
       // Включить offline режим
       await context.setOffline(true);
 

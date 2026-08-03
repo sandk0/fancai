@@ -1,19 +1,41 @@
 /**
  * Reader Page Object Model
+ *
+ * Модель взаимодействия у читалки не кнопочная, и объект страницы обязан
+ * это отражать:
+ *
+ * - Панели управления скрыты, пока не будет тапа в **центр** экрана;
+ *   `ReaderUI` вообще не монтируется, пока rendition не готов, поэтому
+ *   ждать надо не контейнер, а индикатор страницы.
+ * - Кнопок листания (`reader-next-page`/`reader-prev-page`) не существует.
+ *   На мобиле листают тапом по боковым зонам, но обработчик слушает
+ *   `touchstart`/`touchend`, а десктопный контекст Playwright их не шлёт
+ *   (`hasTouch: false`). Рабочий на десктопе путь — клавиатура:
+ *   `useKeyboardNavigation` вешает ArrowLeft/ArrowRight и на окно,
+ *   и на документ iframe. Проверено вживую: три ArrowRight сдвигают
+ *   индикатор с «1 из 236» на «2 из 236», ArrowLeft возвращает.
+ * - Первая страница книги — **обложка**: в iframe лежит `<svg class="cover-svg">`
+ *   и ни одного `<p>`. Всё, что работает с текстом, обязано сначала уйти
+ *   с обложки — иначе выделять нечего.
  */
 
 import { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 
+/** Сколько нажатий даём индикатору, чтобы он сдвинулся. */
+const MAX_TURN_ATTEMPTS = 5;
+/** Вкладки боковой панели: «Оглавление», «Закладки», «Информация». */
+const TOC_TAB_COUNT = 3;
+/** Столько экранов максимум листаем в поисках текстовой страницы. */
+const MAX_SEEK_SCREENS = 12;
+
 export class ReaderPage extends BasePage {
   // Selectors
   private readonly readerContainer = '[data-testid="epub-reader"]';
-  private readonly nextButton = '[data-testid="reader-next-page"]';
-  private readonly prevButton = '[data-testid="reader-prev-page"]';
   private readonly tocButton = '[data-testid="reader-toc-button"]';
   private readonly tocSidebar = '[data-testid="toc-sidebar"]';
   private readonly settingsButton = '[data-testid="reader-settings-button"]';
-  private readonly bookmarkButton = '[data-testid="reader-bookmark-button"]';
+  private readonly themeLightButton = '[data-testid="theme-light"]';
   private readonly closeButton = '[data-testid="reader-close-button"]';
   private readonly pageIndicator = '[data-testid="reader-page-indicator"]';
   private readonly progressBar = '[data-testid="reader-progress-bar"]';
@@ -27,62 +49,184 @@ export class ReaderPage extends BasePage {
    * Navigate to reader for specific book
    */
   async navigate(bookId: string): Promise<void> {
-    await this.goto(`/reader/${bookId}`);
+    await this.goto(`/book/${bookId}/read`);
   }
 
   /**
-   * Wait for reader to load
+   * Wait for reader to load and reveal its controls.
+   *
+   * Ожидание одного `epub-reader` недостаточно: контейнер появляется сразу,
+   * а `ReaderUI` — только после `renditionReady && bookMetadata`, что на
+   * реальном EPUB занимает десятки секунд.
    */
   async waitForReaderToLoad(): Promise<void> {
-    await this.waitForElement(this.readerContainer, 15000);
+    await this.waitForElement(this.readerContainer, 30000);
+    await this.showControls(60000);
+  }
+
+  /**
+   * Раскрыть панели центральным тапом.
+   *
+   * Обработчик висит на документе **iframe** epub.js
+   * (`useGestureController`: `doc.addEventListener('click' | 'touchstart')`),
+   * поэтому способ доставки события важен и различается по проектам:
+   *
+   * - `page.mouse.click` по координате внешнего контейнера доходит
+   *   не во всех движках — на WebKit панели так и не раскрывались,
+   *   и это выглядело как «rendition не готов», хотя обложка была
+   *   отрисована;
+   * - в touch-проектах (`hasTouch`) приложение слушает `touchstart`,
+   *   а мышиных событий не получает вовсе.
+   *
+   * Поэтому перебираем: клик внутрь документа iframe → тап пальцем →
+   * клик мышью по контейнеру.
+   */
+  async showControls(timeout = 15000): Promise<void> {
+    if (await this.page.locator(this.pageIndicator).isVisible().catch(() => false)) {
+      return;
+    }
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const box = await this.page.locator(this.readerContainer).boundingBox();
+      const centre = box
+        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        : { x: 0, y: 0 };
+
+      // Без `position`: Playwright бьёт в центр элемента. Координата вроде
+      // {10,10} попала бы в левую зону листания (`getTapAction`, 15% ширины)
+      // и пролистнула бы книгу назад вместо раскрытия панелей.
+      await this.page
+        .frameLocator('iframe')
+        .locator('body')
+        .click({ timeout: 5000 })
+        .catch(() => undefined);
+      if (await this.controlsVisible(1500)) return;
+
+      await this.page.touchscreen.tap(centre.x, centre.y).catch(() => undefined);
+      if (await this.controlsVisible(1500)) return;
+
+      await this.page.mouse.click(centre.x, centre.y).catch(() => undefined);
+      if (await this.controlsVisible(1500)) return;
+
+      // Проверено и НЕ помогает на WebKit: синтетический MouseEvent,
+      // отправленный внутри документа iframe в координатах центра, тоже
+      // не раскрывает панели. Книга там при этом отрисована, а ArrowRight
+      // листает — значит дело не в рендере. Причина не найдена; на WebKit
+      // и Mobile Safari спеки читалки красные, см. progress.md 2026-08-05.
+    }
+    throw new Error(
+      'Панели читалки не раскрылись ни кликом в iframe, ни тапом, ни мышью'
+    );
+  }
+
+  private async controlsVisible(timeout: number): Promise<boolean> {
+    return this.page
+      .waitForSelector(this.pageIndicator, { timeout })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /**
+   * Перелистнуть до фактической смены индикатора.
+   *
+   * Один ArrowRight двигает экран, но напечатанный номер страницы меняется
+   * не на каждом экране — пагинация epub.js мельче, чем шаг индикатора.
+   * Поэтому «страница» здесь — наблюдаемое изменение индикатора.
+   */
+  private async turnPage(key: 'ArrowRight' | 'ArrowLeft'): Promise<void> {
+    const before = await this.getCurrentPage();
+    for (let attempt = 0; attempt < MAX_TURN_ATTEMPTS; attempt++) {
+      await this.page.keyboard.press(key);
+      await this.wait(1000);
+      if ((await this.getCurrentPage()) !== before) return;
+    }
+    throw new Error(
+      `Индикатор страницы не изменился после ${MAX_TURN_ATTEMPTS} нажатий ${key}`
+    );
   }
 
   /**
    * Go to next page
    */
   async nextPage(): Promise<void> {
-    await this.click(this.nextButton);
-    await this.wait(300);
+    await this.turnPage('ArrowRight');
   }
 
   /**
    * Go to previous page
    */
   async previousPage(): Promise<void> {
-    await this.click(this.prevButton);
-    await this.wait(300);
+    await this.turnPage('ArrowLeft');
+  }
+
+  /** Текстовое содержимое текущего экрана книги (внутри iframe epub.js). */
+  async getContentText(): Promise<string> {
+    return this.page.evaluate(
+      () => document.querySelector('iframe')?.contentDocument?.body?.textContent?.trim() ?? ''
+    );
+  }
+
+  /**
+   * Уйти с обложки на первый экран с текстом.
+   *
+   * Первая страница книги — `<svg class="cover-svg">` без единого абзаца,
+   * поэтому всё, что работает с текстом, обязано сначала позвать это.
+   */
+  async goToTextContent(): Promise<boolean> {
+    for (let screen = 0; screen < MAX_SEEK_SCREENS; screen++) {
+      if ((await this.getContentText()).length >= 100) return true;
+      await this.page.keyboard.press('ArrowRight');
+      await this.wait(900);
+    }
+    return (await this.getContentText()).length >= 100;
   }
 
   /**
    * Open table of contents
    */
   async openTableOfContents(): Promise<void> {
+    await this.showControls();
     await this.click(this.tocButton);
     await this.waitForElement(this.tocSidebar);
   }
 
   /**
-   * Navigate to chapter
+   * Navigate to chapter by its position in the TOC.
    */
   async navigateToChapter(chapterIndex: number): Promise<void> {
     await this.openTableOfContents();
-    await this.click(`[data-testid="toc-chapter-${chapterIndex}"]`);
-    await this.wait(500);
+    // Первые три кнопки панели — вкладки «Оглавление / Закладки / Информация»,
+    // главы начинаются после них.
+    await this.page
+      .locator(`${this.tocSidebar} button`)
+      .nth(TOC_TAB_COUNT + chapterIndex)
+      .click();
+    await this.wait(2000);
   }
 
-  /**
-   * Create bookmark
-   */
-  async createBookmark(): Promise<void> {
-    await this.click(this.bookmarkButton);
-    await this.waitForElement('[data-testid="bookmark-saved-indicator"]');
+  /** Перейти в главу по её названию в оглавлении. */
+  async navigateToChapterByTitle(title: string): Promise<void> {
+    await this.openTableOfContents();
+    await this.page
+      .locator(`${this.tocSidebar} button`)
+      .filter({ hasText: title })
+      .first()
+      .click();
+    await this.wait(2500);
   }
 
   /**
    * Open settings
    */
   async openSettings(): Promise<void> {
+    await this.showControls();
+    // Кнопка настроек — переключатель (`setIsSettingsOpen(!isSettingsOpen)`),
+    // поэтому повторный клик по уже открытой панели её закрывает.
+    if (await this.page.locator(this.themeLightButton).isVisible().catch(() => false)) {
+      return;
+    }
     await this.click(this.settingsButton);
+    await this.waitForElement(this.themeLightButton, 10000);
   }
 
   /**
@@ -97,41 +241,53 @@ export class ReaderPage extends BasePage {
   /**
    * Change font size
    */
-  async changeFontSize(size: 'small' | 'medium' | 'large'): Promise<void> {
+  async changeFontSize(direction: 'increase' | 'decrease'): Promise<void> {
     await this.openSettings();
-    await this.click(`[data-testid="font-size-${size}"]`);
+    await this.click(`[data-testid="font-size-${direction}"]`);
     await this.wait(300);
   }
 
   /**
-   * Highlight text
+   * Select text inside the epub.js iframe and wait for the selection menu.
+   *
+   * Текст книги живёт в iframe, поэтому селекция строится в его документе,
+   * а не в родительском — `document.querySelectorAll` снаружи его не видит.
+   * И до текста надо ещё дойти: первый экран — обложка.
    */
-  async highlightText(text: string): Promise<void> {
-    // Select text
-    await this.page.evaluate((textToSelect) => {
-      const range = document.createRange();
-      const selection = window.getSelection();
+  async selectText(): Promise<boolean> {
+    if (!(await this.goToTextContent())) return false;
 
-      const textNode = Array.from(document.querySelectorAll('*'))
-        .find(el => el.textContent?.includes(textToSelect));
+    const selected = await this.page.evaluate(() => {
+      const doc = document.querySelector('iframe')?.contentDocument;
+      if (!doc) return false;
+      const node = Array.from(doc.querySelectorAll('p, div')).find(
+        (el) => (el.textContent ?? '').trim().length >= 40 && el.children.length === 0
+      );
+      if (!node) return false;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      const selection = doc.defaultView?.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      doc.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+      return true;
+    });
+    if (!selected) return false;
 
-      if (textNode && textNode.firstChild) {
-        range.selectNode(textNode.firstChild);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      }
-    }, text);
-
-    // Click highlight button
-    await this.waitForElement(this.selectionMenu);
-    await this.click('[data-testid="selection-menu-highlight"]');
-    await this.wait(500);
+    try {
+      await this.waitForElement(this.selectionMenu, 8000);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Get current page number
    */
   async getCurrentPage(): Promise<number> {
+    await this.showControls();
     const text = await this.getText(this.pageIndicator);
     const match = text.match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
@@ -141,16 +297,19 @@ export class ReaderPage extends BasePage {
    * Get total pages
    */
   async getTotalPages(): Promise<number> {
+    await this.showControls();
     const text = await this.getText(this.pageIndicator);
-    const match = text.match(/\/\s*(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
+    // Индикатор локализован: «1 из 236» / «1 of 236»
+    const match = text.match(/(\d+)\s*(?:\/|из|of)\s*(\d+)/i);
+    return match ? parseInt(match[2], 10) : 0;
   }
 
   /**
    * Get reading progress
    */
   async getReadingProgress(): Promise<number> {
-    const progressElement = await this.page.locator(this.progressBar);
+    await this.showControls();
+    const progressElement = this.page.locator(this.progressBar);
     const ariaValue = await progressElement.getAttribute('aria-valuenow');
     return ariaValue ? parseInt(ariaValue, 10) : 0;
   }
@@ -159,8 +318,8 @@ export class ReaderPage extends BasePage {
    * Close reader
    */
   async closeReader(): Promise<void> {
+    await this.showControls();
     await this.click(this.closeButton);
-    await this.waitForNavigation('/library');
   }
 
   /**
