@@ -130,11 +130,15 @@ test_images_preserved_before_build() {
     check "список записан рядом с бэкапом" "3" "$(wc -l < "$BACKUP_DIR/images.txt" | tr -d ' ')"
 
     : > "$WORK/docker.log"
+    : > "$WORK/calls.log"
     git() { echo "abc1234"; }
+    assert_build_absorbed_no_local_env() { echo env_check >> "$WORK/calls.log"; }
     build_images > /dev/null 2>&1 || true
     for svc in backend celery-worker frontend; do
         check "собирается $svc" "1" "$(grep -c -- "build --no-cache $svc" "$WORK/docker.log")"
     done
+    # Проверка обязана быть ЧАСТЬЮ сборки, а не просто существовать
+    check "сборка проверяет образы на env" "1" "$(grep -c env_check "$WORK/calls.log")"
 }
 
 # --- 4. health_check не ждёт build-only frontend -------------------------
@@ -164,22 +168,71 @@ test_health_check_ignores_frontend() {
 
 # --- 5. Артефакт фронта проверяется по результату ------------------------
 
+test_frontend_publication() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    cd "$WORK" || return 1
+
+    compose_volume() { echo "app_frontend_build"; }
+    docker() { echo "$*" >> "$WORK/docker.log"; return 0; }
+
+    # Публикация обязана быть частью старта: без неё Docker не обновит
+    # непустой том, и Caddy продолжит отдавать прошлую сборку.
+    : > "$WORK/docker.log"
+    publish_frontend_artifact() { echo publish >> "$WORK/calls.log"; }
+    : > "$WORK/calls.log"
+    start_services > /dev/null 2>&1 || true
+    check "старт публикует SPA в том" "1" "$(grep -c publish "$WORK/calls.log")"
+
+    # Сама публикация: содержимое образа копируется в том
+    unset -f publish_frontend_artifact
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    compose_volume() { echo "app_frontend_build"; }
+    docker() { echo "$*" >> "$WORK/docker.log"; return 0; }
+    : > "$WORK/docker.log"
+    publish_frontend_artifact > /dev/null 2>&1 || true
+    check "том монтируется в /target" "1" \
+        "$(grep -c "app_frontend_build:/target" "$WORK/docker.log")"
+    check "содержимое образа копируется" "1" \
+        "$(grep -c "cp -a /var/www/html/. /target/" "$WORK/docker.log")"
+}
+
 test_frontend_artifact_verification() {
     # shellcheck disable=SC1091
     source "$WORK/lib.sh"
     stub_common
     COMPOSE_FILE="compose.yml"
 
+    compose_volume() { echo "app_frontend_build"; }
     docker() {
         case "$*" in
             *"State.ExitCode"*) echo "0" ;;
-            *"test -s /w/index.html"*) return 0 ;;
+            *md5sum*)           echo "aaaabbbbccccdddd" ;;
             *) return 0 ;;
         esac
     }
     local rc=0
     verify_frontend_artifact > /dev/null 2>&1 || rc=$?
-    check "успешная сборка принимается" "0" "$rc"
+    check "совпадение образа и тома принимается" "0" "$rc"
+
+    # Том остался от прошлой выкатки — расхождение обязано быть отказом
+    : > "$WORK/errors.log"
+    docker() {
+        case "$*" in
+            *"State.ExitCode"*)  echo "0" ;;
+            *"/var/www/html/index.html"*) echo "новый-хеш" ;;
+            *md5sum*)            echo "старый-хеш" ;;
+            *) return 0 ;;
+        esac
+    }
+    rc=0
+    verify_frontend_artifact > /dev/null 2>&1 || rc=$?
+    check "старый SPA в томе отвергается" "1" "$rc"
+    check "названа причина" "1" "$(grep -c "старый SPA" "$WORK/errors.log")"
 
     docker() {
         case "$*" in
@@ -201,11 +254,16 @@ test_rollback_restores_images_only() {
     COMPOSE_FILE="compose.yml"
     cd "$WORK" || return 1
     echo "20260805_120000" > .last_image_tag
+    local bdir="$WORK/backup6"
+    mkdir -p "$bdir"
+    printf 'tar%.0s' {1..500} > "$bdir/frontend_build.tar.gz"
+    echo "$bdir" > .last_backup
 
     docker() {
         echo "$*" >> "$WORK/docker.log"
         return 0
     }
+    compose_volume() { echo "app_frontend_build"; }
     rollback > /dev/null 2>&1 || true
 
     check "образы возвращены" "3" "$(grep -c "^tag fancai-.*:rollback-20260805_120000 fancai-.*:latest" "$WORK/docker.log")"
@@ -214,6 +272,10 @@ test_rollback_restores_images_only() {
     # Проект `app` общий с мониторингом: `down` пытается снести сеть,
     # к которой подключены его контейнеры.
     check "не вызывается down по всему проекту" "0" "$(grep -cE "^compose .* down( |$)" "$WORK/docker.log")"
+
+    # SPA живёт в общем томе: откат образов её не вернёт, нужен архив
+    check "SPA восстанавливается из архива" "1" \
+        "$(grep -c "frontend_build.tar.gz" "$WORK/docker.log")"
 }
 
 # --- 7. Грязное дерево останавливает выкатку -----------------------------
@@ -223,18 +285,52 @@ test_update_code_refuses_dirty_tree() {
     source "$WORK/lib.sh"
     stub_common
 
+    # 1. Изменён отслеживаемый файл — блок
     git() {
         case "$*" in
             "rev-parse --git-dir") echo ".git" ;;
-            "status --porcelain")  echo " M Caddyfile" ;;
-            "status --short")      echo " M Caddyfile" ;;
+            "status --porcelain --untracked-files=no") echo " M Caddyfile" ;;
             *) return 0 ;;
         esac
     }
     local rc=0
     update_code > /dev/null 2>&1 || rc=$?
-    check "грязное дерево останавливает" "1" "$rc"
+    check "правка отслеживаемого файла блокирует" "1" "$rc"
     check "причина названа" "1" "$(grep -c 'local changes' "$WORK/errors.log")"
+
+    # 2. Untracked внутри контекста сборки — блок: файл уедет в образ
+    : > "$WORK/errors.log"
+    git() {
+        case "$*" in
+            "rev-parse --git-dir") echo ".git" ;;
+            "status --porcelain --untracked-files=no") : ;;
+            "ls-files --others --exclude-standard -- backend frontend")
+                echo "backend/.env.local" ;;
+            *) return 0 ;;
+        esac
+    }
+    rc=0
+    update_code > /dev/null 2>&1 || rc=$?
+    check "untracked в build-контексте блокирует" "1" "$rc"
+    check "причина про образ названа" "1" \
+        "$(grep -c 'build context' "$WORK/errors.log")"
+
+    # 3. Untracked вне контекстов — только предупреждение
+    : > "$WORK/errors.log"
+    git() {
+        case "$*" in
+            "rev-parse --git-dir") echo ".git" ;;
+            "status --porcelain --untracked-files=no") : ;;
+            "ls-files --others --exclude-standard -- backend frontend") : ;;
+            "ls-files --others --exclude-standard") echo "Caddyfile.bak2" ;;
+            "rev-parse --short HEAD") echo "abc1234" ;;
+            *) return 0 ;;
+        esac
+    }
+    rc=0
+    update_code > /dev/null 2>&1 || rc=$?
+    check "бэкап конфига выкатке не мешает" "0" "$rc"
+    check "и не поднимает ошибку" "0" "$(grep -c ERROR "$WORK/errors.log")"
 }
 
 # --- 8. Порядок шагов выкатки --------------------------------------------
@@ -404,6 +500,7 @@ test_redis_snapshot_before_purge() {
     : > "$WORK/calls.log"
 
     backup_redis() { echo backup_redis >> "$WORK/calls.log"; }
+    backup_frontend_artifact() { echo backup_frontend_artifact >> "$WORK/calls.log"; }
     docker() {
         case "$*" in
             *"ps postgres"*) echo "Up (healthy)" ;;
@@ -417,6 +514,8 @@ test_redis_snapshot_before_purge() {
 
     check "бэкап с годным дампом проходит" "0" "$rc"
     check "create_backup зовёт снимок Redis" "1" "$(grep -c backup_redis "$WORK/calls.log")"
+    check "create_backup архивирует SPA" "1" \
+        "$(grep -c backup_frontend_artifact "$WORK/calls.log")"
 }
 
 # --- 9. Восстановление БД останавливает писателей ------------------------
@@ -476,19 +575,92 @@ test_restore_quiesces_writers_first() {
         "$(grep -c "^pg_restore$" "$WORK/order.log")"
 }
 
+# --- 12. Сборка не впитывает локальное окружение -------------------------
+#
+# Утечка бывает двух видов, и проверяются они по-разному. В backend/celery
+# `COPY . .` кладёт сами файлы: в БОЕВОМ образе лежали `.env.development`
+# и `.env.production.example` с ключами ADMIN_PASSWORD и JWT_SECRET_KEY.
+# У фронта файла в финальном образе нет вовсе — значения ВКОМПИЛИРОВАНЫ
+# в JS, поэтому проверка на `.env*` там была бы вечнозелёной.
+
+test_build_rejects_absorbed_local_env() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    cd "$WORK" || return 1
+
+    docker() {
+        case "$*" in
+            *"baseURL:.{0,50}"*) echo 'baseURL:`/api/v1`' ;;
+        esac
+        return 0
+    }
+    local rc=0
+    assert_build_absorbed_no_local_env > /dev/null 2>&1 || rc=$?
+    check "чистая сборка принимается" "0" "$rc"
+
+    : > "$WORK/errors.log"
+    docker() {
+        case "$*" in
+            *fancai-backend:latest*)   echo ".env.development" ;;
+            *"baseURL:.{0,50}"*) echo 'baseURL:`/api/v1`' ;;
+        esac
+        return 0
+    }
+    rc=0
+    assert_build_absorbed_no_local_env > /dev/null 2>&1 || rc=$?
+    check "env-файл в backend отвергается" "1" "$rc"
+    check "имя файла названо" "1" "$(grep -c ".env.development" "$WORK/errors.log")"
+
+    : > "$WORK/errors.log"
+    docker() {
+        case "$*" in
+            *"ls -a /app"*)            echo ".env.example" ;;
+            *"baseURL:.{0,50}"*) echo 'baseURL:`/api/v1`' ;;
+        esac
+        return 0
+    }
+    rc=0
+    assert_build_absorbed_no_local_env > /dev/null 2>&1 || rc=$?
+    check "образец .env.example допустим" "0" "$rc"
+
+    # Абсолютный адрес — отказ, причём ЛЮБОЙ домен, не только свой
+    : > "$WORK/errors.log"
+    docker() {
+        case "$*" in
+            *"baseURL:.{0,50}"*)
+                printf 'baseURL:`https://other.example`\nbaseURL:`/api/v1`\n' ;;
+        esac
+        return 0
+    }
+    rc=0
+    assert_build_absorbed_no_local_env > /dev/null 2>&1 || rc=$?
+    check "чужой абсолютный домен отвергается" "1" "$rc"
+
+    # Маркер исчез — тоже отказ, иначе проверка выше вечнозелёная
+    : > "$WORK/errors.log"
+    docker() { return 0; }
+    rc=0
+    assert_build_absorbed_no_local_env > /dev/null 2>&1 || rc=$?
+    check "пропавший относительный baseURL отвергается" "1" "$rc"
+}
+
 main() {
     prepare_sourceable
     echo "Стенд deploy-production.sh"
     run_case "1. бэкап"            test_backup_rejects_empty_dump
     run_case "2-3. образы"         test_images_preserved_before_build
     run_case "4. health_check"     test_health_check_ignores_frontend
-    run_case "5. артефакт фронта"  test_frontend_artifact_verification
+    run_case "5. публикация SPA"   test_frontend_publication
+    run_case "5b. артефакт фронта" test_frontend_artifact_verification
     run_case "6. откат"            test_rollback_restores_images_only
     run_case "7. доставка кода"    test_update_code_refuses_dirty_tree
     run_case "8. порядок шагов"    test_deploy_step_order
     run_case "9. восстановление"   test_restore_quiesces_writers_first
     run_case "10. чужие контейнеры" test_no_step_touches_foreign_containers
     run_case "11. снимок Redis"    test_redis_snapshot_before_purge
+    run_case "12. env в сборке"    test_build_rejects_absorbed_local_env
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"

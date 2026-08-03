@@ -52,10 +52,18 @@ tmp/
 temp/
 *.tmp
 
-# Development files
-.env
-.env.local
-.env.*.local
+# Environment files.
+#
+# Исключается ВЕСЬ набор. Раньше здесь стояли только `.env`, `.env.local`
+# и `.env.*.local`, поэтому в прод-образ уезжали `.env.development`,
+# `.env.production` и `.env.production.example` — с ключами вида
+# `ADMIN_PASSWORD`, `DB_PASSWORD`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`.
+# Проверено сборкой образа 2026-08-05: три файла лежали в `/app`.
+#
+# Приложение читает конфигурацию из окружения контейнера (compose),
+# файлы ему не нужны ни на одной ветке.
+.env*
+!.env.example
 
 # Alembic
 # alembic.ini - CRITICAL: Required for migrations in production! Do NOT exclude!

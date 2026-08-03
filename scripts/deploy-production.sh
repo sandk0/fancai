@@ -136,6 +136,52 @@ validate_environment() {
     success "Environment validation passed"
 }
 
+# Function to resolve a compose volume name and prove it exists
+#
+# Имя тома — это `<проект>_<имя>`, а проект здесь `app` (каталог
+# /opt/fancai/app), не `fancai`. Ровно на этом обжигались архивы бэкапа:
+# они монтировали `fancai_postgres_data`, Docker молча создавал пустой том,
+# и получался «успешный» архив пустоты. Поэтому существование проверяется,
+# а не предполагается.
+compose_volume() {
+    local short="$1"
+    local project="${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}"
+    local name="${project}_${short}"
+
+    if ! docker volume inspect "$name" &> /dev/null; then
+        error "Том $name не существует — проверьте COMPOSE_PROJECT_NAME"
+        return 1
+    fi
+    echo "$name"
+}
+
+# Function to archive the currently published SPA
+#
+# Фронт — build-only job: он не «работает», а ПЕРЕЗАПИСЫВАЕТ общий том,
+# который читает Caddy. Значит откат образов старую сборку не вернёт:
+# образ фронта умеет только собрать заново, а прежний артефакт к тому
+# моменту уже затёрт. Единственная копия — этот архив.
+backup_frontend_artifact() {
+    info "Archiving the published SPA..."
+
+    local volume
+    volume=$(compose_volume frontend_build) || return 1
+
+    docker run --rm \
+        -v "$volume":/source:ro \
+        -v "$BACKUP_DIR":/backup \
+        alpine tar czf /backup/frontend_build.tar.gz -C /source .
+
+    local size
+    size=$(wc -c < "$BACKUP_DIR/frontend_build.tar.gz" 2>/dev/null | tr -d ' ' || echo 0)
+    if [[ "$size" -lt 1024 ]]; then
+        error "Архив SPA подозрительно мал (${size} байт) — прерываю"
+        return 1
+    fi
+
+    info "SPA archived: ${size} bytes"
+}
+
 # Function to snapshot Redis
 #
 # Нужен именно перед выкаткой: дальше `purge_stale_queues` делает
@@ -209,10 +255,11 @@ backup_redis() {
 create_backup() {
     step "Creating backup..."
 
-    mkdir -p "$BACKUP_DIR"
+    # 700, а не umask: внутри полный дамп БД и снимок Redis с очередями.
+    install -d -m 700 "$BACKUP_DIR"
 
     # Backup environment file
-    cp "$ENV_FILE" "$BACKUP_DIR/"
+    install -m 600 "$ENV_FILE" "$BACKUP_DIR/"
 
     # Backup database. Формат custom (-Fc): восстанавливается `pg_restore`,
     # умеет частичный restore и не зависит от порядка объектов.
@@ -263,8 +310,13 @@ create_backup() {
     # Redis снимается штатным способом ниже — он нужен, потому что дальше
     # выкатка делает необратимый `DEL light`.
     backup_redis
+    backup_frontend_artifact
 
     success "Backup created at $BACKUP_DIR"
+    # Дамп создаётся редиректом, RDB — через `docker cp`: у обоих режим
+    # зависит от umask и исходных прав. Снимаем доступ группе и остальным.
+    chmod -R go-rwx "$BACKUP_DIR"
+
     echo "$BACKUP_DIR" > .last_backup
 }
 
@@ -323,7 +375,72 @@ build_images() {
     info "Building frontend image..."
     docker compose -f "$COMPOSE_FILE" build --no-cache frontend
 
+    assert_build_absorbed_no_local_env
+
     success "Images built successfully"
+}
+
+# Function to prove the build did not absorb local environment
+#
+# Утечка бывает двух РАЗНЫХ видов, и проверять их надо по-разному.
+#
+# Backend и celery: `COPY . .` кладёт сами файлы в образ. Повод конкретный —
+# `backend/.dockerignore` исключал `.env` и `.env.local`, но не
+# `.env.development` и `.env.production`; оба лежали в БОЕВОМ
+# `fancai-backend:latest` вместе с ключами ADMIN_PASSWORD и JWT_SECRET_KEY
+# (проверено 2026-08-05; значения оказались dev-плейсхолдерами).
+#
+# Frontend: файла в финальном образе нет вовсе — он читается Vite на стадии
+# builder, и значения ВКОМПИЛИРОВАНЫ в JS. Искать там `.env*` бессмысленно,
+# проверка была бы вечнозелёной. Проверяется собранный бандл: адрес API
+# обязан быть относительным, абсолютного домена в JS быть не должно.
+# Именно так уехал `VITE_IMAGE_CDN_URL=https://fancai.ru`.
+assert_build_absorbed_no_local_env() {
+    step "Checking images for absorbed local environment..."
+
+    local leaked=0 image found
+
+    for image in fancai-backend:latest fancai-celery:latest; do
+        found=$(docker run --rm --entrypoint sh "$image" \
+            -c 'ls -a /app 2>/dev/null | grep "^\.env" || true')
+        # `.env.example` — образец без значений, он допустим
+        found=$(echo "$found" | grep -v '^\.env\.example$' || true)
+        if [[ -n "$found" ]]; then
+            error "$image содержит env-файлы: $(echo "$found" | tr '\n' ' ')"
+            leaked=1
+        fi
+    done
+
+    # Данные забираются из контейнера сырыми, а классификация делается
+    # здесь. Если прятать `grep` с шаблоном внутрь `sh -c`, логику нельзя
+    # проверить стендом: подменённый `docker` ответит на любой шаблон.
+    local base_urls
+    base_urls=$(docker run --rm --entrypoint sh fancai-frontend:latest \
+        -c 'grep -hoE "baseURL:.{0,50}" /var/www/html/assets/js/*.js 2>/dev/null | head -20 || true')
+
+    # Любой абсолютный адрес API, а не только `fancai.ru`: чужой домен
+    # означает то же самое — сборка взяла локальный `.env` вместо ARG.
+    if echo "$base_urls" | grep -qE 'baseURL:.{0,3}https?://'; then
+        error "В бандле фронта абсолютный адрес API:" \
+              "$(echo "$base_urls" | grep -E 'baseURL:.{0,3}https?://' | head -3 | tr '\n' ' ')"
+        error "Значит сборка подхватила локальный .env вместо ARG из compose"
+        leaked=1
+    fi
+
+    # И наоборот: относительный адрес обязан присутствовать. Если маркер
+    # исчез, проверка выше стала бы вечнозелёной — пусть лучше упадёт.
+    if ! echo "$base_urls" | grep -qE 'baseURL:.{0,3}/api/v1'; then
+        error "В бандле фронта не найден относительный baseURL /api/v1"
+        error "Проверьте вручную: маркер мог измениться после смены сборщика"
+        leaked=1
+    fi
+
+    if [[ "$leaked" -ne 0 ]]; then
+        error "Поправьте .dockerignore контекста сборки или ARG в compose"
+        return 1
+    fi
+
+    success "Images carry no local environment"
 }
 
 # Function to perform health checks
@@ -384,13 +501,30 @@ verify_frontend_artifact() {
         return 1
     fi
 
-    if ! docker run --rm -v app_frontend_build:/w:ro alpine \
-        test -s /w/index.html; then
+    # Наличия файла мало: том мог остаться от прошлой выкатки, и проверка
+    # была бы зелёной на старом SPA. Сверяем содержимое тома с содержимым
+    # свежесобранного образа — именно это и не выполнялось месяцами.
+    local volume image_sum volume_sum
+    volume=$(compose_volume frontend_build) || return 1
+
+    image_sum=$(docker run --rm --entrypoint sh fancai-frontend:latest \
+        -c 'md5sum /var/www/html/index.html 2>/dev/null | cut -d" " -f1')
+    volume_sum=$(docker run --rm -v "$volume":/w:ro --entrypoint sh alpine \
+        -c 'md5sum /w/index.html 2>/dev/null | cut -d" " -f1')
+
+    if [[ -z "$volume_sum" ]]; then
         error "Frontend artifact is missing from the shared volume"
         return 1
     fi
 
-    success "Frontend artifact present, build job exited 0"
+    if [[ "$image_sum" != "$volume_sum" ]]; then
+        error "Том отдаёт НЕ ту сборку, что в образе:"
+        error "  образ=$image_sum том=$volume_sum"
+        error "Публикация не сработала — Caddy продолжит отдавать старый SPA"
+        return 1
+    fi
+
+    success "Published SPA matches the freshly built image ($image_sum)"
 }
 
 # Function to stop everything that writes to the database
@@ -457,6 +591,34 @@ run_migrations() {
     success "Migrations applied"
 }
 
+# Function to publish the freshly built SPA into the shared volume
+#
+# Без этого шага новая сборка фронта на прод НЕ ПОПАДАЕТ. Docker наполняет
+# именованный том из образа только когда том ПУСТ; дальше содержимое тома
+# считается пользовательскими данными и не трогается. Сервис `frontend` —
+# build-only job с `CMD ["echo", ...]`, он ничего не копирует сам.
+#
+# Проверено экспериментом 2026-08-05: контейнер из образа с VERSION-2,
+# запущенный на томе с VERSION-1, оставляет в томе VERSION-1. Это и есть
+# причина, по которой SPA на проде датирован 29 марта при бэкенде
+# шестинедельной давности — фронт не обновлялся ни одной выкаткой.
+publish_frontend_artifact() {
+    step "Publishing the SPA into the shared volume..."
+
+    local volume
+    volume=$(compose_volume frontend_build) || return 1
+
+    # Монтируем том в /target, чтобы содержимое образа в /var/www/html
+    # осталось видимым, а не было закрыто монтированием.
+    docker run --rm \
+        -v "$volume":/target \
+        --entrypoint sh \
+        fancai-frontend:latest \
+        -c 'rm -rf /target/* /target/.[!.]* 2>/dev/null; cp -a /var/www/html/. /target/'
+
+    success "SPA published"
+}
+
 # Function to (re)start the whole stack on the new images
 start_services() {
     step "Starting services on the new images..."
@@ -471,9 +633,11 @@ start_services() {
     # по имени, а не флагом.
     docker compose -f "$COMPOSE_FILE" up -d
 
-    # Фронт — build-only job: дожидаемся именно его завершения, иначе
-    # Caddy может успеть отдать пустой том.
+    # Фронт — build-only job: дожидаемся завершения, чтобы его сообщения
+    # не смешивались с проверками. Публикацию он не делает, см. выше.
     docker compose -f "$COMPOSE_FILE" wait frontend > /dev/null 2>&1 || true
+
+    publish_frontend_artifact
 
     success "Application deployed"
 }
@@ -585,6 +749,24 @@ rollback() {
         return 1
     fi
 
+    # Откат образов SPA НЕ возвращает: фронт — build-only job, он только
+    # перезаписывает общий том, а прежний артефакт к этому моменту затёрт.
+    # Восстанавливаем его из архива, пока Caddy остановлен выше.
+    if [[ -f ".last_backup" ]]; then
+        local backup_path archive volume
+        backup_path=$(cat .last_backup)
+        archive="$backup_path/frontend_build.tar.gz"
+        if [[ -s "$archive" ]] && volume=$(compose_volume frontend_build); then
+            info "Restoring the previous SPA from $archive"
+            docker run --rm \
+                -v "$volume":/target \
+                -v "$backup_path":/backup:ro \
+                alpine sh -c 'rm -rf /target/* /target/.[!.]* 2>/dev/null; tar xzf /backup/frontend_build.tar.gz -C /target'
+        else
+            warning "Архива SPA нет — фронт останется на новой сборке"
+        fi
+    fi
+
     docker compose -f "$COMPOSE_FILE" up -d
 
     warning "Code rolled back to $restored image(s) from rollback-$tag"
@@ -662,8 +844,8 @@ Project: $PROJECT_NAME
 Git Commit: $(git rev-parse HEAD 2>/dev/null || echo "Not available")
 Git Branch: $(git branch --show-current 2>/dev/null || echo "Not available")
 
-Environment Variables:
-$(grep -v "PASSWORD\|SECRET\|KEY" "$ENV_FILE" | head -20)
+Environment Variables (только имена — значения в лог не пишутся):
+$(grep -oE '^[A-Z_][A-Z0-9_]*' "$ENV_FILE" | sort | tr '\n' ' ')
 
 Docker Images:
 $(docker compose -f "$COMPOSE_FILE" images)
@@ -691,13 +873,33 @@ update_code() {
         return 1
     fi
 
-    # Локальные правки не затираем молча: они могут быть единственной
-    # копией боевой конфигурации. Останавливаемся и показываем их.
-    if [[ -n "$(git status --porcelain)" ]]; then
+    # Правки отслеживаемых файлов блокируют выкатку: они могут быть
+    # единственной копией боевой конфигурации, затирать их молча нельзя.
+    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
         error "Working tree has local changes — resolve them before deploying:"
-        git status --short
-        error "Перенесите их в репозиторий или уберите: git stash push -u"
+        git status --short --untracked-files=no
+        error "Перенесите их в репозиторий или уберите: git stash push"
         return 1
+    fi
+
+    # Неотслеживаемые файлы fast-forward не мешают, но внутри контекстов
+    # сборки (`./backend`, `./frontend` в docker-compose.prod.yml) они
+    # попадают в образ через `COPY . .` и делают сборку невоспроизводимой.
+    # Ровно так в этот проект однажды уехал чужой `.env.production`.
+    local stray_in_context
+    stray_in_context=$(git ls-files --others --exclude-standard -- backend frontend)
+    if [[ -n "$stray_in_context" ]]; then
+        error "Untracked files inside a Docker build context — they would change the image:"
+        printf '  %s\n' $stray_in_context
+        return 1
+    fi
+
+    # Остальное — бэкапы конфигов и подобное. Не мешают, но пусть будут видны.
+    local stray_elsewhere
+    stray_elsewhere=$(git ls-files --others --exclude-standard)
+    if [[ -n "$stray_elsewhere" ]]; then
+        warning "Untracked files outside build contexts (не мешают выкатке):"
+        printf '  %s\n' $stray_elsewhere
     fi
 
     local before
@@ -732,7 +934,7 @@ main() {
     # с `--no-cache` идёт минуты, и делать её при остановленном сервисе
     # незачем. Провал сборки здесь просто завершает скрипт: прод работает
     # на старом коде, откатывать нечего.
-    mkdir -p "$BACKUP_DIR"
+    install -d -m 700 "$BACKUP_DIR"
     preserve_current_images
     build_images
 
