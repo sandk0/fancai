@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { booksAPI } from '@/api/books';
 import { EpubReader } from '@/components/Reader/EpubReader';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { useParsingStatus } from '@/hooks/api';
-import { bookKeys } from '@/hooks/api/queryKeys';
+import { useBookForReader, useParsingStatus } from '@/hooks/api';
 import { usePWAResumeGuard } from '@/hooks/pwa';
 import { useAuthStore } from '@/stores/auth';
 import { resetBookData } from '@/utils/bookDataReset';
@@ -117,25 +114,20 @@ const ReaderPage = () => {
   // and TanStack Query refetch when app resumes from background
   const { isResuming, isReady } = usePWAResumeGuard();
 
-  const userId = useAuthStore((state) => state.user?.id) ?? '';
-
-  // Ключ ОБЯЗАН совпадать с `useParsingStatus` ниже: это один и тот же ресурс.
-  // Раздельные ключи `['book', id]` и `bookKeys.detail(...)` держали две копии
-  // деталей книги в кэше и давали два запроса на каждое открытие читалки.
+  // `useBookForReader`, а не собственный useQuery: хук создан именно для этого
+  // места планом PWA 2026-01-10 (`docs/plans/2026-01-10-pwa-improvement-plan.md`)
+  // и уже несёт нужные опции — отключённый auto-refetch и staleTime 5 минут.
+  // Ключ у него `bookKeys.detail(userId, bookId)`, тот же, что у
+  // `useParsingStatus` ниже: это один ресурс, и держать его под двумя ключами
+  // означало две копии в кэше и два запроса на каждое открытие читалки.
   const {
     data: bookData,
     isLoading,
     error,
-  } = useQuery({
-    queryKey: bookKeys.detail(userId, bookId ?? ''),
-    queryFn: () => booksAPI.getBook(bookId!),
-    // Only enable query when not resuming from background and bookId is available
-    enabled: !!bookId && !!userId && !isResuming,
-    // Disable auto-refetch on window focus to prevent race conditions
-    // with Zustand auth store initialization (100ms delay)
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+  } = useBookForReader(bookId ?? '', {
+    // Пока идёт пробуждение из фона — не запрашиваем: гонка с восстановлением
+    // Zustand-стора авторизации.
+    enabled: !!bookId && !isResuming,
   });
 
   // Track parsing status and invalidate caches when parsing completes

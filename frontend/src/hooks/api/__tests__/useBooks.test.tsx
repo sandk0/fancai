@@ -19,7 +19,9 @@ import {
   useDeleteBook,
   useUpdateReadingProgress,
   useBookFileUrl,
+  useBookForReader,
 } from '../useBooks';
+import { bookKeys } from '../queryKeys';
 import { booksAPI } from '@/api/books';
 import { chapterCache } from '@/services/chapterCache';
 import { imageCache } from '@/services/imageCache';
@@ -374,6 +376,72 @@ describe('useBooks hooks', () => {
       });
 
       expect(result.current.error).toEqual(error);
+    });
+  });
+
+  describe('useBookForReader', () => {
+    // Хук читает userId селектором, а не через getCurrentUserId(): модуль стора
+    // замокан целиком, поэтому вызываемую форму нужно подменить отдельно.
+    const withUser = (user: typeof mockUser | null) => {
+      vi.mocked(useAuthStore).mockImplementation((selector?: unknown) =>
+        typeof selector === 'function'
+          ? (selector as (s: { user: typeof mockUser | null }) => unknown)({ user })
+          : { user }
+      );
+    };
+
+    it('fetches under the userId-scoped key when the store is ready', async () => {
+      withUser(mockUser);
+      vi.mocked(booksAPI.getBook).mockResolvedValue({ id: 'book-123' } as BookDetail);
+
+      const { result } = renderHook(() => useBookForReader('book-123'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(queryClient.getQueryData(bookKeys.detail('user-123', 'book-123'))).toEqual({
+        id: 'book-123',
+      });
+    });
+
+    it('does not fetch while userId is empty, even if the caller enables it', () => {
+      // Окно ~100 мс ре-гидрации Zustand: userId ещё пуст, а isResuming уже false.
+      // Запрос в этот момент ушёл бы под ключ ['books', '', bookId] — в кэш,
+      // который больше никто не читает, и следом пришёл бы второй запрос под
+      // правильным ключом. Поэтому guard по userId неперекрываем опциями.
+      withUser(null);
+
+      const { result } = renderHook(
+        () => useBookForReader('book-123', { enabled: true }),
+        { wrapper: createWrapper() }
+      );
+
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(booksAPI.getBook).not.toHaveBeenCalled();
+      expect(queryClient.getQueryData(bookKeys.detail('', 'book-123'))).toBeUndefined();
+    });
+
+    it('still honours the caller disabling the query', () => {
+      withUser(mockUser);
+
+      const { result } = renderHook(
+        () => useBookForReader('book-123', { enabled: false }),
+        { wrapper: createWrapper() }
+      );
+
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(booksAPI.getBook).not.toHaveBeenCalled();
+    });
+
+    it('does not fetch when bookId is empty', () => {
+      withUser(mockUser);
+
+      const { result } = renderHook(() => useBookForReader(''), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(booksAPI.getBook).not.toHaveBeenCalled();
     });
   });
 

@@ -30,6 +30,7 @@ import { imageCache } from '@/services/imageCache';
 import { db } from '@/services/db';
 import { bookKeys, queryKeyUtils, getCurrentUserId } from './queryKeys';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/auth';
 import type {
   Book,
   BookDetail,
@@ -337,18 +338,28 @@ export function useBookForReader(
   bookId: string,
   options?: Omit<UseQueryOptions<BookDetail, Error>, 'queryKey' | 'queryFn'>
 ) {
-  const userId = getCurrentUserId();
+  // Реактивно из стора, а НЕ через getCurrentUserId(): тот бросает исключение,
+  // когда пользователь ещё не восстановлен. Читалка — единственное место,
+  // которое монтируется во время пробуждения PWA (`usePWAResumeGuard`),
+  // и бросок из ключа уронил бы страницу на первом рендере.
+  const userId = useAuthStore((state) => state.user?.id) ?? '';
+
+  // `enabled` вызывающего складывается с внутренним условием, а не затирает его.
+  // Пустой userId — это ДРУГОЙ ключ (`['books', '', bookId]`), то есть запрос
+  // ушёл бы в кэш, которого больше никто не читает. Это инвариант ключа,
+  // а не предпочтение вызывающего, поэтому он неперекрываем.
+  const { enabled: enabledByCaller = true, ...rest } = options ?? {};
 
   return useQuery({
     queryKey: bookKeys.detail(userId, bookId),
     queryFn: () => booksAPI.getBook(bookId),
     staleTime: 5 * 60 * 1000, // 5 минут
-    enabled: !!bookId,
     // Reader-specific: отключаем auto-refetch для предотвращения race conditions
     // с инициализацией Zustand auth store (100ms delay)
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    ...options,
+    ...rest,
+    enabled: !!bookId && !!userId && enabledByCaller !== false,
   });
 }
 
