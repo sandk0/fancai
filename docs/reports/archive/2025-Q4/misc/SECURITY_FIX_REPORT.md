@@ -16,7 +16,7 @@ Successfully eliminated **2 critical hardcoded passwords** and **1 committed .en
 
 ### 1. Admin Password Hardcoded
 **File:** `backend/scripts/create_admin.py:23`
-**Issue:** Password `"Tre21bgU"` hardcoded in source code
+**Issue:** Password `"<REDACTED-2026-08-05>"` hardcoded in source code
 **Risk:** Admin account compromise if code is public
 
 ### 2. Test User Password Hardcoded
@@ -46,7 +46,7 @@ Successfully eliminated **2 critical hardcoded passwords** and **1 committed .en
 **Code Before:**
 ```python
 email = "admin@fancai.ru"
-password = "Tre21bgU"  # ❌ HARDCODED
+password = "<REDACTED-2026-08-05>"  # ❌ HARDCODED
 ```
 
 **Code After:**

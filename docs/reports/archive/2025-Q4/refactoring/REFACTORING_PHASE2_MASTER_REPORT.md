@@ -189,7 +189,7 @@ Issues:
 **1. Hardcoded Admin Password**
 ```
 Файл: backend/scripts/create_admin.py:23
-Код: password = "Tre21bgU"
+Код: password = "<REDACTED-2026-08-05>"
 Риск: Full system compromise, unauthorized access
 Решение: Remove от git, use environment variable
 Время: 5 минут

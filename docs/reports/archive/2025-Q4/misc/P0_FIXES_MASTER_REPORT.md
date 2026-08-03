@@ -73,7 +73,7 @@ Production Secrets:      ✅ CONFIGURED (auto-generate)
 **Что исправлено:**
 
 1. **`backend/scripts/create_admin.py`**
-   - Удален hardcoded password `"Tre21bgU"`
+   - Удален hardcoded password `"<REDACTED-2026-08-05>"`
    - Добавлено использование `ADMIN_PASSWORD` environment variable
    - Добавлена валидация пароля (минимум 12 символов)
    - Генерация secure паролей

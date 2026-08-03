@@ -14,7 +14,7 @@
 **Summary:**
 Two critical hardcoded passwords were found in the codebase that blocked production deployment:
 
-1. **Admin Password:** `backend/scripts/create_admin.py:23` - hardcoded "Tre21bgU"
+1. **Admin Password:** `backend/scripts/create_admin.py:23` - hardcoded "<REDACTED-2026-08-05>"
 2. **Test User Password:** `backend/create_test_user.py:24` - hardcoded "testpassword123"
 3. **Weak Credentials in Git:** `.env.development` committed with postgres123, redis123
 

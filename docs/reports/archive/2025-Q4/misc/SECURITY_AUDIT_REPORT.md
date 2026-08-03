@@ -44,7 +44,7 @@
 
 ```python
 email = "admin@fancai.ru"
-password = "Tre21bgU"  # ⚠️ HARDCODED ADMIN PASSWORD!
+password = "<REDACTED-2026-08-05>"  # ⚠️ HARDCODED ADMIN PASSWORD!
 ```
 
 **Риск:**

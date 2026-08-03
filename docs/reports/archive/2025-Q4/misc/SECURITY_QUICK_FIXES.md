@@ -7,7 +7,7 @@
 ### Fix create_admin.py
 ```bash
 # Файл: backend/scripts/create_admin.py
-# Строка 23: password = "Tre21bgU"  # ❌ УДАЛИТЬ!
+# Строка 23: password = "<REDACTED-2026-08-05>"  # ❌ УДАЛИТЬ!
 ```
 
 **Замена:**
