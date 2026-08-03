@@ -296,28 +296,58 @@ test_frontend_artifact_verification() {
     docker() {
         case "$*" in
             *"State.ExitCode"*) echo "0" ;;
-            *md5sum*)           echo "aaaabbbbccccdddd" ;;
+            *md5sum*)           printf 'aaa ./index.html\nbbb ./assets/js/ReaderPage-x.js\n' ;;
+            *) return 0 ;;
+        esac
+    }
+    : > "$WORK/docker.log"
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *"State.ExitCode"*) echo "0" ;;
+            *md5sum*)           printf 'aaa ./index.html\nbbb ./assets/js/ReaderPage-x.js\n' ;;
             *) return 0 ;;
         esac
     }
     local rc=0
     verify_frontend_artifact > /dev/null 2>&1 || rc=$?
-    check "совпадение образа и тома принимается" "0" "$rc"
+    check "полное совпадение принимается" "0" "$rc"
+    # Контракт: сверяется ВЕСЬ набор файлов. Ленивые чанки в index.html
+    # не упоминаются, поэтому проверка по одному файлу пропустила бы
+    # недопубликованный чанк читалки.
+    check "сверяется весь набор файлов, а не index.html" "2" \
+        "$(grep -c "find . -type f" "$WORK/docker.log")"
 
-    # Том остался от прошлой выкатки — расхождение обязано быть отказом
+    # Ленивый чанк читалки отличается, а index.html совпадает.
+    # Проверка только по index.html такое пропустила бы — и пропускала:
+    # именно недопубликованный ленивый чанк вешает читалку.
     : > "$WORK/errors.log"
     docker() {
         case "$*" in
-            *"State.ExitCode"*)  echo "0" ;;
-            *"/var/www/html/index.html"*) echo "новый-хеш" ;;
-            *md5sum*)            echo "старый-хеш" ;;
+            *"State.ExitCode"*)      echo "0" ;;
+            *"/var/www/html"*)       printf 'aaa ./index.html\nbbb ./assets/js/ReaderPage-x.js\n' ;;
+            *md5sum*)                printf 'aaa ./index.html\nСТАРЫЙ ./assets/js/ReaderPage-x.js\n' ;;
             *) return 0 ;;
         esac
     }
     rc=0
     verify_frontend_artifact > /dev/null 2>&1 || rc=$?
-    check "старый SPA в томе отвергается" "1" "$rc"
-    check "названа причина" "1" "$(grep -c "старый SPA" "$WORK/errors.log")"
+    check "расхождение ленивого чанка отвергается" "1" "$rc"
+    check "названа причина" "1" "$(grep -c "не совпадает" "$WORK/errors.log")"
+
+    # Пустой том — тоже отказ
+    : > "$WORK/errors.log"
+    docker() {
+        case "$*" in
+            *"State.ExitCode"*) echo "0" ;;
+            *"/var/www/html"*)  printf 'aaa ./index.html\n' ;;
+            *) : ;;
+        esac
+        return 0
+    }
+    rc=0
+    verify_frontend_artifact > /dev/null 2>&1 || rc=$?
+    check "пустой том отвергается" "1" "$rc"
 
     docker() {
         case "$*" in

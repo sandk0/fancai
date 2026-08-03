@@ -599,30 +599,38 @@ verify_frontend_artifact() {
         return 1
     fi
 
-    # Наличия файла мало: том мог остаться от прошлой выкатки, и проверка
-    # была бы зелёной на старом SPA. Сверяем содержимое тома с содержимым
-    # свежесобранного образа — именно это и не выполнялось месяцами.
-    local volume image_sum volume_sum
+    # Сверять один `index.html` НЕДОСТАТОЧНО. Маршруты приложения ленивые
+    # (`App.tsx`), поэтому чанк читалки подгружается динамически и
+    # в `index.html` не упоминается вовсе. Недопубликованный или
+    # несовпадающий ленивый чанк — ровно то, из-за чего читалка зависает
+    # на «восстановлении позиции», — такую проверку прошёл бы незаметно.
+    #
+    # Поэтому сверяется ВЕСЬ набор файлов по контрольным суммам.
+    local volume image_sums volume_sums
     volume=$(compose_volume frontend_build) || return 1
 
-    image_sum=$(docker run --rm --entrypoint sh fancai-frontend:latest \
-        -c 'md5sum /var/www/html/index.html 2>/dev/null | cut -d" " -f1')
-    volume_sum=$(docker run --rm -v "$volume":/w:ro --entrypoint sh alpine \
-        -c 'md5sum /w/index.html 2>/dev/null | cut -d" " -f1')
+    image_sums=$(docker run --rm --entrypoint sh fancai-frontend:latest \
+        -c 'cd /var/www/html && find . -type f -exec md5sum {} + | sort -k2')
+    volume_sums=$(docker run --rm -v "$volume":/w:ro --entrypoint sh alpine \
+        -c 'cd /w && find . -type f -exec md5sum {} + | sort -k2')
 
-    if [[ -z "$volume_sum" ]]; then
+    if [[ -z "$volume_sums" ]]; then
         error "Frontend artifact is missing from the shared volume"
         return 1
     fi
 
-    if [[ "$image_sum" != "$volume_sum" ]]; then
-        error "Том отдаёт НЕ ту сборку, что в образе:"
-        error "  образ=$image_sum том=$volume_sum"
-        error "Публикация не сработала — Caddy продолжит отдавать старый SPA"
+    if [[ "$image_sums" != "$volume_sums" ]]; then
+        error "Опубликованный SPA не совпадает со свежесобранным образом:"
+        diff <(echo "$image_sums") <(echo "$volume_sums") | head -10 | while read -r line; do
+            error "  $line"
+        done
+        error "Публикация не сработала — Caddy будет отдавать смесь сборок"
         return 1
     fi
 
-    success "Published SPA matches the freshly built image ($image_sum)"
+    local count
+    count=$(echo "$image_sums" | wc -l | tr -d ' ')
+    success "Published SPA matches the image byte for byte ($count файлов)"
 }
 
 # Function to stop everything that writes to the database
