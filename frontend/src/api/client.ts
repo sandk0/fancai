@@ -75,8 +75,24 @@ class ApiClient {
           });
         }
 
-        // Skip token refresh for auth endpoints - they handle their own auth
-        const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+        // Пропускать обновление токена можно только там, где оно
+        // бессмысленно или зациклится: публичные эндпоинты и сам refresh.
+        //
+        // Раньше здесь стояло `url.includes('/auth/')`, то есть под запрет
+        // попадали и ЗАЩИЩЁННЫЕ `/auth/me`, `/auth/profile`,
+        // `/auth/deactivate`. Следствие ловилось e2e: после истечения
+        // access-токена первый же запрос при загрузке страницы — `/auth/me` —
+        // получал 401, обновление не запускалось, и пользователя
+        // разлогинивало, хотя живая refresh-cookie у него была.
+        const NO_REFRESH_PATHS = [
+          '/auth/login',
+          '/auth/register',
+          '/auth/refresh',
+          '/auth/logout',
+          '/auth/forgot-password',
+          '/auth/reset-password',
+        ];
+        const isAuthEndpoint = NO_REFRESH_PATHS.some((p) => originalRequest.url?.includes(p));
         // Skip refresh for metrics/health endpoints to prevent loops
         const isIgnoredEndpoint =
           originalRequest.url?.includes('/metrics') || originalRequest.url?.includes('/health');
@@ -111,10 +127,16 @@ class ApiClient {
             logger.warn('🔄 Token refresh failed (permanent):', refreshError);
             this.clearAuthData();
 
-            // Only redirect to login if not already on login page
-            if (!window.location.pathname.includes('/login')) {
-              window.location.href = '/login';
-            }
+            // Навигация здесь не делается намеренно. Редирект защищённых
+            // страниц уже выполняет `AuthGuard` (`App.tsx:101,115` →
+            // `AuthGuard.tsx:37-43`), и делает это правильно: через
+            // `<Navigate>` с сохранением `state.from`, то есть после
+            // повторного входа пользователь возвращается туда, где был.
+            // Императивный `window.location.href` дублировал маршрутизацию,
+            // терял обратный путь и уводил с публичных `/register`
+            // и `/forgot-password`, где анонимный `/auth/me` штатно
+            // отвечает 401. Дело перехватчика — снять состояние
+            // и отклонить запрос.
 
             return Promise.reject(refreshError);
           }

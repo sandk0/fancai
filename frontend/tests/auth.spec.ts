@@ -14,9 +14,10 @@ import { test, expect } from './fixtures/worker-user';
 import { LoginPage, RegisterPage, LibraryPage } from './pages';
 import { generateTestUser } from './fixtures';
 
-// Спеки этого файла проверяют сам вход, поэтому готовая сессия слота им
-// мешает: контекст должен стартовать чистым.
-test.use({ storageState: undefined });
+// Чистый контекст объявляется точечно — только там, где проверяется сам
+// вход или его отсутствие. `POST /auth/login` ограничен десятью запросами
+// в минуту на IP, и файловый opt-out заставлял логиниться каждый тест:
+// вместе с четырьмя входами фикстуры лимит выбирался до конца прогона.
 
 test.describe('Authentication', () => {
   // Регистрация ограничена пресетом `registration` — 2 запроса в минуту
@@ -26,6 +27,8 @@ test.describe('Authentication', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.describe('User Registration', () => {
+    test.use({ storageState: undefined });
+
     test('should successfully register a new user', async ({ page }) => {
       const registerPage = new RegisterPage(page);
       const newUser = generateTestUser('e2e-register');
@@ -97,6 +100,8 @@ test.describe('Authentication', () => {
   });
 
   test.describe('User Login', () => {
+    test.use({ storageState: undefined });
+
     test('should successfully login with valid credentials', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
       const _libraryPage = new LibraryPage(page);
@@ -146,33 +151,65 @@ test.describe('Authentication', () => {
   });
 
   test.describe('Token Refresh', () => {
-    test('should refresh token on page reload', async ({ page, testUser }) => {
-      const loginPage = new LoginPage(page);
+    test('should keep the session across a page reload', async ({ page, context }) => {
+      await page.goto('/library');
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 30000,
+      });
 
-      // Login first
-      await loginPage.navigate();
-      await loginPage.login(testUser.email, testUser.password);
-      await page.waitForURL('/library');
-
-      // Токены живут в HttpOnly-cookie: из JS их не видно, и это гарантия
-      // против XSS. Единственная наблюдаемая проверка — что после
-      // перезагрузки сессия жива.
-      const cookiesBefore = await page.context().cookies();
-      expect(cookiesBefore.some((c) => /token/i.test(c.name) && c.httpOnly)).toBe(true);
+      // Токены живут в HttpOnly-cookie — это и есть защита от XSS.
+      // Прежний тест читал `localStorage.auth_token`, которого в приложении
+      // нет и не было, поэтому падал всегда.
+      const access = (await context.cookies()).find((c) => c.name === 'access_token');
+      expect(access, 'access_token должен лежать в cookie').toBeTruthy();
+      expect(access.httpOnly).toBe(true);
 
       await page.reload();
-      await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 15000 });
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 30000,
+      });
+    });
 
-      const isStillLoggedIn = await page.isVisible('[data-testid="user-menu-trigger"]');
-      expect(isStillLoggedIn).toBe(true);
+    test('should silently refresh when the access token is gone', async ({ page, context }) => {
+      await page.goto('/library');
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 30000,
+      });
+      const before = (await context.cookies()).find((c) => c.name === 'access_token');
+      expect(before).toBeTruthy();
+
+      // Убираем ТОЛЬКО access-токен: refresh-cookie остаётся, и приложение
+      // обязано обменять её на новый access, а не разлогинивать. Ровно этот
+      // сценарий ловил дефект `client.ts`, где под запрет обновления попадал
+      // и защищённый `/auth/me`.
+      const kept = (await context.cookies()).filter((c) => c.name !== 'access_token');
+      await context.clearCookies();
+      await context.addCookies(kept);
+
+      const refreshed = page.waitForResponse(
+        (r) => r.url().includes('/auth/refresh') && r.request().method() === 'POST',
+        { timeout: 30000 }
+      );
+      await page.goto('/library');
+      expect((await refreshed).ok()).toBe(true);
+
+      await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({
+        timeout: 30000,
+      });
+      const after = (await context.cookies()).find((c) => c.name === 'access_token');
+      expect(after, 'обмен обязан выдать новый access_token').toBeTruthy();
+      expect(after.value).not.toBe(before.value);
     });
   });
 
   test.describe('Logout', () => {
+    // Выход заносит токен в blacklist на сервере. Общий `storageState`
+    // слота выдал бы один и тот же токен всем тестам, и первый же logout
+    // обрушил бы сессию остальным — этим тестам нужен свой вход.
+    test.use({ storageState: undefined });
+
     test('should successfully logout', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
-
-      // Login first
       await loginPage.navigate();
       await loginPage.login(testUser.email, testUser.password);
       await page.waitForURL('/library');
@@ -192,8 +229,6 @@ test.describe('Authentication', () => {
 
     test('should not access protected routes after logout', async ({ page, testUser }) => {
       const loginPage = new LoginPage(page);
-
-      // Login and logout
       await loginPage.navigate();
       await loginPage.login(testUser.email, testUser.password);
       await page.waitForURL('/library');
@@ -212,24 +247,31 @@ test.describe('Authentication', () => {
   });
 
   test.describe('Protected Route Access', () => {
-    test('should redirect to login when accessing protected route without auth', async ({ page }) => {
-      // Try to access library without login
-      await page.goto('/library');
+    test.describe('without a session', () => {
+      // Эти два теста проверяют отсутствие доступа, поэтому им нужен
+      // контекст без сессии слота — иначе приложение законно остаётся
+      // на /library и редиректа не происходит.
+      test.use({ storageState: undefined });
 
-      // Should redirect to login
-      await page.waitForURL('/login', { timeout: 5000 });
-      expect(page.url()).toContain('/login');
-    });
+      test('should redirect to login when accessing protected route without auth', async ({
+        page,
+      }) => {
+        // Try to access library without login
+        await page.goto('/library');
 
-    test('should redirect to login when accessing reader without auth', async ({ page }) => {
-      const bookId = '123e4567-e89b-12d3-a456-426614174000';
+        // Should redirect to login
+        await page.waitForURL('/login', { timeout: 15000 });
+        expect(page.url()).toContain('/login');
+      });
 
-      // Try to access reader without login
-      await page.goto(`/book/${bookId}/read`);
+      test('should redirect to login when accessing reader without auth', async ({ page }) => {
+        const bookId = '123e4567-e89b-12d3-a456-426614174000';
 
-      // Should redirect to login
-      await page.waitForURL('/login', { timeout: 5000 });
-      expect(page.url()).toContain('/login');
+        await page.goto(`/book/${bookId}/read`);
+
+        await page.waitForURL('/login', { timeout: 15000 });
+        expect(page.url()).toContain('/login');
+      });
     });
 
     // Перенесено из удалённой auth-journey.spec.ts — единственный её случай,
@@ -250,15 +292,8 @@ test.describe('Authentication', () => {
       expect(page.url()).toContain('/login');
     });
 
-    test('should allow access to protected routes when authenticated', async ({ page, testUser }) => {
-      const loginPage = new LoginPage(page);
-
-      // Login
-      await loginPage.navigate();
-      await loginPage.login(testUser.email, testUser.password);
-      await page.waitForURL('/library');
-
-      // Access library - should stay on library
+    test('should allow access to protected routes when authenticated', async ({ page }) => {
+      // Сессия слота уже в контексте — повторный вход только жёг бы квоту.
       await page.goto('/library');
       await page.waitForTimeout(1000);
       expect(page.url()).toContain('/library');

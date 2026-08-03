@@ -10,6 +10,14 @@ import { AUTH_STATE_DIR } from './fixtures/worker-user';
 async function globalTeardown(): Promise<void> {
   fs.rmSync(AUTH_STATE_DIR, { recursive: true, force: true });
 
+  // Setup упал после коммита и уже откатил фикстуру сам. Второй проход
+  // по несуществующему состоянию — не авария. Без этого маркера
+  // отсутствие state остаётся блокером: значит его кто-то потерял.
+  if (process.env.E2E_SETUP_CLEANED === '1') {
+    console.log('[e2e fixture] фикстура убрана аварийным откатом setup');
+    return;
+  }
+
   let output: string;
   try {
     output = runFixture(['teardown']);

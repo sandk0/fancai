@@ -117,35 +117,20 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
   ],
 
   workerStorageState: [
-    async ({ testUser, browser }, use, workerInfo) => {
-      // Кэш на весь прогон, а не на воркер. Playwright поднимает новый
-      // worker-процесс на каждый браузерный проект и после каждого падения,
-      // поэтому worker-scoped вход повторялся до двадцати раз за матрицу
-      // и снова упирался в лимит `auth` — 10 логинов в минуту на IP
-      // (`rate_limit.py:227`, ключ `ip:`). Файл переживает воркеры,
-      // а чистит его globalSetup/globalTeardown по `E2E_RUN_ID`.
+    async ({}, use, workerInfo) => {
+      // Сессии создаёт globalSetup — все четыре сразу, до старта тестов.
+      // Ленивого входа здесь нет намеренно: он случался уже во время
+      // прогона и конкурировал с auth-спеками за квоту `POST /auth/login`
+      // (10 запросов в минуту на IP). Нет файла — это сбой setup, и о нём
+      // надо узнать сразу, а не молча войти ещё раз.
       const runId = process.env.E2E_RUN_ID ?? 'norun';
       const file = path.join(AUTH_STATE_DIR, `${runId}-${workerInfo.parallelIndex}.json`);
-      fs.mkdirSync(AUTH_STATE_DIR, { recursive: true });
-
       if (!fs.existsSync(file)) {
-        // Вход делается в браузере, а не через APIRequestContext: одних
-        // cookie мало. Стор `auth-store` персистится в localStorage,
-        // и ProtectedRoute сверяется с ним синхронно — с голыми cookie
-        // приложение уводит на /login раньше, чем ответит /auth/me.
-        // baseURL — опция теста, в worker-фикстуре её нет; берём из проекта.
-        const baseURL = workerInfo.project.use.baseURL ?? 'http://localhost:5173';
-        const context = await browser.newContext({ baseURL });
-        const page = await context.newPage();
-        await page.goto('/login');
-        await page.fill('[data-testid="login-email"]', testUser.email);
-        await page.fill('[data-testid="login-password"]', testUser.password);
-        await page.click('[data-testid="login-submit"]');
-        await page.waitForURL('/library', { timeout: 90000 });
-        await context.storageState({ path: file });
-        await context.close();
+        throw new Error(
+          `Нет сохранённой сессии слота ${workerInfo.parallelIndex} (${file}). ` +
+            'globalSetup обязан создать её до запуска тестов.'
+        );
       }
-
       await use(file);
     },
     { scope: 'worker' },

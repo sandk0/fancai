@@ -202,6 +202,23 @@ export class ReaderPage extends BasePage {
     await this.wait(2000);
   }
 
+  /**
+   * Перейти в последнюю главу оглавления.
+   *
+   * Фиксированный индекс не годится для проверки «переход меняет
+   * содержимое»: книга слота переиспользуется между проектами, читалка
+   * восстанавливает позицию, и целевая глава может оказаться текущей —
+   * тогда содержимое законно не меняется и тест врёт. Последняя запись
+   * заведомо отличается от первого экрана.
+   */
+  async navigateToLastChapter(): Promise<void> {
+    await this.openTableOfContents();
+    const entries = this.page.locator(`${this.tocSidebar} button`);
+    const total = await entries.count();
+    await entries.nth(total - 1).click();
+    await this.wait(2500);
+  }
+
   /** Перейти в главу по её названию в оглавлении. */
   async navigateToChapterByTitle(title: string): Promise<void> {
     await this.openTableOfContents();

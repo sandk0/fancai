@@ -202,6 +202,15 @@ test.describe('PWA Features', () => {
       });
 
       // Проверить что есть хотя бы один кеш
+      // Precache существует только в собранном SW: vite-plugin-pwa в dev
+      // отдаёт `dev-sw.js` без манифеста `injectManifest`, и кэшей нет
+      // в принципе — это ограничение среды, а не дефект приложения.
+      const isDevSw = await page.evaluate(async () =>
+        (await navigator.serviceWorker.getRegistrations()).some((r) =>
+          (r.active?.scriptURL ?? '').includes('dev-sw')
+        )
+      );
+      test.skip(isDevSw, 'dev-сервер отдаёт SW без precache');
       expect(cacheNames.length).toBeGreaterThan(0);
 
       // Проверить что в кеше есть файлы

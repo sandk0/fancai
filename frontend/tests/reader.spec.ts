@@ -104,7 +104,9 @@ test.describe('Reading Experience', () => {
 
       await readerPage.goToTextContent();
       const before = (await readerPage.getContentText()).slice(0, 200);
-      await readerPage.navigateToChapter(2);
+      // Последняя глава, а не глава с фиксированным номером: позиция
+      // восстанавливается, и фиксированная цель может оказаться текущей.
+      await readerPage.navigateToLastChapter();
 
       // Переход в другую главу обязан сменить содержимое кадра.
       await expect

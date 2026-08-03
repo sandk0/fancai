@@ -44,7 +44,14 @@ export class RegisterPage extends BasePage {
     // нулевого размера, и `check({ force: true })` по нему состояние
     // чекбокса не меняет («Clicking the checkbox did not change its state»).
     await this.page.locator(this.termsCheckbox).locator('xpath=ancestor::label[1]').click();
-    if (!(await this.page.locator(this.termsCheckbox).isChecked())) {
+    // Только определённое `false` — ошибка. Если элемент уже отцеплен
+    // (форма перерисовалась), проверять нечего, и таймаут локатора здесь
+    // означал бы падение теста на собственной страховке.
+    const checked = await this.page
+      .locator(this.termsCheckbox)
+      .isChecked({ timeout: 5000 })
+      .catch(() => null);
+    if (checked === false) {
       throw new Error(
         'register-terms не отметился кликом по обёртке-label — изменилась разметка Checkbox'
       );
