@@ -68,7 +68,7 @@ stub_common() {
     # оболочку, поэтому стенд обязан их задать — как это делает боевой путь.
     DB_USER="fancai"
     DB_NAME="fancai"
-    REDIS_PASSWORD="stub"
+    REDIS_PASSWORD="stub"  # pragma: allowlist secret
 }
 
 run_case() {
