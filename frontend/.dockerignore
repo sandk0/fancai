@@ -33,12 +33,22 @@ out/
 .cache/
 .parcel-cache/
 
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Environment files.
+#
+# Исключается ВЕСЬ набор, а не перечисление. `.env.production` не отслеживается
+# git, но на машине разработчика лежит и попадал в контекст через `COPY . .`.
+#
+# Переменные, у которых в `Dockerfile.prod` есть ARG/ENV, файл не перебивает —
+# Vite не затирает уже заданное окружение, и `VITE_API_BASE_URL` оставался
+# `/api/v1`. Утекало другое: `VITE_IMAGE_CDN_URL`, у которого ARG нет,
+# приезжал из чужого файла как `https://fancai.ru`. Проверено сборкой двух
+# образов подряд — с этим правилом переменной в бандле нет, без него есть.
+#
+# То есть одна и та же команда давала разные образы на машине разработчика
+# и в CI, где файла не существует. Плюс ignored-файл с секретами не должен
+# попадать в слои и build-кэш.
+.env*
+!.env.example
 
 # IDEs and editors
 .vscode/

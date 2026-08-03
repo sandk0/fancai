@@ -63,8 +63,27 @@ GROUPS: dict[str, list[tuple[int, int, int, int, int]]] = {
 }
 
 
+# Единственная база, куда скрипту можно писать. Он заводит пользователя,
+# книги и дубли прогресса — на dev-БД это мусор поверх единственного
+# реального EPUB, на проде это чужие данные. Имя проверяется у самого
+# соединения, а не по строке `DATABASE_URL`: опечатка в URL не должна
+# оборачиваться записью «куда получилось».
+REHEARSAL_DB = "migration_rehearsal"
+
+
+async def _assert_rehearsal_db(db) -> None:
+    name = (await db.execute(text("SELECT current_database()"))).scalar_one()
+    if name != REHEARSAL_DB:
+        raise SystemExit(
+            f"ОТКАЗ: подключение к базе `{name}`, а разрешена только"
+            f" `{REHEARSAL_DB}`.\nСоздайте её и передайте DATABASE_URL на неё:"
+            f" createdb {REHEARSAL_DB} && alembic upgrade e5f6a7b8c9d0"
+        )
+
+
 async def seed() -> int:
     async with AsyncSessionLocal() as db:
+        await _assert_rehearsal_db(db)
         user_id = uuid.uuid4()
         await db.execute(
             text(
@@ -135,6 +154,7 @@ async def seed() -> int:
 async def verify() -> int:
     failures: list[str] = []
     async with AsyncSessionLocal() as db:
+        await _assert_rehearsal_db(db)
         rows = (
             await db.execute(
                 text(
