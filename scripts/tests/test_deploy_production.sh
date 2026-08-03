@@ -211,6 +211,9 @@ test_rollback_restores_images_only() {
     check "образы возвращены" "3" "$(grep -c "^tag fancai-.*:rollback-20260805_120000 fancai-.*:latest" "$WORK/docker.log")"
     check "psql не вызывался" "0" "$(grep -c "psql" "$WORK/docker.log")"
     check "pg_restore не вызывался" "0" "$(grep -c "pg_restore" "$WORK/docker.log")"
+    # Проект `app` общий с мониторингом: `down` пытается снести сеть,
+    # к которой подключены его контейнеры.
+    check "не вызывается down по всему проекту" "0" "$(grep -cE "^compose .* down( |$)" "$WORK/docker.log")"
 }
 
 # --- 7. Грязное дерево останавливает выкатку -----------------------------
@@ -292,6 +295,39 @@ test_deploy_step_order() {
     fi
 }
 
+# --- 10. Ни один шаг не трогает чужие контейнеры -------------------------
+#
+# Прод и мониторинг живут в ОДНОМ compose-проекте `app`: у `fancai_flower`,
+# `fancai_netdata`, `fancai_victoriametrics`, `fancai_dozzle`
+# и `fancai_uptime_kuma` та же метка `com.docker.compose.project`, только
+# другой файл — проверено `docker inspect` на живом проде 2026-08-05.
+# Compose считает сирот по метке проекта, поэтому `--remove-orphans`
+# в прод-файле снёс бы весь мониторинг заодно. И `prune` тоже нельзя.
+
+test_no_step_touches_foreign_containers() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    cd "$WORK" || return 1
+
+    docker() { echo "$*" >> "$WORK/docker.log"; return 0; }
+    git() { echo "abc1234"; }
+
+    quiesce_writers   > /dev/null 2>&1 || true
+    start_services    > /dev/null 2>&1 || true
+    build_images      > /dev/null 2>&1 || true
+
+    check "нет --remove-orphans" "0" \
+        "$(grep -c -- "--remove-orphans" "$WORK/docker.log")"
+    check "нет container prune" "0" \
+        "$(grep -c "container prune" "$WORK/docker.log")"
+    check "нет image prune" "0" \
+        "$(grep -c "image prune" "$WORK/docker.log")"
+    check "остановка адресная, а не по всему проекту" "0" \
+        "$(grep -cE "^compose -f [^ ]+ (stop|down)$" "$WORK/docker.log")"
+}
+
 # --- 9. Восстановление БД останавливает писателей ------------------------
 #
 # `restore-db` вызывается напрямую из разбора аргументов, минуя `main()`.
@@ -360,6 +396,7 @@ main() {
     run_case "7. доставка кода"    test_update_code_refuses_dirty_tree
     run_case "8. порядок шагов"    test_deploy_step_order
     run_case "9. восстановление"   test_restore_quiesces_writers_first
+    run_case "10. чужие контейнеры" test_no_step_touches_foreign_containers
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"

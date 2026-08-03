@@ -392,9 +392,15 @@ run_migrations() {
 start_services() {
     step "Starting services on the new images..."
 
-    # Пересоздаём контейнеры под новые образы. `down` вместо `up -d`
-    # с рекреацией — чтобы снялись и переименованные/удалённые сервисы.
-    docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+    # БЕЗ `--remove-orphans`. Прод и мониторинг живут в ОДНОМ compose-проекте
+    # `app`: у `fancai_flower`, `fancai_netdata`, `fancai_victoriametrics`,
+    # `fancai_dozzle` и `fancai_uptime_kuma` та же метка
+    # `com.docker.compose.project=app`, только другой файл. Compose считает
+    # сирот по метке проекта, а не по файлу, поэтому флаг снёс бы весь
+    # мониторинг заодно — проверено `docker inspect` на живом проде.
+    # Если прод-сервис когда-нибудь удалят из compose, убирайте его адресно
+    # по имени, а не флагом.
+    docker compose -f "$COMPOSE_FILE" up -d
 
     # Фронт — build-only job: дожидаемся именно его завершения, иначе
     # Caddy может успеть отдать пустой том.
@@ -486,7 +492,13 @@ rollback() {
     tag=$(cat .last_image_tag)
     warning "Rolling back to images tagged rollback-$tag"
 
-    docker compose -f "$COMPOSE_FILE" down --timeout 30 || true
+    # `stop`, а не `down`: проект `app` общий с мониторингом, и `down`
+    # пытается снести сеть `fancai_network`, к которой подключены его
+    # контейнеры. Останавливаем только свои сервисы; пересоздаст их
+    # `up -d` ниже — он всё равно рекреирует контейнер, когда меняется
+    # образ под тем же тегом.
+    docker compose -f "$COMPOSE_FILE" stop --timeout 30 \
+        backend celery-worker celery-beat caddy || true
 
     local restored=0
     for image in "${DEPLOY_IMAGES[@]}"; do
