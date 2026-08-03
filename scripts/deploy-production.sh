@@ -13,8 +13,37 @@ ORIGINAL_ARGS=("$@")
 PROJECT_NAME="fancai"
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env"
-BACKUP_DIR="/backups/$(date +%Y%m%d_%H%M%S)"
-LOG_FILE="/var/log/fancai-deploy.log"
+# Пути определяются пробой на запись, а не предположением. Выкатка идёт
+# под пользователем `deploy`, у которого нет записи ни в `/var/log`,
+# ни в `/backups` — оба принадлежат root. На первом же прогоне скрипт
+# упал на `tee: Permission denied`, причём ДО того, как смог сообщить
+# хоть что-то внятное.
+#
+# Sudo здесь сознательно не используется: повышение прав в автоматическом
+# пути ломается при смене политики и расширяет поверхность. Вместо этого —
+# запасной каталог и явная подсказка, как выровнять при желании.
+BACKUP_ROOT="${DEPLOY_BACKUP_ROOT:-}"
+BACKUP_ROOT_FALLBACK=""
+if [[ -z "$BACKUP_ROOT" ]]; then
+    if [[ -w /backups ]]; then
+        BACKUP_ROOT=/backups
+    else
+        BACKUP_ROOT="$HOME/fancai-backups"
+        BACKUP_ROOT_FALLBACK=1
+    fi
+fi
+BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)"
+
+LOG_FILE="${DEPLOY_LOG_FILE:-}"
+if [[ -z "$LOG_FILE" ]]; then
+    for candidate in /var/log/fancai-deploy.log "$HOME/fancai-deploy.log"; do
+        if : >> "$candidate" 2>/dev/null; then
+            LOG_FILE="$candidate"
+            break
+        fi
+    done
+    LOG_FILE="${LOG_FILE:-/tmp/fancai-deploy.log}"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -92,6 +121,13 @@ check_prerequisites() {
         fi
     done
     
+    if [[ -n "$BACKUP_ROOT_FALLBACK" ]]; then
+        warning "/backups недоступен на запись — бэкапы пойдут в $BACKUP_ROOT"
+        warning "Выровнять при желании: sudo install -d -o $(id -un) /backups/deploy"
+        warning "или задать DEPLOY_BACKUP_ROOT перед запуском"
+    fi
+    info "Журнал: $LOG_FILE   Бэкап: $BACKUP_DIR"
+
     success "Prerequisites check passed"
 }
 
@@ -881,7 +917,9 @@ restore_database_manually() {
 save_deployment_info() {
     step "Saving deployment information..."
     
-    local deployment_info="/var/log/fancai-deployment-$(date +%Y%m%d_%H%M%S).info"
+    # Рядом с журналом выкатки, чтобы не зависеть от прав на /var/log
+    local deployment_info
+    deployment_info="$(dirname "$LOG_FILE")/fancai-deployment-$(date +%Y%m%d_%H%M%S).info"
     
     cat > "$deployment_info" << EOF
 Deployment Information
