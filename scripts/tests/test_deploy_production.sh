@@ -60,6 +60,15 @@ stub_common() {
     error() { echo "ERROR: $*" >> "$WORK/errors.log"; }
     : > "$WORK/errors.log"
     : > "$WORK/docker.log"
+
+    # В бою эти переменные приходят из `.env` через `validate_environment`.
+    # Дефолтов у них намеренно нет: на этом проде база называется `fancai`,
+    # а прежние умолчания `fancai_user`/`fancai_prod` увели бы restore
+    # в несуществующую базу. Под `set -u` необъявленная переменная валит
+    # оболочку, поэтому стенд обязан их задать — как это делает боевой путь.
+    DB_USER="fancai"
+    DB_NAME="fancai"
+    REDIS_PASSWORD="stub"
 }
 
 run_case() {
@@ -255,7 +264,10 @@ test_deploy_step_order() {
     local order
     order=$(tr '\n' ' ' < "$WORK/order.log")
 
-    line_of() { grep -n "^$1$" "$WORK/order.log" | head -1 | cut -d: -f1; }
+    # `|| true` обязателен: без совпадения grep возвращает 1, и под `set -e`
+    # из подключённого скрипта присваивание уронило бы весь стенд. Тогда
+    # настоящая регрессия выглядела бы поломкой стенда, а не падением теста.
+    line_of() { grep -n "^$1$" "$WORK/order.log" | head -1 | cut -d: -f1 || true; }
 
     local build quiesce backup migrate start
     build=$(line_of build_images)
@@ -280,6 +292,63 @@ test_deploy_step_order() {
     fi
 }
 
+# --- 9. Восстановление БД останавливает писателей ------------------------
+#
+# `restore-db` вызывается напрямую из разбора аргументов, минуя `main()`.
+# Значит окружение он обязан загрузить сам (иначе `DB_USER`/`DB_NAME`
+# пусты и restore уйдёт в никуда), а `pg_restore --clean` делает
+# DROP/CREATE — под живыми backend и celery это гонки. Особенно после
+# `rollback`, который поднимает весь стек обратно.
+
+test_restore_quiesces_writers_first() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    ENV_FILE="$WORK/env.restore"
+    cd "$WORK" || return 1
+
+    local dump_dir="$WORK/backup9"
+    mkdir -p "$dump_dir"
+    printf 'PGDMP%.0s' {1..3000} > "$dump_dir/database.dump"
+
+    : > "$WORK/order.log"
+    check_prerequisites() { echo check_prerequisites >> "$WORK/order.log"; }
+    validate_environment() {
+        echo validate_environment >> "$WORK/order.log"
+        DB_USER="fancai"; DB_NAME="fancai"
+    }
+    quiesce_writers()  { echo quiesce_writers  >> "$WORK/order.log"; }
+    start_services()   { echo start_services   >> "$WORK/order.log"; }
+    health_check()     { echo health_check     >> "$WORK/order.log"; return 0; }
+    docker() {
+        [[ "$*" == *pg_restore* ]] && echo pg_restore >> "$WORK/order.log"
+        return 0
+    }
+    # Подтверждение читается со stdin
+    restore_database_manually "$dump_dir" <<< "RESTORE" > /dev/null 2>&1 || true
+
+    pos() { grep -n "^$1$" "$WORK/order.log" | head -1 | cut -d: -f1 || true; }
+    local envload quiesce restore starts
+    envload=$(pos validate_environment)
+    quiesce=$(pos quiesce_writers)
+    restore=$(pos pg_restore)
+    starts=$(pos start_services)
+
+    check "окружение загружается до restore" "1" \
+        "$([[ -n "$envload" && -n "$restore" && "$envload" -lt "$restore" ]] && echo 1 || echo 0)"
+    check "писатели остановлены до pg_restore" "1" \
+        "$([[ -n "$quiesce" && -n "$restore" && "$quiesce" -lt "$restore" ]] && echo 1 || echo 0)"
+    check "сервисы поднимаются после restore" "1" \
+        "$([[ -n "$starts" && "$restore" -lt "$starts" ]] && echo 1 || echo 0)"
+
+    # Без подтверждения восстановление не запускается вовсе
+    : > "$WORK/order.log"
+    restore_database_manually "$dump_dir" <<< "нет" > /dev/null 2>&1 || true
+    check "без слова RESTORE ничего не делается" "0" \
+        "$(grep -c "^pg_restore$" "$WORK/order.log")"
+}
+
 main() {
     prepare_sourceable
     echo "Стенд deploy-production.sh"
@@ -290,6 +359,7 @@ main() {
     run_case "6. откат"            test_rollback_restores_images_only
     run_case "7. доставка кода"    test_update_code_refuses_dirty_tree
     run_case "8. порядок шагов"    test_deploy_step_order
+    run_case "9. восстановление"   test_restore_quiesces_writers_first
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"

@@ -97,8 +97,14 @@ validate_environment() {
     
     source "$ENV_FILE"
     
+    # DB_USER/DB_NAME обязательны наравне с паролями. Раньше их не было
+    # в списке, а по коду стояли дефолты `fancai_user`/`fancai_prod` —
+    # на этом проде значения другие (`fancai`/`fancai`), и «умолчание»
+    # означало обращение к несуществующей базе.
     local required_vars=(
         "DOMAIN_NAME"
+        "DB_NAME"
+        "DB_USER"
         "DB_PASSWORD"
         "REDIS_PASSWORD"
         "SECRET_KEY"
@@ -152,8 +158,8 @@ create_backup() {
 
     info "Creating database backup..."
     docker compose -f "$COMPOSE_FILE" exec -T postgres pg_dump \
-        -U "${DB_USER:-fancai_user}" \
-        -d "${DB_NAME:-fancai_prod}" \
+        -U "$DB_USER" \
+        -d "$DB_NAME" \
         -Fc \
         > "$BACKUP_DIR/database.dump"
 
@@ -510,6 +516,15 @@ rollback() {
 # Дамп снят в формате custom (-Fc), поэтому `psql <` его не прочтёт:
 # восстановление только через `pg_restore`. `--clean` обязателен, иначе
 # получится слияние поверх текущей схемы, а не восстановление.
+#
+# Команда вызывается напрямую из разбора аргументов, минуя `main()`.
+# Отсюда два требования, которые здесь выполняются явно:
+#
+#   1. окружение нужно загрузить самим — иначе `DB_USER`/`DB_NAME` пусты,
+#      и restore уйдёт в никуда;
+#   2. писателей нужно остановить — `--clean` делает DROP/CREATE, и под
+#      активными backend/celery это гонки и смешанное состояние. Особенно
+#      важно после `rollback`, который поднимает весь стек обратно.
 restore_database_manually() {
     local backup_path="${1:-}"
 
@@ -518,24 +533,38 @@ restore_database_manually() {
         return 1
     fi
 
+    check_prerequisites
+    validate_environment
+
     warning "ВОССТАНОВЛЕНИЕ БД ИЗ $backup_path"
-    warning "Текущие данные будут ЗАМЕНЕНЫ. Отменить нельзя."
+    warning "База: $DB_NAME. Текущие данные будут ЗАМЕНЕНЫ. Отменить нельзя."
+    warning "Приложение будет остановлено на время восстановления."
     read -r -p "Введите RESTORE для подтверждения: " confirmation
     if [[ "$confirmation" != "RESTORE" ]]; then
         info "Отменено."
         return 1
     fi
 
+    quiesce_writers
+
     docker compose -f "$COMPOSE_FILE" up -d postgres
     sleep 10
 
     docker compose -f "$COMPOSE_FILE" exec -T postgres pg_restore \
-        -U "${DB_USER:-fancai_user}" \
-        -d "${DB_NAME:-fancai_prod}" \
+        -U "$DB_USER" \
+        -d "$DB_NAME" \
         --clean --if-exists --no-owner \
         < "$backup_path/database.dump"
 
     success "База восстановлена из $backup_path"
+
+    start_services
+    if health_check; then
+        success "Приложение поднято после восстановления"
+    else
+        error "Сервисы не поднялись — разбирайтесь вручную, база уже восстановлена"
+        return 1
+    fi
 }
 
 # Function to save deployment info
