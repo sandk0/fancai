@@ -10,7 +10,17 @@ from uuid import UUID
 import uuid as uuid_module
 import enum
 
-from sqlalchemy import Integer, String, Text, Float, ForeignKey, DateTime, func, select
+from sqlalchemy import (
+    Integer,
+    String,
+    Text,
+    Float,
+    ForeignKey,
+    DateTime,
+    UniqueConstraint,
+    func,
+    select,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -272,6 +282,15 @@ class ReadingProgress(Base):
     """
 
     __tablename__ = "reading_progress"
+
+    # Ровно одна строка прогресса на пару «пользователь + книга».
+    # Без этого ограничения два одновременных сохранения позиции (читалка
+    # шлёт их пачками) создавали дубль, после чего `scalar_one_or_none()`
+    # в сервисе и в `GET /books/{id}/progress` падал «Multiple rows were
+    # found» — прогресс книги ломался безвозвратно. Миграция g1h2i3j4k5l6.
+    __table_args__ = (
+        UniqueConstraint("user_id", "book_id", name="uq_reading_progress_user_book"),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid_module.uuid4, index=True

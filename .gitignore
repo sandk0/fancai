@@ -262,3 +262,7 @@ coverage/
 .artifacts/
 .ropeproject/
 .ruff_cache/
+
+# Артефакты Playwright: отчёты, видео и трейсы прогонов
+frontend/test-results/
+frontend/playwright-report/

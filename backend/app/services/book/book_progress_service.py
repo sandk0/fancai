@@ -17,6 +17,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ...models.book import Book, ReadingProgress
 from ...models.chapter import Chapter
@@ -207,7 +208,31 @@ class BookProgressService:
         # (в будущем можно убрать это поле из модели)
         valid_page = 1
 
-        # Ищем существующий прогресс
+        # Гарантируем ровно одну строку прогресса на (user_id, book_id).
+        #
+        # Раньше здесь был read-then-insert: два одновременных сохранения
+        # (а читалка шлёт их пачками) оба не находили строку и оба вставляли
+        # свою. Уникального ограничения на паре не было, поэтому дубль
+        # оставался в БД навсегда — и `scalar_one_or_none()` и в этом методе,
+        # и в `GET /books/{id}/progress` начинали падать
+        # «Multiple rows were found», то есть прогресс книги ломался
+        # безвозвратно. Теперь вставка идёт через ON CONFLICT DO NOTHING
+        # по ограничению `uq_reading_progress_user_book`: проигравший гонку
+        # запрос просто перечитывает чужую строку.
+        await db.execute(
+            pg_insert(ReadingProgress)
+            .values(
+                user_id=user_id,
+                book_id=book_id,
+                current_chapter=valid_chapter,
+                current_page=valid_page,
+                current_position=int(valid_position),
+                reading_location_cfi=reading_location_cfi,
+                scroll_offset_percent=scroll_offset_percent,
+                max_chapter_reached=valid_chapter,
+            )
+            .on_conflict_do_nothing(index_elements=["user_id", "book_id"])
+        )
         result = await db.execute(
             select(ReadingProgress).where(
                 and_(
@@ -216,88 +241,72 @@ class BookProgressService:
                 )
             )
         )
-        progress = result.scalar_one_or_none()
+        progress = result.scalar_one()
 
-        if not progress:
-            # Создаем новый прогресс
-            progress = ReadingProgress(
-                user_id=user_id,
-                book_id=book_id,
-                current_chapter=valid_chapter,
-                current_page=valid_page,
-                current_position=int(
-                    valid_position
-                ),  # Теперь хранит процент 0-100 (int)
-                reading_location_cfi=reading_location_cfi,  # CFI для epub.js
-                scroll_offset_percent=scroll_offset_percent,  # Точный скролл внутри страницы
-                max_chapter_reached=valid_chapter,  # Начальное значение = текущая глава
-            )
-            db.add(progress)
-        else:
-            # SMART REGRESSION PROTECTION (2026-01-06)
-            #
-            # Problem: Race condition bug could save ~0% progress, overwriting real progress.
-            # But users legitimately navigate backward (re-read chapters, TOC jumps).
-            #
-            # Solution: Block ONLY the classic bug pattern - dropping to near-zero.
-            #
-            # BLOCKED (suspicious - race condition bug):
-            # - existing > 5% AND new < 2% (dropping to first page from real progress)
-            #
-            # ALLOWED (all legitimate navigation):
-            # - 50% → 5% (TOC jump to earlier chapter)
-            # - 50% → 40% (re-reading previous section)
-            # - 20% → 10% (going back several pages)
-            # - 10% → 3% (backward navigation with some progress)
-            #
-            # Why this works: The race condition bug specifically shows the FIRST PAGE
-            # (position ~0-1%), not a random earlier position. TOC jumps and backward
-            # navigation will have position > 2% because chapters start after the cover.
-            existing_position = float(progress.current_position or 0.0)
+        # SMART REGRESSION PROTECTION (2026-01-06)
+        #
+        # Problem: Race condition bug could save ~0% progress, overwriting real progress.
+        # But users legitimately navigate backward (re-read chapters, TOC jumps).
+        #
+        # Solution: Block ONLY the classic bug pattern - dropping to near-zero.
+        #
+        # BLOCKED (suspicious - race condition bug):
+        # - existing > 5% AND new < 2% (dropping to first page from real progress)
+        #
+        # ALLOWED (all legitimate navigation):
+        # - 50% → 5% (TOC jump to earlier chapter)
+        # - 50% → 40% (re-reading previous section)
+        # - 20% → 10% (going back several pages)
+        # - 10% → 3% (backward navigation with some progress)
+        #
+        # Why this works: The race condition bug specifically shows the FIRST PAGE
+        # (position ~0-1%), not a random earlier position. TOC jumps and backward
+        # navigation will have position > 2% because chapters start after the cover.
+        existing_position = float(progress.current_position or 0.0)
 
-            # Check if this is a suspicious regression
-            if valid_position < existing_position:
-                # Only block: dropping to near-zero from significant progress
-                # This is the specific pattern of the race condition bug
-                # TD-P15-6: Softened thresholds (was 5%/2%, now 10%/1%) to allow
-                # legitimate chapter starts and re-reading
-                is_suspicious = existing_position > 10.0 and valid_position < 1.0
+        # Check if this is a suspicious regression
+        if valid_position < existing_position:
+            # Only block: dropping to near-zero from significant progress
+            # This is the specific pattern of the race condition bug
+            # TD-P15-6: Softened thresholds (was 5%/2%, now 10%/1%) to allow
+            # legitimate chapter starts and re-reading
+            is_suspicious = existing_position > 10.0 and valid_position < 1.0
 
-                if is_suspicious:
-                    print(
-                        f"📌 [PROGRESS PROTECTION] Blocking suspicious near-zero drop: "
-                        f"book_id={book_id}, user_id={user_id}, "
-                        f"existing={existing_position:.1f}% → new={valid_position:.1f}%"
-                    )
-                    # Still update CFI and timestamp for position tracking
-                    if reading_location_cfi:
-                        progress.reading_location_cfi = reading_location_cfi
-                    progress.scroll_offset_percent = scroll_offset_percent
-                    # max_chapter_reached обновляется даже при блокировке прогресса
-                    progress.max_chapter_reached = max(
-                        valid_chapter, progress.max_chapter_reached or 1
-                    )
-                    progress.last_read_at = datetime.now(timezone.utc)
-                    await db.commit()
-                    await db.refresh(progress)
-                    return progress
+            if is_suspicious:
+                print(
+                    f"📌 [PROGRESS PROTECTION] Blocking suspicious near-zero drop: "
+                    f"book_id={book_id}, user_id={user_id}, "
+                    f"existing={existing_position:.1f}% → new={valid_position:.1f}%"
+                )
+                # Still update CFI and timestamp for position tracking
+                if reading_location_cfi:
+                    progress.reading_location_cfi = reading_location_cfi
+                progress.scroll_offset_percent = scroll_offset_percent
+                # max_chapter_reached обновляется даже при блокировке прогресса
+                progress.max_chapter_reached = max(
+                    valid_chapter, progress.max_chapter_reached or 1
+                )
+                progress.last_read_at = datetime.now(timezone.utc)
+                await db.commit()
+                await db.refresh(progress)
+                return progress
 
-            # Обновляем существующий
-            progress.current_chapter = valid_chapter
-            progress.current_page = valid_page
-            progress.current_position = int(
-                valid_position
-            )  # Теперь хранит процент 0-100 (int)
-            progress.reading_location_cfi = reading_location_cfi  # CFI для epub.js
-            progress.scroll_offset_percent = (
-                scroll_offset_percent  # Точный скролл внутри страницы
-            )
-            progress.last_read_at = datetime.now(timezone.utc)
+        # Обновляем существующий
+        progress.current_chapter = valid_chapter
+        progress.current_page = valid_page
+        progress.current_position = int(
+            valid_position
+        )  # Теперь хранит процент 0-100 (int)
+        progress.reading_location_cfi = reading_location_cfi  # CFI для epub.js
+        progress.scroll_offset_percent = (
+            scroll_offset_percent  # Точный скролл внутри страницы
+        )
+        progress.last_read_at = datetime.now(timezone.utc)
 
-            # Обновляем max_chapter_reached (монотонно возрастает — защита от спойлеров)
-            progress.max_chapter_reached = max(
-                valid_chapter, progress.max_chapter_reached or 1
-            )
+        # Обновляем max_chapter_reached (монотонно возрастает — защита от спойлеров)
+        progress.max_chapter_reached = max(
+            valid_chapter, progress.max_chapter_reached or 1
+        )
         # Обновляем время последнего доступа к книге
         book_result = await db.execute(select(Book).where(Book.id == book_id))
         book = book_result.scalar_one()
