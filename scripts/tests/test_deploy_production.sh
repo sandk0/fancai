@@ -68,7 +68,7 @@ stub_common() {
     # оболочку, поэтому стенд обязан их задать — как это делает боевой путь.
     DB_USER="fancai"
     DB_NAME="fancai"
-    REDIS_PASSWORD="stub"  # pragma: allowlist secret
+    REDIS_PASSWORD="S3CRET-STUB-VALUE"  # pragma: allowlist secret
 }
 
 run_case() {
@@ -328,6 +328,97 @@ test_no_step_touches_foreign_containers() {
         "$(grep -cE "^compose -f [^ ]+ (stop|down)$" "$WORK/docker.log")"
 }
 
+# --- 11. Redis снимается штатно и до необратимой очистки -----------------
+#
+# `purge_stale_queues` делает `DEL light` — это необратимо. Раскладка
+# Redis в проекте load-bearing: DB 0 держит `parsing_queue`
+# и `global_parsing_lock`, DB 1 — брокер Celery, DB 2 — результаты.
+# Копировать `dump.rdb` из-под работающего Redis без BGSAVE нельзя:
+# снимок будет рваным.
+
+test_redis_snapshot_before_purge() {
+    # shellcheck disable=SC1091
+    source "$WORK/lib.sh"
+    stub_common
+    COMPOSE_FILE="compose.yml"
+    BACKUP_DIR="$WORK/backup11"
+    mkdir -p "$BACKUP_DIR"
+    cd "$WORK" || return 1
+
+    # Счётчик обязан быть файловым: `$(...)` порождает подоболочку,
+    # и присваивание внутри неё теряется — LASTSAVE «не менялся» бы,
+    # а функция честно ждала бы свои 60 секунд.
+    echo 1 > "$WORK/lastsave"
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *LASTSAVE*)
+                local n; n=$(cat "$WORK/lastsave")
+                echo "$n"
+                echo $((n + 1)) > "$WORK/lastsave"
+                ;;
+            *"cp "*) printf 'REDIS0011%.0s' {1..20} > "$BACKUP_DIR/redis-dump.rdb" ;;
+        esac
+        return 0
+    }
+
+    local rc=0
+    backup_redis > /dev/null 2>&1 || rc=$?
+
+    check "снимок снят" "0" "$rc"
+    check "вызван BGSAVE" "1" "$(grep -c "BGSAVE" "$WORK/docker.log")"
+    check "RDB скопирован наружу" "1" "$(grep -c "cp .*dump.rdb" "$WORK/docker.log")"
+    check "нет обращений к fancai_*_data" "0" \
+        "$(grep -c "fancai_postgres_data\|fancai_redis_data" "$WORK/docker.log")"
+    # Проверяем само ЗНАЧЕНИЕ во всей строке команды, а не шаблон флага:
+    # секрет одинаково утекает и через `redis-cli -a`, и через
+    # `docker compose -e VAR=value` в argv хоста.
+    check "значение секрета не попадает в argv" "0" \
+        "$(grep -c "S3CRET-STUB-VALUE" "$WORK/docker.log")"
+
+    # Пустой снимок обязан останавливать выкатку
+    : > "$WORK/docker.log"
+    rm -f "$BACKUP_DIR/redis-dump.rdb"
+    docker() {
+        echo "$*" >> "$WORK/docker.log"
+        case "$*" in
+            *LASTSAVE*)
+                local n; n=$(cat "$WORK/lastsave")
+                echo "$n"
+                echo $((n + 1)) > "$WORK/lastsave"
+                ;;
+            *"cp "*) : > "$BACKUP_DIR/redis-dump.rdb" ;;
+        esac
+        return 0
+    }
+    rc=0
+    backup_redis > /dev/null 2>&1 || rc=$?
+    check "пустой снимок отвергается" "1" "$rc"
+
+    # Отдельно: снимок обязан быть ЧАСТЬЮ бэкапа, а не просто существовать
+    # как функция. Иначе вызов можно потерять, и очистка очереди пройдёт
+    # без страховки.
+    BACKUP_DIR="$WORK/backup11b"
+    mkdir -p "$BACKUP_DIR"
+    ENV_FILE="$WORK/env11"; echo "X=1" > "$ENV_FILE"
+    : > "$WORK/calls.log"
+
+    backup_redis() { echo backup_redis >> "$WORK/calls.log"; }
+    docker() {
+        case "$*" in
+            *"ps postgres"*) echo "Up (healthy)" ;;
+            *pg_dump*)       head -c 20000 /dev/zero | tr '\0' 'D' ;;
+            *pg_restore*)    echo "4005; 0 24592 TABLE DATA public books fancai" ;;
+        esac
+        return 0
+    }
+    rc=0
+    create_backup > /dev/null 2>&1 || rc=$?
+
+    check "бэкап с годным дампом проходит" "0" "$rc"
+    check "create_backup зовёт снимок Redis" "1" "$(grep -c backup_redis "$WORK/calls.log")"
+}
+
 # --- 9. Восстановление БД останавливает писателей ------------------------
 #
 # `restore-db` вызывается напрямую из разбора аргументов, минуя `main()`.
@@ -397,6 +488,7 @@ main() {
     run_case "8. порядок шагов"    test_deploy_step_order
     run_case "9. восстановление"   test_restore_quiesces_writers_first
     run_case "10. чужие контейнеры" test_no_step_touches_foreign_containers
+    run_case "11. снимок Redis"    test_redis_snapshot_before_purge
 
     echo
     echo "итог: $PASS пройдено, $FAIL провалено"

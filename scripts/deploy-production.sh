@@ -136,6 +136,71 @@ validate_environment() {
     success "Environment validation passed"
 }
 
+# Function to snapshot Redis
+#
+# Нужен именно перед выкаткой: дальше `purge_stale_queues` делает
+# необратимый `DEL light`, а раскладка Redis в этом проекте load-bearing —
+# DB 0 держит не только кэш, но и `parsing_queue` с `global_parsing_lock`,
+# DB 1 это брокер Celery, DB 2 результаты. «Транзиентным» тут ничего
+# считать нельзя.
+#
+# Способ штатный и тот же, что в `scripts/migration-backup.sh`: BGSAVE,
+# ожидание смены LASTSAVE, копирование RDB наружу. Копировать файл
+# из-под работающего Redis без BGSAVE нельзя — получится рваный снимок.
+backup_redis() {
+    info "Snapshotting Redis..."
+
+    # Секрет не попадает НИ в один argv. `redis-cli -a` кладёт его в argv
+    # процесса внутри контейнера; `-e VAR=value` — в argv самого
+    # `docker compose` на хосте, где его видно в `ps`. Поэтому флагу
+    # передаётся только ИМЯ, а значение уходит окружением.
+    #
+    # `local -x`, а не глобальный `export`: атрибут экспорта снимается
+    # при возврате из функции, и сборки с `git` его не наследуют.
+    local -x REDISCLI_AUTH="${REDIS_PASSWORD:-}"
+    local rcli=(docker compose -f "$COMPOSE_FILE" exec -T
+                -e REDISCLI_AUTH redis redis-cli)
+
+    local before
+    before=$("${rcli[@]}" LASTSAVE 2>/dev/null | tr -d '\r' || echo 0)
+
+    if ! "${rcli[@]}" BGSAVE > /dev/null 2>&1; then
+        warning "BGSAVE отклонён, пробую синхронный SAVE"
+        "${rcli[@]}" SAVE > /dev/null 2>&1
+    fi
+
+    local waited=0
+    while [[ "$waited" -lt 60 ]]; do
+        local now
+        now=$("${rcli[@]}" LASTSAVE 2>/dev/null | tr -d '\r' || echo 0)
+        [[ "$now" != "$before" ]] && break
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    if [[ "$waited" -ge 60 ]]; then
+        error "Redis не завершил сохранение за 60 с — снимок недостоверен"
+        return 1
+    fi
+
+    local container
+    container=$(docker compose -f "$COMPOSE_FILE" ps -q redis)
+    docker cp "$container:/data/dump.rdb" "$BACKUP_DIR/redis-dump.rdb"
+
+    # AOF включён (`--appendonly yes`), каталог нужен для полного восстановления
+    docker cp "$container:/data/appendonlydir" "$BACKUP_DIR/redis-appendonlydir" \
+        2>/dev/null || warning "AOF-каталог не найден — восстановление только из RDB"
+
+    local rdb_size
+    rdb_size=$(wc -c < "$BACKUP_DIR/redis-dump.rdb" 2>/dev/null | tr -d ' ' || echo 0)
+    if [[ "$rdb_size" -lt 64 ]]; then
+        error "Redis snapshot is empty (${rdb_size} bytes) — aborting"
+        return 1
+    fi
+
+    info "Redis snapshot: ${rdb_size} bytes"
+}
+
 # Function to create backup
 #
 # Бэкап — единственная страховка перед `alembic upgrade head`, среди
@@ -183,18 +248,21 @@ create_backup() {
     fi
     info "Dump verified: ${dump_size} bytes, ${table_data} tables with data"
 
-    # Backup volumes. Здесь `|| true` уместен: тома — дополнительная
-    # страховка поверх дампа, их провал не должен ронять выкатку.
-    info "Creating volume backups..."
-    docker run --rm \
-        -v fancai_postgres_data:/source:ro \
-        -v "$BACKUP_DIR":/backup \
-        alpine tar czf /backup/postgres_data.tar.gz -C /source . || true
-
-    docker run --rm \
-        -v fancai_redis_data:/source:ro \
-        -v "$BACKUP_DIR":/backup \
-        alpine tar czf /backup/redis_data.tar.gz -C /source . || true
+    # Архивов ТОМОВ здесь сознательно нет, хотя раньше были два.
+    #
+    # Во-первых, они монтировали `fancai_postgres_data`/`fancai_redis_data`,
+    # а проект называется `app` — реальные тома `app_postgres_data`
+    # и `app_redis_data`. Docker молча создаёт отсутствующий именованный том,
+    # поэтому получались два «успешных» архива пустоты и два мусорных тома
+    # на сервере. Проверено `docker volume ls` на живом проде.
+    #
+    # Во-вторых, даже с правильным именем это не копия: PGDATA работающего
+    # Postgres нельзя брать `tar`'ом — страницы рвутся на лету. Валидная
+    # копия базы ровно одна: проверенный выше `pg_dump -Fc`.
+    #
+    # Redis снимается штатным способом ниже — он нужен, потому что дальше
+    # выкатка делает необратимый `DEL light`.
+    backup_redis
 
     success "Backup created at $BACKUP_DIR"
     echo "$BACKUP_DIR" > .last_backup
@@ -364,14 +432,15 @@ purge_stale_queues() {
 
     step "Purging the stale periodic-task backlog..."
 
-    local before
-    before=$(docker compose -f "$COMPOSE_FILE" exec -T \
-        -e REDISCLI_AUTH="${REDIS_PASSWORD}" redis \
-        redis-cli -n 1 llen light 2>/dev/null | tr -d '\r' || echo 0)
+    # Как в `backup_redis`: значение уходит окружением, флагу — только имя.
+    local -x REDISCLI_AUTH="${REDIS_PASSWORD:-}"
+    local rcli=(docker compose -f "$COMPOSE_FILE" exec -T
+                -e REDISCLI_AUTH redis redis-cli)
 
-    docker compose -f "$COMPOSE_FILE" exec -T \
-        -e REDISCLI_AUTH="${REDIS_PASSWORD}" redis \
-        redis-cli -n 1 del light > /dev/null
+    local before
+    before=$("${rcli[@]}" -n 1 llen light 2>/dev/null | tr -d '\r' || echo 0)
+
+    "${rcli[@]}" -n 1 del light > /dev/null
 
     success "Purged ${before} stale message(s) from the light queue"
 }
