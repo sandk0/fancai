@@ -25,13 +25,15 @@
 (`now()` и `1`). В миграции они оставлены защитой, воспроизвести их
 на этой схеме нельзя.
 
-Запуск — на отдельной БД, не на dev:
+Запуск — только на базе `migration_rehearsal`, скрипт проверяет это сам.
+Учётку берите ту же, что у dev-стека, из `.env`; ниже она подставляется
+переменной, чтобы пароль не оседал в истории команд:
 
-    URL=postgresql+asyncpg://USER:PASS@postgres:5432/migration_rehearsal
-    docker exec -e DATABASE_URL=$URL fancai_backend_dev \\
+    URL="postgresql+asyncpg://$DB_USER:$DB_PASSWORD@postgres:5432/migration_rehearsal"
+    docker exec -e DATABASE_URL="$URL" fancai_backend_dev \\
         python scripts/rehearse_reading_progress_collapse.py seed
-    docker exec -e DATABASE_URL=$URL fancai_backend_dev alembic upgrade head
-    docker exec -e DATABASE_URL=$URL fancai_backend_dev \\
+    docker exec -e DATABASE_URL="$URL" fancai_backend_dev alembic upgrade head
+    docker exec -e DATABASE_URL="$URL" fancai_backend_dev \\
         python scripts/rehearse_reading_progress_collapse.py verify
 """
 
