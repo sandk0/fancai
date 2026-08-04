@@ -129,6 +129,14 @@ export const SelectionMenu = memo(function SelectionMenu({
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // Помечаем нажатие израсходованным. Слушатель читалки висит на
+        // `window`, то есть срабатывает ПОЗЖЕ нашего (`document` в фазе
+        // всплытия), и одного флага «меню открыто» ему недостаточно:
+        // React флашит discrete-события синхронно, поэтому к моменту
+        // window-слушателя `selection` уже сброшен и его guard видит
+        // «оверлеев нет». Без этой строки одно нажатие закрывало меню
+        // И переключало панели читалки.
+        event.preventDefault();
         if (editMode) {
           // In edit mode, Escape always closes
           onClose();

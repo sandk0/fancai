@@ -193,6 +193,25 @@ test.describe('Reading Experience', () => {
       // Действия меню проверяются здесь же: отдельный тест на «в меню есть
       // кнопки» повторял ту же селекцию и ничего не добавлял к покрытию.
       await expect(menu.locator('button')).not.toHaveCount(0);
+
+      // Escape принадлежит меню, а не читалке: меню закрывается, но панели
+      // НЕ переключаются. Раньше `SelectionMenu` (свой слушатель Escape
+      // на `document`) и читалка срабатывали от одного нажатия оба —
+      // на движках WebKit этого не видно, потому что меню там не всплывает,
+      // поэтому проверка живёт именно здесь.
+      const indicator = page.locator('[data-testid="reader-page-indicator"]');
+      const wasVisible = await indicator.isVisible();
+      await page.keyboard.press('Escape');
+      await expect(menu).toBeHidden();
+
+      // Пауза обязательна, и она не «на всякий случай»: подвал уходит
+      // с exit-анимацией `AnimatePresence`, поэтому сразу после нажатия он
+      // ещё в DOM и считается видимым. Первая версия проверки читала
+      // состояние немедленно и была ЗЕЛЁНОЙ на сломанном коде — поймано
+      // мутацией (сужение флага до `isPanelOpen`), после паузы мутация
+      // краснеет. Ждём тишины: утверждение здесь — «ничего не изменилось».
+      await page.waitForTimeout(1000);
+      expect(await indicator.isVisible(), 'Escape не должен трогать панели').toBe(wasVisible);
     });
   });
 

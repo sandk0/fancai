@@ -16,6 +16,31 @@ describe('useKeyboardNavigation — Escape переключает панели',
     window.dispatchEvent(new KeyboardEvent('keydown', { key, cancelable: true }));
   };
 
+  // Израсходованное нажатие. Это второй, независимый от флага рубеж:
+  // слушатель читалки висит на `window`, то есть последним, а React флашит
+  // discrete-события синхронно — оверлей успевает закрыться и сбросить своё
+  // состояние ДО нас, и флаг `escapeHandledByOverlay` к этому моменту уже
+  // «пустой». Поймано только e2e (`reader.spec.ts`, «should show selection
+  // menu on text selection»): юнит-тесты подменяют настоящий `SelectionMenu`.
+  it('израсходованное нажатие читалка не трогает, даже без флага', () => {
+    const onToggleUI = vi.fn();
+    const onNext = vi.fn();
+    renderHook(() =>
+      useKeyboardNavigation({ onNext, onPrev: vi.fn(), onToggleUI })
+    );
+
+    const consumed = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    consumed.preventDefault();
+    window.dispatchEvent(consumed);
+    expect(onToggleUI).not.toHaveBeenCalled();
+
+    // То же и для листания: чужой обработчик забрал нажатие себе.
+    const consumedArrow = new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true });
+    consumedArrow.preventDefault();
+    window.dispatchEvent(consumedArrow);
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
   it('Escape вызывает onToggleUI, когда панелей нет', () => {
     const onToggleUI = vi.fn();
     renderHook(() =>
