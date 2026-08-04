@@ -99,7 +99,11 @@ export const ReaderUI: React.FC<ReaderUIProps> = ({
         chapterTotalPages={footer.chapterTotalPages}
       />
 
-      <div className="fixed top-16 right-4 z-[100]">
+      {/* Признак готовности читалки для e2e: этот узел монтируется ровно
+          вместе с `isVisible`, то есть когда rendition отрисован, метаданные
+          загружены и восстановление позиции завершено. Снаружи другого
+          признака нет — шапка и подвал спрятаны до раскрытия панелей. */}
+      <div className="fixed top-16 right-4 z-[100]" data-testid="reader-ready">
         <ReaderControls
           theme={settings.theme}
           fontSize={settings.fontSize}

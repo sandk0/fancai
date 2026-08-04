@@ -405,6 +405,8 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   useKeyboardNavigation({
     onNext: nextPage,
     onPrev: prevPage,
+    onToggleUI: autoHide.toggleUI,
+    isPanelOpen,
     enabled: renditionReady && !isModalOpen,
     rendition,
   });
