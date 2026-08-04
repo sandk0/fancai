@@ -4,9 +4,12 @@
  * Модель взаимодействия у читалки не кнопочная, и объект страницы обязан
  * это отражать:
  *
- * - Панели управления скрыты, пока не будет тапа в **центр** экрана;
- *   `ReaderUI` вообще не монтируется, пока rendition не готов, поэтому
- *   ждать надо не контейнер, а индикатор страницы.
+ * - Панели управления скрыты, пока их не раскроют; `ReaderUI` вообще
+ *   не монтируется, пока rendition не готов, поэтому ждать надо не
+ *   контейнер, а `reader-ready` — узел, который появляется вместе с
+ *   `ReaderUI`. Раскрытие: пальцем в центр там, где есть касания,
+ *   иначе `Escape` — в десктопном WebKit мышь до книги не доходит
+ *   вовсе (подробности у `showControls`).
  * - Кнопок листания (`reader-next-page`/`reader-prev-page`) не существует.
  *   На мобиле листают тапом по боковым зонам, но обработчик слушает
  *   `touchstart`/`touchend`, а десктопный контекст Playwright их не шлёт
@@ -34,6 +37,8 @@ const MAX_SEEK_SCREENS = 12;
 export class ReaderPage extends BasePage {
   // Selectors
   private readonly readerContainer = '[data-testid="epub-reader"]';
+  /** Монтируется ровно вместе с `ReaderUI` — единственный внешний признак готовности. */
+  private readonly readerReady = '[data-testid="reader-ready"]';
   private readonly tocButton = '[data-testid="reader-toc-button"]';
   private readonly tocSidebar = '[data-testid="toc-sidebar"]';
   private readonly settingsButton = '[data-testid="reader-settings-button"]';
@@ -64,57 +69,84 @@ export class ReaderPage extends BasePage {
   async waitForReaderToLoad(): Promise<void> {
     await this.waitForElement(this.readerContainer, 30000);
     await this.showControls(60000);
+    await this.waitForStableIndicator();
   }
 
   /**
-   * Раскрыть панели центральным тапом.
+   * Дождаться, пока номер страницы перестанет меняться.
    *
-   * Порядок принципиален: сначала дождаться готовности, потом ровно ОДИН
-   * ввод. `onToggleUI` — это переключатель, поэтому серия центральных
-   * событий подряд гасит собственный успех: панели раскрылись, следующий
-   * тап их закрыл. Отсюда и разное поведение движков — на медленном
-   * WebKit панели не успевали появиться до следующей попытки.
+   * Читать индикатор сразу после раскрытия панелей нельзя: у книги
+   * с сохранённым прогрессом номер доезжает после восстановления позиции,
+   * и тест, снявший «начальную» страницу слишком рано, потом видит
+   * движение назад (наблюдалось 11 -> 9). В одиночном прогоне индикатор
+   * стабилен за ~0,5 с — ожидание дешёвое.
+   */
+  private async waitForStableIndicator(timeout = 15000): Promise<void> {
+    const deadline = Date.now() + timeout;
+    let previous: string | null = null;
+    while (Date.now() < deadline) {
+      const current = await this.page
+        .locator(this.pageIndicator)
+        .textContent()
+        .catch(() => null);
+      if (current !== null && current === previous) return;
+      previous = current;
+      await this.wait(600);
+    }
+  }
+
+  /**
+   * Раскрыть панели читалки.
    *
-   * Готовность ловим по содержимому iframe: DOM-признака «rendition готов»
-   * снаружи нет, панели до тапа вообще не смонтированы. Обработчик тапа
-   * висит на документе iframe (`useGestureController`), поэтому на десктопе
-   * бьём кликом внутрь кадра, а в touch-проектах — пальцем: мышиных
-   * событий приложение там не получает.
+   * Раньше здесь был цикл центральных тапов с самого начала загрузки, и это
+   * ломало два движка сразу. Измерено:
+   *
+   * - тапы до готовности не просто «проглатываются»: на Mobile Safari серия
+   *   тапов с ~0,2 с оставляла читалку НЕготовой навсегда (96 с, `ReaderUI`
+   *   так и не смонтирован), тогда как без раннего ввода она готова к 12 с
+   *   и раскрывается одним тапом;
+   * - в десктопном WebKit центральный клик не доходит вообще никуда:
+   *   epub.js рисует книгу в iframe с `sandbox="allow-same-origin"` без
+   *   `allow-scripts`, а WebKit не доставляет в такой документ ни одного
+   *   события (проверено на движке: в iframe без sandbox тот же клик
+   *   доходит). Обработчик центрального тапа живёт как раз на документе
+   *   iframe, поэтому мышью панели там недостижимы.
+   *
+   * Отсюда порядок: сначала дождаться `reader-ready` — узла, который
+   * монтируется ровно вместе с `ReaderUI`, — и только потом ОДИН ввод.
+   * `onToggleUI` переключатель, второй ввод подряд гасит собственный успех.
+   * Клавиатура (`Escape`) работает на всех движках: слушатель висит на
+   * родительском `window`, куда sandbox не достаёт. Пальцем бьём только
+   * там, где мышиных событий приложение не получает.
    */
   async showControls(timeout = 60000): Promise<void> {
     if (await this.page.locator(this.pageIndicator).isVisible().catch(() => false)) {
       return;
     }
 
+    // Именно `attached`: узел-признак — нулевого размера (это якорь
+    // выпадающего меню настроек, закрытое меню детей не рисует), поэтому
+    // проверка на видимость по умолчанию не прошла бы никогда ни в одном
+    // движке. Нам нужен факт монтирования `ReaderUI`, а не его габариты.
+    await this.page.waitForSelector(this.readerReady, { timeout, state: 'attached' });
+
     const hasTouch = await this.page.evaluate(() => navigator.maxTouchPoints > 0);
-    const deadline = Date.now() + timeout;
-
-    while (Date.now() < deadline) {
+    if (hasTouch) {
       const box = await this.page.locator(this.readerContainer).boundingBox();
-      const centre = box
-        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-        : { x: 0, y: 0 };
-
-      // Клик по центру КОНТЕЙНЕРА, а не по body внутри кадра: на обложке
-      // body растянут по viewBox 1500×2387, его центр вне вьюпорта, и
-      // Playwright не может прокрутить документ iframe — клик отваливается
-      // по таймауту. Координата же попадает и в кадр, и в центральную зону.
-      if (hasTouch) {
-        await this.page.touchscreen.tap(centre.x, centre.y).catch(() => undefined);
-      } else {
-        await this.page.mouse.click(centre.x, centre.y).catch(() => undefined);
+      // Центр КОНТЕЙНЕРА, а не body внутри кадра: на обложке body растянут
+      // по viewBox 1500×2387, его центр вне вьюпорта.
+      if (box) {
+        await this.page.touchscreen
+          .tap(box.x + box.width / 2, box.y + box.height / 2)
+          .catch(() => undefined);
       }
-
-      // Пауза щедрая намеренно: `onToggleUI` — переключатель, и второй тап
-      // подряд гасит уже раскрытые панели. Пока `ReaderUI` не смонтирован
-      // (`renditionReady && bookMetadata`), тап просто проглатывается,
-      // поэтому попытки повторяются, но редко.
-      if (await this.controlsVisible(REVEAL_ATTEMPT_WAIT)) return;
+    } else {
+      await this.page.keyboard.press('Escape');
     }
 
-    throw new Error(
-      'Панели читалки не раскрылись центральным тапом за отведённое время'
-    );
+    if (await this.controlsVisible(REVEAL_ATTEMPT_WAIT)) return;
+
+    throw new Error('Панели читалки не раскрылись за отведённое время');
   }
 
   private async controlsVisible(timeout: number): Promise<boolean> {
@@ -125,21 +157,38 @@ export class ReaderPage extends BasePage {
   }
 
   /**
-   * Перелистнуть до фактической смены индикатора.
+   * Перелистнуть до фактического сдвига индикатора В НУЖНУЮ СТОРОНУ.
    *
    * Один ArrowRight двигает экран, но напечатанный номер страницы меняется
    * не на каждом экране — пагинация epub.js мельче, чем шаг индикатора.
    * Поэтому «страница» здесь — наблюдаемое изменение индикатора.
+   *
+   * Сторона проверяется намеренно, а не просто «номер изменился». Читалка
+   * восстанавливает позицию с сервера, и у книги фикстуры прогресс мог
+   * остаться от прошлых тестов прогона (фикстура пока общая на все
+   * проекты — долг назван в `docs/handoff.md`). Тогда первый снятый номер
+   * оказывался чужим, а последующая поправка выглядела как «страница
+   * сменилась»: `ArrowRight` со страницы 11 давал 9, и тест это принимал.
+   * Требование монотонности отсекает такие поправки, но НЕ маскирует
+   * настоящий дефект: если приложение реально листает не туда, попытки
+   * исчерпаются и тест упадёт.
    */
   private async turnPage(key: 'ArrowRight' | 'ArrowLeft'): Promise<void> {
-    const before = await this.getCurrentPage();
+    const forward = key === 'ArrowRight';
+    let before = await this.getCurrentPage();
     for (let attempt = 0; attempt < MAX_TURN_ATTEMPTS; attempt++) {
       await this.page.keyboard.press(key);
       await this.wait(1000);
-      if ((await this.getCurrentPage()) !== before) return;
+      const now = await this.getCurrentPage();
+      if (forward ? now > before : now < before) return;
+      // Номер уехал в противоположную сторону сам — это доехавшее
+      // восстановление позиции, а не наше листание: берём его за новую
+      // отправную точку, иначе сравнение навсегда останется с чужим числом.
+      if (now !== before) before = now;
     }
     throw new Error(
-      `Индикатор страницы не изменился после ${MAX_TURN_ATTEMPTS} нажатий ${key}`
+      `Индикатор страницы не сдвинулся ${forward ? 'вперёд' : 'назад'} ` +
+        `после ${MAX_TURN_ATTEMPTS} нажатий ${key}`
     );
   }
 

@@ -26,6 +26,37 @@ import { ReaderPage } from './pages';
 // Рендер реального EPUB — десятки секунд, и это не признак поломки.
 test.setTimeout(120000);
 
+/**
+ * Почему выделение текста не проверяется на движках WebKit.
+ *
+ * epub.js рисует книгу в iframe с `sandbox="allow-same-origin"` и БЕЗ
+ * `allow-scripts` — это зашито в самой библиотеке
+ * (`epubjs/lib/managers/views/iframe.js:97-101`). WebKit в такой документ
+ * не доставляет НИ ОДНОГО события: измерено на голой странице — ни
+ * нативный клик/тап, ни даже программный `dispatchEvent` из родителя не
+ * запускают слушателей (`fired: []`), тогда как Chromium на тех же вызовах
+ * даёт `["mouseup","selectionchange"]`, а в iframe БЕЗ sandbox всё доходит
+ * и в WebKit. Само выделение при этом создаётся: `getSelection().toString()`
+ * возвращает текст — недоступно именно уведомление.
+ *
+ * Приложение узнаёт о выделении только через события документа iframe
+ * (`rendition.on('selected')` у epub.js и `selectionchange`,
+ * `useTextSelection.ts:229`), поэтому на WebKit сообщить ему нечем — ни
+ * тесту, ни пользователю. Это ограничение движка, а не наша регрессия:
+ * тот же вывод уже зафиксирован в коде для iOS (`useGestureController.ts:773`
+ * — «iOS doesn't deliver events to iframe content, so we can't use
+ * selectionchange»); здесь он обобщён на весь WebKit и подтверждён замером.
+ *
+ * Обойти можно лишь двумя способами, и оба вне этой задачи: включить
+ * `allow-scripts` (скрипты в загруженных пользователями EPUB получат доступ
+ * к нашему origin — регрессия безопасности) либо перевести детекцию
+ * выделения на опрос из родителя (изменение продукта, затрагивает живых
+ * пользователей Safari). Вынесено долгом в `docs/handoff.md`.
+ */
+const SELECTION_UNAVAILABLE_ON_WEBKIT =
+  'WebKit не доставляет события в засэндбоксенный iframe epub.js — ' +
+  'приложению нечем узнать о выделении; см. комментарий у константы';
+
 test.beforeEach(async ({ page, fixtureBookId }) => {
   test.skip(!fixtureBookId, 'в dev-БД нет разобранной книги');
 
@@ -116,7 +147,13 @@ test.describe('Reading Experience', () => {
   });
 
   test.describe('Bookmarks', () => {
-    test('should create a bookmark from the selection menu', async ({ page, fixtureBookId }) => {
+    test('should create a bookmark from the selection menu', async ({
+      page,
+      fixtureBookId,
+      browserName,
+    }) => {
+      test.skip(browserName === 'webkit', SELECTION_UNAVAILABLE_ON_WEBKIT);
+
       const readerPage = new ReaderPage(page);
 
       const selected = await readerPage.selectText();
@@ -145,7 +182,9 @@ test.describe('Reading Experience', () => {
   });
 
   test.describe('Text Highlighting', () => {
-    test('should show selection menu on text selection', async ({ page }) => {
+    test('should show selection menu on text selection', async ({ page, browserName }) => {
+      test.skip(browserName === 'webkit', SELECTION_UNAVAILABLE_ON_WEBKIT);
+
       const readerPage = new ReaderPage(page);
 
       expect(await readerPage.selectText()).toBe(true);
@@ -250,9 +289,18 @@ test.describe('Reading Experience', () => {
     test('should track reading position with CFI', async ({ page, fixtureBookId }) => {
       const readerPage = new ReaderPage(page);
 
+      // Прогресс уходит на сервер с задержкой (debounce в useProgressSync),
+      // поэтому ждём саму запись, а не фиксированную паузу: на паузе
+      // в 3 секунды тест иногда читал `{"progress":null}`.
+      const saved = page.waitForResponse(
+        (r) =>
+          r.url().includes(`/books/${fixtureBookId}/progress`) &&
+          r.request().method() === 'POST',
+        { timeout: 30000 }
+      );
       await readerPage.nextPage();
       await readerPage.nextPage();
-      await page.waitForTimeout(3000);
+      await saved;
 
       // Позиция — epub.js CFI, и хранится она на сервере, а не в localStorage:
       // ключа `last_cfi` в приложении нет вовсе.
