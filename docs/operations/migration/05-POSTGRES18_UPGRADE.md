@@ -53,12 +53,44 @@ Error: in 18+, these Docker images are configured to store database data in a
 `name: fancai_network` (строка 411), поэтому в `docker run --network`
 идёт `fancai_network` — без префикса проекта.
 
+**Четвёртое, и это блокер окна: `/docker-entrypoint-initdb.d`.**
+Найдено 2026-08-07, при подготовке боевого окна; в репетиции не всплыло,
+потому что dev монтирует ДРУГОЙ файл (`./backend/sql/init.sql`), а
+`./postgres/init/` существует только в прод-конфигурации и **не исполнялся
+ни разу за всю жизнь прода**.
+
+`docker-compose.prod.yml:320` монтирует `./postgres/init` в
+`/docker-entrypoint-initdb.d:ro`. Эти скрипты запускаются **только при пустом
+PGDATA** — то есть на текущем томе никогда, а на новом
+`app_postgres_data_pg18` отработают впервые. Что там лежит:
+
+| Файл | Что сделает | Последствие |
+| --- | --- | --- |
+| `postgres/init/01-extensions.sql:10` | `\c bookreader` | боевая база называется `fancai`; entrypoint гоняет `.sql` с `ON_ERROR_STOP=1`, файлы идут по алфавиту, значит этот падает ПЕРВЫМ и инициализация обрывается — **postgres не станет healthy посреди окна, до `pg_restore` дело не дойдёт** |
+| `postgres/init/init.sql:12-16` | `ALTER SYSTEM SET log_statement='all'`, `log_connections`, `log_disconnections` | среди `-c` в compose этих параметров нет, перекрыть их некому: прод начнёт логировать каждый запрос |
+| `postgres/init/01-extensions.sql:60` | роль `monitoring` с паролем `change_in_production_monitoring` | зашитый пароль в боевой БД |
+
+Доказательства, что скрипты не отрабатывали (сняты с прода 2026-08-07):
+`show log_statement` → `none`; роли — только `fancai`, никакой `monitoring`;
+расширений `pg_stat_statements` и `btree_gin` нет.
+
+**Что делать в окне:** снять монтирование init'а — это ШЕСТАЯ правка
+в `docker-compose.prod.yml`, к пяти из таблицы выше. Расширения ставятся
+явно в §5, восстановление идёт с `--no-owner --no-privileges`, поэтому
+ни один из этих скриптов для переезда не нужен.
+
+Отдельно от окна: скрипты ссылаются на имя базы, которого в проекте давно
+нет, и держат зашитый пароль. Их стоит либо привести в порядок, либо удалить
+— но это решение владельца, а не правка «по ходу» боевого окна.
+
 ---
 
 ## 1. Предусловия
 
 - Окно обслуживания. Прод останавливается на время дампа и восстановления.
-- Свободное место: на боевой машине 919 GB при базе 88.71 MB (`02-BACKUP_INVENTORY.md`) — с запасом.
+- Свободное место: на боевой машине 919 GB. База — **38 MB** (замерено
+  2026-08-07 через `pg_database_size`); цифра 88.71 MB из
+  `02-BACKUP_INVENTORY.md` устарела. Запас кратный.
 - Клиент `pg_dump` версии **18**. Клиентом 17 дампить для восстановления в 18
   не следует; в репетиции использовался одноразовый контейнер
   `pgvector/pgvector:0.8.6-pg18`.
@@ -182,13 +214,15 @@ ls -l /tmp/pg18/prod.pgc      # размер ненулевой
 
 ## 4. Переключение
 
-Все правки из таблицы §0 вносятся в `docker-compose.prod.yml` **до** старта:
-тег сервера, удаление `PGDATA`, путь монтирования, `name:` тома, тег sidecar'а.
+Все правки из §0 вносятся в `docker-compose.prod.yml` **до** старта — их
+**шесть**: тег сервера, удаление `PGDATA`, путь монтирования, `name:` тома,
+тег sidecar'а и снятие монтирования `./postgres/init` (см. «Четвёртое» в §0:
+без этого сервер 18 не пройдёт инициализацию и не станет healthy).
 
 ```bash
 docker compose -f docker-compose.prod.yml stop postgres pgbackup
 
-# правки в docker-compose.prod.yml — см. таблицу §0 (пять строк)
+# правки в docker-compose.prod.yml — см. §0 (шесть строк, включая init)
 
 docker compose -f docker-compose.prod.yml up -d postgres
 
@@ -213,12 +247,34 @@ docker exec fancai_postgres psql -U "$DB_USER" -tAc 'select version()'
 Расширения создаются до данных: дамп ссылается на тип `vector` в определениях
 таблиц.
 
+**Список — по эталону с прода, а не по этому файлу.** Репетиция шла на dev,
+а наборы расширений у dev и прода РАЗНЫЕ. Замер 2026-08-07:
+
+| Стенд | Расширения |
+| --- | --- |
+| прод | `plpgsql 1.0`, `vector 0.8.2` — и всё |
+| dev | `plpgsql 1.0`, `vector 0.8.6`, `pg_trgm 1.6`, `uuid-ossp 1.1` |
+
+То есть прежняя редакция этого раздела ставила `pg_trgm` и `uuid-ossp`,
+которых на проде НЕТ, — лишние объекты в боевой базе. Ставить надо ровно
+то, что перечислено в `ext_pg17.txt` из §2 (`plpgsql` создаётся сам):
+
 ```bash
 docker exec fancai_postgres psql -U "$DB_USER" -d "$DB_NAME" -c \
-  'CREATE EXTENSION IF NOT EXISTS vector;
-   CREATE EXTENSION IF NOT EXISTS pg_trgm;
-   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+  'CREATE EXTENSION IF NOT EXISTS vector;'
+```
 
+**Побочный эффект, о котором надо знать заранее:** на проде SQL-версия
+`vector` — `0.8.2`, хотя образ несёт 0.8.6 (`ALTER EXTENSION … UPDATE`
+никто не делал). На новом томе `CREATE EXTENSION vector` без версии
+поставит дефолт образа, то есть **0.8.6** — переезд неявно обновит
+расширение. Если этого не хочется, версию надо задать явно:
+`CREATE EXTENSION vector VERSION '0.8.2'`. Решение принять ДО окна
+и записать в §6 как ожидаемое значение.
+
+Затем данные:
+
+```bash
 docker run --rm --network fancai_network \
   -e PGPASSWORD="$DB_PASSWORD" -v /tmp/pg18:/dump \
   pgvector/pgvector:0.8.6-pg18 \
@@ -259,7 +315,12 @@ diff /tmp/pg18/check_pg17.norm /tmp/pg18/check_pg18.norm   # обязан быт
 
 Дальше:
 
-- `select extversion from pg_extension where extname='vector'` → `0.8.6`;
+- расширения совпадают с `ext_pg17.txt` из §2 — сравнивать со СНЯТЫМ
+  эталоном, а не с числом в этом файле. Прежняя редакция требовала здесь
+  `vector → 0.8.6`, что верно для dev и **неверно для прода**, где стоит
+  `0.8.2`: критерий провалился бы на исправной миграции. Если в §5 принято
+  решение обновить расширение — ожидаемым значением становится `0.8.6`,
+  и это надо записать здесь до начала окна, а не решать по факту;
 - счётчики совпадают с `counts_pg17.txt`;
 - smoke пайплайна зелёный против 18:
 

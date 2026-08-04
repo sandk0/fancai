@@ -287,7 +287,7 @@ services:
 
   # PostgreSQL Database (optimized for 32GB server, 12 vCPU)
   postgres:
-    image: pgvector/pgvector:0.8.6-pg17
+    image: pgvector/pgvector:0.8.6-pg18
     container_name: fancai_postgres
     shm_size: 10g
     environment:
@@ -295,7 +295,6 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
-      - PGDATA=/var/lib/postgresql/data/pgdata
     command: >
       postgres
       -c shared_buffers=4GB
@@ -315,9 +314,22 @@ services:
       -c max_wal_size=4GB
       -c effective_io_concurrency=200
       -c autovacuum_vacuum_cost_limit=2000
+    # PostgreSQL 18: путь монтирования — БЕЗ `/data`, а PGDATA не задаётся
+    # явно. Образы 18+ хранят данные в каталоге с мажорной версией
+    # (`/var/lib/postgresql/18/docker`) и отказываются стартовать, если том
+    # примонтирован на прежний `/var/lib/postgresql/data`, даже пустой.
+    #
+    # `./postgres/init:/docker-entrypoint-initdb.d` снят сознательно 2026-08-07,
+    # при переезде на 18. Эти скрипты идут только при ПУСТОМ PGDATA, то есть
+    # на прежнем томе не отработали ни разу, а на новом сорвали бы окно:
+    # `01-extensions.sql` делает `\c bookreader`, тогда как база называется
+    # `fancai`, а entrypoint гоняет `.sql` с ON_ERROR_STOP=1 — инициализация
+    # обрывается и сервер не становится healthy. Плюс `init.sql` включает
+    # `log_statement='all'` и создаёт роль с зашитым паролем. Расширения
+    # ставятся явно по runbook. Возвращать монтирование нельзя, пока скрипты
+    # не приведены в порядок: `docs/operations/migration/05-POSTGRES18_UPGRADE.md`, §0.
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql
     restart: unless-stopped
     stop_signal: SIGINT
     stop_grace_period: 60s
@@ -365,7 +377,7 @@ services:
 
   # PostgreSQL Backup (daily, 7-day retention)
   pgbackup:
-    image: prodrigestivill/postgres-backup-local:17
+    image: prodrigestivill/postgres-backup-local:18
     container_name: fancai_pgbackup
     restart: unless-stopped
     depends_on:
@@ -395,6 +407,11 @@ services:
 
 volumes:
   postgres_data:
+    # Явное имя обязательно: логическое `postgres_data` без `name:`
+    # разворачивается в `app_postgres_data` — том из-под PostgreSQL 17,
+    # который серверу 18 подключать нельзя ни при какой конфигурации.
+    # Старый том НЕ удалён и остаётся точкой отката переезда 2026-08-07.
+    name: app_postgres_data_pg18
     driver: local
   redis_data:
     driver: local
