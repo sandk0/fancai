@@ -19,6 +19,7 @@ import { EpubReader } from '../EpubReader';
 import type { BookDetail, ChapterInfo } from '@/types/api';
 import type { Book, Rendition, EpubLocations } from '@/types/epub';
 import { useAuthStore } from '@/stores/auth';
+import { useKeyboardNavigation, useTextSelection } from '@/hooks/epub';
 
 // Mock auth store - MUST be before other mocks that depend on it
 vi.mock('@/stores/auth');
@@ -1107,6 +1108,46 @@ describe('EpubReader Component', () => {
       await waitFor(() => {
         expect(useCFITracking).toHaveBeenCalled();
       });
+    });
+  });
+
+  // ============================================================================
+  // ESCAPE: ВЛАДЕЛЕЦ РОВНО ОДИН
+  // ============================================================================
+  //
+  // Тест стоит здесь, а не в юните хука, потому что дефект живёт именно
+  // в СБОРКЕ флага: хук честно слушается булева значения, а перечисляет
+  // владельцев Escape этот компонент. Проверено мутацией — сузить флаг
+  // до `isPanelOpen` тип не ловит, компилируется молча.
+  //
+  // Своего слушателя Escape на `document` держит и `SelectionMenu`
+  // (`SelectionMenu.tsx:127-145`) — при живом выделении и в режиме правки
+  // заметки. Меню панелью не является, поэтому в `isPanelOpen` не попадало.
+  describe('Escape', () => {
+    const lastFlag = () =>
+      vi.mocked(useKeyboardNavigation).mock.calls.at(-1)?.[0]?.escapeHandledByOverlay;
+
+    it('без оверлеев Escape принадлежит читалке', async () => {
+      renderEpubReader();
+
+      await waitFor(() => expect(useKeyboardNavigation).toHaveBeenCalled());
+      expect(lastFlag()).toBe(false);
+    });
+
+    it('живое выделение забирает Escape у читалки', async () => {
+      vi.mocked(useTextSelection).mockReturnValue({
+        selection: {
+          text: 'выделенный текст',
+          cfiRange: 'epubcfi(/6/4[chap01ref]!/4/2,/1:0,/1:16)',
+          position: { x: 10, y: 20, bottom: 40 },
+        },
+        clearSelection: vi.fn(),
+      });
+
+      renderEpubReader();
+
+      await waitFor(() => expect(useKeyboardNavigation).toHaveBeenCalled());
+      expect(lastFlag()).toBe(true);
     });
   });
 });

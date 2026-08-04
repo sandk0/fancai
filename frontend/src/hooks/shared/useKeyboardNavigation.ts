@@ -9,7 +9,8 @@
  * @param options.onPrev - Function to go to previous page
  * @param options.onToggleUI - Show/hide reader panels (Escape); the only route
  *   to them on WebKit engines
- * @param options.isPanelOpen - A reader panel is open, so Escape belongs to it
+ * @param options.escapeHandledByOverlay - An overlay (panel or selection menu)
+ *   already owns Escape, so the reader must not act on it
  * @param options.enabled - Whether keyboard navigation is enabled (default: true)
  * @param options.rendition - Optional epub.js Rendition for iframe keyboard events
  *
@@ -48,15 +49,20 @@ interface UseKeyboardNavigationOptions {
    */
   onToggleUI?: () => void;
   /**
-   * Открыта ли панель читалки (оглавление, настройки, поиск, ящики, попап).
+   * Escape уже принадлежит открытому оверлею — читалка его не трогает.
    *
-   * Escape в этом случае принадлежит панели — она вешает свой слушатель на
-   * `window` и закрывается сама. Без этого флага одно нажатие и закрывало
-   * панель, и переключало шапку. Проверять `enabled` тут нельзя: он не
-   * включает панели намеренно, чтобы стрелки листали и с открытым
-   * оглавлением.
+   * Оверлеев несколько, и каждый вешает СВОЙ слушатель Escape: панели
+   * (оглавление, настройки, поиск, ящики, попап сущности), а также
+   * `SelectionMenu` — при живом выделении или в режиме правки заметки
+   * (`SelectionMenu.tsx:127-145`, слушатель на `document`). Без этого флага
+   * одно нажатие делало бы две вещи: закрывало оверлей И переключало шапку.
+   *
+   * Именно отдельный флаг, а не `enabled`: тот намеренно не выключается
+   * при оверлеях, чтобы стрелки листали книгу и с открытым оглавлением.
+   * И именно не `isPanelOpen`: меню выделения панелью не является, а Escape
+   * забирает так же.
    */
-  isPanelOpen?: boolean;
+  escapeHandledByOverlay?: boolean;
   enabled?: boolean;
   rendition?: Rendition | null;
 }
@@ -65,7 +71,7 @@ export const useKeyboardNavigation = ({
   onNext,
   onPrev,
   onToggleUI,
-  isPanelOpen = false,
+  escapeHandledByOverlay = false,
   enabled = true,
   rendition,
 }: UseKeyboardNavigationOptions): void => {
@@ -89,10 +95,10 @@ export const useKeyboardNavigation = ({
           e.preventDefault();
           onNext();
           break;
-        // При открытой панели Escape принадлежит ей: она закрывается своим
-        // слушателем, а мы молчим, иначе одно нажатие делало бы две вещи.
+        // Escape уже занят открытым оверлеем — он закрывается своим
+        // слушателем, а мы молчим: иначе одно нажатие делало бы две вещи.
         case 'Escape':
-          if (onToggleUI && !isPanelOpen) {
+          if (onToggleUI && !escapeHandledByOverlay) {
             e.preventDefault();
             onToggleUI();
           }
@@ -120,5 +126,5 @@ export const useKeyboardNavigation = ({
         contents[0].document.removeEventListener('keydown', handleKeyPress);
       }
     };
-  }, [onNext, onPrev, onToggleUI, isPanelOpen, enabled, rendition]);
+  }, [onNext, onPrev, onToggleUI, escapeHandledByOverlay, enabled, rendition]);
 };

@@ -402,15 +402,6 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
   // Touch diagnostics: logs touch/pointer events for iOS debugging (only active with ?debug=1)
   useTouchDiagnostics(rendition);
 
-  useKeyboardNavigation({
-    onNext: nextPage,
-    onPrev: prevPage,
-    onToggleUI: autoHide.toggleUI,
-    isPanelOpen,
-    enabled: renditionReady && !isModalOpen,
-    rendition,
-  });
-
   const { theme, fontSize, setTheme, increaseFontSize, decreaseFontSize } =
     useEpubThemes(rendition);
   useContentHooks(rendition, theme);
@@ -510,6 +501,22 @@ export const EpubReader: React.FC<EpubReaderProps> = ({ book }) => {
     style: string;
     position: { x: number; y: number };
   } | null>(null);
+
+  // Клавиатура объявлена здесь, а не рядом с остальной навигацией, потому что
+  // ей нужен `editingBookmark`: Escape обязан достаться ровно одному владельцу.
+  useKeyboardNavigation({
+    onNext: nextPage,
+    onPrev: prevPage,
+    onToggleUI: autoHide.toggleUI,
+    // Свой слушатель Escape на `document`/`window` есть у каждого оверлея:
+    // у панелей (`isPanelOpen`), у `SelectionMenu` — при живом выделении
+    // ИЛИ в режиме правки заметки (`SelectionMenu.tsx:127-145`). Модалка
+    // картинки закрыта через `enabled` ниже. Пока владелец есть, читалка
+    // молчит: иначе одно нажатие и закрывало оверлей, и переключало шапку.
+    escapeHandledByOverlay: isPanelOpen || selection !== null || !!editingBookmark,
+    enabled: renditionReady && !isModalOpen,
+    rendition,
+  });
 
   const handleHighlightEdit = useCallback(
     (bookmarkId: string) => {

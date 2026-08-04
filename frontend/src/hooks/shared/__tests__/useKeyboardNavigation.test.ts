@@ -34,7 +34,7 @@ describe('useKeyboardNavigation — Escape переключает панели',
         onNext: vi.fn(),
         onPrev: vi.fn(),
         onToggleUI,
-        isPanelOpen: true,
+        escapeHandledByOverlay: true,
       })
     );
 
@@ -43,11 +43,44 @@ describe('useKeyboardNavigation — Escape переключает панели',
     expect(onToggleUI).not.toHaveBeenCalled();
   });
 
-  it('стрелки листают и при открытой панели — Escape их не касается', () => {
+  // Меню выделения панелью НЕ является, но слушатель Escape на `document`
+  // у него свой (`SelectionMenu.tsx:127-145`) — и при живом выделении,
+  // и в режиме правки заметки. Флаг обязан покрывать и этот случай, иначе
+  // одно нажатие закрывало бы меню И раскрывало панели. В Chromium,
+  // Firefox и Mobile Chrome, где выделение работает, это воспроизводимо.
+  it('Escape молчит при открытом меню выделения, а не только при панели', () => {
+    const onToggleUI = vi.fn();
+    const { rerender } = renderHook(
+      ({ overlay }: { overlay: boolean }) =>
+        useKeyboardNavigation({
+          onNext: vi.fn(),
+          onPrev: vi.fn(),
+          onToggleUI,
+          // ровно то, что собирает EpubReader: панели ИЛИ выделение ИЛИ правка
+          escapeHandledByOverlay: overlay,
+        }),
+      { initialProps: { overlay: true } }
+    );
+
+    press('Escape');
+    expect(onToggleUI).not.toHaveBeenCalled();
+
+    // Меню закрылось — Escape снова принадлежит читалке.
+    rerender({ overlay: false });
+    press('Escape');
+    expect(onToggleUI).toHaveBeenCalledTimes(1);
+  });
+
+  it('стрелки листают и при открытом оверлее — Escape их не касается', () => {
     const onNext = vi.fn();
     const onPrev = vi.fn();
     renderHook(() =>
-      useKeyboardNavigation({ onNext, onPrev, onToggleUI: vi.fn(), isPanelOpen: true })
+      useKeyboardNavigation({
+        onNext,
+        onPrev,
+        onToggleUI: vi.fn(),
+        escapeHandledByOverlay: true,
+      })
     );
 
     press('ArrowRight');
