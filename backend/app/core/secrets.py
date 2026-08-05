@@ -324,17 +324,22 @@ class SecretsValidator:
             allow_dev_default = secret_config.get("allow_dev_default", False)
             is_dev_default = "dev-secret-key" in secret_value.lower()
 
-            if not is_strong:
-                # Skip strength validation for dev defaults in development
-                if is_dev_default and allow_dev_default and not self.is_production:
-                    result["warnings"].append(
-                        f"{secret_name}: Using development default (not suitable for production)"
-                    )
-                elif error_msg is not None and error_msg.startswith("WARNING"):
+            if is_strong:
+                # `validate_secret_strength` отдаёт (True, "WARNING: ...") ровно
+                # в одном случае — секрет без спецсимволов. Раньше эта ветка
+                # жила под `if not is_strong`, где сообщение с префиксом WARNING
+                # недостижимо: каждый False приходит с конкретной ошибкой.
+                # Рекомендация не доходила до отчёта ни разу.
+                if error_msg is not None:
                     result["warnings"].append(f"{secret_name}: {error_msg}")
-                else:
-                    result["valid"] = False
-                    result["errors"].append(f"{secret_name}: {error_msg}")
+            elif is_dev_default and allow_dev_default and not self.is_production:
+                # Skip strength validation for dev defaults in development
+                result["warnings"].append(
+                    f"{secret_name}: Using development default (not suitable for production)"
+                )
+            else:
+                result["valid"] = False
+                result["errors"].append(f"{secret_name}: {error_msg}")
 
         # Validate not default (if specified)
         if "forbidden_values" in secret_config:
