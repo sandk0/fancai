@@ -4,10 +4,22 @@ import asyncio
 import uuid as uuid_module
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import select, func, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models.entity import Entity, EntityType
+
+
+@pytest_asyncio.fixture
+async def book_id(test_book):
+    """Настоящая книга-родитель.
+
+    `entities.book_id` — FK на `books.id` (`app/models/entity.py:46-49`),
+    поэтому вставка со случайным UUID отвергается ForeignKeyViolation,
+    а не проверяет upsert.
+    """
+    return test_book.id
 
 
 def _make_entity_values(book_id, name="Test Entity", **overrides):
@@ -46,11 +58,10 @@ def _build_upsert_stmt(entity_values):
 class TestEntityBasicUpsert:
     """Basic ON CONFLICT DO UPDATE behavior."""
 
-    async def test_duplicate_insert_results_in_single_row(self, test_db):
+    async def test_duplicate_insert_results_in_single_row(self, book_id):
         """Inserting the same entity (book_id + name_lower) twice yields 1 row."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -73,11 +84,10 @@ class TestEntityBasicUpsert:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_case_insensitive_conflict(self, test_db):
+    async def test_case_insensitive_conflict(self, book_id):
         """Case-insensitive conflict: 'gandalf' and 'GANDALF' yield 1 row."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -108,11 +118,10 @@ class TestEntityBasicUpsert:
 class TestEntityConcurrentUpsert:
     """Concurrent upsert safety."""
 
-    async def test_concurrent_upserts_result_in_single_row(self, test_db):
+    async def test_concurrent_upserts_result_in_single_row(self, book_id):
         """10 coroutines inserting the same entity simultaneously yields 1 row."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async def upsert_entity(idx: int):
             async with TestSessionLocal() as session:
@@ -147,11 +156,10 @@ class TestEntityConcurrentUpsert:
 class TestEntityConflictUpdate:
     """ON CONFLICT updates the correct fields."""
 
-    async def test_conflict_updates_metadata_and_aliases(self, test_db):
+    async def test_conflict_updates_metadata_and_aliases(self, book_id):
         """Conflict updates entity_metadata and aliases_with_reveal, leaves other fields unchanged."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -212,11 +220,10 @@ class TestEntityCyrillicUpsert:
     which is ASCII-only under locale C.
     """
 
-    async def test_cyrillic_case_insensitive_conflict(self, test_db):
+    async def test_cyrillic_case_insensitive_conflict(self, book_id):
         """Гарри and ГАРРИ must result in a single row."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -241,11 +248,10 @@ class TestEntityCyrillicUpsert:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_cyrillic_name_lower_column(self, test_db):
+    async def test_cyrillic_name_lower_column(self, book_id):
         """name_lower must contain the casefolded version of name."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -263,11 +269,10 @@ class TestEntityCyrillicUpsert:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_mixed_script_names(self, test_db):
+    async def test_mixed_script_names(self, book_id):
         """Mixed Latin+Cyrillic names are casefolded correctly."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -286,11 +291,10 @@ class TestEntityCyrillicUpsert:
 
 
 
-    async def test_casefold_expansion_conflict(self, test_db):
+    async def test_casefold_expansion_conflict(self, book_id):
         """Stra\u00dfe and STRASSE must collide: casefold('Stra\u00dfe') == 'strasse'."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -391,11 +395,10 @@ class TestRollbackSafety:
     requires a sync greenlet. These tests verify the 'capture scalar early' pattern.
     """
 
-    async def test_scalar_captured_before_rollback_survives(self, test_db):
+    async def test_scalar_captured_before_rollback_survives(self, book_id):
         """Scalar values captured before rollback remain accessible."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -426,11 +429,10 @@ class TestRollbackSafety:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_fresh_query_after_rollback_works(self, test_db):
+    async def test_fresh_query_after_rollback_works(self, book_id):
         """Fresh queries after rollback return valid, non-expired objects."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -517,11 +519,10 @@ class TestConflictAliasesMerge:
     объединять массивы, а не заменять один другим.
     """
 
-    async def test_конфликт_объединяет_псевдонимы_из_двух_глав(self, test_db):
+    async def test_конфликт_объединяет_псевдонимы_из_двух_глав(self, book_id):
         """Глава 1 и Глава 5 видят одну сущность с разными псевдонимами — оба сохраняются."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -568,11 +569,10 @@ class TestConflictAliasesMerge:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_конфликт_дедуплицирует_одинаковые_имена_псевдонимов(self, test_db):
+    async def test_конфликт_дедуплицирует_одинаковые_имена_псевдонимов(self, book_id):
         """Одинаковое имя псевдонима из двух глав — сохраняем с минимальным reveal_chapter."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -618,11 +618,10 @@ class TestConflictAliasesMerge:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_конфликт_сохраняет_псевдоним_без_главы_раскрытия(self, test_db):
+    async def test_конфликт_сохраняет_псевдоним_без_главы_раскрытия(self, book_id):
         """Псевдоним с reveal_chapter=None (всегда видимый) сохраняется при слиянии."""
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:
@@ -659,7 +658,7 @@ class TestConflictAliasesMerge:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-    async def test_конфликт_без_псевдонимов_не_нарушает_NOT_NULL(self, test_db):
+    async def test_конфликт_без_псевдонимов_не_нарушает_NOT_NULL(self, book_id):
         """Обе стороны без псевдонимов: агрегат по пустому набору даёт NULL.
 
         Колонка `aliases_with_reveal` объявлена NOT NULL, поэтому без
@@ -668,7 +667,6 @@ class TestConflictAliasesMerge:
         """
         from tests.conftest import TestSessionLocal
 
-        book_id = uuid_module.uuid4()
 
         async with TestSessionLocal() as session:
             try:

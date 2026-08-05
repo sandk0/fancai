@@ -173,15 +173,21 @@ class TestProgressSchemas:
     def test_reading_progress_detail_response(self):
         """Тест ReadingProgressDetailResponse."""
         # With progress
+        # Схема требует полный набор полей ReadingProgress:
+        # current_chapter/current_page/reading_time_minutes обязательны,
+        # а current_position — целый процент (int), не float.
         progress_data = {
             "id": uuid4(),
             "user_id": uuid4(),
             "book_id": uuid4(),
-            "current_chapter_id": uuid4(),
-            "current_position": 45.5,
+            "current_chapter": 3,
+            "current_page": 12,
+            "current_position": 45,
+            "max_chapter_reached": 3,
             "reading_location_cfi": "epubcfi(/6/14[chapter03]!/4/2/16,/1:125,/1:126)",
             "scroll_offset_percent": 23.4,
             "last_read_at": datetime.utcnow(),
+            "reading_time_minutes": 42,
             "reading_speed_wpm": 250,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
@@ -189,7 +195,7 @@ class TestProgressSchemas:
         progress = ReadingProgressResponse(**progress_data)
         detail = ReadingProgressDetailResponse(progress=progress)
         assert detail.progress is not None
-        assert detail.progress.current_position == 45.5
+        assert detail.progress.current_position == 45
         assert detail.progress.reading_location_cfi is not None
 
         # Without progress (new book)
@@ -272,14 +278,15 @@ class TestChapterSchemas:
 
         detail = ChapterDetailResponse(
             chapter=chapter,
-            descriptions=[description],
+            # Поле объявлено как список словарей (DEPRECATED в схеме)
+            descriptions=[description.model_dump()],
             navigation=navigation,
             book_info=book_info,
         )
 
         assert detail.chapter.chapter_number == 3
         assert len(detail.descriptions) == 1
-        assert detail.descriptions[0].image_url == "https://example.com/image.jpg"
+        assert detail.descriptions[0]["image_url"] == "https://example.com/image.jpg"
         assert detail.navigation.has_previous is True
         assert detail.book_info.total_chapters == 15
 

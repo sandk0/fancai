@@ -6,7 +6,7 @@ All LLM calls are mocked — tests the orchestration logic.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from app.services.entity_synthesis_service import EntitySynthesisService
 from app.services.consistency_manager import ConsistencyManager
@@ -56,7 +56,7 @@ class TestSynthesisPipelineIntegration:
             ],
         }
 
-        service = EntitySynthesisService(gemini_client=MagicMock())
+        service = EntitySynthesisService()
         with patch.object(service, '_call_gemini', new_callable=AsyncMock, return_value=mock_gemini_response):
             result = await service.synthesize_book_entities(
                 book_id="test-book-1",
@@ -80,7 +80,7 @@ class TestSynthesisPipelineIntegration:
     @pytest.mark.asyncio
     async def test_empty_entities_returns_empty(self):
         """Empty entities list should return empty result without calling Gemini."""
-        service = EntitySynthesisService(gemini_client=MagicMock())
+        service = EntitySynthesisService()
         result = await service.synthesize_book_entities(
             book_id="test-book-2",
             entities=[],
@@ -96,7 +96,7 @@ class TestSynthesisPipelineIntegration:
         entities = [{"name": "Тест", "type": "character", "visual_summary": ""}]
         events = []
 
-        service = EntitySynthesisService(gemini_client=MagicMock())
+        service = EntitySynthesisService()
         with patch.object(service, '_call_gemini', new_callable=AsyncMock, side_effect=Exception("API error")):
             result = await service.synthesize_book_entities(
                 book_id="test-book-3",

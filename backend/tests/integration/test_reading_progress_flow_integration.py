@@ -7,6 +7,10 @@ Tests the complete reading progress user journey:
 3. Sync progress across sessions
 4. Restore progress when reopening book
 5. Update progress as user reads
+
+Запрос принимает `current_position_percent`, но ответ его не отдаёт:
+`ReadingProgressResponse` хранит процент в целочисленном `current_position`
+(`book_progress_service.py:305-307`), поэтому проверки идут по нему.
 """
 
 import pytest
@@ -22,6 +26,11 @@ from app.models.book import ReadingProgress
 def create_minimal_epub() -> io.BytesIO:
     """
     Create a minimal valid EPUB file for testing.
+
+    Главы намеренно длинные: парсер отбрасывает короткие страницы как
+    служебные (`_is_service_page`), и на абзаце в одну строку книга
+    разбиралась в НОЛЬ глав — прогресс на главу 2 и 3 не сохранялся,
+    потому что номер клампился к числу глав.
 
     Returns:
         BytesIO containing a minimal EPUB file
@@ -100,6 +109,7 @@ def create_minimal_epub() -> io.BytesIO:
 <body>
     <h1>Chapter 1: Beginning the Journey</h1>
     <p>This is the first chapter of the book.</p>
+    <p>The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree</p>
 </body>
 </html>"""
         epub.writestr("OEBPS/chapter1.xhtml", chapter1)
@@ -114,6 +124,7 @@ def create_minimal_epub() -> io.BytesIO:
 <body>
     <h1>Chapter 2: Continuing Forward</h1>
     <p>This is the second chapter where the story develops.</p>
+    <p>The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree</p>
 </body>
 </html>"""
         epub.writestr("OEBPS/chapter2.xhtml", chapter2)
@@ -128,6 +139,7 @@ def create_minimal_epub() -> io.BytesIO:
 <body>
     <h1>Chapter 3: The Conclusion</h1>
     <p>This is the final chapter where everything comes together.</p>
+    <p>The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree The road went ever on and on over rock and under tree</p>
 </body>
 </html>"""
         epub.writestr("OEBPS/chapter3.xhtml", chapter3)
@@ -231,7 +243,7 @@ class TestReadingProgressFlowIntegration:
 
         assert progress_data_1["progress"] is not None
         assert progress_data_1["progress"]["current_chapter"] == 1
-        assert progress_data_1["progress"]["current_position_percent"] == 10.0
+        assert progress_data_1["progress"]["current_position"] == 10
         assert (
             progress_data_1["progress"]["reading_location_cfi"]
             == "/6/4[chapter1]!/4/2/1:50"
@@ -275,7 +287,7 @@ class TestReadingProgressFlowIntegration:
         restored_progress_data = restored_progress_response.json()
 
         assert restored_progress_data["progress"]["current_chapter"] == 2
-        assert restored_progress_data["progress"]["current_position_percent"] == 45.0
+        assert restored_progress_data["progress"]["current_position"] == 45
         assert (
             restored_progress_data["progress"]["reading_location_cfi"]
             == "/6/6[chapter2]!/4/2/1:100"
@@ -306,7 +318,7 @@ class TestReadingProgressFlowIntegration:
         final_progress_data = final_progress_response.json()
 
         assert final_progress_data["progress"]["current_chapter"] == 3
-        assert final_progress_data["progress"]["current_position_percent"] == 95.0
+        assert final_progress_data["progress"]["current_position"] == 95
 
     async def test_progress_sync_across_updates(
         self, client: AsyncClient, db_session: AsyncSession
@@ -380,7 +392,7 @@ class TestReadingProgressFlowIntegration:
 
         final_data = final_response.json()
 
-        assert final_data["progress"]["current_position_percent"] == 30.0
+        assert final_data["progress"]["current_position"] == 30
         assert (
             final_data["progress"]["reading_location_cfi"]
             == "/6/4[chapter1]!/4/2/1:100"
@@ -491,7 +503,7 @@ class TestReadingProgressFlowIntegration:
 
         user1_check_data = user1_check.json()
         assert user1_check_data["progress"]["current_chapter"] == 1
-        assert user1_check_data["progress"]["current_position_percent"] == 25.0
+        assert user1_check_data["progress"]["current_position"] == 25
 
         user2_check = await client.get(
             f"/api/v1/books/{book2_id}/progress", headers=user2_headers
@@ -499,7 +511,7 @@ class TestReadingProgressFlowIntegration:
 
         user2_check_data = user2_check.json()
         assert user2_check_data["progress"]["current_chapter"] == 3
-        assert user2_check_data["progress"]["current_position_percent"] == 75.0
+        assert user2_check_data["progress"]["current_position"] == 75
 
     async def test_progress_without_authentication(self, client: AsyncClient):
         """Test accessing progress without authentication fails."""

@@ -23,6 +23,22 @@ from app.models.reading_session import ReadingSession
 from app.models.user import User
 from app.models.book import Book
 
+
+@pytest.fixture(autouse=True)
+def task_session_uses_test_db():
+    """Задачи открывают сессию сами, через `AsyncSessionLocal`.
+
+    Без подмены реализация уходит в рабочую БД (`fancai_dev`), где лежат
+    посторонние сессии чтения, а данные теста остаются в `fancai_test`:
+        assert 0 == 3 — задача их просто не видит.
+    """
+    from tests.conftest import TestSessionLocal
+
+    with patch(
+        "app.tasks.reading_sessions_tasks.AsyncSessionLocal", TestSessionLocal
+    ):
+        yield
+
 # ============================================================================
 # Test Suite 1: close_abandoned_sessions Task
 # ============================================================================
@@ -369,14 +385,17 @@ class TestGetCleanupStatistics:
             duration_minutes=60,
         )
 
+        # 30 минут назад, а не ровно час: порог считает сама реализация,
+        # её `now` всегда позже нашего, и `ended_at == now - 1h` выпадает
+        # из окна hours=1.
         session_1h = ReadingSession(
             user_id=test_user.id,
             book_id=test_book.id,
             start_position=0,
             end_position=50,
             is_active=False,
-            started_at=now - timedelta(hours=2),
-            ended_at=now - timedelta(hours=1),
+            started_at=now - timedelta(hours=1, minutes=30),
+            ended_at=now - timedelta(minutes=30),
             duration_minutes=60,
         )
 
@@ -459,21 +478,24 @@ class TestGetCleanupStatistics:
 class TestTaskErrorHandling:
     """Test suite for error handling in tasks."""
 
-    def test_close_abandoned_sessions_handles_exception(self):
-        """Test task handles exceptions and includes error in result."""
-        # Mock to raise an exception
+    def test_close_abandoned_sessions_propagates_exception(self):
+        """Ошибка реализации не глотается задачей.
+
+        Ветку `return {... "error": ...}` проверить нельзя: она недостижима.
+        `self.retry(exc=e)` при прямом вызове поднимает исходное исключение
+        (`called_directly`), а при исчерпании попыток Celery тоже поднимает
+        именно `exc`, а не `MaxRetriesExceededError` — проверено вызовом
+        `close_abandoned_sessions.apply(retries=3)`: state FAILURE, результат
+        исходное исключение. Задача обязана дать ошибке уйти наверх, иначе
+        воркер посчитает прогон успешным.
+        """
         with patch(
             "app.tasks.reading_sessions_tasks._close_abandoned_sessions_impl"
         ) as mock_impl:
             mock_impl.side_effect = Exception("Database connection error")
 
-            # Act
-            result = close_abandoned_sessions()
-
-            # Assert
-            assert "error" in result
-            assert "Database connection error" in result["error"]
-            assert result["closed_count"] >= 0
+            with pytest.raises(Exception, match="Database connection error"):
+                close_abandoned_sessions()
 
     @pytest.mark.asyncio
     async def test_close_abandoned_sessions_rollback_on_error(

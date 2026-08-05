@@ -128,20 +128,41 @@ class TestRateLimiting:
 
     @pytest.mark.asyncio
     async def test_rate_limit_forgot_password(self, client: AsyncClient):
-        """More than 3 requests per minute triggers 429 Too Many Requests."""
-        for i in range(3):
-            resp = await client.post(
-                "/api/v1/auth/forgot-password",
-                json={"email": f"user{i}@example.com"},
-            )
-            assert resp.status_code == 200
+        """Больше 3 запросов в минуту дают 429.
 
-        # 4th request should be rate-limited
-        resp = await client.post(
-            "/api/v1/auth/forgot-password",
-            json={"email": "extra@example.com"},
-        )
-        assert resp.status_code == 429
+        Лимитер подключается к Redis в lifespan приложения, а под
+        `ASGITransport` lifespan не выполняется: без явного подключения
+        `is_rate_limited` деградирует в no-op и 429 не наступает никогда.
+        Подключаем ОТДЕЛЬНЫЙ экземпляр, чтобы не включить счётчики
+        остальным тестам процесса.
+        """
+        from unittest.mock import patch
+
+        from app.middleware.rate_limit import RateLimiter
+
+        limiter = RateLimiter()
+        await limiter.connect()
+        if not limiter._redis:
+            pytest.skip("Redis недоступен — rate limiter деградирует в no-op")
+
+        try:
+            with patch("app.middleware.rate_limit.rate_limiter", limiter):
+                for i in range(3):
+                    resp = await client.post(
+                        "/api/v1/auth/forgot-password",
+                        json={"email": f"user{i}@example.com"},
+                    )
+                    assert resp.status_code == 200
+
+                # 4th request should be rate-limited
+                resp = await client.post(
+                    "/api/v1/auth/forgot-password",
+                    json={"email": "extra@example.com"},
+                )
+                assert resp.status_code == 429
+        finally:
+            await limiter.reset_limit("ip:127.0.0.1", "/api/v1/auth/forgot-password")
+            await limiter.close()
 
 
 class TestResetPassword:
@@ -246,16 +267,27 @@ class TestResetPassword:
     async def test_reset_password_weak_password(
         self, client: AsyncClient, db_session: AsyncSession, test_user: User
     ):
-        """Weak new password is rejected (validation before token check)."""
+        """Слабый новый пароль отвергается на двух рубежах.
+
+        Короче 12 символов — схемой запроса (min_length=12), то есть 422.
+        Достаточно длинный, но простой — валидатором сложности, то есть 400.
+        """
         plain_token = await self._create_reset_token(db_session, test_user)
 
-        response = await client.post(
+        too_short = await client.post(
             "/api/v1/auth/reset-password",
             json={"token": plain_token, "new_password": "weak"},
         )
 
-        assert response.status_code == 400
-        assert "12 characters" in response.json()["detail"].lower()
+        assert too_short.status_code == 422
+
+        no_uppercase = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": plain_token, "new_password": "alllowercase1!"},
+        )
+
+        assert no_uppercase.status_code == 400
+        assert "uppercase" in no_uppercase.json()["detail"].lower()
 
     @pytest.mark.asyncio
     async def test_reset_password_invalidates_sessions(

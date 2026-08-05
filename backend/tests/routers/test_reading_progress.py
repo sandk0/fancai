@@ -17,9 +17,9 @@ class TestReadingProgressRouter:
         """Test getting progress without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/progress")
-        assert (
-            response.status_code == 403
-        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        # приложение отвечает 401: HTTPBearer(auto_error=False) + явный raise
+        # в app/core/auth.py:44-48, OAuth2PasswordBearer здесь не используется
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_update_progress_unauthorized(self, client: AsyncClient):
@@ -28,9 +28,9 @@ class TestReadingProgressRouter:
         response = await client.post(
             f"/api/v1/books/{book_id}/progress", json={"current_chapter": 1}
         )
-        assert (
-            response.status_code == 403
-        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        # приложение отвечает 401: HTTPBearer(auto_error=False) + явный raise
+        # в app/core/auth.py:44-48, OAuth2PasswordBearer здесь не используется
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_progress_book_not_found(
@@ -46,11 +46,15 @@ class TestReadingProgressRouter:
 
     @pytest.mark.asyncio
     async def test_update_progress_response_structure(
-        self, client: AsyncClient, authenticated_headers
+        self, client: AsyncClient, authenticated_headers, test_book
     ):
-        """Test progress update response structure."""
+        """Test progress update response structure.
+
+        Раньше запрос уходил на случайный UUID и отвечал 404, а проверки
+        стояли под `if response.status_code == 200` — то есть не выполнялись
+        никогда.
+        """
         headers = await authenticated_headers()
-        book_id = str(uuid4())
 
         progress_data = {
             "current_chapter": 2,
@@ -60,20 +64,19 @@ class TestReadingProgressRouter:
         }
 
         response = await client.post(
-            f"/api/v1/books/{book_id}/progress", json=progress_data, headers=headers
+            f"/api/v1/books/{test_book.id}/progress",
+            json=progress_data,
+            headers=headers,
         )
 
-        # Should fail with 404 (book not found), but structure should be consistent
-        if response.status_code == 200:
-            data = response.json()
-            assert "progress" in data
-            assert "message" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert set(data) >= {"progress", "message"}
 
-            progress = data["progress"]
-            assert "current_chapter" in progress
-            assert "current_position" in progress
-            assert "reading_location_cfi" in progress
-            assert "scroll_offset_percent" in progress
+        progress = data["progress"]
+        assert progress["current_chapter"] == 2
+        assert progress["reading_location_cfi"] == "/2/4/2/10"
+        assert progress["scroll_offset_percent"] == 75.5
 
     @pytest.mark.asyncio
     async def test_get_progress_response_structure(
@@ -87,20 +90,25 @@ class TestReadingProgressRouter:
             f"/api/v1/books/{book_id}/progress", headers=headers
         )
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "progress" in data
+        assert response.status_code == 200
+        data = response.json()
+        progress = data["progress"]
+        assert progress is not None
 
-            if data["progress"] is not None:
-                progress = data["progress"]
-                assert "current_chapter" in progress
-                assert "current_page" in progress
-                assert "current_position" in progress
-                assert "current_position_percent" in progress
-                assert "reading_location_cfi" in progress
-                assert "scroll_offset_percent" in progress
-                assert "reading_time_minutes" in progress
-                assert "reading_speed_wpm" in progress
+        # Схема ReadingProgressResponse: поля current_position_percent нет,
+        # процент внутри страницы называется scroll_offset_percent
+        assert set(progress) >= {
+            "current_chapter",
+            "current_page",
+            "current_position",
+            "max_chapter_reached",
+            "reading_location_cfi",
+            "scroll_offset_percent",
+            "reading_time_minutes",
+            "reading_speed_wpm",
+        }
+        assert progress["current_chapter"] == 2
+        assert progress["scroll_offset_percent"] == 30.5
 
 
 class TestReadingProgressBackwardCompatibility:
@@ -112,10 +120,7 @@ class TestReadingProgressBackwardCompatibility:
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/progress")
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [
-            403,
-            404,
-        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_progress_post_endpoint_accessible(self, client: AsyncClient):
@@ -125,10 +130,7 @@ class TestReadingProgressBackwardCompatibility:
             f"/api/v1/books/{book_id}/progress", json={"current_chapter": 1}
         )
         # Should return 401 (unauthorized), not 404 (not found)
-        assert response.status_code in [
-            403,
-            404,
-        ]  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_progress_supports_cfi(

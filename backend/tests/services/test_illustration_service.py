@@ -92,6 +92,21 @@ class TestNoGoogleGenai:
 class TestPromptTranslatorOpenRouter:
     """PromptTranslator должен использовать openrouter_client.generate_text()."""
 
+    @pytest.fixture(autouse=True)
+    def no_translation_cache(self):
+        """Отключает Redis-кэш перевода.
+
+        `PromptTranslator.translate` сначала читает `translation:<md5>`
+        из Redis dev-стенда. На заполненном кэше мок `generate_text`
+        не вызывается вовсе, и тест сравнивает чужой прежний перевод:
+        `assert_called_once` падал с «Called 0 times», а fallback-тест
+        получал английский текст вместо оригинала.
+        """
+        with patch.object(
+            PromptTranslator, "_get_redis", new_callable=AsyncMock, return_value=None
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_translate_uses_generate_text(
         self, sample_russian_text, sample_english_translation, mock_openrouter_client

@@ -654,7 +654,11 @@ class TestMetricsEndpoint:
 
         # Assert
         assert response.status_code == 200
-        assert response.headers["content-type"] == "text/plain; version=0.0.4; charset=utf-8"
+        # Тип берём из самой библиотеки: строка версии меняется с апгрейдом
+        # prometheus_client (0.0.4 → 1.0.0), а контракт — CONTENT_TYPE_LATEST
+        from prometheus_client import CONTENT_TYPE_LATEST
+
+        assert response.headers["content-type"] == CONTENT_TYPE_LATEST
 
         # Verify metrics are in Prometheus format
         content = response.text

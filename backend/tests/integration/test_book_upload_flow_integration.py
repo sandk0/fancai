@@ -211,20 +211,23 @@ class TestBookUploadFlowIntegration:
 
         assert len(chapters) > 0
 
-        # Get first chapter via API
+        # Get first chapter via API. Маршрут вложенный:
+        # /books/{book_id}/chapters/{chapter_number}; плоского /chapters/{id}
+        # в приложении нет — прежний запрос отвечал 404.
         first_chapter = chapters[0]
         chapter_response = await client.get(
-            f"/api/v1/chapters/{first_chapter.id}", headers=headers
+            f"/api/v1/books/{book_id}/chapters/{first_chapter.chapter_number}",
+            headers=headers,
         )
 
         assert chapter_response.status_code == 200
         chapter_data = chapter_response.json()
 
-        assert chapter_data["id"] == str(first_chapter.id)
-        assert "content" in chapter_data or "html_content" in chapter_data
+        assert chapter_data["chapter"]["id"] == str(first_chapter.id)
+        assert chapter_data["chapter"]["content"]
 
         # Step 6: Verify book appears in library list
-        library_response = await client.get("/api/v1/books", headers=headers)
+        library_response = await client.get("/api/v1/books/", headers=headers)
 
         assert library_response.status_code == 200
         library_data = library_response.json()
@@ -453,7 +456,7 @@ class TestBookUploadFlowIntegration:
         book_id_2 = upload_response_2.json()["book"]["id"]
 
         # Step 4: Verify both books appear in library
-        library_response = await client.get("/api/v1/books", headers=headers)
+        library_response = await client.get("/api/v1/books/", headers=headers)
         library_data = library_response.json()
 
         assert len(library_data["books"]) >= 2

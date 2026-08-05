@@ -5,6 +5,10 @@ from app.core.openrouter_client import OpenRouterClient
 
 def test_factory_returns_gemini_when_flag_gemini(monkeypatch):
     monkeypatch.setattr(f.settings, "AI_PROVIDER", "gemini")
+    # По умолчанию GEMINI_BACKEND=vertex, и клиент идёт за ADC:
+    # без креденшелов конструктор падает DefaultCredentialsError.
+    # Тест про выбор провайдера, поэтому берём developer-режим (по API-ключу).
+    monkeypatch.setattr(f.settings, "GEMINI_BACKEND", "developer")
     monkeypatch.setattr(f.settings, "GEMINI_API_KEY", "x")
     f._reset()
     assert isinstance(f.get_ai_provider(), GeminiClient)

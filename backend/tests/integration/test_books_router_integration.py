@@ -76,7 +76,7 @@ class TestBooksRouterIntegration:
     async def test_get_books_list_success(
         self,
         client: AsyncClient,
-        auth_headers: dict,
+        test_user_auth_headers: dict,
         db_session: AsyncSession,
         test_user: User,
     ):
@@ -97,19 +97,25 @@ class TestBooksRouterIntegration:
             db_session.add(book)
         await db_session.commit()
 
-        # Act
-        response = await client.get("/api/v1/books", headers=auth_headers)
+        # Act — маршрут объявлен как "/", а redirect_slashes=False,
+        # поэтому "/api/v1/books" без слеша отдаёт 404
+        response = await client.get("/api/v1/books/", headers=test_user_auth_headers)
 
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert "items" in data or isinstance(data, list)
+        assert {book["title"] for book in data["books"]} == {
+            "Test Book 1",
+            "Test Book 2",
+            "Test Book 3",
+        }
+        assert data["total"] == 3
 
     @pytest.mark.asyncio
     async def test_get_books_list_empty(self, client: AsyncClient, auth_headers: dict):
         """Тест получения пустого списка книг."""
         # Act
-        response = await client.get("/api/v1/books", headers=auth_headers)
+        response = await client.get("/api/v1/books/", headers=auth_headers)
 
         # Assert
         assert response.status_code == 200
@@ -124,7 +130,7 @@ class TestBooksRouterIntegration:
     async def test_get_books_list_pagination(
         self,
         client: AsyncClient,
-        auth_headers: dict,
+        test_user_auth_headers: dict,
         db_session: AsyncSession,
         test_user: User,
     ):
@@ -147,17 +153,20 @@ class TestBooksRouterIntegration:
 
         # Act
         response = await client.get(
-            "/api/v1/books?skip=0&limit=2", headers=auth_headers
+            "/api/v1/books/?skip=0&limit=2", headers=test_user_auth_headers
         )
 
         # Assert
         assert response.status_code == 200
+        data = response.json()
+        assert len(data["books"]) == 2
+        assert data["total"] == 5
 
     @pytest.mark.asyncio
     async def test_get_books_list_unauthorized(self, client: AsyncClient):
         """Тест получения списка без авторизации."""
         # Act
-        response = await client.get("/api/v1/books")
+        response = await client.get("/api/v1/books/")
 
         # Assert
         assert response.status_code == 401
@@ -166,12 +175,12 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_get_book_by_id_success(
-        self, client: AsyncClient, auth_headers: dict, test_book: Book
+        self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
         """Тест получения деталей книги."""
         # Act
         response = await client.get(
-            f"/api/v1/books/{test_book.id}", headers=auth_headers
+            f"/api/v1/books/{test_book.id}", headers=test_user_auth_headers
         )
 
         # Assert
@@ -237,7 +246,7 @@ class TestBooksRouterIntegration:
     async def test_delete_book_success(
         self,
         client: AsyncClient,
-        auth_headers: dict,
+        test_user_auth_headers: dict,
         db_session: AsyncSession,
         test_user: User,
     ):
@@ -262,7 +271,9 @@ class TestBooksRouterIntegration:
         book_id = book.id
 
         # Act
-        response = await client.delete(f"/api/v1/books/{book_id}", headers=auth_headers)
+        response = await client.delete(
+            f"/api/v1/books/{book_id}", headers=test_user_auth_headers
+        )
 
         # Assert
         assert response.status_code in [200, 204]
@@ -282,25 +293,31 @@ class TestBooksRouterIntegration:
         # Assert
         assert response.status_code == 401
 
-    # ==================== PROCESSING STATUS TESTS ====================
+    # ==================== PARSING STATUS TESTS ====================
 
     @pytest.mark.asyncio
-    async def test_get_processing_status_initial(
-        self, client: AsyncClient, auth_headers: dict, test_book: Book
+    async def test_get_parsing_status_initial(
+        self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
-        """Тест получения статуса обработки для новой книги."""
+        """Тест получения статуса парсинга для новой книги.
+
+        Маршрут называется `parsing-status`; `processing-status`, который
+        стоял здесь раньше, в приложении не объявлен вовсе — тест на 404
+        проходил из-за отсутствия маршрута, а не из-за отсутствия книги.
+        """
         # Act
         response = await client.get(
-            f"/api/v1/books/{test_book.id}/processing-status", headers=auth_headers
+            f"/api/v1/books/{test_book.id}/parsing-status",
+            headers=test_user_auth_headers,
         )
 
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert "parsing_progress" in data or "status" in data.lower()
+        assert "parsing_progress" in data or "status" in data
 
     @pytest.mark.asyncio
-    async def test_get_processing_status_not_found(
+    async def test_get_parsing_status_not_found(
         self, client: AsyncClient, auth_headers: dict
     ):
         """Тест получения статуса для несуществующей книги."""
@@ -308,7 +325,7 @@ class TestBooksRouterIntegration:
         from uuid import uuid4
 
         response = await client.get(
-            f"/api/v1/books/{uuid4()}/processing-status", headers=auth_headers
+            f"/api/v1/books/{uuid4()}/parsing-status", headers=auth_headers
         )
 
         # Assert
@@ -318,7 +335,7 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_update_reading_progress_success(
-        self, client: AsyncClient, auth_headers: dict, test_book: Book
+        self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
         """Тест обновления прогресса чтения."""
         # Arrange
@@ -327,18 +344,18 @@ class TestBooksRouterIntegration:
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
-            headers=auth_headers,
+            headers=test_user_auth_headers,
             json=progress_data,
         )
 
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert "current_chapter" in data or "chapter" in data.lower()
+        assert data["progress"]["current_chapter"] == 1
 
     @pytest.mark.asyncio
     async def test_update_reading_progress_with_cfi(
-        self, client: AsyncClient, auth_headers: dict, test_book: Book
+        self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
         """Тест обновления прогресса с CFI location."""
         # Arrange
@@ -352,7 +369,7 @@ class TestBooksRouterIntegration:
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
-            headers=auth_headers,
+            headers=test_user_auth_headers,
             json=progress_data,
         )
 
@@ -361,7 +378,7 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_update_reading_progress_invalid_chapter(
-        self, client: AsyncClient, auth_headers: dict, test_book: Book
+        self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
         """Тест обновления прогресса с невалидным номером главы."""
         # Arrange
@@ -370,7 +387,7 @@ class TestBooksRouterIntegration:
         # Act
         response = await client.post(
             f"/api/v1/books/{test_book.id}/progress",
-            headers=auth_headers,
+            headers=test_user_auth_headers,
             json=progress_data,
         )
 

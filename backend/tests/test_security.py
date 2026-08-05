@@ -147,44 +147,99 @@ class TestSecurityHeaders:
 class TestRateLimiting:
     """Test rate limiting works correctly."""
 
-    def test_rate_limiting_enabled(self, client):
-        """Test rate limiting is enabled and working."""
-        # Make requests beyond limit to /health (20/min limit)
-        responses = []
+    def test_health_below_limit_is_not_throttled(self, client):
+        """Ниже лимита запросы проходят.
 
-        for i in range(25):
-            response = client.get("/health")
-            responses.append(response)
+        `/health` объявлен как 60/min (`app/main.py:365-367`, Docker
+        healthcheck ходит каждые 30 с), поэтому прежние 25 запросов
+        429 не давали и не могли: тест ориентировался на лимит 20/min.
+        """
+        codes = {client.get("/health").status_code for _ in range(5)}
+        assert codes == {200}
 
-        # Check that we got some 200 responses (not all rate limited from start)
-        success_count = sum(1 for r in responses if r.status_code == 200)
-        rate_limited_count = sum(1 for r in responses if r.status_code == 429)
+    def test_rate_limit_returns_429_with_retry_after(self):
+        """Превышение лимита даёт 429 с Retry-After.
 
-        # Should have at least some successful requests and some rate limited
-        # (exact counts may vary due to concurrent tests)
-        assert success_count + rate_limited_count == 25, (
-            "All responses should be either 200 or 429"
-        )
-        assert rate_limited_count > 0, "Rate limiting should trigger"
+        Ставим собственное приложение с лимитом 2/min: ключ лимита
+        строится из identifier и ПУТИ, поэтому проверка не расходует
+        бюджет реальных endpoints и не ломает остальные тесты.
+        """
+        import asyncio
 
-    def test_rate_limit_headers_present(self, client):
-        """Test rate limit headers are included in response."""
-        client.get("/health")
+        from fastapi import FastAPI, Request
 
-        # Note: Headers may not be present if using custom rate limiter
-        # This test is for documentation purposes
-        # Custom implementation returns headers differently
+        from app.middleware.rate_limit import RateLimiter, rate_limit
 
-    def test_rate_limit_429_response(self, client):
-        """Test 429 response format when rate limited."""
-        # Make many requests to trigger rate limit
-        for i in range(25):
-            response = client.get("/health")
+        probe = FastAPI()
 
-        # Check if we got a 429
-        if response.status_code == 429:
-            assert "detail" in response.json()
-            assert "rate limit" in response.json()["detail"].lower()
+        @probe.get("/probe-rate-limit")
+        @rate_limit(max_requests=2, window_seconds=60)
+        async def probe_endpoint(request: Request):
+            return {"ok": True}
+
+        # Отдельный экземпляр лимитера: подключать глобальный нельзя — он живёт
+        # весь процесс, и после этого КАЖДЫЙ тест начал бы считать запросы
+        # в Redis, включая регистрацию с лимитом 2/min.
+        limiter = RateLimiter()
+        asyncio.run(limiter.connect())
+        if not limiter._redis:
+            pytest.skip("Redis недоступен — rate limiter деградирует в no-op")
+
+        try:
+            with patch("app.middleware.rate_limit.rate_limiter", limiter):
+                with TestClient(probe) as c:
+                    codes = [c.get("/probe-rate-limit").status_code for _ in range(3)]
+                    assert codes == [200, 200, 429]
+
+                    last = c.get("/probe-rate-limit")
+                    assert last.status_code == 429
+                    assert "Retry-After" in last.headers
+                    assert last.json()["detail"]["error"] == "rate_limit_exceeded"
+        finally:
+            asyncio.run(limiter.reset_limit("ip:testclient", "/probe-rate-limit"))
+            asyncio.run(limiter.close())
+
+    def test_degraded_limiter_keeps_json_endpoints_working(self):
+        """При недоступном Redis endpoint с JSONResponse обязан работать.
+
+        Декоратор дописывает заголовки из `rate_info`, читая `rate_info["limit"]`.
+        В деградированной ветке словарь был неполным, и любой rate-limited
+        endpoint, возвращающий JSONResponse (в приложении это `/health`
+        в состоянии degraded/unhealthy), падал KeyError → 500 ровно тогда,
+        когда Redis лежит.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        from fastapi import FastAPI, Request
+        from fastapi.responses import JSONResponse
+
+        from app.middleware.rate_limit import RateLimiter, rate_limit
+
+        probe = FastAPI()
+
+        @probe.get("/probe-degraded")
+        @rate_limit(max_requests=5, window_seconds=60)
+        async def probe_endpoint(request: Request):
+            return JSONResponse(content={"status": "degraded"}, status_code=200)
+
+        # 1. Redis не подключён вовсе
+        with patch("app.middleware.rate_limit.rate_limiter", RateLimiter()):
+            with TestClient(probe) as c:
+                response = c.get("/probe-degraded")
+
+        assert response.status_code == 200
+        assert response.headers["X-RateLimit-Limit"] == "5"
+
+        # 2. Redis подключён, но запрос к нему падает
+        broken = RateLimiter()
+        broken._redis = MagicMock()
+        broken._redis.incr = AsyncMock(side_effect=RuntimeError("redis down"))
+        with patch("app.middleware.rate_limit.rate_limiter", broken):
+            with TestClient(probe) as c:
+                response = c.get("/probe-degraded")
+
+        assert response.status_code == 200
+        assert response.headers["X-RateLimit-Limit"] == "5"
 
 
 # ============================================================================
@@ -425,35 +480,54 @@ class TestCORS:
 
     def test_cors_headers_present(self, client):
         """Test CORS headers are present in response."""
+        # Origin обязан быть из настроенного списка (CORS_ORIGINS), иначе
+        # starlette отвечает 400 «Disallowed CORS origin» и заголовок
+        # access-control-allow-origin не выставляет. Путь — со слешем:
+        # redirect_slashes=False.
         response = client.options(
-            "/api/v1/books",
+            "/api/v1/books/",
             headers={
-                "Origin": "http://localhost:3000",
+                "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "GET",
             },
         )
 
         # Check CORS headers
-        assert "access-control-allow-origin" in response.headers
-        assert "access-control-allow-methods" in response.headers
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == (
+            "http://localhost:5173"
+        )
+        assert "GET" in response.headers["access-control-allow-methods"]
 
-    def test_cors_allowed_origin(self, client):
-        """Test CORS allows configured origins."""
-        response = client.get(
-            "/health",
-            headers={"Origin": "http://localhost:3000"},
+    def test_cors_disallowed_origin_rejected(self, client):
+        """Неразрешённый Origin не получает allow-origin."""
+        response = client.options(
+            "/api/v1/books/",
+            headers={
+                "Origin": "http://evil.example.com",
+                "Access-Control-Request-Method": "GET",
+            },
         )
 
-        # Should allow localhost:3000 (configured in settings)
-        origin = response.headers.get("access-control-allow-origin", "")
-        assert origin in ["http://localhost:3000", "*"] or origin == ""
+        assert "access-control-allow-origin" not in response.headers
+
+    def test_cors_allowed_origin(self, client):
+        """Разрешённый Origin получает свой allow-origin на обычном запросе."""
+        response = client.get(
+            "/health",
+            headers={"Origin": "http://localhost:5173"},
+        )
+
+        assert response.headers["access-control-allow-origin"] == (
+            "http://localhost:5173"
+        )
 
     def test_cors_credentials_allowed(self, client):
         """Test CORS allows credentials."""
         response = client.options(
-            "/api/v1/books",
+            "/api/v1/books/",
             headers={
-                "Origin": "http://localhost:3000",
+                "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "GET",
             },
         )
@@ -472,17 +546,16 @@ class TestAuthentication:
 
     def test_protected_endpoint_requires_auth(self, client):
         """Test protected endpoints require authentication."""
-        # Attempt to access protected endpoint without token
-        response = client.get("/auth/me")
+        # Роутеры смонтированы под /api/v1; на /auth/me маршрута нет вовсе
+        response = client.get("/api/v1/auth/me")
 
-        # Should return 401 Unauthorized or 403 Forbidden
-        assert response.status_code in [401, 403]
+        assert response.status_code == 401
 
     def test_invalid_token_rejected(self, client):
         """Test invalid JWT token is rejected."""
         # Try with invalid token
         response = client.get(
-            "/auth/me",
+            "/api/v1/auth/me",
             headers={"Authorization": "Bearer invalid_token_here"},
         )
 

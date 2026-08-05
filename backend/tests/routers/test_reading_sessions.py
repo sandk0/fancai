@@ -70,15 +70,19 @@ class TestStartSession:
         assert data["progress_delta"] == 0
 
     @pytest.mark.asyncio
-    async def test_start_session_auto_closes_previous(
+    async def test_start_session_with_force_closes_previous(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         test_user: User,
         test_book: Book,
     ):
-        """Test that starting a new session auto-closes previous active session."""
-        # Arrange - create an existing active session
+        """Старт с force=true закрывает предыдущую активную сессию.
+
+        Без `force` endpoint отвечает 409 с деталями активной сессии
+        (`app/routers/reading_sessions.py:329-340`) — это осознанное
+        поведение, а не автозакрытие.
+        """
         existing_session = ReadingSession(
             user_id=test_user.id,
             book_id=test_book.id,
@@ -96,6 +100,7 @@ class TestStartSession:
             "book_id": str(test_book.id),
             "start_position": 50,
             "device_type": "mobile",
+            "force": True,
         }
 
         from app.core.auth import create_access_token
@@ -222,9 +227,9 @@ class TestStartSession:
         )
 
         # Assert
-        assert (
-            response.status_code == 403
-        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        # приложение отвечает 401: HTTPBearer(auto_error=False) + явный raise
+        # в app/core/auth.py:44-48, OAuth2PasswordBearer здесь не используется
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_start_session_other_user_book(
@@ -523,13 +528,20 @@ class TestEndSession:
         assert active_session.end_position == 75
 
     @pytest.mark.asyncio
-    async def test_end_session_validates_position(
+    async def test_end_session_allows_position_below_start(
         self,
         client: AsyncClient,
+        db_session: AsyncSession,
         test_user: User,
         active_session: ReadingSession,
     ):
-        """Test ending session validates end_position >= start_position."""
+        """Позиция ниже стартовой разрешена — пользователь мог отлистать назад.
+
+        Проверка `end_position >= start_position` снята намеренно коммитом
+        `9b3f9bff` («allow ending reading sessions with end_position <
+        start_position (user scrolled back)»), поэтому 400 здесь ждать нельзя.
+        Диапазон 0..100 при этом остаётся обязательным.
+        """
         # Arrange
         request_data = {"end_position": 10}  # Less than start_position (30)
 
@@ -546,8 +558,12 @@ class TestEndSession:
         )
 
         # Assert
-        assert response.status_code == 400
-        assert "must be >=" in response.json()["detail"]
+        assert response.status_code == 200
+        assert response.json()["end_position"] == 10
+
+        await db_session.refresh(active_session)
+        assert active_session.is_active is False
+        assert active_session.end_position == 10
 
     @pytest.mark.asyncio
     async def test_end_session_calculates_duration(

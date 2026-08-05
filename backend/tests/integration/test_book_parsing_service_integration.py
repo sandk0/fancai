@@ -1,13 +1,16 @@
 """
 Интеграционные тесты для BookParsingService.
 
-Тестирует функциональность управления парсингом:
-- Извлечение описаний из глав
-- Управление прогрессом парсинга
-- Получение статуса парсинга
-- Интеграция с Multi-NLP системой
-- Сохранение описаний в БД
-- Работа с разными типами описаний
+Тестирует то, что сервис делает СЕЙЧАС:
+- извлечение описаний из главы по запросу через Gemini (без записи в БД);
+- сбор описаний по всем главам книги с фильтром по типу и лимитом;
+- статус парсинга в его текущем виде.
+
+Из набора убрано вместе с удалением NLP-системы (`0c110210`):
+`update_parsing_progress` (метода больше нет), патчи `multi_nlp_manager`
+(модуль работает через `gemini_extractor`), ключи статуса `is_parsed`,
+`parsing_progress`, `parsed_chapters`, `total_descriptions` и проверки
+сохранения описаний в БД — сервис их не сохраняет.
 
 Автор: Testing & QA Specialist Agent
 Дата: 2025-11-29
@@ -15,14 +18,34 @@
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.book.book_parsing_service import BookParsingService
 from app.services.book.book_service import BookService
-from app.models.book import Book
-from app.models.chapter import Chapter
-from app.models.description import Description, DescriptionType
+from app.models.book import Book, BookGenre
+from app.models.description import DescriptionType
+
+
+def _description_dict(content: str, desc_type: str, priority: float) -> dict:
+    """Описание в том виде, в каком его отдаёт экстрактор (уже словарём)."""
+    return {
+        "type": desc_type,
+        "content": content,
+        "context": "Context",
+        "confidence_score": 0.9,
+        "priority_score": priority,
+        "position_in_chapter": 0,
+        "word_count": len(content.split()),
+    }
+
+
+def _extractor(descriptions, available=True):
+    """Заглушка `gemini_extractor`: он импортируется внутри методов сервиса."""
+    mock = MagicMock()
+    mock.is_available.return_value = available
+    mock.extract_descriptions = AsyncMock(return_value=descriptions)
+    return mock
 
 
 class TestBookParsingServiceIntegration:
@@ -47,122 +70,51 @@ class TestBookParsingServiceIntegration:
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест успешного извлечения описаний из главы."""
-        # Arrange
+        """Описания главы отдаются словарями, как их вернул экстрактор."""
         chapter = test_book.chapters[0]
+        extracted = [_description_dict("Beautiful forest", "location", 0.9)]
 
-        # Mock multi_nlp_manager
-        mock_result = AsyncMock()
-        mock_result.descriptions = [
-            {
-                "type": "location",
-                "content": "Beautiful forest",
-                "context": "In the deep forest",
-                "confidence_score": 0.95,
-                "position": 10,
-                "word_count": 3,
-                "priority_score": 0.9,
-            }
-        ]
-
-        # Act
         with patch(
-            "app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions",
-            return_value=mock_result,
+            "app.services.gemini_extractor.gemini_extractor",
+            _extractor(extracted),
         ):
             descriptions = await parsing_service.extract_chapter_descriptions(
                 db=db_session, chapter_id=chapter.id
             )
 
-        # Assert
-        assert len(descriptions) > 0
-        assert descriptions[0].type == "location"
-        assert descriptions[0].content == "Beautiful forest"
+        assert len(descriptions) == 1
+        assert descriptions[0]["type"] == "location"
+        assert descriptions[0]["content"] == "Beautiful forest"
 
     @pytest.mark.asyncio
-    async def test_extract_chapter_descriptions_marks_parsed(
+    async def test_extract_chapter_descriptions_extractor_unavailable(
         self,
         parsing_service: BookParsingService,
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест что глава отмечается как обработанная."""
-        # Arrange
+        """Недоступный экстрактор — пустой список, а не исключение."""
         chapter = test_book.chapters[0]
 
-        mock_result = AsyncMock()
-        mock_result.descriptions = [
-            {
-                "type": "location",
-                "content": "Forest",
-                "context": "Context",
-                "confidence_score": 0.9,
-                "position": 0,
-                "word_count": 1,
-                "priority_score": 0.8,
-            }
-        ]
-
-        # Act
         with patch(
-            "app.services.book.book_parsing_service.multi_nlp_manager.extract_descriptions",
-            return_value=mock_result,
+            "app.services.gemini_extractor.gemini_extractor",
+            _extractor([], available=False),
         ):
-            await parsing_service.extract_chapter_descriptions(
+            descriptions = await parsing_service.extract_chapter_descriptions(
                 db=db_session, chapter_id=chapter.id
             )
 
-        # Assert
-        updated_chapter = await db_session.get(Chapter, chapter.id)
-        assert updated_chapter.is_description_parsed is True
-        assert updated_chapter.descriptions_found > 0
-        assert updated_chapter.parsing_progress == 100
+        assert descriptions == []
 
     @pytest.mark.asyncio
     async def test_extract_chapter_descriptions_chapter_not_found(
         self, parsing_service: BookParsingService, db_session: AsyncSession
     ):
         """Тест извлечения описаний для несуществующей главы."""
-        # Act & Assert
         with pytest.raises(ValueError, match="not found"):
             await parsing_service.extract_chapter_descriptions(
                 db=db_session, chapter_id=uuid4()
             )
-
-    @pytest.mark.asyncio
-    async def test_extract_chapter_descriptions_already_parsed(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест что уже обработанная глава не обрабатывается повторно."""
-        # Arrange
-        chapter = test_book.chapters[0]
-        chapter.is_description_parsed = True
-
-        # Create existing description
-        existing_desc = Description(
-            chapter_id=chapter.id,
-            type=DescriptionType.LOCATION.value,
-            content="Existing description",
-            context="Context",
-            confidence_score=0.9,
-            position_in_chapter=0,
-            word_count=2,
-            priority_score=0.8,
-        )
-        db_session.add(existing_desc)
-        await db_session.commit()
-
-        # Act
-        descriptions = await parsing_service.extract_chapter_descriptions(
-            db=db_session, chapter_id=chapter.id
-        )
-
-        # Assert
-        assert len(descriptions) == 1
-        assert descriptions[0].content == "Existing description"
 
     # ==================== GET DESCRIPTIONS TESTS ====================
 
@@ -173,32 +125,23 @@ class TestBookParsingServiceIntegration:
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест получения описаний из всех глав книги."""
-        # Arrange
-        chapter = test_book.chapters[0]
-        for i in range(1, 4):
-            description = Description(
-                chapter_id=chapter.id,
-                type=DescriptionType.LOCATION.value,
-                content=f"Description {i}",
-                context="Context",
-                confidence_score=0.9,
-                position_in_chapter=i * 10,
-                word_count=2,
-                priority_score=0.8 - (i * 0.1),
+        """Описания собираются по всем главам и сортируются по приоритету."""
+        extracted = [
+            _description_dict("Low", "location", 0.1),
+            _description_dict("High", "location", 0.9),
+        ]
+
+        with patch(
+            "app.services.gemini_extractor.gemini_extractor", _extractor(extracted)
+        ):
+            descriptions = await parsing_service.get_book_descriptions(
+                db=db_session, book_id=test_book.id
             )
-            db_session.add(description)
-        await db_session.commit()
 
-        # Act
-        descriptions = await parsing_service.get_book_descriptions(
-            db=db_session, book_id=test_book.id
-        )
-
-        # Assert
-        assert len(descriptions) == 3
-        # Check sorting by priority score
-        assert descriptions[0].priority_score >= descriptions[-1].priority_score
+        # 3 главы фикстуры × 2 описания
+        assert len(descriptions) == 6
+        assert descriptions[0]["priority_score"] == 0.9
+        assert descriptions[-1]["priority_score"] == 0.1
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_filtered_by_type(
@@ -207,61 +150,52 @@ class TestBookParsingServiceIntegration:
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест получения описаний конкретного типа."""
-        # Arrange
-        chapter = test_book.chapters[0]
+        """Фильтр по типу отбрасывает описания других типов."""
+        extracted = [
+            _description_dict("Location", DescriptionType.LOCATION.value, 0.8),
+            _description_dict("Character", DescriptionType.CHARACTER.value, 0.7),
+        ]
 
-        # Create descriptions of different types
-        loc_desc = Description(
-            chapter_id=chapter.id,
-            type=DescriptionType.LOCATION.value,
-            content="Location",
-            context="Context",
-            confidence_score=0.9,
-            position_in_chapter=0,
-            word_count=1,
-            priority_score=0.8,
-        )
-        char_desc = Description(
-            chapter_id=chapter.id,
-            type=DescriptionType.CHARACTER.value,
-            content="Character",
-            context="Context",
-            confidence_score=0.85,
-            position_in_chapter=10,
-            word_count=1,
-            priority_score=0.7,
-        )
-        db_session.add(loc_desc)
-        db_session.add(char_desc)
-        await db_session.commit()
+        with patch(
+            "app.services.gemini_extractor.gemini_extractor", _extractor(extracted)
+        ):
+            descriptions = await parsing_service.get_book_descriptions(
+                db=db_session,
+                book_id=test_book.id,
+                description_type=DescriptionType.LOCATION.value,
+            )
 
-        # Act
-        descriptions = await parsing_service.get_book_descriptions(
-            db=db_session,
-            book_id=test_book.id,
-            description_type=DescriptionType.LOCATION,
-        )
-
-        # Assert
-        assert len(descriptions) == 1
-        assert descriptions[0].type == DescriptionType.LOCATION.value
+        assert len(descriptions) == 3  # по одному на главу
+        assert {d["type"] for d in descriptions} == {DescriptionType.LOCATION.value}
 
     @pytest.mark.asyncio
-    async def test_get_book_descriptions_empty_book(
+    async def test_get_book_descriptions_book_without_chapters(
         self,
         parsing_service: BookParsingService,
         db_session: AsyncSession,
-        test_book: Book,
+        test_user,
     ):
-        """Тест получения описаний для книги без описаний."""
-        # Act
-        descriptions = await parsing_service.get_book_descriptions(
-            db=db_session, book_id=test_book.id
+        """Книга без глав — пустой список, экстрактор не зовётся."""
+        book = Book(
+            user_id=test_user.id,
+            title="No Chapters",
+            genre=BookGenre.OTHER.value,
+            language="ru",
+            file_path="/tmp/no-chapters.epub",
+            file_format="epub",
+            file_size=1024,
         )
+        db_session.add(book)
+        await db_session.commit()
 
-        # Assert
-        assert len(descriptions) == 0
+        extractor = _extractor([_description_dict("X", "location", 0.5)])
+        with patch("app.services.gemini_extractor.gemini_extractor", extractor):
+            descriptions = await parsing_service.get_book_descriptions(
+                db=db_session, book_id=book.id
+            )
+
+        assert descriptions == []
+        extractor.extract_descriptions.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_get_book_descriptions_limit(
@@ -270,222 +204,64 @@ class TestBookParsingServiceIntegration:
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест лимита на количество описаний."""
-        # Arrange
-        chapter = test_book.chapters[0]
-        for i in range(1, 11):
-            description = Description(
-                chapter_id=chapter.id,
-                type=DescriptionType.LOCATION.value,
-                content=f"Description {i}",
-                context="Context",
-                confidence_score=0.9,
-                position_in_chapter=i * 10,
-                word_count=2,
-                priority_score=0.9 - (i * 0.01),
+        """Лимит обрезает выдачу и прекращает обход глав."""
+        extracted = [
+            _description_dict(f"Description {i}", "location", 0.9 - i * 0.01)
+            for i in range(10)
+        ]
+
+        with patch(
+            "app.services.gemini_extractor.gemini_extractor", _extractor(extracted)
+        ):
+            descriptions = await parsing_service.get_book_descriptions(
+                db=db_session, book_id=test_book.id, limit=5
             )
-            db_session.add(description)
-        await db_session.commit()
 
-        # Act
-        descriptions = await parsing_service.get_book_descriptions(
-            db=db_session, book_id=test_book.id, limit=5
-        )
-
-        # Assert
         assert len(descriptions) == 5
-
-    # ==================== PARSING PROGRESS TESTS ====================
-
-    @pytest.mark.asyncio
-    async def test_update_parsing_progress_success(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест обновления прогресса парсинга."""
-        # Act
-        updated_book = await parsing_service.update_parsing_progress(
-            db=db_session, book_id=test_book.id, progress_percent=50
-        )
-
-        # Assert
-        assert updated_book.parsing_progress == 50
-        assert updated_book.is_parsed is False
-
-    @pytest.mark.asyncio
-    async def test_update_parsing_progress_completion(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест что завершение парсинга обновляет флаг is_parsed."""
-        # Act
-        updated_book = await parsing_service.update_parsing_progress(
-            db=db_session, book_id=test_book.id, progress_percent=100
-        )
-
-        # Assert
-        assert updated_book.parsing_progress == 100
-        assert updated_book.is_parsed is True
-
-    @pytest.mark.asyncio
-    async def test_update_parsing_progress_clamp_values(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест что прогресс ограничивается от 0 до 100."""
-        # Act - test negative clamping
-        updated_book = await parsing_service.update_parsing_progress(
-            db=db_session, book_id=test_book.id, progress_percent=-50
-        )
-        assert updated_book.parsing_progress == 0
-
-        # Act - test upper clamping
-        updated_book = await parsing_service.update_parsing_progress(
-            db=db_session, book_id=test_book.id, progress_percent=150
-        )
-        assert updated_book.parsing_progress == 100
-
-    @pytest.mark.asyncio
-    async def test_update_parsing_progress_book_not_found(
-        self, parsing_service: BookParsingService, db_session: AsyncSession
-    ):
-        """Тест обновления прогресса для несуществующей книги."""
-        # Act & Assert
-        with pytest.raises(ValueError, match="not found"):
-            await parsing_service.update_parsing_progress(
-                db=db_session, book_id=uuid4(), progress_percent=50
-            )
 
     # ==================== PARSING STATUS TESTS ====================
 
     @pytest.mark.asyncio
-    async def test_get_parsing_status_initial(
+    async def test_get_parsing_status_shape(
         self,
         parsing_service: BookParsingService,
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест получения статуса парсинга изначально."""
-        # Act
-        status = await parsing_service.get_parsing_status(
-            db=db_session, book_id=test_book.id
-        )
+        """Статус отдаёт число глав и режим извлечения по запросу."""
+        with patch(
+            "app.services.gemini_extractor.gemini_extractor", _extractor([])
+        ):
+            status = await parsing_service.get_parsing_status(
+                db=db_session, book_id=test_book.id
+            )
 
-        # Assert
-        assert status["is_parsed"] is False
-        assert status["parsing_progress"] == 0
         assert status["total_chapters"] == len(test_book.chapters)
-        assert status["parsed_chapters"] == 0
-        assert status["total_descriptions"] == 0
+        assert status["llm_available"] is True
+        assert status["extraction_mode"] == "on_demand"
 
     @pytest.mark.asyncio
-    async def test_get_parsing_status_partially_parsed(
+    async def test_get_parsing_status_reports_unavailable_llm(
         self,
         parsing_service: BookParsingService,
         db_session: AsyncSession,
         test_book: Book,
     ):
-        """Тест статуса при частичном парсинге."""
-        # Arrange
-        chapter = test_book.chapters[0]
-        chapter.is_description_parsed = True
-        chapter.descriptions_found = 5
+        """Недоступность LLM видна в статусе."""
+        with patch(
+            "app.services.gemini_extractor.gemini_extractor",
+            _extractor([], available=False),
+        ):
+            status = await parsing_service.get_parsing_status(
+                db=db_session, book_id=test_book.id
+            )
 
-        description = Description(
-            chapter_id=chapter.id,
-            type=DescriptionType.LOCATION.value,
-            content="Test",
-            context="Context",
-            confidence_score=0.9,
-            position_in_chapter=0,
-            word_count=1,
-            priority_score=0.8,
-        )
-        db_session.add(description)
-        await db_session.commit()
-
-        # Act
-        status = await parsing_service.get_parsing_status(
-            db=db_session, book_id=test_book.id
-        )
-
-        # Assert
-        assert status["is_parsed"] is False
-        assert status["parsed_chapters"] == 1
-        assert status["total_descriptions"] >= 1
-
-    @pytest.mark.asyncio
-    async def test_get_parsing_status_fully_parsed(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест статуса при полном парсинге."""
-        # Arrange
-        test_book.is_parsed = True
-        test_book.parsing_progress = 100
-
-        for chapter in test_book.chapters:
-            chapter.is_description_parsed = True
-            chapter.descriptions_found = 3
-
-        await db_session.commit()
-
-        # Act
-        status = await parsing_service.get_parsing_status(
-            db=db_session, book_id=test_book.id
-        )
-
-        # Assert
-        assert status["is_parsed"] is True
-        assert status["parsing_progress"] == 100
-        assert status["parsed_chapters"] == len(test_book.chapters)
+        assert status["llm_available"] is False
 
     @pytest.mark.asyncio
     async def test_get_parsing_status_book_not_found(
         self, parsing_service: BookParsingService, db_session: AsyncSession
     ):
         """Тест получения статуса для несуществующей книги."""
-        # Act & Assert
         with pytest.raises(ValueError, match="not found"):
             await parsing_service.get_parsing_status(db=db_session, book_id=uuid4())
-
-    # ==================== MULTIPLE CHAPTERS TESTS ====================
-
-    @pytest.mark.asyncio
-    async def test_parsing_multiple_chapters_tracking(
-        self,
-        parsing_service: BookParsingService,
-        db_session: AsyncSession,
-        test_book: Book,
-    ):
-        """Тест отслеживания прогресса парсинга нескольких глав."""
-        # Arrange
-        total_chapters = len(test_book.chapters)
-
-        # Parse each chapter
-        for i, chapter in enumerate(test_book.chapters, 1):
-            chapter.is_description_parsed = True
-            chapter.descriptions_found = 5
-
-            # Update book progress
-            progress = int((i / total_chapters) * 100)
-            await parsing_service.update_parsing_progress(
-                db=db_session, book_id=test_book.id, progress_percent=progress
-            )
-
-        # Act
-        status = await parsing_service.get_parsing_status(
-            db=db_session, book_id=test_book.id
-        )
-
-        # Assert
-        assert status["parsed_chapters"] == total_chapters
-        assert status["parsing_progress"] >= 100 - (100 // total_chapters)

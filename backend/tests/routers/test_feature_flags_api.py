@@ -445,8 +445,8 @@ class TestBulkUpdateEndpoint:
         assert response.status_code == 200
         data = response.json()
 
-        assert "admin" in data
-        assert "@" in data["admin"]
+        assert "admin_email" in data
+        assert "@" in data["admin_email"]
 
 
 @pytest.mark.asyncio

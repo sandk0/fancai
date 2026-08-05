@@ -4,9 +4,11 @@
 Тестирует функциональность сбора статистики:
 - Подсчет количества книг пользователя
 - Сбор детальной статистики чтения
-- Статистика по описаниям
-- Статистика по типам описаний
 - Работа с пустыми данными
+
+Статистика по описаниям из набора убрана: `get_book_statistics` перестал
+её отдавать вместе с удалением NLP-системы (`0c110210`), ключей
+`descriptions_extracted` и `descriptions_by_type` в контракте больше нет.
 
 Автор: Testing & QA Specialist Agent
 Дата: 2025-11-29
@@ -20,7 +22,6 @@ from app.services.book.book_statistics_service import BookStatisticsService
 from app.services.book.book_service import BookService
 from app.models.book import Book, BookGenre, ReadingProgress
 from app.models.chapter import Chapter
-from app.models.description import Description, DescriptionType
 from app.models.reading_session import ReadingSession
 from app.models.user import User
 
@@ -156,9 +157,9 @@ class TestBookStatisticsServiceIntegration:
 
         # Assert
         assert stats["total_books"] == 0
+        assert stats["total_chapters"] == 0
         assert stats["total_pages_read"] == 0
         assert stats["total_reading_time_hours"] == 0.0
-        assert stats["descriptions_extracted"] == 0
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_with_books(
@@ -193,7 +194,8 @@ class TestBookStatisticsServiceIntegration:
 
         # Assert
         assert stats["total_books"] == 3
-        assert isinstance(stats["descriptions_extracted"], int)
+        # Книги созданы без глав — JOIN не должен ничего насчитать
+        assert stats["total_chapters"] == 0
 
     @pytest.mark.asyncio
     async def test_get_book_statistics_includes_pages_read(
@@ -271,160 +273,34 @@ class TestBookStatisticsServiceIntegration:
         # Assert
         assert stats["total_reading_time_hours"] >= 1.0
 
-    # ==================== DESCRIPTION STATISTICS TESTS ====================
-
-    @pytest.mark.asyncio
-    async def test_get_book_statistics_count_descriptions(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-        test_book: Book,
-    ):
-        """Тест подсчета всех извлеченных описаний."""
-        # Arrange
-        chapter = test_book.chapters[0]
-        for i in range(1, 6):
-            description = Description(
-                book_id=test_book.id,
-                chapter_id=chapter.id,
-                text=f"Description {i}",
-                description_type=DescriptionType.LOCATION.value,
-                confidence_score=0.9,
-                priority_score=0.8,
-                chapter_position=i * 10,
-            )
-            db_session.add(description)
-        await db_session.commit()
-
-        # Act
-        stats = await statistics_service.get_book_statistics(
-            db=db_session, user_id=test_user.id
-        )
-
-        # Assert
-        assert stats["descriptions_extracted"] == 5
-
-    @pytest.mark.asyncio
-    async def test_get_book_statistics_descriptions_by_type(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-        test_book: Book,
-    ):
-        """Тест распределения описаний по типам."""
-        # Arrange
-        chapter = test_book.chapters[0]
-
-        # Create descriptions of different types
-        location_desc = Description(
-            book_id=test_book.id,
-            chapter_id=chapter.id,
-            text="Beautiful forest",
-            description_type=DescriptionType.LOCATION.value,
-            confidence_score=0.9,
-            priority_score=0.8,
-            chapter_position=10,
-        )
-        character_desc = Description(
-            book_id=test_book.id,
-            chapter_id=chapter.id,
-            text="Mysterious hero",
-            description_type=DescriptionType.CHARACTER.value,
-            confidence_score=0.85,
-            priority_score=0.8,
-            chapter_position=20,
-        )
-        atmosphere_desc = Description(
-            book_id=test_book.id,
-            chapter_id=chapter.id,
-            text="Dark atmosphere",
-            description_type=DescriptionType.ATMOSPHERE.value,
-            confidence_score=0.8,
-            priority_score=0.7,
-            chapter_position=30,
-        )
-
-        db_session.add(location_desc)
-        db_session.add(character_desc)
-        db_session.add(atmosphere_desc)
-        await db_session.commit()
-
-        # Act
-        stats = await statistics_service.get_book_statistics(
-            db=db_session, user_id=test_user.id
-        )
-
-        # Assert
-        assert stats["descriptions_extracted"] == 3
-        assert "descriptions_by_type" in stats
-        assert len(stats["descriptions_by_type"]) == 3
-
-    @pytest.mark.asyncio
-    async def test_get_book_statistics_no_descriptions(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-        test_book: Book,
-    ):
-        """Тест статистики при отсутствии описаний."""
-        # Act
-        stats = await statistics_service.get_book_statistics(
-            db=db_session, user_id=test_user.id
-        )
-
-        # Assert
-        assert stats["descriptions_extracted"] == 0
-        assert stats["descriptions_by_type"] == {}
-
     # ==================== EDGE CASES ====================
 
     @pytest.mark.asyncio
-    async def test_statistics_multiple_chapters_with_descriptions(
+    async def test_statistics_counts_chapters_of_user_books(
         self,
         statistics_service: BookStatisticsService,
         db_session: AsyncSession,
         test_user: User,
         test_book: Book,
     ):
-        """Тест статистики описаний из нескольких глав."""
-        # Arrange
-        chapters = test_book.chapters
-
-        # Add descriptions to each chapter
-        for chapter in chapters:
-            for i in range(1, 4):
-                description = Description(
-                    book_id=test_book.id,
-                    chapter_id=chapter.id,
-                    text=f"Description {i} in chapter {chapter.chapter_number}",
-                    description_type=DescriptionType.LOCATION.value,
-                    confidence_score=0.9,
-                    priority_score=0.8,
-                    chapter_position=i * 10,
-                )
-                db_session.add(description)
-        await db_session.commit()
-
+        """Тест что статистика считает главы книг пользователя."""
         # Act
         stats = await statistics_service.get_book_statistics(
             db=db_session, user_id=test_user.id
         )
 
-        # Assert
-        expected_count = len(chapters) * 3
-        assert stats["descriptions_extracted"] == expected_count
+        # Assert — фикстура test_book создаёт ровно 3 главы
+        assert stats["total_books"] == 1
+        assert stats["total_chapters"] == 3
 
     @pytest.mark.asyncio
-    async def test_statistics_multiple_books_with_descriptions(
+    async def test_statistics_multiple_books_with_chapters(
         self,
         statistics_service: BookStatisticsService,
         db_session: AsyncSession,
         test_user: User,
     ):
-        """Тест статистики описаний из нескольких книг."""
+        """Тест статистики по нескольким книгам с главами."""
         # Arrange
         books = []
         for book_idx in range(1, 4):
@@ -443,7 +319,6 @@ class TestBookStatisticsServiceIntegration:
             books.append(book)
         await db_session.commit()
 
-        # Add chapters and descriptions for each book
         for book in books:
             chapter = Chapter(
                 book_id=book.id,
@@ -453,19 +328,6 @@ class TestBookStatisticsServiceIntegration:
                 word_count=100,
             )
             db_session.add(chapter)
-            await db_session.flush()
-
-            for i in range(1, 4):
-                description = Description(
-                    book_id=book.id,
-                    chapter_id=chapter.id,
-                    text=f"Description {i}",
-                    description_type=DescriptionType.LOCATION.value,
-                    confidence_score=0.9,
-                    priority_score=0.8,
-                    chapter_position=i * 10,
-                )
-                db_session.add(description)
         await db_session.commit()
 
         # Act
@@ -473,55 +335,9 @@ class TestBookStatisticsServiceIntegration:
             db=db_session, user_id=test_user.id
         )
 
-        # Assert
-        expected_count = 3 * 3  # 3 books * 3 descriptions each
+        # Assert — по одной главе на каждую из трёх книг
         assert stats["total_books"] == 3
-        assert stats["descriptions_extracted"] == expected_count
-
-    @pytest.mark.asyncio
-    async def test_statistics_description_type_distribution(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-        test_book: Book,
-    ):
-        """Тест распределения типов описаний в статистике."""
-        # Arrange
-        chapter = test_book.chapters[0]
-
-        # Create many descriptions of different types
-        type_counts = {
-            DescriptionType.LOCATION: 5,
-            DescriptionType.CHARACTER: 3,
-            DescriptionType.ATMOSPHERE: 2,
-        }
-
-        for desc_type, count in type_counts.items():
-            for i in range(count):
-                description = Description(
-                    book_id=test_book.id,
-                    chapter_id=chapter.id,
-                    text=f"{desc_type.value} {i}",
-                    description_type=desc_type.value,
-                    confidence_score=0.9,
-                    priority_score=0.8,
-                    chapter_position=i * 10,
-                )
-                db_session.add(description)
-        await db_session.commit()
-
-        # Act
-        stats = await statistics_service.get_book_statistics(
-            db=db_session, user_id=test_user.id
-        )
-
-        # Assert
-        assert stats["descriptions_extracted"] == 10
-        descriptions_by_type = stats["descriptions_by_type"]
-        assert descriptions_by_type.get("location") == 5
-        assert descriptions_by_type.get("character") == 3
-        assert descriptions_by_type.get("atmosphere") == 2
+        assert stats["total_chapters"] == 3
 
     @pytest.mark.asyncio
     async def test_statistics_non_existent_user(
@@ -535,4 +351,4 @@ class TestBookStatisticsServiceIntegration:
 
         # Assert
         assert stats["total_books"] == 0
-        assert stats["descriptions_extracted"] == 0
+        assert stats["total_chapters"] == 0

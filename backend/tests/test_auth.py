@@ -43,13 +43,23 @@ class TestAuth:
 
     @pytest.mark.asyncio
     async def test_register_weak_password(self, client: AsyncClient, sample_user_data):
-        """Test registration with weak password."""
+        """Слабый пароль отвергается на двух рубежах.
+
+        Короче 12 символов — схемой `UserRegistrationRequest` (min_length=12),
+        то есть 422 до обработчика. Достаточно длинный, но простой —
+        `validate_password_strength` внутри обработчика, то есть 400.
+        """
         sample_user_data["password"] = "123"
 
         response = await client.post("/api/v1/auth/register", json=sample_user_data)
 
-        assert response.status_code == 400  # Password validation in router returns 400
-        assert "at least 12 characters" in response.json()["detail"].lower()
+        assert response.status_code == 422
+
+        sample_user_data["password"] = "alllowercase1!"
+        response = await client.post("/api/v1/auth/register", json=sample_user_data)
+
+        assert response.status_code == 400
+        assert "uppercase" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
     async def test_login_success(self, client: AsyncClient, sample_user_data):
@@ -148,11 +158,11 @@ class TestAuth:
             "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
         )
 
+        # Схема RefreshTokenResponse: токен лежит в корне ответа
         assert response.status_code == 200
         data = response.json()
-        assert "tokens" in data
-        assert "access_token" in data["tokens"]
-        assert "refresh_token" in data["tokens"]
+        assert data["token_type"] == "bearer"
+        assert data["access_token"]
 
     @pytest.mark.asyncio
     async def test_refresh_invalid_token(self, client: AsyncClient):
@@ -175,9 +185,13 @@ class TestAuth:
         assert "successful" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
-    async def test_logout_unauthorized(self, client: AsyncClient):
-        """Test logout without authentication."""
+    async def test_logout_without_token_is_idempotent(self, client: AsyncClient):
+        """Выход без токена — 200.
+
+        Endpoint не требует аутентификации (`app/routers/auth.py:300-306`):
+        токен читается опционально, а без него просто чистятся cookies.
+        Прежний список `[401, 403, 307]` описывал поведение, которого нет.
+        """
         response = await client.post("/api/v1/auth/logout", follow_redirects=False)
 
-        # Security middleware may return 401, 403, or redirect
-        assert response.status_code in [401, 403, 307]
+        assert response.status_code == 200

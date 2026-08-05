@@ -21,6 +21,22 @@ from app.models.book import Book
 from app.core.auth import create_access_token
 from app.tasks.reading_sessions_tasks import _close_abandoned_sessions_impl
 
+
+@pytest.fixture(autouse=True)
+def task_session_uses_test_db():
+    """`_close_abandoned_sessions_impl` открывает сессию сам, через
+    `AsyncSessionLocal`, то есть без подмены уходит в рабочую БД `fancai_dev`
+    и не видит данных теста.
+    """
+    from unittest.mock import patch
+
+    from tests.conftest import TestSessionLocal
+
+    with patch(
+        "app.tasks.reading_sessions_tasks.AsyncSessionLocal", TestSessionLocal
+    ):
+        yield
+
 # ============================================================================
 # Test Suite 1: Full Reading Session Flow
 # ============================================================================
@@ -335,7 +351,12 @@ class TestConcurrentSessions:
         # Start second session (should auto-close first)
         second_response = await client.post(
             "/api/v1/reading-sessions/start",
-            json={"book_id": str(test_book.id), "start_position": 50},
+            json={
+                "book_id": str(test_book.id),
+                "start_position": 50,
+                # без force endpoint отвечает 409: активная сессия уже есть
+                "force": True,
+            },
             headers=headers,
         )
 
@@ -567,7 +588,12 @@ class TestErrorRecoveryIntegration:
         # Or user can start new session (auto-closes previous)
         new_start_response = await client.post(
             "/api/v1/reading-sessions/start",
-            json={"book_id": str(test_book.id), "start_position": 50},
+            json={
+                "book_id": str(test_book.id),
+                "start_position": 50,
+                # без force endpoint отвечает 409: активная сессия уже есть
+                "force": True,
+            },
             headers=headers,
         )
 

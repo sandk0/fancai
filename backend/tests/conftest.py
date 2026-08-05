@@ -2,7 +2,9 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker, selectinload
 from unittest.mock import AsyncMock, MagicMock
 from dataclasses import dataclass
 from typing import Optional, Dict, List
@@ -38,8 +40,17 @@ def _build_test_database_url() -> str:
 
 TEST_DATABASE_URL = _build_test_database_url()
 
-# Create test engine
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
+# Create test engine.
+#
+# NullPool обязателен: у каждого теста свой event loop
+# (`asyncio_default_fixture_loop_scope=function`), а asyncpg-соединение
+# привязано к тому loop'у, в котором создано. Любое пулированное соединение,
+# дожившее до следующего теста, падает с «got Future attached to a different
+# loop» либо «another operation is in progress» — причём первый тест в процессе
+# проходит, а все следующие нет.
+test_engine = create_async_engine(
+    TEST_DATABASE_URL, echo=False, future=True, poolclass=NullPool
+)
 
 # Test session factory
 TestSessionLocal = sessionmaker(
@@ -77,8 +88,8 @@ async def test_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(_drop_enums)
-    # Reset connection pool to avoid "another operation in progress" between tests
-    await test_engine.dispose()
+    # Пул сбрасывать не нужно: движок на NullPool, соединение закрывается
+    # вместе с транзакцией и до следующего теста не доживает.
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -107,6 +118,28 @@ async def client(override_get_database):
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         yield ac
+
+
+@pytest.fixture(autouse=True)
+def rate_limiting_disabled():
+    """Глобальный rate limiter выключен на время теста.
+
+    Без этого прогон зависит от ПОРЯДКА: любой тест с `TestClient(app)`
+    выполняет lifespan приложения и подключает глобальный `rate_limiter`
+    к Redis. После него у всех последующих тестов регистрация (2/min)
+    и логин (10/min) начинают отвечать 429 — так падали
+    `test_token_blacklist` и `test_auth` в полном прогоне после
+    `test_security`.
+
+    Тесты самого лимитера поднимают ОТДЕЛЬНЫЙ экземпляр `RateLimiter()`
+    и этот флаг не трогают.
+    """
+    from app.middleware.rate_limit import rate_limiter
+
+    original = rate_limiter.enabled
+    rate_limiter.enabled = False
+    yield
+    rate_limiter.enabled = original
 
 
 @pytest.fixture
@@ -214,8 +247,15 @@ async def test_book(db_session: AsyncSession, test_user: User):
         db_session.add(chapter)
 
     await db_session.commit()
-    await db_session.refresh(book)
-    return book
+
+    # `Book.chapters` объявлен lazy="raise", а фикстура обещает книгу С главами:
+    # без явного eager load любое обращение к `test_book.chapters` падает
+    # InvalidRequestError. `refresh()` тут не поможет — он переиспользует
+    # стратегии маппера, то есть тот же lazy="raise".
+    result = await db_session.execute(
+        select(Book).options(selectinload(Book.chapters)).where(Book.id == book.id)
+    )
+    return result.scalar_one()
 
 
 @pytest_asyncio.fixture
@@ -223,15 +263,18 @@ async def test_chapter(db_session: AsyncSession, test_book: Book):
     """Create a test chapter in database."""
     from app.models.chapter import Chapter
 
+    # Главу добавляем ЧЕРЕЗ коллекцию книги: `test_book` отдаёт книгу
+    # с уже загруженным `chapters`, и вставка мимо коллекции оставляет её
+    # неполной. Тогда `db.delete(book)` каскадит только известные ORM главы,
+    # а эта блокирует удаление родителя (chapters_book_id_fkey, NO ACTION).
     chapter = Chapter(
-        book_id=test_book.id,
-        chapter_number=1,
+        chapter_number=len(test_book.chapters) + 1,
         title="Chapter 1",
         content="This is a test chapter content with a beautiful forest and tall trees.",
         html_content="<p>This is a test chapter content with a beautiful forest and tall trees.</p>",
         word_count=15,
     )
-    db_session.add(chapter)
+    test_book.chapters.append(chapter)
     await db_session.commit()
     await db_session.refresh(chapter)
     return chapter
@@ -433,19 +476,48 @@ async def auth_headers(db_session: AsyncSession, client: AsyncClient):
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
+@pytest_asyncio.fixture
+async def test_user_auth_headers(
+    client: AsyncClient, test_user: User, sample_user_data
+):
+    """Заголовки ВЛАДЕЛЬЦА `test_book`.
+
+    `auth_headers` создаёт отдельного `regular_user@example.com`, поэтому любой
+    тест, который соединяет `auth_headers` с `test_book`, получает от ownership
+    guard 403/404 — и это правильное поведение API, а не дефект.
+    """
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": sample_user_data["email"],
+            "password": sample_user_data["password"],
+        },
+    )
+
+    if login_response.status_code != 200:
+        raise Exception(f"Owner login failed: {login_response.text}")
+
+    return {
+        "Authorization": f"Bearer {login_response.json()['tokens']['access_token']}"
+    }
+
+
+
 @pytest.fixture
 async def test_book_with_progress(test_user, db_session):
     """Create a book with reading progress for testing."""
-    from app.models.book import Book
+    from app.models.book import Book, BookGenre, ReadingProgress
     from app.models.chapter import Chapter
-    from app.models.reading_progress import ReadingProgress
 
     # Create book
     book = Book(
         title="Test Book with Progress",
         author="Test Author",
         user_id=test_user.id,
+        genre=BookGenre.OTHER.value,
+        file_path="/tmp/test-with-progress.epub",
         file_format="epub",
+        file_size=1024,
         language="ru",
     )
     db_session.add(book)
@@ -471,7 +543,6 @@ async def test_book_with_progress(test_user, db_session):
         current_chapter=2,
         current_page=10,
         current_position=50,
-        current_position_percent=25.0,
         reading_location_cfi="/2/4/2/10",
         scroll_offset_percent=30.5,
     )

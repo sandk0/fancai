@@ -106,6 +106,9 @@ class TestSEC02SecretKeyValidation:
             "postgresql+asyncpg://user:SecurePass123@postgres:5432/fancai_prod",
         )
         monkeypatch.setenv("REDIS_URL", "redis://:SecureRedis456@redis:6379")
+        # В production валидатор требует переопределить и METRICS_PASSWORD
+        # (`config.py:181-185`), иначе Settings() падает ещё до проверки ключа
+        monkeypatch.setenv("METRICS_PASSWORD", "MetricsSecret456!@#Xyz")
         monkeypatch.delenv("CI", raising=False)
         monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 

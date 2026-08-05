@@ -132,12 +132,16 @@ def test_password_strength_sequential_numbers():
 
 
 def test_rate_limit_presets_auth():
-    """Test auth rate limit is 3 req/min (not 5)."""
+    """Лимит auth — 10 req/min.
+
+    Поднят с 3 сознательно (`rate_limit.py:291-294`: «increased from 3/min
+    to fix login loop issues»), поэтому ждать 3 больше нельзя.
+    """
     from app.middleware.rate_limit import RATE_LIMIT_PRESETS
 
     auth_preset = RATE_LIMIT_PRESETS["auth"]
 
-    assert auth_preset["max_requests"] == 3, "Auth should be 3 req/min"
+    assert auth_preset["max_requests"] == 10
     assert auth_preset["window_seconds"] == 60
 
 

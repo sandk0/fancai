@@ -17,9 +17,9 @@ class TestChaptersRouter:
         """Test listing chapters without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters")
-        assert (
-            response.status_code == 403
-        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        # приложение отвечает 401: HTTPBearer(auto_error=False) + явный raise
+        # в app/core/auth.py:44-48, OAuth2PasswordBearer здесь не используется
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_list_chapters_book_not_found(
@@ -38,9 +38,9 @@ class TestChaptersRouter:
         """Test getting chapter without authentication."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters/1")
-        assert (
-            response.status_code == 403
-        )  # FastAPI OAuth2PasswordBearer returns 403, not 401
+        # приложение отвечает 401: HTTPBearer(auto_error=False) + явный raise
+        # в app/core/auth.py:44-48, OAuth2PasswordBearer здесь не используется
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_chapter_not_found(
@@ -67,30 +67,19 @@ class TestChaptersRouter:
             f"/api/v1/books/{book_id}/chapters/1", headers=headers
         )
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "chapter" in data
-            assert "descriptions" in data
-            assert "navigation" in data
-            assert "book_info" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert set(data) >= {"chapter", "descriptions", "navigation", "book_info"}
 
-            chapter = data["chapter"]
-            assert "id" in chapter
-            assert "number" in chapter
-            assert "title" in chapter
-            assert "content" in chapter
-            assert "word_count" in chapter
+        # Схема ChapterResponse: номер главы называется chapter_number
+        chapter = data["chapter"]
+        assert set(chapter) >= {"id", "chapter_number", "title", "content", "word_count"}
+        assert chapter["chapter_number"] == 1
 
-            navigation = data["navigation"]
-            assert "has_previous" in navigation
-            assert "has_next" in navigation
-            assert (
-                "previous_chapter" in navigation
-                or navigation.get("previous_chapter") is None
-            )
-            assert (
-                "next_chapter" in navigation or navigation.get("next_chapter") is None
-            )
+        navigation = data["navigation"]
+        assert set(navigation) >= {"has_previous", "has_next"}
+        assert navigation["has_previous"] is False
+        assert navigation["has_next"] is True
 
 
 class TestChaptersBackwardCompatibility:
@@ -101,13 +90,13 @@ class TestChaptersBackwardCompatibility:
         """Verify /api/v1/books/{book_id}/chapters is accessible."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters")
-        # Should return 403 (forbidden) or 404 (not found), not 401
-        assert response.status_code in [403, 404]
+        # Маршрут существует, поэтому без токена — 401, а не 404
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_chapter_number_endpoint_accessible(self, client: AsyncClient):
         """Verify /api/v1/books/{book_id}/chapters/{number} is accessible."""
         book_id = str(uuid4())
         response = await client.get(f"/api/v1/books/{book_id}/chapters/1")
-        # Should return 403 (forbidden) or 404 (not found), not 401
-        assert response.status_code in [403, 404]
+        # Маршрут существует, поэтому без токена — 401, а не 404
+        assert response.status_code == 401

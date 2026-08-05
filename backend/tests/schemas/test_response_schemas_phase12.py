@@ -115,13 +115,17 @@ class TestAPIProviderInfo:
     """Тесты для APIProviderInfo schema."""
 
     def test_api_provider_info_defaults(self):
-        """Проверка default значений для APIProviderInfo."""
+        """Проверка default значений для APIProviderInfo.
+
+        Дефолты переехали на OpenRouter/FLUX.2 Klein (`schemas/responses/images.py:69-78`);
+        pollinations.ai и 1024x768 — прежний провайдер.
+        """
         info = APIProviderInfo()
 
-        assert info.provider == "pollinations.ai"
+        assert info.provider == "OpenRouter/FLUX.2 Klein"
         assert info.supported_formats == ["PNG"]
-        assert info.max_resolution == "1024x768"
-        assert info.estimated_time_per_image == "10-30 seconds"
+        assert info.max_resolution == "1024x1024"
+        assert info.estimated_time_per_image == "5-15 seconds"
 
     def test_api_provider_info_custom(self):
         """Проверка кастомных значений."""
@@ -169,7 +173,7 @@ class TestImageGenerationStatusResponse:
         assert response.status == "operational"
         assert response.queue_stats.pending_tasks == 5
         assert response.user_info.can_generate is True
-        assert response.api_info.provider == "pollinations.ai"
+        assert response.api_info.provider == "OpenRouter/FLUX.2 Klein"
 
 
 class TestUserImageStatsResponse:

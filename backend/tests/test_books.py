@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 
@@ -26,8 +26,8 @@ class TestBooks:
 
         response = await client.post("/api/v1/books/upload", files=files)
 
-        # FastAPI returns 403 for missing auth (not 401)
-        assert response.status_code == 403
+        # HTTPBearer(auto_error=False) + явный raise в app/core/auth.py:44-48
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_upload_book_success(
@@ -36,35 +36,42 @@ class TestBooks:
         """Test successful book upload (simplified - checks validation only)."""
         headers = await authenticated_headers()
 
-        # Mock the parser and celery to avoid actual processing
-        with patch("app.services.book_parser.book_parser.parse_book") as mock_parse:
-            with patch("app.core.tasks.process_book_task.delay"):
-                from app.services.book_parser import ParsedBook, BookMetadata
+        # Парсер приходит через DI (`get_book_parser_dep`), поэтому патч
+        # глобального `book_parser` роутер не видел вовсе: он парсил
+        # «fake epub content» настоящим парсером и отвечал 500.
+        from app.main import app
+        from app.core.container import get_book_parser_dep
+        from app.services.book_parser import ParsedBook, BookMetadata
 
-                mock_parse.return_value = ParsedBook(
-                    metadata=BookMetadata(
-                        title=sample_book_data["title"],
-                        author=sample_book_data["author"],
-                    ),
-                    chapters=[],
-                    file_format="epub",
-                    total_pages=100,
-                    estimated_reading_time=50,
-                )
+        parsed = ParsedBook(
+            metadata=BookMetadata(
+                title=sample_book_data["title"],
+                author=sample_book_data["author"],
+            ),
+            chapters=[],
+            file_format="epub",
+            total_pages=100,
+            estimated_reading_time=50,
+        )
+        mock_parser = AsyncMock()
+        mock_parser.parse_book.return_value = parsed
 
-                files = {
-                    "file": ("test.epub", b"fake epub content", "application/epub+zip")
-                }
+        app.dependency_overrides[get_book_parser_dep] = lambda: mock_parser
+        try:
+            files = {
+                "file": ("test.epub", b"fake epub content", "application/epub+zip")
+            }
+            response = await client.post(
+                "/api/v1/books/upload", files=files, headers=headers
+            )
+        finally:
+            del app.dependency_overrides[get_book_parser_dep]
 
-                response = await client.post(
-                    "/api/v1/books/upload", files=files, headers=headers
-                )
-
-        # Check successful response
+        # Схема BookUploadResponse: книга лежит в поле `book`
         assert response.status_code == 200
         data = response.json()
-        assert data["title"] == sample_book_data["title"]
-        assert data["is_processing"] is True
+        assert data["book"]["title"] == sample_book_data["title"]
+        assert data["book"]["is_processing"] is False
 
     @pytest.mark.asyncio
     async def test_upload_book_invalid_format(
@@ -191,11 +198,11 @@ class TestBooks:
                 pass
 
     @pytest.mark.asyncio
-    async def test_get_book_cover(self, client: AsyncClient, test_book, db_session):
+    async def test_get_book_cover(
+        self, client: AsyncClient, test_book, db_session, test_user_auth_headers
+    ):
         """Test getting book cover image."""
-        # This endpoint doesn't require authentication for covers
-
-        # Create a temporary image file
+        # Обложка отдаётся только владельцу: get_user_book + get_current_active_user
         import tempfile
         import os
 
@@ -209,7 +216,9 @@ class TestBooks:
         await db_session.commit()
 
         try:
-            response = await client.get(f"/api/v1/books/{test_book.id}/cover")
+            response = await client.get(
+                f"/api/v1/books/{test_book.id}/cover", headers=test_user_auth_headers
+            )
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "image/jpeg"
@@ -220,9 +229,13 @@ class TestBooks:
                 pass
 
     @pytest.mark.asyncio
-    async def test_get_book_cover_not_found(self, client: AsyncClient, test_book):
+    async def test_get_book_cover_not_found(
+        self, client: AsyncClient, test_book, test_user_auth_headers
+    ):
         """Test getting book cover when it doesn't exist."""
-        response = await client.get(f"/api/v1/books/{test_book.id}/cover")
+        response = await client.get(
+            f"/api/v1/books/{test_book.id}/cover", headers=test_user_auth_headers
+        )
 
         assert response.status_code == 404
         # API returns JSON with error information
@@ -261,7 +274,9 @@ class TestBooks:
 
         assert response.status_code == 200
         data = response.json()
-        assert "status" in data
+        assert data["status"] == "processing"
+        # get_user_priority отдаёт число (FREE=1), схема требует low|normal|high
+        assert data["priority"] == "low"
 
     @pytest.mark.asyncio
     async def test_get_parsing_status(

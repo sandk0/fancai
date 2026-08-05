@@ -223,20 +223,34 @@ class TestAuthFlowIntegration:
         assert "already exists" in error_data["detail"].lower()
 
     async def test_weak_password_registration(self, client: AsyncClient):
-        """Test registration fails with weak password."""
-        user_data = {
-            "email": "weakpass@example.com",
-            "password": "weak",
-            "full_name": "Weak Password User",
-        }
+        """Слабый пароль отвергается на двух рубежах.
 
-        response = await client.post("/api/v1/auth/register", json=user_data)
+        Короче 12 символов — схемой `UserRegistrationRequest` (min_length=12),
+        то есть 422 ещё до обработчика. Достаточно длинный, но простой —
+        `validate_password_strength` в обработчике, то есть 400 с текстом.
+        """
+        too_short = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "weakpass@example.com",
+                "password": "weak",
+                "full_name": "Weak Password User",
+            },
+        )
 
-        assert response.status_code == 400
-        error_data = response.json()
+        assert too_short.status_code == 422
 
-        assert "detail" in error_data
-        assert "at least 12 characters" in error_data["detail"].lower()
+        no_uppercase = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "weakpass2@example.com",
+                "password": "alllowercase1!",
+                "full_name": "Weak Password User",
+            },
+        )
+
+        assert no_uppercase.status_code == 400
+        assert "uppercase" in no_uppercase.json()["detail"].lower()
 
     async def test_profile_update_flow(
         self, client: AsyncClient, db_session: AsyncSession

@@ -275,36 +275,36 @@ class TestBookParserInitialization:
 class TestFormatDetection:
     """Тесты определения формата файла."""
 
-    def test_detect_epub_format(self, book_parser, sample_epub_file):
+    async def test_detect_epub_format(self, book_parser, sample_epub_file):
         """Тест определения EPUB формата."""
-        file_format = book_parser.detect_format(sample_epub_file)
+        file_format = await book_parser.detect_format(sample_epub_file)
         assert file_format == "epub"
 
-    def test_detect_fb2_format(self, book_parser, sample_fb2_file):
+    async def test_detect_fb2_format(self, book_parser, sample_fb2_file):
         """Тест определения FB2 формата."""
-        file_format = book_parser.detect_format(sample_fb2_file)
+        file_format = await book_parser.detect_format(sample_fb2_file)
         assert file_format == "fb2"
 
-    def test_detect_unknown_format(self, book_parser):
+    async def test_detect_unknown_format(self, book_parser):
         """Тест определения неизвестного формата."""
         temp_file = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
         temp_file.write(b"Just a text file")
         temp_file.close()
 
         try:
-            file_format = book_parser.detect_format(temp_file.name)
+            file_format = await book_parser.detect_format(temp_file.name)
             assert file_format == "unknown"
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 
-    def test_detect_xml_as_fb2(self, book_parser):
+    async def test_detect_xml_as_fb2(self, book_parser):
         """Тест определения XML файла как FB2."""
         temp_file = tempfile.NamedTemporaryFile(suffix=".xml", delete=False)
         temp_file.write(b'<?xml version="1.0"?><FictionBook></FictionBook>')
         temp_file.close()
 
         try:
-            file_format = book_parser.detect_format(temp_file.name)
+            file_format = await book_parser.detect_format(temp_file.name)
             assert file_format == "fb2"
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
@@ -318,9 +318,9 @@ class TestFormatDetection:
 class TestBookValidation:
     """Тесты валидации файлов книг."""
 
-    def test_validate_valid_epub_file(self, book_parser, sample_epub_file):
+    async def test_validate_valid_epub_file(self, book_parser, sample_epub_file):
         """Тест валидации корректного EPUB файла."""
-        result = book_parser.validate_book_file(sample_epub_file)
+        result = await book_parser.validate_book_file(sample_epub_file)
 
         assert result["is_valid"] is True
         assert result["format"] == "epub"
@@ -328,39 +328,39 @@ class TestBookValidation:
         assert result["file_size"] > 0
         assert result["estimated_chapters"] >= 1
 
-    def test_validate_valid_fb2_file(self, book_parser, sample_fb2_file):
+    async def test_validate_valid_fb2_file(self, book_parser, sample_fb2_file):
         """Тест валидации корректного FB2 файла."""
-        result = book_parser.validate_book_file(sample_fb2_file)
+        result = await book_parser.validate_book_file(sample_fb2_file)
 
         assert result["is_valid"] is True
         assert result["format"] == "fb2"
         assert result["error"] is None
         assert result["estimated_chapters"] >= 1
 
-    def test_validate_nonexistent_file(self, book_parser):
+    async def test_validate_nonexistent_file(self, book_parser):
         """Тест валидации несуществующего файла."""
-        result = book_parser.validate_book_file("/nonexistent/file.epub")
+        result = await book_parser.validate_book_file("/nonexistent/file.epub")
 
         assert result["is_valid"] is False
         assert result["error"] == "File not found"
 
-    def test_validate_empty_file(self, book_parser, empty_file):
+    async def test_validate_empty_file(self, book_parser, empty_file):
         """Тест валидации пустого файла."""
-        result = book_parser.validate_book_file(empty_file)
+        result = await book_parser.validate_book_file(empty_file)
 
         assert result["is_valid"] is False
         assert "too small" in result["error"].lower()
 
-    def test_validate_large_file(self, book_parser, large_file):
+    async def test_validate_large_file(self, book_parser, large_file):
         """Тест валидации слишком большого файла."""
-        result = book_parser.validate_book_file(large_file)
+        result = await book_parser.validate_book_file(large_file)
 
         assert result["is_valid"] is False
         assert "too large" in result["error"].lower()
 
-    def test_validate_corrupted_epub(self, book_parser, corrupted_epub_file):
+    async def test_validate_corrupted_epub(self, book_parser, corrupted_epub_file):
         """Тест валидации поврежденного EPUB файла."""
-        result = book_parser.validate_book_file(corrupted_epub_file)
+        result = await book_parser.validate_book_file(corrupted_epub_file)
 
         assert result["is_valid"] is False
         assert result["error"] is not None
@@ -374,9 +374,9 @@ class TestBookValidation:
 class TestEPUBParsing:
     """Тесты парсинга EPUB файлов."""
 
-    def test_parse_epub_success(self, book_parser, sample_epub_file):
+    async def test_parse_epub_success(self, book_parser, sample_epub_file):
         """Тест успешного парсинга EPUB файла."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
 
         assert isinstance(result, ParsedBook)
         assert result.file_format == "epub"
@@ -384,9 +384,9 @@ class TestEPUBParsing:
         assert isinstance(result.chapters, list)
         assert len(result.chapters) > 0
 
-    def test_parse_epub_extracts_metadata(self, book_parser, sample_epub_file):
+    async def test_parse_epub_extracts_metadata(self, book_parser, sample_epub_file):
         """Тест извлечения метаданных из EPUB."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
         metadata = result.metadata
 
         assert metadata.title == "Test Book"
@@ -400,9 +400,9 @@ class TestEPUBParsing:
         # Для простого теста проверяем, что isbn это строка (может быть пустой)
         assert isinstance(metadata.isbn, str)
 
-    def test_parse_epub_extracts_chapters(self, book_parser, sample_epub_file):
+    async def test_parse_epub_extracts_chapters(self, book_parser, sample_epub_file):
         """Тест извлечения глав из EPUB."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
 
         assert len(result.chapters) >= 2
 
@@ -413,9 +413,9 @@ class TestEPUBParsing:
         assert len(chapter1.content) > 0
         assert "forest" in chapter1.content.lower()
 
-    def test_parse_epub_calculates_statistics(self, book_parser, sample_epub_file):
+    async def test_parse_epub_calculates_statistics(self, book_parser, sample_epub_file):
         """Тест расчета статистики книги."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
 
         assert result.total_pages > 0
         assert result.estimated_reading_time > 0
@@ -424,9 +424,9 @@ class TestEPUBParsing:
         for chapter in result.chapters:
             assert chapter.word_count > 0
 
-    def test_parse_epub_chapter_content(self, book_parser, sample_epub_file):
+    async def test_parse_epub_chapter_content(self, book_parser, sample_epub_file):
         """Тест качества извлеченного контента главы."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
         chapter1 = result.chapters[0]
 
         # Контент должен быть очищен от HTML
@@ -438,16 +438,16 @@ class TestEPUBParsing:
         assert "forest" in chapter1.content.lower()
         assert len(chapter1.content) > 100  # Минимальная длина
 
-    def test_parse_epub_html_content_preserved(self, book_parser, sample_epub_file):
+    async def test_parse_epub_html_content_preserved(self, book_parser, sample_epub_file):
         """Тест сохранения HTML контента."""
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
         chapter1 = result.chapters[0]
 
         # HTML контент должен быть сохранен отдельно
         assert chapter1.html_content != ""
         assert "<" in chapter1.html_content or len(chapter1.html_content) > 0
 
-    def test_parse_epub_genre_from_dc_type_fallback(self, book_parser):
+    async def test_parse_epub_genre_from_dc_type_fallback(self, book_parser):
         """Тест извлечения жанра из dc:type когда dc:subject отсутствует."""
         # Создаем EPUB с dc:type вместо dc:subject
         epub_content = {
@@ -482,12 +482,12 @@ class TestEPUBParsing:
             for file_path, content in epub_content.items():
                 epub_zip.writestr(file_path, content)
 
-        result = book_parser.parse_book(temp_file.name)
+        result = await book_parser.parse_book(temp_file.name)
         Path(temp_file.name).unlink(missing_ok=True)
 
         assert result.metadata.genre == "Science Fiction"
 
-    def test_parse_epub_no_genre_defaults_to_none(self, book_parser):
+    async def test_parse_epub_no_genre_defaults_to_none(self, book_parser):
         """Тест что отсутствие жанра не ломает парсинг."""
         # Создаем EPUB без dc:subject и dc:type
         epub_content = {
@@ -521,13 +521,13 @@ class TestEPUBParsing:
             for file_path, content in epub_content.items():
                 epub_zip.writestr(file_path, content)
 
-        result = book_parser.parse_book(temp_file.name)
+        result = await book_parser.parse_book(temp_file.name)
         Path(temp_file.name).unlink(missing_ok=True)
 
         # Должно default к "other" когда жанр не найден (это правильное поведение)
         assert result.metadata.genre == "other"
 
-    def test_parse_epub_multiple_subjects_uses_first(self, book_parser):
+    async def test_parse_epub_multiple_subjects_uses_first(self, book_parser):
         """Тест что при нескольких dc:subject используется первый."""
         # Создаем EPUB с несколькими dc:subject
         epub_content = {
@@ -564,13 +564,13 @@ class TestEPUBParsing:
             for file_path, content in epub_content.items():
                 epub_zip.writestr(file_path, content)
 
-        result = book_parser.parse_book(temp_file.name)
+        result = await book_parser.parse_book(temp_file.name)
         Path(temp_file.name).unlink(missing_ok=True)
 
         # Должен использоваться первый subject
         assert result.metadata.genre == "Mystery"
 
-    def test_parse_epub_genre_heuristic_fantasy(self, book_parser):
+    async def test_parse_epub_genre_heuristic_fantasy(self, book_parser):
         """Тест определения жанра фэнтези по ключевым словам (для Witcher)."""
         container_xml = """<?xml version="1.0" encoding="UTF-8"?>
         <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -609,13 +609,13 @@ class TestEPUBParsing:
                 for file_path, content in [("OEBPS/chapter1.xhtml", chapter_content)]:
                     epub_zip.writestr(file_path, content)
 
-        result = book_parser.parse_book(temp_file.name)
+        result = await book_parser.parse_book(temp_file.name)
         Path(temp_file.name).unlink(missing_ok=True)
 
         # Должен определиться как fantasy по ключевому слову "ведьмак"
         assert result.metadata.genre == "fantasy"
 
-    def test_parse_epub_genre_heuristic_scifi(self, book_parser):
+    async def test_parse_epub_genre_heuristic_scifi(self, book_parser):
         """Тест определения жанра sci-fi по ключевым словам."""
         container_xml = """<?xml version="1.0" encoding="UTF-8"?>
         <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -655,7 +655,7 @@ class TestEPUBParsing:
                 for file_path, content in [("OEBPS/chapter1.xhtml", chapter_content)]:
                     epub_zip.writestr(file_path, content)
 
-        result = book_parser.parse_book(temp_file.name)
+        result = await book_parser.parse_book(temp_file.name)
         Path(temp_file.name).unlink(missing_ok=True)
 
         # Должен определиться как science_fiction по ключевым словам "космос" и "звезд"
@@ -670,17 +670,17 @@ class TestEPUBParsing:
 class TestFB2Parsing:
     """Тесты парсинга FB2 файлов."""
 
-    def test_parse_fb2_success(self, book_parser, sample_fb2_file):
+    async def test_parse_fb2_success(self, book_parser, sample_fb2_file):
         """Тест успешного парсинга FB2 файла."""
-        result = book_parser.parse_book(sample_fb2_file)
+        result = await book_parser.parse_book(sample_fb2_file)
 
         assert isinstance(result, ParsedBook)
         assert result.file_format == "fb2"
         assert len(result.chapters) > 0
 
-    def test_parse_fb2_extracts_metadata(self, book_parser, sample_fb2_file):
+    async def test_parse_fb2_extracts_metadata(self, book_parser, sample_fb2_file):
         """Тест извлечения метаданных из FB2."""
-        result = book_parser.parse_book(sample_fb2_file)
+        result = await book_parser.parse_book(sample_fb2_file)
         metadata = result.metadata
 
         assert metadata.title == "Test FB2 Book"
@@ -692,9 +692,9 @@ class TestFB2Parsing:
         assert "test" in metadata.description.lower()
         assert "fb2" in metadata.description.lower()
 
-    def test_parse_fb2_extracts_chapters(self, book_parser, sample_fb2_file):
+    async def test_parse_fb2_extracts_chapters(self, book_parser, sample_fb2_file):
         """Тест извлечения глав из FB2."""
-        result = book_parser.parse_book(sample_fb2_file)
+        result = await book_parser.parse_book(sample_fb2_file)
 
         assert len(result.chapters) >= 2
 
@@ -705,7 +705,7 @@ class TestFB2Parsing:
             or "protagonist" in chapter1.content.lower()
         )
 
-    def test_parse_fb2_handles_encoding(self, book_parser):
+    async def test_parse_fb2_handles_encoding(self, book_parser):
         """Тест обработки кодировки FB2."""
         # FB2 с кириллицей и достаточно длинным контентом
         fb2_cyrillic = """<?xml version="1.0" encoding="UTF-8"?>
@@ -733,7 +733,7 @@ class TestFB2Parsing:
         temp_file.close()
 
         try:
-            result = book_parser.parse_book(temp_file.name)
+            result = await book_parser.parse_book(temp_file.name)
 
             assert result.metadata.title == "Тестовая книга"
             assert "Иван" in result.metadata.author
@@ -817,12 +817,12 @@ class TestChapterNumberExtraction:
 class TestErrorHandling:
     """Тесты обработки ошибок."""
 
-    def test_parse_nonexistent_file(self, book_parser):
+    async def test_parse_nonexistent_file(self, book_parser):
         """Тест парсинга несуществующего файла."""
         with pytest.raises((FileNotFoundError, Exception)):
-            book_parser.parse_book("/nonexistent/file.epub")
+            await book_parser.parse_book("/nonexistent/file.epub")
 
-    def test_parse_unsupported_format(self, book_parser):
+    async def test_parse_unsupported_format(self, book_parser):
         """Тест парсинга неподдерживаемого формата."""
         temp_file = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
         temp_file.write(b"Just a text file, not an ebook")
@@ -830,16 +830,16 @@ class TestErrorHandling:
 
         try:
             with pytest.raises(ValueError, match="Unsupported"):
-                book_parser.parse_book(temp_file.name)
+                await book_parser.parse_book(temp_file.name)
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 
-    def test_parse_corrupted_epub(self, book_parser, corrupted_epub_file):
+    async def test_parse_corrupted_epub(self, book_parser, corrupted_epub_file):
         """Тест парсинга поврежденного EPUB файла."""
         with pytest.raises(Exception):  # Может быть разные типы исключений
-            book_parser.parse_book(corrupted_epub_file)
+            await book_parser.parse_book(corrupted_epub_file)
 
-    def test_parse_empty_epub(self, book_parser):
+    async def test_parse_empty_epub(self, book_parser):
         """Тест парсинга пустого EPUB (без глав)."""
         epub_content = {
             "mimetype": b"application/epub+zip",
@@ -865,7 +865,7 @@ class TestErrorHandling:
                 epub_zip.writestr(path, content)
 
         try:
-            result = book_parser.parse_book(temp_file.name)
+            result = await book_parser.parse_book(temp_file.name)
 
             # Книга парсится, но без глав
             assert result.metadata.title == "Empty Book"
@@ -944,7 +944,7 @@ class TestBookChapterDataclass:
 class TestEdgeCases:
     """Тесты граничных случаев."""
 
-    def test_parse_epub_with_missing_metadata(self, book_parser):
+    async def test_parse_epub_with_missing_metadata(self, book_parser):
         """Тест EPUB с отсутствующими метаданными."""
         epub_content = {
             "mimetype": b"application/epub+zip",
@@ -977,7 +977,7 @@ class TestEdgeCases:
                 epub_zip.writestr(path, content)
 
         try:
-            result = book_parser.parse_book(temp_file.name)
+            result = await book_parser.parse_book(temp_file.name)
 
             # Должны быть значения по умолчанию
             assert result.metadata.title == "Unknown"
@@ -986,7 +986,7 @@ class TestEdgeCases:
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 
-    def test_parse_fb2_with_nested_sections(self, book_parser):
+    async def test_parse_fb2_with_nested_sections(self, book_parser):
         """Тест FB2 с вложенными секциями."""
         fb2_content = b"""<?xml version="1.0" encoding="UTF-8"?>
         <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
@@ -1013,7 +1013,7 @@ class TestEdgeCases:
         temp_file.close()
 
         try:
-            result = book_parser.parse_book(temp_file.name)
+            result = await book_parser.parse_book(temp_file.name)
 
             # FB2Parser извлекает все секции рекурсивно
             # Должна быть хотя бы одна секция (может быть родительская или вложенная)
@@ -1023,7 +1023,7 @@ class TestEdgeCases:
         finally:
             Path(temp_file.name).unlink(missing_ok=True)
 
-    def test_parse_chapter_with_special_characters(self, book_parser):
+    async def test_parse_chapter_with_special_characters(self, book_parser):
         """Тест обработки специальных символов в тексте."""
         epub_content = {
             "mimetype": b"application/epub+zip",
@@ -1058,7 +1058,7 @@ class TestEdgeCases:
                 epub_zip.writestr(path, content)
 
         try:
-            result = book_parser.parse_book(temp_file.name)
+            result = await book_parser.parse_book(temp_file.name)
 
             # Проверяем что парсинг прошел успешно
             if len(result.chapters) > 0:
@@ -1082,18 +1082,18 @@ class TestEdgeCases:
 class TestIntegration:
     """Интеграционные тесты полного pipeline."""
 
-    def test_full_epub_parsing_pipeline(self, book_parser, sample_epub_file):
+    async def test_full_epub_parsing_pipeline(self, book_parser, sample_epub_file):
         """Тест полного цикла парсинга EPUB."""
         # 1. Валидация
-        validation = book_parser.validate_book_file(sample_epub_file)
+        validation = await book_parser.validate_book_file(sample_epub_file)
         assert validation["is_valid"] is True
 
         # 2. Определение формата
-        file_format = book_parser.detect_format(sample_epub_file)
+        file_format = await book_parser.detect_format(sample_epub_file)
         assert file_format == "epub"
 
         # 3. Парсинг
-        result = book_parser.parse_book(sample_epub_file)
+        result = await book_parser.parse_book(sample_epub_file)
 
         # 4. Проверка результата
         assert result.metadata.title is not None
@@ -1106,30 +1106,30 @@ class TestIntegration:
             assert chapter.word_count > 0
             assert len(chapter.content) >= 50
 
-    def test_full_fb2_parsing_pipeline(self, book_parser, sample_fb2_file):
+    async def test_full_fb2_parsing_pipeline(self, book_parser, sample_fb2_file):
         """Тест полного цикла парсинга FB2."""
         # 1. Валидация
-        validation = book_parser.validate_book_file(sample_fb2_file)
+        validation = await book_parser.validate_book_file(sample_fb2_file)
         assert validation["is_valid"] is True
 
         # 2. Парсинг
-        result = book_parser.parse_book(sample_fb2_file)
+        result = await book_parser.parse_book(sample_fb2_file)
 
         # 3. Проверка
         assert result.file_format == "fb2"
         assert result.metadata.title == "Test FB2 Book"
         assert len(result.chapters) >= 2
 
-    def test_error_handling_pipeline(self, book_parser, corrupted_epub_file):
+    async def test_error_handling_pipeline(self, book_parser, corrupted_epub_file):
         """Тест обработки ошибок в полном цикле."""
         # Валидация должна вернуть ошибку
-        validation = book_parser.validate_book_file(corrupted_epub_file)
+        validation = await book_parser.validate_book_file(corrupted_epub_file)
         assert validation["is_valid"] is False
         assert validation["error"] is not None
 
         # Парсинг должен выбросить исключение
         with pytest.raises(Exception):
-            book_parser.parse_book(corrupted_epub_file)
+            await book_parser.parse_book(corrupted_epub_file)
 
 
 # ============================================================================

@@ -140,14 +140,18 @@ class TestBookmarkCRUD:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_bookmarks_unauthorized_returns_403(
+    async def test_get_bookmarks_unauthorized_returns_401(
         self, client: AsyncClient, test_book: Book
     ):
-        """GET /sync/books/{book_id}/bookmarks without auth returns 403."""
+        """GET /sync/books/{book_id}/bookmarks без токена — 401.
+
+        Приложение поднимает 401 само (`app/core/auth.py:44-48`),
+        `HTTPBearer` объявлен с `auto_error=False`.
+        """
         response = await client.get(
             f"/api/v1/sync/books/{test_book.id}/bookmarks",
         )
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_create_bookmark_with_note(
