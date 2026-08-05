@@ -388,21 +388,36 @@ async def reading_sessions_health_check(
     Returns:
         ReadingSessionsHealthResponse с детальной информацией
     """
-    # Параллельное выполнение всех проверок
+
+    # Проверки, зависящие от БД, идут ПОСЛЕДОВАТЕЛЬНО: все три работают с одной
+    # и той же AsyncSession, а asyncpg не допускает параллельных операций на
+    # одном соединении («another operation is in progress»). В gather они
+    # гонялись между собой, проигравшая падала, и её метрика молча
+    # превращалась в ноль (`except Exception: return 0` ниже по стеку).
+    async def _db_checks():
+        return (
+            await check_database(db),
+            await get_active_sessions_stats(db),
+            await get_abandoned_sessions_count(db),
+        )
+
     (
-        db_check_result,
+        db_results,
         redis_check_result,
         celery_check_result,
-        stats_result,
-        abandoned_result,
     ) = await asyncio.gather(
-        check_database(db),
+        _db_checks(),
         check_redis(),
         check_celery(),
-        get_active_sessions_stats(db),
-        get_abandoned_sessions_count(db),
         return_exceptions=True,
     )
+
+    if isinstance(db_results, BaseException):
+        db_check_result: Any = db_results
+        stats_result: Any = db_results
+        abandoned_result: Any = db_results
+    else:
+        db_check_result, stats_result, abandoned_result = db_results
 
     # Обработка исключений - преобразуем BaseException в типизированные значения
     if isinstance(db_check_result, BaseException):
@@ -503,19 +518,30 @@ async def deep_health_check(
     """
     uptime = time.time() - APP_START_TIME
 
-    # Параллельные проверки
+    # Те же соображения, что и в reading_sessions_health_check: два запроса
+    # к одной AsyncSession нельзя пускать параллельно.
+    async def _db_checks():
+        return (
+            await check_database(db),
+            await get_active_sessions_stats(db),
+        )
+
     (
-        db_check_result,
+        db_results,
         redis_check_result,
         celery_check_result,
-        stats_result,
     ) = await asyncio.gather(
-        check_database(db),
+        _db_checks(),
         check_redis(),
         check_celery(),
-        get_active_sessions_stats(db),
         return_exceptions=True,
     )
+
+    if isinstance(db_results, BaseException):
+        db_check_result: Any = db_results
+        stats_result: Any = db_results
+    else:
+        db_check_result, stats_result = db_results
 
     if isinstance(db_check_result, BaseException):
         db_check = ComponentHealthResponse(
