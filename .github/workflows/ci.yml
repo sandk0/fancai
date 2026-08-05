@@ -176,7 +176,20 @@ jobs:
         run: |
           # Порог покрытия и состав прогона определены в backend/check-coverage.sh —
           # один источник истины для CI и локального запуска.
+          #
+          # Код возврата проверяется ЯВНО. В прогоне 2026-08-09 шаг был зелёным,
+          # хотя скрипт напечатал «FAIL Required test coverage of 70% not reached:
+          # 69.52%». Молча зелёный гейт покрытия хуже, чем его отсутствие:
+          # именно на этом гейте держится решение включать Actions.
+          set +e
           ./backend/check-coverage.sh --cov-report=xml
+          status=$?
+          set -e
+          echo "check-coverage.sh exit=${status}"
+          if [[ "${status}" -ne 0 ]]; then
+            echo "::error::Гейт бэкенда провален (exit ${status}) — см. лог выше"
+            exit "${status}"
+          fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
