@@ -189,14 +189,11 @@ text=…, description_type=…)` описывает API, снесённый вм
   `services/gemini_extractor.py` 213, `routers/websocket.py` 150,
   `routers/books/crud.py` 123, `routers/reading_sessions.py` 136,
   `services/push_notification_service.py` 103.
-- **Фронтовые джобы CI красные унаследованно.** `frontend-lint` падает на
-  `npx tsc --noEmit`: около 20 ошибок в тестовых файлах
-  (`EpubReader.test.tsx` не знает `chapterPage`/`instantNextPage` из
-  обновившихся хуков, неиспользуемые импорты, `Array.at` против `lib` ниже
-  es2022). `frontend-tests` — 562 passed, но сюита `EpubReader.test.tsx`
-  не стартует: в окружении CI не задан `VITE_API_BASE_URL`, и
-  `src/config/env.ts` бросает на импорте. Пока они красные, `e2e-tests`
-  и `docker-build` не запускаются вовсе.
+- **E2E не гоняется в CI** — выведен из обязательных (см. §11). Чтобы
+  вернуть, надо поднять стек в джобе; до тех пор сюита защищает только
+  локальный прогон.
+- **Branch protection на `main` не включён.** Теперь это осмысленно:
+  `All Checks Passed` впервые зелёный.
 
 ### 9. Прогон в GitHub Actions (§7 промпта)
 
@@ -227,14 +224,59 @@ Actions были выключены на уровне репозитория с 
 | Джоба | Итог |
 | --- | --- |
 | `backend-lint` | ✅ |
-| `backend-tests` | ✅ 1177 passed, 70,89 % |
+| `backend-tests` | ✅ 1177 passed, 70,89 %, `exit=0` |
+| `frontend-lint` | ✅ |
+| `frontend-tests` | ✅ 599 passed |
 | `security-scan` | ✅ |
-| `frontend-lint` | ❌ ~20 ошибок `tsc` в `src/**/__tests__/*` |
-| `frontend-tests` | ❌ 562 passed, 1 сюита падает на отсутствующем `VITE_API_BASE_URL` |
-| `e2e-tests`, `docker-build` | skipped (зависят от упавших фронтовых) |
+| `docker-build` | skipped штатно (`if: pull_request`) |
+| `e2e-tests` | выведен из обязательных (решение владельца) |
+| **`All Checks Passed`** | ✅ |
 
-Фронтенд промптом исключён из объёма (§1), обе поломки — унаследованные
-и к правкам этой сессии отношения не имеют.
+### 10. Фронтенд: 23 ошибки `tsc` и одна сюита — обе поломки видны только в CI
+
+Промпт исключал фронтенд из объёма (§1), но после вопроса владельца
+«какая польза от CI с ошибками» стало ясно: вечно красный пайплайн нельзя
+поставить в branch protection, то есть он не защищает `main`. Обе поломки
+оказались унаследованными и чинятся тестами, продакшн-код не менялся.
+
+**`frontend-lint`** — 23 ошибки `npx tsc --noEmit`, пять классов:
+
+| Класс | Как починено |
+| --- | --- |
+| моки `useCFITracking`/`useEpubNavigation` отстали от хуков (`chapterPage`, `chapterTotalPages`, `instantNextPage`, `instantPrevPage`, `directScroll`) | 12 сайтов писали объект целиком, поэтому новое поле ломало сразу все. Введены фабрики `cfiTrackingMock`/`navigationMock` с `Partial`-оверрайдами; интерфейсы хуков экспортированы именованно (`ReturnType<typeof hook>` запрещён правилом проекта) |
+| неиспользуемые импорты `React`, `TouchState`, `GeneratedImage` | удалены |
+| `Array.prototype.at` при `lib: ES2020` | последний элемент берётся индексом |
+| колбэки `map`/`filter` по `mock.calls` аннотированы кортежем, хотя `calls` — `any[][]` | аннотации сняты, параметр типизируется контекстно |
+| `addSpy: ReturnType<typeof vi.spyOn>` схлопывался до сигнатуры без параметров → неявный any | `MockInstance<typeof document.addEventListener>` |
+
+**`frontend-tests`** — сюита `EpubReader.test.tsx` не стартовала:
+`frontend/.env.test` лежал у всех локально, но подпадал под `.env.*`
+в `.gitignore` и до раннера не доезжал, а `src/config/env.ts` бросает
+на импорте при отсутствии `VITE_API_BASE_URL`. Файл закоммичен, секретов
+в нём нет. Проверено симуляцией CI (временно убран незакоммиченный `.env`):
+44 files / 599 passed, `npm run build` проходит.
+
+### 11. E2E выведен из обязательных — решение владельца
+
+Причина архитектурная, а не «тесты флакают». `tests/global-setup.ts` готовит
+фикстуру, выполняя код приложения ВНУТРИ контейнера dev-стенда:
+
+```
+docker exec fancai_backend_dev python scripts/e2e_fixture.py setup
+```
+
+Так хеш пароля, модели и каскады гарантированно те же, что в бою. На чистом
+раннере GitHub такого контейнера нет — джоба падала бы всегда независимо
+от кода и держала бы `All Checks Passed` красным, а значит branch protection
+включить было бы нельзя.
+
+Владелец выбрал вывести e2e из обязательных: джоба под
+`if: github.event_name == 'workflow_dispatch'` и убрана из `needs` гейта.
+Сюита остаётся полноценной и гоняется локально. Чтобы вернуть её в
+обязательные, надо поднять в джобе стек (postgres + redis + backend-образ)
+и передать имя в `E2E_FIXTURE_CONTAINER` — точка расширения уже
+параметризована. `retries: 2` в CI выставляет сам `playwright.config.ts`,
+так что отдельный флаг из прошлого журнала не нужен.
 
 ---
 

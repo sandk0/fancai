@@ -254,10 +254,24 @@ jobs:
           path: frontend/dist
           retention-days: 7
 
+  # E2E не входит в обязательные проверки и на push/PR не запускается.
+  #
+  # Причина архитектурная, а не «тесты флакают»: `tests/global-setup.ts`
+  # готовит фикстуру, выполняя код приложения ВНУТРИ контейнера dev-стенда
+  # (`docker exec fancai_backend_dev python scripts/e2e_fixture.py setup`) —
+  # так хеш пароля, модели и каскады те же, что в бою. На чистом раннере
+  # GitHub такого контейнера нет, и джоба падала бы всегда независимо от кода,
+  # блокируя `All Checks Passed` и, значит, branch protection.
+  #
+  # Чтобы вернуть e2e в обязательные, нужно поднять здесь стек
+  # (postgres + redis + backend-образ) и указать его имя в
+  # `E2E_FIXTURE_CONTAINER` — точка расширения уже параметризована.
+  # До тех пор сюита гоняется локально и по кнопке «Run workflow».
   e2e-tests:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     needs: [frontend-tests]
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -369,7 +383,10 @@ jobs:
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [backend-lint, backend-tests, frontend-lint, frontend-tests, e2e-tests, security-scan]
+    # `e2e-tests` в списке нет намеренно: джоба запускается только по
+    # workflow_dispatch и на push/PR всегда `skipped`, а `skipped != success`
+    # держало бы этот гейт красным вечно. Обоснование — в комментарии к джобе.
+    needs: [backend-lint, backend-tests, frontend-lint, frontend-tests, security-scan]
     if: always()
     steps:
       - name: Check all jobs status
@@ -378,7 +395,6 @@ jobs:
              [[ "${{ needs.backend-tests.result }}" != "success" ]] || \
              [[ "${{ needs.frontend-lint.result }}" != "success" ]] || \
              [[ "${{ needs.frontend-tests.result }}" != "success" ]] || \
-             [[ "${{ needs.e2e-tests.result }}" != "success" ]] || \
              [[ "${{ needs.security-scan.result }}" != "success" ]]; then
             echo "One or more required checks failed"
             exit 1
