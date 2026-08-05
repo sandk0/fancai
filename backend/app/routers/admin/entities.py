@@ -188,8 +188,12 @@ async def _merge_entities_internal(
     all_names.discard(master.name)
     current_aliases.update(all_names)
 
-    current_metadata["aliases"] = list(current_aliases)
-    master.entity_metadata = current_metadata
+    # НОВЫЙ словарь, а не мутация на месте. `entity_metadata` — обычная JSONB
+    # без `MutableDict`: правка того же объекта и обратное присваивание его же
+    # оставляют историю атрибута пустой, UPDATE не уходит, и слияние молча
+    # теряет алиасы вместе с именем поглощённой сущности — а строка дубликата
+    # к этому моменту уже удалена, то есть безвозвратно.
+    master.entity_metadata = {**current_metadata, "aliases": list(current_aliases)}
 
     max_importance = max(
         [master.importance or 5] + [d.importance or 5 for d in duplicates]
