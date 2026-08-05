@@ -18,9 +18,14 @@ from . import crud, validation, processing
 # Главный router для книг
 books_router = APIRouter(prefix="/books", tags=["books"])
 
-# Подключаем все sub-routers
-books_router.include_router(crud.router)
+# Порядок важен: FastAPI сопоставляет маршруты в порядке регистрации, а в crud
+# объявлен catch-all `GET /{book_id}`. Пока crud шёл первым, литеральный
+# `GET /books/parser-status` до своего обработчика не доходил вовсе: его
+# перехватывал `/{book_id}` вместе с гардом авторизации, и endpoint отвечал
+# 401 без токена и 422 с токеном («parser-status» — не UUID). Литеральные
+# маршруты обязаны регистрироваться раньше параметрических.
 books_router.include_router(validation.router)
+books_router.include_router(crud.router)
 books_router.include_router(processing.router)
 
 
