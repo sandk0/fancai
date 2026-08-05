@@ -25,17 +25,30 @@ from app.models import User, Book
 
 
 # Test database URL — derived from settings.DATABASE_URL (single source of truth)
+def _test_db_name(db_name: str) -> str:
+    """`fancai_dev` -> `fancai_test`, `fancai_test` -> `fancai_test`.
+
+    Идемпотентность обязательна, а не для красоты: в CI сервис Postgres
+    поднимается сразу с `POSTGRES_DB: fancai_test`, и прежняя формула
+    (`removesuffix('_dev')` + `_test`) давала `fancai_test_test` — базы
+    с таким именем нет, и весь набор падал в 462 ошибки
+    `InvalidCatalogNameError`. Локально этого не видно: там БД `fancai_dev`.
+    """
+    if db_name.endswith("_test"):
+        return db_name
+    return f"{db_name.removesuffix('_dev')}_test"
+
+
 def _build_test_database_url() -> str:
     """Derive test database URL from settings."""
     if settings.TEST_DATABASE_URL:
         return settings.TEST_DATABASE_URL
-    # Replace db name suffix: fancai_dev -> fancai_test
     url = settings.DATABASE_URL
     base, db_name = url.rsplit("/", 1)
     if "?" in db_name:
         db_name, params = db_name.split("?", 1)
-        return f"{base}/{db_name.removesuffix('_dev')}_test?{params}"
-    return f"{base}/{db_name.removesuffix('_dev')}_test"
+        return f"{base}/{_test_db_name(db_name)}?{params}"
+    return f"{base}/{_test_db_name(db_name)}"
 
 
 TEST_DATABASE_URL = _build_test_database_url()
