@@ -4,11 +4,15 @@
 Применен Single Responsibility Principle (SRP):
 - BookService: Core CRUD операции с книгами
 - BookProgressService: Прогресс чтения и расчеты
-- BookStatisticsService: Статистика и аналитика
-- BookParsingService: NLP парсинг и обработка описаний
 
-Каждый сервис имеет одну четко определенную ответственность и может быть
-протестирован и использован независимо от других.
+`BookStatisticsService` и `BookParsingService` из исходного разделения
+(`15a0c845`) удалены 2026-08-08: ни один роутер, сервис или задача их
+не вызывали. Статистику `routers/users.py` считает своими запросами,
+а извлечение описаний с удаления NLP (`0c110210`) идёт через
+`DescriptionExtractionService` и `parsing_manager`.
+
+Each service has one clearly defined responsibility and can be tested
+and used independently of the others.
 
 Example usage:
     >>> from app.services.book import book_service, book_progress_service
@@ -18,26 +22,16 @@ Example usage:
     >>>
     >>> # Получить книги с прогрессом
     >>> books_with_progress = await book_progress_service.get_books_with_progress(db, user_id)
-    >>>
-    >>> # Получить статистику
-    >>> from app.services.book import book_statistics_service
-    >>> stats = await book_statistics_service.get_book_statistics(db, user_id)
 """
 
 from .book_service import BookService, book_service
 from .book_progress_service import BookProgressService, book_progress_service
-from .book_statistics_service import BookStatisticsService, book_statistics_service
-from .book_parsing_service import BookParsingService, book_parsing_service
 
 __all__ = [
     # Classes
     "BookService",
     "BookProgressService",
-    "BookStatisticsService",
-    "BookParsingService",
     # Singleton instances (for backward compatibility)
     "book_service",
     "book_progress_service",
-    "book_statistics_service",
-    "book_parsing_service",
 ]

@@ -27,7 +27,6 @@ dependencies = [
     "redis==7.3.0",
     "celery==5.6.3",                 # Jan 2026: soft shutdown, memory leak fixes, Pydantic support
     "kombu==5.6.2",                  # Required for Celery 5.6.3
-    "psutil==7.2.2",
 
     # Парсинг книг и текста
     "beautifulsoup4==4.15.0",

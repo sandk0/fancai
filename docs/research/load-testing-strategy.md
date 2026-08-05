@@ -270,18 +270,29 @@ Ramp down: 100 → 0 за 2 минуты
   - PageRank, master references
   - WebSocket progress updates
 
-**Ограничения:**
+**Ограничения (сверено с кодом 2026-08-08):**
 
-- ParsingRateLimiter: max_concurrent=5, max_per_user=1
+- `parsing_manager.can_start_parsing()`: только `max_concurrent_parsing`
+  из настроек — ГЛОБАЛЬНЫЙ лимит, без разбивки по пользователям
 - Redis distributed lock: `book:processing:{book_id}` (TTL=3 часа)
-- System resource check: memory > 85% → reject, CPU > 90% → reject
 - Celery task queue routing: `process_book_task` → queue "heavy"
+- Приоритет по подписке: `parsing_manager.get_user_priority()` (FREE=1,
+  PREMIUM=5, ULTIMATE=10) — влияет на порядок очереди, не на допуск
 
-**Ожидаемое поведение:**
+**Чего в системе НЕТ, вопреки прежней редакции этого раздела:**
 
-- 5 книг обрабатываются параллельно
-- 15 книг ожидают в очереди или получают "System at capacity"
-- Cooldown: 60 секунд после каждой обработки
+- лимита `max_per_user=1` — один пользователь может занять все слоты;
+- проверки ресурсов «memory > 85 % → reject, CPU > 90 % → reject»;
+- cooldown после обработки.
+
+Всё перечисленное жило в `app/core/rate_limiter.py` (`ParsingRateLimiter`),
+который **никогда не подключался**: он появился в том же коммите `2d959a10`,
+что и живой `parsing_manager`, и ни один модуль его не импортировал.
+Удалён 2026-08-08.
+
+**Ожидаемое поведение:** сценарий проверяет защиту, которой нет. Перед
+прогоном его надо либо переписать под действующий глобальный лимит, либо
+сперва реализовать per-user лимит и проверку ресурсов в `parsing_manager`.
 
 ### 2.7 Сценарий 6: Эффективность кэша (одна книга, разные пользователи)
 

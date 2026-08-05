@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.services.book import BookService, BookProgressService, BookStatisticsService
+from app.services.book import BookService, BookProgressService
 from app.models.book import Book, ReadingProgress, BookGenre
 from app.models.chapter import Chapter
 from app.models.user import User
@@ -28,12 +28,6 @@ def book_service():
 def progress_service():
     """Fixture для BookProgressService."""
     return BookProgressService()
-
-
-@pytest.fixture
-def statistics_service():
-    """Fixture для BookStatisticsService."""
-    return BookStatisticsService()
 
 
 @pytest.fixture
@@ -484,40 +478,6 @@ class TestChapterManagement:
         # Проверяем сортировку по номеру главы
         chapter_numbers = [ch.chapter_number for ch in chapters]
         assert chapter_numbers == sorted(chapter_numbers)
-
-
-class TestStatistics:
-    """Тесты статистики чтения."""
-
-    @pytest.mark.asyncio
-    async def test_get_book_statistics(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-        test_book: Book,
-    ):
-        """Тест получения статистики книг."""
-        # Метод называется get_book_statistics (не reading_statistics)
-        stats = await statistics_service.get_book_statistics(db_session, test_user.id)
-
-        assert stats is not None
-        assert "total_books" in stats
-        assert stats["total_books"] >= 1
-
-    @pytest.mark.asyncio
-    async def test_statistics_calculates_reading_time(
-        self,
-        statistics_service: BookStatisticsService,
-        db_session: AsyncSession,
-        test_user: User,
-    ):
-        """Тест расчета времени чтения в статистике."""
-        # Метод называется get_book_statistics
-        stats = await statistics_service.get_book_statistics(db_session, test_user.id)
-
-        assert "total_reading_time_hours" in stats
-        assert isinstance(stats["total_reading_time_hours"], (int, float))
 
 
 class TestErrorHandling:

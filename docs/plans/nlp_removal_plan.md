@@ -122,7 +122,7 @@ backend/app/services/
 
 | Файл | Изменения |
 |------|-----------|
-| `backend/app/services/book/book_parsing_service.py` | Заменить multi_nlp_manager → langextract |
+| ~~`backend/app/services/book/book_parsing_service.py`~~ | **Отменено 2026-08-08.** Точкой входа стал `DescriptionExtractionService`, а сервис так и остался без единого вызывающего с `0c110210` — удалён вместе с `book_statistics_service.py` |
 | `backend/app/routers/descriptions.py` | Упростить, использовать langextract |
 | `backend/app/routers/books/processing.py` | Убрать NLP зависимости |
 | `backend/app/core/tasks.py` | Убрать инициализацию multi_nlp_manager |
@@ -341,7 +341,7 @@ environment:
 ### 7.1 Unit тесты
 
 - [ ] Удалить NLP тесты из `backend/tests/`
-- [ ] Обновить тесты для book_parsing_service
+- [x] ~~Обновить тесты для book_parsing_service~~ — сервис удалён 2026-08-08, тесты удалены вместе с ним
 - [ ] Запустить: `pytest -v --cov=app`
 
 ### 7.2 Integration тесты
