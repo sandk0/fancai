@@ -284,9 +284,39 @@ class TestGetGeneratedImageFile:
     async def test_traversal_in_filename_is_rejected(
         self, client: AsyncClient, test_user_auth_headers: dict
     ):
+        """Быстрое отсечение по чёрному списку подстрок."""
         response = await client.get(
             "/api/v1/images/file/..png", headers=test_user_auth_headers
         )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid filename"
+
+    @pytest.mark.asyncio
+    async def test_symlink_out_of_storage_is_rejected(
+        self, client: AsyncClient, test_user_auth_headers: dict, tmp_path
+    ):
+        """Случай, который чёрный список НЕ ловит: имя безобидное, цель — снаружи.
+
+        Ни `..`, ни `/`, ни `\\` в имени нет, поэтому проверку подстрок запрос
+        проходит. Отклонить его может только сравнение канонических путей.
+        """
+        import app.routers.images as images_router
+
+        outside = tmp_path / "secret.txt"
+        outside.write_text("не ваше")
+
+        directory = images_router.GENERATED_IMAGES_DIR
+        directory.mkdir(parents=True, exist_ok=True)
+        link = directory / "innocent.png"
+        link.symlink_to(outside)
+
+        try:
+            response = await client.get(
+                f"/api/v1/images/file/{link.name}", headers=test_user_auth_headers
+            )
+        finally:
+            link.unlink(missing_ok=True)
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid filename"

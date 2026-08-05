@@ -210,6 +210,20 @@ async def get_generated_image_file(
         )
 
     file_path = GENERATED_IMAGES_DIR / filename
+
+    # Авторитетная проверка границы каталога — по каноническому пути.
+    # Чёрный список выше оставлен как быстрое отсечение очевидного мусора
+    # (и сохраняет ответ 400 на такие имена), но полагаться на него нельзя:
+    # список запрещённых подстрок не видит симлинков внутри каталога раздачи
+    # и ломается от любой новой формы записи пути. Здесь же сравнение
+    # происходит после раскрытия `..` и ссылок, то есть с тем путём, который
+    # реально будет открыт.
+    if not file_path.resolve().is_relative_to(GENERATED_IMAGES_DIR.resolve()):
+        logger.warning(f"Path traversal attempt rejected: {filename!r}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename"
+        )
+
     if not file_path.exists():
         logger.warning(f"File not found on disk: {file_path}")
         raise HTTPException(
