@@ -832,8 +832,12 @@ async def _process_book_async(book_id: UUID) -> Dict[str, Any]:
                                     )
                                     try:
                                         await session.rollback()
-                                    except Exception:
-                                        pass
+                                    except Exception as rollback_err:
+                                        # Сессия уже сломана; исходная ошибка
+                                        # выше залогирована с трейсбеком
+                                        logger.debug(
+                                            f"Rollback after failed error-record: {rollback_err}"
+                                        )
                                 # OBS-02: Structured error log
                                 duration_ms = int(
                                     (time.monotonic() - chapter_start) * 1000

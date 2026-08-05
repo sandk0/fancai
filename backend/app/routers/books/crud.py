@@ -216,6 +216,8 @@ async def upload_book(
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
         except OSError:
+            # Не смогли убрать временный файл — это не повод подменять
+            # исходную ошибку загрузки, она поднимается ниже
             pass
 
         raise BookProcessingException(str(e))

@@ -68,6 +68,8 @@ class DistributedLock:
             try:
                 await self._renewal_task
             except asyncio.CancelledError:
+                # Ожидание отменённой задачи обязано поднять CancelledError:
+                # это подтверждение отмены, а не сбой
                 pass
         if self._acquired:
             await self._cache.release_lock(self._lock_key)

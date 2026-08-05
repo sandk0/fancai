@@ -29,6 +29,7 @@ def _unlink_quietly(path: Optional[str]) -> None:
     try:
         os.unlink(path)
     except OSError:
+        # Файла нет или ФС отказала: строка в БД уже удалена, откатывать нечего
         pass
 
 
