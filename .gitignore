@@ -85,6 +85,7 @@ generated_images/
 
 # Testing
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .nyc_output/
