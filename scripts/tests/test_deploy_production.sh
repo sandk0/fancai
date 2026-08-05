@@ -851,6 +851,32 @@ test_update_code_reexecs_after_change() {
     check "с маркером повторного exec нет" "0" "$(grep -c '^exec' "$WORK/exec.log")"
 
     unset -f exec
+    # Симметрично `exec`: стаб `git` живёт до конца процесса, а `run_case`
+    # гоняет все кейсы в одном. Не сняв его здесь, мы ломаем следующий тест.
+    unset -f git
+}
+
+# --- 13b. Вывод git никогда не уходит в `head` ----------------------------
+#
+# Регрессия 2026-08-05. `git --no-pager log --oneline "$a..$b" | head -20`
+# при выкатке 41 коммита убил скрипт молча: `head` закрывает пайп, git
+# получает EPIPE и завершается кодом 141, а `set -Eeuo pipefail` делает
+# из этого немедленный выход — ДО `exec` ниже. Выкатка не сделала ничего,
+# журнал оборвался на списке коммитов без единого слова об ошибке.
+#
+# Проверка намеренно ПО ИСХОДНИКУ, а не поведением, и это осознанный выбор.
+# Падение — гонка: git должен не успеть дописать вывод до выхода `head`.
+# На боевом хосте (git 2.47.3, настоящая история) она воспроизводится
+# стабильно, а на macOS и в alpine с git 2.52 на синтетическом репозитории
+# из 41 коммита — не воспроизводится вовсе, даже когда вывод заведомо
+# больше буфера пайпа. Поведенческая версия этого теста была написана
+# и отвергнута измерением: она давала «ok» на заведомо сломанном коде
+# в обеих средах, то есть удостоверяла дефект как покрытый.
+# Опасна сама конструкция — её и запрещаем.
+test_git_output_is_never_piped_to_head() {
+    local offenders
+    offenders=$(grep -nE '^[^#]*git[^|]*\|[[:space:]]*head' "$DEPLOY_SCRIPT" || true)
+    check "вывод git не уходит в head" "" "$offenders"
 }
 
 # --- 14. Провал шага действительно вызывает откат -------------------------
@@ -1046,6 +1072,7 @@ main() {
     run_case "11. снимок Redis"    test_redis_snapshot_before_purge
     run_case "12. env в сборке"    test_build_rejects_absorbed_local_env
     run_case "13. перезапуск"      test_update_code_reexecs_after_change
+    run_case "13b. git не в head"     test_git_output_is_never_piped_to_head
     run_case "14. откат при провале" test_failed_step_triggers_rollback
     run_case "15. откат без рекурсии" test_rollback_does_not_reenter
     run_case "16. пересоздание Caddy" test_start_services_recreates_caddy
