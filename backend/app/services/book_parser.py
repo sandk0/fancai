@@ -892,11 +892,17 @@ class EPUBParser:
             soup = BeautifulSoup(item.get_content(), "html.parser")
             body = soup.find("body")
             if body:
-                val = _attr_text(body.get("epub:type"))
-                if val:
-                    return val.strip().split()[0]
-        except Exception:
-            pass
+                # split() без аргументов сам отбрасывает пробелы: epub:type
+                # из одних пробелов даёт [], а не IndexError на [0]
+                tokens = _attr_text(body.get("epub:type")).split()
+                if tokens:
+                    return tokens[0]
+        except Exception as e:
+            # getattr, а не get_name(): вызов в обработчике не должен уронить
+            # разбор — функция обязана вернуть None, а не бросить
+            logger.debug(
+                f"⚠️  Unreadable epub:type in {getattr(item, 'file_name', '?')}: {e}"
+            )
         return None
 
     def _is_image_only(self, item) -> bool:
@@ -923,8 +929,8 @@ class EPUBParser:
                     text = el.get_text(strip=True)
                     if text:
                         return text
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"⚠️  Heading extraction failed: {e}")
         return None
 
     def _is_service_page(
