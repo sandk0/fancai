@@ -5,6 +5,11 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Ручной запуск: Actions на репозитории были выключены с ноября 2025
+  # (единственной причиной был красный гейт покрытия), и после включения
+  # прогнать пайплайн на уже запушенном коммите иначе нечем — GitHub
+  # не переигрывает события, случившиеся при выключенных Actions.
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
