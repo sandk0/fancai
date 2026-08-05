@@ -84,16 +84,14 @@ class TestFeatureFlagsListEndpoint:
             headers=auth_headers,  # regular user, not admin
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
     async def test_get_feature_flags_no_auth(self, client: AsyncClient):
-        """Тест что endpoint требует авторизацию."""
+        """Без токена — 401: `HTTPBearer(auto_error=False)` + raise в core/auth.py."""
         response = await client.get("/api/v1/admin/feature-flags")
 
-        assert response.status_code in [
-            401,
-            403,
-        ]  # Может быть 401 (no auth) или 403 (forbidden)
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
 
     async def test_get_feature_flags_response_structure(
         self, client: AsyncClient, admin_auth_headers
@@ -161,7 +159,7 @@ class TestGetFeatureFlagEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
     async def test_get_disabled_flag(self, client: AsyncClient, admin_auth_headers):
         """Тест получения отключенного флага."""
@@ -239,7 +237,7 @@ class TestUpdateFeatureFlagEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
     async def test_update_flag_response_contains_admin_email(
         self, client: AsyncClient, admin_auth_headers
@@ -337,12 +335,16 @@ class TestCreateFeatureFlagEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
-    async def test_create_flag_invalid_category(
+    async def test_create_flag_accepts_any_category(
         self, client: AsyncClient, admin_auth_headers
     ):
-        """Тест создание флага с невалидной категорией (но не обязательно ошибка)."""
+        """Категория — свободная строка: `category: str` без enum и валидатора.
+
+        Список в description («nlp, parser, images, system, experimental») —
+        документация, а не ограничение; ответ 201, и значение сохраняется как есть.
+        """
         response = await client.post(
             "/api/v1/admin/feature-flags",
             json={
@@ -352,9 +354,8 @@ class TestCreateFeatureFlagEndpoint:
             headers=admin_auth_headers,
         )
 
-        # Может быть 201 если система допускает любые категории
-        # или 422 если проверяет
-        assert response.status_code in [201, 422]
+        assert response.status_code == 201
+        assert response.json()["category"] == "invalid_category"
 
 
 @pytest.mark.asyncio
@@ -430,7 +431,7 @@ class TestBulkUpdateEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
     async def test_bulk_update_response_contains_admin_email(
         self, client: AsyncClient, admin_auth_headers
@@ -474,7 +475,7 @@ class TestClearCacheEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
     async def test_clear_cache_response_contains_admin(
         self, client: AsyncClient, admin_auth_headers
@@ -538,7 +539,7 @@ class TestInitializeDefaultFlagsEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -612,7 +613,7 @@ class TestGetCategoriesEndpoint:
             headers=auth_headers,
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 403
 
 
 @pytest.mark.asyncio

@@ -231,7 +231,7 @@ class TestReadingProgressFlowIntegration:
             f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_1
         )
 
-        assert update_response_1.status_code in [200, 201]
+        assert update_response_1.status_code == 200
 
         # Step 5: Get progress (verify saved)
         progress_response_1 = await client.get(
@@ -275,7 +275,7 @@ class TestReadingProgressFlowIntegration:
             f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_2
         )
 
-        assert update_response_2.status_code in [200, 201]
+        assert update_response_2.status_code == 200
 
         # Step 7: Simulate closing and reopening book (verify progress restored)
         # Get progress again to simulate reopening
@@ -308,7 +308,7 @@ class TestReadingProgressFlowIntegration:
             f"/api/v1/books/{book_id}/progress", headers=headers, json=progress_update_3
         )
 
-        assert update_response_3.status_code in [200, 201]
+        assert update_response_3.status_code == 200
 
         # Step 9: Verify complete reading flow
         final_progress_response = await client.get(

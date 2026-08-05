@@ -63,12 +63,12 @@ class TestBooksRouterIntegration:
 
     @pytest.mark.asyncio
     async def test_upload_book_no_file(self, client: AsyncClient, auth_headers: dict):
-        """Тест загрузки без файла."""
+        """Без файла — 422: `file` объявлен обязательным, режет валидация FastAPI."""
         # Act
         response = await client.post("/api/v1/books/upload", headers=auth_headers)
 
         # Assert
-        assert response.status_code in [400, 422]
+        assert response.status_code == 422
 
     # ==================== LIST BOOKS TESTS ====================
 
@@ -276,7 +276,7 @@ class TestBooksRouterIntegration:
         )
 
         # Assert
-        assert response.status_code in [200, 204]
+        assert response.status_code == 200
 
         # Verify deletion
         deleted_book = await db_session.get(Book, book_id)
@@ -377,12 +377,17 @@ class TestBooksRouterIntegration:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_update_reading_progress_invalid_chapter(
+    async def test_update_reading_progress_clamps_chapter_to_last(
         self, client: AsyncClient, test_user_auth_headers: dict, test_book: Book
     ):
-        """Тест обновления прогресса с невалидным номером главы."""
+        """Номер больше числа глав зажимается до последней, а не отвергается.
+
+        Прежняя версия слала `chapter_number`, поля с таким именем в схеме нет
+        (`ReadingProgressUpdateRequest.current_chapter`), значение молча
+        подменялось дефолтом 1 — клампинг не проверялся. У `test_book` три главы.
+        """
         # Arrange
-        progress_data = {"chapter_number": 999, "position_percent": 50.0}
+        progress_data = {"current_chapter": 999, "current_position_percent": 50.0}
 
         # Act
         response = await client.post(
@@ -391,8 +396,9 @@ class TestBooksRouterIntegration:
             json=progress_data,
         )
 
-        # Assert - Should clamp to valid chapter
-        assert response.status_code in [200, 400]
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["progress"]["current_chapter"] == 3
 
     @pytest.mark.asyncio
     async def test_update_reading_progress_not_found(

@@ -138,12 +138,18 @@ async def test_update_flag_api(client, admin_auth_headers):
 
 ```python
 async def test_requires_admin(client, auth_headers):
-    # Обычный пользователь не может получить доступ
+    # Обычный пользователь: валидный токен есть, прав нет → строго 403
     response = await client.get(
         "/api/v1/admin/feature-flags",
         headers=auth_headers
     )
-    assert response.status_code in [401, 403]
+    assert response.status_code == 403
+
+
+async def test_requires_auth(client):
+    # Токена нет вовсе → строго 401 (HTTPBearer(auto_error=False) + raise)
+    response = await client.get("/api/v1/admin/feature-flags")
+    assert response.status_code == 401
 ```
 
 ---

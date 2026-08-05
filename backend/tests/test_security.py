@@ -572,14 +572,23 @@ class TestGeneralSecurity:
     """General security tests."""
 
     def test_no_sql_injection_in_query_params(self, client):
-        """Test SQL injection attempts are handled safely."""
-        # SQL injection attempt
-        malicious_query = "'; DROP TABLE users; --"
+        """Инъекция в `search` не должна ни ронять API, ни трогать схему.
 
-        response = client.get(f"/api/v1/books?search={malicious_query}")
+        Прежняя версия била в `/api/v1/books` без слеша и допускала четыре
+        исхода. `redirect_slashes=False`, список книг объявлен как `/`, поэтому
+        такой запрос — всегда 404 отсутствующего маршрута: до параметра
+        `search` он не доходил, и проверять было нечего.
+        """
+        response = client.get(
+            "/api/v1/books/", params={"search": "'; DROP TABLE users; --"}
+        )
 
-        # Should not crash (may return 400, 403 (auth), 404, or 200 with no results)
-        assert response.status_code in [200, 400, 403, 404]
+        # Без токена сюда не пускают, но маршрут существует и запрос разобран:
+        # 401 — это ответ приложения, а не «нет такого пути».
+        assert response.status_code == 401
+
+        # Таблица на месте: инъекция не выполнилась.
+        assert client.get("/api/v1/auth/me").status_code == 401
 
     def test_no_path_traversal_in_file_uploads(self, client):
         """Test path traversal prevention in file operations."""
@@ -608,33 +617,21 @@ class TestSecurityIntegration:
     """Integration tests for multiple security features."""
 
     def test_security_posture_health_endpoint(self, client):
-        """Test /health endpoint has all security features enabled."""
+        """`/health` отдаёт полный набор заголовков безопасности.
+
+        Прежние две проверки делали один и тот же запрос и обе допускали 429
+        (одна через `pytest.skip`). Autouse-фикстура `rate_limiting_disabled`
+        гасит глобальный лимитер, поэтому 429 недостижим, а «пропустить тест
+        при 429» означало молча не проверять ничего.
+        """
         response = client.get("/health")
 
-        # Should have security headers (even when rate limited)
-        if response.status_code == 200:
-            assert "x-frame-options" in response.headers
-        elif response.status_code == 429:
-            # Rate limited - this is acceptable in CI environment
-            pytest.skip("Rate limited - acceptable in CI environment")
-        else:
-            pytest.fail(f"Unexpected status code: {response.status_code}")
-
-    def test_rate_limiting_and_security_headers_together(self, client):
-        """Test rate limiting and security headers work together."""
-        response = client.get("/health")
-
-        # Both features should be active
-        # Accept 200 or 429 (rate limited) - both show features are working
-        assert response.status_code in [
-            200,
-            429,
-        ], "Should return 200 or 429 (rate limited)"
-
-        # Security headers should be present even when rate limited
-        if response.status_code == 200:
-            assert "x-frame-options" in response.headers
-        # Rate limiting headers may vary based on implementation
+        assert response.status_code == 200
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert (
+            response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+        )
 
 
 # ============================================================================

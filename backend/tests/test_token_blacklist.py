@@ -143,15 +143,36 @@ class TestTokenBlacklistIntegration:
         assert logout_response.status_code == 200
         assert "logout" in logout_response.json()["message"].lower()
 
+    @pytest.fixture
+    def in_memory_blacklist(self):
+        """Настоящий цикл blacklist на словаре вместо общего dev-Redis.
+
+        Без подмены исход теста зависит от того, поднят ли Redis рядом:
+        при живом Redis токен отзывается (401), при мёртвом `is_blacklisted`
+        ловит исключение. Проверять надо контракт, а не окружение.
+        """
+        store: dict[str, str] = {}
+
+        async def _set(key, value, ttl=None):
+            store[key] = value
+            return True
+
+        async def _get(key):
+            return store.get(key)
+
+        with patch("app.services.token_blacklist.cache_manager") as mock:
+            mock.set = AsyncMock(side_effect=_set)
+            mock.get = AsyncMock(side_effect=_get)
+            mock.delete = AsyncMock(return_value=True)
+            yield store
+
     @pytest.mark.asyncio
     async def test_blacklisted_token_rejected(
-        self, client: AsyncClient, sample_user_data
+        self, client: AsyncClient, sample_user_data, in_memory_blacklist
     ):
-        """Test that blacklisted tokens are rejected after logout."""
-        # Register user
+        """После logout тот же access-токен обязан получать 401."""
         await client.post("/api/v1/auth/register", json=sample_user_data)
 
-        # Login
         login_response = await client.post(
             "/api/v1/auth/login",
             json={
@@ -159,22 +180,46 @@ class TestTokenBlacklistIntegration:
                 "password": sample_user_data["password"],
             },
         )
-        tokens = login_response.json()["tokens"]
-        access_token = tokens["access_token"]
+        access_token = login_response.json()["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        # Logout (this should blacklist the token)
-        await client.post("/api/v1/auth/logout", headers=headers)
+        assert (await client.get("/api/v1/auth/me", headers=headers)).status_code == 200
 
-        # Try to use the same token after logout
-        # Note: This test depends on Redis being available
-        # In test environment without Redis, the blacklist check may fail-open
+        logout = await client.post("/api/v1/auth/logout", headers=headers)
+        assert logout.status_code == 200
+        assert f"token_blacklist:{access_token}" in in_memory_blacklist
+
         me_response = await client.get("/api/v1/auth/me", headers=headers)
+        assert me_response.status_code == 401
 
-        # Token should be rejected (401) if Redis is available
-        # If Redis is not available, it may still work (fail-open behavior)
-        # Both are acceptable outcomes in test environment
-        assert me_response.status_code in [200, 401]
+    @pytest.mark.asyncio
+    async def test_unreachable_redis_fails_closed(
+        self, client: AsyncClient, sample_user_data
+    ):
+        """`get_current_user` зовёт проверку с `require_online=True`.
+
+        Недоступный Redis обязан закрывать доступ, а не открывать: иначе
+        достаточно уронить кэш, чтобы все отозванные токены снова заработали.
+        """
+        await client.post("/api/v1/auth/register", json=sample_user_data)
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": sample_user_data["email"],
+                "password": sample_user_data["password"],
+            },
+        )
+        headers = {
+            "Authorization": f"Bearer {login_response.json()['tokens']['access_token']}"
+        }
+
+        with patch(
+            "app.services.token_blacklist.cache_manager.get",
+            AsyncMock(side_effect=ConnectionError("redis down")),
+        ):
+            me_response = await client.get("/api/v1/auth/me", headers=headers)
+
+        assert me_response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_new_token_works_after_logout(
@@ -256,16 +301,19 @@ class TestTokenBlacklistEdgeCases:
     """Edge case tests for token blacklist."""
 
     @pytest.mark.asyncio
-    async def test_logout_with_invalid_token_still_succeeds(self, client: AsyncClient):
-        """Test that logout with invalid token format still returns success."""
-        headers = {"Authorization": "Bearer invalid_token_format"}
+    async def test_logout_with_invalid_token_returns_200(self, client: AsyncClient):
+        """Logout не защищён `get_current_user` — он лишь чистит куки.
 
-        # Note: This may fail auth before reaching logout logic
-        # depending on how security dependency is configured
-        response = await client.post("/api/v1/auth/logout", headers=headers)
+        Токен берётся из `security`/куки напрямую, `verify_token` на мусоре
+        отдаёт None, ветка blacklist пропускается. Значит 200, а не 401:
+        клиент должен уметь разлогиниться с протухшим токеном.
+        """
+        response = await client.post(
+            "/api/v1/auth/logout",
+            headers={"Authorization": "Bearer invalid_token_format"},
+        )
 
-        # Either 401 (auth failed) or 200 (logout succeeded) are acceptable
-        assert response.status_code in [200, 401]
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_double_logout_is_safe(self, client: AsyncClient, sample_user_data):
@@ -286,10 +334,10 @@ class TestTokenBlacklistEdgeCases:
         logout1 = await client.post("/api/v1/auth/logout", headers=headers)
         assert logout1.status_code == 200
 
-        # Second logout with same token
-        # Should either succeed (idempotent) or fail with 401 (already revoked)
+        # Повтор идемпотентен: logout не проверяет отозванность, а повторная
+        # запись в blacklist перезаписывает тот же ключ.
         logout2 = await client.post("/api/v1/auth/logout", headers=headers)
-        assert logout2.status_code in [200, 401]
+        assert logout2.status_code == 200
 
     @pytest.fixture
     def mock_cache_unavailable(self):

@@ -134,21 +134,42 @@ class TestReadingProgressBackwardCompatibility:
 
     @pytest.mark.asyncio
     async def test_progress_supports_cfi(
-        self, client: AsyncClient, authenticated_headers
+        self, client: AsyncClient, test_book, test_user_auth_headers
     ):
-        """Verify progress endpoint supports CFI (Canonical Fragment Identifier)."""
-        headers = await authenticated_headers()
-        book_id = str(uuid4())
+        """CFI обязан доезжать до БД и возвращаться при чтении прогресса.
 
-        progress_data = {
-            "current_chapter": 1,
-            "reading_location_cfi": "/2/4/2/10[Chapter1]",
-        }
+        Прежняя версия слала прогресс на СЛУЧАЙНЫЙ `book_id` и допускала
+        «200 или 404»: на несуществующей книге роутер отвечает 404 всегда
+        (`reading_progress.py:145-146`), то есть CFI не проверялся вовсе.
+        """
+        cfi = "epubcfi(/6/4[chap01]!/4/2/10)"
 
         response = await client.post(
-            f"/api/v1/books/{book_id}/progress", json=progress_data, headers=headers
+            f"/api/v1/books/{test_book.id}/progress",
+            json={"current_chapter": 2, "reading_location_cfi": cfi},
+            headers=test_user_auth_headers,
         )
 
-        # Even if book doesn't exist, endpoint should accept CFI parameter
-        # (will fail with 404, but that's expected)
-        assert response.status_code in [200, 404]
+        assert response.status_code == 200
+        assert response.json()["progress"]["reading_location_cfi"] == cfi
+
+        readback = await client.get(
+            f"/api/v1/books/{test_book.id}/progress",
+            headers=test_user_auth_headers,
+        )
+        assert readback.status_code == 200
+        assert readback.json()["progress"]["reading_location_cfi"] == cfi
+
+    @pytest.mark.asyncio
+    async def test_progress_for_unknown_book_is_404(
+        self, client: AsyncClient, authenticated_headers
+    ):
+        headers = await authenticated_headers()
+
+        response = await client.post(
+            f"/api/v1/books/{uuid4()}/progress",
+            json={"current_chapter": 1},
+            headers=headers,
+        )
+
+        assert response.status_code == 404

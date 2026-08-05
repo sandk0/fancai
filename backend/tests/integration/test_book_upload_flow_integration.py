@@ -329,8 +329,11 @@ class TestBookUploadFlowIntegration:
             files={"file": ("corrupted.epub", corrupted_epub, "application/epub+zip")},
         )
 
-        # Should fail with appropriate error (400 or 500)
-        assert upload_response.status_code in [400, 500]
+        # 500, а не 400: `crud.py:207` заворачивает ЛЮБОЕ исключение разбора
+        # в `BookProcessingException` (HTTP 500). Битый файл пользователя тем
+        # самым неотличим для клиента от отказа сервера — известный долг,
+        # разведение «плохой ввод / отказ сервера» меняет контракт API.
+        assert upload_response.status_code == 500
 
     async def test_get_book_chapters_flow(
         self, client: AsyncClient, db_session: AsyncSession
