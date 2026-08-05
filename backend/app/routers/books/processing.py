@@ -26,6 +26,23 @@ from ...schemas.responses import BookProcessingResponse, ParsingStatusResponse
 router = APIRouter()
 
 
+def _priority_label(priority: int) -> str:
+    """Числовой приоритет → метка схемы.
+
+    `parsing_manager.get_user_priority` отдаёт шкалу подписки (FREE=1,
+    PREMIUM=5, ULTIMATE=10), а `BookProcessingResponse.priority` объявлен
+    как `Optional[str]` с pattern `^(low|normal|high)$`. Без преобразования
+    оба return'а этого endpoint падали ValidationError, то есть 500
+        priority: Input should be a valid string [input_value=1]
+    — на успешном пути, а не в углу.
+    """
+    if priority >= 10:
+        return "high"
+    if priority >= 5:
+        return "normal"
+    return "low"
+
+
 @router.post("/{book_id}/process", response_model=BookProcessingResponse)
 @rate_limit(**RATE_LIMIT_PRESETS["ai_operation"])
 async def process_book_descriptions(
@@ -112,7 +129,7 @@ async def process_book_descriptions(
                         book_id=book_id,
                         status="processing",
                         message="Book parsing started immediately",
-                        priority=priority,
+                        priority=_priority_label(priority),
                     )
 
                 except Exception:
@@ -135,7 +152,7 @@ async def process_book_descriptions(
             position=queue_info["position"],
             total_in_queue=queue_info["total_in_queue"],
             estimated_wait_time=queue_info["estimated_wait_time"],
-            priority=priority,
+            priority=_priority_label(priority),
         )
 
     except HTTPException:
