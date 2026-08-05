@@ -241,6 +241,11 @@ docs/reports/2026-03-04-claude-code-workflow-audit.md
 *.code-workspace
 .env.*
 !.env.example
+# Конфигурация тестов обязана быть в репозитории: без неё `npm test`
+# в чистом клоне и в CI падает на импорте `src/config/env.ts`
+# («MISSING REQUIRED ENVIRONMENT VARIABLES: VITE_API_BASE_URL»), тогда как
+# локально проходит за счёт незакоммиченного файла. Секретов тут нет.
+!frontend/.env.test
 *.pyc
 .venv/
 target/
