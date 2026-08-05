@@ -80,16 +80,22 @@ concurrency = ["thread", "greenlet"]
 GitHub не переигрывает события, случившиеся при выключенных Actions, поэтому
 в `ci.yml` добавлен `workflow_dispatch`.
 
-| Джоба | Итог |
+На push запускаются **ДВА** workflow, и зелёными должны быть оба:
+
+| Workflow / джоба | Итог |
 | --- | --- |
+| **`ci.yml` — CI/CD Pipeline** | ✅ |
 | `backend-lint` | ✅ |
 | `backend-tests` | ✅ 1177 passed, 70,89 %, `exit=0` |
 | `frontend-lint` | ✅ |
 | `frontend-tests` | ✅ 599 passed |
 | `security-scan` | ✅ |
 | `docker-build` | skipped штатно (`if: pull_request`) |
-| `e2e-tests` | выведен из обязательных, см. ниже |
+| `e2e-tests` | skipped — выведен из обязательных, см. ниже |
 | **`All Checks Passed`** | ✅ — можно ставить в branch protection |
+| **`security.yml` — Security Scanning** | ✅ (11 джоб) |
+| `Backend SAST (Bandit)` | ✅ — падал с ноября 2025, починен |
+| остальные 10 (CodeQL ×2, Trivy ×2, dependency ×2, secrets, license, ESLint security, summary) | ✅ |
 
 **Фронтовые джобы починены (23 ошибки `tsc` + одна сюита).** Обе поломки
 были унаследованными и видны только в CI:
@@ -116,6 +122,28 @@ scripts/e2e_fixture.py setup`) — так хеш пароля, модели и �
 `E2E_FIXTURE_CONTAINER` — точка расширения уже параметризована.
 `retries: 2` в CI выставляются самим `playwright.config.ts`.
 
+**`Backend SAST (Bandit)` падал с ноября 2025.** Нашлось только потому, что
+владелец заметил: я проверил `ci.yml` и заявил «пайплайн зелёный», а на push
+запускается ещё и `security.yml`. Урок: **проверять все workflow, а не тот,
+который правил.**
+
+Причина — директивы подавления bandit стояли МИМО находок. Bandit требует
+директиву на строке самой находки, иначе она не действует
+(«Total lines skipped: 0»):
+
+- `app/main.py`: директива на `log_level`, а B104 срабатывает на
+  `host="0.0.0.0"`. Перенесена на нужную строку. Привязка безопасна: блок
+  под `if __name__ == "__main__"` исполняется только при
+  `python app/main.py`, в контейнерах команда запуска своя;
+- `app/utils/etag.py`: то же с B324 (директива на `.hexdigest()`, находка
+  на `hashlib.md5`). Заменено на `usedforsecurity=False` — так уже сделано
+  в `middleware/rate_limit.py` и `services/illustration_service.py`;
+  дайджест не меняется, заодно снимается отказ md5 в FIPS-окружении.
+
+Отдельная грабля: **слово `nosec` в ЛЮБОМ комментарии** bandit разбирает как
+директиву и сыплет `Test in comment: … is not a test name`. Пояснения про
+подавление писать без этого токена.
+
 ### Что осталось открытым
 
 - **Выкатка не сделана.** `main` ушёл от прода; в отрыве два исправления,
@@ -138,6 +166,15 @@ scripts/e2e_fixture.py setup`) — так хеш пароля, модели и �
 
 ### Ловушки стенда, которых не было в прошлом списке
 
+- **На push запускаются ДВА workflow — `ci.yml` и `security.yml`.** Зелёный
+  `CI/CD Pipeline` НЕ означает зелёный CI: `Backend SAST (Bandit)` падал
+  в `security.yml`, и это заметил владелец, а не я. Проверять состояние
+  надо по SHA коммита, а не по одному пайплайну:
+  `gh run list --json headSha,workflowName,conclusion`.
+- **Слово `nosec` в любом комментарии** bandit разбирает как директиву
+  подавления и сыплет `Test in comment: … is not a test name`. Пояснения
+  про подавление писать без этого токена. Сама директива обязана стоять
+  на строке САМОЙ находки, иначе не действует.
 - **Тестовая БД одна на всех.** Ручной `pytest` во время фонового
   `check-coverage.sh` роняет оба: фикстура `test_db` создаёт и дропает
   `fancai_test` под собой. Прогоны нельзя пересекать — иначе получите
