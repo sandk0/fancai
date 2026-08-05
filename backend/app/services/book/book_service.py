@@ -28,6 +28,11 @@ from ...models.chapter import Chapter
 from ...services.book_parser import ParsedBook
 from ...core.cache import cache_manager
 
+# Каталог обложек в persistent volume. Константа модуля, а не литерал внутри
+# метода: путь существует только в контейнере, и тесты перенаправляют его
+# в tmp (autouse-фикстура `storage_dirs_in_tmp`).
+COVERS_DIR = Path("/app/storage/books/covers")
+
 
 class BookService:
     """Сервис для базовых CRUD операций с книгами."""
@@ -387,7 +392,7 @@ class BookService:
             extension = "webp"
 
         # Создаем директорию для обложек (persistent volume)
-        covers_dir = Path("/app/storage/books/covers")
+        covers_dir = COVERS_DIR
         covers_dir.mkdir(parents=True, exist_ok=True)
 
         # Путь к файлу обложки

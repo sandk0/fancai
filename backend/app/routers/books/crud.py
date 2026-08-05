@@ -59,6 +59,12 @@ from ...schemas.responses import (
 
 router = APIRouter()
 
+# Каталог постоянного хранения загруженных книг. Вынесен в константу модуля
+# по образцу `images.GENERATED_IMAGES_DIR` и `illustration_service.IMAGES_DIR`:
+# путь абсолютный и существует только внутри контейнера, поэтому тесты
+# перенаправляют его в tmp (autouse-фикстура `storage_dirs_in_tmp`).
+BOOKS_STORAGE_DIR = Path("/app/storage/books")
+
 
 @router.post("/upload", response_model=BookUploadResponse)
 async def upload_book(
@@ -123,7 +129,7 @@ async def upload_book(
         logger.info("Book parsed successfully", title=parsed_book.metadata.title)
 
         # Создаем постоянное хранилище для файла
-        storage_dir = Path("/app/storage/books")
+        storage_dir = BOOKS_STORAGE_DIR
         storage_dir.mkdir(parents=True, exist_ok=True)
 
         permanent_path = storage_dir / f"{uuid4()}{file_extension}"

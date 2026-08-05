@@ -155,6 +155,42 @@ def rate_limiting_disabled():
     rate_limiter.enabled = original
 
 
+@pytest.fixture(autouse=True)
+def storage_dirs_in_tmp(tmp_path, monkeypatch):
+    """Файловые хранилища — во временный каталог теста.
+
+    Пути захардкожены абсолютными (`/app/storage/...`) в четырёх модулях
+    и существуют только внутри контейнера. На раннере GitHub Actions `/app`
+    нет и создать его нельзя (`PermissionError`), из-за чего 12 тестов
+    загрузки книг и раздачи картинок падали ТОЛЬКО в CI.
+
+    Заодно прогон перестаёт писать в общий том dev-стенда: раньше каждая
+    загруженная в тесте книга оставалась в `/app/storage/books` навсегда.
+    """
+    import sys
+
+    import app.routers.books.crud as books_crud
+    import app.routers.images as images_router
+    import app.services.illustration_service as illustration_service
+
+    # `app.services.book.book_service` как атрибут пакета — это ЭКЗЕМПЛЯР
+    # BookService (`book/__init__.py` экспортирует синглтон и затеняет имя
+    # модуля), поэтому модуль достаём из sys.modules.
+    book_service_module = sys.modules["app.services.book.book_service"]
+
+    root = tmp_path / "storage"
+    monkeypatch.setattr(books_crud, "BOOKS_STORAGE_DIR", root / "books")
+    monkeypatch.setattr(
+        book_service_module, "COVERS_DIR", root / "books" / "covers"
+    )
+    monkeypatch.setattr(
+        images_router, "GENERATED_IMAGES_DIR", root / "generated_images"
+    )
+    monkeypatch.setattr(
+        illustration_service, "IMAGES_DIR", root / "generated_images"
+    )
+
+
 @pytest.fixture
 def mock_nlp_processor():
     """Mock NLP processor for testing."""

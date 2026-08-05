@@ -27,7 +27,6 @@ from app.models.user import (
     SubscriptionStatus,
     User,
 )
-from app.routers.images import GENERATED_IMAGES_DIR
 
 FREE_LIMIT = 50
 
@@ -46,9 +45,17 @@ def image_service(mock_image_generator_service):
 
 @pytest.fixture
 def image_file():
-    """Файл в каталоге раздачи; путь и имя возвращаются вызывающему."""
-    GENERATED_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    path = GENERATED_IMAGES_DIR / f"test-{uuid.uuid4().hex}.png"
+    """Файл в каталоге раздачи; путь и имя возвращаются вызывающему.
+
+    Каталог берётся из МОДУЛЯ, а не из импортированного имени: autouse-фикстура
+    `storage_dirs_in_tmp` перенаправляет `GENERATED_IMAGES_DIR` в tmp, и связанное
+    при импорте имя указывало бы на `/app/storage`, которого вне контейнера нет.
+    """
+    import app.routers.images as images_router
+
+    directory = images_router.GENERATED_IMAGES_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"test-{uuid.uuid4().hex}.png"
     path.write_bytes(b"\x89PNG\r\n\x1a\nfake")
     yield path
     path.unlink(missing_ok=True)
