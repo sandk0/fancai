@@ -337,7 +337,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Fetch last 2 commits for diff scanning
+          # 0, а не 2: gitleaks сканирует диапазон `<первый запушенный>^..<последний>`,
+          # и при пуше более одного коммита родителя первого в мелком клоне нет —
+          # git падает с «unknown revision», а джоба валится не найдя ни одного
+          # секрета. Глубины 2 хватало только на пуш ровно одного коммита.
+          fetch-depth: 0
 
       - name: Run TruffleHog (PR only)
         if: github.event_name == 'pull_request'
