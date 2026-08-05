@@ -123,11 +123,18 @@ class TestAuth:
 
     @pytest.mark.asyncio
     async def test_get_current_user_unauthorized(self, client: AsyncClient):
-        """Test getting current user without authentication."""
+        """Запрос без токена: 401 и обязательный по RFC 7235 challenge.
+
+        `HTTPBearer(auto_error=False)` плюс явный raise в `core/auth.py:44-48`
+        дают именно 401, не 403 и не редирект. `WWW-Authenticate` ставится
+        на исключении, и общий обработчик в `main.py` обязан его донести:
+        без заголовка ответ не соответствует RFC, а Basic-диалог браузера
+        для `/health/metrics` не всплывает вовсе.
+        """
         response = await client.get("/api/v1/auth/me", follow_redirects=False)
 
-        # Auth middleware may redirect or return 401/403
-        assert response.status_code in [401, 403, 307]
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
 
     @pytest.mark.asyncio
     async def test_get_current_user_invalid_token(self, client: AsyncClient):

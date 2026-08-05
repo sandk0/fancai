@@ -174,13 +174,15 @@ class TestAuthFlowIntegration:
         )
 
     async def test_access_protected_endpoint_without_token(self, client: AsyncClient):
-        """Test accessing protected endpoint without authentication fails."""
+        """Без токена — 401 с challenge, а не 403.
+
+        `HTTPBearer(auto_error=False)` плюс явный raise в `core/auth.py:44-48`:
+        403 давал бы `OAuth2PasswordBearer`, которого в проекте нет.
+        """
         response = await client.get("/api/v1/auth/me")
 
-        assert response.status_code in [
-            401,
-            403,
-        ]  # Can be either depending on implementation
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
 
     async def test_access_protected_endpoint_with_invalid_token(
         self, client: AsyncClient

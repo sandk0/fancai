@@ -255,12 +255,20 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     Обработчик HTTP exceptions с CORS headers.
 
     Гарантирует что CORS headers присутствуют даже в error responses.
+
+    `exc.headers` обязан доезжать до клиента: на нём висят `WWW-Authenticate`
+    для 401 (RFC 7235 требует его в ответе, а браузер без него не покажет
+    Basic-диалог для `/health/metrics`), `Retry-After` и `X-RateLimit-*`
+    для 429 из декоратора `rate_limit` и `X-RateLimit-*` для 402 при
+    исчерпанной квоте генерации. Стандартный обработчик Starlette их
+    передаёт, этот — терял.
     """
     origin = request.headers.get("origin")
 
     response = JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers=exc.headers,
     )
 
     # Добавляем CORS headers если origin разрешен
