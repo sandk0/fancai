@@ -9,6 +9,162 @@
 
 ---
 
+## 2026-08-08 · Тесты бэкенда снова проходят: 257 падений → 0
+
+**Статус:** исполнен `docs/prompts/2026-08-08-backend-tests-green.md`. Прод
+не тронут, выкатки не было. Правки только в `backend/`.
+
+### 1. Числа
+
+| Прогон штатным гейтом | Упало | Ошибок | Прошло | Покрытие |
+| --- | ---: | ---: | ---: | ---: |
+| baseline (до первой правки) | 164 | 93 | 783 | 56,94 % |
+| после класса `lazy="raise"` + async-дрейфа | 130 | 3 | 907 | — |
+| после NullPool и FK-родителя | 114 | 3 | 923 | — |
+| **итог** | **0** | **0** | **1016** | **60,33 %** |
+
+Команда: `docker exec fancai_backend_dev bash check-coverage.sh`. Пропущено
+14 (как и в baseline). Код возврата 1 остался **только** из-за порога
+покрытия: «FAIL Required test coverage of 70% not reached. Total coverage:
+60.33%». Порог не понижался (решение #8).
+
+Базовый список из 257 ID снят ДО первой правки (`-rfE`) и сравнивался
+множествами, а не счётчиками, — грабля переклассификации FAILED↔ERROR
+из журнала 2026-08-01 подтвердилась: 93 «ошибки» превратились в 0 не потому,
+что тесты удалены, а потому что упавшая фикстура перестала падать.
+
+### 2. Класс `User.subscription` / `lazy='raise'` — дефект в API, не в фикстуре
+
+Гипотеза промпта («один дефект на 93 ошибки») подтвердилась, но адрес
+оказался другим, чем предполагал handoff.
+
+**Источник:** `app/services/auth_service.py:230` — `await db.refresh(user)`
+в `authenticate_user`, то есть в пути `POST /api/v1/auth/login`. Падение
+всплывало в `app/routers/auth.py:224` (`UserResponse.model_validate(user)`),
+внутри middleware, поэтому в логах выглядело как ошибка сериализации.
+
+**Механика, и она объясняет расхождение с продом.** `refresh()` экспайрит все
+атрибуты и восстанавливает eager-загруженные связи только по
+`state.load_options` — опциям запроса, которым объект был загружен ВПЕРВЫЕ.
+Если пользователь уже лежал в identity map сессии (фикстура создала его
+через `session.add`, либо `register` и `login` идут в одной сессии), опций
+нет, `subscription` остаётся выгруженной, и `lazy="raise"` бьёт.
+На живом dev-сервере запрос `POST /api/v1/auth/login` отдаёт **200**
+(проверено `curl`) именно потому, что там объект каждый раз загружается
+заново вместе с `selectinload`.
+
+**Правка одной строкой:** `await db.refresh(user, attribute_names=["updated_at"])`.
+Обновляется ровно та колонка, ради которой refresh и добавлялся
+(`onupdate=func.now()` помечает её expired, и обращение к ней при
+сериализации дало бы IO вне greenlet). Одна строка закрыла ~40 падений
+в `test_feature_flags_api.py` и весь кластер `auth_headers`/`admin_auth_headers`.
+
+### 3. Ещё восемь дефектов КОДА, найденных тестами
+
+Каждый — не подгонка теста, а поведение, которое было неверным. Каждый
+проверен снятием правки (см. §6).
+
+| Файл | Что было неверно |
+| --- | --- |
+| `services/auth_service.py:87-114` | у токенов нет `jti`. Два входа в одну секунду с одинаковыми claims дают **побайтово равные** JWT, и logout на одном устройстве блокировал сессию на другом: ключ blacklist — сама строка токена, `iat` имеет разрешение в секунду |
+| `routers/books/processing.py:132,155` | `parsing_manager.get_user_priority()` отдаёт **int** (FREE=1/PREMIUM=5/ULTIMATE=10), а `BookProcessingResponse.priority` объявлен `Optional[str]` с pattern `^(low\|normal\|high)$`. ValidationError → **500 на успешном пути `POST /books/{id}/process`**, на обеих ветках (немедленный старт и очередь). Добавлен `_priority_label()` |
+| `services/token_blacklist.py:68-79` | `add()` игнорировал результат `cache_manager.set()`, который при недоступном Redis возвращает False. Logout рапортовал успех, а токен в blacklist не попадал и продолжал работать |
+| `routers/health.py:391,520` | `asyncio.gather` пускал 2–3 запроса по ОДНОЙ `AsyncSession`; asyncpg запрещает параллельные операции на соединении, проигравшая корутина падала, и `except: return 0` молча превращал метрику в ноль. DB-проверки разведены последовательно, redis/celery остались параллельными |
+| `middleware/rate_limit.py:121,154` | в деградированной ветке `rate_info` был без ключа `limit`, а декоратор его читает. Любой rate-limited endpoint, отдающий `JSONResponse` (в приложении это `/health` в состоянии degraded), падал KeyError → 500 **ровно тогда, когда Redis лежит** |
+| `routers/admin/parsing.py:82-94` | неполный `queue_priority_weights` давал KeyError → 500 вместо 400; ключи free/premium/ultimate читаются по индексу |
+| `core/container.py:518-526` | `callable(override)` вызывал переданный экземпляр: MagicMock вызываем, поэтому в приложение уходил `mock.return_value` — молча и без ошибки. Проверка сузилась до `FunctionType`/`MethodType` |
+| `routers/reading_sessions.py:578-581` | docstring обещал валидацию `end_position >= start_position`, снятую коммитом `9b3f9bff` («user scrolled back»). Только документация |
+
+### 4. Класс окружения, который стоил 85 упоминаний ошибок
+
+`tests/conftest.py`: движок создавался с пулом по умолчанию, а у каждого
+теста свой event loop (`asyncio_default_fixture_loop_scope=function`).
+Пулированное asyncpg-соединение доживало до следующего теста и падало
+«got Future attached to a different loop» либо «another operation is in
+progress». Симптом характерный: **первый тест с БД в процессе проходит,
+все следующие нет.** Воспроизведён пробником из трёх тестов.
+
+`poolclass=NullPool` закрыл это целиком; `await test_engine.dispose()`
+в teardown, который пытался лечить то же самое, убран как бесполезный.
+
+### 5. Что было неверно в тестах — по классам
+
+| Класс | Объём | Суть |
+| --- | ---: | --- |
+| async-дрейф | 35 | `detect_format`/`parse_book`/`validate_book_file` стали async, тесты звали их синхронно (`assert <coroutine> == 'epub'`). Скрипт добавил `await` и `async def` |
+| удалённая архитектура | 23 | `test_book_parsing_service_integration.py` и `test_book_statistics_service_integration.py` проверяли API, снесённый вместе с NLP (`0c110210`): `update_parsing_progress`, `multi_nlp_manager`, ключи `descriptions_extracted`/`parsed_chapters`, `Description(book_id=…)`. Переписаны под действующий контракт; тесты удалённых методов удалены |
+| несуществующие маршруты | 13 | `/admin/multi-nlp-settings/*`, `/books/{id}/descriptions`, `/books/analyze-chapter`, `/chapters/{id}`, `/admin/system-stats`, `processing-status` — маршрутов нет. Сверено с `/openapi.json` |
+| 401 против 403 | 9 | `HTTPBearer(auto_error=False)` + явный raise (`core/auth.py:44-48`); комментарий «FastAPI OAuth2PasswordBearer returns 403» описывал схему, которой в проекте нет |
+| хвостовой слеш | 6 | список книг объявлен как `/`, а `redirect_slashes=False` — `/api/v1/books` отдаёт 404 |
+| чужая книга | 8 | `auth_headers` создаёт СВОЕГО пользователя, а `test_book` принадлежит `test_user`: 403/404 — правильное поведение guard'а. Добавлена фикстура `test_user_auth_headers` |
+| имена полей ответа | 9 | `admin_email`, `chapter_number`, `books`, `progress.current_position`, `RefreshTokenResponse` без обёртки `tokens` |
+| 422 против 400 | 4 | пароль короче 12 символов режется схемой (`min_length=12`) до обработчика; ветка 400 достижима длинным, но простым паролем. Проверяются оба рубежа |
+| задача мимо БД | 16 | `_close_abandoned_sessions_impl` открывает сессию сам через `AsyncSessionLocal` и без подмены уходит в рабочую `fancai_dev` |
+| общий Redis dev-стенда | 3 | `PromptTranslator` кэширует перевод: на заполненном кэше мок `generate_text` не вызывался вовсе |
+| FK без родителя | 16 | `test_entity_concurrent_upsert.py` вставлял сущности со случайным `book_id`; `entities.book_id` — FK на `books.id`, и `try/finally` подменял ForeignKeyViolation на «transaction is aborted» |
+| порог эвристики | 2 | примеры дедупликации событий давали 0.764 и 0.786 против порога 0.8 — замерено `SequenceMatcher`, данные примеров исправлены, порог НЕ трогали |
+| перевёрнутое утверждение | 1 | `test_old_method_has_n1_queries` требовал, чтобы N+1 **сохранялся** (`queries >= num_books`). После eager loading он падал на 3 запросах, и «починить» его можно было только вернув дефект. Заменён сторожем обратного инварианта |
+| слишком тонкая фикстура EPUB | 2 | главы в один абзац парсер отбрасывал как служебные, книга разбиралась в НОЛЬ глав, и прогресс клампился к главе 1 |
+| осознанно снятое поведение | 3 | старт сессии при активной требует `force` (409 иначе), `end_position < start_position` разрешён с `9b3f9bff`, лимит auth поднят 3 → 10 |
+| зависимость от порядка | 2 | любой тест с `TestClient(app)` выполняет lifespan и подключает ГЛОБАЛЬНЫЙ `rate_limiter` к Redis; после `test_security` у остальных регистрация (2/min) и логин (10/min) начинали отдавать 429. Добавлена autouse-фикстура, гасящая глобальный лимитер; тесты лимитера поднимают отдельный экземпляр |
+| каскад удаления книги | 1 | `test_chapter` вставлял главу мимо загруженной коллекции `test_book.chapters`; при `db.delete(book)` ORM каскадил только известные ей главы, а эта блокировала удаление родителя (`chapters_book_id_fkey`, NO ACTION). Проверено пробником: когда коллекция НЕ загружена, каскад срабатывает и удаление проходит — прод не затронут |
+
+### 6. Мутация: каждая правка кода проверена снятием
+
+Правка убиралась подстановкой версии из `HEAD`, затем прогонялся охраняющий
+тест. Все восемь — красные без правки:
+
+| Снятая правка | Тест | Результат |
+| --- | --- | --- |
+| `refresh(attribute_names=["updated_at"])` | `test_feature_flags_api::test_get_all_feature_flags` | 1 error |
+| `jti` в токенах | `test_security::TestCORS` + `test_token_blacklist::TestTokenBlacklistIntegration` | 2 failed |
+| `isinstance` вместо `callable` | `test_di_container::test_override_and_get` | 1 failed |
+| проверка ключей веса | `test_admin_router_integration::test_update_parsing_settings_rejects_partial_weights` | 1 failed |
+| `_priority_label` | `test_books::test_process_book` | 1 failed (500 вместо 200) |
+| результат записи в blacklist | `test_token_blacklist::test_blacklist_graceful_degradation` | 1 failed |
+| последовательные DB-проверки | `test_health::test_reading_sessions_health_with_abandoned_sessions` | 1 failed |
+| полный `rate_info` при деградации | `test_security::test_degraded_limiter_keeps_json_endpoints_working` | 1 failed |
+
+Последний тест написан специально: прежний охранник (`test_cors_allowed_origin`)
+ловил KeyError только когда `/health` случайно оказывался degraded и отдавал
+`JSONResponse`. Новый ставит собственное приложение с `JSONResponse`
+и проверяет обе ветки деградации — отсутствующий Redis и падающий `incr`.
+
+После мутаций все файлы сверены с рабочими копиями (`cmp`), итоговый прогон
+повторён: **1016 passed, 14 skipped**.
+
+### 7. Что осталось красным и почему
+
+**Ничего.** Набор проходит целиком. Красным остаётся только гейт покрытия:
+60,33 % против порога 70 %. Это ожидаемо и было вынесено из объёма промптом.
+
+`ruff check app/` — чисто, `black --check app/` — 143 файла без изменений
+(`app/routers/health.py` отформатирован после правки). В `tests/` ruff даёт
+45 замечаний и black просит переформатировать часть файлов — это состояние
+было и до сессии, CI гейтит только `app/`.
+
+### 8. Долги, вынесенные из сессии
+
+- **`BookParsingService` и `BookStatisticsService` не вызываются ниоткуда**
+  в `app/` (проверено grep'ом: только экспорт из `services/book/__init__.py`).
+  Их тесты переписаны под действующий контракт, но сами сервисы — кандидаты
+  на удаление. Решение владельца; сам не удалял.
+- **Ветка `return {... "error": ...}` в `close_abandoned_sessions` недостижима.**
+  `self.retry(exc=e)` при прямом вызове поднимает исходное исключение
+  (`called_directly`), а при исчерпании попыток Celery поднимает `exc`,
+  а не `MaxRetriesExceededError` — проверено `apply(retries=3)`: state FAILURE.
+  Тест переписан на «ошибка не глотается».
+- **Ослабленные утверждения вида `assert status in [200, 404]` остались**
+  в файлах, которых правка не касалась. Я снимал их только там, где
+  переписывал файл (`test_admin_router_integration`, `test_descriptions`,
+  `test_reading_progress`, `test_chapters`, `test_books`). Сплошной проход
+  по набору — отдельная задача; утверждать, что репозиторный grep пуст,
+  нельзя.
+- **`/api/v1/books/{id}/process` был сломан на проде** (см. §3): любой запуск
+  извлечения описаний отвечал 500. Правка локальная, на прод не выкатывалась.
+
+---
+
 ## 2026-08-07 · e2e на WebKit: причина найдена в песочнице iframe epub.js
 
 **Статус:** исполнен `docs/prompts/2026-08-07-e2e-webkit-green.md`.
