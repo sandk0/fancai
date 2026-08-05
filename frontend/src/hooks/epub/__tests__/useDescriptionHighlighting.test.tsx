@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDescriptionHighlighting } from '../useDescriptionHighlighting';
 import type { Rendition } from '@/types/epub';
-import type { Description, GeneratedImage } from '@/types/api';
+import type { Description } from '@/types/api';
 
 vi.mock('@/utils/text-search/cache', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/text-search/cache')>();

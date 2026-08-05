@@ -254,7 +254,7 @@ describe('fetchWithTokenRefresh', () => {
 
       // Only ONE refresh call should have been made (mutex dedup)
       const refreshCalls = fetchMock.mock.calls.filter(
-        ([url]: [string]) => typeof url === 'string' && url.includes('/auth/refresh')
+        ([url]) => typeof url === 'string' && url.includes('/auth/refresh')
       );
       expect(refreshCalls.length).toBe(1);
     });

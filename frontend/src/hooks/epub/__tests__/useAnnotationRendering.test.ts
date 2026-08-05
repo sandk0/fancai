@@ -199,15 +199,17 @@ describe('useAnnotationRendering', () => {
     );
 
     // Get all registered callbacks
+    // `mock.calls` типизирован как `any[][]`; аннотация кортежем не подходит
+    // под сигнатуру `map`/`filter` — параметр типизируется контекстно.
     const registeredCallbacks = mockRendition.hooks.content.register.mock.calls.map(
-      (c: [(...args: unknown[]) => void]) => c[0]
+      (c) => c[0]
     );
 
     unmount();
 
     // All registered callbacks should be deregistered
     const deregisteredCallbacks = mockRendition.hooks.content.deregister.mock.calls.map(
-      (c: [(...args: unknown[]) => void]) => c[0]
+      (c) => c[0]
     );
 
     for (const cb of registeredCallbacks) {
@@ -244,7 +246,7 @@ describe('useAnnotationRendering', () => {
 
     // Verify NO rendered event subscription at all
     const onCalls = mockRendition.on.mock.calls;
-    const renderedCalls = onCalls.filter((c: [string, ...unknown[]]) => c[0] === 'rendered');
+    const renderedCalls = onCalls.filter((c) => c[0] === 'rendered');
     expect(renderedCalls).toHaveLength(0);
   });
 

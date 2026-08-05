@@ -24,7 +24,6 @@ import type {
   FollowFingerPhase,
   StageInfo,
   GestureState,
-  TouchState,
   GestureFSMDeps,
   SwipeCompletionDeps,
 } from '../gestureUtils';

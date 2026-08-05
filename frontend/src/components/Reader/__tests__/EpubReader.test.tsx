@@ -20,6 +20,10 @@ import type { BookDetail, ChapterInfo } from '@/types/api';
 import type { Book, Rendition, EpubLocations } from '@/types/epub';
 import { useAuthStore } from '@/stores/auth';
 import { useKeyboardNavigation, useTextSelection } from '@/hooks/epub';
+import type {
+  UseCFITrackingReturn,
+  UseEpubNavigationReturn,
+} from '@/hooks/epub';
 
 // Mock auth store - MUST be before other mocks that depend on it
 vi.mock('@/stores/auth');
@@ -368,6 +372,43 @@ const renderEpubReader = (book: BookDetail = createMockBook()) => {
   );
 };
 
+// Фабрики моков хуков.
+//
+// Раньше каждый из 12 сайтов писал объект целиком, и любое НОВОЕ поле в
+// возвращаемом типе хука ломало сразу все: так и вышло, когда useCFITracking
+// обзавёлся chapterPage/chapterTotalPages, а useEpubNavigation —
+// instantNextPage/instantPrevPage/directScroll. Через фабрику такое поле
+// добавляется в одном месте, а `Partial` не даёт разойтись с типом молча.
+const cfiTrackingMock = (
+  overrides: Partial<UseCFITrackingReturn> = {}
+): UseCFITrackingReturn => ({
+  currentCFI: '',
+  progress: 0,
+  scrollOffsetPercent: 0,
+  currentPage: 1,
+  totalPages: 100,
+  chapterPage: 1,
+  chapterTotalPages: 10,
+  goToCFI: vi.fn(),
+  skipNextRelocated: vi.fn(),
+  setInitialProgress: vi.fn(),
+  ...overrides,
+});
+
+const navigationMock = (
+  overrides: Partial<UseEpubNavigationReturn> = {}
+): UseEpubNavigationReturn => ({
+  nextPage: vi.fn(),
+  prevPage: vi.fn(),
+  instantNextPage: vi.fn(),
+  instantPrevPage: vi.fn(),
+  directScroll: vi.fn(),
+  canGoNext: true,
+  canGoPrev: true,
+  debugInfo: null,
+  ...overrides,
+});
+
 describe('EpubReader Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -659,16 +700,14 @@ describe('EpubReader Component', () => {
 
       const mockGoToCFI = vi.fn(() => Promise.resolve());
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
-        progress: 25,
-        scrollOffsetPercent: 0,
-        currentPage: 25,
-        totalPages: 100,
-        goToCFI: mockGoToCFI,
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
+          progress: 25,
+          currentPage: 25,
+          goToCFI: mockGoToCFI,
+        })
+      );
 
       renderEpubReader();
 
@@ -681,16 +720,14 @@ describe('EpubReader Component', () => {
     it('restores position with CFI + scroll offset', async () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
-        progress: 25,
-        scrollOffsetPercent: 50, // Scroll offset included
-        currentPage: 25,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
+          progress: 25,
+          scrollOffsetPercent: 50, // Scroll offset included
+          currentPage: 25,
+        })
+      );
 
       renderEpubReader();
 
@@ -723,16 +760,9 @@ describe('EpubReader Component', () => {
       });
 
       const mockGoToCFI = vi.fn();
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: '',
-        progress: 0,
-        scrollOffsetPercent: 0,
-        currentPage: 1,
-        totalPages: 100,
-        goToCFI: mockGoToCFI,
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({ goToCFI: mockGoToCFI })
+      );
 
       renderEpubReader();
 
@@ -745,13 +775,9 @@ describe('EpubReader Component', () => {
       const { useEpubNavigation } = await import('@/hooks/epub');
 
       const mockNextPage = vi.fn();
-      vi.mocked(useEpubNavigation).mockReturnValue({
-        nextPage: mockNextPage,
-        prevPage: vi.fn(),
-        canGoNext: true,
-        canGoPrev: true,
-        debugInfo: null,
-      });
+      vi.mocked(useEpubNavigation).mockReturnValue(
+        navigationMock({ nextPage: mockNextPage })
+      );
 
       renderEpubReader();
 
@@ -764,13 +790,9 @@ describe('EpubReader Component', () => {
       const { useEpubNavigation } = await import('@/hooks/epub');
 
       const mockPrevPage = vi.fn();
-      vi.mocked(useEpubNavigation).mockReturnValue({
-        nextPage: vi.fn(),
-        prevPage: mockPrevPage,
-        canGoNext: true,
-        canGoPrev: true,
-        debugInfo: null,
-      });
+      vi.mocked(useEpubNavigation).mockReturnValue(
+        navigationMock({ prevPage: mockPrevPage })
+      );
 
       renderEpubReader();
 
@@ -784,16 +806,10 @@ describe('EpubReader Component', () => {
 
       const mockGoToCFI = vi.fn(() => Promise.reject(new Error('Invalid CFI')));
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: '',
-        progress: 0,
-        scrollOffsetPercent: 0,
-        currentPage: 1,
-        totalPages: 100,
-        goToCFI: mockGoToCFI, // Will reject on invalid CFI
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        // goToCFI will reject on invalid CFI
+        cfiTrackingMock({ goToCFI: mockGoToCFI })
+      );
 
       renderEpubReader();
 
@@ -807,16 +823,7 @@ describe('EpubReader Component', () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
       // CFI from different book
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: '',
-        progress: 0,
-        scrollOffsetPercent: 0,
-        currentPage: 1,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(cfiTrackingMock());
 
       renderEpubReader();
 
@@ -849,16 +856,13 @@ describe('EpubReader Component', () => {
     it('calculates progress percentage from locations', async () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
-        progress: 45,
-        scrollOffsetPercent: 0,
-        currentPage: 45,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
+          progress: 45,
+          currentPage: 45,
+        })
+      );
 
       renderEpubReader();
 
@@ -876,16 +880,14 @@ describe('EpubReader Component', () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
       const mockSetInitialProgress = vi.fn();
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
-        progress: 45,
-        scrollOffsetPercent: 0,
-        currentPage: 45,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: mockSetInitialProgress,
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
+          progress: 45,
+          currentPage: 45,
+          setInitialProgress: mockSetInitialProgress,
+        })
+      );
 
       renderEpubReader();
 
@@ -1034,13 +1036,9 @@ describe('EpubReader Component', () => {
       const { useEpubNavigation } = await import('@/hooks/epub');
 
       const mockNextPage = vi.fn();
-      vi.mocked(useEpubNavigation).mockReturnValue({
-        nextPage: mockNextPage,
-        prevPage: vi.fn(),
-        canGoNext: true,
-        canGoPrev: true,
-        debugInfo: null,
-      });
+      vi.mocked(useEpubNavigation).mockReturnValue(
+        navigationMock({ nextPage: mockNextPage })
+      );
 
       renderEpubReader();
 
@@ -1052,16 +1050,13 @@ describe('EpubReader Component', () => {
     it('next chapter button disabled on last chapter', async () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap02ref]!/4/2/2[page1]/1:0)',
-        progress: 100,
-        scrollOffsetPercent: 0,
-        currentPage: 100,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap02ref]!/4/2/2[page1]/1:0)',
+          progress: 100,
+          currentPage: 100,
+        })
+      );
 
       renderEpubReader();
 
@@ -1074,13 +1069,9 @@ describe('EpubReader Component', () => {
       const { useEpubNavigation } = await import('@/hooks/epub');
 
       const mockPrevPage = vi.fn();
-      vi.mocked(useEpubNavigation).mockReturnValue({
-        nextPage: vi.fn(),
-        prevPage: mockPrevPage,
-        canGoNext: true,
-        canGoPrev: true,
-        debugInfo: null,
-      });
+      vi.mocked(useEpubNavigation).mockReturnValue(
+        navigationMock({ prevPage: mockPrevPage })
+      );
 
       renderEpubReader();
 
@@ -1092,16 +1083,11 @@ describe('EpubReader Component', () => {
     it('previous chapter button disabled on first chapter', async () => {
       const { useCFITracking } = await import('@/hooks/epub');
 
-      vi.mocked(useCFITracking).mockReturnValue({
-        currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
-        progress: 0,
-        scrollOffsetPercent: 0,
-        currentPage: 1,
-        totalPages: 100,
-        goToCFI: vi.fn(),
-        skipNextRelocated: vi.fn(),
-        setInitialProgress: vi.fn(),
-      });
+      vi.mocked(useCFITracking).mockReturnValue(
+        cfiTrackingMock({
+          currentCFI: 'epubcfi(/6/4[chap01ref]!/4/2/2[page1]/1:0)',
+        })
+      );
 
       renderEpubReader();
 
@@ -1124,8 +1110,12 @@ describe('EpubReader Component', () => {
   // (`SelectionMenu.tsx:127-145`) — при живом выделении и в режиме правки
   // заметки. Меню панелью не является, поэтому в `isPanelOpen` не попадало.
   describe('Escape', () => {
-    const lastFlag = () =>
-      vi.mocked(useKeyboardNavigation).mock.calls.at(-1)?.[0]?.escapeHandledByOverlay;
+    // `.at()` требует lib ES2022, а проект собирается под ES2020 —
+    // берём последний вызов индексом.
+    const lastFlag = () => {
+      const calls = vi.mocked(useKeyboardNavigation).mock.calls;
+      return calls[calls.length - 1]?.[0]?.escapeHandledByOverlay;
+    };
 
     it('без оверлеев Escape принадлежит читалке', async () => {
       renderEpubReader();

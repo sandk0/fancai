@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { MockInstance } from 'vitest';
 
 // Mock logger before importing module
 vi.mock('@/lib/logger', () => ({
@@ -39,8 +40,11 @@ describe('useTouchDiagnostics', () => {
   });
 
   describe('attachDiagnosticListeners', () => {
-    let addSpy: ReturnType<typeof vi.spyOn>;
-    let removeSpy: ReturnType<typeof vi.spyOn>;
+    // Именованный тип вместо `ReturnType<typeof vi.spyOn>`: тот схлопывался
+    // до сигнатуры без параметров, и колбэки `mock.calls.map` получали
+    // неявный any.
+    let addSpy: MockInstance<typeof document.addEventListener>;
+    let removeSpy: MockInstance<typeof document.removeEventListener>;
 
     beforeEach(() => {
       addSpy = vi.spyOn(document, 'addEventListener');
