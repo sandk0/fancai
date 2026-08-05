@@ -16,9 +16,9 @@
 
 export { useEpubLoader } from './useEpubLoader';
 export { useLocationGeneration, clearCachedLocations } from './useLocationGeneration';
-export { useCFITracking } from './useCFITracking';
+export { useCFITracking, type UseCFITrackingReturn } from './useCFITracking';
 export { useProgressSync } from './useProgressSync';
-export { useEpubNavigation } from './useEpubNavigation';
+export { useEpubNavigation, type UseEpubNavigationReturn } from './useEpubNavigation';
 export { useKeyboardNavigation } from '../shared/useKeyboardNavigation';
 export { useChapterManagement } from './useChapterManagement';
 export { useChapterMapping } from './useChapterMapping';

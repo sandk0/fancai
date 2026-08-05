@@ -76,7 +76,7 @@ interface UseCFITrackingOptions {
   onLocationChange?: (cfi: string, progress: number, scrollOffset: number) => void;
 }
 
-interface UseCFITrackingReturn {
+export interface UseCFITrackingReturn {
   currentCFI: string;
   progress: number;
   scrollOffsetPercent: number;

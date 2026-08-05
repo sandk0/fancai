@@ -198,7 +198,7 @@ const getMeasuredScrollUnit = (
   return { unit: viewportWidth, source: 'viewport-fallback', debug };
 };
 
-interface UseEpubNavigationReturn {
+export interface UseEpubNavigationReturn {
   nextPage: () => Promise<void>;
   prevPage: () => Promise<void>;
   instantNextPage: () => Promise<void>;
