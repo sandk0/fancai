@@ -10,11 +10,10 @@
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, call
+from unittest.mock import MagicMock, AsyncMock, patch
 from app.services.illustration_service import (
     ImageGenerationResult,
     PromptTranslator,
-    IllustrationPromptEngineer,
     IllustrationService,
     get_illustration_service,
 )
@@ -197,7 +196,9 @@ class TestIllustrationServiceGeneration:
                 "app.services.illustration_service.NanoBananaGenerator",
                 return_value=mock_nano,
             ):
-                with patch("app.services.illustration_service.settings") as mock_settings:
+                with patch(
+                    "app.services.illustration_service.settings"
+                ) as mock_settings:
                     mock_settings.GEMINI_API_KEY = "test-key"
                     mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                     mock_settings.REDIS_URL = "redis://localhost:6379"
@@ -277,7 +278,9 @@ class TestIllustrationServiceGeneration:
                 "app.services.illustration_service.NanoBananaGenerator",
                 return_value=mock_nano,
             ):
-                with patch("app.services.illustration_service.settings") as mock_settings:
+                with patch(
+                    "app.services.illustration_service.settings"
+                ) as mock_settings:
                     mock_settings.GEMINI_API_KEY = "test-key"
                     mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                     mock_settings.REDIS_URL = "redis://localhost:6379"
@@ -336,7 +339,9 @@ class TestNSFWProtection:
                 "app.services.illustration_service.NanoBananaGenerator",
                 return_value=mock_nano,
             ):
-                with patch("app.services.illustration_service.settings") as mock_settings:
+                with patch(
+                    "app.services.illustration_service.settings"
+                ) as mock_settings:
                     mock_settings.GEMINI_API_KEY = "test-key"
                     mock_settings.GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
                     mock_settings.REDIS_URL = "redis://localhost:6379"
@@ -555,7 +560,9 @@ class TestIllustrationServiceRetry:
         assert illustration_service._nano.generate.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_generate_image_retry_exhausted(self, illustration_service, no_retry_wait):
+    async def test_generate_image_retry_exhausted(
+        self, illustration_service, no_retry_wait
+    ):
         """При retry exhaustion (5 попыток) возвращает success=False."""
         # RuntimeError каждый раз — retry 5 раз и fail
         illustration_service._nano.generate = AsyncMock(

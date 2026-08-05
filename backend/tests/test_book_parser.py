@@ -413,7 +413,9 @@ class TestEPUBParsing:
         assert len(chapter1.content) > 0
         assert "forest" in chapter1.content.lower()
 
-    async def test_parse_epub_calculates_statistics(self, book_parser, sample_epub_file):
+    async def test_parse_epub_calculates_statistics(
+        self, book_parser, sample_epub_file
+    ):
         """Тест расчета статистики книги."""
         result = await book_parser.parse_book(sample_epub_file)
 
@@ -438,7 +440,9 @@ class TestEPUBParsing:
         assert "forest" in chapter1.content.lower()
         assert len(chapter1.content) > 100  # Минимальная длина
 
-    async def test_parse_epub_html_content_preserved(self, book_parser, sample_epub_file):
+    async def test_parse_epub_html_content_preserved(
+        self, book_parser, sample_epub_file
+    ):
         """Тест сохранения HTML контента."""
         result = await book_parser.parse_book(sample_epub_file)
         chapter1 = result.chapters[0]
@@ -1143,11 +1147,13 @@ class TestFlattenToc:
     @pytest.fixture
     def epub_parser(self, parser_config):
         from app.services.book_parser import EPUBParser
+
         return EPUBParser(config=parser_config)
 
     def test_flatten_simple_links(self, epub_parser):
         """Тест 1: простые Link items — href и title берутся напрямую."""
         from ebooklib import epub
+
         toc = [
             epub.Link("ch1.xhtml", "Глава 1", "ch1"),
             epub.Link("ch2.xhtml", "Глава 2", "ch2"),
@@ -1163,6 +1169,7 @@ class TestFlattenToc:
     def test_flatten_section_with_links_uses_section_title(self, epub_parser):
         """Тест 2: (Section, [Link...]) — title берётся из Section.title, НЕ из item[1]."""
         from ebooklib import epub
+
         section = epub.Section("Часть I", "part1.xhtml")
         link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
         toc = [(section, [link])]
@@ -1170,19 +1177,20 @@ class TestFlattenToc:
         hrefs = [r[0] for r in result]
         titles = [r[1] for r in result]
         assert "part1.xhtml" in hrefs
-        assert "Часть I" in titles       # Заголовок секции, не children-список
+        assert "Часть I" in titles  # Заголовок секции, не children-список
         assert "ch1.xhtml" in hrefs
         assert "Глава 1" in titles
 
     def test_flatten_section_with_empty_href(self, epub_parser):
         """Тест 3: Section с пустым href — не добавляется, но дети добавляются."""
         from ebooklib import epub
-        section = epub.Section("Группа", "")   # href=""
+
+        section = epub.Section("Группа", "")  # href=""
         link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
         toc = [(section, [link])]
         result = epub_parser._flatten_toc(toc)
         hrefs = [r[0] for r in result]
-        assert "" not in hrefs              # пустой href не добавляется
+        assert "" not in hrefs  # пустой href не добавляется
         assert "ch1.xhtml" in hrefs
 
 
@@ -1286,11 +1294,13 @@ class TestIsServicePage:
     @pytest.fixture
     def epub_parser(self, parser_config):
         from app.services.book_parser import EPUBParser
+
         return EPUBParser(config=parser_config)
 
     def _make_item(self, name="test.xhtml", content=b"<html><body>text</body></html>"):
         """Создаёт мок ebooklib item."""
         from unittest.mock import MagicMock
+
         item = MagicMock()
         item.get_name.return_value = name
         item.get_content.return_value = content
@@ -1315,7 +1325,9 @@ class TestIsServicePage:
     def test_obshchaya_info_short_is_service(self, epub_parser):
         """'Общая информация' с коротким текстом → сервисная (Эксмо/АСТ)."""
         item = self._make_item("ch1-1.xhtml", b"<html><body>short</body></html>")
-        assert epub_parser._is_service_page(item, "short", "Общая информация", 0) is True
+        assert (
+            epub_parser._is_service_page(item, "short", "Общая информация", 0) is True
+        )
 
     def test_copyright_patterns_is_service(self, epub_parser):
         """Страница с УДК + ББК → сервисная (97% — копирайт)."""
@@ -1325,7 +1337,7 @@ class TestIsServicePage:
 
     def test_long_prologue_is_not_service(self, epub_parser):
         """Пролог с длинным текстом (>300 слов) → НЕ сервисная."""
-        text = "word " * 400    # 400 слов >> 300
+        text = "word " * 400  # 400 слов >> 300
         item = self._make_item("ch.xhtml", b"<html><body>content</body></html>")
         assert epub_parser._is_service_page(item, text, "Пролог", 2) is False
 
@@ -1356,11 +1368,13 @@ class TestGetBodymatterBasename:
     @pytest.fixture
     def epub_parser(self, parser_config):
         from app.services.book_parser import EPUBParser
+
         return EPUBParser(config=parser_config)
 
     def _make_book(self, guide_refs, spine_items, toc_links):
         """Создаёт мок EpubBook для тестирования bodymatter detection."""
         from unittest.mock import MagicMock
+
         book = MagicMock()
         book.guide = guide_refs
         book.spine = [(item["id"], "yes") for item in spine_items]
@@ -1388,6 +1402,7 @@ class TestGetBodymatterBasename:
     def test_ncx_gap_returns_first_toc_basename(self, epub_parser):
         """NCX gap: toc[0].href != spine[0].href → возвращает basename toc[0]."""
         from ebooklib import epub
+
         link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
         spine_items = [
             {"id": "cover", "name": "cover.xhtml"},
@@ -1401,6 +1416,7 @@ class TestGetBodymatterBasename:
     def test_ncx_no_gap_returns_none(self, epub_parser):
         """NCX: toc[0] == spine[0] → None (все spine items с начала — контент)."""
         from ebooklib import epub
+
         link = epub.Link("ch1.xhtml", "Глава 1", "ch1")
         spine_items = [
             {"id": "ch1", "name": "ch1.xhtml"},

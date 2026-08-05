@@ -34,10 +34,9 @@ def task_session_uses_test_db():
     """
     from tests.conftest import TestSessionLocal
 
-    with patch(
-        "app.tasks.reading_sessions_tasks.AsyncSessionLocal", TestSessionLocal
-    ):
+    with patch("app.tasks.reading_sessions_tasks.AsyncSessionLocal", TestSessionLocal):
         yield
+
 
 # ============================================================================
 # Test Suite 1: close_abandoned_sessions Task

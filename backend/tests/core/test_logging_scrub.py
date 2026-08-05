@@ -135,9 +135,7 @@ class TestLoguruLogging:
         """Продовый синк — JSON."""
         setup_logging(debug=False, log_level="DEBUG")
         sink = io.StringIO()
-        handler_id = logger.add(
-            sink, format="{message}", level="DEBUG", serialize=True
-        )
+        handler_id = logger.add(sink, format="{message}", level="DEBUG", serialize=True)
         try:
             logger.info(f"flag={FORGED}")
             written = sink.getvalue()

@@ -154,7 +154,7 @@ class TestEntitySynthesisOpenRouterMigration:
             return_value=mock_client,
         ):
             service = EntitySynthesisService()
-            result = await service._call_gemini("Тестовый промпт")
+            await service._call_gemini("Тестовый промпт")
 
         mock_client.generate_text.assert_called_once()
         call_kwargs = mock_client.generate_text.call_args

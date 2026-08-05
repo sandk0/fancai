@@ -9,18 +9,16 @@ Test coverage:
 """
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 from base64 import b64encode
 
 from app.models.user import User
 from app.models.book import Book
 from app.models.reading_session import ReadingSession
 from app.routers.health import ComponentHealthResponse
-
 
 # ============================================================================
 # Test Suite 1: Basic Health Check Endpoint
@@ -37,6 +35,7 @@ class TestBasicHealthCheck:
         monkeypatch,
     ):
         """Test health check when all services are operational."""
+
         # Arrange - Mock successful checks
         async def mock_check_database(db):
             return ComponentHealthResponse(
@@ -52,9 +51,7 @@ class TestBasicHealthCheck:
                 latency_ms=2.1,
             )
 
-        monkeypatch.setattr(
-            "app.routers.health.check_database", mock_check_database
-        )
+        monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
 
         # Act
@@ -78,6 +75,7 @@ class TestBasicHealthCheck:
         monkeypatch,
     ):
         """Test health check returns degraded when Redis is down but DB is up."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(
@@ -92,9 +90,7 @@ class TestBasicHealthCheck:
                 message="Redis connection warning",
             )
 
-        monkeypatch.setattr(
-            "app.routers.health.check_database", mock_check_database
-        )
+        monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
 
         # Act
@@ -112,6 +108,7 @@ class TestBasicHealthCheck:
         monkeypatch,
     ):
         """Test health check returns unhealthy when database is down."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(
@@ -126,9 +123,7 @@ class TestBasicHealthCheck:
                 latency_ms=2.1,
             )
 
-        monkeypatch.setattr(
-            "app.routers.health.check_database", mock_check_database
-        )
+        monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
 
         # Act
@@ -146,6 +141,7 @@ class TestBasicHealthCheck:
         monkeypatch,
     ):
         """Test health check returns unhealthy when all services are down."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(
@@ -159,9 +155,7 @@ class TestBasicHealthCheck:
                 message="Redis connection failed",
             )
 
-        monkeypatch.setattr(
-            "app.routers.health.check_database", mock_check_database
-        )
+        monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
 
         # Act
@@ -179,6 +173,7 @@ class TestBasicHealthCheck:
         monkeypatch,
     ):
         """Test health check gracefully handles database check exceptions."""
+
         # Arrange
         async def mock_check_database_exception(db):
             raise Exception("Database connection timeout")
@@ -267,9 +262,7 @@ class TestReadingSessionsHealthCheck:
                 details={"active_workers_count": 2, "workers": ["worker1", "worker2"]},
             )
 
-        monkeypatch.setattr(
-            "app.routers.health.check_database", mock_check_database
-        )
+        monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
         monkeypatch.setattr("app.routers.health.check_celery", mock_check_celery)
 
@@ -325,10 +318,14 @@ class TestReadingSessionsHealthCheck:
             return ComponentHealthResponse(status="ok", message="DB OK", latency_ms=5.2)
 
         async def mock_check_redis():
-            return ComponentHealthResponse(status="ok", message="Redis OK", latency_ms=2.1)
+            return ComponentHealthResponse(
+                status="ok", message="Redis OK", latency_ms=2.1
+            )
 
         async def mock_check_celery():
-            return ComponentHealthResponse(status="ok", message="Celery OK", latency_ms=10.5)
+            return ComponentHealthResponse(
+                status="ok", message="Celery OK", latency_ms=10.5
+            )
 
         monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
@@ -352,12 +349,15 @@ class TestReadingSessionsHealthCheck:
         monkeypatch,
     ):
         """Test reading sessions health check with Celery warning."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(status="ok", message="DB OK", latency_ms=5.2)
 
         async def mock_check_redis():
-            return ComponentHealthResponse(status="ok", message="Redis OK", latency_ms=2.1)
+            return ComponentHealthResponse(
+                status="ok", message="Redis OK", latency_ms=2.1
+            )
 
         async def mock_check_celery():
             return ComponentHealthResponse(
@@ -387,6 +387,7 @@ class TestReadingSessionsHealthCheck:
         monkeypatch,
     ):
         """Test reading sessions health check with database error."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(
@@ -395,10 +396,14 @@ class TestReadingSessionsHealthCheck:
             )
 
         async def mock_check_redis():
-            return ComponentHealthResponse(status="ok", message="Redis OK", latency_ms=2.1)
+            return ComponentHealthResponse(
+                status="ok", message="Redis OK", latency_ms=2.1
+            )
 
         async def mock_check_celery():
-            return ComponentHealthResponse(status="ok", message="Celery OK", latency_ms=10.5)
+            return ComponentHealthResponse(
+                status="ok", message="Celery OK", latency_ms=10.5
+            )
 
         monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
@@ -421,15 +426,20 @@ class TestReadingSessionsHealthCheck:
         monkeypatch,
     ):
         """Test reading sessions health check with no active sessions."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(status="ok", message="DB OK", latency_ms=5.2)
 
         async def mock_check_redis():
-            return ComponentHealthResponse(status="ok", message="Redis OK", latency_ms=2.1)
+            return ComponentHealthResponse(
+                status="ok", message="Redis OK", latency_ms=2.1
+            )
 
         async def mock_check_celery():
-            return ComponentHealthResponse(status="ok", message="Celery OK", latency_ms=10.5)
+            return ComponentHealthResponse(
+                status="ok", message="Celery OK", latency_ms=10.5
+            )
 
         monkeypatch.setattr("app.routers.health.check_database", mock_check_database)
         monkeypatch.setattr("app.routers.health.check_redis", mock_check_redis)
@@ -537,6 +547,7 @@ class TestDeepHealthCheck:
         monkeypatch,
     ):
         """Test deep health check with some services failing."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(status="ok", message="DB OK", latency_ms=5.2)
@@ -576,6 +587,7 @@ class TestDeepHealthCheck:
         monkeypatch,
     ):
         """Test deep health check when all services are down."""
+
         # Arrange
         async def mock_check_database(db):
             return ComponentHealthResponse(

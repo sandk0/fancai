@@ -10,9 +10,8 @@ Tests:
 6. cleanup_book_data() works correctly for a book with no descriptions/entities (does not crash)
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -109,11 +108,7 @@ async def test_cleanup_resets_chapter_flags():
 
     assert result["chapters_reset"] == 3
 
-    # Verify UPDATE chapters was called (6th call, index 5)
-    update_chapters_call = db.execute.call_args_list[5]
-    # The statement should be an UPDATE targeting the chapter_ids
-    stmt = update_chapters_call[0][0]
-    # We verify through the result that chapters_reset matches chapter count
+    # Проверяем через результат: сброшено ровно столько глав, сколько нашлось
     assert result["chapters_reset"] == len(chapter_ids)
 
 

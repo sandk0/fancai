@@ -64,9 +64,9 @@ class TestSecurityHeaders:
         assert "strict-transport-security" in headers, "HSTS header missing"
         assert "content-security-policy" in headers, "CSP header missing"
         assert "x-frame-options" in headers, "X-Frame-Options header missing"
-        assert "x-content-type-options" in headers, (
-            "X-Content-Type-Options header missing"
-        )
+        assert (
+            "x-content-type-options" in headers
+        ), "X-Content-Type-Options header missing"
         assert "x-xss-protection" in headers, "X-XSS-Protection header missing"
         assert "referrer-policy" in headers, "Referrer-Policy header missing"
         assert "permissions-policy" in headers, "Permissions-Policy header missing"
@@ -109,12 +109,12 @@ class TestSecurityHeaders:
 
         # Server header should not reveal server details
         server = response.headers.get("server", "")
-        assert "uvicorn" not in server.lower(), (
-            "Server header should not reveal Uvicorn"
-        )
-        assert "fastapi" not in server.lower(), (
-            "Server header should not reveal FastAPI"
-        )
+        assert (
+            "uvicorn" not in server.lower()
+        ), "Server header should not reveal Uvicorn"
+        assert (
+            "fastapi" not in server.lower()
+        ), "Server header should not reveal FastAPI"
 
     def test_security_headers_validation_function(self):
         """Test validate_security_headers function."""
@@ -332,9 +332,9 @@ class TestInputValidation:
 
         for password in strong_passwords:
             is_valid, error = validate_password_strength(password)
-            assert is_valid, (
-                f"Password {password} should be accepted, but got error: {error}"
-            )
+            assert (
+                is_valid
+            ), f"Password {password} should be accepted, but got error: {error}"
             assert error is None
 
     def test_validate_url_valid(self):
@@ -629,9 +629,7 @@ class TestSecurityIntegration:
         assert response.status_code == 200
         assert response.headers["X-Frame-Options"] == "DENY"
         assert response.headers["X-Content-Type-Options"] == "nosniff"
-        assert (
-            response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
-        )
+        assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
 
 
 # ============================================================================

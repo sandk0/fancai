@@ -217,6 +217,7 @@ class TestAdminQueueAndCache:
         )
         assert wrong_method.status_code == 405
 
+
 class TestPublicHealth:
     """Публичный health check."""
 

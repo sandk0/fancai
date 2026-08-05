@@ -386,9 +386,7 @@ class TestSaveChapterExtractionResult:
         )
         await db_session.commit()
 
-        links = (
-            (await db_session.execute(select(DescriptionEntity))).scalars().all()
-        )
+        links = (await db_session.execute(select(DescriptionEntity))).scalars().all()
         assert [link.mention_text for link in links] == ["Геральт"]
 
 
@@ -460,9 +458,7 @@ class TestAtomicCleanupBookState:
         test_book.is_processing = True
         await db_session.commit()
 
-        with patch(
-            "redis.asyncio.from_url", side_effect=OSError("connection refused")
-        ):
+        with patch("redis.asyncio.from_url", side_effect=OSError("connection refused")):
             await _atomic_cleanup_book_state(test_book.id, "сбой парсинга")
 
         await db_session.refresh(

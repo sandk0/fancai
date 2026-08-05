@@ -478,6 +478,6 @@ async def test_reading_streak_long_consecutive_days(db_session):
     streak = await UserStatisticsService.get_reading_streak(db_session, user.id)
 
     # Streak должен быть 30
-    assert streak == 30, (
-        f"Expected streak=30 (читал 30 дней подряд до вчера), got {streak}"
-    )
+    assert (
+        streak == 30
+    ), f"Expected streak=30 (читал 30 дней подряд до вчера), got {streak}"

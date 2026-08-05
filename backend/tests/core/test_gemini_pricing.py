@@ -1,4 +1,3 @@
-import pytest
 from app.core.gemini_pricing import compute_cost, IMAGE_PRICING
 
 

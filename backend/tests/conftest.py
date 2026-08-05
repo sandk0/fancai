@@ -180,15 +180,11 @@ def storage_dirs_in_tmp(tmp_path, monkeypatch):
 
     root = tmp_path / "storage"
     monkeypatch.setattr(books_crud, "BOOKS_STORAGE_DIR", root / "books")
-    monkeypatch.setattr(
-        book_service_module, "COVERS_DIR", root / "books" / "covers"
-    )
+    monkeypatch.setattr(book_service_module, "COVERS_DIR", root / "books" / "covers")
     monkeypatch.setattr(
         images_router, "GENERATED_IMAGES_DIR", root / "generated_images"
     )
-    monkeypatch.setattr(
-        illustration_service, "IMAGES_DIR", root / "generated_images"
-    )
+    monkeypatch.setattr(illustration_service, "IMAGES_DIR", root / "generated_images")
 
 
 @pytest.fixture
@@ -489,7 +485,6 @@ async def test_user_auth_headers(
     return {
         "Authorization": f"Bearer {login_response.json()['tokens']['access_token']}"
     }
-
 
 
 @pytest.fixture

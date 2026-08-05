@@ -9,7 +9,6 @@ import pytest
 from httpx import AsyncClient
 
 
-
 @pytest.mark.asyncio
 class TestFeatureFlagsListEndpoint:
     """Тесты endpoint GET /admin/feature-flags."""

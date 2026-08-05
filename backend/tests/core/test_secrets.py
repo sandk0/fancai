@@ -124,9 +124,7 @@ class TestValidateSecretNotDefault:
 
 
 class TestValidateEmailFormat:
-    @pytest.mark.parametrize(
-        "email", ["admin@fancai.ru", "a.b+c_d%e-f@sub.example.co"]
-    )
+    @pytest.mark.parametrize("email", ["admin@fancai.ru", "a.b+c_d%e-f@sub.example.co"])
     def test_valid_addresses(self, email):
         assert validate_email_format(email) is True
 
@@ -340,9 +338,7 @@ class TestSecretHelpers:
 
     @pytest.mark.asyncio
     async def test_absent_file_reports_nothing(self, tmp_path):
-        has_secrets, found = await check_secrets_in_file(
-            str(tmp_path / "nope.env")
-        )
+        has_secrets, found = await check_secrets_in_file(str(tmp_path / "nope.env"))
 
         assert (has_secrets, found) == (False, [])
 

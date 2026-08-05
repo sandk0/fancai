@@ -195,6 +195,7 @@ class TestBooks:
             try:
                 os.unlink(temp_path)
             except OSError:
+                # Уборка временного файла: тест уже отработал, ронять его нечем
                 pass
 
     @pytest.mark.asyncio
@@ -226,6 +227,7 @@ class TestBooks:
             try:
                 os.unlink(temp_path)
             except OSError:
+                # Уборка временного файла: тест уже отработал, ронять его нечем
                 pass
 
     @pytest.mark.asyncio

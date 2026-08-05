@@ -4,8 +4,7 @@
 TDD RED фаза: тесты написаны до реализации.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 class TestInitHawkFastapi:
@@ -79,7 +78,7 @@ class TestInitHawkCelery:
 
         with patch("app.core.hawk.settings") as mock_settings, patch(
             "app.core.hawk.Hawk"
-        ) as mock_hawk_cls, patch("app.core.hawk.task_failure") as mock_task_failure:
+        ) as mock_hawk_cls, patch("app.core.hawk.task_failure"):
             mock_settings.HAWK_TOKEN = "test-token-celery"
             mock_hawk_cls.return_value = mock_hawk_instance
 

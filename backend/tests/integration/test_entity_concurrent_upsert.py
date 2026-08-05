@@ -62,7 +62,6 @@ class TestEntityBasicUpsert:
         """Inserting the same entity (book_id + name_lower) twice yields 1 row."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(book_id, name="Gandalf")
@@ -88,7 +87,6 @@ class TestEntityBasicUpsert:
         """Case-insensitive conflict: 'gandalf' and 'GANDALF' yield 1 row."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(book_id, name="gandalf")
@@ -105,9 +103,9 @@ class TestEntityBasicUpsert:
                     .where(Entity.book_id == book_id)
                 )
                 count = result.scalar_one()
-                assert count == 1, (
-                    f"Expected 1 row for case-insensitive match, got {count}"
-                )
+                assert (
+                    count == 1
+                ), f"Expected 1 row for case-insensitive match, got {count}"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
@@ -121,7 +119,6 @@ class TestEntityConcurrentUpsert:
     async def test_concurrent_upserts_result_in_single_row(self, book_id):
         """10 coroutines inserting the same entity simultaneously yields 1 row."""
         from tests.conftest import TestSessionLocal
-
 
         async def upsert_entity(idx: int):
             async with TestSessionLocal() as session:
@@ -143,9 +140,9 @@ class TestEntityConcurrentUpsert:
                     .where(Entity.book_id == book_id)
                 )
                 count = result.scalar_one()
-                assert count == 1, (
-                    f"Expected 1 row after 10 concurrent upserts, got {count}"
-                )
+                assert (
+                    count == 1
+                ), f"Expected 1 row after 10 concurrent upserts, got {count}"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
@@ -159,7 +156,6 @@ class TestEntityConflictUpdate:
     async def test_conflict_updates_metadata_and_aliases(self, book_id):
         """Conflict updates entity_metadata and aliases_with_reveal, leaves other fields unchanged."""
         from tests.conftest import TestSessionLocal
-
 
         async with TestSessionLocal() as session:
             try:
@@ -194,17 +190,17 @@ class TestEntityConflictUpdate:
                     "lineage": "Isildur",
                 }, f"entity_metadata not updated: {entity.entity_metadata}"
 
-                assert len(entity.aliases_with_reveal) == 2, (
-                    f"Expected 2 aliases, got {len(entity.aliases_with_reveal)}"
-                )
+                assert (
+                    len(entity.aliases_with_reveal) == 2
+                ), f"Expected 2 aliases, got {len(entity.aliases_with_reveal)}"
                 alias_names = [a["alias"] for a in entity.aliases_with_reveal]
-                assert "Elessar" in alias_names, (
-                    f"Expected 'Elessar' in aliases: {alias_names}"
-                )
+                assert (
+                    "Elessar" in alias_names
+                ), f"Expected 'Elessar' in aliases: {alias_names}"
 
-                assert entity.visual_summary == "A test entity", (
-                    "visual_summary should remain unchanged after conflict update"
-                )
+                assert (
+                    entity.visual_summary == "A test entity"
+                ), "visual_summary should remain unchanged after conflict update"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
@@ -224,7 +220,6 @@ class TestEntityCyrillicUpsert:
         """Гарри and ГАРРИ must result in a single row."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(book_id, name="Гарри")
@@ -241,9 +236,9 @@ class TestEntityCyrillicUpsert:
                     .where(Entity.book_id == book_id)
                 )
                 count = result.scalar_one()
-                assert count == 1, (
-                    f"Expected 1 row for Cyrillic case-insensitive match, got {count}"
-                )
+                assert (
+                    count == 1
+                ), f"Expected 1 row for Cyrillic case-insensitive match, got {count}"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
@@ -251,7 +246,6 @@ class TestEntityCyrillicUpsert:
     async def test_cyrillic_name_lower_column(self, book_id):
         """name_lower must contain the casefolded version of name."""
         from tests.conftest import TestSessionLocal
-
 
         async with TestSessionLocal() as session:
             try:
@@ -273,7 +267,6 @@ class TestEntityCyrillicUpsert:
         """Mixed Latin+Cyrillic names are casefolded correctly."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values = _make_entity_values(book_id, name="Harry-Гарри")
@@ -289,12 +282,9 @@ class TestEntityCyrillicUpsert:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
 
-
-
     async def test_casefold_expansion_conflict(self, book_id):
         """Stra\u00dfe and STRASSE must collide: casefold('Stra\u00dfe') == 'strasse'."""
         from tests.conftest import TestSessionLocal
-
 
         async with TestSessionLocal() as session:
             try:
@@ -312,21 +302,22 @@ class TestEntityCyrillicUpsert:
                     .where(Entity.book_id == book_id)
                 )
                 count = result.scalar_one()
-                assert count == 1, (
-                    f"Expected 1 row for casefold expansion conflict (Stra\u00dfe vs STRASSE), got {count}"
-                )
+                assert (
+                    count == 1
+                ), f"Expected 1 row for casefold expansion conflict (Stra\u00dfe vs STRASSE), got {count}"
 
                 # Verify name_lower is 'strasse' for both
                 entity_result = await session.execute(
                     select(Entity).where(Entity.book_id == book_id)
                 )
                 entity = entity_result.scalar_one()
-                assert entity.name_lower == "strasse", (
-                    f"Expected name_lower='strasse', got '{entity.name_lower}'"
-                )
+                assert (
+                    entity.name_lower == "strasse"
+                ), f"Expected name_lower='strasse', got '{entity.name_lower}'"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
+
 
 @pytest.mark.asyncio
 @pytest.mark.integration
@@ -354,9 +345,9 @@ class TestLocaleCSafety:
             # The test documents the behavior rather than requiring a specific locale
             if pg_lower == "\u0413\u0410\u0420\u0420\u0418":
                 # locale C: broken for Cyrillic (expected in our production setup)
-                assert pg_lower != "\u0433\u0430\u0440\u0440\u0438", (
-                    "PostgreSQL lower() should NOT lowercase Cyrillic under locale C"
-                )
+                assert (
+                    pg_lower != "\u0433\u0430\u0440\u0440\u0438"
+                ), "PostgreSQL lower() should NOT lowercase Cyrillic under locale C"
             else:
                 # Other locale: lower() works, but our name_lower approach
                 # is still correct and portable
@@ -364,8 +355,14 @@ class TestLocaleCSafety:
 
     async def test_python_casefold_always_works(self):
         """Python casefold() handles Cyrillic correctly regardless of locale."""
-        assert "\u0413\u0410\u0420\u0420\u0418".casefold() == "\u0433\u0430\u0440\u0440\u0438"
-        assert "\u0410\u043d\u043d\u0430 \u041a\u0430\u0440\u0435\u043d\u0438\u043d\u0430".casefold() == "\u0430\u043d\u043d\u0430 \u043a\u0430\u0440\u0435\u043d\u0438\u043d\u0430"
+        assert (
+            "\u0413\u0410\u0420\u0420\u0418".casefold()
+            == "\u0433\u0430\u0440\u0440\u0438"
+        )
+        assert (
+            "\u0410\u043d\u043d\u0430 \u041a\u0430\u0440\u0435\u043d\u0438\u043d\u0430".casefold()
+            == "\u0430\u043d\u043d\u0430 \u043a\u0430\u0440\u0435\u043d\u0438\u043d\u0430"
+        )
         # German sharp s — casefold expands it
         assert "Stra\u00dfe".casefold() == "strasse"
         # Turkish dotted I — casefold handles it
@@ -376,13 +373,11 @@ class TestLocaleCSafety:
         from tests.conftest import TestSessionLocal
 
         async with TestSessionLocal() as session:
-            result = await session.execute(
-                select(func.lower("GANDALF"))
-            )
+            result = await session.execute(select(func.lower("GANDALF")))
             pg_lower = result.scalar_one()
-            assert pg_lower == "gandalf", (
-                f"PostgreSQL lower() should work for ASCII: got {pg_lower}"
-            )
+            assert (
+                pg_lower == "gandalf"
+            ), f"PostgreSQL lower() should work for ASCII: got {pg_lower}"
 
 
 @pytest.mark.asyncio
@@ -398,7 +393,6 @@ class TestRollbackSafety:
     async def test_scalar_captured_before_rollback_survives(self, book_id):
         """Scalar values captured before rollback remain accessible."""
         from tests.conftest import TestSessionLocal
-
 
         async with TestSessionLocal() as session:
             try:
@@ -433,10 +427,11 @@ class TestRollbackSafety:
         """Fresh queries after rollback return valid, non-expired objects."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
-                values = _make_entity_values(book_id, name="\u041f\u0435\u0440\u0441\u043e\u043d\u0430\u0436")
+                values = _make_entity_values(
+                    book_id, name="\u041f\u0435\u0440\u0441\u043e\u043d\u0430\u0436"
+                )
                 await session.execute(_build_upsert_stmt(values))
                 await session.commit()
 
@@ -453,10 +448,14 @@ class TestRollbackSafety:
                 )
                 entity = result.scalar_one()
                 assert entity.name == "\u041f\u0435\u0440\u0441\u043e\u043d\u0430\u0436"
-                assert entity.name_lower == "\u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436"
+                assert (
+                    entity.name_lower
+                    == "\u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436"
+                )
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
+
 
 def _build_production_upsert_stmt(entity_values):
     """Upsert-statement, идентичный production-коду consistency_manager.py.
@@ -523,12 +522,12 @@ class TestConflictAliasesMerge:
         """Глава 1 и Глава 5 видят одну сущность с разными псевдонимами — оба сохраняются."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 # Глава 1 вставляет сущность с псевдонимом "Мальчик-который-выжил"
                 values1 = _make_entity_values(
-                    book_id, name="Гарри",
+                    book_id,
+                    name="Гарри",
                     first_mention_chapter=1,
                     aliases_with_reveal=[
                         {"name": "Мальчик-который-выжил", "reveal_chapter": 1}
@@ -539,11 +538,10 @@ class TestConflictAliasesMerge:
 
                 # Глава 5 попадает в ON CONFLICT с другим псевдонимом "Избранный"
                 values2 = _make_entity_values(
-                    book_id, name="Гарри",
+                    book_id,
+                    name="Гарри",
                     first_mention_chapter=5,
-                    aliases_with_reveal=[
-                        {"name": "Избранный", "reveal_chapter": 5}
-                    ],
+                    aliases_with_reveal=[{"name": "Избранный", "reveal_chapter": 5}],
                 )
                 await session.execute(_build_production_upsert_stmt(values2))
                 await session.commit()
@@ -557,12 +555,12 @@ class TestConflictAliasesMerge:
                 entity = result.scalar_one()
                 alias_names = {a["name"] for a in entity.aliases_with_reveal}
 
-                assert "Мальчик-который-выжил" in alias_names, (
-                    "Псевдоним из первого INSERT потерян при ON CONFLICT"
-                )
-                assert "Избранный" in alias_names, (
-                    "Псевдоним из второго INSERT (ON CONFLICT) не добавлен"
-                )
+                assert (
+                    "Мальчик-который-выжил" in alias_names
+                ), "Псевдоним из первого INSERT потерян при ON CONFLICT"
+                assert (
+                    "Избранный" in alias_names
+                ), "Псевдоним из второго INSERT (ON CONFLICT) не добавлен"
                 # first_mention_chapter должен быть минимальным
                 assert entity.first_mention_chapter == 1
             finally:
@@ -573,11 +571,11 @@ class TestConflictAliasesMerge:
         """Одинаковое имя псевдонима из двух глав — сохраняем с минимальным reveal_chapter."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(
-                    book_id, name="Волдеморт",
+                    book_id,
+                    name="Волдеморт",
                     aliases_with_reveal=[
                         {"name": "Тот-кого-нельзя-называть", "reveal_chapter": 3}
                     ],
@@ -587,7 +585,8 @@ class TestConflictAliasesMerge:
 
                 # Тот же псевдоним, но из более поздней главы — должен взять reveal_chapter=3
                 values2 = _make_entity_values(
-                    book_id, name="Волдеморт",
+                    book_id,
+                    name="Волдеморт",
                     aliases_with_reveal=[
                         {"name": "Тот-кого-нельзя-называть", "reveal_chapter": 7}
                     ],
@@ -604,16 +603,15 @@ class TestConflictAliasesMerge:
                 entity = result.scalar_one()
                 alias_names = [a["name"] for a in entity.aliases_with_reveal]
                 alias_chapters = {
-                    a["name"]: a["reveal_chapter"]
-                    for a in entity.aliases_with_reveal
+                    a["name"]: a["reveal_chapter"] for a in entity.aliases_with_reveal
                 }
 
-                assert alias_names.count("Тот-кого-нельзя-называть") == 1, (
-                    "Дубликат псевдонима не был дедуплицирован"
-                )
-                assert alias_chapters["Тот-кого-нельзя-называть"] == 3, (
-                    "Должен быть сохранён минимальный reveal_chapter=3, а не 7"
-                )
+                assert (
+                    alias_names.count("Тот-кого-нельзя-называть") == 1
+                ), "Дубликат псевдонима не был дедуплицирован"
+                assert (
+                    alias_chapters["Тот-кого-нельзя-называть"] == 3
+                ), "Должен быть сохранён минимальный reveal_chapter=3, а не 7"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()
@@ -622,20 +620,19 @@ class TestConflictAliasesMerge:
         """Псевдоним с reveal_chapter=None (всегда видимый) сохраняется при слиянии."""
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(
-                    book_id, name="Арагорн",
-                    aliases_with_reveal=[
-                        {"name": "Бродяжник", "reveal_chapter": None}
-                    ],
+                    book_id,
+                    name="Арагорн",
+                    aliases_with_reveal=[{"name": "Бродяжник", "reveal_chapter": None}],
                 )
                 await session.execute(_build_production_upsert_stmt(values1))
                 await session.commit()
 
                 values2 = _make_entity_values(
-                    book_id, name="Арагорн",
+                    book_id,
+                    name="Арагорн",
                     aliases_with_reveal=[
                         {"name": "Наследник Исильдура", "reveal_chapter": 10}
                     ],
@@ -667,7 +664,6 @@ class TestConflictAliasesMerge:
         """
         from tests.conftest import TestSessionLocal
 
-
         async with TestSessionLocal() as session:
             try:
                 values1 = _make_entity_values(
@@ -690,9 +686,9 @@ class TestConflictAliasesMerge:
                 )
                 entity = result.scalar_one()
 
-                assert entity.aliases_with_reveal == [], (
-                    "Пустое объединение обязано дать [], а не NULL"
-                )
+                assert (
+                    entity.aliases_with_reveal == []
+                ), "Пустое объединение обязано дать [], а не NULL"
             finally:
                 await session.execute(delete(Entity).where(Entity.book_id == book_id))
                 await session.commit()

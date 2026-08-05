@@ -20,13 +20,31 @@ class TestSynthesisPipelineIntegration:
     async def test_full_pipeline_with_mock_gemini(self):
         """Complete pipeline: entities + events → synthesis → parsed milestones."""
         entities = [
-            {"name": "Раскольников", "type": "character", "visual_summary": "Бедный студент"},
+            {
+                "name": "Раскольников",
+                "type": "character",
+                "visual_summary": "Бедный студент",
+            },
             {"name": "Соня", "type": "character", "visual_summary": "Дочь пьяницы"},
         ]
         events = [
-            {"entity_name": "Раскольников", "chapter_number": 1, "action": "Планирует убийство", "inner_state": "Мрачен"},
-            {"entity_name": "Раскольников", "chapter_number": 3, "action": "Убивает старуху", "inner_state": "В ужасе"},
-            {"entity_name": "Соня", "chapter_number": 2, "action": "Появляется на улице"},
+            {
+                "entity_name": "Раскольников",
+                "chapter_number": 1,
+                "action": "Планирует убийство",
+                "inner_state": "Мрачен",
+            },
+            {
+                "entity_name": "Раскольников",
+                "chapter_number": 3,
+                "action": "Убивает старуху",
+                "inner_state": "В ужасе",
+            },
+            {
+                "entity_name": "Соня",
+                "chapter_number": 2,
+                "action": "Появляется на улице",
+            },
         ]
 
         mock_gemini_response = {
@@ -35,15 +53,33 @@ class TestSynthesisPipelineIntegration:
                     "name": "Раскольников",
                     "base_role": "protagonist",
                     "milestones": [
-                        {"up_to_chapter": 1, "biography": "Бедный студент", "visual_summary_clean": "Молодой человек", "dynamic_role": "Студент", "importance": 9},
-                        {"up_to_chapter": 5, "biography": "Совершил убийство", "visual_summary_clean": "Молодой человек", "dynamic_role": "Убийца", "importance": 10},
+                        {
+                            "up_to_chapter": 1,
+                            "biography": "Бедный студент",
+                            "visual_summary_clean": "Молодой человек",
+                            "dynamic_role": "Студент",
+                            "importance": 9,
+                        },
+                        {
+                            "up_to_chapter": 5,
+                            "biography": "Совершил убийство",
+                            "visual_summary_clean": "Молодой человек",
+                            "dynamic_role": "Убийца",
+                            "importance": 10,
+                        },
                     ],
                 },
                 {
                     "name": "Соня",
                     "base_role": "supporting",
                     "milestones": [
-                        {"up_to_chapter": 2, "biography": "Жертва обстоятельств", "visual_summary_clean": "Худенькая девушка", "dynamic_role": "Знакомая", "importance": 7},
+                        {
+                            "up_to_chapter": 2,
+                            "biography": "Жертва обстоятельств",
+                            "visual_summary_clean": "Худенькая девушка",
+                            "dynamic_role": "Знакомая",
+                            "importance": 7,
+                        },
                     ],
                 },
             ],
@@ -57,7 +93,12 @@ class TestSynthesisPipelineIntegration:
         }
 
         service = EntitySynthesisService()
-        with patch.object(service, '_call_gemini', new_callable=AsyncMock, return_value=mock_gemini_response):
+        with patch.object(
+            service,
+            "_call_gemini",
+            new_callable=AsyncMock,
+            return_value=mock_gemini_response,
+        ):
             result = await service.synthesize_book_entities(
                 book_id="test-book-1",
                 entities=entities,
@@ -97,7 +138,12 @@ class TestSynthesisPipelineIntegration:
         events = []
 
         service = EntitySynthesisService()
-        with patch.object(service, '_call_gemini', new_callable=AsyncMock, side_effect=Exception("API error")):
+        with patch.object(
+            service,
+            "_call_gemini",
+            new_callable=AsyncMock,
+            side_effect=Exception("API error"),
+        ):
             result = await service.synthesize_book_entities(
                 book_id="test-book-3",
                 entities=entities,
@@ -116,8 +162,14 @@ class TestEventDedupIntegration:
     def test_deduped_events_in_synthesis_input(self):
         """Events are deduped before being passed to synthesis prompt."""
         raw_events = [
-            {"action": "Родион Раскольников убивает старуху-процентщицу", "inner": None},
-            {"action": "Родион Раскольников убивает старуху-процентщицу топором", "inner": None},
+            {
+                "action": "Родион Раскольников убивает старуху-процентщицу",
+                "inner": None,
+            },
+            {
+                "action": "Родион Раскольников убивает старуху-процентщицу топором",
+                "inner": None,
+            },
             {"action": "Гарри улетает на метле", "inner": "Счастлив"},
         ]
 
@@ -135,9 +187,24 @@ class TestMilestoneFilteringIntegration:
     def test_progressive_disclosure(self):
         """Milestones reveal progressively as reader advances."""
         milestones = [
-            {"up_to_chapter": 1, "biography": "Студент", "dynamic_role": "Студент", "importance": 5},
-            {"up_to_chapter": 5, "biography": "Убийца", "dynamic_role": "Убийца", "importance": 9},
-            {"up_to_chapter": 10, "biography": "Каторжник", "dynamic_role": "Каторжник", "importance": 8},
+            {
+                "up_to_chapter": 1,
+                "biography": "Студент",
+                "dynamic_role": "Студент",
+                "importance": 5,
+            },
+            {
+                "up_to_chapter": 5,
+                "biography": "Убийца",
+                "dynamic_role": "Убийца",
+                "importance": 9,
+            },
+            {
+                "up_to_chapter": 10,
+                "biography": "Каторжник",
+                "dynamic_role": "Каторжник",
+                "importance": 8,
+            },
         ]
 
         # Reader at chapter 1 sees only first milestone
@@ -175,15 +242,21 @@ class TestMilestoneFilteringIntegration:
         ]
 
         # At chapter 5, reader sees ENEMY (latest <= 5)
-        ch5 = EntityService._get_current_relationship_milestone(rel_milestones, current_chapter=5)
+        ch5 = EntityService._get_current_relationship_milestone(
+            rel_milestones, current_chapter=5
+        )
         assert ch5["type"] == "ENEMY"
 
         # At chapter 10, reader sees RIVAL
-        ch10 = EntityService._get_current_relationship_milestone(rel_milestones, current_chapter=10)
+        ch10 = EntityService._get_current_relationship_milestone(
+            rel_milestones, current_chapter=10
+        )
         assert ch10["type"] == "RIVAL"
 
         # At chapter 20, reader sees ALLY
-        ch20 = EntityService._get_current_relationship_milestone(rel_milestones, current_chapter=20)
+        ch20 = EntityService._get_current_relationship_milestone(
+            rel_milestones, current_chapter=20
+        )
         assert ch20["type"] == "ALLY"
 
 
@@ -193,10 +266,18 @@ class TestSynthesisPromptConstruction:
     def test_prompt_includes_events_per_entity(self):
         """Events are merged into entities_data before prompt generation."""
         entities = [
-            {"name": "Герцог", "type": "character", "visual_summary": "Высокий мужчина"},
+            {
+                "name": "Герцог",
+                "type": "character",
+                "visual_summary": "Высокий мужчина",
+            },
         ]
         events = [
-            {"entity_name": "Герцог", "chapter_number": 1, "action": "Входит во дворец"},
+            {
+                "entity_name": "Герцог",
+                "chapter_number": 1,
+                "action": "Входит во дворец",
+            },
             {"entity_name": "Герцог", "chapter_number": 3, "action": "Объявляет войну"},
         ]
 
@@ -212,12 +293,14 @@ class TestSynthesisPromptConstruction:
         for e in entities:
             name = e.get("name", "")
             entity_events = events_by_entity.get(name.lower(), [])
-            entities_data.append({
-                "name": name,
-                "type": e.get("type", "character"),
-                "visual_summary": e.get("visual_summary", ""),
-                "events": entity_events,
-            })
+            entities_data.append(
+                {
+                    "name": name,
+                    "type": e.get("type", "character"),
+                    "visual_summary": e.get("visual_summary", ""),
+                    "events": entity_events,
+                }
+            )
 
         prompt = EntitySynthesisService._build_synthesis_prompt(
             entities_data=entities_data,
@@ -234,12 +317,14 @@ class TestSynthesisPromptConstruction:
     def test_prompt_handles_location_type(self):
         """Location entities get type-specific instructions in prompt."""
         prompt = EntitySynthesisService._build_synthesis_prompt(
-            entities_data=[{
-                "name": "Замок",
-                "type": "location",
-                "visual_summary": "Древний каменный замок",
-                "events": [],
-            }],
+            entities_data=[
+                {
+                    "name": "Замок",
+                    "type": "location",
+                    "visual_summary": "Древний каменный замок",
+                    "events": [],
+                }
+            ],
             all_entity_names=["Замок"],
             genre="FANTASY",
             language="ru",

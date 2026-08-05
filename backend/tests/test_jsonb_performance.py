@@ -21,6 +21,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.book import Book
 from app.models.image import GeneratedImage
+
 # SKIP: Tests require GIN indexes which are not created by Base.metadata.create_all() in test DB
 # These tests need either:
 # 1. Alembic migrations to be run in test DB
@@ -173,9 +174,9 @@ async def test_gin_index_usage_books(db_session: AsyncSession):
 
     # Check that GIN index is mentioned in the plan
     plan_str = str(plan)
-    assert "idx_books_metadata_gin" in plan_str or "Bitmap Index Scan" in plan_str, (
-        "GIN index not being used for JSONB query"
-    )
+    assert (
+        "idx_books_metadata_gin" in plan_str or "Bitmap Index Scan" in plan_str
+    ), "GIN index not being used for JSONB query"
 
     print("   ✓ GIN index is being used for books.book_metadata")
     print(f"   Query plan: {plan[0]['Plan']['Node Type']}")
@@ -262,9 +263,9 @@ async def test_jsonb_query_performance_benchmark(db_session: AsyncSession):
     print(f"   - QPS: {iterations / elapsed:.2f} queries/second")
 
     # Assert performance target
-    assert avg_time_ms < 100, (
-        f"JSONB query too slow: {avg_time_ms:.2f}ms (expected <100ms)"
-    )
+    assert (
+        avg_time_ms < 100
+    ), f"JSONB query too slow: {avg_time_ms:.2f}ms (expected <100ms)"
 
     if avg_time_ms < 10:
         print("   ✅ EXCELLENT: Query time <10ms (target achieved)")
@@ -330,9 +331,9 @@ async def test_jsonb_data_integrity(db_session: AsyncSession):
     for book in books:
         if book.book_metadata is not None:
             # Verify it's a dict (JSONB parsed correctly)
-            assert isinstance(book.book_metadata, dict), (
-                f"book_metadata should be dict, got {type(book.book_metadata)}"
-            )
+            assert isinstance(
+                book.book_metadata, dict
+            ), f"book_metadata should be dict, got {type(book.book_metadata)}"
 
     print(f"   ✓ All {len(books)} books have valid JSONB metadata")
 

@@ -7,7 +7,6 @@
 - Удаление NLP-валидатора (мёртвый код, блокировал запуск)
 """
 
-import os
 import pytest
 
 
@@ -20,7 +19,6 @@ class TestSEC01DebugDefault:
         monkeypatch.delenv("DEBUG", raising=False)
         # Сбрасываем кэш settings, пересоздаём объект
         from app.core import config as config_module
-        from importlib import reload
 
         # Временно устанавливаем DEBUG=false чтобы проверить дефолтное поведение
         # Тест проверяет, что дефолтное значение в классе Settings — False
@@ -43,7 +41,6 @@ class TestSEC01DebugDefault:
         # Этот тест проверяет, что дефолтное значение поля в классе = False,
         # а не реальное runtime значение (которое может переопределяться через .env)
         from app.core.config import Settings
-        import pydantic_settings
 
         # Получаем default value из model fields
         field_info = Settings.model_fields.get("DEBUG")

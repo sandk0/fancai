@@ -13,12 +13,16 @@ from app.schemas.responses.entities import EntityNetworkResponse
 class TestEntityServiceNormalizeName:
     def test_normalize_name_lowercase(self):
         assert _normalize_name("GERALT") == "geralt"
+
     def test_normalize_name_strips_whitespace(self):
         assert _normalize_name("  Geralt  ") == "geralt"
+
     def test_normalize_name_casefold_preserves_yo(self):
         assert _normalize_name("Ёлка") == "ёлка"
+
     def test_normalize_name_empty_string(self):
         assert _normalize_name("") == ""
+
     def test_normalize_name_none(self):
         assert _normalize_name(None) == ""
 
@@ -299,7 +303,9 @@ class TestEntityServiceGetBookEntityNetwork:
         with patch("app.services.entity_service.cache_manager") as mock_cache:
             mock_cache.get = AsyncMock(return_value={"entities": {}, "edges": []})
             await service.get_book_entity_network(book_id)
-            mock_cache.get.assert_called_once_with(f"book:{book_id}:entity_network_raw_v5")
+            mock_cache.get.assert_called_once_with(
+                f"book:{book_id}:entity_network_raw_v5"
+            )
 
     async def test_get_book_entity_network_loads_from_db_on_cache_miss(self):
         mock_db = AsyncMock()
@@ -349,9 +355,24 @@ class TestChapterFiltering:
     def test_filter_milestones_by_chapter(self):
         """Возвращает milestone до текущей главы."""
         milestones = [
-            {"up_to_chapter": 1, "biography": "Студент", "dynamic_role": "Студент", "importance": 5},
-            {"up_to_chapter": 5, "biography": "Убийца", "dynamic_role": "Убийца", "importance": 9},
-            {"up_to_chapter": 10, "biography": "Каторжник", "dynamic_role": "Каторжник", "importance": 8},
+            {
+                "up_to_chapter": 1,
+                "biography": "Студент",
+                "dynamic_role": "Студент",
+                "importance": 5,
+            },
+            {
+                "up_to_chapter": 5,
+                "biography": "Убийца",
+                "dynamic_role": "Убийца",
+                "importance": 9,
+            },
+            {
+                "up_to_chapter": 10,
+                "biography": "Каторжник",
+                "dynamic_role": "Каторжник",
+                "importance": 8,
+            },
         ]
         result = EntityService._get_current_milestone(milestones, current_chapter=5)
         assert result["biography"] == "Убийца"
@@ -407,10 +428,14 @@ class TestChapterFiltering:
             {"up_to_chapter": 3, "type": "ENEMY", "weight": -60},
             {"up_to_chapter": 10, "type": "ALLY", "weight": 70},
         ]
-        result = EntityService._get_current_relationship_milestone(milestones, current_chapter=5)
+        result = EntityService._get_current_relationship_milestone(
+            milestones, current_chapter=5
+        )
         assert result["type"] == "ENEMY"
 
     def test_filter_relationship_milestones_none(self):
         """None milestones."""
-        result = EntityService._get_current_relationship_milestone(None, current_chapter=5)
+        result = EntityService._get_current_relationship_milestone(
+            None, current_chapter=5
+        )
         assert result is None

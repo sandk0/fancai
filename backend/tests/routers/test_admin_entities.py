@@ -345,9 +345,10 @@ class TestMergeEntities:
             .all()
         )
         assert {link.description_id for link in links} == {shared.id, own.id}
-        assert await db_session.scalar(
-            select(func.count()).select_from(DescriptionEntity)
-        ) == 2
+        assert (
+            await db_session.scalar(select(func.count()).select_from(DescriptionEntity))
+            == 2
+        )
 
     @pytest.mark.asyncio
     async def test_nonexistent_duplicates_merge_nothing(

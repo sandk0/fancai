@@ -99,9 +99,7 @@ class TestValidateFile:
         assert response.json()["detail"] == "File too small"
 
     @pytest.mark.asyncio
-    async def test_corrupted_epub_reports_invalid_not_error(
-        self, client: AsyncClient
-    ):
+    async def test_corrupted_epub_reports_invalid_not_error(self, client: AsyncClient):
         """Битый zip — валидный ответ с `is_valid: false`, а не 5xx."""
         response = await client.post(
             "/api/v1/books/validate-file",

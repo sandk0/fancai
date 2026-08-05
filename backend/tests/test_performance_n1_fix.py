@@ -156,9 +156,9 @@ async def test_book_list_no_n1_queries(
         for book, progress_percent in books_with_progress:
             assert 0.0 <= progress_percent <= 100.0, "Progress should be 0-100%"
             # We set current_position=25 in chapter 1 of 1 chapter
-            assert progress_percent == 25.0, (
-                f"Expected 25% progress, got {progress_percent}%"
-            )
+            assert (
+                progress_percent == 25.0
+            ), f"Expected 25% progress, got {progress_percent}%"
 
         print("[TEST] ✅ PASS: Reading progress calculated correctly for all books")
 
@@ -229,15 +229,13 @@ async def test_progress_per_book_adds_no_queries(
         )
 
         assert len(books_with_progress) == num_books
-        assert query_counter.count < num_books, (
-            f"N+1 вернулся: {query_counter.count} запросов на {num_books} книг"
-        )
+        assert (
+            query_counter.count < num_books
+        ), f"N+1 вернулся: {query_counter.count} запросов на {num_books} книг"
         for _book, progress_percent in books_with_progress:
             assert progress_percent == 50.0
     finally:
         event.remove(sync_engine, "before_cursor_execute", query_counter.receive)
-
-
 
 
 if __name__ == "__main__":

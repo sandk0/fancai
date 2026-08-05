@@ -73,7 +73,13 @@ class TestChaptersRouter:
 
         # Схема ChapterResponse: номер главы называется chapter_number
         chapter = data["chapter"]
-        assert set(chapter) >= {"id", "chapter_number", "title", "content", "word_count"}
+        assert set(chapter) >= {
+            "id",
+            "chapter_number",
+            "title",
+            "content",
+            "word_count",
+        }
         assert chapter["chapter_number"] == 1
 
         navigation = data["navigation"]

@@ -9,7 +9,7 @@
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from fastapi import Request, HTTPException
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
@@ -164,7 +164,6 @@ class TestRateLimitExceeded:
             return {"ok": True}
 
         # Мокаем is_rate_limited на экземпляре rate_limiter через monkey-patching класса
-        from app.middleware import rate_limit as rl_middleware
 
         original = RateLimiter.is_rate_limited
 
@@ -223,7 +222,6 @@ class TestRateLimitExceeded:
     def test_rate_limit_429_exception_structure(self):
         """HTTPException для 429 содержит правильную структуру detail."""
         # Проверяем через прямое создание HTTPException с нашей структурой
-        from fastapi import HTTPException
         from fastapi import status
 
         exc = HTTPException(

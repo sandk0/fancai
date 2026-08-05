@@ -76,6 +76,8 @@ class TestInlineDefs:
         assert result["properties"]["age"] == {"type": "integer"}
         # $defs не появился
         assert "$defs" not in result
+        # Ради этого и снимался снимок: плоская схема обязана вернуться как есть
+        assert result == original
 
     def test_inline_defs_with_ref(self):
         """Схема с $defs/$ref корректно разворачивается."""
@@ -199,7 +201,7 @@ class TestGenerateText:
     @pytest.mark.asyncio
     async def test_generate_text_fallback_on_500(self):
         """При 5xx первой модели переключается на fallback."""
-        from app.core.openrouter_client import OpenRouterClient, FALLBACK_MODELS
+        from app.core.openrouter_client import OpenRouterClient
 
         client = OpenRouterClient(api_key="test-key")
         expected_content = '{"result": "from_fallback"}'
@@ -235,7 +237,7 @@ class TestGenerateText:
     @pytest.mark.asyncio
     async def test_generate_text_all_models_fail(self):
         """При сбое всех моделей пробрасывается исключение."""
-        from app.core.openrouter_client import OpenRouterClient, FALLBACK_MODELS
+        from app.core.openrouter_client import OpenRouterClient
 
         client = OpenRouterClient(api_key="test-key")
 
@@ -346,7 +348,7 @@ class TestFallbackBehavior:
             mock_http.post = mock_post
             mock_get_client.return_value = mock_http
 
-            result = await client.generate_text(prompt="test")
+            await client.generate_text(prompt="test")
 
         assert call_count == 2  # Fallback произошёл
 
@@ -370,7 +372,7 @@ class TestFallbackBehavior:
             mock_http.post = mock_post
             mock_get_client.return_value = mock_http
 
-            result = await client.generate_text(prompt="test")
+            await client.generate_text(prompt="test")
 
         assert call_count == 2
 

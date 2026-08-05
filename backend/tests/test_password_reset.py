@@ -42,9 +42,7 @@ class TestForgotPassword:
 
         # Verify token was created in DB
         result = await db_session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == test_user.id
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user.id)
         )
         token = result.scalar_one_or_none()
         assert token is not None
@@ -80,9 +78,7 @@ class TestForgotPassword:
 
         # No token should be created for deactivated users
         result = await db_session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == test_user.id
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user.id)
         )
         assert result.scalar_one_or_none() is None
 
@@ -98,9 +94,7 @@ class TestForgotPassword:
         )
 
         result = await db_session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == test_user.id
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user.id)
         )
         first_tokens = result.scalars().all()
         assert len(first_tokens) == 1
@@ -113,9 +107,7 @@ class TestForgotPassword:
         )
 
         result = await db_session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == test_user.id
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user.id)
         )
         tokens = result.scalars().all()
         assert len(tokens) == 1
@@ -214,9 +206,7 @@ class TestResetPassword:
 
         # Verify token was consumed (deleted)
         result = await db_session.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == test_user.id
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user.id)
         )
         assert result.scalar_one_or_none() is None
 
@@ -235,7 +225,10 @@ class TestResetPassword:
         )
 
         assert response.status_code == 400
-        assert "invalid" in response.json()["detail"].lower() or "expired" in response.json()["detail"].lower()
+        assert (
+            "invalid" in response.json()["detail"].lower()
+            or "expired" in response.json()["detail"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_reset_password_used_token(
@@ -258,7 +251,10 @@ class TestResetPassword:
         """Completely bogus token returns 400."""
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "bogus-token-that-does-not-exist", "new_password": "NewSecureP@ss99!"},
+            json={
+                "token": "bogus-token-that-does-not-exist",
+                "new_password": "NewSecureP@ss99!",
+            },
         )
 
         assert response.status_code == 400
@@ -345,18 +341,20 @@ class TestResetPassword:
         """Successful reset fires a confirmation email (fire-and-forget)."""
         plain_token = await self._create_reset_token(db_session, test_user)
 
-        with patch(
-            "app.routers.auth.get_email_service_dep"
-        ) as mock_email_dep:
+        with patch("app.routers.auth.get_email_service_dep") as mock_email_dep:
             mock_email_svc = AsyncMock()
-            mock_email_svc.send_password_changed_confirmation = AsyncMock(return_value=True)
+            mock_email_svc.send_password_changed_confirmation = AsyncMock(
+                return_value=True
+            )
             mock_email_dep.return_value = mock_email_svc
 
             # We need to override the dependency
             from app.main import app as fastapi_app
             from app.core.container import get_email_service_dep
 
-            fastapi_app.dependency_overrides[get_email_service_dep] = lambda: mock_email_svc
+            fastapi_app.dependency_overrides[get_email_service_dep] = (
+                lambda: mock_email_svc
+            )
 
             try:
                 response = await client.post(
@@ -367,6 +365,7 @@ class TestResetPassword:
 
                 # Give asyncio.ensure_future time to run
                 import asyncio
+
                 await asyncio.sleep(0.1)
 
                 mock_email_svc.send_password_changed_confirmation.assert_called_once_with(
@@ -383,11 +382,16 @@ class TestResetPassword:
         start = time.monotonic()
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "completely-invalid-token", "new_password": "NewSecureP@ss99!"},
+            json={
+                "token": "completely-invalid-token",
+                "new_password": "NewSecureP@ss99!",
+            },
         )
         elapsed = time.monotonic() - start
 
         assert response.status_code == 400
         # bcrypt hash takes measurable time (>10ms typically)
         # This ensures timing safety: invalid tokens don't return instantly
-        assert elapsed > 0.01, f"Response too fast ({elapsed:.4f}s), timing safety may be broken"
+        assert (
+            elapsed > 0.01
+        ), f"Response too fast ({elapsed:.4f}s), timing safety may be broken"

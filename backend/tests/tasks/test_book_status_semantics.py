@@ -52,12 +52,10 @@ class TestBookStatusSemantics:
 
         with patch(
             "app.tasks.book_tasks.publish_book_progress", new_callable=AsyncMock
-        ) as mock_ws, patch(
-            "app.tasks.book_tasks.push_notification_service"
-        ) as mock_push:
+        ), patch("app.tasks.book_tasks.push_notification_service") as mock_push:
             mock_push.send_book_ready_notification = AsyncMock()
 
-            result = await _finalize_book_status(db, book, total_chapters=10)
+            await _finalize_book_status(db, book, total_chapters=10)
 
         assert book.descriptions_extracted is True
         assert book.descriptions_processing_error is None
@@ -78,7 +76,7 @@ class TestBookStatusSemantics:
         ), patch("app.tasks.book_tasks.push_notification_service") as mock_push:
             mock_push.send_book_ready_notification = AsyncMock()
 
-            result = await _finalize_book_status(db, book, total_chapters=10)
+            await _finalize_book_status(db, book, total_chapters=10)
 
         assert book.descriptions_extracted is False
         assert book.descriptions_processing_error is not None

@@ -12,7 +12,6 @@ Tests:
 """
 
 import json
-import time
 from time import monotonic
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -260,18 +259,14 @@ async def test_prometheus_gauge_updated_on_open():
     with patch.object(client, "_get_client", return_value=mock_http):
         # Drive CB to open state through 5 failures with single model (no fallback)
         for _ in range(5):
-            try:
+            with pytest.raises(httpx.TimeoutException):
                 await client.generate_text("test", model="test-model")
-            except httpx.TimeoutException:
-                pass
 
         assert openrouter_breaker.state == "open"
 
         # Now try a call that should hit CircuitBreakerError
-        try:
+        with pytest.raises(CircuitBreakerError):
             await client.generate_text("test", model="test-model")
-        except CircuitBreakerError:
-            pass
 
     # Verify Prometheus gauge was set to 2 (open)
     gauge_value = circuit_breaker_state.labels(name="openrouter_api")._value.get()

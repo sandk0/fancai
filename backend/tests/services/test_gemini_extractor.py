@@ -12,7 +12,6 @@ Tests cover:
 """
 
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.gemini_extractor import (
@@ -20,9 +19,6 @@ from app.services.gemini_extractor import (
     GeminiConfig,
     GeminiResponseSchema,
     GeminiTSAResponseSchema,
-    GeminiEntitySchema,
-    GeminiRelationshipSchema,
-    GeminiDescriptionSchema,
     ExtractedDescription,
     DescriptionType,
     RecursiveTextChunker,
@@ -244,7 +240,7 @@ class TestCallGeminiWithRetry:
         ):
             extractor = GeminiDirectExtractor(sample_config)
 
-        result = await extractor._call_gemini_with_retry("test prompt")
+        await extractor._call_gemini_with_retry("test prompt")
 
         mock_client.generate_structured.assert_called_once()
         call_kwargs = mock_client.generate_structured.call_args
@@ -349,7 +345,7 @@ class TestCallGeminiTSA:
         ):
             extractor = GeminiDirectExtractor(sample_config)
 
-        result = await extractor._call_gemini_tsa("test prompt")
+        await extractor._call_gemini_tsa("test prompt")
 
         mock_client.generate_structured.assert_called_once()
         call_kwargs = mock_client.generate_structured.call_args

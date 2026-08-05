@@ -351,7 +351,9 @@ class TestGetGeneratedImageFile:
         )
 
         assert response.status_code == 200
-        assert response.headers["Cache-Control"] == "public, max-age=31536000, immutable"
+        assert (
+            response.headers["Cache-Control"] == "public, max-age=31536000, immutable"
+        )
         assert response.headers["ETag"]
 
     @pytest.mark.asyncio
@@ -473,9 +475,7 @@ class TestImageStats:
         mine = await client.get(
             "/api/v1/images/user/stats", headers=test_user_auth_headers
         )
-        stranger = await client.get(
-            "/api/v1/images/user/stats", headers=auth_headers
-        )
+        stranger = await client.get("/api/v1/images/user/stats", headers=auth_headers)
 
         assert mine.status_code == 200
         assert mine.json()["total_images_generated"] == 1
@@ -646,7 +646,9 @@ class TestGenerateImagesForChapter:
         """Порядок обязан быть по priority_score: результаты сопоставляются по индексу."""
         from tests.conftest import MockImageGenerationResult
 
-        low = await _make_description(db_session, test_chapter, content="Низкий", priority=0.1)
+        low = await _make_description(
+            db_session, test_chapter, content="Низкий", priority=0.1
+        )
         high = await _make_description(
             db_session, test_chapter, content="Высокий", priority=0.9
         )
@@ -706,9 +708,7 @@ class TestGenerateImagesForChapter:
         assert body["failed"] == 1
         assert len(body["images"]) == 1
 
-        stored = (
-            (await db_session.execute(select(GeneratedImage))).scalars().all()
-        )
+        stored = (await db_session.execute(select(GeneratedImage))).scalars().all()
         assert len(stored) == 1
 
     @pytest.mark.asyncio
@@ -1014,7 +1014,9 @@ class TestRegenerateImage:
         )
 
         response = await client.post(
-            f"/api/v1/images/regenerate/{image.id}", json={}, headers=test_user_auth_headers
+            f"/api/v1/images/regenerate/{image.id}",
+            json={},
+            headers=test_user_auth_headers,
         )
 
         assert response.status_code == 500

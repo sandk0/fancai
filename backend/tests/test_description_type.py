@@ -26,9 +26,9 @@ class TestDescriptionTypeEnum:
     def test_all_values_lowercase(self) -> None:
         """All enum values must be lowercase."""
         for member in DescriptionType:
-            assert member.value == member.value.lower(), (
-                f"{member.name} has non-lowercase value: {member.value!r}"
-            )
+            assert (
+                member.value == member.value.lower()
+            ), f"{member.name} has non-lowercase value: {member.value!r}"
 
     def test_expected_members(self) -> None:
         """All 5 expected members exist."""

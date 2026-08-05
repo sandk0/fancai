@@ -168,9 +168,9 @@ def test_csp_no_unsafe_eval():
     assert "'unsafe-eval'" not in script_src, "CSP should not contain unsafe-eval"
 
     # Should NOT contain unsafe-inline in script-src
-    assert "'unsafe-inline'" not in script_src, (
-        "CSP should not contain unsafe-inline in script-src"
-    )
+    assert (
+        "'unsafe-inline'" not in script_src
+    ), "CSP should not contain unsafe-inline in script-src"
 
 
 def test_csp_block_mixed_content():
@@ -194,9 +194,9 @@ def test_csp_style_src_allows_unsafe_inline():
     style_src = directives.get("style-src", [])
 
     # Should contain unsafe-inline for Tailwind CSS
-    assert "'unsafe-inline'" in style_src, (
-        "CSP should allow unsafe-inline for styles (Tailwind)"
-    )
+    assert (
+        "'unsafe-inline'" in style_src
+    ), "CSP should allow unsafe-inline for styles (Tailwind)"
 
 
 def test_csrf_exempt_paths():
@@ -298,9 +298,9 @@ def test_password_validation_in_auth_endpoint():
 
     # Check source code contains validation
     source = inspect.getsource(register_func)
-    assert "validate_password_strength" in source, (
-        "Should use validate_password_strength"
-    )
+    assert (
+        "validate_password_strength" in source
+    ), "Should use validate_password_strength"
 
 
 @pytest.mark.integration

@@ -32,9 +32,7 @@ async def _post_batch(client: AsyncClient, payload) -> "object":
     )
 
 
-async def _make_bookmark(
-    db: AsyncSession, user: User, book: Book, **kw
-) -> Bookmark:
+async def _make_bookmark(db: AsyncSession, user: User, book: Book, **kw) -> Bookmark:
     bookmark = Bookmark(
         user_id=user.id,
         book_id=book.id,

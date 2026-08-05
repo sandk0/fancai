@@ -51,7 +51,6 @@ class TestOpenRouterMigration:
 
     def test_optional_fields_in_deduplication_response(self):
         """DeduplicationResponse с Optional полями корректно работает через JSON Schema."""
-        from pydantic import BaseModel
         from app.core.openrouter_client import _inline_defs
 
         schema = DeduplicationResponse.model_json_schema()
@@ -66,7 +65,7 @@ class TestOpenRouterMigration:
 
     async def test_call_gemini_uses_generate_structured(self):
         """_call_gemini должен использовать generate_structured с DeduplicationResponse."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, patch
 
         mock_client = AsyncMock()
         mock_client.generate_structured = AsyncMock(

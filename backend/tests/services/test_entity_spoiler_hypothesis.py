@@ -9,7 +9,6 @@ Property-based тесты спойлер-фильтрации EntityService (Hyp
 5. Монотонность: больше прочитанных глав = больше или равно видимых данных
 """
 
-import pytest
 from hypothesis import given, assume, settings
 from hypothesis import strategies as st
 
