@@ -9,20 +9,28 @@
 
 ---
 
-## 2026-08-09 · Покрытие бэкенда 60,77 % → 70,20 %: гейт был красным из-за дефекта измерения
+## 2026-08-09 · Покрытие бэкенда 60,77 % → 71,07 %: гейт был красным из-за дефекта измерения
 
-**Статус:** исполнен `docs/prompts/2026-08-09-backend-coverage-to-70.md`.
-Прод не тронут, выкатки не было. Правки только в `backend/`.
+**Статус:** исполнен `docs/prompts/2026-08-09-backend-coverage-to-70.md`,
+включая §7 — GitHub Actions включены, `ci.yml` прогнан. Прод не тронут,
+выкатки не было. Правки только в `backend/` и `.github/workflows/ci.yml`.
 
 ### 1. Числа
 
-| Прогон `docker exec fancai_backend_dev bash check-coverage.sh` | Прошло | Пропущено | Упало | Покрытие |
+| Прогон `check-coverage.sh` | Прошло | Пропущено | Упало | Покрытие |
 | --- | ---: | ---: | ---: | ---: |
 | baseline | 994 | 14 | 0 | 60,77 % |
 | после `concurrency = greenlet` (правки тестов те же) | 1054 | 14 | 0 | 67,09 % |
-| итог | **1121** | 14 | **0** | **70,20 %** |
+| локальный итог | **1177** | 14 | **0** | **71,07 %** |
+| **тот же гейт в GitHub Actions** | **1177** | 14 | **0** | **70,89 %** |
 
-Порог взят, код возврата 0. Непокрытых строк 4722 → 3587 при 12 037 всего.
+Порог взят в обеих средах, код возврата 0. Непокрытых строк 4722 → 3483
+при 12 039 всего.
+
+Локальная и CI-цифры расходятся на 0,18 п.п. — это остаток окружения
+(`monitoring/middleware.py` и `illustration_service` исполняют в контейнере
+ветки, недостижимые на раннере). Больший перекос (0,7 п.п. на `core/secrets.py`)
+снят тестами, см. §9.
 
 ### 2. Главное: 6,3 процентных пункта из 9,4 дал не тест, а конфиг
 
@@ -52,12 +60,16 @@
 строки исполнялись и раньше, просто не отслеживались. Оттого весь `app/routers/*`
 показывал 18-45 % при зелёном наборе — цифра 60,77 % была артефактом измерения.
 
-### 3. Дефекты кода, найденные тестами (оба проверены мутацией)
+### 3. Дефекты кода, найденные тестами (все проверены мутацией)
 
 | Где | Что было неверно |
 | --- | --- |
 | `app/main.py:253` | общий обработчик `StarletteHTTPException` строил `JSONResponse` **без `exc.headers`**. Стандартный обработчик Starlette их передаёт, этот — терял. Потери: `WWW-Authenticate` на всех 401 (RFC 7235 требует его в ответе; на `/health/metrics` с Basic-схемой браузер без него не покажет диалог входа), `Retry-After` и `X-RateLimit-*` на 429 из декоратора `rate_limit`, `X-RateLimit-*` на 402 при исчерпанной квоте генерации — клиент не мог узнать, когда квота сбросится. Правка: `headers=exc.headers` |
-| `app/routers/admin/entities.py:191` | слияние сущностей **молча теряло алиасы**. `entity_metadata` — обычная JSONB без `MutableDict`; код правил словарь на месте и присваивал обратно ТОТ ЖЕ объект, история атрибута оставалась пустой, UPDATE не уходил. После «слить „Белый Волк“ в „Геральт“» алиас не сохранялся, а строка дубликата к этому моменту уже удалена — потеря безвозвратная. Задевало только мастеров с непустым `entity_metadata`, то есть всех, созданных LLM. Правка: собирать новый словарь |
+| `app/routers/admin/entities.py:191` | слияние сущностей **молча теряло алиасы**. `entity_metadata` — обычная JSONB без `MutableDict`; код правил словарь на месте и присваивал обратно ТОТ ЖЕ объект, история атрибута оставалась пустой, UPDATE не уходил. После «слить „Белый Волк“ в „Геральт“» алиас не сохранялся, а строка дубликата к этому моменту уже удалена — потеря безвозвратная. Задевало всех мастеров с непустым `entity_metadata`, то есть все сущности от LLM. Правка: собирать новый словарь |
+| `app/routers/books/__init__.py:22` | **`GET /books/parser-status` был недостижим.** FastAPI сопоставляет маршруты в порядке регистрации, `crud` подключался первым и нёс catch-all `GET /{book_id}`: литеральный путь перехватывался вместе с гардом авторизации и отвечал 401 без токена, 422 с токеном («parser-status» — не UUID). POST-маршруты `validation` не задевало: у `/{book_id}` нет POST. Правка: `validation` регистрируется раньше `crud` |
+| `app/core/secrets.py:333` | рекомендация «секрет без спецсимволов» не доходила до отчёта ни разу: обработка `WARNING` жила под `if not is_strong`, а такое сообщение приходит только вместе с `is_strong=True` — мёртвая ветка |
+| `backend/tests/conftest.py:38` | имя тестовой БД выводилось как `removesuffix('_dev') + '_test'`. В CI сервис Postgres поднимается сразу с `POSTGRES_DB: fancai_test`, и формула давала `fancai_test_test` — **462 ошибки `InvalidCatalogNameError` в первом же прогоне Actions** при 659 прошедших. Локально не видно: там БД `fancai_dev` |
+| `.github/workflows/ci.yml:179` | шаг «Run tests with coverage» был **зелёным, хотя скрипт напечатал «FAIL Required test coverage of 70% not reached: 69.52%»**. Молча зелёный гейт покрытия хуже, чем его отсутствие: именно на нём держалось решение #6 не включать Actions. Код возврата теперь снимается в переменную, печатается в лог (`check-coverage.sh exit=0`) и при ненулевом значении роняет шаг через `::error::` |
 
 Мутация (`git show HEAD:<файл>` поверх правки, прогон охраняющего теста):
 
@@ -65,22 +77,27 @@
 | --- | --- | --- |
 | `headers=exc.headers` | `test_auth::test_get_current_user_unauthorized` + `test_images::test_exhausted_quota_is_rejected_with_402` | 2 failed |
 | новый словарь `entity_metadata` | `test_admin_entities::test_merge_repoints_mentions_and_absorbs_aliases` | 1 failed |
+| порядок подключения роутеров | `test_books_validation::TestParserStatus` | 2 failed |
+| ветка `WARNING` в `_validate_secret` | `test_secrets::test_weak_key_without_special_chars_only_warns` | 1 failed |
 
 ### 4. Что покрыто
 
 | Модуль | Было | Стало |
 | --- | ---: | ---: |
-| `routers/images.py` | 26 % | **96 %** |
+| `core/secrets.py` | 66 % | **99 %** |
 | `routers/admin/entities.py` | 35 % | **97 %** |
+| `routers/images.py` | 26 % | **96 %** |
 | `routers/descriptions.py` | 25 % | **96 %** |
 | `routers/sync.py` | 27 % | **91 %** |
+| `routers/books/validation.py` | 22 % | **~97 %** |
 | `services/image_crud_service.py` | 44 % | **81 %** |
-| `services/description_extraction_service.py` | 27 % | **62 %** |
 | `services/consistency_manager.py` | 45 % | **67 %** |
+| `services/description_extraction_service.py` | 27 % | **62 %** |
 | `tasks/book_tasks.py` | 12 % | **30 %** |
 
 Новые файлы: `tests/tasks/test_book_tasks_helpers.py`, `tests/routers/test_images.py`,
-`tests/routers/test_sync_batch.py`, `tests/routers/test_admin_entities.py`;
+`tests/routers/test_sync_batch.py`, `tests/routers/test_admin_entities.py`,
+`tests/routers/test_books_validation.py`, `tests/core/test_secrets.py`;
 расширен `tests/routers/test_descriptions.py`.
 
 По `book_tasks.py` покрыты ровно три вспомогательные функции из плана
@@ -136,6 +153,19 @@
 - **Общий `@app.exception_handler(404)`** подменяет тело ЛЮБОГО 404 на
   `{"error": "Not Found", "path": ...}`: `detail` эндпоинта до клиента
   не доезжает, и проверять надо то, что видит клиент.
+- **Хранилища файлов были привязаны к `/app/storage`.** Путь захардкожен
+  абсолютным в четырёх модулях и существует только в контейнере: на раннере
+  `/app` нет и создать нельзя (`PermissionError`). 12 тестов падали ТОЛЬКО
+  в CI. Каталоги книг и обложек вынесены в константы модуля (по образцу уже
+  существовавших `images.GENERATED_IMAGES_DIR` и `illustration_service.IMAGES_DIR`),
+  autouse-фикстура `storage_dirs_in_tmp` уводит все четыре в `tmp_path`.
+  Побочно: прогон перестал засорять общий том dev-стенда.
+- **`app.services.book.book_service` — это ЭКЗЕМПЛЯР, а не модуль**
+  (`book/__init__.py` экспортирует синглтон и затеняет имя). Чтобы
+  пропатчить константу модуля, его надо брать из `sys.modules`.
+- **Контейнер `fancai_postgres_dev` может исчезнуть посреди сессии.**
+  Симптом — `socket.gaierror: Name or service not known` на всех тестах с БД.
+  Лечится `docker compose -f docker-compose.dev.yml up -d postgres`.
 
 ### 7. Удалено
 
@@ -159,6 +189,52 @@ text=…, description_type=…)` описывает API, снесённый вм
   `services/gemini_extractor.py` 213, `routers/websocket.py` 150,
   `routers/books/crud.py` 123, `routers/reading_sessions.py` 136,
   `services/push_notification_service.py` 103.
+- **Фронтовые джобы CI красные унаследованно.** `frontend-lint` падает на
+  `npx tsc --noEmit`: около 20 ошибок в тестовых файлах
+  (`EpubReader.test.tsx` не знает `chapterPage`/`instantNextPage` из
+  обновившихся хуков, неиспользуемые импорты, `Array.at` против `lib` ниже
+  es2022). `frontend-tests` — 562 passed, но сюита `EpubReader.test.tsx`
+  не стартует: в окружении CI не задан `VITE_API_BASE_URL`, и
+  `src/config/env.ts` бросает на импорте. Пока они красные, `e2e-tests`
+  и `docker-build` не запускаются вовсе.
+
+### 9. Прогон в GitHub Actions (§7 промпта)
+
+Actions были выключены на уровне репозитория с ноября 2025; единственной
+причиной был красный гейт покрытия (решение #6). Включены через
+`gh api -X PUT .../actions/permissions`. GitHub НЕ переигрывает события,
+случившиеся при выключенных Actions, поэтому в `ci.yml` добавлен
+`workflow_dispatch` — заодно пайплайн стал запускаться вручную.
+
+Три прогона подряд, каждый вскрыл свой класс расхождения «локально ≠ CI»:
+
+| Прогон | Backend Tests | Что вскрылось |
+| --- | --- | --- |
+| 1 | 659 passed, **462 errors** | имя тестовой БД `fancai_test_test` |
+| 2 | 1109 passed, 7 failed, 5 errors, 68,80 % | недоступный `/app/storage` |
+| 3 | **1177 passed, 0 failed, 70,89 %, exit=0** | — |
+
+**Локальная цифра была оптимистичнее реальной на 0,7 п.п.** `core/secrets.py`
+читает окружение напрямую: в dev-контейнере `startup_secrets_check`
+выполнялся целиком, а на раннере `CI=true` короткозамыкает функцию на первой
+проверке, и 60 строк модуля числились непокрытыми только в CI. Закрыто
+тестами (`tests/core/test_secrets.py`, 43 теста, модуль 99 %), теперь цифра
+не зависит от среды. Остаток расхождения — 21 строка
+(`monitoring/middleware.py`, `illustration_service`).
+
+**Состояние пайплайна на конец сессии:**
+
+| Джоба | Итог |
+| --- | --- |
+| `backend-lint` | ✅ |
+| `backend-tests` | ✅ 1177 passed, 70,89 % |
+| `security-scan` | ✅ |
+| `frontend-lint` | ❌ ~20 ошибок `tsc` в `src/**/__tests__/*` |
+| `frontend-tests` | ❌ 562 passed, 1 сюита падает на отсутствующем `VITE_API_BASE_URL` |
+| `e2e-tests`, `docker-build` | skipped (зависят от упавших фронтовых) |
+
+Фронтенд промптом исключён из объёма (§1), обе поломки — унаследованные
+и к правкам этой сессии отношения не имеют.
 
 ---
 
