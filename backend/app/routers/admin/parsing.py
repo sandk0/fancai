@@ -79,6 +79,20 @@ async def update_parsing_settings(
             status_code=400, detail="Timeout must be between 10-120 minutes"
         )
 
+    # Ключи веса обязательны: ниже они читаются по индексу, и на неполном
+    # словаре endpoint отвечал 500 (KeyError) вместо ошибки запроса.
+    missing_weights = {"free", "premium", "ultimate"} - set(
+        settings.queue_priority_weights
+    )
+    if missing_weights:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "queue_priority_weights must contain keys: "
+                f"{', '.join(sorted(missing_weights))}"
+            ),
+        )
+
     from ...services.settings_manager import settings_manager
 
     # Save settings to database

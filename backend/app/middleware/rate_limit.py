@@ -112,11 +112,19 @@ class RateLimiter:
         Returns:
             Tuple: (is_limited, rate_limit_info)
             - is_limited: True если превышен лимит
-            - rate_limit_info: dict с метаданными (remaining, reset_at)
+            - rate_limit_info: dict с ключами limit, remaining, reset_in_seconds.
+              Набор ключей ОДИНАКОВ и при деградации: декоратор читает
+              `rate_info["limit"]`, и на неполном словаре endpoint, отдающий
+              JSONResponse (например `/health`), падал KeyError → 500 ровно
+              тогда, когда Redis недоступен.
         """
         if not self.enabled or not self._redis:
             # Graceful degradation - разрешаем запрос если Redis недоступен
-            return False, {"remaining": max_requests, "reset_at": None}
+            return False, {
+                "limit": max_requests,
+                "remaining": max_requests,
+                "reset_in_seconds": window_seconds,
+            }
 
         try:
             key = self._get_rate_limit_key(identifier, endpoint)
@@ -146,13 +154,15 @@ class RateLimiter:
         except Exception as e:
             logger.error(f"Rate limit check error: {str(e)}")
             # Graceful degradation
-            return False, {"remaining": max_requests, "reset_at": None}
+            return False, {
+                "limit": max_requests,
+                "remaining": max_requests,
+                "reset_in_seconds": window_seconds,
+            }
 
     async def reset_limit(self, identifier: str, endpoint: str) -> bool:
         """
         Сбрасывает rate limit для identifier + endpoint.
-
-        Используется для админских операций или тестирования.
 
         Args:
             identifier: User ID или IP address

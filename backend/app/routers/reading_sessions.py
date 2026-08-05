@@ -576,7 +576,8 @@ async def end_reading_session(
     Завершает активную сессию чтения.
 
     Валидация:
-    - end_position должна быть >= start_position
+    - end_position в диапазоне 0..100; требование `>= start_position` снято
+      коммитом 9b3f9bff — пользователь мог отлистать назад
     - Автоматически вычисляется duration_minutes
 
     Args:

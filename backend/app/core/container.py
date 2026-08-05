@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from ..services.feature_flag_manager import FeatureFlagManager
 
 from functools import lru_cache
+from types import FunctionType, MethodType
 from typing import Protocol, Dict, Any, Optional, List, runtime_checkable
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
@@ -517,7 +518,11 @@ class DependencyContainer:
         """
         if factory in cls._overrides:
             override = cls._overrides[factory]
-            if callable(override):
+            # Фабрику вызываем, готовый экземпляр отдаём как есть. Проверять
+            # `callable(override)` нельзя: MagicMock и любой сервис с __call__
+            # тоже вызываемы, и тогда в приложение уходил бы override(), то есть
+            # дочерний мок вместо самого мока — молча и без ошибки.
+            if isinstance(override, (FunctionType, MethodType)):
                 return override()
             return override
         return factory()
