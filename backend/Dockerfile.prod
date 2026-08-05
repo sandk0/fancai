@@ -100,8 +100,21 @@ LABEL org.opencontainers.image.source="https://github.com/sandk/fancai" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.version="${IMAGE_VERSION}"
 
-# Create app user for security
-RUN addgroup -S appuser && adduser -S -G appuser appuser
+# Create app user for security.
+#
+# UID/GID закреплены ЯВНО и менять их нельзя. Боевые данные лежат
+# в bind-mount `backend/storage` на хосте и принадлежат конкретному
+# числовому владельцу — имя `appuser` для ядра не значит ничего.
+# Пока база была `python:3.12-slim`, `adduser -S` выдавал 999:999;
+# после перехода на alpine тот же вызов выдал 100:101, и 2026-08-05
+# на проде это молча отняло у бэкенда и воркера право писать
+# в /app/storage (загрузка книг и генерация иллюстраций падали),
+# а у beat — право пересоздать /tmp/celerybeat-schedule, из-за чего
+# он ушёл в цикл перезапуска.
+#
+# Явные `-u`/`-g` делают отказ громким: при смене базы, где эти
+# идентификаторы заняты, упадёт СБОРКА, а не прод.
+RUN addgroup -S -g 101 appuser && adduser -S -u 100 -G appuser appuser
 
 # Готовое окружение целиком: один каталог вместо копирования системного
 # site-packages и /usr/local/bin, куда попадали и pip, и uv.
