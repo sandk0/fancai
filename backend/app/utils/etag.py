@@ -30,9 +30,12 @@ def compute_file_etag(file_path: Path) -> str:
     """
     stat = file_path.stat()
     content = f"{file_path.name}-{stat.st_size}-{stat.st_mtime}"
-    hash_value = hashlib.md5(
-        content.encode()
-    ).hexdigest()  # nosec B324 - not for security
+    # `usedforsecurity=False` вместо директивы подавления: так уже сделано
+    # в `middleware/rate_limit.py` и `services/illustration_service.py`.
+    # Прежняя директива стояла на строке `.hexdigest()`, а находка B324 —
+    # на `hashlib.md5`, поэтому не подавляла ничего; заодно флаг снимает
+    # отказ md5 в FIPS-окружении. Дайджест от него не меняется.
+    hash_value = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
     return f'"{hash_value}"'
 
 
