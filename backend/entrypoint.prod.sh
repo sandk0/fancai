@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Production entrypoint for fancai Backend
 # Validates environment, then hands off to CMD (gunicorn, celery, alembic, etc.)
 #
@@ -7,16 +7,21 @@
 # - CMD is overridable at runtime (celery-worker, celery-beat, alembic)
 # - exec "$@" ensures proper PID 1 handoff for signal handling
 
-set -euo pipefail
+# POSIX sh, а не bash: базовый образ переведён на alpine, где /bin/bash нет.
+# `pipefail` убран сознательно — он не в POSIX, а конвейеров в скрипте ни одного.
+set -eu
 
 echo "=========================================="
 echo "fancai Backend — Starting"
 echo "=========================================="
 
 # --- Environment validation (fast, no external calls) ---
-required_vars=("DATABASE_URL" "REDIS_URL" "SECRET_KEY")
-for var in "${required_vars[@]}"; do
-    if [ -z "${!var:-}" ]; then
+# Массив bash и косвенное раскрытие `${!var}` заменены на POSIX-эквивалент.
+# `eval` здесь безопасен: имена переменных — литералы из этой же строки,
+# в него не попадает ничего извне.
+for var in DATABASE_URL REDIS_URL SECRET_KEY; do
+    eval "var_value=\${$var:-}"
+    if [ -z "$var_value" ]; then
         echo "FATAL: Required environment variable $var is not set" >&2
         exit 1
     fi

@@ -17,7 +17,16 @@
 # =============================================================================
 
 # Multi-stage build for minimal production image
-FROM python:3.12-slim AS builder
+# База — alpine, а не debian-slim. Замер trivy на одном и том же коде:
+# python:3.12-slim  — 250 CVE (4 critical, 25 high), патчей нет НИ ДЛЯ ОДНОЙ
+#                     из critical/high: это неисправленные баги Debian
+#                     в perl-base, ncurses, libblkid — пакетах, которых
+#                     приложение вообще не вызывает;
+# python:3.12-alpine — 5 CVE, все medium/low и все с доступным патчем.
+# Нативные расширения (asyncpg, greenlet, pydantic-core, lxml, cryptography,
+# aiohttp, uvloop, httptools) ставятся из musllinux-колёс, сборка из исходников
+# не требуется.
+FROM python:3.12-alpine AS builder
 
 # Окружение — отдельный venv в /opt/venv: копируется между стадиями одним
 # путём и не перемешивается с системным префиксом, где живут pip и uv.
@@ -29,12 +38,17 @@ ENV PYTHONUNBUFFERED=1 \
     UV_NO_CACHE=1
 
 # Install build dependencies
-# build-essential уже приносит gcc, g++, make и libc6-dev —
-# отдельные gcc и g++ были избыточны.
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# build-base — аналог build-essential (gcc, g++, make, musl-dev).
+# Остальное нужно, если для какого-то пакета не окажется musllinux-колеса:
+# postgresql-dev для asyncpg, libxml2/libxslt для lxml, libffi/openssl
+# для cryptography.
+RUN apk add --no-cache \
+    build-base \
+    postgresql-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libffi-dev \
+    openssl-dev
 
 # Зависимости из uv.lock: точное разрешение с хешами, одинаковое в любой
 # пересборке. --no-dev выкидывает pytest/black/ruff/mypy, которым в боевом
@@ -47,7 +61,7 @@ RUN pip install --no-cache-dir uv==0.11.25 && \
 # =============================================================================
 # Общий рантайм: код, окружение, пользователь, права
 # =============================================================================
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine AS runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -56,10 +70,25 @@ ENV PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH
 
 # Install runtime dependencies only (minimal)
-RUN apt-get update && apt-get install -y \
-    libpq5 \
+# libxml2/libxslt — рантайм-часть для lxml (парсер EPUB/FB2).
+RUN apk add --no-cache \
+    libpq \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    libxml2 \
+    libxslt
+
+# Системный pip выброшен из рантайма — он единственный источник оставшихся CVE.
+#
+# Обновить его недостаточно: pip версии 26 вендорит внутри себя msgpack 1.1.2
+# и setuptools 70.3.0, и trivy находит уже их (2 HIGH + 1 MEDIUM). То есть
+# апгрейд меняет CVE самого pip на CVE его вендора.
+#
+# Удаление безопасно: венв собирается в builder-стадии и копируется готовым
+# (`uv` pip в него не сеет — /opt/venv/bin/pip отсутствует), а в рантайме pip
+# не вызывает ни entrypoint, ни healthcheck, ни gunicorn. Путь берётся
+# из sysconfig, чтобы не зашивать версию Python.
+RUN PURELIB="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
+    rm -rf "$PURELIB"/pip "$PURELIB"/pip-*.dist-info /usr/local/bin/pip*
 
 # OCI-метки: без них связь «образ ↔ коммит» недоказуема. Аудит 2026-08-01
 # упёрся ровно в это — на проде лежал артефакт без опознавательных знаков.
@@ -72,7 +101,7 @@ LABEL org.opencontainers.image.source="https://github.com/sandk/fancai" \
       org.opencontainers.image.version="${IMAGE_VERSION}"
 
 # Create app user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appuser && adduser -S -G appuser appuser
 
 # Готовое окружение целиком: один каталог вместо копирования системного
 # site-packages и /usr/local/bin, куда попадали и pip, и uv.
