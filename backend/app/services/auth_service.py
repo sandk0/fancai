@@ -6,7 +6,7 @@
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 import jwt
 from jwt.exceptions import InvalidTokenError
 import bcrypt
@@ -85,7 +85,13 @@ class AuthService:
             minutes=self.access_token_expire_minutes
         )
         now = datetime.now(timezone.utc)
-        to_encode.update({"exp": expire, "iat": now, "type": "access"})
+        # `jti` делает токен уникальным. Без него два входа в одну секунду
+        # с одинаковыми claims дают ПОБАЙТОВО равные токены, и blacklist при
+        # logout на одном устройстве убивал сессию на другом: ключ blacklist —
+        # сама строка токена. `iat` имеет разрешение в секунду и не спасает.
+        to_encode.update(
+            {"exp": expire, "iat": now, "type": "access", "jti": str(uuid4())}
+        )
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
@@ -103,7 +109,9 @@ class AuthService:
             days=self.refresh_token_expire_days
         )
         now = datetime.now(timezone.utc)
-        to_encode.update({"exp": expire, "iat": now, "type": "refresh"})
+        to_encode.update(
+            {"exp": expire, "iat": now, "type": "refresh", "jti": str(uuid4())}
+        )
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def verify_token(
@@ -224,10 +232,16 @@ class AuthService:
         user.last_login = datetime.now(timezone.utc)
         await db.commit()
 
-        # CRITICAL FIX: Refresh user object to ensure all server-default fields
-        # (created_at, updated_at) are loaded from database after commit
-        # This prevents ResponseValidationError when LoginResponse expects these fields
-        await db.refresh(user)
+        # `updated_at` объявлена с server-side onupdate=now(), поэтому после UPDATE
+        # SQLAlchemy помечает её expired: обращение к ней при сериализации ответа
+        # дало бы неявный IO вне greenlet. Обновляем ИМЕННО её.
+        #
+        # Полный `refresh(user)` здесь недопустим: он экспайрит все атрибуты,
+        # включая eager-загруженную `subscription` (`lazy="raise"`), а восстановить
+        # её refresh может только если объект был ВПЕРВЫЕ загружен запросом
+        # с этой опцией (SQLAlchemy переиспользует `state.load_options`). Если
+        # user уже лежал в identity map сессии, опций нет, и login отвечает 500.
+        await db.refresh(user, attribute_names=["updated_at"])
 
         return user
 

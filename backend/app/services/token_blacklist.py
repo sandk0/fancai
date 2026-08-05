@@ -66,7 +66,12 @@ class TokenBlacklist:
         key = f"{self.PREFIX}{token}"
 
         try:
-            await cache_manager.set(key, "1", ttl=ttl_seconds)
+            # `cache_manager.set` отдаёт False, когда Redis недоступен. Раньше
+            # возврат игнорировался и `add` рапортовал True: logout сообщал об
+            # успехе, а токен в blacklist не попадал и продолжал работать.
+            if not await cache_manager.set(key, "1", ttl=ttl_seconds):
+                logger.error("Failed to blacklist token: cache unavailable")
+                return False
             logger.info(f"Token blacklisted (TTL: {ttl_seconds}s)")
             return True
         except Exception as e:
